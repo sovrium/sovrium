@@ -170,7 +170,7 @@ export function renderEntry(
  */
 
 /** A fetched disclosure's source as the island reads it, its three lines in the sidebar's language. */
-const sourcePayload = (
+export const sourcePayload = (
   source: NonNullable<SidebarNavItem['source']>,
   i18n: SidebarI18n
 ): Record<string, unknown> => ({
@@ -179,11 +179,10 @@ const sourcePayload = (
   labelKey: source.labelKey,
   hrefTemplate: source.hrefTemplate,
   ...(source.itemProps === undefined ? {} : { itemProps: source.itemProps }),
-  // `query` travels as its OWN prop rather than pre-appended to the
-  // endpoint, exactly as a GROUP's source carries it
-  // (`sidebar-groups.tsx`): the island hands `{ endpoint, query }` to
-  // `buildSystemQueryUrl` and one helper owns the merge, so the shape
-  // the schema shares has one spelling across every consumer.
+  ...(source.activeMatch === undefined ? {} : { activeMatch: source.activeMatch }),
+  // `query` travels as its OWN prop, as a GROUP's source carries it: the island
+  // hands `{ endpoint, query }` to `buildSystemQueryUrl`, one helper owning the
+  // merge, so the shape the schema shares has one spelling everywhere.
   ...(source.query === undefined ? {} : { query: source.query }),
   loadingLabel: copy(source.loadingLabel, DEFAULT_LOADING_LABEL, i18n),
   ...(source.loading === 'skeleton' ? { loading: 'skeleton' as const } : {}),

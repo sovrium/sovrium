@@ -18,8 +18,10 @@
  * `[internal ref]` asserts they are armed.
  */
 
+import { formatDayRelativeTime } from '@/domain/kernel/format/day-relative-time'
 import { usableLocale } from '@/domain/kernel/format/usable-locale'
 import { resolvePageLocale } from '../runtime/page-locale'
+import { resolvePageTimezone } from '../runtime/page-timezone'
 
 /** One key as the plugin's `list` endpoint describes it — never the secret. */
 export interface ApiKeySummary {
@@ -82,11 +84,14 @@ export async function revokeApiKey(keyId: string): Promise<boolean> {
   return response.ok
 }
 
-/** Render a stored ISO timestamp for the list, degrading to an em dash. */
+/**
+ * A key's creation as the run history reads a moment (`Today 10:15`,
+ * `Dec 30, 2025, 10:15`) on the operator's wall clock, degrading to an em dash.
+ */
 export function formatCreatedAt(value: string | null): string {
   if (!value) return '—'
   const parsed = new Date(value)
   return Number.isNaN(parsed.getTime())
     ? '—'
-    : parsed.toLocaleString(usableLocale(resolvePageLocale()))
+    : formatDayRelativeTime(parsed, usableLocale(resolvePageLocale()), resolvePageTimezone())
 }

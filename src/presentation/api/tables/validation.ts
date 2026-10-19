@@ -26,4 +26,6 @@ export {
 
 export { validateRelationshipLinkLimits } from './relationship-rules'
 
+export { validateSingleSelectOptions } from './single-select-rules'
+
 export { validateRecordCreation, sanitizeRichTextFields } from './record-rules'

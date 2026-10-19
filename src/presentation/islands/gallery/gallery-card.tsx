@@ -28,7 +28,7 @@ import {
   substitute,
   type CardChildClasses,
 } from '../kanban/card-template'
-import { cardPathClick, openCardDrawer } from '../runtime/card-click'
+import { cardPathClick, openCardDrawer, seekFromCard } from '../runtime/card-click'
 import { CardClickTarget } from './card-click-target'
 import { featuredCardClasses } from './featured-card-classes'
 import { GalleryClassesContext, GallerySelectionContext } from './gallery-classes-context'
@@ -60,17 +60,26 @@ function resolveNavigatePath(
   onClick: GalleryCard['onClick'],
   record: TableRecord
 ): string | undefined {
-  if (!onClick || !('type' in onClick)) return undefined
+  if (!onClick || !('type' in onClick) || onClick.type !== 'navigate') return undefined
   return toSafeRedirectPath(substitute(onClick.path, record))
 }
 
-/** The card's `openSheet` click on this record, as a board card's opens it. */
+/**
+ * The card's in-page click on this record: `openSheet` opens it as a board
+ * card's opens it, and `seek` moves a player on the page to the moment the card
+ * names. Both draw the card as a button rather than a link.
+ */
 function resolveDrawerOpener(
   onClick: GalleryCard['onClick'],
   record: TableRecord,
   table: string | undefined
 ): (() => void) | undefined {
-  if (!onClick || !('action' in onClick)) return undefined
+  if (!onClick) return undefined
+  if ('type' in onClick) {
+    return onClick.type === 'seek'
+      ? () => seekFromCard(onClick, (template) => substitute(template, record))
+      : undefined
+  }
   const { component } = onClick
   return () => openCardDrawer(component, record, table)
 }
@@ -313,12 +322,15 @@ export function GalleryCardView({
   card,
   table,
   featured = false,
+  role,
 }: {
   readonly record: TableRecord
   readonly card?: GalleryCard
   readonly table?: string
   /** `featured: first` on the gallery's first card: two columns wide, cover beside body (md up). */
   readonly featured?: boolean
+  /** `listitem` in the grid's list; a carousel's `<li>` already is one. */
+  readonly role?: 'listitem'
 }): ReactElement {
   const pieces = useContext(GalleryClassesContext)
   const select = useContext(GallerySelectionContext)
@@ -343,6 +355,7 @@ export function GalleryCardView({
   return (
     <div
       {...GALLERY_CARD_SLOT_ATTRIBUTES}
+      role={role}
       data-role="gallery-card"
       data-component-type="card"
       data-clickable={clickable ? 'true' : undefined}

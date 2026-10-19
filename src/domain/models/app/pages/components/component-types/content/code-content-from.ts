@@ -129,12 +129,11 @@ export const CodeContentFromSchema = Schema.Struct({
    *
    * The copy lives HERE and not on the endpoint, which is the whole posture of
    * an empty state is a sentence the console writes, so the console
-   * keeps it. Like every other top-level `code` field it is NOT reached by `$t:`
-   * substitution (that runs over `props`), so a renderer wanting it translated
-   * must resolve it with `resolveTranslationPattern`, as the frame labels do.
+   * keeps it. It becomes the block's `content`, so a leading `$t:key` reads in
+   * the page language exactly as a hand-written content does.
    */
   empty: optStr(
-    'Content rendered when the endpoint returns no rows. Omit to render an empty block. The template is NEVER rendered on an empty result — a leaked $record token in a block an operator pastes into a shell is worse than silence.'
+    'Content rendered when the endpoint returns no rows. Omit to render an empty block. A leading $t:key reads in the page language, like a hand-written content. The template is NEVER rendered on an empty result — a leaked $record token in a block an operator pastes into a shell is worse than silence.'
   ),
 }).annotate({
   identifier: 'CodeContentFrom',

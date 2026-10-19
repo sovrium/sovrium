@@ -83,17 +83,17 @@ POST /api/tables/orders/records/123/restore
 
 Restore clears `deletedAt`, returning the row to ordinary queries, stamps the time and the restoring user, and writes the operation to history. It fires the table's `restore` webhooks and record automations once — never its `create` ones, since the record is not new.
 
-| Status | Meaning                                                    |
-| ------ | ---------------------------------------------------------- |
-| `200`  | Restored                                                   |
-| `400`  | The record is not deleted                                  |
-| `401`  | No session                                                 |
-| `404`  | Absent or invisible                                        |
-| `409`  | Its value of a `unique` field is now held by a live record |
+| Status | Meaning                                                                        |
+| ------ | ------------------------------------------------------------------------------ |
+| `200`  | Restored                                                                       |
+| `400`  | The record is not deleted                                                      |
+| `401`  | No session                                                                     |
+| `404`  | Absent or invisible                                                            |
+| `409`  | Its value of a `unique` field is now held by a live record the caller may read |
 
-A `unique` field covers the records that are not in the trash, so a value can be taken again while the record that held it is deleted. Restoring that record then answers `409`, naming the field, and the record stays in the trash: change the value on one of the two records, then restore.
+A `unique` field covers the records that are not in the trash, so a value can be taken again while the record that held it is deleted. Restoring that record then answers `409`, naming the field, and the record stays in the trash: change the value on one of the two records, then restore. When the live record that holds the value is one you may not read, the restore answers the `404` a write out of your reach answers instead, names no field, and the record stays in the trash.
 
-Batch restore recovers many rows in one transaction: rows that are not currently deleted are skipped, while a missing id rolls the whole batch back, and so does a row that would share a `unique` value with a live record or with another row of the batch (`409`). Each row brought back fires its own `restore` event.
+Batch restore recovers many rows in one transaction: rows that are not currently deleted are skipped, while a missing id rolls the whole batch back, and so does a row that would share a `unique` value with a live record or with another row of the batch (`409`, or the `404` above when that live record is out of the caller's sight). Each row brought back fires its own `restore` event.
 
 On a table with row-level rules, a restore is judged on the trashed row itself: its `read` and `delete` rules must admit the caller, counting every role the caller holds, assignment roles included. A row they exclude answers `404`, exactly as a missing one, and stays in the trash; a batch naming one such row is refused whole and restores nothing.
 

@@ -62,10 +62,19 @@ export interface SaveWords {
   readonly createFailed?: string | undefined
   /** A JSON field whose text does not parse. */
   readonly invalidJson?: string | undefined
+  /** An edit the records API refuses as not found or forbidden. */
+  readonly refused?: string | undefined
 }
 
 const CREATE_FAILED = 'Couldn’t save the record. Try again.'
 const INVALID_JSON = 'Enter valid JSON.'
+const REFUSED = 'You can’t change this record, or it no longer exists.'
+
+/** The answers that say the record cannot be changed by this reader, or is gone. */
+const isRefusal = (status: number): boolean => status === 403 || status === 404
+
+/** Whether an answer took the write. */
+const tookIt = (status: number): boolean => status >= 200 && status < 300
 
 /** The fields a save sends: neither a structured block nor one the reader may not write. */
 const writableFields = (fields: ReadonlyArray<RecordDrawerField>): readonly RecordDrawerField[] =>
@@ -120,22 +129,22 @@ async function postNewRecord(
   return { refused: fieldErrors ?? failed }
 }
 
-/** One PATCH: whether the records API took it. */
+/** One PATCH: the status the records API answered it with. */
 async function patchOnce(
   table: string,
   recordId: string,
   payload: Readonly<Record<string, unknown>>
-): Promise<boolean> {
+): Promise<number> {
   const res = await fetch(`/api/tables/${table}/records/${recordId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
-  return res.ok
+  return res.status
 }
 
 /**
- * The PATCH of an edit: whether the records API took it. A multi-valued link
+ * The PATCH of an edit: the status the records API answered. A multi-valued link
  * the edit removed a record from is first written empty — the one write that
  * unlinks — then with the links it keeps.
  */
@@ -144,10 +153,11 @@ async function patchRecord(
   recordId: string,
   payload: Readonly<Record<string, unknown>>,
   dropped: readonly string[]
-): Promise<boolean> {
+): Promise<number> {
   if (dropped.length > 0) {
     const cleared = Object.fromEntries(dropped.map((name) => [name, []]))
-    if (!(await patchOnce(table, recordId, cleared))) return false
+    const status = await patchOnce(table, recordId, cleared)
+    if (!tookIt(status)) return status
   }
   return patchOnce(table, recordId, payload)
 }
@@ -181,8 +191,11 @@ async function updateRecord(
   if (!recordId) return false
   const payload = Object.fromEntries(writable.map((f) => [f.name, toEntryWireValue(f, values)]))
   const dropped = droppedLinkFields(writable, values, params.record ?? {})
-  if (!(await patchRecord(table, recordId, payload, dropped))) {
-    params.setError(words.failed ?? 'Operation failed')
+  const status = await patchRecord(table, recordId, payload, dropped)
+  if (!tookIt(status)) {
+    params.setError(
+      isRefusal(status) ? (words.refused ?? REFUSED) : (words.failed ?? 'Operation failed')
+    )
     return false
   }
   dispatch('sovrium:crud-success', { table, operation: 'update', recordId })

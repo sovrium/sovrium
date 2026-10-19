@@ -11,18 +11,27 @@
  * caller, and the tables and fields it may not read are never named.
  */
 
+import { hasReadPermission } from '@/domain/models/app/auth/permission-evaluator-service'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
+import { resolveAppVarValues } from '@/domain/models/app/pages/app-vars'
 import { checkPageAccess } from '@/domain/models/app/pages/page-access-check'
 import { findDeclaredPage } from '@/domain/models/app/pages/page-path-resolvability'
 import { tableLabelPlural } from '@/domain/models/app/tables/table-display-name-service'
 import {
+  paletteNavPages,
+  paletteTablePages,
+  type PaletteTable,
+} from '@/presentation/render/page/palette-nav-pages'
+import {
   unreadableTableFields,
   unreadableTables,
 } from '@/presentation/render/props/resolve-record-drawer-access'
+import { substituteAppVars } from '@/presentation/render/resolve/app-vars-resolver'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
+import type { CallerFieldReader } from '@/domain/models/app/tables/field-read-filter-service'
 
 /**
  * The one "may this caller open that page?" question every palette page list
@@ -82,22 +91,32 @@ const filterAuthoredPages = (
  * `authenticated`, `all`). The palette is rendered per request, so unlike the
  * sitemap or the feed it can follow the session — and a page the caller
  * cannot open must not be named in the markup that carries the palette.
+ *
+ * A title reads as the browser tab does: `$t:` translated, then its `$app.*`
+ * answered by `hostApp` — the app whose name the reader sees, the operator's
+ * own on a mounted console. Request-bound facts (`$app.origin`, `$app.path`)
+ * are left verbatim, as everywhere a request cannot answer them; `$param.*`
+ * never arises, since a page with a `:segment` is not listed.
  */
 export const buildCommandPaletteComponent = (
   app: App,
-  session: SessionInfo | undefined
+  session: SessionInfo | undefined,
+  hostApp: App = app
 ): Component => {
-  // Resolve `$t:` tokens in page titles, in the app's default language.
+  const appValues = resolveAppVarValues(hostApp, undefined)
   const navigablePages = (app.pages ?? [])
     .filter((page) => typeof page.path === 'string' && !page.path.includes(':'))
     .filter((page) => mayOpenPage(page, app, session))
     .map((page) => ({
       name: page.name,
       path: page.path,
-      title: resolveTranslationPattern(
-        page.meta?.title && page.meta.title.length > 0 ? page.meta.title : page.name,
-        app.languages?.default ?? 'en',
-        app.languages
+      title: substituteAppVars(
+        resolveTranslationPattern(
+          page.meta?.title && page.meta.title.length > 0 ? page.meta.title : page.name,
+          app.languages?.default ?? 'en',
+          app.languages
+        ),
+        appValues
       ),
     }))
   // The create dialogs name each table's text fields: never one this caller may not read.
@@ -190,6 +209,32 @@ interface SearchLabelContext {
   readonly session: SessionInfo | undefined
   /** True on a mounted surface (the console), rendering another app's data. */
   readonly mounted: boolean
+  /** The caller's role and groups on a session-less mounted surface. */
+  readonly fieldReader?: CallerFieldReader | undefined
+}
+
+/**
+ * The tables of `hostApp` this caller may read, each named by its plural label
+ * in `lang` — the tables a page drawn per table is offered for. On a mounted
+ * surface, which renders without a session, her role and groups decide against
+ * the host app's rules, and with neither nothing is offered; elsewhere her
+ * session does, as it does for every other name the palette carries.
+ */
+const readablePaletteTables = (
+  context: SearchLabelContext,
+  lang: string
+): readonly PaletteTable[] => {
+  const { hostApp, session, mounted, fieldReader } = context
+  const hidden = mounted ? [] : unreadableTables(hostApp, session)
+  const mayRead = (table: NonNullable<App['tables']>[number]): boolean =>
+    mounted
+      ? fieldReader !== undefined &&
+        hasReadPermission(table, fieldReader.role, hostApp, fieldReader.groups)
+      : !hidden.includes(table.name)
+  const translate = (text: string) => resolveTranslationPattern(text, lang, hostApp.languages)
+  return (hostApp.tables ?? [])
+    .filter(mayRead)
+    .map((table) => ({ name: table.name, label: tableLabelPlural(table, translate) }))
 }
 
 /**
@@ -219,13 +264,15 @@ const searchTableLabels = (
 
 /**
  * Stamp every SEARCH-mode palette with the readable tables' plural labels
- * (`props._tableLabels`), at any depth. A palette in any other mode is left
+ * (`props._tableLabels`) and the pages its navigation names
+ * (`props._navPages`, from `pagesApp` — the app whose pages are rendered),
+ * at any depth. A palette in any other mode is left
  * alone. Runs whether or not the app appends its own palette: a console that
  * opts out of the appended one still declares its search palette.
  */
 export const withSearchTableLabels = (
   items: ReadonlyArray<Component | string>,
-  context: SearchLabelContext & { readonly lang: string }
+  context: SearchLabelContext & { readonly lang: string; readonly pagesApp: App }
 ): ReadonlyArray<Component | string> =>
   items.map((item) => {
     if (typeof item === 'string') return item
@@ -238,7 +285,16 @@ export const withSearchTableLabels = (
     if (node.type === 'command') {
       if (node.search === undefined && node.props?.['adminSearch'] !== true) return item
       const _tableLabels = searchTableLabels(context, context.lang)
-      return { ...node, props: { ...node.props, _tableLabels } } as Component
+      const _navPages = [
+        ...paletteNavPages(context.pagesApp, context.session, context),
+        ...paletteTablePages(
+          context.pagesApp,
+          context.session,
+          readablePaletteTables(context, context.lang),
+          context
+        ),
+      ]
+      return { ...node, props: { ...node.props, _tableLabels, _navPages } } as Component
     }
     if (node.children === undefined) return item
     return { ...node, children: withSearchTableLabels(node.children, context) } as Component

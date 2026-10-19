@@ -417,3 +417,73 @@ export const elicitationAnswerSchema = Schema.Struct({
 
 /** @public */
 export type ElicitationAnswerBody = typeof elicitationAnswerSchema.Type
+
+// ---------------------------------------------------------------------------
+// Tool events of a streamed turn
+// ---------------------------------------------------------------------------
+
+/**
+ * The tool events of a streamed chat turn, as the wire carries them.
+ *
+ * Besides what the model sent (`arguments`, without a value the reader may not
+ * read) and was handed back (`content`), each event carries a PREVIEW for the person reading the chat: `input` on the
+ * call and `output` on its result, each a text cut to
+ * {@link CHAT_TOOL_PREVIEW_MAX_CHARS} characters. A preview shows only what
+ * that person may read herself: a field her role may not read is left out,
+ * and a call refused because of her own permissions reads exactly like a call
+ * on a table that does not exist.
+ */
+
+/** The longest preview, in characters, an `input` or an `output` carries. */
+export const CHAT_TOOL_PREVIEW_MAX_CHARS = 2000
+
+/** How a tool call ended, as the stream names it. */
+const chatToolOutcomeSchema = Schema.Literals([
+  'ok',
+  'denied',
+  'failed',
+  'pending-approval',
+  'pending-input',
+]).annotate({
+  description:
+    'How the call ended: it ran (`ok`), was refused (`denied`), ran and failed (`failed`), waits for a human decision (`pending-approval`) or for an answer (`pending-input`)',
+})
+
+const previewText = (description: string) =>
+  Schema.String.annotate({ description }).pipe(
+    Schema.check(Schema.isMaxLength(CHAT_TOOL_PREVIEW_MAX_CHARS))
+  )
+
+/** The `tool_call` event: the tool the model called, and what it called it with. */
+export const chatToolCallEventSchema = Schema.Struct({
+  id: Schema.String.annotate({ description: 'The id of the call, which its result repeats' }),
+  name: Schema.String.annotate({ description: 'The name of the tool called' }),
+  arguments: Schema.Record(Schema.String, Schema.Unknown).annotate({
+    description:
+      'The arguments the model wrote for the call, without the value of any field the reader may not read',
+  }),
+  input: previewText(
+    'The arguments as indented JSON for the reader, without the value of any field she may not read, cut to the preview length'
+  ),
+  inputTruncated: optionalField(
+    Schema.Literal(true).annotate({ description: 'Present when `input` was cut' })
+  ),
+})
+
+/** The `tool_result` event: how a call ended, and what it gave back. */
+export const chatToolResultEventSchema = Schema.Struct({
+  id: Schema.String.annotate({ description: 'The id of the call this result answers' }),
+  name: Schema.String.annotate({ description: 'The name of the tool called' }),
+  ok: Schema.Boolean.annotate({ description: 'Whether the call ran and succeeded' }),
+  outcome: chatToolOutcomeSchema,
+  content: Schema.String.annotate({ description: 'What the model was handed as the result' }),
+  approvalId: optionalField(
+    Schema.String.annotate({ description: 'The approval to decide, when the call is held' })
+  ),
+  output: previewText(
+    'The result for the reader (indented JSON when it is JSON), holding only what she may read, cut to the preview length'
+  ),
+  outputTruncated: optionalField(
+    Schema.Literal(true).annotate({ description: 'Present when `output` was cut' })
+  ),
+})

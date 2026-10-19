@@ -69,6 +69,32 @@ export const pageHeaderBlurbCopy = {
   ],
 } as const
 
+/**
+ * A page header drawn for every reader: the title and the sentence under it,
+ * both visible. For a surface whose name and purpose an operator should read
+ * before its content (the Developers pages), where the trail alone left the
+ * page unnamed above a column of reference.
+ */
+export const pageHeaderVisibleCopy = {
+  type: 'container',
+  element: 'header',
+  props: { className: 'flex flex-col gap-1' },
+  children: [
+    {
+      type: 'text',
+      element: 'h1',
+      props: { className: 'text-foreground text-2xl font-semibold tracking-tight' },
+      content: '',
+    },
+    {
+      type: 'text',
+      element: 'p',
+      props: { className: 'text-muted-foreground max-w-3xl text-sm' },
+      content: '',
+    },
+  ],
+} as const
+
 /** The design-system kit marker a design-system page stamps on its header. */
 const kitMarker = (type: string): Readonly<Record<string, string>> => ({
   'data-design-kit-type': type,
@@ -95,9 +121,14 @@ export const designPageHeader = (title: string): PageComponent => {
 export const dataPageHeader = (
   title: string,
   description: string,
-  options: { readonly showBlurb?: boolean } = {}
+  options: { readonly showBlurb?: boolean; readonly visible?: boolean } = {}
 ): PageComponent => {
-  const copy = options.showBlurb === true ? pageHeaderBlurbCopy : pageHeaderHiddenCopy
+  const copy =
+    options.visible === true
+      ? pageHeaderVisibleCopy
+      : options.showBlurb === true
+        ? pageHeaderBlurbCopy
+        : pageHeaderHiddenCopy
   const [heading, sentence] = copy.children
   return {
     ...copy,

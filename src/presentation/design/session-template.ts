@@ -60,6 +60,8 @@ export interface SessionUser {
   readonly email?: string
   readonly name?: string
   readonly role?: string
+  /** The role as the app calls it, composed by the server in the caller's language. */
+  readonly roleLabel?: string
   readonly id?: string
   readonly language?: string | null
   readonly notifyAutomationAlerts?: boolean

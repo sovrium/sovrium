@@ -45,13 +45,13 @@ A file reference reads at most 100 MiB; a larger file fails the step naming it, 
       - { step: storeCover }
       - file: { record: { table: clients, id: '{{trigger.data.id}}', field: signed_contract } }
         pages: '1-3'
-      - { key: legal/terms-2026.pdf, bucket: library }
+      - { asset: legal/terms-2026.pdf }
     output:
       filename: 'client-file-{{trigger.data.reference}}.pdf'
       attachTo: { table: clients, record: '{{trigger.data.id}}', field: client_file }
 ```
 
-The output follows the document actions' rules: temporary by default, or attached to a record's attachment field. The step result carries `pages`.
+The output follows the document actions' rules: temporary by default, or attached to a record's attachment field. The step result carries `pages`. In a run nobody started, the signed contract may go into `client_file` because it is the same client's file and `client_file` is read by no more people than `signed_contract`. The terms are an asset the configuration names, so they are merged and attached in any run; terms a business user replaces in a bucket (`{ key, bucket }`) attach only in a run someone started by hand: a `pdf` step has no `runAs`, so in any other run it writes as nobody.
 
 Every operator that reads one PDF takes it as `file`, with the same forms. `pages`, wherever it appears, may also be one template resolving to such a list when the step runs (`pages: '{{trigger.data.pages}}'`); a page beyond the end of the file fails the step, naming the range and the file's page count.
 

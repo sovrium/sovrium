@@ -113,6 +113,11 @@ export const sessionOf = (state: PageState, release: Effect.Effect<void>): Brows
       state.dialogs = []
       return taken
     }),
+    takeRequested: Effect.sync(() => {
+      const taken = state.requested
+      state.requested = []
+      return [...new Set(taken)]
+    }),
     exportCookies: op(() => exportJar(state), 'export-cookies'),
     close: Effect.gen(function* () {
       if (closed.done) return

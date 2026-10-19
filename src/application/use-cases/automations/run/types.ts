@@ -9,18 +9,24 @@
 
 import { Duration, Effect, Schedule } from 'effect'
 import type { ActionHandler, ActionKey, AutomationContext } from '../action-handlers'
+import type { ClientErrorField, RunClientErrorField } from './client-error'
+import type { RecordEventChannel } from './record-event-channel'
+import type { RunLedgers } from './run-ledger-persistence'
+import type { AuthStepRequirements } from '../action-handlers/auth-grants'
+import type { BrowserStepRequirements } from '../action-handlers/browser-run-scope'
 import type { ContainerResume } from '../action-handlers/run-park'
-import type { RecordEventChannel, StepLogEntry } from '../action-handlers/shared'
+import type { StepLogEntry } from '../action-handlers/shared'
 import type { TriggerData } from '../resolve-trigger-data'
 import type { StepMetadataMap } from './step-metadata'
 import type { WriteOnlyInheritance } from './write-only-values'
-import type { AuthStepRequirements } from '../action-handlers/auth-grants'
-import type { BrowserStepRequirements } from '../action-handlers/browser-run-scope'
+import type { EmailStepRequirements } from '../action-handlers/email'
+import type { MediaStepRequirements } from '../action-handlers/file-extract-audio'
 import type { AuditLogRepository } from '@/application/ports/repositories/admin/audit-log-repository'
 import type { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
 import type { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
 import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import type { UserDirectoryRepository } from '@/application/ports/repositories/auth/user-directory-repository'
 import type { AutomationApprovalRepository } from '@/application/ports/repositories/automations/automation-approval-repository'
 import type { AutomationDigestRepository } from '@/application/ports/repositories/automations/automation-digest-repository'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
@@ -38,8 +44,6 @@ import type { ConfigAccountProvisioner } from '@/application/ports/services/acco
 import type { AiService } from '@/application/ports/services/ai-service'
 import type { AutomationFiberBridge } from '@/application/ports/services/automation-fiber-bridge'
 import type { DocumentRenderer } from '@/application/ports/services/document-renderer'
-import type { EmailSender } from '@/application/ports/services/email-sender'
-import type { ImageTransformService } from '@/application/ports/services/image-transform-service'
 import type { InstanceSupervisor } from '@/application/ports/services/instance-supervisor'
 import type { OAuthClientRegistrar } from '@/application/ports/services/oauth-client-registrar'
 import type { OAuthTokenClient } from '@/application/ports/services/oauth-token-client'
@@ -60,11 +64,8 @@ import type { ResumeFrame } from '@/domain/models/app/automations/run-resume-cur
 import type { StepRead } from '@/domain/models/app/automations/step-read-service'
 import type { Trigger } from '@/domain/models/app/automations/trigger'
 
-/**
- * Step record retained in run history; `output` is the handler's
- * `outcome.output`, read back by `GET /api/automations/runs/:id`.
- */
-export interface ExecutedStep {
+/** A step record in run history, as `GET /api/automations/runs/:id` reads it back. */
+export interface ExecutedStep extends ClientErrorField {
   readonly name: string
   readonly type: string
   readonly operator?: string
@@ -103,7 +104,7 @@ export interface ExecutedStep {
 export type NestedStepRuns = Pick<ExecutedStep, 'paths' | 'iterations'>
 
 /** Accumulator type for `Effect.reduce` over the action list. */
-export interface RunAccumulator {
+export interface RunAccumulator extends RunClientErrorField {
   readonly steps: ReadonlyArray<ExecutedStep>
   /**
    * Engine-internal run status. `'queued'`/`'running'` appear on persisted rows
@@ -243,6 +244,8 @@ export type StepRequirements =
   | AutomationApprovalRepository
   | AuthRepository
   | AuthStepRequirements // the `auth` group, access-grant and invitation operators' services
+  | CommentRepository // `comment` steps; record automations a write starts hydrate users too
+  | UserDirectoryRepository // the people a comment step's mentions resolve to
   | ConnectionRepository
   | ConnectionTokenRepository
   | SentinelTokens
@@ -251,7 +254,7 @@ export type StepRequirements =
   | AiService
   | AiEmbeddingRepository
   | StorageService
-  | ImageTransformService
+  | MediaStepRequirements // the image transform and the audio remux the `file` steps run
   | DocumentRenderer
   | SvgRasterizer
   | PdfToolkit
@@ -261,7 +264,7 @@ export type StepRequirements =
   | LinkRepository
   | ServerOrigin
   | AuditLogRepository
-  | EmailSender
+  | EmailStepRequirements // the sender, and the CSS inliner a templated body runs
   | AiComputeStatusRepository
   | OAuthTokenClient
   | ConfigAccountProvisioner
@@ -277,10 +280,7 @@ export type RunRequirements =
   | AutomationRunRepository
   // The failure history the post-run alert and the automatic pause read.
   | AutomationRunOutcomeRepository
-  // Record automations a step's write starts hydrate user and relationship fields.
-  | CommentRepository
-  // The sandbox's Promise boundary and the background record-event registry.
-  | AutomationFiberBridge
+  | AutomationFiberBridge // the sandbox's Promise boundary, the background event registry
 
 /**
  * Locally re-typed `app.actions[]` template entry. The runtime invoker
@@ -305,7 +305,7 @@ export interface RuntimeActionTemplate {
  * default sync response. Last-write-wins across multiple `webhook/response`
  * actions in a single run (rare). Not persisted to run-history.
  */
-export interface RunAutomationResult {
+export interface RunAutomationResult extends ClientErrorField {
   readonly runId: string
   /**
    * Engine-internal status:
@@ -363,14 +363,14 @@ export interface ExecuteAutomationRunInput {
   readonly handlers: ReadonlyMap<ActionKey, ActionHandler>
   readonly userId: string | undefined
   /**
-   * A person started this run by hand — a manual trigger, a table button, an
-   * MCP action template or automation tool. Its record actions then write AS
-   * `userId`: the table's grants, row-level rules and field write audiences
-   * apply inside the run. Omitted for a run nobody started (cron, including
-   * "run now", webhook, record event, form, `automation:call`), which writes as
-   * the system.
+   * A person started this run by hand (a manual trigger, a table or page button, a
+   * `session` webhook, an MCP tool): its record actions write AS `userId` under the
+   * table's rules. With `startedAsGuest`, a visitor who is not signed in pressed a page
+   * button: `userId` is omitted and she acts as the records API lets a visitor. Omitted
+   * for a run nobody started (cron, other webhooks, events, forms): the system's.
    */
   readonly startedByHand?: boolean
+  readonly startedAsGuest?: boolean
   /**
    * The actions' props are values already filled in once (an action template
    * a caller invoked with arguments, see `fillInvokedTemplateAction`): no step
@@ -398,12 +398,10 @@ export interface ExecuteAutomationRunInput {
   readonly skipActionNames?: ReadonlySet<string>
   /** Failures `continueOnError` let the skipped steps go past: still `completed-with-errors`. */
   readonly priorTolerated?: number
-  /**
-   * Step outputs the resumed run starts with, keyed by step name — so a later
-   * step reads what a skipped step decided. Set by the approval resume, whose
-   * approval step output names the `decision`. Omitted: none.
-   */
+  /** Step outputs a resumed run starts with, by name: what a skipped step decided (`decision`). */
   readonly seedOutputs?: Readonly<Record<string, Record<string, unknown>>>
+  /** The file ledgers a resumed run starts with, restored from its pause; omitted, empty ones. */
+  readonly ledgers?: RunLedgers
   /**
    * Set by a resume (the approval resolution): a hand-started run first checks
    * that its starter still stands — not banned, not deleted — and fails before

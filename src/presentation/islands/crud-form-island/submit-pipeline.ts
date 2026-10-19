@@ -118,7 +118,7 @@ async function executeMutation(ctx: SubmitContext): Promise<MutationResult> {
   )
   // The form HOLDS strings; the API takes each column's own kind of value — a
   // number, a list, an ISO instant. Converted once, on the way out.
-  const visibleValues = toWireFields(ctx.fields, heldValues)
+  const visibleValues = toWireFields(ctx.fields, heldValues, ctx.uiStrings)
   switch (ctx.operation) {
     case 'update':
       if (ctx.recordId) {
@@ -340,7 +340,11 @@ export function blockingFieldState(
   return {
     fieldError: {
       field: overLimit.name,
-      message: `Content exceeds maximum of ${overLimit.maxLength} characters`,
+      message: formString(
+        uiStrings,
+        'richText.overLimit',
+        'Content exceeds maximum of {max} characters'
+      ).replace('{max}', String(overLimit.maxLength)),
     },
     invalidFields: [overLimit.name],
     isPending: false,

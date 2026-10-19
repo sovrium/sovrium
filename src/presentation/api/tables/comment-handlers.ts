@@ -18,6 +18,7 @@ import {
   updateCommentStatusProgram,
 } from '@/application/use-cases/tables/comment-programs'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
+import { commentTableKeysOf } from '@/domain/models/app/tables/comment-address-service'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { runOnRequest } from '@/presentation/api/runtime/run-effect'
@@ -317,6 +318,7 @@ export async function handleListComments(c: Context, app: App) {
       recordId,
       tableName: table.name,
       tableId,
+      tableKeys: commentTableKeysOf(table, tableId),
       limit,
       offset,
       sortOrder,

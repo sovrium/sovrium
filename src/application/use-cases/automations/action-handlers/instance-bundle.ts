@@ -26,6 +26,7 @@ import {
   ENGINE_LINK_ENTRY,
   reservedEngineEntry,
 } from '@/domain/models/app/automations/actions/instance/engine-version-service'
+import type { StarterFileGate } from './starter-file-gate'
 import type { StorageError } from '@/application/ports/services/storage-service'
 
 /**
@@ -66,8 +67,13 @@ const manifestPaths = (manifest: Readonly<Uint8Array>): readonly string[] => {
   }
 }
 
-/** The archive an `apply` names: inline base64, or an object in this app's storage. */
-const bundleBytes = (bundle: unknown) =>
+/**
+ * The archive an `apply` names: inline base64, or an object in this app's
+ * storage. A stored key is read as the starter of a hand-started run may read
+ * it (`gate`, before any byte): a refused key fails as one nothing holds does,
+ * with `Resource not found`; a bundle with no catalog row is read as before.
+ */
+const bundleBytes = (bundle: unknown, gate: StarterFileGate) =>
   Effect.gen(function* () {
     if (!isRecord(bundle))
       return yield* refuse('instance: bundle must be { objectKey } or { base64 }')
@@ -79,6 +85,8 @@ const bundleBytes = (bundle: unknown) =>
       return bytes ?? (yield* refuse('instance: bundle.base64 is not base64'))
     }
     const key = yield* textOf(bundle['objectKey'], 'bundle.objectKey')
+    const refused = yield* gate(key)
+    if (refused !== undefined) return yield* refuse(refused)
     const storage = yield* StorageService
     const toRefusal = (error: Readonly<StorageError>) =>
       new InstanceSupervisorError({ message: storageMessage(key, error) })
@@ -113,9 +121,10 @@ const inflatedBundle = (archive: Uint8Array) => {
  */
 export const verifiedBundleOf = Effect.fn('automations.instance-verify-bundle')(function* (
   bundle: unknown,
-  signed: { readonly keyId: string; readonly signature: string }
+  signed: { readonly keyId: string; readonly signature: string },
+  gate: StarterFileGate
 ) {
-  const tar = yield* inflatedBundle(yield* bundleBytes(bundle))
+  const tar = yield* inflatedBundle(yield* bundleBytes(bundle, gate))
   const supervisor = yield* InstanceSupervisor
   const manifest = (yield* supervisor.readBundleEntries(tar, [BUNDLE_MANIFEST_ENTRY]))?.get(
     BUNDLE_MANIFEST_ENTRY

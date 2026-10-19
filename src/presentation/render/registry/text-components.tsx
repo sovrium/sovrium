@@ -67,6 +67,19 @@ function resolveSessionBinding(
   }
 }
 
+/**
+ * The same binding for a component whose `content` is its only text (a
+ * `badge`): a `$session.<field>` token — written in the page, or arriving in
+ * the translation a `$t:` key names — makes the content a template the client
+ * enhancer fills, with the anonymous reading served in its place.
+ */
+export function bindSessionContent(
+  elementProps: Record<string, unknown>,
+  content: string | undefined
+): { readonly props: Record<string, unknown>; readonly content: string | undefined } {
+  return resolveSessionBinding({}, elementProps, content)
+}
+
 export const textComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> = {
   // `kbd` — a key or a chord, as keycaps. It sits with the text family because
   // that is what it is: an inline element inside a sentence. In its own module

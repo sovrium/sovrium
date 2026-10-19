@@ -7,19 +7,12 @@
 
 /**
  * Why a class is — or is not — on one part of one engine component, in the
- * shape both readers of that question consume.
+ * shape its reader consumes.
  *
- * There are exactly two, and they must not answer differently:
- *
- *  - `GET /api/admin/design-system/provenance`, which a console page binds; and
- *  - the `specimen` component's per-part badges, rendered server-side beside
- *    the drawn component.
- *
- * A second copy of this composition would let the badge and the endpoint
- * disagree about the same element on the same page, which is worse than either
- * being absent. It lives in `presentation/utils/` because that is the one layer
- * both an API route and an SSR component may import — the resolver it wraps
- * (`resolve-component-classes.ts`) is already here for the same reason.
+ * Its one reader is the `specimen` component's per-part badges, rendered
+ * server-side beside the drawn component. (The admin read that also answered
+ * it is retired: shadcn/ui is the design system, and an app's customisation is
+ * readable in its own `design.components` block.)
  *
  * ─── THE VOCABULARY IS THE RESOLVER'S ──────────────────────────────────────
  *

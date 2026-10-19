@@ -35,10 +35,10 @@ interface AppForFillTargetValidation {
 }
 
 /** A value built from a token rather than written out. */
-const isDynamic = (value: string): boolean => value.includes('$') || value.includes('{{')
+export const isDynamic = (value: string): boolean => value.includes('$') || value.includes('{{')
 
 /** Every object under `node`, itself included, at any depth. */
-const objectsUnder = (node: unknown): readonly Readonly<Record<string, unknown>>[] => {
+export const objectsUnder = (node: unknown): readonly Readonly<Record<string, unknown>>[] => {
   if (Array.isArray(node)) return node.flatMap(objectsUnder)
   if (node === null || typeof node !== 'object') return []
   const record = node as Readonly<Record<string, unknown>>
@@ -46,7 +46,7 @@ const objectsUnder = (node: unknown): readonly Readonly<Record<string, unknown>>
 }
 
 /** The `props.id` a component carries, or `undefined`. */
-const componentId = (record: Readonly<Record<string, unknown>>): string | undefined => {
+export const componentId = (record: Readonly<Record<string, unknown>>): string | undefined => {
   const id = (record['props'] as Readonly<Record<string, unknown>> | null | undefined)?.['id']
   return typeof id === 'string' ? id : undefined
 }
@@ -58,7 +58,7 @@ const fillTarget = (record: Readonly<Record<string, unknown>>): string | undefin
     : undefined
 
 /** Whether `record` places a component template, by `$ref` or `component:`. */
-const isPlacement = (record: Readonly<Record<string, unknown>>): boolean =>
+export const isPlacement = (record: Readonly<Record<string, unknown>>): boolean =>
   typeof record['$ref'] === 'string' ||
   (typeof record['component'] === 'string' && record['type'] === undefined && !('action' in record))
 

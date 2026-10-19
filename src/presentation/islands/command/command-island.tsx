@@ -34,13 +34,19 @@ import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { consoleHref } from '@/presentation/islands/runtime/mount-base-path'
 import { requestSpaNavigation } from '../navigation/spa-nav-request'
 import { Command, CommandDialog, CommandInput, CommandList } from '../parts/command-primitives'
-import { readPaletteConfig, type PaletteConfig } from './command-actions-data'
+import {
+  localMatches,
+  readPaletteConfig,
+  type PaletteConfig,
+  type PalettePage,
+} from './command-actions-data'
 import { BuiltInPalette } from './command-built-in-palette'
 import { CreateRecordDialog } from './command-create-dialog'
 import { GroupsPalette, SearchedGroups, type AuthoredCommandGroup } from './command-groups'
 import { CommandHints, type CommandHintWords } from './command-hints'
+import { LocalGroups } from './command-search-local'
 import { SearchResults } from './command-search-results'
-import { useAdminSearch, useOpenIntent } from './use-command-search'
+import { searchPhaseOf, useAdminSearch, useOpenIntent } from './use-command-search'
 
 /** The palette's declared binding, as it arrives from `data-island-props`. */
 interface CommandIslandProps {
@@ -50,38 +56,30 @@ interface CommandIslandProps {
   readonly placeholder?: string
   /** Group heading per result kind. */
   readonly kindLabels?: Readonly<Record<string, string>>
+  /** Row badge per result kind, in the page language. */
+  readonly kindBadges?: Readonly<Record<string, string>>
   /** The groups the page declared: in place of the quick actions, or above the search results. */
   readonly groups?: readonly AuthoredCommandGroup[]
   /** The keyboard-hint footer's words, in the page language. */
   readonly hints?: CommandHintWords
   /** SEARCH mode: each table's plural label by its name, naming a record row's table. */
   readonly tableLabels?: Readonly<Record<string, string>>
+  /** SEARCH mode: the pages the navigation names, matched in the browser. */
+  readonly pages?: readonly PalettePage[]
+  /** SEARCH mode: the Pages and Quick actions groups' words, in the page language. */
+  readonly strings?: Readonly<Record<string, string>>
 }
 
 /** A search palette declaring no groups draws none above its results. */
 const NO_GROUPS: readonly AuthoredCommandGroup[] = []
 
-/** The SEARCH mode: an endpoint-backed search with its three calm states. */
-function SearchPalette({
-  endpoint,
-  placeholder,
-  kindLabels,
-  tableLabels,
-  groups,
-  hints,
-  close,
-}: {
-  readonly endpoint: string
-  readonly groups: readonly AuthoredCommandGroup[] | undefined
-  readonly placeholder: string
-  readonly kindLabels: Readonly<Record<string, string>> | undefined
-  readonly tableLabels: Readonly<Record<string, string>> | undefined
-  readonly hints: CommandHintWords | undefined
-  readonly close: () => void
-}): ReactElement {
-  const [query, setQuery] = useState('')
-  const search = useAdminSearch(query, endpoint)
-  const onSelect = useCallback(
+/** A search palette handed no pages or words matches none. */
+const NO_PAGES: readonly PalettePage[] = []
+const NO_STRINGS: Readonly<Record<string, string>> = {}
+
+/** Close the palette and go to a result's console-root path. */
+function useOpenResult(close: () => void): (href: string) => void {
+  return useCallback(
     (href: string) => {
       close()
       // A console-root path, re-pointed at whichever mount serves this document.
@@ -92,6 +90,25 @@ function SearchPalette({
     },
     [close]
   )
+}
+
+/** The SEARCH mode: an endpoint-backed search with its three calm states. */
+function SearchPalette({
+  host,
+  close,
+}: {
+  readonly host: CommandIslandProps
+  readonly close: () => void
+}): ReactElement {
+  const { kindLabels, kindBadges, tableLabels, hints } = host
+  const pages = host.pages ?? NO_PAGES
+  const strings = host.strings ?? NO_STRINGS
+  const placeholder = host.placeholder ?? hints?.['searchAll'] ?? 'Search all your data'
+  const [query, setQuery] = useState('')
+  const search = useAdminSearch(query, host.endpoint ?? '')
+  const onSelect = useOpenResult(close)
+  const local = localMatches(pages, strings, query)
+  const phase = searchPhaseOf(query, search)
   return (
     <Command shouldFilter={false}>
       <CommandInput
@@ -100,17 +117,29 @@ function SearchPalette({
         placeholder={placeholder}
         aria-label={placeholder}
       />
-      <CommandList>
+      <CommandList
+        data-search-state={phase}
+        aria-busy={phase === 'searching' ? true : undefined}
+      >
         <SearchedGroups
-          groups={groups ?? NO_GROUPS}
+          groups={host.groups ?? NO_GROUPS}
           query={query}
           narrow
           close={close}
         />
+        <LocalGroups
+          pages={pages}
+          strings={strings}
+          query={query}
+          onSelect={onSelect}
+          close={close}
+        />
         <SearchResults
+          matchedLocally={local.pages.length > 0 || local.toggle !== undefined}
           query={query}
           search={search}
           kindLabels={kindLabels}
+          kindBadges={kindBadges}
           tableLabels={tableLabels}
           words={hints}
           onSelect={onSelect}
@@ -145,12 +174,7 @@ function PaletteBody({
   if (config === undefined) {
     return (
       <SearchPalette
-        endpoint={host.endpoint ?? ''}
-        placeholder={host.placeholder ?? host.hints?.['searchAll'] ?? 'Search all your data'}
-        kindLabels={host.kindLabels}
-        tableLabels={host.tableLabels}
-        groups={host.groups}
-        hints={host.hints}
+        host={host}
         close={close}
       />
     )

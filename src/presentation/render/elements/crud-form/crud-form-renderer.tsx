@@ -58,12 +58,17 @@ function formString(key: string, context: CrudFormRenderContext): string {
   )
 }
 
+/**
+ * The island's own strings, where they differ from English: the form's words,
+ * its actions', the rate-limited notice's, the rich-text field's and the
+ * pickers', and the shared coercion rule's refusal words (`datatable.takes*`).
+ */
 function formUiStrings(
   context: CrudFormRenderContext
 ): Readonly<Record<string, string>> | undefined {
   const { lang, languages } = context
   return resolveInterpreterStringOverrides(
-    ['form.', 'action.', 'rateLimit.'],
+    ['form.', 'action.', 'rateLimit.', 'richText.', 'picker.', 'datePicker.', 'datatable.takes'],
     lang ?? languages?.default,
     languages
   )

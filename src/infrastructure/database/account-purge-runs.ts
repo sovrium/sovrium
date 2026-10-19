@@ -247,7 +247,7 @@ const ERASED_WAIT_ERROR = 'Cancelled: the values this run waited with were erase
 const SCRUB_STATEMENTS: readonly ((ids: Readonly<SQL>) => Readonly<SQL>)[] = [
   (ids) =>
     // sql-literal: keyword -- the dialect's own clock expression, no caller value
-    sql`UPDATE ${systemTableRef('automation_runs')} SET trigger_data = NULL, error = NULL, resume_cursor = NULL, values_erased_at = COALESCE(values_erased_at, ${sql.raw(nowEpochMsSqlLiteral())}) WHERE id IN (${ids})`,
+    sql`UPDATE ${systemTableRef('automation_runs')} SET trigger_data = NULL, error = NULL, resume_cursor = NULL, files_ledger = NULL, values_erased_at = COALESCE(values_erased_at, ${sql.raw(nowEpochMsSqlLiteral())}) WHERE id IN (${ids})`,
   (ids) =>
     sql`UPDATE ${systemTableRef('automation_run_steps')} SET input = NULL, output = NULL, error = NULL, logs = NULL, reads = NULL, nested = NULL WHERE run_id IN (${ids})`,
   (ids) =>

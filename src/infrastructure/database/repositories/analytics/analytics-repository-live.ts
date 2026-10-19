@@ -13,6 +13,7 @@ import {
 } from '@/application/ports/repositories/analytics/analytics-repository'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { db } from '@/infrastructure/database'
+import { devClockStamp } from '@/infrastructure/database/analytics-event-clock'
 import { countEventsByName } from '@/infrastructure/database/analytics-event-counts'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { analyticsEvents as analyticsEventsPg } from '@/infrastructure/database/drizzle/schema/analytics-events'
@@ -101,12 +102,9 @@ const computePercentages = (
 export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
   recordEvent: (input) =>
     wrap(async () => {
-      // Query-builder INSERT, not `db.execute(sql…)`: SQLite drizzle clients
-      // have no `.execute()` (see `db-bun.ts`), and the dialect-resolved
-      // `analyticsEvents` table targets both engines correctly.
-      // `properties` is wrapped in `jsonbLiteral` so Postgres parses
-      // the JSON as a jsonb OBJECT (not string) — `->>` extraction
-      // requires this. See `recordPageView` for full rationale.
+      // Query-builder INSERT (SQLite drizzle clients have no `.execute()`);
+      // `jsonbLiteral` makes Postgres store `properties` as a jsonb OBJECT so
+      // `->>` extraction works — see `recordPageView` for the full rationale.
       // @effect-diagnostics effect/preferSchemaOverJson:off
       await db.insert(analyticsEvents).values({
         appName: input.appName,
@@ -116,6 +114,7 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         visitorHash: input.visitorHash,
         sessionHash: input.sessionHash,
         properties: jsonbLiteral(input.properties ?? {}) as never,
+        ...devClockStamp(),
       })
     }),
 
@@ -155,6 +154,7 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         // drizzle accepts an SQL fragment as a column value; this routes
         // around the TEXT-bind preprocessing that breaks jsonb storage.
         properties: jsonbLiteral(properties) as never,
+        ...devClockStamp(),
       })
     }),
 

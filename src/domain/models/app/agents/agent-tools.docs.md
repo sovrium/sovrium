@@ -57,6 +57,8 @@ They are separate entries because they expose very different amounts of data: an
 
 Both are gated by the same table read permission, so a role that cannot read a table gets neither.
 
+An agent answering someone writes as that person, and `record.update` and `record.delete` find their rows the way that person's `record.list` would: a filter on a field they may not read is refused like any other refused write, and a record hidden from them is neither changed nor counted.
+
 ### The three worth pausing over
 
 **State** is a cross-run key-value store, and it is what makes an agent more than a stateless prompt: an agent an automation runs can remember what it processed last time without a table to hold it. Its values belong to that automation, so the state actions are available only when an automation runs the agent; in a chat or a scheduled run they are refused, and the model is told why.

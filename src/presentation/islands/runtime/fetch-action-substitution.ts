@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { mapStringsDeep } from '@/domain/kernel/config-parsing/map-strings-deep'
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import type { FetchAction } from '@/domain/models/app/pages/components/action'
 
@@ -86,24 +87,21 @@ export function substituteResponse(template: string, body: unknown): string {
 }
 
 /**
- * Resolve `$record.<field>` references in each STRING value of a JSON request
- * body against the injected row record — so a config mutate's body template
- * (`{ userId: '$record.id', role: '$record.role' }`) carries the clicked row's
- * identity into the payload. Non-string values pass through untouched, and the
- * whole body is returned unchanged when no `record` is supplied (the static-body
- * fetch path — GDPR erase / cancel — is unaffected).
+ * Resolve `$record.<field>` references in every STRING value of a JSON request
+ * body against the injected row record, at every depth — a top-level value, a
+ * value inside a nested object, an item of a list — so a config mutate's body
+ * template (`{ fields: { user_id: '$record.id' } }`) carries the clicked row's
+ * identity into the payload wherever the receiving API expects it. Non-string
+ * leaves pass through untouched, and the whole body is returned unchanged when
+ * no `record` is supplied (the static-body fetch path — GDPR erase / cancel — is
+ * unaffected).
  */
 export function substituteRecordInBody(
   body: FetchAction['body'],
   record: Record<string, unknown> | undefined
 ): FetchAction['body'] {
   if (body === undefined || record === undefined) return body
-  return Object.fromEntries(
-    Object.entries(body).map(([key, value]) => [
-      key,
-      typeof value === 'string' ? substituteBodyValue(value, record) : value,
-    ])
-  )
+  return mapStringsDeep(body, (value) => substituteBodyValue(value, record)) as FetchAction['body']
 }
 
 /** A body value that is ONE `$record.<field>` reference and nothing else. */

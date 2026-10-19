@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useGridString } from '../grid-strings'
+import { useResultCount } from '../grid-strings'
 
 /**
  * A polite live region saying how many records the grid now shows, once a
@@ -22,9 +22,7 @@ export function ResultCountAnnouncer(props: {
   readonly isLoading: boolean
   readonly count: number
 }) {
-  const announced = useGridString('sharedFilter.resultCount', '{count} records', {
-    count: props.count,
-  })
+  const announced = useResultCount(props.count)
   if (!props.subscribed) return undefined
   const text = props.narrowed && !props.isLoading ? announced : ''
   return (

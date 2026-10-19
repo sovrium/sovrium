@@ -1,8 +1,7 @@
 # A new claim, from the person who filed it to finance's decision.
 #
-# 1. The claim is stamped with its filer — the account that filed it — and
-#    its receipt's file name, so the review queue and the drawer name the
-#    person and the receipt from the moment it lands.
+# 1. The claim is stamped with its filer — the account that filed it — so the
+#    review queue and the drawer name the person from the moment it lands.
 # 2. The run then PAUSES on the approval step. Finance finds it on the Review
 #    page and approves or rejects it; the person who filed it cannot resolve
 #    it, and neither can another member.
@@ -53,7 +52,6 @@ actions:
             value: '{{trigger.data.record.id}}'
       data:
         filer: '{{findClaim.result.record.submitted_by}}'
-        receipt_name: '{{findClaim.result.record.receipt.name}}'
   - name: askFinance
     type: approval
     operator: request

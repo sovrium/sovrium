@@ -6,12 +6,11 @@
  */
 
 /**
- * API contracts for the three schema-introspection reads the design-system
+ * API contracts for the two schema-introspection reads the design-system
  * console runs on:
  *
  *   GET /api/admin/schema/component-types          — the catalogue, as rows
  *   GET /api/admin/schema/component-types/:type    — one type's fields
- *   GET /api/admin/design-system/provenance        — why a class is on an element
  *
  * plus the `?flat=1` projection of `GET /api/admin/design-system.json`.
  *
@@ -57,7 +56,7 @@
  *   `component-types-parts.ts`      — the row shapes one type's detail carries
  *   `component-types-detail.ts`     — one type's whole detail record
  *   `component-types-options.ts`    — one type's whole option surface
- *   `component-types-provenance.ts` — why a class is on an element
+ *   `component-types-provenance.ts` — the class-provenance entry a specimen badge draws
  *   `component-types-tokens.ts`     — the flat projection of the token document
  */
 

@@ -45,15 +45,10 @@ function buildCommentInsertValues(config: {
   readonly parentId?: string
   readonly guestName?: string
   readonly guestEmail?: string
-  /**
-   * Resolved moderation status (PG-02). The create-comment gate combines the
-   * spam classification and the table's moderation policy into a single
-   * verdict; that verdict is persisted to the row here so the moderation
-   * status is durable from creation rather than relying on the column
-   * default. Falls back to `'approved'` when the caller resolves no verdict,
-   * matching the column default.
-   */
+  /** The resolved moderation verdict (PG-02), durable from creation; `'approved'` when omitted. */
   readonly status?: 'approved' | 'pending' | 'rejected'
+  /** `'system'`: the app writes it — no author account, no guest identity. */
+  readonly actor?: 'session' | 'system'
 }) {
   const { session, tableId, recordId, content, parentId, guestName, guestEmail, status } = config
   const now = new Date()
@@ -62,7 +57,7 @@ function buildCommentInsertValues(config: {
     id: crypto.randomUUID(),
     tableId,
     recordId,
-    userId: isGuest ? null : session.userId,
+    userId: isGuest || config.actor === 'system' ? null : session.userId,
     guestName: isGuest ? (guestName ?? null) : null,
     guestEmail: isGuest ? (guestEmail ?? null) : null,
     content,
@@ -85,6 +80,7 @@ export function createComment(config: {
   readonly guestName?: string
   readonly guestEmail?: string
   readonly status?: 'approved' | 'pending' | 'rejected'
+  readonly actor?: 'session' | 'system'
 }): Effect.Effect<
   {
     readonly id: string
@@ -259,20 +255,20 @@ export function getCommentForAuth(config: {
  * non-admin viewers see approved-only,
  * admins see every status. See {@link visibleCommentsByRecordId}.
  */
-function buildCommentsQuery(tableId: string, recordId: string, includeAllStatuses: boolean) {
+function buildCommentsQuery(tableKeys: readonly string[], recordId: string, allStatuses: boolean) {
   const users = authUsersTable()
   return db
     .select(buildCommentSelectFields())
     .from(recordComments)
     .leftJoin(users, eq(recordComments.userId, users.id))
-    .where(visibleCommentsByRecordId(tableId, recordId, includeAllStatuses))
+    .where(visibleCommentsByRecordId(tableKeys, recordId, allStatuses))
 }
 
 /**
  * Execute list comments query with sorting and pagination
  */
 function executeListCommentsQuery(
-  tableId: string,
+  tableKeys: readonly string[],
   recordId: string,
   options?: {
     readonly limit?: number
@@ -281,7 +277,7 @@ function executeListCommentsQuery(
     readonly includeAllStatuses?: boolean
   }
 ) {
-  const query = buildCommentsQuery(tableId, recordId, options?.includeAllStatuses ?? false)
+  const query = buildCommentsQuery(tableKeys, recordId, options?.includeAllStatuses ?? false)
 
   // Apply sorting (default: DESC for newest first)
   const sortedQuery =
@@ -299,13 +295,14 @@ function executeListCommentsQuery(
 }
 
 /**
- * List one table's comments on a record. `tableId` is not optional: record ids
- * are per-table sequences, so an unscoped list returns every same-numbered
- * record's comments app-wide. See {@link visibleCommentsByRecordId}.
+ * List one table's comments on a record, under every key of that table.
+ * `tableKeys` is not optional: record ids are per-table sequences, so an
+ * unscoped list returns every same-numbered record's comments app-wide. See
+ * {@link visibleCommentsByRecordId}.
  */
 export function listComments(config: {
   readonly session: Readonly<Session>
-  readonly tableId: string
+  readonly tableKeys: readonly string[]
   readonly recordId: string
   readonly limit?: number
   readonly offset?: number
@@ -334,11 +331,11 @@ export function listComments(config: {
   }[],
   DatabaseError
 > {
-  const { tableId, recordId, limit, offset, sortOrder, includeAllStatuses } = config
+  const { tableKeys, recordId, limit, offset, sortOrder, includeAllStatuses } = config
   return Effect.gen(function* () {
     const result = yield* Effect.tryPromise<Array<CommentQueryRow>, DatabaseError>({
       try: () =>
-        executeListCommentsQuery(tableId, recordId, {
+        executeListCommentsQuery(tableKeys, recordId, {
           limit,
           offset,
           sortOrder,
@@ -363,7 +360,7 @@ export function listComments(config: {
  */
 export function getCommentsCount(config: {
   readonly session: Readonly<Session>
-  readonly tableId: string
+  readonly tableKeys: readonly string[]
   readonly recordId: string
   /**
    * Moderation visibility. Mirrors
@@ -373,14 +370,14 @@ export function getCommentsCount(config: {
    */
   readonly includeAllStatuses?: boolean
 }): Effect.Effect<number, DatabaseError> {
-  const { tableId, recordId, includeAllStatuses } = config
+  const { tableKeys, recordId, includeAllStatuses } = config
   return Effect.gen(function* () {
     const result = yield* Effect.tryPromise<Array<{ count: number }>, DatabaseError>({
       try: () =>
         db
           .select({ count: castToInt(sql`COUNT(*)`) })
           .from(recordComments)
-          .where(visibleCommentsByRecordId(tableId, recordId, includeAllStatuses ?? false)),
+          .where(visibleCommentsByRecordId(tableKeys, recordId, includeAllStatuses ?? false)),
       catch: (error) => new DatabaseError('Failed to count comments', error),
     })
 

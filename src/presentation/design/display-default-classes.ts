@@ -302,14 +302,19 @@ export const computeDescriptionTermClasses = (): string => 'text-sm text-muted-f
  *
  * `withAction` turns the cell into a row of its own so the link sits at its far
  * edge. It is off by default because most rows carry no action.
+ *
+ * `empty` paints the cell in the muted foreground, the way a `record-field`
+ * paints an empty value, so the dash reads as "no value" from the cell itself.
  */
 export const computeDescriptionDetailClasses = ({
   withAction = false,
+  empty = false,
 }: {
   readonly withAction?: boolean
+  readonly empty?: boolean
 } = {}): string =>
   [
-    'm-0 min-h-5 text-sm font-medium text-foreground',
+    `m-0 min-h-5 text-sm font-medium ${empty ? 'text-muted-foreground' : 'text-foreground'}`,
     withAction ? 'flex items-start justify-between gap-4' : '',
   ]
     .filter(Boolean)

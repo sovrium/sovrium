@@ -80,10 +80,16 @@ const OPENS_ON_CLICK: ReadonlySet<string> = new Set([
  */
 const WRITES_PROSE: ReadonlySet<string> = new Set(['code', 'rich-text'])
 
-/** What a picked cell reads before anything has been supplied for it. */
-function restingLabel(column: AddRowColumn): string {
-  const verb = WRITES_PROSE.has(fieldWidgetOf(column.type ?? '')) ? 'Write' : 'Pick'
-  return `${verb} ${column.label.toLowerCase()}…`
+/**
+ * What a picked cell reads before anything has been supplied for it, in the
+ * page language (`datatable.addRow.pick`, `datatable.addRow.write`).
+ */
+function useRestingLabel(column: AddRowColumn): string {
+  const writes = WRITES_PROSE.has(fieldWidgetOf(column.type ?? ''))
+  const label = column.label.toLowerCase()
+  const pick = useGridString('datatable.addRow.pick', 'Pick {label}…', { label })
+  const write = useGridString('datatable.addRow.write', 'Write {label}…', { label })
+  return writes ? write : pick
 }
 
 const INPUT_CLASS = computeTableAddRowInputClasses()
@@ -177,6 +183,7 @@ function PickedControl({
 }): ReactElement {
   const Editor = resolveCellEditor(column.type ?? 'single-line-text')
   const value = draft.state.values[field]
+  const resting = useRestingLabel(column)
   if (draft.state.activeEditor === field && Editor) {
     return (
       <Editor
@@ -191,9 +198,7 @@ function PickedControl({
   }
   const picked = value === undefined || value === null || value === '' ? undefined : String(value)
   return (
-    <span className={picked === undefined ? 'text-muted-foreground' : ''}>
-      {picked ?? restingLabel(column)}
-    </span>
+    <span className={picked === undefined ? 'text-muted-foreground' : ''}>{picked ?? resting}</span>
   )
 }
 

@@ -41,6 +41,7 @@ import { resolvePageRouteParams } from '@/presentation/render/resolve/route-para
 import { attachmentAddressing } from '@/presentation/render/resolve/row-attachment-addresses'
 import { type RowLevelReadCheck } from '@/presentation/render/resolve/row-rule-read-check'
 import { resolveTabsLazyPanels } from '@/presentation/render/resolve/tabs-lazy-resolver'
+import { translateReferencedKeys } from '@/presentation/render/resolve/translated-references-resolver'
 import { resolvePageTwoFactorAttempt } from '@/presentation/render/resolve/two-factor-attempt-resolver'
 import { resolvePageWindowProps } from '@/presentation/render/resolve/window-props-resolver'
 import { resolveSidebarState } from '../resolve/sidebar-state-resolver'
@@ -225,7 +226,8 @@ export async function resolveCollectionAndFilter(
   // The page's served language, resolved ONCE: a route-bound grid's label
   // speaks it, and it rides on `db` to every `$record.` text site.
   const { lang } = resolvePageLanguage(invited, app.languages, detectedLanguage, input.urlLanguage)
-  const prepared = prepareRequestPage({ ...input, matchedPage: invited, lang })
+  const translated = translateReferencedKeys(invited, lang, app.languages)
+  const prepared = prepareRequestPage({ ...input, matchedPage: translated, lang })
   if (prepared === 'not-found') return undefined
   const matchedPage = resolveSidebarState(prepared, cookies)
   const recordText = { locale: lang, tables: app.tables, languages: app.languages }

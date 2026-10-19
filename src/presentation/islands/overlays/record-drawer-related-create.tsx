@@ -8,87 +8,34 @@
 /**
  * The create affordance of a CAP-8 related section.
  *
- * An inline form with one textbox per column the section shows, POSTed to the
- * related table's records endpoint with the relationship column already set
- * to the opened record — so the new row lands in the section it was created
- * from. Relationship and computed columns get no control: a relation needs a
- * picker and a computed value is never written, and both stay editable in the
- * drawer the row opens.
+ * An inline form with one control per column the section shows — the SAME
+ * control an editable drawer of the related table draws for that column's
+ * type (`FieldInput`): a date in the page's own format, a status or a select
+ * as its options, a number as a number input, a person or a link as its
+ * picker. It is POSTed to the related table's records endpoint with the
+ * relationship column already set to the opened record — so the new row lands
+ * in the section it was created from. A computed or stamped column, and one
+ * the reader may not write, gets no control.
  *
  * Mounted only for a caller the SSR host found allowed to create in the table;
- * the endpoint still enforces it, and a refusal is reported inline.
+ * the endpoint still enforces it. A refusal it pins to a field is said on that
+ * field, the form staying open with what was typed; any other is one sentence.
  */
 
-import { useRef, useState, type FormEvent, type ReactElement } from 'react'
+import { useMemo, useState, type ReactElement } from 'react'
 import { pendingControlProps } from '@/presentation/design/pending-state'
 import { renderPendingContent } from '@/presentation/design/spinner-mark'
+import { FieldInput } from './record-drawer-entry'
+import { relatedCreateEntries, useRelatedCreateSubmit } from './record-drawer-related-create-submit'
 import type { RelatedLabels, RelatedSection } from './record-drawer-related'
-
-/** Column types a single textbox cannot write. */
-const NOT_WRITABLE: ReadonlySet<string> = new Set([
-  'relationship',
-  'formula',
-  'lookup',
-  'rollup',
-  'count',
-  'autonumber',
-  'created-at',
-  'updated-at',
-  'created-by',
-  'updated-by',
-])
+import type { Values } from './record-drawer-values'
 
 const FORM_CLASS = 'flex flex-col gap-2'
-const LABEL_CLASS = 'text-muted-foreground flex flex-col gap-1 text-sm'
-const INPUT_CLASS = 'border-border bg-background text-foreground rounded border px-2 py-1 text-sm'
 const SAVE_CLASS = 'bg-primary text-primary-foreground rounded px-3 py-1 text-sm'
 const CANCEL_CLASS = 'text-muted-foreground px-3 py-1 text-sm'
 const ERROR_CLASS = 'text-error-fg text-sm'
 
-/** POST the filled values plus the link back to the opened record. */
-async function createRelatedRecord(
-  section: RelatedSection,
-  values: Readonly<Record<string, string>>,
-  linkValue: string | number
-): Promise<boolean> {
-  const filled = Object.fromEntries(Object.entries(values).filter(([, value]) => value !== ''))
-  const response = await fetch(`/api/tables/${encodeURIComponent(section.table)}/records`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...filled, [section.field]: linkValue }),
-  })
-  return response.ok
-}
-
-/**
- * The create's submit, held in flight from the press to the answer: a second
- * press or Enter meanwhile sends nothing, so one Save is one create.
- */
-function useRelatedCreateSubmit(
-  section: RelatedSection,
-  values: Readonly<Record<string, string>>,
-  linkValue: string | number,
-  onDone: (created: boolean) => void
-) {
-  const [failed, setFailed] = useState(false)
-  const [pending, setPending] = useState(false)
-  const inFlight = useRef(false)
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (inFlight.current) return
-    inFlight.current = true
-    setPending(true)
-    void createRelatedRecord(section, values, linkValue)
-      .catch(() => false)
-      .then((ok) => {
-        inFlight.current = false
-        setPending(false)
-        if (ok) onDone(true)
-        else setFailed(true)
-      })
-  }
-  return { failed, pending, onSubmit }
-}
+const NO_FIELD_ERRORS: Readonly<Record<string, string>> = {}
 
 export function RelatedCreateForm({
   section,
@@ -101,32 +48,34 @@ export function RelatedCreateForm({
   readonly labels: RelatedLabels
   readonly onDone: (created: boolean) => void
 }): ReactElement {
-  const [values, setValues] = useState<Readonly<Record<string, string>>>({})
-  const { failed, pending, onSubmit } = useRelatedCreateSubmit(section, values, linkValue, onDone)
-  const columns = section.columns.filter(
-    (column) => column.field !== section.field && !NOT_WRITABLE.has(column.type)
-  )
+  const entries = useMemo(() => relatedCreateEntries(section), [section])
+  const [values, setValues] = useState<Values>({})
+  const { refusal, pending, onSubmit } = useRelatedCreateSubmit({
+    section,
+    entries,
+    values,
+    linkValue,
+    onDone,
+  })
+  const fieldErrors = refusal.kind === 'fields' ? refusal.fields : NO_FIELD_ERRORS
+  const onChange = (name: string, value: string) =>
+    setValues((held) => ({ ...held, [name]: value }))
   return (
     <form
       className={FORM_CLASS}
       onSubmit={onSubmit}
     >
-      {columns.map((column) => (
-        <label
-          key={column.field}
-          className={LABEL_CLASS}
-        >
-          {column.label}
-          <input
-            type="text"
-            data-component-type="input"
-            className={INPUT_CLASS}
-            value={values[column.field] ?? ''}
-            onChange={(event) => setValues({ ...values, [column.field]: event.target.value })}
-          />
-        </label>
+      {entries.map((entry) => (
+        <FieldInput
+          key={entry.name}
+          field={entry}
+          value={values[entry.name] ?? ''}
+          disabled={false}
+          onChange={onChange}
+          error={fieldErrors[entry.name]}
+        />
       ))}
-      {failed && (
+      {refusal.kind === 'failed' && (
         <p
           role="alert"
           className={ERROR_CLASS}

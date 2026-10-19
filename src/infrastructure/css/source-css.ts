@@ -15,6 +15,7 @@ import {
 import { generateMarqueeStyles } from '@/infrastructure/css/styles/marquee-styles-generator'
 import { generateCalendarStyles } from '@/infrastructure/css/theme/calendar-styles'
 import { generateCodeBlockStyles } from '@/infrastructure/css/theme/code-block-styles-generator'
+import { generateDarkKeptColors } from '@/infrastructure/css/theme/dark-kept-colors'
 import {
   NEUTRAL_FLOOR_LAYER,
   ROLE_TOKEN_BRIDGE,
@@ -42,6 +43,8 @@ import {
 } from '@/infrastructure/css/theme/theme-generators'
 import { generateBaseLayer } from '@/infrastructure/css/theme/theme-layer-generators'
 import { generateToastStyles } from '@/infrastructure/css/theme/toast-styles'
+import { generateTypesetStyles } from '@/infrastructure/css/theme/typeset-styles'
+import { appSetsTypeset } from '@/infrastructure/css/typeset-gate'
 import { STATIC_IMPORTS } from './source-css-head'
 import type { App } from '@/domain/models/app'
 import type { Design } from '@/domain/models/app/design'
@@ -107,7 +110,14 @@ function generateDesignCSS(design?: Design): string {
   // the default theme layer's own dark cascade (`V1_ROOT_DARK`), which it ties
   // with on specificity and must therefore beat on source order. See
   // `generateDarkColorOverrides` for the full cascade rationale.
-  const darkColorOverrides = generateDarkColorOverrides(declared.darkColors)
+  // A colour declared without a dark value keeps its light one in dark, on the
+  // variable as on the utility, and its pair keeps its light foreground.
+  const darkColorOverrides = [
+    generateDarkKeptColors(declared.colors, declared.darkColors),
+    generateDarkColorOverrides(declared.darkColors),
+  ]
+    .filter(Boolean)
+    .join('\n\n')
 
   if (themeTokens.length === 0 && !authorSvBridge && !darkColorOverrides) return ''
 
@@ -239,7 +249,7 @@ export function buildSourceCSS(app?: App, darkPalette: readonly string[] = []): 
   // Code-block chrome (and `.tok-XXX` token color rules) for markdown pages.
   // Plain CSS — flows through BOTH the native PostCSS pipeline AND the
   // pure-JS native-free engine because `buildSourceCSS` is the shared input.
-  const codeBlockCSS = generateCodeBlockStyles(design, darkPalette)
+  const codeBlockCSS = generateCodeBlockStyles(darkPalette)
   // Marquee band chrome + motion. Plain CSS for the same reason as the code-block
   // rules above: `@keyframes`, `animation-play-state` under `:hover`/`:focus-within`
   // and a `prefers-reduced-motion` override are not utility-shaped, so they must
@@ -278,6 +288,11 @@ export function buildSourceCSS(app?: App, darkPalette: readonly string[] = []): 
     // the compiled output every app is served.
     generateRichTextStyles(),
     generateSidebarShellStyles(),
+    // Typeset — rendered prose. Gated (`appSetsTypeset`): an app with no
+    // markdown page, ai-chat or `typeset` class gets the empty string, which the
+    // filter below drops, so its stylesheet is byte-identical to one built
+    // before Typeset existed. Shares this separator for the same reason.
+    appSetsTypeset(app) ? generateTypesetStyles() : '',
     scopedCSS,
     '/*---break---\n     */',
     FINAL_BASE_LAYER,

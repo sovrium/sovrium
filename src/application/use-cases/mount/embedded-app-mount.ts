@@ -59,23 +59,25 @@ import {
   mountHref,
   prefixMountHrefs,
 } from '@/domain/models/app/admin/mount-hrefs'
+import { consoleTableView } from '@/domain/models/app/auth/console-table-view-service'
 import {
   buildDesignSystemScopeApp,
   withOperatorDesignCascade,
 } from '@/domain/models/app/design/console-design-cascade'
-import { defaultLanguageTranslator } from '@/domain/models/app/languages/translation-resolver'
+import { withOperatorLocales } from '@/domain/models/app/languages/console-locale-service'
+import { consoleLabelTranslators } from '@/domain/models/app/languages/translation-resolver'
 import { mountedInvitationPages } from '@/domain/models/app/pages/invitation-link-service'
 import { prunePagesByRequirements } from '@/domain/models/app/pages/page-requires'
 import {
   callerReaderFromSession,
   tableReadPrincipal,
 } from '@/domain/models/app/tables/caller-record-gate-service'
+import { relatedFieldsWithheldFrom } from '@/domain/models/app/tables/lookup-link-service'
 import {
   buildReadAccessPlan,
   CANONICAL_READ_POLICY,
   type TableLike,
 } from '@/domain/models/app/tables/read-access-plan-service'
-import { withResolvedTableLabels } from '@/domain/models/app/tables/table-display-name-service'
 import { withDesignSystemScope } from '@/infrastructure/css/design-system-scope'
 import { withMountBasePath } from '@/infrastructure/css/mount-identity'
 import type { EmbeddedAppMount } from '@/application/ports/contracts/embedded-app-mount'
@@ -99,57 +101,67 @@ const FORGOT_PASSWORD_RELATIVE_PATH = '/forgot-password'
 /** The password-recovery completion form (reached from the emailed link). */
 const RESET_PASSWORD_RELATIVE_PATH = '/reset-password'
 
+/** A thunk answering ONE value, computed on first call (the stylesheet hash needs one object). */
+const memoizeOnce = <T>(compute: () => T): (() => T) => {
+  const cell = new Map<'value', T>()
+  // eslint-disable-next-line functional/immutable-data -- memoization of a pure derivation over immutable inputs
+  return () => cell.get('value') ?? (cell.set('value', compute()).get('value') as T)
+}
+
 /**
- * Build the mount from a base path, the decoded preset and the operator's app.
+ * Build the mount from a base path, the preset (read on first use) and the operator's app.
  *
  * The operator's app is what the preset's `page.requires` are evaluated
- * AGAINST — an embedded app ships surfaces whose usefulness depends on config
- * it does not own, and an API-keys page on an instance with no API keys is a
- * nav entry leading somewhere empty. An unmet page is dropped from the mount
- * entirely, so it 404s and appears in no listing.
+ * AGAINST: an unmet page is dropped from the mount, so it 404s and appears in
+ * no listing. The operator's design tokens and language regions are layered here
+ * too, once, so the renderer, the stylesheet hash and the CSS route all see one
+ * object. `withMountBasePath` stays OUTERMOST: the mount identity has to survive
+ * onto the object the renderer hashes (`resolveScopedMountApp` re-stamps it after
+ * its own spread). No step writes into the shared preset.
  *
- * ─── WHY THE OPERATOR'S DESIGN IS LAYERED HERE, ONCE, AT BOOT ─────────────
- *
- * The console renders with the operator's declared design tokens ([internal ref] A4 /
- * [internal ref] D4, given a runtime by the console design-cascade rule), and `withOperatorDesignCascade` is
- * where that happens. It sits at BOOT rather than per request for the same
- * reason the href rewrite does: the result is a pure function of two immutable
- * inputs, and doing it here means every later consumer — the renderer, the
- * stylesheet hash, and the CSS route rebuilding this app from the operator's —
- * sees one object rather than three constructions that must be kept agreeing.
- *
- * It is applied INSIDE `prefixMountHrefs` only because the href walk does not
- * read `design`; the order between the two is free, and the one that is NOT
- * free is `withMountBasePath` staying OUTERMOST — the mount identity has to
- * survive onto the object the renderer actually hashes, which is the invariant
- * `resolveScopedMountApp` re-establishes by hand after its own spread.
- *
- * ─── NOTHING IS WRITTEN INTO THE PRESET ────────────────────────────────────
- *
- * Every step above returns a fresh object. The preset is a single shared
- * build artifact read once per process, so a step that wrote into it would
- * leak this boot's operator design onto whatever else holds a reference to it.
+ * The preset is read on the first access to `presetApp` (or `publicPaths`,
+ * which lists its invitation pages), never while the mount is built: decoding
+ * the console is a sixth of a cold start, and what registration and the
+ * startup banner read (`basePath`, the two fixed path sets) needs none of it.
  */
-const buildMount = (presetApp: App, basePath: string, operatorApp: App): EmbeddedAppMount => {
+const buildMount = (
+  resolvePreset: () => App,
+  basePath: string,
+  operatorApp: App
+): EmbeddedAppMount => {
   const at = (relative: string): string => mountHref(basePath, relative)
-  return {
-    basePath,
-    // The preset's own links are authored relative to the mount (`/login`), so
-    // they are moved onto this base exactly once, here, at boot. The mount
-    // identity rides along because the stylesheet hash is derived from it.
-    presetApp: withMountBasePath(
+  // The preset's links are authored relative to the mount (`/login`); they move
+  // onto this base exactly once, here.
+  const presetApp = memoizeOnce(() =>
+    withMountBasePath(
       prefixMountHrefs(
-        withOperatorDesignCascade(prunePagesByRequirements(presetApp, operatorApp), operatorApp),
+        withOperatorDesignCascade(
+          withOperatorLocales(prunePagesByRequirements(resolvePreset(), operatorApp), operatorApp),
+          operatorApp
+        ),
         basePath
       ),
       basePath
-    ),
-    publicPaths: new Set([
-      at(LOGIN_RELATIVE_PATH),
-      at(FORGOT_PASSWORD_RELATIVE_PATH),
-      at(RESET_PASSWORD_RELATIVE_PATH),
-      ...mountedInvitationPages([{ basePath, presetApp }]).map((page) => page.path),
-    ]),
+    )
+  )
+  const invitationPages = () => mountedInvitationPages([{ basePath, presetApp: presetApp() }])
+  const publicPaths = memoizeOnce(
+    () =>
+      new Set([
+        at(LOGIN_RELATIVE_PATH),
+        at(FORGOT_PASSWORD_RELATIVE_PATH),
+        at(RESET_PASSWORD_RELATIVE_PATH),
+        ...invitationPages().map((page) => page.path),
+      ])
+  )
+  return {
+    basePath,
+    get presetApp() {
+      return presetApp()
+    },
+    get publicPaths() {
+      return publicPaths()
+    },
     mailGatedPublicPaths: new Set([
       at(FORGOT_PASSWORD_RELATIVE_PATH),
       at(RESET_PASSWORD_RELATIVE_PATH),
@@ -167,23 +179,18 @@ const buildMount = (presetApp: App, basePath: string, operatorApp: App): Embedde
  * over `admin: true` without failing the boot for the reason the module opens
  * with. This is the only place both are in hand, so it is where they meet.
  *
- * The caller (`admin-mount-setup.ts`) short-circuits on the kill switch a
- * second time, BEFORE it reads the preset. That is not a duplicate of the test
- * here but an independent property: an instance running with the console
- * switched off boots even when the embedded preset is the thing that is broken.
- *
  * @param operatorApp - the operator's decoded config (source of `admin`).
- * @param presetApp - the decoded embedded preset.
+ * @param resolvePreset - answers the decoded embedded preset, on first use.
  * @param adminMode - the resolved `SOVRIUM_ADMIN` kill switch.
  */
 export const buildEmbeddedAppMounts = (
   operatorApp: App,
-  presetApp: App,
+  resolvePreset: () => App,
   adminMode: SovriumAdminMode
 ): readonly EmbeddedAppMount[] =>
   adminMode === 'off' || operatorApp.admin === false
     ? []
-    : [buildMount(presetApp, DEFAULT_ADMIN_MOUNT_PATH, operatorApp)]
+    : [buildMount(resolvePreset, DEFAULT_ADMIN_MOUNT_PATH, operatorApp)]
 
 /**
  * Per-mount, per-operator-`App` memo of the scoped console app.
@@ -237,14 +244,9 @@ export const resolveScopedMountApp = (mount: EmbeddedAppMount, operatorApp: App)
 }
 
 /**
- * What one mounted request resolved to.
- *
- * A tagged union rather than the builder's own `App | DataObjectRedirect |
- * undefined`, so the route layer reads the outcome by its tag instead of
- * re-testing the shape with a type predicate it would have to be handed. The
- * three cases are genuinely different answers — a `Location` header, a page to
- * render, and "this path has no synthesized surface, render the preset page as
- * authored" — and naming them is what keeps the route's branching honest.
+ * What one mounted request resolved to, as a tagged union the route reads by
+ * tag: a page to render, or "no synthesized surface — render the preset page
+ * as authored".
  */
 export type MountSurfaceOutcome =
   { readonly kind: 'app'; readonly app: App } | { readonly kind: 'none' }
@@ -277,6 +279,8 @@ export interface MountSurfaceInput {
    * one is a projection at a single seam.
    */
   readonly session?: SessionInfo
+  /** The console page's language, which names the operator's tables when the app declares it. */
+  readonly language?: string | undefined
 }
 
 /**
@@ -316,34 +320,27 @@ export interface MountSurfaceInput {
  * auth configuration into an app it has no other reason to reach, to fix a
  * derivation that is already reachable from here.
  */
-const routeBoundOperatorTables = (
-  operatorApp: App,
-  mountPath: string,
-  session: SessionInfo | undefined
-): NonNullable<App['tables']> => {
-  const tableName = parseRecordsGridRoute(mountPath)
+const routeBoundOperatorTables = (input: MountSurfaceInput): NonNullable<App['tables']> => {
+  const { operatorApp, session } = input
+  const tableName = parseRecordsGridRoute(input.mountPath)
   if (tableName === undefined) return []
   const table = (operatorApp.tables ?? []).find((declared) => declared.name === tableName)
   if (table === undefined) return []
   const projected = readableTableProjection(operatorApp, table, session)
   if (!projected) return []
-  // Its labels as finished text: the console's string tables hold no operator key.
-  return [withResolvedTableLabels(projected, defaultLanguageTranslator(operatorApp.languages))]
+  // Finished text in the operator's language (else the app's first), and in each for the import.
+  const translators = consoleLabelTranslators(operatorApp.languages, input.language)
+  return [consoleTableView(projected, { session, tables: operatorApp, ...translators })]
 }
 
 /**
- * One operator table with every field this caller may not read removed —
- * including from the `permissions.fields` entry that named the restriction.
+ * One operator table with every field this caller may not read removed — a
+ * link, count, rollup or lookup the records API withholds from her included —
+ * and from the `permissions.fields` entry that named the restriction.
  *
  * `undefined` when the caller may not read the table at all, or when nothing of
- * it is readable. The mount then merges nothing, the route-bound resolver finds
- * no declared table of that name, and the page answers 404 — the same answer an
- * unknown table gets, which is the anti-enumeration posture the rest of the
- * console already takes (S1).
- *
- * An app with no `auth` is the full-access model, matching every other read gate
- * in the codebase. It is also unreachable in practice: a console caller with no
- * session is 404ed before a surface is ever synthesised.
+ * it is readable: the mount merges nothing and the page answers 404, as an
+ * unknown table does (S1). An app with no `auth` is the full-access model.
  */
 const readableTableProjection = (
   operatorApp: App,
@@ -352,18 +349,21 @@ const readableTableProjection = (
 ): NonNullable<App['tables']>[number] | undefined => {
   if (!operatorApp.auth) return table
 
+  const reader = callerReaderFromSession(session, operatorApp)
   const plan = buildReadAccessPlan({
     app: operatorApp,
     table: table as TableLike,
-    principal: tableReadPrincipal(table, callerReaderFromSession(session, operatorApp)),
+    principal: tableReadPrincipal(table, reader),
     policy: CANONICAL_READ_POLICY,
     // No `rowContext`: `restrictedColumns` reads FIELD permissions alone; only
     // `rowPredicate` would consult it, and no row decision is made here.
   })
   if (!plan.allowed) return undefined
   // A write-only field this caller is told the presence of stays, to be named.
+  const withheld = reader && { ...reader, signedOut: false }
+  const refused = relatedFieldsWithheldFrom(operatorApp, table.name, withheld)
   const hidden = (name: string) =>
-    plan.restrictedColumns.has(name) && !plan.presenceColumns.has(name)
+    refused.has(name) || (plan.restrictedColumns.has(name) && !plan.presenceColumns.has(name))
   const fields = table.fields.filter((field) => !hidden(field.name))
   if (fields.length === 0) return undefined
   if (fields.length === table.fields.length) return table
@@ -389,7 +389,7 @@ const readableTableProjection = (
  *
  * Every console path is an authored preset page matched by the ordinary page
  * router, and a preset page's links are mount-relative and are moved onto this
- * mount's base once, at boot (`buildMount`) — so there is no per-path
+ * mount's base once, on first use (`buildMount`) — so there is no per-path
  * composition and no link rewrite to perform here.
  *
  * What this does is narrow and is spelled out in the body: the three places a
@@ -439,10 +439,10 @@ export const synthesiseMountSurface = async (
   // renders from the preset alone.
   //
   // NOT re-pointed through `rewriteConsoleRootHrefs`: a preset page's links were
-  // moved onto this mount's base once, at boot (`buildMount`). Walking them
+  // moved onto this mount's base once, on first use (`buildMount`). Walking them
   // again here would be a second rewrite of already-correct hrefs, and would
   // additionally walk the operator's own table declarations.
-  const tables = routeBoundOperatorTables(operatorApp, mountPath, input.session)
+  const tables = routeBoundOperatorTables(input)
   const components = routeBoundOperatorComponents(operatorApp, mountPath)
   const languages = consoleLanguagesForPath(operatorApp, scopedApp, mountPath)
   if (tables.length === 0 && components.length === 0 && languages === undefined) {

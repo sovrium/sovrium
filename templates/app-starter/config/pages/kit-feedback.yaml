@@ -25,6 +25,38 @@ components:
         content: 'Alerts, empty states, progress, confirmations and paging, each one block of the library.'
   - component: alert-inline
   - component: alert-validation-summary
+  # The fields the summary above points at. Each link names a field by its id,
+  # so following one moves focus to the control that needs fixing.
+  - type: container
+    element: section
+    props:
+      aria-label: 'Client details'
+      className: w-full max-w-3xl px-4 pb-6 sm:px-10 sm:pb-8
+    children:
+      - type: flex
+        props:
+          className: flex flex-col gap-4
+        children:
+          - type: field
+            fieldLabel: 'Legal name'
+            fieldError: 'Legal name is required'
+            required: true
+            children:
+              - { type: input, props: { id: legal-name, name: legal_name } }
+          - type: field
+            fieldLabel: 'VAT number'
+            fieldError: 'VAT number must start with a country code'
+            children:
+              - { type: input, props: { id: vat-number, name: vat_number, value: '12345678901' } }
+          - type: field
+            fieldLabel: 'Payment terms (days)'
+            fieldError: 'Payment terms must be between 0 and 90 days'
+            children:
+              - {
+                  type: input,
+                  inputType: number,
+                  props: { id: payment-terms, name: payment_terms, value: '120' },
+                }
   - component: empty-basic
   - component: empty-with-starters
   - component: progress-bar

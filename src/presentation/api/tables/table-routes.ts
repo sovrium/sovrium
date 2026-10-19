@@ -22,6 +22,7 @@ import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { getSessionContext, getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { runEffect } from '@/presentation/api/runtime/run-effect'
 import { handleExportTableCsv } from './export-handlers'
+import { refuseTableWithNoReaderRow } from './readable-table-gate'
 import { resolveAccessRolesFor } from './row-level-guard'
 import { resolveTableReadCaller } from './table-read-caller'
 import {
@@ -116,7 +117,9 @@ export function chainTableRoutesMethods<T extends Hono>(honoApp: T, resolveApp: 
   return honoApp
     .get('/api/tables', (c) => handleListTables(c, resolveApp()))
     .get('/api/tables/:tableId', (c) => handleGetTable(c, resolveApp()))
-    .get('/api/tables/:tableId/permissions', (c) => handleGetPermissions(c, resolveApp()))
+    .get('/api/tables/:tableId/permissions', refuseTableWithNoReaderRow(resolveApp), (c) =>
+      handleGetPermissions(c, resolveApp())
+    )
     .get('/api/tables/:tableId/webhooks', (c) => handleListWebhooks(c, resolveApp()))
     .get('/api/tables/:tableId/webhooks/:webhookName/deliveries', (c) =>
       handleListDeliveries(c, resolveApp())

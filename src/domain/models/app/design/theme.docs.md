@@ -31,7 +31,7 @@ The map is open — declare whatever vocabulary the design needs — so it publi
 - **The token name is lowercase kebab-case.** `primary`, `muted-foreground`, `brand-2`. No camelCase, no underscores — a name that could not appear in a class name would mint a utility nobody can write.
 - **The value is 6- or 8-digit hex, or an `rgb(`, `rgba(`, `hsl(` or `hsla(` function.** Nothing else decodes.
 
-Sovrium's own prebuilt components look for the conventional roles — `primary`, `background`, `text`, `muted` — so supplying those restyles the shipped chrome for free. A sidebar's own primary, primary foreground and ring follow `primary`, `primary-foreground` and `ring` in both schemes — the ones you declare, or the default palette's when you declare none — unless you declare the `sidebar-*` roles yourself. (shadcn/ui's default palette gives the sidebar a primary of its own, a near-black in light and a blue in dark; Sovrium does not.)
+Sovrium's own prebuilt components look for the conventional roles — `primary`, `background`, `text`, `muted` — so supplying those restyles the shipped chrome for free. A sidebar's own primary, primary foreground and ring follow `primary`, `primary-foreground` and `ring` in both schemes — the ones you declare, or the default palette's when you declare none — unless you declare the `sidebar-*` roles yourself. (shadcn/ui's default palette gives the sidebar a primary of its own, a near-black in light and a blue in dark; Sovrium does not.) A surface role you declare without its `-foreground` — `primary`, `secondary`, `accent`, `muted`, `card`, `popover`, `destructive` — gets one derived: white while white reaches 3:1 against the colour, else near-black, so a cream `accent` reads in dark ink. The `text-accent-foreground` utility and the component variable carry the same derived value.
 
 Every page is painted in the theme's `background` colour (`darkColors.background` in the dark scheme), so a page whose components do not reach the bottom of the window never shows the browser's white below them. A component that sets its own background still draws over it.
 
@@ -42,7 +42,7 @@ Every page is painted in the theme's `background` colour (`darkColors.background
 - **Baseline & Dark Mode** — `baseline`, `colorScheme`, `darkColors`.
 - **Typography** — `typeScale.families`, the faces.
 - **Type Scale** — `typeScale.steps`, the ladder each face is set on.
-- **Spacing, Radius & Elevation** — `spacing`, `radius`, `elevation`, `codeBlock`.
+- **Spacing, Radius & Elevation** — `spacing`, `radius`, `elevation`, `codeBlock` (deprecated).
 - **Responsive Design** — `breakpoints`.
 - **Animations** — `motion`.
 - **Density** — `density`.

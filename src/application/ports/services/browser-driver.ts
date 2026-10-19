@@ -217,6 +217,12 @@ export interface BrowserSession {
   readonly currentUrl: Effect.Effect<string, BrowserFailure>
   /** The dialogs answered since the last call. */
   readonly takeDialogs: Effect.Effect<readonly BrowserDialog[]>
+  /**
+   * The addresses the page requested since the last call, documents, frames
+   * and subresources alike, each once. A backend that cannot see a page's own
+   * requests (WebKit) reports the addresses it navigated to.
+   */
+  readonly takeRequested: Effect.Effect<readonly string[]>
   /** The cookie jar, serialised, or `undefined` when the backend keeps its own (WebKit). */
   readonly exportCookies: Effect.Effect<string | undefined, BrowserFailure>
   /** Close the session and give its turn to the next run. Idempotent. */

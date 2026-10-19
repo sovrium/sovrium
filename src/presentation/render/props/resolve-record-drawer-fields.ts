@@ -38,6 +38,12 @@ export type DerivedRecordField = DrawerControlOverlay & {
   /** A status / single-select column's options, for the editable drawer's choice. */
   readonly options?: ReadonlyArray<{ readonly value: string; readonly label: string }>
   /**
+   * The words a read-only entry prints for a stored value: the entry's own
+   * `valueLabels` over an option field's option labels — see
+   * {@link valueLabelsOverlay}.
+   */
+  readonly valueLabels?: Readonly<Record<string, string>>
+  /**
    * A status / single-select column's `value → paint` map, resolved here as
    * the grid's pill paints them, so a read-only drawer draws the same badge.
    * Only options that declare a colour are listed.
@@ -160,6 +166,36 @@ const optionsOverlay = (
   return options === undefined ? {} : { options }
 }
 
+/** A `valueLabels` map as authored: string labels only, anything else dropped. */
+const authoredValueLabels = (raw: unknown): Readonly<Record<string, string>> =>
+  typeof raw === 'object' && raw !== null && !Array.isArray(raw)
+    ? Object.fromEntries(
+        Object.entries(raw as Record<string, unknown>).filter(
+          (pair): pair is [string, string] => typeof pair[1] === 'string'
+        )
+      )
+    : {}
+
+/**
+ * The `valueLabels` overlay of one entry: the words a read-only entry prints
+ * for each stored value — the grid's rule. An option field's values read as
+ * their options' labels, and the entry's own `valueLabels` rename them over
+ * that, so a renamed option keeps its chip and an unmapped one its option's
+ * label; any other entry takes its map as written. A value no rung names
+ * prints as stored. Only read-only rendering reads it: an editable control,
+ * a save and the API keep the stored value.
+ */
+const valueLabelsOverlay = (
+  raw: unknown,
+  options: Pick<DerivedRecordField, 'options'>['options']
+): Pick<DerivedRecordField, 'valueLabels'> => {
+  const optionLabels = (options ?? [])
+    .filter((option) => option.label !== option.value)
+    .map((option) => [option.value, option.label] as const)
+  const valueLabels = { ...Object.fromEntries(optionLabels), ...authoredValueLabels(raw) }
+  return Object.keys(valueLabels).length === 0 ? {} : { valueLabels }
+}
+
 /** The `currency` overlay of one entry: the bound column's declared display, or nothing. */
 const currencyOverlay = (
   table: Tables[number] | undefined,
@@ -216,10 +252,12 @@ function enrichDeclaredFields(
     const record = entry as Readonly<Record<string, unknown>>
     const boundField = tableFields?.find((field) => field.name === record['name']) as
       Readonly<Record<string, unknown>> | undefined
+    const options = optionsOverlay(boundField, locale)
     return {
       ...withResolvedFieldDisplay(record, boundField),
       ...currencyOverlay(table, record['name'], tables),
-      ...optionsOverlay(boundField, locale),
+      ...options,
+      ...valueLabelsOverlay(record['valueLabels'], options.options),
       ...paintsOverlay(table, record['name'], locale),
       ...weekdayOverlay(boundField),
       ...relationshipOverlay(boundField),
@@ -268,13 +306,15 @@ export function deriveTableEntries(
     const declared = field as Readonly<Record<string, unknown>>
     const label = declaredFieldLabel(declared)
     const description = declaredFieldDescription(declared)
+    const options = optionsOverlay(declared, locale)
     return {
       name: field.name,
       type: field.type,
       ...(label === undefined ? {} : { label }),
       ...(description === undefined ? {} : { description }),
       ...currencyOverlay(table, field.name, tables),
-      ...optionsOverlay(declared, locale),
+      ...options,
+      ...valueLabelsOverlay(undefined, options.options),
       ...paintsOverlay(table, field.name, locale),
       ...weekdayOverlay(declared),
       ...relationshipOverlay(declared),

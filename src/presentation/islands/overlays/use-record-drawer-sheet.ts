@@ -14,7 +14,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { createModeFields, optionalBodyProps, sheetTitle } from './record-drawer-body-props'
-import { withDrawerNavigation } from './record-drawer-navigation-slot'
+import { drawerHeaderParts, type SheetHeaderParts } from './record-drawer-navigation-slot'
 import { EMPTY_RECORD } from './record-drawer-record-read'
 import { useRelatedSlot } from './record-drawer-related-slot'
 import { useRecordSave } from './record-drawer-save'
@@ -34,8 +34,12 @@ export interface RecordSheet {
   readonly drawer: ReturnType<typeof useRecordDrawer>
   readonly content: DrawerContentProps
   readonly title: string
+  /** The navigation and the record's place, drawn in the header beside the title. */
+  readonly header: SheetHeaderParts
   readonly stacked: LinkedPick | undefined
   readonly setStacked: (pick: LinkedPick | undefined) => void
+  /** A system detail read failed: there is no record to draw. */
+  readonly readFailed: boolean
 }
 
 /** The Save of the opened record — or of the new one. */
@@ -55,8 +59,9 @@ function useSheetSave(
       failed: props.saveFailedLabel,
       createFailed: words?.['createFailed'],
       invalidJson: words?.['invalidJson'],
+      refused: props.builtInLabels?.saveRefused,
     }),
-    [props.saveFailedLabel, words]
+    [props.saveFailedLabel, props.builtInLabels?.saveRefused, words]
   )
   return useRecordSave({
     ...{ recordFields, values: drawer.values, table: props.table, recordId: drawer.recordId },
@@ -99,14 +104,14 @@ export function useRecordSheet(props: RecordDrawerIslandProps, labels: DrawerLab
   const { open, recordId, creating } = drawer
   const [stacked, setStacked] = useState<LinkedPick | undefined>()
   useEffect(() => setStacked(undefined), [recordId, open])
-  const record = useDrawerRecord(system, recordId, drawer.record, props.recordText)
+  const { record, readFailed } = useDrawerRecord(system, recordId, drawer.record, props.recordText)
   const shown = creating ? EMPTY_RECORD : record
   const { recordFields, actions } = useVisibleEntries(props, declaredFields, creating, shown)
   const handlers = useDrawerHandlers(drawer.setValues, drawer.setOpen)
   const onSave = useSheetSave(props, { drawer, recordFields, record, handlers })
   const slotState = { open, recordId, save: labels.save, saving: labels.saving }
   const slot = useRelatedSlot(props, slotState, handlers.onClose)
-  const related = withDrawerNavigation(props, { record, recordId }, slot)
+  const header = creating ? {} : drawerHeaderParts(props, { record, recordId })
   const content: DrawerContentProps = {
     ...{
       fields: recordFields,
@@ -114,12 +119,12 @@ export function useRecordSheet(props: RecordDrawerIslandProps, labels: DrawerLab
       record: shown,
       canEdit: props.canEdit ?? true,
     },
-    ...{ loading: drawer.loading, actions },
+    ...{ loading: drawer.loading, unchanged: drawer.unchanged, actions },
     ...{ onChange: handlers.onChange, onSave, onClose: handlers.onClose },
     ...{ saveLabel: labels.save, savingLabel: labels.saving, labels: props.builtInLabels },
     fieldErrors: handlers.fieldErrors,
     ...(props.actionStrings === undefined ? {} : { actionStrings: props.actionStrings }),
-    ...optionalBodyProps(handlers.error, table, props.childrenHtml, creating ? undefined : related),
+    ...optionalBodyProps(handlers.error, table, props.childrenHtml, creating ? undefined : slot),
   }
   const title = sheetTitle(
     {
@@ -131,5 +136,5 @@ export function useRecordSheet(props: RecordDrawerIslandProps, labels: DrawerLab
     },
     shown
   )
-  return { drawer, content, title, stacked, setStacked }
+  return { drawer, content, title, header, stacked, setStacked, readFailed }
 }

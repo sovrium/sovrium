@@ -38,9 +38,7 @@
  * runs keep the native PostCSS pipeline (see `compileCSSRaw` in `./compiler.ts`).
  */
 
-import typography from '@tailwindcss/typography'
 import { Effect } from 'effect'
-import { compile, type Polyfills } from 'tailwindcss'
 import { isOperatorConsoleApp } from '@/domain/models/app/admin/admin-data-nav'
 import {
   componentClassesCandidates,
@@ -59,6 +57,7 @@ import { CSSCompilationError } from '@/infrastructure/errors/css-compilation-err
 import { logDebug } from '@/infrastructure/logging/logger'
 import type { App } from '@/domain/models/app'
 import type { CompiledCSS } from '@/infrastructure/css/cache/css-cache-service'
+import type * as Tailwind from 'tailwindcss'
 
 /**
  * Minimal, un-themed CSS served only when native-free compilation unexpectedly
@@ -105,26 +104,21 @@ const loadStylesheet = (
  * Resolve a JS plugin referenced by a `@plugin` directive in the source CSS.
  *
  * Inside the compiled binary there is no node_modules, so Tailwind v4's default
- * filesystem `@plugin` resolution fails. `buildSourceCSS` only declares
- * `@plugin "@tailwindcss/typography"`, whose module is statically imported above
- * (and therefore embedded in the binary by `bun build --compile`). This resolver
- * hands that already-loaded module back to the engine. Any other `@plugin` id is
- * rejected with an actionable error so a future plugin addition fails loudly
- * rather than silently emitting no CSS.
+ * filesystem `@plugin` resolution fails. `buildSourceCSS` declares no `@plugin`
+ * at all — markdown articles are set by the vendored Typeset sheet, which is plain
+ * CSS — so every id is rejected with an actionable error: a future plugin
+ * addition fails loudly rather than silently emitting no CSS, and has to be
+ * statically imported and handed back here to reach the binary.
  */
 const loadModule = (
   id: string
-): Promise<{ readonly path: string; readonly base: string; readonly module: unknown }> => {
-  if (id === '@tailwindcss/typography') {
-    return Promise.resolve({ path: id, base: '/', module: typography })
-  }
-  return Promise.reject(
+): Promise<{ readonly path: string; readonly base: string; readonly module: unknown }> =>
+  Promise.reject(
     new Error(
       `Native-free CSS compiler cannot resolve @plugin '${id}'. ` +
-        'Only @tailwindcss/typography is embedded in the binary.'
+        'No Tailwind plugin is embedded in the binary.'
     )
   )
-}
 
 /**
  * `true` when a token leaves a quote open — `font-semibold'`. A balanced pair is
@@ -196,7 +190,7 @@ const collectClassStrings = (node: unknown): readonly string[] => {
  * per-instance `classes` keys (a node's own, a markdown page's) have the same
  * shape and the same blind spot, so `componentClassesCandidates` walks them.
  */
-const collectAppCandidates = (app?: App): readonly string[] => [
+export const collectAppCandidates = (app?: App): readonly string[] => [
   ...collectClassStrings(app),
   ...designComponentClassCandidates(app?.design?.components),
   ...componentClassesCandidates(app),
@@ -287,6 +281,9 @@ export const compileCSSNativeFree = (
 ): Effect.Effect<CompiledCSS, CSSCompilationError> =>
   Effect.tryPromise({
     try: async () => {
+      // Loaded by the first compile, never at start: a start served from a
+      // precompiled stylesheet never needs the engine. Literal for the binary.
+      const { compile } = await import('tailwindcss')
       const candidates = resolveNativeFreeCandidates(app)
       logDebug(`[CSS] Native-free compile — ${candidates.length} candidates`)
       const compiled = await compile(sourceCSS, {
@@ -294,11 +291,10 @@ export const compileCSSNativeFree = (
         // `3` is Polyfills.All (AtProperty | ColorMix lowering, pure JS).
         // Referenced as a literal because verbatimModuleSyntax forbids reading
         // tailwindcss's ambient `const enum` value.
-        polyfills: 3 as Polyfills,
+        polyfills: 3 as Tailwind.Polyfills,
         loadStylesheet,
-        // Resolves `@plugin "@tailwindcss/typography"` from the statically
-        // imported (binary-embedded) module — no filesystem lookup.
-        loadModule: loadModule as NonNullable<Parameters<typeof compile>[1]>['loadModule'],
+        // Rejects any `@plugin`: none is embedded, so none may be declared.
+        loadModule: loadModule as NonNullable<Parameters<typeof Tailwind.compile>[1]>['loadModule'],
       })
       const css = compiled.build([...candidates])
       logDebug(`[CSS] Native-free compile produced ${css.length} bytes`)

@@ -94,6 +94,12 @@ trigger:
 
 Pick `when` by what the automation does. `approved` is right for anything user-visible, since a moderated comment should not page a channel before a human has cleared it. `created` is right for an internal notification that wants the comment the moment it lands. `when` defaults to `created`.
 
+### Comments written by automations
+
+A comment a `comment/create` step publishes starts the table's comment automations, exactly as one posted through the comments API does. When the step writes as the app (`runAs: system`), the comment has no author: `{{trigger.comment.author.*}}` reads as empty values. A comment written while awaiting moderation starts none of them.
+
+An automation that answers comments with comments re-triggers itself. Such a chain stops where a chain of record writes stops: after four automation writes, the step that would go one level deeper fails without writing, and its run says why in run history. Record writes and comments count on the same depth.
+
 ### `respectReadPermissions` is opt-out
 
 It defaults to `true`, honouring the table's row-level read predicate against the **comment's author**. Set it to `false` deliberately, and only where the automation must fire for every comment regardless of who wrote it — turning it off is what lets a run act on a record its own trigger's author could not see.

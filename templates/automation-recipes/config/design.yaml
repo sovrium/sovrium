@@ -112,13 +112,6 @@ typeScale:
     caption: { size: 0.75rem, lineHeight: 1.4, font: mono }
     overline: { size: 0.6875rem, lineHeight: 1.3, weight: 500, letterSpacing: 0.04em, font: mono }
 
-# The recipe declarations on the public page are code blocks; a light theme
-# keeps them on the page's own inset surface instead of a black slab, and the
-# dark scheme gets a dark one.
-codeBlock:
-  theme: github-light
-  darkTheme: github-dark
-
 # Standard corners: 4px for controls, 8px for cards, 12px for overlays.
 radius:
   sm: 0.25rem

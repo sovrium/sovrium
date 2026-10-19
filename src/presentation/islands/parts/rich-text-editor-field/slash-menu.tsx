@@ -28,6 +28,8 @@ export interface SlashMenuController {
 interface SlashMenuProps {
   readonly state: SlashMenuController
   readonly items: readonly SlashMenuItem[]
+  /** « No matches » in the page language (`richText.noMatches`). */
+  readonly emptyLabel?: string
 }
 
 /**
@@ -73,7 +75,7 @@ function SlashMenuEntry({
   )
 }
 
-export function SlashMenu({ state, items }: SlashMenuProps) {
+export function SlashMenu({ state, items, emptyLabel = 'No matches' }: SlashMenuProps) {
   if (!state.visible) return undefined
   const matches = items.filter((it) => it.label.toLowerCase().includes(state.query.toLowerCase()))
   return (
@@ -83,7 +85,7 @@ export function SlashMenu({ state, items }: SlashMenuProps) {
       className={computeRichTextSlashMenuClasses()}
     >
       {matches.length === 0 ? (
-        <div className={computeRichTextSlashEmptyClasses()}>No matches</div>
+        <div className={computeRichTextSlashEmptyClasses()}>{emptyLabel}</div>
       ) : (
         matches.map((it) => (
           <SlashMenuEntry

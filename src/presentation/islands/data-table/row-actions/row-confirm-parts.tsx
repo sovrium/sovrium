@@ -7,6 +7,7 @@
 
 import { Dialog } from '@base-ui/react/dialog'
 import { computePartButtonClasses } from '@/presentation/design/button-variant-classes'
+import { isDestructiveAction } from '@/presentation/design/confirm-weight'
 import {
   computeDialogDescriptionClasses,
   computeDialogFooterClasses,
@@ -66,7 +67,10 @@ export function GateHeader({ copy }: { readonly copy: GateCopy }): ReactElement 
   )
 }
 
-/** The `alert-dialog-footer` band: Cancel, then the action, locked until typed. */
+/**
+ * The `alert-dialog-footer` band: Cancel, then the action, locked until typed —
+ * red only when the action is destructive (`isDestructiveAction`).
+ */
 export function GateFooter({
   copy,
   action,
@@ -97,7 +101,9 @@ export function GateFooter({
         data-slot="alert-dialog-action"
         data-action-type={actionTypeAttr(action)}
         disabled={locked}
-        className={computePartButtonClasses({ variant: 'destructive' })}
+        className={computePartButtonClasses({
+          variant: isDestructiveAction(action.variant, action.action) ? 'destructive' : 'default',
+        })}
         onClick={onConfirm}
       >
         {copy.confirmLabel}

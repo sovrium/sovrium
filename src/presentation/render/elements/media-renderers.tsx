@@ -101,18 +101,47 @@ interface VideoTrack {
 }
 
 /**
+ * The second `props.start` names, or `undefined` when it names none. A
+ * `$record.<field>` was already substituted with the row's value, so a number
+ * written as text is read here too; anything else, a negative included, is no
+ * start at all.
+ */
+function startSecond(start: unknown): number | undefined {
+  const seconds = typeof start === 'string' && start.trim() !== '' ? Number(start) : start
+  return typeof seconds === 'number' && Number.isFinite(seconds) && seconds > 0
+    ? seconds
+    : undefined
+}
+
+/**
+ * A self-hosted file cued at `start`, through the media-fragment start every
+ * browser honours (`#t=<seconds>`): the player opens there, paused, before any
+ * script runs. An address that already carries a fragment is left as written.
+ */
+function withStartFragment(src: string | undefined, start: number | undefined): string | undefined {
+  if (src === undefined || start === undefined || src.includes('#')) return src
+  return `${src}#t=${start}`
+}
+
+/**
  * Detects a YouTube/Vimeo URL and returns its embed URL, or undefined for a
  * direct video file. YouTube `watch?v=` and `youtu.be/` and Vimeo `vimeo.com/`
- * URLs auto-convert to an iframe embed.
+ * URLs auto-convert to an iframe embed. A `start` second rides in each
+ * provider's own address: YouTube's `start=` query, Vimeo's `#t=<n>s`.
  */
-function toEmbedUrl(src: string | undefined): string | undefined {
+function toEmbedUrl(src: string | undefined, start: number | undefined): string | undefined {
   if (!src) return undefined
-  const youtubeWatch = src.match(/youtube\.com\/watch\?v=([\w-]+)/)
-  if (youtubeWatch) return `https://www.youtube.com/embed/${youtubeWatch[1]}`
-  const youtubeShort = src.match(/youtu\.be\/([\w-]+)/)
-  if (youtubeShort) return `https://www.youtube.com/embed/${youtubeShort[1]}`
+  const whole = start === undefined ? undefined : Math.floor(start)
+  const youtube = src.match(/youtube\.com\/watch\?v=([\w-]+)/) ?? src.match(/youtu\.be\/([\w-]+)/)
+  if (youtube) {
+    const query = whole === undefined ? '' : `?start=${whole}`
+    return `https://www.youtube.com/embed/${youtube[1]}${query}`
+  }
   const vimeo = src.match(/vimeo\.com\/(\d+)/)
-  if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`
+  if (vimeo) {
+    const fragment = whole === undefined ? '' : `#t=${whole}s`
+    return `https://player.vimeo.com/video/${vimeo[1]}${fragment}`
+  }
   return undefined
 }
 
@@ -121,7 +150,10 @@ function toEmbedUrl(src: string | undefined): string | undefined {
  *
  * - YouTube/Vimeo URLs auto-convert to an iframe embed.
  * - `autoplay` maps to React's `autoPlay`; `tracks[]` render as `<track>`
- *   children; non-DOM props (`aspectRatio`, `tracks`, `sources`) are stripped.
+ *   children; non-DOM props (`aspectRatio`, `tracks`, `sources`, `start`) are
+ *   stripped.
+ * - `start` cues the player at that second: in the embed's address, or in the
+ *   file's media fragment.
  */
 export function renderVideo(
   props: ElementProps,
@@ -133,6 +165,7 @@ export function renderVideo(
     tracks,
     sources: _sources,
     src,
+    start,
     ...rest
   } = omitInternalMarkers(props) as {
     autoplay?: boolean
@@ -140,10 +173,12 @@ export function renderVideo(
     tracks?: readonly VideoTrack[]
     sources?: unknown
     src?: string
+    start?: unknown
     [key: string]: unknown
   }
+  const startAt = startSecond(start)
 
-  const embedUrl = toEmbedUrl(src)
+  const embedUrl = toEmbedUrl(src, startAt)
   if (embedUrl) {
     return (
       <iframe
@@ -170,7 +205,7 @@ export function renderVideo(
   return (
     <video
       {...rest}
-      src={src}
+      src={withStartFragment(src, startAt)}
       autoPlay={autoplay}
       data-slot="video"
     >
@@ -181,15 +216,22 @@ export function renderVideo(
 }
 
 /**
- * Renders audio element
+ * Renders audio element. `start` cues the player at that second through the
+ * file's media fragment, and is never written onto the element.
  */
 export function renderAudio(
   props: ElementProps,
   children: readonly React.ReactNode[]
 ): ReactElement {
+  const { start, src, ...rest } = omitInternalMarkers(props) as {
+    start?: unknown
+    src?: string
+    [key: string]: unknown
+  }
   return (
     <audio
-      {...omitInternalMarkers(props)}
+      {...rest}
+      {...(src !== undefined && { src: withStartFragment(src, startSecond(start)) })}
       data-slot="audio"
     >
       {children}

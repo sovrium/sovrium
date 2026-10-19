@@ -51,6 +51,11 @@ type FieldAccessContext = {
   /** The caller's groups: a field read grant may name a group. */
   readonly userGroups: readonly string[]
   readonly c: Context
+  /**
+   * A field the reader's grants show her on every row she may read, though her
+   * own role does not (`fieldReadOnEveryAdmittedRow`): a figure may run over it.
+   */
+  readonly grantedField?: (field: string) => boolean
 }
 
 /**
@@ -253,7 +258,9 @@ export function validateAggregateParam(
 
   // A name the table does not have and a field the caller may not read get the
   // same 404 (S1), before the shape check below can tell them apart.
-  const inaccessibleField = aggregateFields.find((fieldName) => !canRead(access, fieldName))
+  const inaccessibleField = aggregateFields.find(
+    (fieldName) => !canRead(access, fieldName) && access.grantedField?.(fieldName) !== true
+  )
   if (unknownAggregateField(aggregateFields, access) !== undefined || inaccessibleField) {
     return fieldPermissionDenied(c)
   }

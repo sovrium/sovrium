@@ -24,24 +24,22 @@
  * definition is what makes the two engines agree; a second copy is how they stop
  * agreeing, silently, with a 500 on one and a 400 on the other.
  *
- * It opens a span, which a guard doing no I/O otherwise would not earn.
- * `Effect Span Census` fails any Effect-returning export under
- * `src/application/use-cases/**` that opens none, and it is right to: an export
- * is reachable, and a reachable Effect nobody can see in a trace is where time
- * goes missing. The alternative it offers — "stop exporting it" — is the one
- * thing this helper cannot do, because the three modules that raise the refusal
- * are exactly what the split created. The span is cheap and it is not useless:
- * when a composite-keyed table refuses, the trace now says so instead of
- * showing a 400 with no cause.
+ * It opens a span, which a guard doing no I/O otherwise would not earn:
+ * `Effect Span Census` fails any Effect-returning use-case export that opens
+ * none, and this one cannot stop being exported — the three modules that raise
+ * the refusal are what the split created. The span is cheap and not useless:
+ * a composite-keyed table's refusal shows in the trace, not as a bare 400.
  */
 
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import { buildAiComputeProjections } from '@/application/use-cases/ai-compute/status-projection'
 import { NotFoundError, ValidationError } from '@/domain/errors'
-import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
+import { filterFieldsReadableByAny } from '@/domain/models/app/tables/field-read-filter-service'
+import { callersOfRow, type RowGrants } from '@/domain/models/app/tables/row-read-admission-service'
 import { singleRecordAddressRefusal } from '@/domain/models/app/tables/single-record-address'
 import { enrichRecordWithAttachmentUrls } from './attachment-url-enricher'
+import { storedRowBlocks } from './disabled-controls-block'
 import {
   omitHiddenColumnLookups,
   omitHiddenLookups,
@@ -52,13 +50,10 @@ import { processRecords, applyPagination } from './list-helpers'
 import { lookupReadMasks } from './lookup-read-masks'
 import { preserveIdType } from './preserve-id-type'
 import { toDisplayFields } from './record-display-fields'
-import {
-  enrichRecordsWithRelatedLabels,
-  mergeManyToManyFields,
-  readManyToManyLinks,
-} from './record-link-enrichment'
+import { enrichRecordsWithRelatedLabels, mergeManyToManyFields } from './record-link-enrichment'
 import { transformRecord } from './record-transformer'
-import { writeOnlyBlock } from './write-only-presence'
+import { grantsForReadableRow } from './row-read-admission'
+import { readManyToManyLinks } from './to-many-link-reads'
 import type { TransformedRecord } from './record-transformer'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
@@ -175,6 +170,8 @@ interface GetRecordConfig {
 type RecordReaderConfig = Omit<GetRecordConfig, 'recordId' | 'includeDeleted' | 'admits'> & {
   /** Keep write-only values: an automation run nobody started, and no other reader. */
   readonly readsWriteOnly?: boolean
+  /** The rows a scope grant names, each read under the roles it gives as well. */
+  readonly grants?: RowGrants
 }
 
 /**
@@ -234,8 +231,10 @@ const transformForReader = (
 ) => {
   const { tableName, app, userRole } = config
   const caller = { role: userRole, groups: config.userGroups ?? [] }
-  const includeWriteOnly = config.readsWriteOnly
-  const filteredRecord = filterReadableFields({ app, tableName, caller, record, includeWriteOnly })
+  const filteredRecord = filterFieldsReadableByAny({
+    ...{ app, tableName, record, includeWriteOnly: config.readsWriteOnly },
+    callers: callersOfRow(caller, config.grants, record['id']),
+  })
   const transformedRaw = transformRecord(filteredRecord, {
     app,
     tableName,
@@ -254,7 +253,7 @@ const transformForReader = (
   // strings; only coerce when the value *looks* numeric. Avoids NaN for opaque
   // string ids.
   const id = preserveIdType(record['id'] as string | number)
-  return { transformed, fields, id, writeOnly: writeOnlyBlock({ ...config, record }) }
+  return { transformed, fields, id, writeOnly: storedRowBlocks({ ...config, record }) }
 }
 
 /** Assemble one records-API single-record answer from its already-read parts. */
@@ -264,7 +263,7 @@ const toGetRecordResponse = (parts: {
   readonly fields: Readonly<TransformedRecord['fields']>
   readonly aiCompute: unknown
   readonly display: unknown
-  readonly writeOnly: ReturnType<typeof writeOnlyBlock>
+  readonly writeOnly: ReturnType<typeof storedRowBlocks>
 }): GetRecordResponse => {
   const { id, transformed, fields, aiCompute, display } = parts
   // Fields at the root as flat aliases too (the same pattern as
@@ -367,7 +366,9 @@ export function createGetRecordProgram(
   return Effect.gen(function* () {
     yield* refuseWhenNoSingleIdAddress(config.app, config.tableName)
     const record = yield* readRawRecord(config)
-    const [shaped] = yield* shapeRecordsForReader(config, [record])
+    const reader = { session: config.session, role: config.userRole, groups: config.userGroups }
+    const grants = yield* grantsForReadableRow(config.app, config.tableName, reader, record['id'])
+    const [shaped] = yield* shapeRecordsForReader({ ...config, grants }, [record])
     // One row in, one record out — `shapeRecordsForReader` maps row for row.
     if (shaped === undefined) return yield* Effect.fail(new NotFoundError('Record not found'))
     return shaped

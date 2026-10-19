@@ -160,5 +160,10 @@ export class AdminAgentConversationsRepository extends Context.Service<
     readonly listMessages: (
       conversationId: string
     ) => Effect.Effect<readonly AdminAgentMessageRow[], AdminAgentConversationsDatabaseError>
+
+    /** How many conversations the agent holds, every person included. */
+    readonly countConversations: (
+      agentName: string
+    ) => Effect.Effect<number, AdminAgentConversationsDatabaseError>
   }
 >()('AdminAgentConversationsRepository') {}

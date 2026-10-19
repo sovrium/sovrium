@@ -55,15 +55,14 @@ const starterReadsChunk = (
     const access = yield* runReadAccess(app, automation, row.table)
     if (access.kind === 'system') return true
     if (access.kind === 'refused') return false
-    if (!chunkHoldsOnlyReadable(chunk.fields, (field) => access.scope.readsColumn(field))) {
-      return false
-    }
     const repo = yield* TableRepository
     const record = yield* repo.getRecord(buildGuestSession(), row.table, row.recordId).pipe(
       // effect-swallow: a row that cannot be read back cannot be judged, and is withheld from the starter rather than shown.
       Effect.orElseSucceed(() => undefined)
     )
-    return record !== undefined && record !== null && access.scope.admits(record)
+    if (record === undefined || record === null || !access.scope.admits(record)) return false
+    // Judged on the row: a grant on it may give the starter fields her own role does not read.
+    return chunkHoldsOnlyReadable(chunk.fields, (field) => access.scope.readsColumn(field, record))
   })
 
 /**

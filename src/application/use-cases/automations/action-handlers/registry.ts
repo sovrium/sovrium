@@ -32,7 +32,10 @@ import {
 import { handleAutomationCall, handleAutomationReturn } from './automation'
 import { handleBrowserRun } from './browser'
 import { handleBrowserAgent } from './browser-agent'
+import { handleCalendarImportIcs } from './calendar-import-ics'
 import { handleCodeRun } from './code'
+import { handleCommentCreate } from './comment'
+import { handleCommentDelete, handleCommentList } from './comment-thread'
 import { handleConnectionCall } from './connection'
 import { handleCryptoHash, handleCryptoHmac, handleCryptoSign, handleCryptoVerify } from './crypto'
 import {
@@ -74,17 +77,18 @@ import {
   handleFileExtractText,
   handleFileTransformImage,
 } from './file-advanced'
+import { handleFileExtractAudio } from './file-extract-audio'
 import {
   handleFileCopy,
   handleFileDelete,
   handleFileGetMetadata,
-  handleFileList,
   handleFileMove,
   handleFileSignUrl,
 } from './file-ops'
 import { handleDocumentGenerateXlsx, handleFileParseXlsx } from './file-xlsx'
 import { handleFilterContinue } from './filter'
 import { handleFlowStop } from './flow'
+import { gatedFileOperator } from './gated-file-operator'
 import {
   handleHttpDelete,
   handleHttpGet,
@@ -134,6 +138,7 @@ import { handleRecordBatchDelete } from './record-batch-delete'
 import { handleRecordUpsert } from './record-upsert'
 import { actionKey } from './shared'
 import { handleSovriumValidateBundle, handleSovriumValidateConfig } from './sovrium'
+import { gatedFileList } from './starter-file-list'
 import {
   handleStateDelete,
   handleStateGet,
@@ -165,6 +170,7 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
 >([
   ['browser/run', handleBrowserRun],
   ['browser/agent', handleBrowserAgent],
+  ['calendar/importIcs', handleCalendarImportIcs],
   ['code/runTypescript', handleCodeRun],
   ['connection/call', handleConnectionCall],
   ['crypto/hash', handleCryptoHash],
@@ -212,6 +218,9 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['auth/revokeAccess', handleAuthRevokeAccess],
   ['auth/listGrantees', handleAuthListGrantees],
   ['filter/continue', handleFilterContinue],
+  ['comment/create', handleCommentCreate],
+  ['comment/list', handleCommentList],
+  ['comment/delete', handleCommentDelete],
   ['record/create', handleRecordCreate],
   ['record/read', handleRecordRead],
   ['record/list', handleRecordList],
@@ -222,20 +231,21 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['record/batchUpdate', handleRecordBatchUpdate],
   ['record/batchDelete', handleRecordBatchDelete],
   ['record/batchUpsert', handleRecordBatchUpsert],
-  ['file/upload', handleFileUpload],
-  ['file/download', handleFileDownload],
-  ['file/parseCsv', handleFileParseCsv],
-  ['file/generateCsv', handleFileGenerateCsv],
-  ['file/parseXlsx', handleFileParseXlsx],
-  ['file/list', handleFileList],
-  ['file/getMetadata', handleFileGetMetadata],
-  ['file/move', handleFileMove],
-  ['file/copy', handleFileCopy],
-  ['file/delete', handleFileDelete],
-  ['file/signUrl', handleFileSignUrl],
-  ['file/compress', handleFileCompress],
-  ['file/extractText', handleFileExtractText],
-  ['file/transformImage', handleFileTransformImage],
+  ['file/upload', gatedFileOperator('upload', handleFileUpload)],
+  ['file/download', gatedFileOperator('download', handleFileDownload)],
+  ['file/parseCsv', gatedFileOperator('parseCsv', handleFileParseCsv)],
+  ['file/generateCsv', gatedFileOperator('generateCsv', handleFileGenerateCsv)],
+  ['file/parseXlsx', gatedFileOperator('parseXlsx', handleFileParseXlsx)],
+  ['file/list', gatedFileList],
+  ['file/getMetadata', gatedFileOperator('getMetadata', handleFileGetMetadata)],
+  ['file/move', gatedFileOperator('move', handleFileMove)],
+  ['file/copy', gatedFileOperator('copy', handleFileCopy)],
+  ['file/delete', gatedFileOperator('delete', handleFileDelete)],
+  ['file/signUrl', gatedFileOperator('signUrl', handleFileSignUrl)],
+  ['file/compress', gatedFileOperator('compress', handleFileCompress)],
+  ['file/extractText', gatedFileOperator('extractText', handleFileExtractText)],
+  ['file/transformImage', gatedFileOperator('transformImage', handleFileTransformImage)],
+  ['file/extractAudio', gatedFileOperator('extractAudio', handleFileExtractAudio)],
   ['document/generatePdf', handleDocumentGeneratePdf],
   ['document/generateImage', handleDocumentGenerateImage],
   ['document/generateDocx', handleDocumentGenerateDocx],

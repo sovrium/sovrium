@@ -7,6 +7,7 @@
 
 import { BACKUP_HELP_TEXT, RESTORE_HELP_TEXT } from './backup-help'
 import { CLOUD_COMMAND_HELP } from './cloud-help'
+import { DESIGN_SYSTEM_HELP_TEXT } from './design-system-help'
 import { REFERENCE_HELP } from './reference-help'
 import { RENDER_HELP_TEXT } from './render-help'
 import { SEED_HELP_TEXT } from './seed-help'
@@ -130,29 +131,6 @@ const TYPES_HELP_TEXT = [
   'Examples:',
   '  sovrium types                                 # Write both files into the cwd',
   '  sovrium types --output ./config               # Write them elsewhere',
-].join('\n')
-
-const DESIGN_SYSTEM_HELP_TEXT = [
-  'Usage: sovrium design-system [config] [options]',
-  '',
-  "Export the app's design system: its tokens, principles, voice and usage rules.",
-  '',
-  'Markdown is the default because the intended reader is an AI agent — write it',
-  'beside your config and reference it from CLAUDE.md so a generated page comes',
-  'out on-brand the first time. Runs offline: no server, no database.',
-  '',
-  'Arguments:',
-  '  config                        Path to config file (.json, .yaml, .yml, .ts)',
-  '',
-  'Options:',
-  '  --format <md|json>            md (default): an agent brief. json: a W3C DTCG document',
-  '  --output <path>               Write to a file instead of stdout (creates parent dirs)',
-  '  --help, -h                    Show this help message',
-  '',
-  'Examples:',
-  '  sovrium design-system app.ts                       # Print the brief',
-  '  sovrium design-system app.ts --output DESIGN.md    # Commit it beside the config',
-  '  sovrium design-system app.ts --format json         # DTCG tokens, for tooling',
 ].join('\n')
 
 const VALIDATE_HELP_TEXT = [

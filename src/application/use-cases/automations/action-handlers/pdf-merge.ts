@@ -73,7 +73,11 @@ const prepareInput = (input: FileRefItem, index: number, scope: FileRefScope) =>
     const position = `input #${index + 1}`
     const { file, pages } = inputParts(input.ref)
     const read = yield* resolveFileRef({ ...input, ref: file }, scope).pipe(
-      Effect.mapError((error) => new MergeInputError({ message: `${position}: ${error.message}` }))
+      Effect.mapError((error) =>
+        error.callerRefused === true
+          ? error
+          : new MergeInputError({ message: `${position}: ${error.message}` })
+      )
     )
     const pdf = yield* (yield* PdfToolkit)
       .load(read.bytes, index)

@@ -32,6 +32,7 @@
 
 import { Effect } from 'effect'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
+import { startedByHandBy } from '@/application/use-cases/automations/run-access'
 import {
   adminOnlyLinesOfSteps,
   stepWithoutAdminOnlyLines,
@@ -46,7 +47,8 @@ import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
-import { publishedNestedSteps, withheldStep } from './run-nested-steps'
+import { runErrorWithClientError, stepsWithClientErrors } from './run-client-error'
+import { nestedWithClientErrors, publishedNestedSteps, withheldStep } from './run-nested-steps'
 import { visibleStepCount, type JudgedRun, type JudgedStep } from './run-step-reach'
 import type { Reader } from './run-record-reach'
 import type {
@@ -59,7 +61,7 @@ import type { Context } from 'hono'
 /** Who reads a run: whoever started it or reads every run, as `access` says. */
 interface RunAccess {
   readonly readsEveryRun: boolean
-  readonly run: { readonly startedByHand: boolean; readonly triggeredByUserId: string | null }
+  readonly run: Pick<PersistedRun, 'startedByHand' | 'triggeredByUserId' | 'relay'>
 }
 
 /**
@@ -78,7 +80,7 @@ const callerOfRun = async (c: Context, app: App, access: RunAccess): Promise<Run
     c,
     Effect.all([getUserRole(userId), getUserGroups(userId), getUserAccessRoles(userId)])
   )
-  const startedItByHand = access.run.startedByHand && access.run.triggeredByUserId === userId
+  const startedItByHand = startedByHandBy(access.run, userId)
   if (isAdminEquivalent(role, app)) return 'whole'
   if (startedItByHand) return 'starter'
   return { role, groups, accessRoles, userId }
@@ -86,7 +88,13 @@ const callerOfRun = async (c: Context, app: App, access: RunAccess): Promise<Run
 
 /** A judged run whose steps also carry what they ran in a path or a loop, raw. */
 type ReadRun = Omit<JudgedRun, 'steps'> & {
-  readonly steps: ReadonlyArray<JudgedStep & { readonly nested?: unknown }>
+  readonly steps: ReadonlyArray<
+    JudgedStep & {
+      readonly nested?: unknown
+      readonly error?: string | null
+      readonly clientError?: string | null
+    }
+  >
 }
 
 /** A persisted run and its steps as the judgement reads them. */
@@ -102,6 +110,8 @@ export const judgedRunOf = (run: PersistedRun, steps: readonly PersistedStep[]):
     output: step.output,
     reads: step.reads,
     nested: step.nested,
+    error: step.error,
+    clientError: step.clientError,
   })),
 })
 
@@ -195,7 +205,10 @@ export const runsAsSeenByCaller = <
       const caller = await callerOfRun(c, app, { readsEveryRun: input.readsEveryRun, run })
       if (caller === 'whole') return body
       // A listed run carries no step output, but its own error may quote a line.
-      const painted = withRunErrorPainted(body, adminOnlyLinesOfRun(app, judged))
+      const painted = withRunErrorPainted(
+        runErrorWithClientError(body, judged.steps),
+        adminOnlyLinesOfRun(app, judged)
+      )
       // A starter's own trigger input is hers.
       if (caller === 'starter') return painted
       const verdict = await verdictFor(c, app, caller, judged)
@@ -222,7 +235,10 @@ interface RunDetailLike<T> {
  * each expanded person with the address masked (see the module header).
  */
 export const runDetailAsSeenByCaller = async <
-  T extends Parameters<typeof stepWithMaskedAddresses>[2] & { readonly logs?: unknown },
+  T extends Parameters<typeof stepWithMaskedAddresses>[2] & {
+    readonly logs?: unknown
+    readonly error?: string | null
+  },
   D extends RunDetailLike<T>,
 >(
   c: Context,
@@ -234,7 +250,10 @@ export const runDetailAsSeenByCaller = async <
   if (caller === 'whole') return detail
   const verdict = await verdictFor(c, app, caller, judged)
   const lines = adminOnlyLinesOfRun(app, judged)
-  const steps = detail.steps.map((step, index) =>
+  const painted = stepsWithClientErrors(detail.steps, judged.steps).map((step, index) =>
+    nestedWithClientErrors(step, judged.steps[index]?.nested)
+  )
+  const steps = painted.map((step, index) =>
     index < verdict.visibleSteps
       ? stepWithoutAdminOnlyLines(
           app,
@@ -245,7 +264,7 @@ export const runDetailAsSeenByCaller = async <
       : withheldStep(step)
   )
   return {
-    ...withRunErrorPainted(detail, lines),
+    ...withRunErrorPainted(runErrorWithClientError(detail, judged.steps), lines),
     steps,
     triggerData: triggerDataFor(app, { caller, verdict, judged }, detail.triggerData),
     ...(isWhole(verdict) ? {} : { error: null }),

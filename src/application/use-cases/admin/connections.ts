@@ -68,12 +68,37 @@ function expiryToIso(raw: Readonly<Date> | string | null | undefined): string | 
 }
 
 /**
+ * The `label` each declared connection gives itself, keyed by its `name` — the
+ * key a `system.connections` row shares with its `app.connections[]` entry.
+ * A connection declaring no label (or an empty one) is absent from the map.
+ */
+type DeclaredConnectionLabels = ReadonlyMap<string, string>
+
+/** No declared labels: every connection is named by `name · provider`. */
+const NO_DECLARED_LABELS: DeclaredConnectionLabels = new Map()
+
+/** Read the declared labels off `app.connections[]`. */
+function declaredLabelsOf(
+  connections: ReadonlyArray<{ readonly name: string; readonly label?: string }> | undefined
+): DeclaredConnectionLabels {
+  return new Map(
+    (connections ?? []).flatMap((connection) =>
+      connection.label === undefined || connection.label.length === 0
+        ? []
+        : [[connection.name, connection.label] as const]
+    )
+  )
+}
+
+/**
  * The connection named in one reading, for a console cell that shows one
- * field: `name · provider`, or the name alone when the two are the same word
+ * field: the `label` its configuration declares when it declares one;
+ * otherwise `name · provider`, or the name alone when the two are the same word
  * (compared without regard to case). Built from the configuration's own words,
  * so it does not depend on the operator's language.
  */
-function connectionLabel(name: string, provider: string): string {
+function connectionLabel(name: string, provider: string, declared: string | undefined): string {
+  if (declared !== undefined) return declared
   return name.toLowerCase() === provider.toLowerCase() ? name : `${name} · ${provider}`
 }
 
@@ -88,7 +113,8 @@ function connectionLabel(name: string, provider: string): string {
 function buildConnectionItem(
   row: Readonly<Record<string, unknown>>,
   tokens: readonly ConnectionUserSummary[],
-  appToken: Readonly<ConnectionAppTokenSummary> | undefined
+  appToken: Readonly<ConnectionAppTokenSummary> | undefined,
+  declaredLabels: DeclaredConnectionLabels
 ): ConnectionListItem {
   // The count is the UNION of the two stores, derived from which rows actually
   // exist rather than from the connection's declared `scope`. That matters:
@@ -112,7 +138,7 @@ function buildConnectionItem(
     id: String(row['id']),
     name,
     provider,
-    label: connectionLabel(name, provider),
+    label: connectionLabel(name, provider, declaredLabels.get(name)),
     type,
     tokenCount,
     expiresAt: soonestMs === null ? null : new Date(soonestMs).toISOString(),
@@ -150,37 +176,63 @@ export type ConnectionsListOutcome =
   | { readonly _tag: 'Ok'; readonly body: { readonly connections: readonly ConnectionListItem[] } }
   | { readonly _tag: 'ValidationFailed'; readonly error: unknown }
 
+/** The list build, naming each connection with `declaredLabels` where it has one. */
+const buildConnectionsList = (
+  declaredLabels: DeclaredConnectionLabels
+): Effect.Effect<
+  ConnectionsListOutcome,
+  ConnectionDatabaseError | ConnectionTokenDatabaseError,
+  ConnectionRepository | ConnectionTokenRepository
+> =>
+  Effect.gen(function* () {
+    const connRepo = yield* ConnectionRepository
+    const tokenRepo = yield* ConnectionTokenRepository
+
+    const rows = yield* connRepo.list
+
+    const connections = yield* Effect.forEach(rows, (row) =>
+      Effect.gen(function* () {
+        const connectionId = String(row['id'])
+        const tokens = yield* tokenRepo.listUsersForConnection({ connectionId })
+        const appToken = yield* tokenRepo.findAppSummary({ connectionId })
+        return buildConnectionItem(row, tokens, appToken, declaredLabels)
+      })
+    )
+
+    const body = { connections }
+    const parsed = decodeSafe(connectionsListResponseSchema)(body)
+    if (!parsed.success) {
+      return { _tag: 'ValidationFailed', error: parsed.error } as const
+    }
+    return { _tag: 'Ok', body: { connections: parsed.data.connections } } as const
+  })
+
 /**
  * Build the connection-list body. Reads every `system.connections` row, then
  * the per-connection token summary, projects to the allow-list, and validates
- * against the `.strict()` list schema.
+ * against the `.strict()` list schema. `declared` is the app's declared
+ * `app.connections[]`, read only for the `label` each entry declares.
+ */
+export const BuildConnectionsListFor = (
+  declared: ReadonlyArray<{ readonly name: string; readonly label?: string }> | undefined
+): Effect.Effect<
+  ConnectionsListOutcome,
+  ConnectionDatabaseError | ConnectionTokenDatabaseError,
+  ConnectionRepository | ConnectionTokenRepository
+> =>
+  buildConnectionsList(declaredLabelsOf(declared)).pipe(
+    Effect.withSpan('admin.build-connections-list-for')
+  )
+
+/**
+ * The connection-list body without the app's declared labels in hand, for the
+ * roll-ups that read it outside a request: each row is named `name · provider`.
  */
 export const BuildConnectionsList: Effect.Effect<
   ConnectionsListOutcome,
   ConnectionDatabaseError | ConnectionTokenDatabaseError,
   ConnectionRepository | ConnectionTokenRepository
-> = Effect.gen(function* () {
-  const connRepo = yield* ConnectionRepository
-  const tokenRepo = yield* ConnectionTokenRepository
-
-  const rows = yield* connRepo.list
-
-  const connections = yield* Effect.forEach(rows, (row) =>
-    Effect.gen(function* () {
-      const connectionId = String(row['id'])
-      const tokens = yield* tokenRepo.listUsersForConnection({ connectionId })
-      const appToken = yield* tokenRepo.findAppSummary({ connectionId })
-      return buildConnectionItem(row, tokens, appToken)
-    })
-  )
-
-  const body = { connections }
-  const parsed = decodeSafe(connectionsListResponseSchema)(body)
-  if (!parsed.success) {
-    return { _tag: 'ValidationFailed', error: parsed.error } as const
-  }
-  return { _tag: 'Ok', body: { connections: parsed.data.connections } } as const
-}).pipe(Effect.withSpan('admin.build-connections-list'))
+> = buildConnectionsList(NO_DECLARED_LABELS).pipe(Effect.withSpan('admin.build-connections-list'))
 
 // ─── Detail use case ──────────────────────────────────────────────────────────
 
@@ -208,7 +260,8 @@ export type ConnectionDetailOutcome =
  * connection header + token rows.
  */
 export const BuildConnectionDetail = (
-  id: string
+  id: string,
+  declared?: ReadonlyArray<{ readonly name: string; readonly label?: string }>
 ): Effect.Effect<
   ConnectionDetailOutcome,
   ConnectionDatabaseError | ConnectionTokenDatabaseError,
@@ -230,7 +283,7 @@ export const BuildConnectionDetail = (
       // The `tokens` roster stays per-user only: the shared credential has no
       // user, and inventing one would put a userId in the roster that names
       // nobody. It still contributes to the header's `tokenCount`/`status`.
-      connection: buildConnectionItem(row, summaries, appToken),
+      connection: buildConnectionItem(row, summaries, appToken, declaredLabelsOf(declared)),
       tokens: summaries.map((summary) => buildUserToken(summary)),
     }
 

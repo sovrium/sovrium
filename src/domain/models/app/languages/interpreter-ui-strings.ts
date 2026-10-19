@@ -6,6 +6,7 @@
  */
 
 import { COMPONENT_UI_STRINGS } from './interpreter-ui-strings-components'
+import { FILTER_BAR_UI_STRINGS } from './interpreter-ui-strings-filter-bar'
 
 /**
  * Built-in catalog of INTERPRETER-provided UI strings — chrome Sovrium renders
@@ -106,6 +107,8 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   'datatable.rowHeight.extraTall': { en: 'Extra tall', fr: 'Très haute' },
   /** What a data component narrowed by a control on the page announces; `{count}` is how many it shows. */
   'sharedFilter.resultCount': { en: '{count} records', fr: '{count} enregistrements' },
+  /** The same count when it is one. */
+  'sharedFilter.resultCountOne': { en: '{count} record', fr: '{count} enregistrement' },
   /** Announced while the grid's records read is in flight. */
   'datatable.loading': { en: 'Loading records', fr: 'Chargement des enregistrements' },
   /** A records read that failed (any status but 401 and 429), above its Retry. */
@@ -168,33 +171,8 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   /** The status name of the placeholder a grid shows before it mounts. */
   'datatable.loadingTable': { en: 'Loading data table...', fr: 'Chargement du tableau…' },
 
-  // ---- Filter bar ----
-  /** The add control and the condition builder it opens. */
-  'filterBar.addFilter': { en: 'Add filter', fr: 'Ajouter un filtre' },
-  /** A chip's remove button; `{field}` is the filtered field's label. */
-  'filterBar.removeFilter': { en: 'Remove {field} filter', fr: 'Retirer le filtre {field}' },
-  /** An operator's words; a comparison's key carries its field kind (`date.gt` "is after"). */
-  'filterBar.operator.eq': { en: 'is', fr: 'est' },
-  'filterBar.operator.neq': { en: 'is not', fr: 'n’est pas' },
-  'filterBar.operator.contains': { en: 'contains', fr: 'contient' },
-  'filterBar.operator.startsWith': { en: 'starts with', fr: 'commence par' },
-  'filterBar.operator.in': { en: 'is any of', fr: 'est l’un de' },
-  'filterBar.operator.between': { en: 'is between', fr: 'est entre' },
-  'filterBar.operator.number.gt': { en: 'is greater than', fr: 'est supérieur à' },
-  'filterBar.operator.number.lt': { en: 'is less than', fr: 'est inférieur à' },
-  'filterBar.operator.number.gte': { en: 'is at least', fr: 'est au moins' },
-  'filterBar.operator.number.lte': { en: 'is at most', fr: 'est au plus' },
-  'filterBar.operator.date.gt': { en: 'is after', fr: 'est après le' },
-  'filterBar.operator.date.lt': { en: 'is before', fr: 'est avant le' },
-  'filterBar.operator.date.gte': { en: 'is on or after', fr: 'est à partir du' },
-  'filterBar.operator.date.lte': { en: 'is on or before', fr: 'est jusqu’au' },
-  /** A `between` chip's value, and the names of the builder's two ends. */
-  'filterBar.range': { en: '{from} and {to}', fr: '{from} et {to}' },
-  'filterBar.from': { en: 'From', fr: 'De' },
-  'filterBar.to': { en: 'To', fr: 'À' },
-  /** The builder's commit, and its value control's name; `{field}` is the field's label. */
-  'filterBar.apply': { en: 'Apply', fr: 'Appliquer' },
-  'filterBar.value': { en: '{field} value', fr: 'Valeur de {field}' },
+  // ---- Filter bar: `interpreter-ui-strings-filter-bar.ts` ----
+  ...FILTER_BAR_UI_STRINGS,
 
   // ---- Loading states: the status name of a component's placeholder ----
   'kpi.loading': { en: 'Loading KPI...', fr: 'Chargement de l’indicateur…' },
@@ -225,8 +203,8 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
     fr: 'Il manque la liaison dataSource.table à cet indicateur.',
   },
   'chart.loadFailed': {
-    en: 'Failed to load chart records: {error}',
-    fr: 'Impossible de charger les données du graphique : {error}',
+    en: 'Couldn’t load the chart.',
+    fr: 'Impossible de charger le graphique.',
   },
   'chart.missingTable': {
     en: 'Chart is missing a dataSource.table binding.',
@@ -439,24 +417,8 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   },
   /** The relationship picker's clear control. */
   'recordDrawer.clearRelation': { en: 'Clear {label}', fr: 'Effacer {label}' },
-  /** A sheet's navigation: the step back through the list that opened it. */
-  'recordDrawer.previous': { en: 'Previous', fr: 'Précédent' },
-  /** A sheet's navigation: the step forward. */
-  'recordDrawer.next': { en: 'Next', fr: 'Suivant' },
-  /** A sheet's navigation: the link to the record's own page. */
-  'recordDrawer.openFullPage': { en: 'Open full page', fr: 'Ouvrir la page complète' },
-  /** The name a sheet's navigation landmark is announced by. */
-  'recordDrawer.navigation': {
-    en: 'Record navigation',
-    fr: 'Navigation entre les enregistrements',
-  },
   /** The name of the banner a sheet shows when it refuses a save. */
   'recordDrawer.validationError': { en: 'Validation error', fr: 'Erreur de validation' },
-  /** A sheet's tabs: the record's fields, its history, its thread and who holds it. */
-  'recordDrawer.tabDetails': { en: 'Details', fr: 'Détails' },
-  'recordDrawer.tabActivity': { en: 'Activity', fr: 'Activité' },
-  'recordDrawer.tabComments': { en: 'Comments', fr: 'Commentaires' },
-  'recordDrawer.tabAccess': { en: 'Access', fr: 'Accès' },
   /** The header control that copies the record's address. */
   'recordDrawer.copyLink': { en: 'Copy link', fr: 'Copier le lien' },
   /** The header menu holding the record's export and delete. */

@@ -26,12 +26,12 @@ import { renderCollapsibleGroup } from './sidebar-collapsible-group'
 import {
   disclosureListId,
   isExpandable,
-  railFlag,
   renderDisclosureEntry,
   renderEntry,
   type SidebarI18n,
 } from './sidebar-entry'
 import { renderSidebarAction } from './sidebar-shell-parts'
+import { renderSourcedEntries } from './sidebar-sourced-entries'
 import type { SidebarGroup } from '@/domain/models/app/pages/components/component-types/layout/sidebar'
 import type { SidebarAction } from '@/domain/models/app/pages/components/component-types/layout/sidebar-shell'
 
@@ -115,7 +115,8 @@ function renderGroupEntries(group: SidebarGroup, ctx: RunContext): ReactElement 
           ))}
         </ul>
       )}
-      {group.source !== undefined && renderSourcedEntries(group.source, group.label, rail)}
+      {group.source !== undefined &&
+        renderSourcedEntries(group.source, group.label, { rail, i18n, trackNavigation })}
     </>
   )
 }
@@ -342,56 +343,5 @@ function renderNamedRun(run: LandmarkRun, index: number, ctx: RunContext): React
         )
       )}
     </nav>
-  )
-}
-
-/**
- * The island host for a group's FETCHED entries.
- *
- * Only the fetched half is islanded, and that is the whole design. The authored
- * entries above stay server-rendered, so they work without JavaScript, keep
- * their icons out of the client bundle, and — because an island REPLACES the
- * SSR children it mounts over — cannot be duplicated or dropped by the mount.
- * Document order then gives the spec's guarantee for free: authored first,
- * fetched after.
- *
- * The props carry only what the fetch needs. The endpoint has already had any
- * `:param` substituted server-side (`bindRouteParams`), so the island never
- * sees a route placeholder it could not resolve.
- *
- * `query` travels as its OWN prop rather than pre-appended to the endpoint here,
- * because that is the encoding every other system-source consumer already uses:
- * the KPI and chart reads hand `{ endpoint, query }` to `buildSystemQueryUrl`
- * and let one helper own the merge. Folding it into the path server-side would
- * give this one binding a second spelling of a shape the schema shares.
- */
-function renderSourcedEntries(
-  source: NonNullable<SidebarGroup['source']>,
-  label: string | undefined,
-  rail: SidebarRailBreakpoint | undefined
-): ReactElement {
-  return (
-    <div
-      data-island="sidebar-groups"
-      data-island-props={JSON.stringify({
-        endpoint: source.endpoint,
-        // The row rules reach these rows from the navigation root; the TOOLTIP
-        // cannot, because it is an attribute rather than a paint. A fetched row
-        // is the one a rail most needs it on — its label is the only thing
-        // naming it, and the endpoint decides what that label says.
-        ...railFlag(rail),
-        rowsKey: source.rowsKey ?? 'items',
-        labelKey: source.labelKey,
-        hrefTemplate: source.hrefTemplate,
-        ...(source.itemProps === undefined ? {} : { itemProps: source.itemProps }),
-        ...(source.query === undefined ? {} : { query: source.query }),
-      })}
-      // A label-less group names nothing, so this is the empty string rather
-      // than `undefined`: React omits an undefined attribute entirely, which
-      // would leave a FETCHED label-less group's island host with no addressing
-      // hook at all. `[data-sidebar-source]` still finds it; only
-      // `[data-sidebar-source="Data"]` cannot, and there is no name to match.
-      data-sidebar-source={label ?? ''}
-    />
   )
 }

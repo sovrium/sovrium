@@ -15,7 +15,6 @@
 
 import { readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import typography from '@tailwindcss/typography'
 import { Effect } from 'effect'
 import { __unstable__loadDesignSystem, compile, type Polyfills } from 'tailwindcss'
 import { loadSchemaFromFile } from '@/infrastructure/config/file-loader'
@@ -65,17 +64,14 @@ const compileOptions = () => ({
       ? Promise.reject(new Error(`unknown @import '${id}'`))
       : Promise.resolve({ path: id, base: '/', content: read() })
   },
-  loadModule: (id: string) =>
-    id === '@tailwindcss/typography'
-      ? Promise.resolve({ path: id, base: '/', module: typography })
-      : Promise.reject(new Error(`unknown @plugin '${id}'`)),
+  loadModule: (id: string) => Promise.reject(new Error(`unknown @plugin '${id}'`)),
 })
 
 type CompileOptions = NonNullable<Parameters<typeof compile>[1]>
 
 /** The source CSS the runtime builds for a design (dark code-block palette included). */
 export const sourceCssFor = async (design: App['design'] | undefined): Promise<string> => {
-  const palette = await Effect.runPromise(loadCodeBlockDarkPalette(design))
+  const palette = await Effect.runPromise(loadCodeBlockDarkPalette)
   return buildSourceCSS(design === undefined ? undefined : ({ design } as App), palette)
 }
 

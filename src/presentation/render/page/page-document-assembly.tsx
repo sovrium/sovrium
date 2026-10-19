@@ -32,6 +32,10 @@ import { ClientScriptPathsContext } from '@/presentation/render/page/client-scri
 import { hasCommandPaletteHost } from '@/presentation/render/page/command-palette-capture'
 import { DynamicPage } from '@/presentation/render/page/dynamic-page'
 import {
+  HeadReferencesContext,
+  type HeadReferences,
+} from '@/presentation/render/page/head-references'
+import {
   CORE_RUNTIME_FEATURES,
   hasInteractiveFeatures,
 } from '@/presentation/render/page/page-interactivity'
@@ -308,6 +312,21 @@ interface RenderPageHtmlInput {
    * override.
    */
   readonly appComponents: App['components']
+  /**
+   * The app whose accounts this page signs in or changes — the operator's own
+   * app on a mounted surface (the console), absent on an app's own page. Its
+   * password policy is the one the server enforces, so it is the number a
+   * new-password field states.
+   */
+  readonly hostApp?: App
+  /** This request's `$app.*` / `$param.*` substitution for the head (`head-references.ts`). */
+  readonly headReferences?: HeadReferences
+  /**
+   * `false` draws no demo notice whatever the environment says: a design-system
+   * frame pictures the operator's template, and a panel the hosting instance
+   * pins over it would hide the very component a reader came to review.
+   */
+  readonly demoNotice?: false | undefined
 }
 
 /**
@@ -337,38 +356,44 @@ export function renderPageHtml(input: RenderPageHtmlInput): string {
     session,
     appComponents,
   } = input
+  const policyApp = input.hostApp ?? app
   const injectAnalytics = shouldInjectAnalytics(app.analytics, page.path)
   const sessionTimeout = extractSessionTimeout(app.analytics)
+  const head = input.headReferences ?? ((text: string) => text)
   const html = renderToString(
     <ClientScriptPathsContext.Provider value={clientScriptPaths}>
-      <DynamicPage
-        // Every form states the app's password minimum under a new password.
-        page={stampPasswordMinLength(page, app)}
-        badgePlacement={resolveBadge(app.badge)}
-        demoNoticeEnabled={!isOperatorConsoleApp(app)}
-        components={stampPasswordMinLength(appComponents, app)}
-        // One position, `app.design`, with no fallback to an alias: the no-FOUC
-        // colour-scheme bootstrap reads its tokens from here, and without them
-        // the dark cascade — a class on `<html>`, not a media query — would be
-        // unreachable.
-        design={app.design}
-        languages={app.languages}
-        tables={app.tables}
-        buckets={app.buckets}
-        landingPath={app.auth?.landingPath}
-        detectedLanguage={detectedLanguage}
-        urlLanguage={urlLanguage}
-        routeParams={routeParams}
-        builtInAnalyticsEnabled={injectAnalytics}
-        builtInAnalyticsSessionTimeout={sessionTimeout}
-        islandEntryFile={islandEntryFile}
-        islandPreloadHrefs={islandPreloadHrefs}
-        resolvedSidebar={resolvedSidebar}
-        markdownPayload={markdownPayload}
-        session={session}
-        cssHref={getVersionedCssPath(app)}
-        feedTitle={resolveFeedTitle(app, page)}
-      />
+      <HeadReferencesContext.Provider value={head}>
+        <DynamicPage
+          // Every form states the app's password minimum under a new password.
+          page={stampPasswordMinLength(page, policyApp)}
+          badgePlacement={resolveBadge(app.badge)}
+          demoNoticeEnabled={input.demoNotice !== false && !isOperatorConsoleApp(app)}
+          components={stampPasswordMinLength(appComponents, policyApp)}
+          // One position, `app.design`, with no fallback to an alias: the no-FOUC
+          // colour-scheme bootstrap reads its tokens from here, and without them
+          // the dark cascade — a class on `<html>`, not a media query — would be
+          // unreachable.
+          design={app.design}
+          languages={app.languages}
+          tables={app.tables}
+          // The buckets of the app whose files the page shows: on a mounted
+          // console, the operator's, so an upload states what its bucket takes.
+          buckets={policyApp.buckets}
+          landingPath={app.auth?.landingPath}
+          detectedLanguage={detectedLanguage}
+          urlLanguage={urlLanguage}
+          routeParams={routeParams}
+          builtInAnalyticsEnabled={injectAnalytics}
+          builtInAnalyticsSessionTimeout={sessionTimeout}
+          islandEntryFile={islandEntryFile}
+          islandPreloadHrefs={islandPreloadHrefs}
+          resolvedSidebar={resolvedSidebar}
+          markdownPayload={markdownPayload}
+          session={session}
+          cssHref={getVersionedCssPath(app)}
+          feedTitle={resolveFeedTitle(app, page)}
+        />
+      </HeadReferencesContext.Provider>
     </ClientScriptPathsContext.Provider>
   )
   return `<!DOCTYPE html>\n${html}`

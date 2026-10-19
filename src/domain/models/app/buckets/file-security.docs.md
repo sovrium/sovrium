@@ -40,6 +40,8 @@ buckets:
 
 Omitting the property accepts everything. That is fine for an internal bucket and reckless for one any authenticated user can write to — an allow-list is the cheapest control here, and the only one that expresses **intent** rather than merely blocking an attack.
 
+A path you choose is held to the list too. When the bucket declares `allowedMimeTypes`, the type an explicit `path` names by its extension — `quotes/quote-0142.pdf` names a PDF — must be one the list allows; a path whose extension names another type, or none, is refused with `400` before anything is stored. The same holds for the `path` of a signed upload, which is the key it creates. A bucket that declares no list takes any key.
+
 ### The type is the client's claim, not a fact
 
 It comes from the browser's multipart part header, and nothing re-derives it from the bytes. A PDF allow-list stops an accidental upload and a lazy attacker; it does not stop a deliberate one from labelling arbitrary bytes as a PDF.

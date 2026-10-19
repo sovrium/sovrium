@@ -13,6 +13,7 @@ import {
   rowRuleScopeOf,
   toSessionProjection,
 } from '@/application/use-cases/tables/permissions/row-level-enforcement'
+import { isSystemSession } from '@/domain/models/app/auth/guest-session'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
 import {
@@ -20,6 +21,7 @@ import {
   type TriggerOfType,
 } from '@/domain/models/app/automations/trigger-entries-service'
 import { createdByFieldNames } from '@/domain/models/app/tables/authorship-fields'
+import { commentTableKeysOf } from '@/domain/models/app/tables/comment-address-service'
 import { evaluateRecordAgainstPredicate } from '@/domain/models/app/tables/row-level-evaluator-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
 import { logError } from '@/infrastructure/logging/logger'
@@ -74,13 +76,12 @@ export interface TriggerCommentEventInput {
      */
     readonly status: 'pending' | 'approved' | 'rejected'
   }
-  readonly author: {
-    readonly id: string
-    readonly email: string
-    readonly name: string
-  }
+  /** `null` for a comment the app wrote (an automation's `runAs: system`): no author account. */
+  readonly author: { readonly id: string; readonly email: string; readonly name: string } | null
   readonly mentions: readonly string[]
   readonly processEnv: Readonly<Record<string, string | undefined>>
+  /** How many automation writes deep the comment was written; omitted means 0 (a person's post). */
+  readonly depth?: number
 }
 
 /**
@@ -158,12 +159,19 @@ const resolveOwnerFallbackEmails = (
     return [emailResult.success]
   })
 
+/** Every key the thread's comments may be stored under: the posted one, the table's id and name. */
+const threadTableKeysOf = (input: TriggerCommentEventInput): readonly string[] => {
+  const table = input.app.tables?.find((candidate) => candidate.name === input.tableName)
+  return table === undefined ? [input.tableId] : commentTableKeysOf(table, input.tableId)
+}
+
 /**
  * Resolve `threadParticipants` for the just-posted comment.
  *
  * Distinct EMAIL ADDRESSES of all (non-soft-deleted) comment authors on the
  * same record OF THE SAME TABLE, minus the new author — usable directly as an
- * `email.send` `to`. The thread is keyed on `(tableId, recordId)`: record ids
+ * `email.send` `to`. The thread is keyed on `(table, recordId)`, under every
+ * key of the table (a comment keeps the id or name it was posted by): record ids
  * are per-table sequences, so a record-only lookup would notify the
  * commenters of every same-numbered record in the app. When the resolved list is empty (a first comment), falls back to the
  * record OWNER's email so a notify-thread automation still has a recipient.
@@ -173,16 +181,16 @@ const resolveOwnerFallbackEmails = (
 const resolveThreadParticipants = (params: {
   readonly session: Readonly<UserSession>
   readonly record: Readonly<Record<string, unknown>>
-  readonly tableId: string
+  readonly tableKeys: readonly string[]
   readonly recordId: string
   readonly newAuthorId: string
   readonly createdByNames: readonly string[]
 }): Effect.Effect<readonly string[], never, CommentRepository> =>
   Effect.gen(function* () {
-    const { session, record, tableId, recordId, newAuthorId, createdByNames } = params
+    const { session, record, tableKeys, recordId, newAuthorId, createdByNames } = params
     const comments = yield* CommentRepository
     const authorsResult = yield* Effect.result(
-      comments.listAuthorEmailsForRecord({ session, tableId, recordId })
+      comments.listAuthorEmailsForRecord({ session, tableKeys, recordId })
     )
     const priorEmails =
       authorsResult._tag === 'Failure'
@@ -248,24 +256,15 @@ const buildCommentTriggerData = (
   threadParticipants: readonly string[],
   mentionedEmails: readonly string[]
 ): TriggerData => {
-  // Bridge from the create handler's `status` field to the auth-event-style
-  // `event` discriminator surfaced at `{{trigger.data.event}}`. A
-  // moderation-pipeline insert that arrives `'approved'` upfront fires the
-  // `'created'` lifecycle (PG-02 lock — auto-mode comments are
-  // approved-on-insert). Once `'pending'` flips to `'approved'` later, the
-  // moderation pipeline will dispatch a separate `'approved'` event; that
-  // hook lives outside this use case.
+  // The `{{trigger.data.event}}` discriminator: an insert that lands approved is
+  // `'approved'`; a later moderation flip dispatches its own event elsewhere.
   const event = input.comment.status === 'approved' ? 'approved' : 'created'
   const envelope = {
     record,
     comment: {
       id: input.comment.id,
       body: input.comment.body,
-      // Echo the wire-format key the create-comment handler surfaces in its
-      // 201 response (`comment.content`) so templates can use either path —
-      // `{{trigger.comment.body}}` or `{{trigger.comment.content}}` — and
-      // resolve to the same string. Avoids action-template churn when an
-      // operator copies a YAML snippet authored against the API response.
+      // The create response's key too, so `{{trigger.comment.content}}` reads the same.
       content: input.comment.body,
       parentCommentId: input.comment.parentCommentId,
       createdAt: input.comment.createdAt.toISOString(),
@@ -310,7 +309,7 @@ const passesReadPermissionGate = (input: {
   readonly respectReadPermissions: boolean | undefined
 }): Effect.Effect<boolean, never, DataSourceRepository | AuthRepository> =>
   Effect.gen(function* () {
-    if (input.respectReadPermissions !== true) return true
+    if (input.respectReadPermissions !== true || isSystemSession(input.session.userId)) return true
     const predicate = input.table?.rowLevelPermissions?.read?.when
     if (!predicate) return true
     const isUnrestricted = isAdminEquivalent(input.userRole, input.app)
@@ -379,7 +378,8 @@ const dispatchSingleCommentAutomation = (params: {
       app: input.app,
       processEnv: input.processEnv,
       triggerData,
-      userId: input.author.id,
+      userId: input.author?.id,
+      ...(input.depth === undefined ? {} : { recordEventDepth: input.depth }),
     })
   })
 
@@ -403,15 +403,15 @@ const buildEnvelopeForComment = (
     const threadParticipants = yield* resolveThreadParticipants({
       session: input.session,
       record,
-      tableId: input.tableId,
+      tableKeys: threadTableKeysOf(input),
       recordId: input.recordId,
-      newAuthorId: input.author.id,
+      newAuthorId: input.author?.id ?? '',
       createdByNames,
     })
     const mentionedEmails = yield* resolveMentionedEmails({
       session: input.session,
       mentions: input.mentions,
-      newAuthorId: input.author.id,
+      newAuthorId: input.author?.id ?? '',
     })
     return buildCommentTriggerData(input, record, threadParticipants, mentionedEmails)
   })

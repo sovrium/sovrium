@@ -6,7 +6,7 @@
  */
 
 import { Effect, Layer, Option, Stream } from 'effect'
-import { LanguageModel } from 'effect/ai'
+import * as LanguageModel from 'effect/ai/LanguageModel'
 import {
   AiService,
   AiConfigError,

@@ -20,6 +20,7 @@
 
 import { redactBoundQueryValues } from '@/domain/kernel/sanitize/bound-value-redaction'
 import { type ActionOutcome } from '../action-handlers'
+import { CALLER_REFUSAL } from '../action-handlers/record-caller-gate'
 import { redactSecretsForRunHistory } from '../redact-secrets'
 import { readActionIdentity } from './action-identity'
 import { redactedReads } from './read-tracker'
@@ -83,12 +84,30 @@ const redactRecord = (
   >
 
 /**
- * The status a step records. `'skipped'` is only ever set by the run loop's
- * `buildSkippedStep`; a loop or a path the run parked inside records
- * `'waiting'` until the run resumes and completes its row.
+ * The error a reader who does not read every run is shown instead of the
+ * step's own: a hand-started write the database refused because another record
+ * holds the value reads as any other refused write, whether or not its starter
+ * may read that record. The operator keeps the write's own failure.
+ */
+const clientErrorOf = (
+  outcome: ActionOutcome,
+  ctx: Pick<StepContext, 'automation'>
+): { readonly clientError?: string } =>
+  outcome.status === 'failure' &&
+  outcome.refusedWrite?.unique === true &&
+  ctx.automation.startedByHand === true
+    ? { clientError: CALLER_REFUSAL }
+    : {}
+
+/**
+ * The status a step records. `'skipped'` is set by the run loop's
+ * `buildSkippedStep`, and by an action that halted because its connection is
+ * not configured; a loop or a path the run parked inside records `'waiting'`
+ * until the run resumes and completes its row.
  */
 const stepStatusOf = (outcome: ActionOutcome): ExecutedStep['status'] => {
   if (outcome.status === 'failure') return 'failure'
+  if (outcome.unconfigured !== undefined) return 'skipped'
   if (outcome.status === 'filtered') return 'filtered'
   return outcome.park?.container === undefined ? 'success' : 'waiting'
 }
@@ -147,6 +166,7 @@ export const buildStep = (
       ...(outcome.error !== undefined
         ? { error: redactString(outcome.error, ctx.app, ctx.processEnv) }
         : {}),
+      ...clientErrorOf(outcome, ctx),
       props: redactedProps,
       ...(outcome.output !== undefined
         ? { output: redactRecord(maskSecretOutput(identity, outcome.output), ctx) }

@@ -193,6 +193,43 @@ export const usageRouteRowSchema = Schema.Struct({
 })
 
 /**
+ * One `$` variable a template reads — a row of its page's props table.
+ *
+ * A template's words are often all variables (`$label`, `$value`), so the one
+ * page whose job is to show what the template looks like and takes has to say
+ * which variables it reads, what kind of node each one fills, and what it
+ * would print. A config page cannot walk a component tree to find them, so the
+ * read publishes them as rows a top-level table binds.
+ *
+ * `sample` is the value the FIRST page in `pages[]` declaration order supplies
+ * through `{ component, vars }`. A variable no page supplies samples as its own
+ * name without the `$`, so a sample is never empty and never a placeholder.
+ */
+export const usagePropRowSchema = Schema.Struct({
+  name: Schema.String.annotate({
+    description: 'The template this variable belongs to — the join key back to `items`',
+    examples: ['kpi-card'],
+  }),
+  prop: Schema.String.annotate({
+    description: 'The variable as an author writes it in `vars`, without the `$`',
+    examples: ['label'],
+  }),
+  type: Schema.String.annotate({
+    description: 'The component type of the node the variable fills',
+    examples: ['text', 'button'],
+  }),
+  sample: Schema.String.annotate({
+    description:
+      'The value the first page in declaration order supplies for this variable; the variable’s own name, without the `$`, when no page supplies one',
+    examples: ['Projects delivered in 2026'],
+  }),
+}).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  identifier: 'UsagePropRow',
+})
+
+/**
  * The query a usage read carries.
  *
  * `name` narrows to one row for the per-type page. Omitted, the read answers
@@ -256,6 +293,15 @@ export const usageResponseSchema = Schema.Struct({
   // `visibility.record`, which names ONE flat field and compares it with a
   // literal. Hence five flat integers rather than a map: `$record.` walks no
   // path. Each counts `items` by `kind`, so the five sum to `total`.
+  // The `$` variables each template of this response reads, in the order the
+  // template reads them — the rows a component page's props table binds.
+  // OPTIONAL: absent on a `type` read, where there is no template to read.
+  propRows: optionalField(
+    Schema.Array(usagePropRowSchema).annotate({
+      description:
+        'One row per (template, `$` variable) in this response, in the order each template reads its variables — the rows a component page’s props table binds. Absent on a `type` read; empty for a template reading no variable.',
+    })
+  ),
   pageSectionCount: usageKindCount('page-section'),
   cardCount: usageKindCount('card'),
   formCount: usageKindCount('form'),

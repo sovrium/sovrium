@@ -12,14 +12,18 @@ action: { action: openImport, table: orders }
 
 ## CSV import
 
-Import is a **wizard in the grid** over one named route. The file is parsed in the browser, previewed and mapped, then sent to `POST /api/tables/:tableId/records/import` in chunks of up to 100 rows. A script can post to the same route.
+Import is a **three-step wizard** — File, Columns, Check — over one named route. The file is parsed in the browser, previewed and mapped, then sent to `POST /api/tables/:tableId/records/import` in chunks of up to 100 rows. A script can post to the same route.
 
-| Step               | What happens                                                                             | Underlying request                         |
-| ------------------ | ---------------------------------------------------------------------------------------- | ------------------------------------------ |
-| Upload             | A `.csv` is parsed in the browser and the first ten rows previewed with their columns    | none                                       |
-| Mapping            | Each column is auto-matched to a field by header name; unmatched columns default to skip | none                                       |
-| Duplicate handling | A unique field is chosen, plus skip, overwrite or create                                 | none                                       |
-| Import             | Rows are written and a summary reports created, updated, skipped and failed separately   | `POST /records/import`, one call per chunk |
+| Step    | What happens                                                                                                                                                                          | Underlying request                         |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| File    | A `.csv` is parsed in the browser; the wizard names the file, its row count and the separator it found (`,`, `;` or a tab, read off the header line), and previews the first ten rows | none                                       |
+| Columns | A table lists each CSV column, its first value, the field it goes into (auto-matched, else skipped) and how that field reads it, such as `Currency · EUR` or `Single select`          | none                                       |
+| Check   | A unique field is chosen, plus skip, overwrite or create                                                                                                                              | none                                       |
+| Import  | Rows are written and a summary reports created, updated, skipped and failed separately                                                                                                | `POST /records/import`, one call per chunk |
+
+A column is matched to a field when its header is the field's name, or the field's `label` in any language the app declares — a `$t:` label is read in every language under `languages.translations`, so a spreadsheet kept in French maps onto an app whose page is read in English. Failing that, it goes to the field whose name shares the most words with the header. Every comparison ignores case and accents, so `NUMERO`, `Numero` and `numéro` all match a field labelled `Numéro`. A column that matches nothing stays on Skip, and any choice can be changed by hand before the import.
+
+A column going into a single-select or status field whose values are not all among the field's options lists each unknown value with a choice of the field's options: the record stores the option chosen, never the spreadsheet's word. A value is matched before you see it to the option it spells — its value first, then its label in any language the app declares, so `Signé` finds the option whose French label is « Signé » even on a page read in English — ignoring case and accents, so `envoye` matches `Envoyé`. The options are named in the page language, and a value left on "Leave empty" leaves the field empty. The wizard's words follow the page language, and an author renames any of them under `sovrium.csvImport.<key>`.
 
 | Duplicate mode | Effect                                                                                      |
 | -------------- | ------------------------------------------------------------------------------------------- |
@@ -65,7 +69,7 @@ The response streams the file with an attachment disposition, named after the ta
 
 The file is streamed with an attachment disposition named `<table>-<YYYY-MM-DD>` plus the extension, so a browser saves it under a name that says what it is and when it was taken.
 
-Export honours field-level read permissions: columns the caller may not read are absent from the file rather than blank in it.
+Export honours the caller's read permissions: a column she may not read — a field a rule withholds, a link into a table she may not read, or a count, rollup or lookup read through one — is absent from the file, header included, rather than blank in it, even when `fields` names it.
 
 **A caller who may not read the table gets `404`**, with the same body a table that does not exist answers, as everywhere else in the records path: an export never tells a table kept from its caller apart from an absent one.
 

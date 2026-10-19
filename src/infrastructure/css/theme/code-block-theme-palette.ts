@@ -7,13 +7,11 @@
 
 import { Data, Effect } from 'effect'
 import { contrastRatio } from '@/domain/kernel/color/option-chip-color'
-import { resolveCodeBlockThemes } from '@/domain/models/app/design/code-block-service'
+import { DEFAULT_CODE_BLOCK_DARK_THEME } from '@/domain/models/app/design/code-block-service'
 import { logWarning } from '@/infrastructure/logging/logger'
-import type { Design } from '@/domain/models/app/design'
 
-/** A named dark theme whose palette could not be read: Shiki does not bundle it, or loading it failed. */
+/** The dark theme's palette could not be read from Shiki. */
 class CodeBlockPaletteUnavailable extends Data.TaggedError('CodeBlockPaletteUnavailable')<{
-  readonly theme: string
   readonly cause: unknown
 }> {}
 
@@ -46,44 +44,35 @@ const paletteOf = (theme: ShikiThemeColours): readonly string[] => {
 }
 
 /**
- * The palette of the dark code-block theme an app names
- * (`design.codeBlock.darkTheme`), read from the theme Shiki itself highlights
- * with — so the stylesheet carries a colour rule for every token colour that
- * theme can put on a `tok-dark-` class, whichever theme it is.
+ * The palette of the dark code-block theme, `github-dark` (the dark half of
+ * shadcn/ui's default pair), read from the theme Shiki itself highlights with —
+ * so the stylesheet carries a colour rule for every token colour that theme can
+ * put on a `tok-dark-` class, and keeps doing so when a Shiki upgrade retouches
+ * the theme.
  *
- * Empty when no dark theme is named. A theme Shiki does not bundle, or one that
- * fails to load, also answers empty: the code block then keeps the curated
- * rules and the chrome's own ink — legible, if monochrome — and the reason is
- * logged rather than failing the whole stylesheet over one code-block palette.
+ * A theme that fails to load answers empty: the code block then keeps the
+ * curated rules and the chrome's own ink — legible, if monochrome — and the
+ * reason is logged rather than failing the whole stylesheet over one palette.
  */
-export const loadCodeBlockDarkPalette = (
-  design: Readonly<Design> | undefined
-): Effect.Effect<readonly string[]> => {
-  const name = resolveCodeBlockThemes(
-    design?.codeBlock?.theme,
-    design?.codeBlock?.darkTheme
-  ).darkTheme
-  if (name === undefined || name === '') return Effect.succeed([])
-  return Effect.tryPromise({
-    try: async () => {
-      const { bundledThemes } = await import('shiki')
-      if (!Object.hasOwn(bundledThemes, name)) return []
-      const theme = await bundledThemes[name as keyof typeof bundledThemes]()
-      return paletteOf(theme.default as ShikiThemeColours)
-    },
-    catch: (cause) => new CodeBlockPaletteUnavailable({ theme: name, cause }),
-  }).pipe(
-    Effect.tapCause((cause) =>
-      Effect.sync(() =>
-        logWarning(`[CSS] could not read the palette of code-block dark theme "${name}"`, {
-          cause: String(cause),
-        })
+export const loadCodeBlockDarkPalette: Effect.Effect<readonly string[]> = Effect.tryPromise({
+  try: async () => {
+    const { bundledThemes } = await import('shiki')
+    const theme = await bundledThemes[DEFAULT_CODE_BLOCK_DARK_THEME]()
+    return paletteOf(theme.default as ShikiThemeColours)
+  },
+  catch: (cause) => new CodeBlockPaletteUnavailable({ cause }),
+}).pipe(
+  Effect.tapCause((cause) =>
+    Effect.sync(() =>
+      logWarning(
+        `[CSS] could not read the palette of code-block dark theme "${DEFAULT_CODE_BLOCK_DARK_THEME}"`,
+        { cause: String(cause) }
       )
-    ),
-    // effect-swallow: logged above; a missing palette leaves the block legible in the chrome's ink, which is no reason to fail the stylesheet.
-    Effect.orElseSucceed(() => [])
-  )
-}
+    )
+  ),
+  // effect-swallow: logged above; a missing palette leaves the block legible in the chrome's ink, which is no reason to fail the stylesheet.
+  Effect.orElseSucceed(() => [])
+)
 
 /** The WCAG floor a token colour is held to against the chrome it is painted on. */
 const CONTRAST_FLOOR = 4.5
@@ -105,8 +94,8 @@ const blendHex = (from: string, to: string, weight: number): string => {
 /**
  * A theme colour as it is painted on the chrome: unchanged when it already
  * reaches the 4.5:1 floor, otherwise moved toward the chrome's own ink until it
- * does — the nearest tone of the same hue, the rule `THEME_CONTRAST_FLOORS`
- * spells out by hand for the curated themes. A colour that is not `#RRGGBB`
+ * does — the nearest tone of the same hue, the rule the generator's contrast
+ * floors spell out by hand for the curated hexes. A colour that is not `#RRGGBB`
  * (an alpha hex) is painted as the theme wrote it.
  */
 export const raisedToFloor = (color: string, ground: string, ink: string): string => {

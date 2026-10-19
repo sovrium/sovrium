@@ -28,7 +28,7 @@ function ListStateCard({
   return (
     <section
       aria-label={label}
-      className="border-border bg-card flex flex-col items-center gap-1.5 rounded-md border border-dashed p-6 text-center"
+      className="border-border bg-card flex flex-col items-center gap-1.5 rounded-md border p-6 text-center"
     >
       <p className="text-foreground text-md font-medium">{title}</p>
       <p className="text-muted-foreground text-sm leading-relaxed">{body}</p>

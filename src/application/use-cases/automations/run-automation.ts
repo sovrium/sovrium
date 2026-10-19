@@ -24,6 +24,7 @@ import {
 import { AutomationFiberBridge } from '@/application/ports/services/automation-fiber-bridge'
 import { TemplateEngine } from '@/application/ports/services/template-engine'
 import { isAutomationOperationallyEnabled } from '@/domain/models/app/automations/automation-operational-state'
+import { webhookStartsByHand } from '@/domain/models/app/automations/run-starter-service'
 import {
   firstTrigger,
   triggerOfType,
@@ -38,7 +39,8 @@ import { resolveRunTimeoutMs, runActionsWithTimeout } from './run/action-loop'
 import { buildAutomationInvoker } from './run/automation-call-invoker'
 import { finaliseOnAbandon } from './run/defect-finaliser'
 import { dispatchFailureHandlers } from './run/failure-dispatch'
-import { finaliseRun, markRunRunning, persistQueuedRun } from './run/run-persistence'
+import { finalisePausableRun, markRunRunning, persistQueuedRun } from './run/run-persistence'
+import { buildRunResult } from './run/run-result'
 import { withPriorTolerated } from './run/run-status'
 import {
   acquireSlot,
@@ -49,7 +51,7 @@ import {
   unregisterCancellation,
 } from './run/scheduler'
 import { unlessStarterGone } from './run/starter-standing'
-import { buildStepContext } from './run/step-context'
+import { buildStepContext, withRunLedgers } from './run/step-context'
 import {
   cryptoRandomId,
   toResolvedRetry,
@@ -57,7 +59,6 @@ import {
   type RunAccumulator,
   type RunAutomationResult,
   type RunRequirements,
-  type StepContext,
 } from './run/types'
 import type { TriggerData } from './resolve-trigger-data'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
@@ -67,9 +68,9 @@ import type { Trigger } from '@/domain/models/app/automations/trigger'
 type Automation = NonNullable<App['automations']>[number]
 
 /**
- * Errors surfaced to the caller: the not-found family answers a 4xx (no such
- * automation, or none with the entry asked for); `AutomationRegistrySeedError`
- * — the lazy seed of `system.automation_definitions` failed — a 500.
+ * Errors surfaced to the caller: the not-found family answers a 4xx;
+ * `AutomationRegistrySeedError` (the lazy definitions seed failed) a 500; and
+ * `AutomationPressDisabled` (a press its record disables, `judge-press.ts`) a 409.
  */
 export type RunAutomationError =
   | { readonly _tag: 'AutomationNotFound'; readonly name: string }
@@ -81,6 +82,7 @@ export type RunAutomationError =
       readonly required: string
     }
   | { readonly _tag: 'AutomationRegistrySeedError'; readonly name: string; readonly cause: unknown }
+  | { readonly _tag: 'AutomationPressDisabled'; readonly name: string; readonly message: string }
 
 // ── re-exports: keep the public surface stable for external importers ────────
 
@@ -119,9 +121,12 @@ export interface RunWebhookAutomationOptions {
    * webhook session's user). Threaded into the per-step
    * `AutomationContext` so handlers that resolve per-user state (OAuth2
    * token injection in `http/request`) can find the right row.
-   * Undefined for system-triggered automations (cron, automation-call).
+   * Undefined when no caller user exists (a schedule, a record event); an
+   * automation called from a hand-started run carries that run's starter.
    */
   readonly userId?: string
+  /** The answer reveals write-only fields to a machine: the run reads as the system. */
+  readonly revealsToMachine?: boolean
   /**
    * Optional callback invoked the moment the scheduler persists the
    * `'queued'` run row. The async webhook dispatcher uses this to surface
@@ -215,26 +220,6 @@ export const resolveAutomationId = (
     return created['id']
   }).pipe(Effect.withSpan('automations.resolve-automation-id'))
 
-/** Project a {@link RunAccumulator} into the public {@link RunAutomationResult}. */
-const buildRunResult = (
-  runId: string,
-  finalState: RunAccumulator,
-  ctx: StepContext
-): RunAutomationResult => ({
-  runId,
-  // The loop never leaves a scheduler-managed `'queued'`/`'running'` state: narrow it.
-  status: finalState.runStatus as Exclude<RunAccumulator['runStatus'], 'queued' | 'running'>,
-  actions: finalState.actions,
-  ...(finalState.lastOutput !== undefined ? { lastOutput: finalState.lastOutput } : {}),
-  ...(finalState.runError !== undefined ? { error: finalState.runError } : {}),
-  ...(finalState.responseOverride !== undefined
-    ? { responseOverride: finalState.responseOverride }
-    : {}),
-  ...(finalState.returnData !== undefined ? { returnData: finalState.returnData } : {}),
-  ...(finalState.stopped === true ? { stopped: true } : {}),
-  calledWriteOnly: ctx.automation.writeOnly?.called.values() ?? [],
-})
-
 /**
  * Execute the action list for a previously-resolved automation, persist the
  * run + step rows to DB.
@@ -306,7 +291,7 @@ const finaliseAndRelease = (input: {
           runError: input.finalState.runError ?? 'Run cancelled',
         }
       : input.finalState
-    const finalisedId = yield* finaliseRun({
+    const finalisedId = yield* finalisePausableRun({
       runId: input.runId,
       automationId: input.automationId,
       engineStatus: effectiveState.runStatus,
@@ -316,6 +301,8 @@ const finaliseAndRelease = (input: {
       finishedAt: input.finishedAt,
       steps: effectiveState.steps,
       userId: input.userId,
+      ...(input.run.startedByHand === true ? { startedByHand: true } : {}),
+      ...(input.run.startedAsGuest === true ? { startedAsGuest: true } : {}),
       source: input.run,
       ...(effectiveState.runStatus === 'waiting-delay' ? { park: effectiveState.park } : {}),
     })
@@ -347,6 +334,8 @@ export const executeAutomationRun = (
         triggerData: input.triggerData,
         admittedAt,
         userId: input.userId,
+        ...(input.startedByHand === true ? { startedByHand: true } : {}),
+        ...(input.startedAsGuest === true ? { startedAsGuest: true } : {}),
         finalised,
       })
     })
@@ -358,7 +347,7 @@ export const executeAutomationRun = (
  * measured from `admittedAt`.
  */
 const runAdmitted = (
-  input: ExecuteAutomationRunInput,
+  started: ExecuteAutomationRunInput,
   admission: {
     readonly runId: string
     readonly admittedAt: Date
@@ -366,17 +355,17 @@ const runAdmitted = (
   }
 ): Effect.Effect<RunAutomationResult, never, RunRequirements> =>
   Effect.gen(function* () {
+    const input = withRunLedgers(started) // its ledgers, stored with it if it pauses
     const { name, automation, automationId, app, processEnv, triggerData } = input
     const { runId, admittedAt, finalised } = admission
     const rawActions = expandAutomationActions(app, automation)
-    const runTimeoutMs = resolveRunTimeoutMs(automation, processEnv)
     const skipActionNames = input.skipActionNames ?? new Set<string>()
     // Built after the queued row lands (`runId`); services captured from THIS fiber.
     const services = yield* Effect.context<RunRequirements>()
     const runProgram = (yield* AutomationFiberBridge).promiseRunner(services)
     const ctx = buildStepContext({ ...input, runId, runProgram, templates: yield* TemplateEngine })
     const steps = runActionsWithTimeout(rawActions, ctx, {
-      timeoutMs: runTimeoutMs,
+      timeoutMs: resolveRunTimeoutMs(automation, processEnv),
       skipActionNames,
       ...(input.seedOutputs === undefined ? {} : { seedOutputs: input.seedOutputs }),
       automationInvoker: boundAutomationInvoker,
@@ -465,7 +454,7 @@ export const dispatchPostRunFailureEffects = (input: {
       runId,
       error: finalState.runError ?? 'Automation failed',
       failedAt: input.finishedAtDate.toISOString(),
-      kind: timedOut ? 'timed-out' : 'failed',
+      kind: timedOut ? 'timed-out' : finalState.runStatus === 'exhausted' ? 'exhausted' : 'failed',
     })
     // AFTER the alert, so the operator reads why it failed before reading that
     // it was paused. A no-op unless `SOVRIUM_AUTOMATION_AUTOPAUSE` is set.
@@ -523,6 +512,7 @@ export const runWebhookAutomation = ({
   triggerData = {},
   handlers = defaultActionHandlers,
   userId,
+  revealsToMachine,
   onPersisted,
 }: RunWebhookAutomationOptions): Effect.Effect<
   RunAutomationResult,
@@ -546,6 +536,7 @@ export const runWebhookAutomation = ({
       triggerData,
       handlers,
       userId,
+      ...(webhookStartsByHand(trigger, userId, revealsToMachine) ? { startedByHand: true } : {}),
       ...(onPersisted !== undefined ? { onPersisted } : {}),
     })
   }).pipe(Effect.withSpan('automations.run-webhook-automation'))

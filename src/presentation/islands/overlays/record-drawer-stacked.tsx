@@ -19,9 +19,9 @@ import { DrawerContent } from './record-drawer-content'
 import { SheetFooter } from './record-drawer-footer'
 import { useTableRecordRead } from './record-drawer-record-read'
 import { useRecordSave } from './record-drawer-save'
+import { holdsLoadedValues, type Values } from './record-drawer-values'
 import { useDrawerHandlers } from './use-record-drawer'
 import type { LinkedPick } from './record-drawer-linked-from'
-import type { Values } from './record-drawer-values'
 
 /** What a stacked record is drawn with. */
 export interface StackedRecordProps {
@@ -102,6 +102,7 @@ export function StackedRecordBody(props: StackedRecordProps): ReactElement {
         words={words}
         canEdit={section.canEdit}
         loading={read.loading}
+        unchanged={holdsLoadedValues(values, read.baseline)}
         save={save}
         onCancel={onBack}
       />

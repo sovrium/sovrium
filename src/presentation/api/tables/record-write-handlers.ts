@@ -49,6 +49,7 @@ import {
 import { getLinkReader } from './relationship-rules'
 import { guardForTable } from './row-level-guard'
 import { checkGetReadGate } from './row-level-read-helpers'
+import { maskUnreadableUniqueConflict } from './unique-conflict-mask'
 import type { App, Table } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -135,13 +136,12 @@ export async function handleCreateRecord(c: Context, app: App) {
   const result = await validateRequest(c, createRecordRequestSchema)
   if (!result.success) return result.response
   const table = app.tables?.find((t) => t.name === tableName)
-  return runHandlerEffect(
+  const authored = authorOfCreate(app, tableName, session, result.data.fields)
+  const response = await runHandlerEffect(
     c,
-    createResponse({
-      ...{ c, app, tableName, table, session, userRole, userGroups },
-      authored: authorOfCreate(app, tableName, session, result.data.fields),
-    })
+    createResponse({ ...{ c, app, tableName, table, session, userRole, userGroups }, authored })
   )
+  return maskUnreadableUniqueConflict(c, app, { written: [authored.fields] }, response)
 }
 
 /** A native form's update, gated and validated, then written through the JSON verb's path. */
@@ -231,7 +231,14 @@ export async function handleFormUpdateRecord(c: Context, app: App) {
   if (readonlyValidation) return readonlyValidation
 
   const redirectPath = typeof redirect === 'string' ? redirect : undefined
-  return runHandlerEffect(c, formUpdateResponse({ c, app, fields, redirectPath }))
+  const response = await runHandlerEffect(c, formUpdateResponse({ c, app, fields, redirectPath }))
+  const recordId = c.req.param('recordId')!
+  return maskUnreadableUniqueConflict(
+    c,
+    app,
+    { written: [fields], excludeIds: [recordId] },
+    response
+  )
 }
 
 /** A JSON update, gated and validated, then written. */
@@ -294,7 +301,7 @@ export async function handleUpdateRecord(c: Context, app: App) {
   const readonlyValidation = validateUpdateReadonlyFields(result.data.fields, c)
   if (readonlyValidation) return readonlyValidation
 
-  return runHandlerEffect(
+  const response = await runHandlerEffect(
     c,
     jsonUpdateResponse({
       c,
@@ -303,4 +310,6 @@ export async function handleUpdateRecord(c: Context, app: App) {
       clientUpdatedAt: result.data.updatedAt,
     })
   )
+  const write = { written: [result.data.fields], excludeIds: [c.req.param('recordId')!] }
+  return maskUnreadableUniqueConflict(c, app, write, response)
 }

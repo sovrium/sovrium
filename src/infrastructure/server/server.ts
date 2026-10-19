@@ -277,9 +277,9 @@ export const createServer = (
     // `agent.schedule.cron` is a promise the binary does not keep — see
     // register-agent-schedules.ts.
     //
-    // All four arm jobs on the ONE `CronScheduler` the domain runtime carries.
+    // Every registrar arms its jobs on the ONE `CronScheduler` the domain runtime carries.
     // None may `Effect.provide(CronSchedulerLive)` for itself, because the scheduler is scoped:
-    // four provides would be four registries in four scopes, each closing (and interrupting its
+    // one provide each would be one registry per scope, each closing (and interrupting its
     // jobs) the instant its own registration returned. Providing the resolved domain context
     // instead is one build, one registry, one scope — the server's.
     yield* Effect.provide(

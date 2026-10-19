@@ -259,6 +259,7 @@ export default {
   'admin.tables.toolbar': 'Record controls',
   'admin.tables.search': 'Search rows',
   'admin.tables.export': 'Export CSV',
+  'admin.tables.import': 'Import CSV',
 
   // ── Files (`/files`, `/files/system`, `/files/:bucket`) ────────────
   //
@@ -288,6 +289,18 @@ export default {
   // name, and the empty choice is the unfiltered list.
   'admin.conversations.person': 'Person',
   'admin.conversations.everyone': 'Everyone',
+  'admin.conversations.period': 'Period',
+  'admin.conversations.allTime': 'All time',
+  'admin.conversations.last7': 'Last 7 days',
+  'admin.conversations.last30': 'Last 30 days',
+  'admin.conversations.last90': 'Last 90 days',
+  'admin.conversations.search': 'Search…',
+  'admin.conversations.searchLabel': 'Search conversations',
+  'admin.conversations.toolbar': 'Conversation controls',
+  'admin.agents.viewer': 'Agent conversations',
+  'admin.agents.header.conversations': 'conversations',
+  'admin.agents.header.model': 'Model',
+  'admin.agents.header.tools': 'Tools',
 
   // ── Submissions (`/submissions`, `/submissions/:form`) ──────────────────────────────
   'admin.forms.heading': 'Submissions',
@@ -325,37 +338,30 @@ export default {
 
   // ── Users (`/users`) ────────────────────────────────────────────────────
   //
-  // The blurb names the admin API as the way to CREATE an account, because the
-  // console deliberately has no create form and an operator who cannot find one
-  // needs to be told where it went rather than left looking.
+  // The blurb says what the page HOLDS, never what the reader may do to it:
+  // the same sentence reaches a read-only operator, who may change nothing
+  // here. The writes are offered where they are allowed — Invite, the row
+  // menu — and drawn only for a reader who may make them.
   'admin.users.heading': 'Users',
   'admin.users.blurb':
-    'Manage your app’s accounts: search for a user, adjust their role or groups, or suspend access. Account creation goes through the admin API (see Developers → API).',
+    'Your app’s accounts and invitations: each account’s role, groups and status.',
   'admin.users.tabs.region': 'Users sub-views',
   'admin.users.account.heading': 'Account',
   'admin.users.account.blurb':
-    'One account: its role, groups and status, the writes an administrator may make on it, and what the console cannot show about it yet.',
-  'admin.users.account.region': 'Account',
-  'admin.users.account.back': 'Back to users',
+    'One account: its role, groups and status, the writes an administrator may make on it, and what it can read.',
+  'admin.users.account.facts.region': 'Account details',
+  'admin.users.account.actions.region': 'Account actions',
   'admin.users.account.roles.region': 'Assignable roles',
   'admin.users.account.roles.heading': 'Assignable roles',
-  'admin.users.account.roles.body':
-    'Every role this app may assign, read from its configuration. Roles are declared in auth.roles[]; the console reads them and never writes them.',
-  'admin.users.account.gaps.region': 'Not shown here',
-  'admin.users.account.gaps.heading': 'Not shown here',
-  'admin.users.account.gaps.sessions.heading': 'Open sessions',
-  'admin.users.account.gaps.sessions.body':
-    'Ending every session is above, under the row actions. Listing them is not: the endpoint that returns them answers a POST, and a console read is a GET.',
-  'admin.users.account.gaps.activity.heading': 'Last active',
-  'admin.users.account.gaps.activity.body':
-    'The directory returns id, email, name, role, status and groups. A per-account last-activity moment needs the session table joined in, which no read does.',
-  // Access — the scope-table grants this account holds. Read-only: the line
-  // under the heading says where grants change, so nobody hunts for a control.
+  'admin.users.account.roles.source': 'from auth.roles',
+  // Access — the scope-table grants this account holds, read-only, beside the
+  // way to Organisation › Reach, where every path to a table is drawn.
   'admin.users.account.access.region': 'Access',
   'admin.users.account.access.heading': 'Access',
   'admin.users.account.access.body':
-    'The records of scope tables this account has been granted, and the role each grant gives. Grants change through the API, the seed or automations, never here.',
+    'What this person can read and write, with the grant behind each line. Grants change through the API, the seed or automations, never here.',
   'admin.users.account.access.grid': 'Grants',
+  'admin.users.account.access.reach': 'Organisation › Reach',
 
   // ── Invitations (`/users?tab=invitations`) ──────────────────────────────────
 
@@ -415,15 +421,15 @@ export default {
   'admin.agents.loading': 'Loading conversations…',
   'admin.automations.region': 'Automations',
   'admin.buckets.browser.region': 'File browser',
+  'admin.buckets.layout': 'Layout',
+  'admin.buckets.layout.list': 'List',
+  'admin.buckets.layout.grid': 'Grid',
   'admin.buckets.upload.region': 'Upload file',
   'admin.buckets.upload.failed': 'Couldn’t upload {file}.',
   // The three rules keys keep a space at each end: they sit between other
   // elements of one line, and the spaces are what separate the words for a
   // screen reader (the line's flex gap is not text).
   'admin.buckets.public': 'Public',
-  'admin.buckets.rules.types': ' Accepts ',
-  'admin.buckets.rules.sizeBefore': ' Up to ',
-  'admin.buckets.rules.sizeAfter': ' per file ',
   'admin.connections.region': 'Connections',
   'admin.forms.metrics.region': 'Form metrics',
   'admin.forms.submissions.region': 'Submissions',
@@ -455,13 +461,10 @@ export default {
   'admin.automations.empty.hint': 'No automations yet — so nothing to run.',
 
   // ── Runs · catalog (`/runs?tab=automations`) ──────────────
-  'admin.automations.catalog.reason': 'Pause reason',
-  'admin.automations.catalog.reason.automatic': 'Automatic, after repeated failures',
   'admin.automations.catalog.col.automation': 'Automation',
   'admin.automations.catalog.col.trigger': 'Triggers',
   'admin.automations.catalog.col.state': 'State',
-  'admin.automations.catalog.col.pausedBy': 'Paused by',
-  'admin.automations.catalog.col.pausedAt': 'Paused at',
+  'admin.automations.catalog.col.paused': 'Paused',
   'admin.automations.catalog.state.active': 'Active',
   'admin.automations.catalog.state.paused': 'Paused',
   'admin.automations.catalog.state.disabled': 'Disabled in config',
@@ -476,17 +479,17 @@ export default {
   // toast says WHICH automation, rather than leaving the operator to guess.
   'admin.automations.catalog.pause.toast': '$record.name paused',
   'admin.automations.catalog.pause.failed': 'Couldn’t pause $record.name.',
+  'admin.automations.catalog.pause.retry': 'Retry',
   'admin.automations.catalog.resume.toast': 'Automation resumed',
   'admin.automations.catalog.empty': 'No automations',
 
   // ── Runs · run history (`/runs`) ──────────────────────────
   'admin.automations.runs.heading': 'Run history',
-  'admin.automations.runs.scope':
-    'Shows the 25 most recent runs. Search and the filters query every run and return the 25 most recent matches.',
-  'admin.automations.runs.filter.all': 'All',
+  'admin.automations.runs.filter.allAutomations': 'All automations',
   'admin.automations.runs.filter.automation': 'Filter by automation',
   'admin.automations.runs.filter.trigger': 'Filter by trigger',
-  'admin.automations.runs.filter.allTriggers': 'All',
+  'admin.automations.runs.filter.allTriggers': 'All triggers',
+  'admin.automations.runs.filter.allStatuses': 'All statuses',
   'admin.automations.runs.filter.status': 'Filter by status',
   // The operator's words for the engine's three terminal statuses — the status
   // filter's options AND the grid's status cells, so both read one vocabulary.
@@ -512,6 +515,7 @@ export default {
   'admin.automations.runs.col.started': 'Started',
   'admin.automations.runs.col.duration': 'Duration',
   'admin.automations.runs.col.stepCount': 'Steps',
+  'admin.automations.runs.col.record': 'Record',
   'admin.automations.runs.col.attempt': 'Attempt',
   'admin.automations.runs.col.error': 'Error',
   'admin.automations.runs.action.record': 'Open record',
@@ -535,16 +539,28 @@ export default {
   'admin.automations.runs.detail.field.trigger': 'Trigger',
   'admin.automations.runs.detail.field.started': 'Started',
   'admin.automations.runs.detail.field.finished': 'Finished',
-  'admin.automations.runs.detail.field.duration': 'Duration (ms)',
+  'admin.automations.runs.detail.field.duration': 'Duration',
   'admin.automations.runs.detail.field.attempt': 'Attempt',
   'admin.automations.runs.detail.facts.title': 'Run',
   'admin.automations.runs.detail.facts.description':
     'What started it, how it ended, and how long it took.',
   'admin.automations.runs.detail.failure': 'Failure',
+  'admin.automations.runs.detail.failure.next': 'Fix the cause, then retry this run.',
+  'admin.automations.runs.detail.failure.connections': 'Open connections',
+  'admin.automations.runs.detail.failure.env': 'Open environment',
   'admin.automations.runs.detail.log': 'Log',
   'admin.automations.runs.detail.dataIn': 'Data in',
   'admin.automations.runs.detail.dataOut': 'Data out',
   'admin.automations.runs.detail.steps': 'Steps',
+  // The run page reads top to bottom: what started it, what each step did, how
+  // it ended.
+  'admin.automations.runs.detail.trigger': 'Trigger',
+  'admin.automations.runs.detail.trigger.description':
+    'What started this run, exactly as the first step received it.',
+  'admin.automations.runs.detail.triggerData': 'Trigger data',
+  'admin.automations.runs.detail.outcome': 'Outcome',
+  // In place of a step's empty output box. Its error, when it failed, is above.
+  'admin.automations.runs.detail.noOutput': 'This step returned nothing.',
   'admin.automations.runs.detail.back': 'Back to runs',
   // Retry starts a NEW run and leaves this one as it was — the message says so.
   'admin.automations.runs.detail.retry': 'Retry',
@@ -563,6 +579,12 @@ export default {
   'admin.forms.dropOff.heading': 'Drop-off per step',
   'admin.forms.dropOff.singlePage': 'Not applicable: single-page form',
   'admin.forms.reveal': 'Reveal answers',
+  'admin.forms.answers': 'Answers',
+  'admin.forms.status.received': 'Received',
+  'admin.forms.status.processing': 'In progress',
+  'admin.forms.status.processed': 'Processed',
+  'admin.forms.status.failed': 'Failed',
+  'admin.forms.status.spam': 'Spam',
   'admin.forms.export.region': 'Export to CSV',
   'admin.forms.scope':
     'Shows the 25 most recent submissions. Search queries every submission and returns the 25 most recent matches.',
@@ -579,11 +601,6 @@ export default {
   'admin.pages.browsers.region': 'Browsers',
   'admin.pages.os.region': 'Operating systems',
   'admin.pages.events.heading': 'Event log',
-  'admin.pages.disabled.region': 'Analytics not enabled',
-  'admin.pages.disabled.heading': 'Analytics is not enabled',
-  'admin.pages.disabled.body':
-    'Enable analytics in your app config (analytics) to measure your pages’ audience, visitors, and sessions.',
-  'admin.pages.disabled.hint': 'Nothing to measure until analytics is enabled.',
 
   // ── Links (`/links`, `/links/:slug`) ────────────────────────────────────
   //
@@ -640,7 +657,7 @@ export default {
   // footprint figure that does not mean what it says — which is the same class
   // of harm as a softened erasure notice, arriving through a different door.
   'admin.locked.audit.footprint.measuredProvenance':
-    'Measured by this process since it started; the counters reset when it restarts. Grades read each response’s Content-Length via the X-Eco-Index header — not a Lighthouse or EcoIndex.fr score, which inspect the rendered page. Set ECO_INDEX_HEADER=on to record them. The hit rate counts only renders the cache was offered: signed-in and dynamic requests bypass it, so an instance without anonymous traffic shows — rather than a rate.',
+    'Measured by this process since it started; the counters reset when it restarts. Grades read each response’s Content-Length via the X-Eco-Index header — not a Lighthouse or EcoIndex.fr score, which inspect the rendered page. Grades are recorded only while ECO_INDEX_HEADER is on. The hit rate counts only renders the cache was offered: signed-in and dynamic requests bypass it, so an instance without anonymous traffic shows — rather than a rate.',
   'admin.locked.audit.footprint.storageProvenance':
     'The three largest consumers, measured on request. Each row names the instrument behind its number, because a size with no stated origin cannot be told apart from one nobody took. A blank size means the probe was unavailable — a zero means the resource was measured and is empty.',
   'admin.locked.audit.footprint.configurationProvenance':

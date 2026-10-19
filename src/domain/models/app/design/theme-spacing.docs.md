@@ -1,6 +1,6 @@
 # Spacing, Radius & Elevation
 
-> Three ladders that decide how much room things take and how far they sit off the page, plus the syntax theme for fenced code.
+> Three ladders that decide how much room things take and how far they sit off the page, plus `codeBlock`, deprecated.
 
 All four keys are plain name-to-value maps, all four are optional, and each step's **name** becomes the suffix of a real utility. That is the point of declaring one: a later change to the page rhythm is a one-line config edit rather than a find-and-replace across every page.
 
@@ -54,24 +54,13 @@ design:
 
 **Name tokens for their role, not their look.** `shadow-card` and `rounded-card` survive a redesign that changes what a card looks like; `shadow-subtle` and `rounded-8` do not, and leave every usage site to be re-audited by hand.
 
-## `codeBlock`
+## `codeBlock` (deprecated)
 
-The syntax-highlighting theme applied to markdown fenced code — on markdown pages, in content directories, and in any `text` component rendering markdown.
+Deprecated since 0.40 and ignored; refused from 0.41. Code blocks — a `code` component, a markdown fence, a code block in an ai-chat answer — use shadcn/ui's default colours: `github-light` in the light colour scheme and `github-dark` in the dark one, following the reader's scheme. A config naming `design.codeBlock` still validates and starts, with a deprecation warning from `sovrium validate`, `sovrium start` and `sovrium build`, and draws exactly what it would draw without the key. Remove it.
 
 <!-- sovrium:options CodeBlockConfigSchema -->
 
-Name neither and code blocks use `github-light` in the light scheme and `github-dark` in the dark one. Name a `theme` and omit `darkTheme`, and that one theme governs both colour schemes; the pair is declared rather than derived from the light theme's name. Any theme Shiki ships can be named as `darkTheme`: the dark scheme paints that theme's own colours, each held to 4.5:1 against the block as described below.
-
-```yaml
-design:
-  codeBlock:
-    theme: github-light
-    darkTheme: github-dark
-```
-
-This is a single global choice rather than a per-block one, so a documentation site's samples stay visually consistent whichever page they appear on.
-
-Where a theme's own colour for a token falls under 4.5:1 on the block — the comments of `github-dark` and `github-light`, the keywords and keys of `github-light` — that token is drawn in the nearest tone of the same hue that reaches it, so every token reads at 4.5:1 or more against the block.
+Every token reads at 4.5:1 or more against its block in both schemes: where a theme's own colour for a token falls under that — the comments of `github-dark` and `github-light`, the keywords, keys and variables of `github-light` — it is drawn in the nearest tone of the same hue that reaches it.
 
 ## Composing them
 

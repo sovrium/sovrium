@@ -179,6 +179,7 @@ export type PendingInvitationStatus = typeof pendingInvitationStatusSchema.Type
  *   - `email`     — who was invited, the row's primary column;
  *   - `role`      — the role the account will hold on acceptance, read live from
  *     `auth.user.role`;
+ *   - `roleLabel` — the words the console shows for that role;
  *   - `invitedBy` — which operator issued it, resolved to their current e-mail;
  *   - `status`    — the derived pending/expired badge;
  *   - `expiresAt` — when the link dies, so the operator can judge whether a
@@ -197,6 +198,10 @@ export const pendingInvitationSchema = Schema.Struct({
   role: Schema.String.annotate({
     description:
       'Role the invited account currently holds (`auth.user.role`), and therefore the role it will carry on acceptance. Read live from the user row rather than copied onto the invitation, so an operator who changes the role before acceptance sees the change reflected here. Always a member of this app’s assignable role vocabulary — `invite-user` refuses anything else before minting a token.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  roleLabel: Schema.String.annotate({
+    description:
+      'What the console shows for `role`, resolved as the users directory resolves its `roleLabel`: the `label` the app declares for the role in `auth.roles` (a `$t:` key translated into the operator\'s console language), otherwise the console\'s own words for the roles every app carries ("Admin", "Member", "Viewer", "Admin (read-only)"), otherwise the name made readable (`accounting-read` reads "Accounting read"). Always present. The Role column shows it; every write keeps using `role`.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
   invitedBy: Schema.NullOr(
     Schema.String.annotate({

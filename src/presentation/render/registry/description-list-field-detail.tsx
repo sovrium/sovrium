@@ -11,9 +11,11 @@
  *
  * A select or status reads as its option's label, on the option's own chip
  * colour (record data the author declared — never a platform hue); a date in
- * the page language (`3 Nov 2026`); a checkbox as Yes or No; and an empty value
- * as "Not set", so the row keeps its place and says the fact is missing rather
- * than collapsing as if it had never been declared.
+ * the page language (`3 Nov 2026`); a checkbox as Yes or No; an amount (a
+ * currency field, a formula declaring `format: currency`) as the grid prints
+ * it; and an empty value as a muted em dash, the way a `record-field` draws
+ * one, so the row keeps its place in any page language rather than collapsing
+ * as if it had never been declared.
  *
  * The value and its table arrive stamped on the entry by the page binding
  * pass (`withDescriptionFieldValues`), the hand-off `record-field` already uses.
@@ -25,12 +27,10 @@ import { listValuesOf } from '@/domain/models/app/tables/record-text-service'
 import { optionColor, optionLabel, optionValue } from '@/domain/models/app/tables/select-option'
 import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { resolveOptionChipPaint } from '@/presentation/design/option-chip-paint'
+import { formatRecordValue } from '@/presentation/render/props/record-value-format'
 import type { Tables } from '@/domain/models/app/tables'
 import type { SelectOptionLike } from '@/domain/models/app/tables/select-option'
 import type { ReactElement, ReactNode } from 'react'
-
-/** The words an empty field detail reads. */
-export const NOT_SET = 'Not set'
 
 const CHIP_CLASSES = 'inline-flex items-center rounded-sm px-1.5 text-xs font-medium'
 
@@ -112,8 +112,26 @@ const plainText = (value: unknown): string => {
 }
 
 /**
+ * Any other value as the page reads it (an amount as the grid prints it), else
+ * as text.
+ */
+const formattedText = ({ fieldName, value, tableName, tables, lang }: FieldDetailInput): string => {
+  const table = tables?.find((candidate) => candidate.name === tableName)
+  return formatRecordValue(value, { table, fieldName, locale: lang, tables }) ?? plainText(value)
+}
+
+/** What one field entry is drawn from. */
+interface FieldDetailInput {
+  readonly fieldName: string
+  readonly value: unknown
+  readonly tableName: string | undefined
+  readonly tables: Tables | undefined
+  readonly lang: string
+}
+
+/**
  * The detail node for one field entry, or `undefined` when the value is empty
- * (the caller then draws the "Not set" placeholder in its own empty style).
+ * (the caller then draws the muted em dash in its own empty style).
  */
 export function renderFieldDetail({
   fieldName,
@@ -121,13 +139,7 @@ export function renderFieldDetail({
   tableName,
   tables,
   lang,
-}: {
-  readonly fieldName: string
-  readonly value: unknown
-  readonly tableName: string | undefined
-  readonly tables: Tables | undefined
-  readonly lang: string
-}): ReactNode {
+}: FieldDetailInput): ReactNode {
   // An empty list is empty in either stored shape: `[]`, or its JSON text on SQLite.
   if (isEmptyCell(value)) return undefined
   const meta = fieldMetaOf(tables, tableName, fieldName)
@@ -136,5 +148,7 @@ export function renderFieldDetail({
   if (chips !== undefined) return chips
   if (type === 'rating') return `${String(value)} of ${String(meta?.max ?? 5)}`
   const toText = TEXT_BY_TYPE[type]
-  return toText === undefined ? plainText(value) : toText(value, lang)
+  return toText === undefined
+    ? formattedText({ fieldName, value, tableName, tables, lang })
+    : toText(value, lang)
 }

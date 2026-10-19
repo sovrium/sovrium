@@ -36,6 +36,7 @@ import { mayRunManualAutomation } from '@/domain/models/app/automations/manual-t
 import { triggerOfType } from '@/domain/models/app/automations/trigger-entries-service'
 import {
   pressablePageAutomation,
+  reachesUnjudgedBinding,
   type ManualAutomation,
 } from '@/domain/models/app/pages/page-automation-binding-service'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
@@ -54,6 +55,12 @@ export type PageSessionResolver = (headers: Headers) => Promise<SessionInfo | un
 export interface PageActionAdmission {
   readonly automation: ManualAutomation
   readonly userId: string | undefined
+  /**
+   * Whether the caller can reach a binding of the automation the server does
+   * not judge on a record (`reachesUnjudgedBinding`) — what a press that names
+   * no record needs to run. Asked only for such a press.
+   */
+  readonly reachesUnjudged: () => boolean
 }
 
 /** The admission when a page press may run automation `name`, `undefined` otherwise. */
@@ -66,7 +73,11 @@ export const admitPageAction = async (
   const session = getSession === undefined ? undefined : await getSession(c.req.raw.headers)
   const automation = pressablePageAutomation(app, name, session)
   if (automation === undefined) return undefined
-  const admission = { automation, userId: session?.userId }
+  const admission = {
+    automation,
+    userId: session?.userId,
+    reachesUnjudged: () => reachesUnjudgedBinding(app, name, session),
+  }
   if (triggerOfType(automation, 'manual')?.requiredRole === undefined) return admission
   // The declared role is read for the same caller the page rule was judged on.
   const role =

@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { someComponentInTree } from '@/presentation/render/resolve/component-template-walker'
+import type { Components } from '@/domain/models/app/components'
 import type { Page } from '@/domain/models/app/pages'
 
 /**
@@ -43,6 +45,12 @@ export type GroupedScripts = {
     readonly bodyStart: ReadonlyArray<InlineScript>
     readonly bodyEnd: ReadonlyArray<InlineScript>
   }
+  /**
+   * The page draws a `sidebar`, directly or through a referenced template, so
+   * the body-end enhancer that keeps its current entry in view ships with it.
+   * A page with no sidebar carries none of that script.
+   */
+  readonly revealsSidebarCurrent: boolean
 }
 
 /**
@@ -64,9 +72,13 @@ function dedupeBySrc(scripts: ReadonlyArray<ExternalScript>): ReadonlyArray<Exte
  * Scripts without a position default to 'body-end'.
  *
  * @param page - Page configuration containing scripts
+ * @param components - The app's component templates, which a page may reference
  * @returns Scripts grouped by position
  */
-export function groupScriptsByPosition(page: Page): Readonly<GroupedScripts> {
+export function groupScriptsByPosition(
+  page: Page,
+  components?: Components
+): Readonly<GroupedScripts> {
   // `scripts.external` is an ALIAS of `scripts.externalScripts` — the two keys
   // name ONE list, not two independent ones. Merge them and drop any src the
   // merged list already carries, so a URL written under both keys renders a
@@ -93,5 +105,10 @@ export function groupScriptsByPosition(page: Page): Readonly<GroupedScripts> {
       bodyStart: inlineScripts.filter((script) => script.position === 'body-start'),
       bodyEnd: inlineScripts.filter((script) => !script.position || script.position === 'body-end'),
     },
+    revealsSidebarCurrent: someComponentInTree(
+      page.components,
+      components,
+      (item) => item['type'] === 'sidebar'
+    ),
   }
 }

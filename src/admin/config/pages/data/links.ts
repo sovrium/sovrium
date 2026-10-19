@@ -55,7 +55,7 @@
 // substitution gained a fallback at once and this page declares no special case.
 
 import { consolePage, toolbarRow } from '../../components/data-page'
-import { dataTable, toolbarSearch } from '../../components/data-table-blocks'
+import { dataTable, STATUS_BADGE, toolbarSearch } from '../../components/data-table-blocks'
 import { ANALYTICS_OVERVIEW_ENDPOINT, LINKS_ENDPOINT } from '../../system-sources'
 import { detail } from './link-detail'
 import {
@@ -97,6 +97,8 @@ const CATALOG_COLUMNS = [
     field: 'source',
     label: '$t:admin.common.source',
     valueLabels: { config: '$t:admin.links.source.config', db: '$t:admin.links.source.console' },
+    // Where the link is declared is a fact, not a state: the neutral badge.
+    cellStyle: [{ when: { in: ['config', 'db'] }, className: STATUS_BADGE.quiet.neutral }],
   },
   {
     field: 'state',
@@ -109,8 +111,19 @@ const CATALOG_COLUMNS = [
       exhausted: '$t:admin.links.state.exhausted',
       archived: '$t:admin.links.state.archived',
     },
+    // The console's one status badge, as on Runs and Automations. Only a live
+    // link is green; a scheduled one is on its way; every other state is a
+    // fact to read, and none of them is an alarm.
+    cellStyle: [
+      { when: { eq: 'active' }, className: STATUS_BADGE.quiet.positive },
+      { when: { eq: 'scheduled' }, className: STATUS_BADGE.quiet.progress },
+      {
+        when: { in: ['disabled', 'expired', 'exhausted', 'archived'] },
+        className: STATUS_BADGE.quiet.neutral,
+      },
+    ],
   },
-  // Clicks over the last thirty days, counted by the list read itself.
+  // Clicks over the selected period, counted by the list read itself.
   { field: 'clicks', label: '$t:admin.links.clicks30', align: 'right' },
   { field: 'validUntil', label: '$t:admin.common.expires', format: 'datetime' },
 ]
@@ -224,6 +237,13 @@ const CATALOG_WRITE_ACTIONS = {
  * item rather than an `onRowClick` for a reason measured the hard way; the
  * comment on it has the whole story.
  */
+/**
+ * The query the catalogue grid's first page reads with. The Links tracked tile
+ * asks the SAME read for its `total`, so the page issues one links request
+ * rather than two that differ only by the grid's paging.
+ */
+const CATALOG_FIRST_PAGE = { page: '1', limit: '25' } as const
+
 /** The channel the catalogue's search box publishes on and its grid listens to. */
 const LINKS_CHANNEL = 'links-filter'
 
@@ -236,6 +256,9 @@ const catalogGrid = (): PageComponent =>
         rowsKey: 'items',
         idKey: 'slug',
         totalKey: 'total',
+        // The Clicks column counts over the period the rail selects, so it
+        // agrees with the Clicks card above it.
+        query: { from: '$window.start', to: '$window.end' },
         bindTo: LINKS_CHANNEL,
         sharedFilter: {},
       },
@@ -270,7 +293,12 @@ const catalogGrid = (): PageComponent =>
 const newLinkForm = (): PageComponent =>
   ({
     type: 'form',
-    props: { id: 'admin-link-create-form', 'aria-label': '$t:admin.links.create.region' },
+    // The dialog is the frame: the form's own card border is dropped inside it.
+    props: {
+      id: 'admin-link-create-form',
+      'aria-label': '$t:admin.links.create.region',
+      className: 'border-0 bg-transparent p-0',
+    },
     endpoint: {
       url: LINKS_ENDPOINT,
       method: 'POST',
@@ -282,6 +310,7 @@ const newLinkForm = (): PageComponent =>
         variant: 'success',
         message: '$t:admin.links.create.done',
         refetch: CATALOG_GRID_ID,
+        close: true,
         reset: true,
       },
       onError: {
@@ -292,43 +321,42 @@ const newLinkForm = (): PageComponent =>
     },
     fields: [
       { field: 'slug', control: 'text', label: '$t:admin.links.slug' },
-      { field: 'destination', control: 'url', label: '$t:admin.links.destination' },
+      // A path on this site (`/devis?source=salon`) or an absolute address: a
+      // `url` input would refuse the path the server accepts, so the server's
+      // check is the one that decides, and its 400 is the toast above.
+      { field: 'destination', control: 'text', label: '$t:admin.links.destination' },
     ],
   }) as PageComponent
 
+/** The New link dialog's id: what the header button opens. */
+const NEW_LINK_DIALOG_ID = 'admin-link-create-dialog'
+
 /**
- * The create form under a heading, so the directory reads as two sections.
+ * The New link gesture: the page's primary action, last in the control row,
+ * as Invite is on Users.
  *
- * The section itself draws NO frame. A `form` carries its own card prestyle —
- * padding, a raised ground and a border — so a bordered section around one is
- * two boxes with a 16 px gap between their edges, which reads as a nesting that
- * means nothing. The heading and its sentence sit outside the card; the card is
- * the form.
+ * It opens the create DIALOG over the catalogue rather than a form below it:
+ * minting a link is one short form, the catalogue stays in view behind it, and
+ * the new row appears there when the dialog closes. Minting is a write, so the
+ * read-only tier is not offered the button at all.
  */
-const newLinkSection = (): PageComponent =>
+const newLinkAffordance = (): PageComponent =>
   ({
-    type: 'container',
-    element: 'section',
+    type: 'button',
+    label: '$t:admin.links.create.heading',
     visibility: { capability: 'edit-operations' },
-    props: {
-      'aria-label': '$t:admin.links.create.region',
-      className: 'flex flex-col gap-3',
-    },
-    children: [
-      {
-        type: 'text',
-        element: 'h2',
-        props: { className: 'text-foreground text-md font-medium' },
-        content: '$t:admin.links.create.heading',
-      },
-      {
-        type: 'text',
-        element: 'p',
-        props: { className: 'text-foreground-subtle max-w-2xl text-sm leading-relaxed' },
-        content: '$t:admin.links.create.body',
-      },
-      newLinkForm(),
-    ],
+    props: { className: 'sm:ml-auto', interactions: { click: { modal: NEW_LINK_DIALOG_ID } } },
+  }) as PageComponent
+
+/** The create dialog: the heading, the one sentence, and the two-field form. */
+const newLinkDialog = (): PageComponent =>
+  ({
+    type: 'dialog',
+    title: '$t:admin.links.create.heading',
+    description: '$t:admin.links.create.body',
+    visibility: { capability: 'edit-operations' },
+    props: { id: NEW_LINK_DIALOG_ID },
+    children: [newLinkForm()],
   }) as PageComponent
 
 /**
@@ -343,7 +371,10 @@ const directoryMetrics = (): PageComponent =>
   ({
     type: 'container',
     element: 'div',
-    visibility: { declares: 'analytics' },
+    // Both halves, because the click readers answer an admin-equivalent caller
+    // only: a read-only operator would get three refused tiles and a chart
+    // printing the refusal. She reads the population figure alone — below.
+    visibility: { declares: 'analytics', capability: 'administer-accounts' },
     props: { className: 'flex flex-col gap-6' },
     children: [
       periodRail('/links'),
@@ -378,13 +409,30 @@ const directoryMetrics = (): PageComponent =>
                 'summary.sessions',
                 CLICK_QUERY
               ),
-              kpiTile('$t:admin.links.tracked', LINKS_ENDPOINT, 'total'),
+              kpiTile('$t:admin.links.tracked', LINKS_ENDPOINT, 'total', CATALOG_FIRST_PAGE),
             ],
           },
         ],
       },
       trendChart(CLICK_QUERY),
     ],
+  }) as PageComponent
+
+/**
+ * The metrics region for a caller the click readers refuse: the catalog's
+ * population figure, which reads the links endpoint she is answered on. No
+ * period rail — a count of links has no window.
+ */
+const catalogOnlyMetrics = (): PageComponent =>
+  ({
+    type: 'container',
+    element: 'section',
+    visibility: { declares: 'analytics', unlessCapability: 'administer-accounts' },
+    props: {
+      className: 'grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2 lg:grid-cols-4',
+      'aria-label': '$t:admin.links.metrics.region',
+    },
+    children: [kpiTile('$t:admin.links.tracked', LINKS_ENDPOINT, 'total', CATALOG_FIRST_PAGE)],
   }) as PageComponent
 
 const directory = consolePage({
@@ -404,12 +452,15 @@ const directory = consolePage({
       props: { className: 'flex flex-col gap-6 pt-2' },
       children: [
         directoryMetrics(),
+        catalogOnlyMetrics(),
         analyticsDisabledNote(),
-        toolbarRow([toolbarSearch(LINKS_CHANNEL, '$t:admin.links.search')]),
+        toolbarRow([toolbarSearch(LINKS_CHANNEL, '$t:admin.links.search'), newLinkAffordance()]),
         catalogGrid(),
-        newLinkSection(),
       ],
     } as PageComponent,
+    // The dialog renders in a portal, so where it sits in the tree changes
+    // nothing on screen.
+    newLinkDialog(),
   ],
 }) satisfies PageConfig
 

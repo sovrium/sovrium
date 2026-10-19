@@ -67,8 +67,7 @@ export interface ErasureCoverageEntry {
  *
  * Split out of {@link ERASURE_COVERAGE} because `purgeAccount` consumes it to
  * build the sweep, so the list an operator READS and the statements the engine
- * RUNS are the same array. The former hand-written duplication is what let the
- * enumeration and the behaviour drift apart in the first place.
+ * RUNS are the same array, and the enumeration cannot drift from the behaviour.
  *
  * Each entry names the predicate column; the delete is always
  * `DELETE FROM <table> WHERE <column> = <userId>`. Tables needing a COMPOUND
@@ -95,6 +94,7 @@ export const PURGED_SYSTEM_TABLES = [
       'by construction. Cascades; named for the same reason.',
   },
   { table: 'user_favorites', column: 'user_id', reason: 'Per-user bookmarks. Cascades; named.' },
+  { table: 'calendar_feed_tokens', column: 'user_id', reason: 'Feed addresses. Cascades; named.' },
   {
     table: 'user_recent_items',
     column: 'user_id',

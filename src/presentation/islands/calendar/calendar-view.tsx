@@ -38,8 +38,46 @@ import type {
   CalendarView,
 } from '@/domain/models/app/pages/components/component-types/data/calendar/schema'
 import type { CalendarPartClasses } from '@/presentation/design/calendar-part-classes'
-import type { CalendarRef, DateClickInfo, DatesSetInfo, EventClickInfo } from '@fullcalendar/react'
+import type {
+  CalendarRef,
+  DateClickInfo,
+  DatesSetInfo,
+  EventClickInfo,
+  EventDisplayInfo,
+  MountInfo,
+} from '@fullcalendar/react'
 import type { ReactElement, RefObject } from 'react'
+
+/**
+ * A month chip's content: FullCalendar's own (`true`) except where it dropped
+ * the time. Below 60px a day cell is "micro" and FullCalendar forces an empty
+ * time, so a narrow month read titles with no hour at all. A timed event's
+ * first segment keeps its `HH:mm` there, and only the title gives way (the
+ * title ellipsizes; the time never shrinks — `calendar-styles.ts`). The time
+ * is marked `sv-chip-micro`, which tightens that chip so the title keeps room
+ * for at least a whole ellipsis.
+ */
+function chipContent(arg: EventDisplayInfo): ReactElement | true {
+  const { event } = arg
+  if (arg.timeText !== '' || event.allDay || event.start === null || !arg.isStart) return true
+  return (
+    <>
+      <div className={`${arg.timeClass} sv-chip-micro`}>
+        {arg.view.calendar.formatDate(event.start, SLOT_HEADER_FORMAT)}
+      </div>
+      <div className={arg.titleClass}>{event.title || '\u00A0'}</div>
+    </>
+  )
+}
+
+/**
+ * Every chip names its event on hover, whatever its width: a chip too narrow
+ * to show its title still says which event it is. The chip's text is left as
+ * it is, so what an assistive technology reads does not change.
+ */
+function nameChip({ el, event }: MountInfo<EventDisplayInfo>): void {
+  if (event.title !== '') el.setAttribute('title', event.title)
+}
 
 interface CalendarViewProps {
   readonly events: readonly CalendarEvent[]
@@ -179,6 +217,9 @@ function CalendarGrid({
         eventDrop={handleEventDrop}
         {...slotDurationProp(calendarInteraction?.timeSlotInterval)}
         slotHeaderFormat={SLOT_HEADER_FORMAT}
+        eventTimeFormat={SLOT_HEADER_FORMAT}
+        eventContent={chipContent}
+        eventDidMount={nameChip}
       />
     </div>
   )

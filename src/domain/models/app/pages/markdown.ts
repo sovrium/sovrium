@@ -154,7 +154,7 @@ export const MarkdownSchema = Schema.Struct({
     Schema.Literals(['prose', 'docs', 'full', 'none']).pipe(
       Schema.annotate({
         description:
-          'Layout mode: prose (article-width), docs (with sidebar), full (full-width), none (no wrapper)',
+          "Layout mode: prose (article-width), docs (with sidebar), full (full-width), none (no wrapper). prose and docs set the body with Typeset, shadcn/ui's prose stylesheet; docs reads at 15px with 1.5em between blocks.",
       })
     )
   ),

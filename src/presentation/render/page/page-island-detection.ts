@@ -9,6 +9,7 @@ import { isMenuBreadcrumb } from '@/presentation/render/registry/breadcrumb-menu
 import { pageFoldsDocsNav } from '@/presentation/render/registry/docs-nav-drawer-mode'
 import {
   ISLAND_COMPONENT_TYPES,
+  embedsIslandMarkup,
   zeroJsDialogNeedsNoRuntime,
 } from '@/presentation/render/registry/island-component-types'
 import { isListIslandMode } from '@/presentation/render/registry/list-island-mode'
@@ -72,7 +73,8 @@ function hasDataIslandProp(item: Component): boolean {
  *    `record-field-system`;
  *  - P2 a sidebar with a FETCHED group → `sidebar-groups`;
  *  - W a `command-palette` in SEARCH mode → `command-palette`;
- *  - a button whose action is `openImport` → `open-import`.
+ *  - a button whose action is `openImport` → `open-import`;
+ *  - a form embedded through `formRef` whose markup holds a `form-field` marker.
  */
 export function bindsToIsland(item: Component): boolean {
   return (
@@ -81,7 +83,8 @@ export function bindsToIsland(item: Component): boolean {
     isRecordFieldSystemMode(item) ||
     isSourcedSidebar(item) ||
     isSearchPalette(item) ||
-    isMenuBreadcrumb(item)
+    isMenuBreadcrumb(item) ||
+    embedsIslandMarkup(item)
   )
 }
 

@@ -27,6 +27,8 @@ export interface SheetTab {
   readonly slug: string
   readonly label: string
   readonly panel: () => ReactElement
+  /** The tab edits the record, so the sheet's Cancel/Save footer is drawn under it. */
+  readonly edits?: boolean
 }
 
 const TABLIST_CLASS = 'border-border flex gap-4 border-b'
@@ -52,7 +54,14 @@ const stepSelection = (
 }
 
 /** The sheet's tabs and the open tab's panel. */
-export function SheetTabs({ tabs }: { readonly tabs: readonly SheetTab[] }): ReactElement {
+export function SheetTabs({
+  tabs,
+  footer,
+}: {
+  readonly tabs: readonly SheetTab[]
+  /** Drawn only under a tab that edits: a tab that reads has nothing to save. */
+  readonly footer?: ReactElement
+}): ReactElement {
   const [selected, setSelected] = useState(() => initialTab(tabs))
   const baseId = useId()
   const select = useCallback(
@@ -100,6 +109,7 @@ export function SheetTabs({ tabs }: { readonly tabs: readonly SheetTab[] }): Rea
           {open.panel()}
         </div>
       )}
+      {open?.edits === true && footer}
     </>
   )
 }

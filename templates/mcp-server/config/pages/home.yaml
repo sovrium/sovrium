@@ -118,9 +118,9 @@ components:
                       className: max-w-[620px] text-[17px] leading-[1.6] text-muted-foreground max-md:text-[15px]
                     content: Your runbooks and decisions, readable by the assistant you already use. It reads what the key's owner may read; it writes only if their role allows it.
 
-              # 1 · Turn it on. The operator's switch, not the config's: the
-              # code blocks keep one dark theme in both schemes, and each block's
-              # caption part paints its file bar in the same ground.
+              # 1 · Turn it on. The operator's switch, not the config's. The code
+              # blocks follow the colour scheme; their classes only size the
+              # block and its file bar.
               - type: container
                 props:
                   className: flex flex-col gap-2
@@ -135,11 +135,10 @@ components:
                       - type: code
                         props:
                           language: bash
-                          className: '!bg-[#0d1117] !px-3.5 !py-3 !text-[13px] !leading-[1.65]'
+                          className: '!px-3.5 !py-3 !text-[13px] !leading-[1.65]'
                         classes:
                           parts:
-                            frame: border-[#30363d]
-                            caption: h-[34px] border-[#30363d] bg-[#0d1117] px-3 py-0 text-[12px] !text-[#9da7b3]
+                            caption: h-[34px] px-3 py-0 text-[12px]
                         filename: terminal
                         content: |-
                           MCP_ENABLED=true MCP_TRANSPORT=streamable-http \
@@ -189,11 +188,10 @@ components:
                       - type: code
                         props:
                           language: json
-                          className: '!bg-[#0d1117] !px-3.5 !py-3 !text-[13px] !leading-[1.65]'
+                          className: '!px-3.5 !py-3 !text-[13px] !leading-[1.65]'
                         classes:
                           parts:
-                            frame: border-[#30363d]
-                            caption: h-[34px] border-[#30363d] bg-[#0d1117] px-3 py-0 text-[12px] !text-[#9da7b3]
+                            caption: h-[34px] px-3 py-0 text-[12px]
                         filename: client configuration
                         content: |-
                           { "mcpServers": { "team-kb": { "type": "http",

@@ -43,15 +43,19 @@
  */
 
 /**
- * The gutter numbers for a block's content — `[1, 2, 3]` for three lines.
+ * The gutter numbers for a block's content — `[1, 2, 3]` for three lines, or
+ * `[40, 41, 42]` when the excerpt's first line is line 40 of its file.
  *
  * Empty when there is no literal string content to number. A children-based
  * `code` block has no string to split, and a gutter
  * guessed at from rendered children would number the wrong things; drawing none
  * is the honest answer and the renderer omits the column entirely.
  */
-export const codeLineNumbers = (content: string | undefined): readonly number[] => {
+export const codeLineNumbers = (
+  content: string | undefined,
+  startLine: number = 1
+): readonly number[] => {
   if (typeof content !== 'string' || content.length === 0) return []
   const lines = content.replace(/\n$/, '').split('\n')
-  return lines.map((_line, index) => index + 1)
+  return lines.map((_line, index) => index + startLine)
 }

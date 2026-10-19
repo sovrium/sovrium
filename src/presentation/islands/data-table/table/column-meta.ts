@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import type { RowActionCellConfig } from '../row-actions/row-action-types'
 import type { CellStyleCondition } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 /**
@@ -49,6 +50,14 @@ export interface DataTableColumnMeta {
    * around it.
    */
   readonly actions?: boolean
+  /** The action column's config, read by its cell component (`RowActionCell`). */
+  readonly rowActions?: RowActionCellConfig
+  /**
+   * The action column is the LAST column, so it is pinned to the grid's right
+   * edge. An action column between field columns is not: pinned there, it
+   * would ride over the columns after it.
+   */
+  readonly trailing?: boolean
   /**
    * The column's values are set in tabular figures: a quantity, an instant or a
    * time of day, which a reader scans DOWN the column. Read off the field type

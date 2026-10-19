@@ -14,6 +14,10 @@
 # The Task API is a fictional team's backlog; rename it, replace the tables,
 # and it is yours. This is the file you diff, fork and redeploy.
 name: task-api
+# `name` stays the identifier: addresses, the MCP tool prefix, the analytics
+# key. `displayName` is what people read in the console, on the sign-in card
+# and in the tab title, so it can spell an acronym the slug cannot.
+displayName: Task API
 version: 1.0.0
 description: >-
   A headless API: projects and tasks behind a REST API, called with an API key,

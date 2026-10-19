@@ -34,7 +34,7 @@
 import { Effect } from 'effect'
 import { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
 import { INTERRUPTED_RUN_ERROR } from '@/domain/models/app/automations/automation-run-outcome-service'
-import { readServerBootInstant } from '@/infrastructure/process/server-boot-instant'
+import { onDevTimeline, readServerBootInstant } from '@/infrastructure/process/server-boot-instant'
 import { notifyPlatformFailure } from './notify-platform-failure'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { AutomationRunOutcomeDatabaseError } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
@@ -56,8 +56,10 @@ export const reapInterruptedRuns = (
 > =>
   Effect.gen(function* () {
     const repository = yield* AutomationRunOutcomeRepository
+    // Compared on the timeline the rows were stamped on: a pinned development
+    // host stamps its runs from the pinned instant, so its boot is that instant.
     const closed = yield* repository.failOrphanedRuns({
-      startedBefore,
+      startedBefore: onDevTimeline(startedBefore),
       error: INTERRUPTED_RUN_ERROR,
     })
     const closedAt = new Date().toISOString()

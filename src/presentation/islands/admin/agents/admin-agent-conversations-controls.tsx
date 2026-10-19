@@ -7,75 +7,11 @@
 
 import { type ChangeEvent, type ReactElement, useCallback } from 'react'
 import { useAgentConversationString as useWord } from './admin-agent-conversations-strings'
-import type { NewConversationState } from './admin-agent-conversations-state'
 
 /**
- * The controls above the conversation list: starting a conversation, the
- * agent filter and the search field.
+ * The control above the conversation list: the agent filter. The search box is
+ * the page's own, in its toolbar row.
  */
-
-/**
- * The "New conversation" trigger + agent picker. The
- * "New conversation" button opens an "Agent" combobox; picking an agent
- * opens the composer in the thread column. The picker only renders once the
- * compose flow is active so the empty starting state is a single clean CTA.
- */
-export function NewConversation({
-  state,
-  agentNames,
-  onStart,
-  onPickAgent,
-}: {
-  readonly state: NewConversationState
-  readonly agentNames: ReadonlyArray<string>
-  readonly onStart: () => void
-  readonly onPickAgent: (value: string) => void
-}): ReactElement {
-  const handlePick = useCallback(
-    (event: ChangeEvent<HTMLSelectElement>) => onPickAgent(event.target.value),
-    [onPickAgent]
-  )
-  const agentWord = useWord('agent', 'Agent')
-  const chooseWord = useWord('chooseAgent', 'Choose an agent…')
-  return (
-    <div className="flex flex-col gap-2">
-      <button
-        type="button"
-        onClick={onStart}
-        className="text-muted-foreground border-border-strong/40 bg-muted hover:bg-muted/70 text-md inline-flex items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 font-medium transition-colors"
-      >
-        <span
-          aria-hidden="true"
-          className="text-lg leading-none"
-        >
-          +
-        </span>
-        {useWord('newConversation', 'New conversation')}
-      </button>
-      {state.active ? (
-        <label className="text-md flex items-center gap-2">
-          <span className="text-foreground-subtle text-sm">{agentWord}</span>
-          <select
-            aria-label={agentWord}
-            value={state.agent}
-            onChange={handlePick}
-            className="border-border bg-background text-foreground text-md flex-1 rounded-md border px-2 py-1"
-          >
-            <option value="">{chooseWord}</option>
-            {agentNames.map((name) => (
-              <option
-                key={name}
-                value={name}
-              >
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : undefined}
-    </div>
-  )
-}
 
 /**
  * The agent filter above the conversation list. Defaults to
@@ -94,13 +30,10 @@ export function AgentFilter({
   agent,
   onAgent,
   agentNames,
-  hidden,
 }: {
   readonly agent: string
   readonly onAgent: (value: string) => void
   readonly agentNames: ReadonlyArray<string>
-  /** Hidden while the "New conversation" picker is open, so only one "Agent"-ish combobox exists. */
-  readonly hidden: boolean
 }): ReactElement | null {
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLSelectElement>) => onAgent(event.target.value),
@@ -111,7 +44,7 @@ export function AgentFilter({
     filter: useWord('filterByAgent', 'Filter by agent'),
     all: useWord('allAgents', 'All agents'),
   }
-  if (agentNames.length < 2 || hidden) return null
+  if (agentNames.length < 2) return null
   return (
     <label className="text-md flex items-center gap-2">
       <span className="text-foreground-subtle text-sm">{words.agent}</span>
@@ -132,50 +65,5 @@ export function AgentFilter({
         ))}
       </select>
     </label>
-  )
-}
-
-/** The search box above the conversation list. */
-export function ListSearch({
-  search,
-  onSearch,
-}: {
-  readonly search: string
-  readonly onSearch: (value: string) => void
-}): ReactElement {
-  const handleChange = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => onSearch(event.target.value),
-    [onSearch]
-  )
-  return (
-    <div className="relative">
-      <svg
-        aria-hidden="true"
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="text-foreground-subtle pointer-events-none absolute top-2.5 left-2.5"
-      >
-        <circle
-          cx="7"
-          cy="7"
-          r="4.2"
-        />
-        <path d="m10.3 10.3 3.2 3.2" />
-      </svg>
-      <input
-        type="search"
-        value={search}
-        onChange={handleChange}
-        placeholder={useWord('search', 'Search conversations…')}
-        aria-label={useWord('searchLabel', 'Search conversations')}
-        className="border-border bg-card focus:border-border-strong focus:ring-ring/30 text-md w-full rounded-md border py-1.5 pr-3 pl-8 transition-colors focus:ring-2 focus:outline-none"
-      />
-    </div>
   )
 }

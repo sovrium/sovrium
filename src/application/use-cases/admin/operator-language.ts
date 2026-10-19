@@ -17,9 +17,12 @@
 
 import { Effect } from 'effect'
 import { AccountRepository } from '@/application/ports/repositories/auth/account-repository'
+import { groupLabelFor, roleLabelFor } from '@/domain/models/app/auth/readable-name-service'
 import { findDeclaredLanguageCode } from '@/domain/models/app/languages/language-detection'
+import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import type { AccountDatabaseError } from '@/application/ports/repositories/auth/account-repository'
 import type { AdminReadRequest } from '@/application/use-cases/admin/admin-read-operation'
+import type { App } from '@/domain/models/app'
 import type { Languages } from '@/domain/models/app/languages/language'
 
 /**
@@ -61,3 +64,22 @@ export const resolveOperatorLanguage = (
       asConsoleLanguage(profile?.language) ?? asConsoleLanguage(request.preferredLanguage) ?? 'en'
     )
   }).pipe(Effect.withSpan('admin.resolve-operator-language'))
+
+/** What the console calls a role and a group, for one reader. */
+export interface ConsoleLabels {
+  readonly role: (name: string) => string
+  readonly group: (name: string) => string
+}
+
+/**
+ * The words the console shows for the app's roles and groups in `language`:
+ * a declared `label` (its `$t:` key read from the app's translations), else the
+ * console's words for a role every app carries, else the name made readable.
+ */
+export const consoleLabels = (app: App, language: ConsoleLanguage): ConsoleLabels => {
+  const translate = (text: string) => resolveTranslationPattern(text, language, app.languages)
+  return {
+    role: (name) => roleLabelFor(app.auth, name, language, translate),
+    group: (name) => groupLabelFor(app.auth, name, translate),
+  }
+}

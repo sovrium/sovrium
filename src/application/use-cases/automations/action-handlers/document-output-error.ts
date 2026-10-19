@@ -7,7 +7,13 @@
 
 import { Data } from 'effect'
 
-/** A generated file could not be written or attached; `message` says why and names the key. */
+/**
+ * A generated file could not be written or attached; `message` says why and
+ * names the key. `callerRefused` marks the refusal of a hand-started run's
+ * starter, which the step reports as the records API's `Resource not found`
+ * and nothing more.
+ */
 export class GeneratedFileWriteError extends Data.TaggedError('GeneratedFileWriteError')<{
   readonly message: string
+  readonly callerRefused?: true
 }> {}

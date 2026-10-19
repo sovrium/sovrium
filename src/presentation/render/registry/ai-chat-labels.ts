@@ -30,8 +30,13 @@ export interface AiChatLabels {
   /** The control that stops a streaming reply, and the marker a stopped one keeps. */
   readonly stop: string
   readonly stopped: string
-  /** The collapsed marker holding the model's reasoning. */
+  /** The collapsed line holding the model's reasoning. */
   readonly reasoning: string
+  /** The titles of a tool card's two blocks: what the call was given, and what it returned. */
+  readonly input: string
+  readonly output: string
+  /** The footer of a tool card's block whose preview was cut. */
+  readonly truncated: string
   /** The decisions on a call the agent holds, and the line saying it waits for one. */
   readonly approve: string
   readonly deny: string
@@ -54,6 +59,10 @@ export interface AiChatLabels {
   readonly responding: string
   /** The name of the strip of suggested questions under the composer. */
   readonly suggestions: string
+  /** The token count ending an answer, and its split; `{count}` is the formatted number. */
+  readonly usageTotal: string
+  readonly usageInput: string
+  readonly usageOutput: string
   /** The message box's placeholder when the author sets none. */
   readonly placeholder: string
 }
@@ -71,6 +80,10 @@ export interface AiChatComposerLabels {
   readonly listening: string
   /** A recording the speech service could not read. */
   readonly voiceError: string
+  /** The dictation button's name, and its two refusals: no recorder, the microphone refused. */
+  readonly holdToTalk: string
+  readonly micUnsupported: string
+  readonly micRefused: string
 }
 
 /** The conversation list and a turn's Edit, Regenerate and pager. */

@@ -36,30 +36,19 @@
  * @see src/domain/models/api/admin/design-system/facets.ts
  */
 
-import { SOVRIUM_EXTENSION_KEY } from '@/domain/models/api/admin/design-system'
 import { splitGuidanceLine } from '@/domain/models/app/design/guidance-line'
-import { PLATFORM_TYPE_LADDER } from '@/domain/models/app/design/inherited-tokens'
 import { buildDesignSystem } from './design-system'
 import { imageryLines, markMisuseLines } from './design-system-brand-facet'
 import { renderDesignSystemMarkdown } from './design-system-markdown'
-import {
-  colourProjection,
-  discardedDeclarations,
-  typographyProjection,
-} from './design-system-token-projection'
-import { flattenDesignTokens } from './design-system-token-rows'
-import type { FlatTokenRow } from '@/domain/models/api/admin/design-system/component-types'
+import { voicePreviewOf } from './design-system-voice-preview'
 import type {
   DesignSystemExportRow,
   DesignSystemExportsResponse,
-  DesignTokenFacetResponse,
   GuidanceKind,
   GuidanceListResponse,
   GuidanceRow,
-  TypeLadderResponse,
 } from '@/domain/models/api/admin/design-system/facets'
 import type { App } from '@/domain/models/app'
-import type { Design } from '@/domain/models/app/design'
 
 /** The length of an array-shaped value, and zero for anything else. */
 export const sized = (value: unknown): number => (Array.isArray(value) ? value.length : 0)
@@ -70,166 +59,7 @@ export const keysOf = (record: unknown): readonly string[] =>
     ? Object.keys(record as Readonly<Record<string, unknown>>)
     : []
 
-// ---------------------------------------------------------------------------
-// The resolved tokens, by group, with counts
-// ---------------------------------------------------------------------------
-
-/**
- * The elevation ramp, as token rows.
- *
- * The one place the facet read's row SET differs from `?flat=1`'s, and it is
- * deliberate: the ramp is published under `$extensions.shadows` rather than as a
- * DTCG group, and the flat projection skips every `$`-prefixed member so that
- * `$description` does not land in the palette table. Foundations draws elevation
- * beside spacing and radius, so a token table omitting it would under-report the
- * system the page documents.
- *
- * No second derivation is needed to fill `inherited` / `overridden`: the ramp
- * already carries a per-step `provenance`, which is the same question under
- * another name, and it is the only group whose provenance the document itself
- * publishes.
- */
-const shadowRows = (document: Readonly<Record<string, unknown>>): readonly FlatTokenRow[] => {
-  const extensions = document['$extensions'] as
-    Readonly<Record<string, Readonly<Record<string, unknown>>>> | undefined
-  const shadows = extensions?.[SOVRIUM_EXTENSION_KEY]?.['shadows']
-  if (typeof shadows !== 'object' || shadows === null) return []
-
-  return Object.entries(shadows as Readonly<Record<string, unknown>>).flatMap(([name, step]) => {
-    if (typeof step !== 'object' || step === null) return []
-    const { value, provenance } = step as {
-      readonly value?: unknown
-      readonly provenance?: unknown
-    }
-    const overridden = provenance === 'declared'
-    return typeof value === 'string'
-      ? [
-          {
-            path: `shadow.${name}`,
-            value,
-            inherited: !overridden,
-            overridden,
-            // `design.elevation` is a real authoring position, so the ramp
-            // is no more locked than the palette is.
-            locked: false,
-          },
-        ]
-      : []
-  })
-}
-
-/**
- * A token's dark counterpart, when the operator declared one.
- *
- * ABSENT — never a copy of `value` — when they declared none. Foundations prints
- * the value a swatch PAINTS, and under `?scheme=dark` that value is
- * `design.darkColors`, which has no home in a single-mode DTCG tree at all; so a
- * swatch reading only the document paints one colour and prints another. Echoing
- * the light value instead would be indistinguishable from "the operator chose
- * the same colour twice", and the console's dark disclosure turns on exactly
- * that difference.
- */
-const withDarkCounterpart = (
-  rows: readonly FlatTokenRow[],
-  design: Design | undefined
-): readonly FlatTokenRow[] => {
-  const dark = (design?.darkColors ?? {}) as Readonly<Record<string, unknown>>
-  return rows.map((row) => {
-    const name = row.path.startsWith('color.') ? row.path.slice('color.'.length) : undefined
-    const counterpart = name === undefined ? undefined : dark[name]
-    return typeof counterpart === 'string' ? { ...row, dark: counterpart } : row
-  })
-}
-
-/**
- * The resolved tokens, filtered by group, with the counts the headline prints.
- *
- * `summary` describes the rows THIS response carries, filter included: a summary
- * that silently counted the unfiltered document would print the whole system's
- * totals beside six colour rows, and no reader could tell which number they were
- * looking at.
- *
- * An UNKNOWN group returns zero rows rather than a 404 — "no tokens in that
- * group" is the truthful answer, and a 404 would let a caller enumerate which
- * groups exist by probing.
- */
-/**
- * The platform type ladder — what Tailwind's own `text-*` utilities resolve to.
- *
- * Takes no `app`, and that is the contract rather than an omission: the ladder
- * belongs to the engine's stylesheet, so two instances on one build answer
- * identically. It is what makes the rows safe to publish beside a disclosure
- * saying the operator declared no `design.typeScale` — they cannot be mistaken
- * for a declaration, because they do not depend on one.
- *
- * `PLATFORM_TYPE_LADDER` is a generated table of `[utility, sizePx, leadingPx]`
- * triples, and the projection splits the utility into the addressable `step` a
- * page stamps: a config page cannot split a string, so `text-2xl` and `2xl` are
- * two published facts rather than one field and a substring operation.
- */
-export const typeLadderFacet = (): TypeLadderResponse => {
-  const items = PLATFORM_TYPE_LADDER.map(([utility, sizePx, leadingPx]) => ({
-    step: utility.startsWith('text-') ? utility.slice('text-'.length) : utility,
-    utility,
-    sizePx,
-    leadingPx,
-  }))
-  return { items, total: items.length }
-}
-
-export const designTokenFacet = (app: App, group?: string): DesignTokenFacetResponse => {
-  const document = buildDesignSystem(app) as Readonly<Record<string, unknown>>
-  const { design } = app
-  const every = [
-    ...withDarkCounterpart(flattenDesignTokens(document, app), design),
-    ...shadowRows(document),
-  ]
-  const filtered = group === undefined ? every : every.filter((r) => r.path.startsWith(`${group}.`))
-  // The token's own name, without its group. A page cannot split a string, so a
-  // per-token testid or anchor needs the leaf published rather than derivable.
-  //
-  // The colour projection rides on the same pass: a hex conversion is an Oklab
-  // matrix multiply and a contrast ratio is a luminance computation, neither of
-  // which a config page has any arithmetic for. The GROUND every colour is
-  // measured against is `background`, resolved from the unfiltered set so
-  // `?group=color` measures against the same colour the unfiltered read does.
-  const ground = every.find((row) => row.path === 'color.background')?.value
-  // The DARK ground, resolved the same way and for the same reason: a dark
-  // swatch sits on the dark background, so grading it against the light one
-  // would publish a ratio for a pairing that is never on screen together.
-  // Absent when the app declares no dark background, which is what makes every
-  // dark grade on such an app answer `unmeasured`.
-  const darkGround = every.find((row) => row.path === 'color.background')?.dark
-  const items = filtered.map((row) => ({
-    ...row,
-    leaf: row.path.split('.').at(-1) ?? row.path,
-    ...colourProjection(row, ground, darkGround),
-    // The typography half rides on the same pass, for the reason the colour one
-    // does: a `typography.*` token's `$value` is a composite, `value` renders it
-    // as `key: value; …`, and a config page can neither cut that string nor walk
-    // into it — `$record.<field>` admits no dots. Reads the DOCUMENT rather than
-    // the config so the lifted members and `value` are spelled by one serialiser.
-    ...typographyProjection(row, document),
-  }))
-
-  return {
-    items,
-    total: items.length,
-    summary: {
-      total: items.length,
-      inherited: items.filter((row) => row.inherited).length,
-      overridden: items.filter((row) => row.overridden).length,
-      locked: items.filter((row) => row.locked).length,
-      // The app-level fact no row can carry: a row's own `dark` is absent both
-      // when no dark palette was declared and when one was declared that skips
-      // this token, and those are different facts.
-      darkDeclared: Object.keys(design?.darkColors ?? {}).length > 0,
-    },
-    // Never narrowed by `group` — a discarded declaration has no token group to
-    // belong to, which is what being discarded means.
-    discarded: discardedDeclarations(document),
-  }
-}
+export { designTokenFacet, typeLadderFacet } from './design-system-token-facet'
 
 // ---------------------------------------------------------------------------
 // The declared guidance, split into the two registers
@@ -438,7 +268,7 @@ export const guidanceFacet = (
   const items = rows
     .filter((row) => kind === undefined || row.kind === kind)
     .filter((row) => label === undefined || row.label === label)
-  return { items, total: items.length }
+  return { items, total: items.length, voicePreview: [voicePreviewOf(app)] }
 }
 
 // ---------------------------------------------------------------------------
@@ -489,7 +319,7 @@ const measure = (
  */
 export const exportsFacet = (app: App): DesignSystemExportsResponse => {
   const document = buildDesignSystem(app)
-  const markdown = renderDesignSystemMarkdown(document, app.name)
+  const markdown = renderDesignSystemMarkdown(document, buildDesignSystem(app, 'dark'), app.name)
 
   const items: readonly DesignSystemExportRow[] = [
     {

@@ -26,21 +26,22 @@ import { declaredFilterFields, extractIdFromFilter, toQueryFilter } from './reco
 import {
   failureFromError,
   filterFieldRefusal,
-  resolveActionTargetIds,
   selectionFieldRefusal,
   sortFieldRefusal,
 } from './record-filters'
 import { buildReadOutput } from './record-read-output'
 import {
-  listableFields,
   listForRun,
   READ_REFUSAL,
   readableRows,
+  runFieldSets,
   scopedListFilter,
+  type RunFieldSets,
 } from './record-read-scope'
+import { resolveRunTargetIds } from './record-starter-targets'
 import { recordUpdatePrecheck } from './record-update-precheck'
-import { describeWriteFailure } from './record-write-failure'
-import { actionAttributes, findMultiSelectViolationMessage, recordProp, stringProp } from './shared'
+import { writeFailureOutcome } from './record-write-failure'
+import { actionAttributes, findOptionViolationMessage, recordProp, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext, AutomationContext } from './shared'
 import type { StepRequirements } from '../run/types'
 import type { QueryFilter } from '@/application/ports/repositories/tables/table-repository'
@@ -85,7 +86,7 @@ export const handleRecordCreate: ActionHandler = (action, app, automation, runCo
 
     // Multi-select rules on the raw payload, HERE: `createRecordProgram` takes
     // `app` optionally, so a check placed there would no-op on this path.
-    const multiSelectError = findMultiSelectViolationMessage(app, tableName, fields)
+    const multiSelectError = findOptionViolationMessage(app, tableName, fields)
     if (multiSelectError) return { status: 'failure', error: multiSelectError } as const
     const requests = [{ op: 'create', tableName, fields }] as const
     const refused = yield* writeRefusal({
@@ -113,10 +114,8 @@ export const handleRecordCreate: ActionHandler = (action, app, automation, runCo
         runContext,
       })
     )
-    if (result._tag === 'Failure') {
-      // The column the database refused and its reason, for the run history.
-      return { status: 'failure', error: describeWriteFailure(result.failure, fields) } as const
-    }
+    // The column the database refused and its reason, for the run history.
+    if (result._tag === 'Failure') return writeFailureOutcome(result.failure, fields)
     // A later step reads its id as `{{<step>.result.id}}`.
     return { status: 'success', output: { id: result.success.id } } as const
   }).pipe(
@@ -148,13 +147,11 @@ export const handleRecordUpdate: ActionHandler = (action, app, automation, runCo
     if (precheck !== undefined) return precheck
 
     // Lenient lookup — a failed query reads as "matched nothing" (see
-    // `resolveIdsByFilterLenient`); a filter naming a missing column is refused.
-    const targets = yield* resolveActionTargetIds({
-      operator: 'record.update',
-      tableName,
-      filter: props['filter'],
-      declared: declaredFilterFields(app, tableName),
-      idFastPath: id,
+    // `resolveIdsByFilterLenient`); a filter naming a missing column is refused,
+    // and a hand-started run's filter reaches only what its starter may read.
+    const targets = yield* resolveRunTargetIds({
+      ...{ operator: 'record.update', app, automation, tableName },
+      ...{ filter: props['filter'], idFastPath: id },
     })
     if (!targets.resolved) return targets.outcome
     const idsToUpdate: readonly string[] = targets.ids
@@ -227,7 +224,7 @@ const applyRecordUpdates = (config: {
       )
     )
     return updates._tag === 'Failure'
-      ? failureFromError(updates.failure)
+      ? failureFromError(updates.failure, data)
       : ({
           status: 'success',
           output: { updated: idsToUpdate.length, ids: idsToUpdate.map(String) },
@@ -284,12 +281,10 @@ export const handleRecordDelete: ActionHandler = (action, app, automation, runCo
     // `record/batchDelete` (which now fails on a failed lookup) this still
     // reports `deletedCount: 0` and succeeds. See `resolveIdsByFilterLenient`.
     // A filter naming a column that does not exist is refused instead: on
-    // SQLite the degraded form of that predicate matches the WHOLE table.
-    const targets = yield* resolveActionTargetIds({
-      operator: 'record.delete',
-      tableName,
-      filter: props['filter'],
-      declared: declaredFilterFields(app, tableName),
+    // SQLite the degraded form of that predicate matches the WHOLE table. A
+    // hand-started run's filter reaches only what its starter may read.
+    const targets = yield* resolveRunTargetIds({
+      ...{ operator: 'record.delete', app, automation, tableName, filter: props['filter'] },
     })
     if (!targets.resolved) return targets.outcome
     const idsToDelete: readonly string[] = targets.ids
@@ -462,28 +457,28 @@ const listRefusal = (config: {
   readonly queryFilter: QueryFilter | undefined
   readonly sortKeys: readonly SortKey[]
   readonly selectedFields: readonly string[]
-  readonly declaredFields: ReadonlySet<string> | undefined
+  readonly known: RunFieldSets
 }): string | undefined => {
-  const { tableName, filterPresent, queryFilter, sortKeys, selectedFields, declaredFields } = config
+  const { tableName, filterPresent, queryFilter, sortKeys, selectedFields, known } = config
   if (filterPresent && queryFilter === undefined) {
     return 'record.list filter must contain at least one condition'
   }
   const filterRefusal =
     queryFilter === undefined
       ? undefined
-      : filterFieldRefusal(tableName, queryFilter, declaredFields)
+      : filterFieldRefusal(tableName, queryFilter, known.filterable)
   if (filterRefusal !== undefined) {
     return `record.list could not resolve its filter: ${filterRefusal.message}`
   }
   const orderRefusal = sortFieldRefusal(
     tableName,
     sortKeys.map((key) => key.field),
-    declaredFields
+    known.filterable
   )
   if (orderRefusal !== undefined) {
     return `record.list could not resolve its sort: ${orderRefusal.message}`
   }
-  const selectionRefusal = selectionFieldRefusal(tableName, selectedFields, declaredFields)
+  const selectionRefusal = selectionFieldRefusal(tableName, selectedFields, known.selectable)
   return selectionRefusal === undefined
     ? undefined
     : `record.list could not resolve its fields: ${selectionRefusal.message}`
@@ -543,13 +538,12 @@ const runListQuery = (config: {
   readonly automation: AutomationContext
 }): Effect.Effect<ActionOutcome, never, StepRequirements> =>
   Effect.gen(function* () {
-    const { app, tableName, props, access, queryFilter, sortKeys, fields } = config
+    const { app, tableName, props, access, queryFilter, sortKeys, fields, automation } = config
     const limit = optionalIntProp(props, 'limit')
     const offset = optionalIntProp(props, 'offset')
     const paginates = limit !== undefined || offset !== undefined
     const sort = sortToPortString(paginates ? withDeterministicTiebreak(sortKeys) : sortKeys)
     const filter = scopedListFilter(queryFilter, access)
-    const { automation } = config
     const context = { app, tableName, access, automation, fields }
     if (filter === 'nothing') return yield* buildReadOutput([], context)
     const result = yield* Effect.result(
@@ -591,7 +585,6 @@ export const handleRecordList: ActionHandler = (action, app, automation) =>
     const access = yield* runReadAccess(app, automation, tableName)
     if (access.kind === 'refused') return READ_REFUSAL
 
-    const declaredFields = listableFields(app, tableName, access)
     const queryFilter = toQueryFilter(props['filter'], declaredFilterFields(app, tableName).table)
     const sortKeys = readSortKeys(props['sort'])
     const fields = readFieldNames(props['fields'])
@@ -602,7 +595,7 @@ export const handleRecordList: ActionHandler = (action, app, automation) =>
       queryFilter,
       sortKeys,
       selectedFields: fields ?? [],
-      declaredFields,
+      known: runFieldSets(app, tableName, access),
     })
     if (refusal !== undefined) {
       return { status: 'failure', error: refusal } as const

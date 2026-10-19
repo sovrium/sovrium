@@ -7,14 +7,11 @@
 
 import { flexRender } from '@tanstack/react-table'
 import { useCallback } from 'react'
-import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import {
   computeTableFillHandleClasses,
   computeTableRowClasses,
 } from '@/presentation/design/table-default-classes'
 import { AiRefinementMarker } from '../runtime/ai-refinement-marker'
-import { dispatch as dispatchIslandEvent } from '../runtime/event-bus'
-import { followAddress } from '../runtime/follow-address'
 import { useRowMarkers } from './account-sessions'
 import { clickLandsOnInnerControl, stopClickPropagation } from './cell-click'
 import { cellPresentation } from './column-presentation'
@@ -31,8 +28,9 @@ import {
   singleGestureControl,
   InlineEditor,
 } from './inline-cell-editing'
+import { useGridString } from './island/grid-strings'
+import { performRowAction } from './row-action'
 import { useRowPaint } from './row-color'
-import { siblingRowIds } from './row-identity'
 import type { CellMeta, DataRowContext } from './data-row-types'
 import type { GridCursor } from './island/grid-cursor-model'
 import type { DataTableCell, DataTableRow } from './island/table-features'
@@ -143,7 +141,7 @@ function FillHandle({
     <span
       data-fill-handle="true"
       aria-hidden="true"
-      title="Drag to fill"
+      title={useGridString('datatable.fillHandle', 'Drag to fill')}
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
       onClick={stopClickPropagation}
@@ -269,40 +267,6 @@ function DataCell({
 // ---------------------------------------------------------------------------
 
 /**
- * Row-click `path` interpolation: `$record.<field>` tokens in the configured
- * path are substituted against the clicked row's data via the shared
- * `substituteRecordVars` helper (unknown / null fields collapse to an empty
- * string so a misconfigured path is still navigable rather than silently
- * retaining the literal `$record.id` token).
- */
-function performRowAction(row: DataTableRow, ctx: DataRowContext, target?: Element): void {
-  const action = ctx.onRowClickAction
-  // Schema-driven onRowClick wins over single-select toggle (the checkbox still selects).
-  if (action?.type === 'navigate') {
-    const resolved = substituteRecordVars(action.path, row.original)
-    followAddress(resolved, { openInNewTab: action.openInNewTab })
-    return
-  }
-  // PG-04: openSheet dispatch — `sovrium:open-drawer` for the named drawer,
-  // carrying the clicked row's record and the ids of the rows on screen, in
-  // their order, for the drawer's Previous / Next.
-  if (action?.type === 'openSheet') {
-    dispatchIslandEvent('sovrium:open-drawer', {
-      id: action.component,
-      record: row.original,
-      siblings: siblingRowIds(target),
-      // A system-backed grid has no table: its name is `''`, which would match
-      // no form at all, so it names none and the drawer binds as before.
-      ...(ctx.tableName ? { table: ctx.tableName } : {}),
-    })
-    return
-  }
-  if (ctx.selectionMode !== 'single') return
-  // For single selection, deselect all others and toggle this row
-  row.toggleSelected(!row.getIsSelected())
-}
-
-/**
  * The row's background utilities.
  *
  * Striping, hover and selection have always been ONE channel here — three plain
@@ -383,9 +347,10 @@ export function DataRow({
       })}
       {...(hasRowAction && { tabIndex: 0, onKeyDown: handleKeyDown })}
     >
+      {/* By column: `cell.id` holds the row INDEX, so a moved record remounted its cells. */}
       {row.getVisibleCells().map((cell) => (
         <DataCell
-          key={cell.id}
+          key={cell.column.id}
           cell={cell}
           ctx={ctx}
           suppressRowClick={rowIsClickable}

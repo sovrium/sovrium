@@ -58,7 +58,7 @@ Both are optional and combine freely. A read-only analyst might enable only know
 
 ## Conversation history
 
-Every chat turn of a signed-in user is stored with the session it belongs to, so a conversation can be found again, corrected, or asked again. All of it is the user's own: another user's conversation answers `404`, as one that does not exist.
+Every chat turn of a signed-in user is stored with the session it belongs to, so a conversation can be found again, corrected, or asked again. All of it is the user's own: another user's conversation answers `404`, as one that does not exist. An answer whose turn called tools keeps one line per call: which action ran, how it ended, the table it named and how many rows it answered — never what the call was given or what it read. The console's Conversations page reads those lines, and the user's account export lists each call.
 
 | Route                                                                    | Does                                                                                          |
 | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |

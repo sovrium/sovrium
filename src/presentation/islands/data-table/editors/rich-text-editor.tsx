@@ -5,12 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useRef, useState } from 'react'
+import { useContext, useRef, useState } from 'react'
 import {
   TABLE_EDITOR_PROSE_WIDTH,
   computeTableEditorPopoverClasses,
 } from '@/presentation/design/table-default-classes'
 import { RichTextEditorField } from '../../parts/rich-text-editor-field'
+import { GridStringsContext, useGridString } from '../island/grid-strings'
 import { editMetaOf, type CellEditorProps } from './editor-contract'
 import { EditorPopover } from './editor-popover'
 import type { ReactElement } from 'react'
@@ -68,7 +69,9 @@ export default function RichTextCellEditor(props: CellEditorProps): ReactElement
 
   return (
     <EditorPopover
-      label={`Edit ${fieldName ?? 'rich text'}`}
+      label={useGridString('datatable.editField', 'Edit {field}', {
+        field: fieldName ?? 'rich text',
+      })}
       cancel={() => {
         // Escape closes the surface. The draft is persisted on the way out
         // rather than discarded: a rich-text cell holds a paragraph, not a
@@ -90,6 +93,7 @@ export default function RichTextCellEditor(props: CellEditorProps): ReactElement
           {...(toolbar && { toolbar })}
           {...(placeholder && { placeholder })}
           {...(maxLength !== undefined && { maxLength })}
+          words={useContext(GridStringsContext)}
         />
       </div>
     </EditorPopover>

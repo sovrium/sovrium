@@ -7,9 +7,10 @@
 
 /**
  * The conversation-LIST column of the `admin-agent-conversations` island — the
- * left column of the ChatGPT-style two-column viewer. A search box over the
- * loaded titles + a scrollable list of conversation cards (title + last-activity
- * + message count), the selected one accented. Its own loading / empty / no-match
+ * left column of the ChatGPT-style two-column viewer: a scrollable list of
+ * conversation cards (title, then the person who held it, last activity and
+ * message count), the selected one accented. The search box is the page's,
+ * in its toolbar row. Its own loading / empty / no-match
  * / error states live here so the island stays a thin render under the per-island
  * `max-lines` cap. Click handlers are named (not inline) to avoid per-render
  * function allocation (react-perf).
@@ -17,7 +18,7 @@
 
 import { type ReactElement, useCallback } from 'react'
 import { messageCountText, relativeTimeText } from './admin-agent-conversations-captions'
-import { NewConversation, AgentFilter, ListSearch } from './admin-agent-conversations-controls'
+import { AgentFilter } from './admin-agent-conversations-controls'
 import { type ConversationRow, type ListState } from './admin-agent-conversations-data'
 import {
   ListLoading,
@@ -25,9 +26,31 @@ import {
   ListEmptyState,
   ListNoMatchState,
 } from './admin-agent-conversations-states'
-import type { NewConversationState } from './admin-agent-conversations-state'
 
-/** One conversation card in the list, the selected one accented. */
+/** The row's trailing chevron, on a phone, where a tap opens the thread in its place. */
+function RowChevron(): ReactElement {
+  return (
+    <svg
+      aria-hidden="true"
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="text-muted-foreground shrink-0 @2xl:hidden"
+    >
+      <path d="m6 3.5 4.5 4.5-4.5 4.5" />
+    </svg>
+  )
+}
+
+/**
+ * One conversation row: its title over the person who held it and its length,
+ * the last activity at the row's end. The selected row is the muted one.
+ */
 function ConversationCard({
   conversation,
   active,
@@ -38,6 +61,9 @@ function ConversationCard({
   readonly onSelect: (id: string) => void
 }): ReactElement {
   const handleClick = useCallback(() => onSelect(conversation.id), [onSelect, conversation.id])
+  const facts = [conversation.userName, messageCountText(conversation.messageCount)].filter(
+    (fact) => fact !== ''
+  )
   return (
     <button
       type="button"
@@ -45,25 +71,21 @@ function ConversationCard({
       aria-current={active ? 'true' : undefined}
       onClick={handleClick}
       className={[
-        'flex w-full flex-col gap-1 rounded-md border px-3 py-2.5 text-left transition-colors',
-        active
-          ? 'text-muted-foreground border-border-strong/40 bg-muted'
-          : 'text-muted-foreground hover:border-border hover:bg-muted border-transparent',
+        'flex w-full items-center gap-3 px-4 py-3 text-left transition-colors',
+        active ? 'bg-muted' : 'hover:bg-muted/50',
       ].join(' ')}
     >
-      <span className="text-foreground text-md truncate font-medium">{conversation.title}</span>
-      {/* The agent name used to lead this line, from when the list merged every
-          agent. Scoped to one agent by the URL, it repeated the breadcrumb, the
-          sidebar's active row and the page heading on every row — four times for
-          one fact. Dropped; `agentName` stays on the row because the transcript
-          fetch is agent-scoped and still needs it. */}
-      <span className="text-foreground-subtle flex items-center gap-2 text-sm">
-        <span>{relativeTimeText(conversation.lastActivityAt)}</span>
-        <span aria-hidden="true">·</span>
-        {/* The plural is the page language's (`Intl.PluralRules`): zero is
-            plural in English and singular in French. */}
-        <span className="tabular-nums">{messageCountText(conversation.messageCount)}</span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-foreground text-md truncate font-medium">{conversation.title}</span>
+        {/* The person, then the length: the plural is the page language's
+            (`Intl.PluralRules`), zero plural in English and singular in French.
+            The agent is the URL's, so no row repeats it. */}
+        <span className="text-muted-foreground truncate text-sm">{facts.join(' · ')}</span>
       </span>
+      <span className="text-muted-foreground shrink-0 text-sm tabular-nums">
+        {relativeTimeText(conversation.lastActivityAt)}
+      </span>
+      <RowChevron />
     </button>
   )
 }
@@ -73,8 +95,8 @@ interface ConversationListProps {
   readonly state: ListState
   readonly visibleConversations: ReadonlyArray<ConversationRow>
   readonly selectedId: string | undefined
+  /** The page's published search term, for telling no match from no conversation. */
   readonly search: string
-  readonly onSearch: (value: string) => void
   readonly onSelect: (id: string) => void
   readonly onRetry: () => void
   readonly onResetSearch: () => void
@@ -82,10 +104,6 @@ interface ConversationListProps {
   readonly agent: string
   readonly onAgent: (value: string) => void
   readonly agentNames: ReadonlyArray<string>
-  /** The "New conversation" compose flow. */
-  readonly newConversation: NewConversationState
-  readonly onStartNewConversation: () => void
-  readonly onPickNewAgent: (value: string) => void
 }
 
 /** Resolve the list body from the load phase + the search outcome. */
@@ -108,7 +126,7 @@ function ListBody(props: ConversationListProps): ReactElement {
       />
     )
   return (
-    <>
+    <div className="border-border divide-border flex flex-col divide-y overflow-hidden rounded-lg border">
       {visibleConversations.map((conversation) => (
         <ConversationCard
           key={conversation.id}
@@ -117,41 +135,31 @@ function ListBody(props: ConversationListProps): ReactElement {
           onSelect={onSelect}
         />
       ))}
-    </>
+    </div>
   )
 }
 
 /**
- * The conversation-list column: the "New conversation" trigger, the agent
- * filter, search, and the result list with all its states. A `region` named
- * "Conversations" — the new-conversation flow and the result cards both live
- * inside it (CONV-013 reads the list region + its conversation buttons).
+ * The conversation-list column: the agent filter, search, and the result list
+ * with all its states, in a `region` named "Conversations". The console reads
+ * a user's threads and starts none of its own, so the column offers no way to
+ * begin one.
  */
 export function ConversationList(props: ConversationListProps): ReactElement {
+  // In a viewer narrower than 42rem an open thread REPLACES the list; from
+  // 42rem up both stand (the container query is the island's `@container`).
+  const shown = props.selectedId === undefined ? 'flex' : 'hidden @2xl:flex'
   return (
     <section
       aria-label="Conversations"
-      className="border-border flex w-full flex-col gap-3 md:w-72 md:shrink-0 md:border-r md:pr-4"
+      className={`${shown} w-full flex-col gap-3 @2xl:w-80 @2xl:shrink-0`}
     >
-      <NewConversation
-        state={props.newConversation}
-        agentNames={props.agentNames}
-        onStart={props.onStartNewConversation}
-        onPickAgent={props.onPickNewAgent}
-      />
       <AgentFilter
         agent={props.agent}
         onAgent={props.onAgent}
         agentNames={props.agentNames}
-        hidden={props.newConversation.active}
       />
-      <ListSearch
-        search={props.search}
-        onSearch={props.onSearch}
-      />
-      <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto">
-        <ListBody {...props} />
-      </div>
+      <ListBody {...props} />
     </section>
   )
 }

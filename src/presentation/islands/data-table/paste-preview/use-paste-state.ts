@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useCallback, useState } from 'react'
+import { useCallback, useContext, useState } from 'react'
+import { coercionWordsFrom } from '../../runtime/field-value-coercion'
+import { GridStringsContext } from '../island/grid-strings'
 import { batchCreatePastedRecords, buildRecords } from './paste-records'
 import { usePasteInputState } from './use-paste-input-state'
 import { usePasteToast } from './use-paste-toast'
@@ -40,11 +42,17 @@ export function usePasteState({
   const input = usePasteInputState(tableFields)
   const toastState = usePasteToast({ tableName, onImported })
   const [isPasting, setIsPasting] = useState(false)
+  const strings = useContext(GridStringsContext)
 
   const onPaste = useCallback(() => {
     void (async () => {
       if (!input.parsed) return
-      const records = buildRecords(input.parsed, input.mappings, fieldMeta)
+      const records = buildRecords(
+        input.parsed,
+        input.mappings,
+        fieldMeta,
+        coercionWordsFrom(strings)
+      )
       setIsPasting(true)
       try {
         const result = await batchCreatePastedRecords(tableName, records)
@@ -55,7 +63,7 @@ export function usePasteState({
         setIsPasting(false)
       }
     })()
-  }, [input, fieldMeta, tableName, onImported, toastState])
+  }, [input, fieldMeta, tableName, onImported, toastState, strings])
 
   return {
     parsed: input.parsed,

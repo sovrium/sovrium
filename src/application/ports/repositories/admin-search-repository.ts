@@ -69,6 +69,12 @@ export interface AdminSearchUpsertRow {
   readonly title: string
   readonly body: string
   readonly href: string
+  /**
+   * When the entity happened (a submission received, a run started, a file
+   * uploaded…), or the rebuild instant for a row that has no such moment. Never
+   * later than the rebuild, so the newest row still marks when the index was
+   * built.
+   */
   readonly updatedAt: Date
 }
 
@@ -107,6 +113,8 @@ export class AdminSearchRepository extends Context.Service<
         readonly textColumns: readonly string[]
       }>
       readonly extraRows: readonly AdminSearchUpsertRow[]
+      /** Each form's title for people, by form name: a submission is titled by it. */
+      readonly formTitles: Readonly<Record<string, string>>
       readonly producedKinds: readonly AdminSearchEntityType[]
       readonly configKinds: readonly AdminSearchEntityType[]
     }) => Effect.Effect<void, AdminSearchDatabaseError>

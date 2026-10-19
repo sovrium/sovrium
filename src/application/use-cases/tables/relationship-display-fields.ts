@@ -21,6 +21,7 @@
  * consult and everything else ignores.
  */
 
+import { recordTitleFields } from '@/domain/models/app/tables/record-title-service'
 import { mayReadRelatedField } from '@/domain/models/app/tables/related-field-read-service'
 import type { App } from '@/domain/models/app'
 
@@ -29,6 +30,21 @@ type SchemaField = {
   readonly type?: unknown
   readonly relatedTable?: unknown
   readonly displayField?: unknown
+  readonly relationType?: unknown
+}
+
+/**
+ * The column a relationship field is labelled by: its declared `displayField`,
+ * else — for a `one-to-many` field, which lists the related rows rather than
+ * storing a key anyone typed — the related table's record title column, so the
+ * rows read by name and not as bare ids.
+ */
+const displayFieldOf = (tables: App['tables'], field: SchemaField): unknown => {
+  if (field.displayField !== undefined || field.relationType !== 'one-to-many') {
+    return field.displayField
+  }
+  const related = tables?.find((table) => table.name === field.relatedTable)
+  return recordTitleFields(related?.fields)[0]
 }
 
 /** A relationship column that declared the column identifying its target. */
@@ -110,7 +126,9 @@ const mergeSpecs = (
   fields: readonly unknown[],
   requested: readonly RequestedLabel[]
 ): readonly RelationshipDisplaySpec[] => {
-  const declared = fields.flatMap((raw) => toSpec(tables, raw, (raw as SchemaField).displayField))
+  const declared = fields.flatMap((raw) =>
+    toSpec(tables, raw, displayFieldOf(tables, raw as SchemaField))
+  )
   const asked = requested.flatMap((pair) => {
     const field = fields.find((raw) => (raw as SchemaField).name === pair.fieldName)
     return field === undefined ? [] : toSpec(tables, field, pair.displayField)

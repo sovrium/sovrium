@@ -23,8 +23,8 @@ import { ATTENTION_ENDPOINT, DESIGN_USAGE_ENDPOINT } from '../system-sources'
  *
  * ─── THESE FOUR STAY LINKS, AND THAT IS A MEASURED EXCEPTION ──────────────
  *
- * The `Design` row below is a pure TOGGLE now — no `href`, no destination, one
- * control per row — and the case for doing the same here is real: `/records`
+ * A row that only opens a list — no `href`, no destination, one control per
+ * row — is the tidier shape, and the case for it here is real: `/records`
  * renders no chooser. It renders the FIRST table's grid under a breadcrumb
  * naming that table, beneath an intro sentence telling the reader to "choose a
  * table to open its grid", and `/submissions`, `/files` and `/conversations` each do the
@@ -35,9 +35,10 @@ import { ATTENTION_ENDPOINT, DESIGN_USAGE_ENDPOINT } from '../system-sources'
  * the navigation's answer to "where am I" with it, and the renderer says why in
  * as many words: *"A FETCHED disclosure has no children to test at render time,
  * so its section is current only when the entry's own `activeMatch` says so"*
- * (`render/resolve/sidebar-current-resolver.ts`). The `Design` row survives
- * because its children are AUTHORED and the server can see that one of them is
- * the current page; a `source` list does not exist until the reader expands it.
+ * (`render/resolve/sidebar-current-resolver.ts`): a `source` list does not
+ * exist until the reader expands it. The row still READS as one: its link spans
+ * the row and the chevron sits inside it, sharing one hover
+ * (`sidebar-entry-default-classes.ts`).
  *
  * Measured on `/tables/journey_subscribers`, `/forms/journey` and
  * `/buckets/system`, same host, one regeneration apart:
@@ -125,7 +126,8 @@ const failureBadge = (valuePath: string): Readonly<Record<string, unknown>> => (
 })
 
 /**
- * The six pages of the design-system console, authored rather than fetched.
+ * The pages of the design-system console, authored rather than fetched — the
+ * Design group's own rows.
  *
  * Six since `/design-system/agents` was retired into the Overview's own
  * `Share and export` section. A row here pointing at it would be a link into a
@@ -148,24 +150,30 @@ interface DesignSystemRow {
   readonly key: string
   readonly label: string
   readonly href: string
+  /** The Lucide name: the rows are top-level entries of the group, and carry a glyph. */
+  readonly icon: string
   /** A live count beside the row, for the two rows that index something. */
   readonly badge?: { readonly endpoint: string; readonly valuePath: string }
 }
 
 const DESIGN_SYSTEM_ROWS: readonly DesignSystemRow[] = [
-  { key: 'overview', label: '$t:admin.nav.design.overview', href: '/design-system' },
+  {
+    key: 'overview',
+    label: '$t:admin.nav.design.overview',
+    href: '/design-system',
+    icon: 'palette',
+  },
   {
     key: 'foundations',
     label: '$t:admin.nav.design.foundations',
     href: '/design-system/foundations',
+    icon: 'swatch-book',
   },
   // ─── THE TWO COUNTS, AND WHY THEY ARE HERE NOW ───────────────────────────
   //
-  // These rows sit inside the `Design` DISCLOSURE, and `toIslandChild`
-  // (`src/presentation/render/registry/sidebar-entry.tsx`)
-  // used to project a disclosure's children WITHOUT `badge`, on the server,
-  // before either render saw it — so a badge declared here was accepted, stored
-  // and silently inert. It travels now, which is what these two waited on.
+  // The rows once sat inside a disclosure whose children were projected
+  // WITHOUT `badge`, so a badge declared here was accepted, stored and silently
+  // inert. As the Design group's own rows they draw their badge like any entry.
   //
   // The Components count carries its own query string. `endpoint` is validated
   // as "a path starting with /" and nothing more, so the narrowing rides in the
@@ -174,20 +182,38 @@ const DESIGN_SYSTEM_ROWS: readonly DesignSystemRow[] = [
     key: 'components',
     label: '$t:admin.nav.design.components',
     href: '/design-system/components',
+    icon: 'component',
     badge: { endpoint: `${DESIGN_USAGE_ENDPOINT}?subject=component`, valuePath: 'total' },
   },
-  { key: 'brand', label: '$t:admin.nav.design.brand', href: '/design-system/brand' },
-  { key: 'voice', label: '$t:admin.nav.design.voice', href: '/design-system/voice' },
+  {
+    key: 'brand',
+    label: '$t:admin.nav.design.brand',
+    href: '/design-system/brand',
+    icon: 'stamp',
+  },
+  {
+    key: 'voice',
+    label: '$t:admin.nav.design.voice',
+    href: '/design-system/voice',
+    icon: 'quote',
+  },
 ]
 
 // ONE row per destination, no third level. The kit's own categories used to open
 // here, scoped by `showWhen` to the pages inside it — a navigation split in two,
 // half in the chrome and half on the page. They are the page's own column now
 // (`config/pages/design-system/kit-nav.ts`).
+//
+// Every row but the Overview matches by PREFIX, so a page inside one of them —
+// a component's own page under `/design-system/components/<name>` — still marks
+// its row current, and the server opens the Design group on arrival. The Overview keeps the exact default: its href is the section root,
+// which every sibling starts with.
 const designSystemChildren: readonly Record<string, unknown>[] = DESIGN_SYSTEM_ROWS.map(
-  ({ key, label, href, badge }) => ({
+  ({ key, label, href, icon, badge }) => ({
     label,
     href,
+    icon,
+    ...(key === 'overview' ? {} : { activeMatch: 'prefix' }),
     props: { 'data-testid': `data-nav-design-system-${key}` },
     ...(badge === undefined ? {} : { badge }),
   })
@@ -279,14 +305,18 @@ export const consoleNavGroups: readonly Readonly<Record<string, unknown>>[] = [
       '$t:admin.crumb.submissions',
       'clipboard-list',
       '/api/admin/forms',
-      'items'
+      'items',
+      // Each form reads by its title, translated (`Quote request`).
+      'label'
     ),
+    // Each agent reads by its label (`Quote assistant`, `System`), never its name.
     objectSection(
       'conversations',
       '$t:admin.crumb.conversations',
       'message-square',
       '/api/admin/agents',
-      'items'
+      'items',
+      'label'
     ),
   ]),
   group('data', [
@@ -298,7 +328,15 @@ export const consoleNavGroups: readonly Readonly<Record<string, unknown>>[] = [
       'by_table',
       'label'
     ),
-    objectSection('files', '$t:admin.crumb.files', 'folder', '/api/admin/buckets', 'items'),
+    // Each bucket reads by its name made readable (`Quote documents`).
+    objectSection(
+      'files',
+      '$t:admin.crumb.files',
+      'folder',
+      '/api/admin/buckets',
+      'items',
+      'label'
+    ),
   ]),
   group('people', [
     systemRow('users', '$t:admin.crumb.users', 'users'),
@@ -356,17 +394,7 @@ export const consoleNavGroups: readonly Readonly<Record<string, unknown>>[] = [
     // `prefix`, so `/decisions/[internal ref]` still marks Decisions current.
     systemRow('decisions', '$t:admin.crumb.decisions', 'scroll-text'),
   ]),
-  group('design', [
-    // A TOGGLE: no `href`. `/design-system` is the section's overview and the
-    // list's first child already links to it, so the label would offer the
-    // same page twice. The children are AUTHORED, so the server still sees
-    // which one is current and opens the disclosure on arrival.
-    {
-      label: '$t:admin.nav.designSystem',
-      icon: 'palette',
-      props: { 'data-testid': 'data-nav-design-system' },
-      childrenProps: { 'data-testid': 'design-system-nav-children' },
-      children: designSystemChildren,
-    },
-  ]),
+  // The design-system pages ARE the Design group: one disclosure, not a group
+  // holding a second one. Opening `Design` lists the five pages directly.
+  group('design', designSystemChildren),
 ]

@@ -10,15 +10,16 @@ import { createListRecordsProgram } from '@/application/use-cases/tables/list-re
 import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import { escapeCsvCell } from '@/domain/kernel/format/csv-format'
 import { hasReadPermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
-import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
 import { NUMBER_FIELD_TYPES } from '@/domain/models/app/tables/stored-value-service'
 import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
+import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
+import { exportColumns } from './export-columns'
 import { validateFilterParam } from './field-permission-validation'
 import { passesTableRoleGate, resolveGuardForTable } from './row-level-guard'
 import { buildListFilter, type FilterStructure } from './row-level-read-helpers'
-import type { App, Table } from '@/domain/models/app'
+import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
 // Extract raw value from formattedFieldValue (may be plain value or { value, displayValue })
@@ -134,15 +135,19 @@ function buildCsvResponse(
     readonly attachments: ReadonlySet<string>
     readonly numbers: ReadonlySet<string>
     readonly visibleFields?: readonly string[]
+    readonly withheld: ReadonlySet<string>
   }
 ): Response {
-  const { attachments, numbers, visibleFields } = opts
+  const { attachments, numbers, visibleFields, withheld } = opts
   // Columns come from EVERY record, never one: a lookup left out of the first
   // row (its linked record hidden from this reader) must not drop the column
   // for the rows that carry it. A readable field the request named in
   // `fields=` keeps its column even when no row carries a value for it.
-  const present = [...new Set(records.flatMap((record) => Object.keys(record.fields)))]
-  const named = new Set(visibleFields ?? [])
+  // A column the reader may not read has no place, even named in `fields=`.
+  const present = [...new Set(records.flatMap((record) => Object.keys(record.fields)))].filter(
+    (f) => !withheld.has(f)
+  )
+  const named = new Set((visibleFields ?? []).filter((f) => !withheld.has(f)))
   const allOrderedFields =
     tableFieldNames.length > 0
       ? [
@@ -199,11 +204,13 @@ function buildEmptyCsvResponse(tableFieldNames: readonly string[], tableName: st
 function buildJsonResponse(
   records: readonly { fields: Record<string, unknown> }[],
   tableName: string,
-  attachments: ReadonlySet<string>
+  opts: { readonly attachments: ReadonlySet<string>; readonly withheld: ReadonlySet<string> }
 ): Response {
   const data = records.map((record) =>
     Object.fromEntries(
-      Object.keys(record.fields).map((k) => [k, exportValue(record.fields, k, attachments)])
+      Object.keys(record.fields)
+        .filter((k) => !opts.withheld.has(k))
+        .map((k) => [k, exportValue(record.fields, k, opts.attachments)])
     )
   )
   const date = new Date().toISOString().slice(0, 10)
@@ -301,22 +308,11 @@ function parseExportQuery(c: Context): {
   return { filter, format, visibleFields }
 }
 
-/**
- * The table's columns the caller may read, judged for the CALLER — groups
- * included, since a field grant may name a group.
- */
-const readableColumnNames = (
-  app: App,
-  table: Table | undefined,
-  caller: Readonly<{ role: string; groups: readonly string[] }>
-): string[] =>
-  (table?.fields ?? [])
-    .map((f) => f.name)
-    .filter((name) => table !== undefined && isFieldReadableByCaller(app, table.name, caller, name))
-
 /** Build the empty-set response in the requested format. */
 function buildEmptyExportResponse(format: string, tableName: string, tableFieldNames: string[]) {
-  if (format === 'json') return buildJsonResponse([], tableName, new Set())
+  if (format === 'json') {
+    return buildJsonResponse([], tableName, { attachments: new Set(), withheld: new Set() })
+  }
   return buildEmptyCsvResponse(tableFieldNames, tableName)
 }
 
@@ -339,12 +335,9 @@ export async function handleExportTableCsv(c: Context, app: App) {
   })
   if (gateError) return gateError
 
-  // Column NAMES are as much a read surface as column values: the empty-export
-  // branch below emits this list as a bare CSV header, so an unfiltered list
-  // discloses the existence of columns the caller may not read. Narrowing here
-  // also covers the populated path, where the list only supplies column ORDER
-  // for keys the (already filtered) records carry.
-  const tableFieldNames = readableColumnNames(app, table, { role: userRole, groups: userGroups })
+  // Column NAMES are a read surface too: the empty export emits this list as
+  // its header, and the populated one takes its column ORDER from it.
+  const { withheld, tableFieldNames } = exportColumns(app, table, userRole, userGroups)
 
   // Z-3 read predicate: AND-merge the row-level read clause onto the
   // request-supplied filter. Sentinels short-circuit to an empty response
@@ -369,14 +362,17 @@ export async function handleExportTableCsv(c: Context, app: App) {
     limit: Number.MAX_SAFE_INTEGER,
   })
   const either = await runRequestEffect(c, Effect.result(provideDomain(c, program)))
-  if (either._tag === 'Failure') {
-    return c.json({ success: false, message: 'Export failed', code: 'INTERNAL_ERROR' }, 500)
-  }
+  // A table whose reader may read no field fails the list as a table that
+  // does not exist, and the export answers it as such — CSV and JSON alike.
+  if (either._tag === 'Failure') return toErrorResponse(c, either.failure)
   const attachments = attachmentFieldNames(table)
-  if (format === 'json') return buildJsonResponse(either.success.records, tableName, attachments)
+  if (format === 'json') {
+    return buildJsonResponse(either.success.records, tableName, { attachments, withheld })
+  }
   return buildCsvResponse(either.success.records, tableFieldNames, tableName, {
     attachments,
     numbers: numberFieldNames(table),
     visibleFields,
+    withheld,
   })
 }

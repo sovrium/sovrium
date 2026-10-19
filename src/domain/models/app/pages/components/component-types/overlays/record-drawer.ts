@@ -27,7 +27,7 @@ import { PageCapabilitySchema } from '../../../requires'
 import { actionWithoutFill, NavigateActionSchema, OpenDrawerActionSchema } from '../../action'
 import { ConfirmGateSchema } from '../../confirm-gate'
 import { DataSortSchema } from '../../data-source'
-import { ButtonVariantSchema } from '../../shared-schemas'
+import { ButtonVariantSchema, ValueLabelsSchema } from '../../shared-schemas'
 
 /**
  * Per-field structured-display selector.
@@ -121,6 +121,37 @@ export const RecordDrawerFieldSchema = Schema.Struct({
    * drawer's `canEdit`.
    */
   renderAs: Schema.optional(RecordDrawerFieldRenderAsSchema),
+  /**
+   * The words a read-only entry prints for a stored value — the grid column's
+   * `valueLabels`, same name and same shape (`ValueLabelsSchema` by reference),
+   * so the sheet opened on a row says what the row's cell says.
+   *
+   * A value the map leaves out prints as stored. On an option field the label
+   * is drawn in the option's chip and keeps its colour, and an unmapped value
+   * keeps the option's own label — the grid's rule. An editable control keeps
+   * the stored value it edits: the map changes what a reader reads, never what
+   * a save sends, and the record and every API answer are untouched.
+   *
+   * It exists for the sheet with no field schema to borrow a label from — a
+   * `dataSource.system` sheet whose endpoint answers a raw status — and for
+   * relabelling one surface without renaming an option everywhere.
+   *
+   * @example
+   * ```yaml
+   * recordFields:
+   *   - name: status
+   *     type: single-line-text
+   *     valueLabels: { done: processed, processing: in progress }
+   * ```
+   */
+  valueLabels: Schema.optional(
+    ValueLabelsSchema.annotate({
+      title: 'Value Labels',
+      description:
+        "Map of stored value -> the words this entry prints for it, the grid column's valueLabels on a record sheet. A value left out prints as stored; on an option field the label keeps the option's chip and colour. Read-only display only: an editable control, a save and the API keep the stored value.",
+      examples: [{ done: 'processed', processing: 'in progress' }],
+    })
+  ),
   /**
    * Per-record visibility: the entry is drawn only when the open record's
    * `field` satisfies the operator(s); omit it to draw the entry on every record.

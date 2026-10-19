@@ -31,7 +31,7 @@
  * then due again — delivery survives a crash or a restart, at least once.
  */
 
-import { Data, Effect, Layer, Semaphore } from 'effect'
+import { Cause, Data, Effect, Layer, Semaphore } from 'effect'
 import {
   RecordWebhookDispatcher,
   WebhookOutboxScope,
@@ -42,6 +42,7 @@ import {
 } from '@/application/ports/services/record-webhook-dispatcher'
 import { computeRetryDelay, resolveRetryPolicy } from '@/domain/models/app/tables/webhooks'
 import { trackBackgroundRun } from '@/infrastructure/automations/background-runs'
+import { describeSweepFailure } from '@/infrastructure/database/read-write-sweep'
 import { logError, logInfo } from '@/infrastructure/logging/logger'
 import {
   attemptDelivery,
@@ -261,7 +262,15 @@ const purgeSettled = (retention: 'every-call' | 'hourly'): Effect.Effect<void> =
         catch: (cause) => new WebhookOutboxError({ cause }),
       }).pipe(
         Effect.tapCause((cause) =>
-          Effect.sync(() => logError('[webhooks] could not delete settled deliveries', cause))
+          Effect.sync(() =>
+            logError(
+              describeSweepFailure(
+                '[webhooks] could not delete settled deliveries',
+                Cause.squash(cause)
+              ),
+              cause
+            )
+          )
         ),
         // effect-swallow: logged above; retention is housekeeping, retried within the hour.
         Effect.ignoreCause

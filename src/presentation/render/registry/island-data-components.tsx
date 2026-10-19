@@ -86,6 +86,7 @@ function extractDataTableProps(elementProps: Record<string, unknown>): Record<st
     // The empty state naming the table, and the view switcher's words, on a
     // table-bound grid (both resolved server-side in the page language).
     tableEmptyMessage: elementProps.tableEmptyMessage,
+    tableReadFailure: elementProps.tableReadFailure,
     viewSwitcher: elementProps.viewSwitcher,
     // The inline editor's commit/dismiss pair, resolved server-side against the
     // active language.
@@ -249,6 +250,7 @@ export const islandDataComponents: Partial<Record<DispatchableComponentType, Com
     })
     return (
       <div
+        id={elementProps.id as string | undefined}
         data-island="kanban"
         data-island-props={propsJson}
         data-component="kanban"

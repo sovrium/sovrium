@@ -35,6 +35,7 @@ import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/reposit
 import { LinkRepositoryLive } from '@/infrastructure/database/repositories/links/link-repository-live'
 import { DataSourceRepositoryLive } from '@/infrastructure/database/repositories/tables/data-source-repository-live'
 import { TableLive } from '@/infrastructure/database/table-live-layers'
+import { EmailCssInlinerLive } from '@/infrastructure/email/email-css-inliner-live'
 import { EmailSenderLive } from '@/infrastructure/email/email-sender-live'
 import { DocumentRendererLive } from '@/infrastructure/export/document-renderer-live'
 import { OfficeConverterLive } from '@/infrastructure/export/office-converter-live'
@@ -43,6 +44,7 @@ import { PdfToolkitLive } from '@/infrastructure/export/pdf-toolkit-live'
 import { ProcessRunnerLive } from '@/infrastructure/process/process-runner-live'
 import { SystemdSupervisorLive } from '@/infrastructure/process/systemd-supervisor-live'
 import { ServerOriginLive } from '@/infrastructure/server/server-origin-live'
+import { AudioTrackExtractorLive } from '@/infrastructure/storage/audio-track-extractor-live'
 import { ImageTransformServiceLive } from '@/infrastructure/storage/image-transform-live'
 import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
 import { TemplateEngineLive } from '@/infrastructure/templates/template-engine-live'
@@ -196,10 +198,15 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   // `Bytea storage initialization failed (DATABASE_URL)`).
   RuntimeStorageLive,
   ImageTransformServiceLive,
+  // `AudioTrackExtractor` — the audio remux `file/extractAudio` and `ai/transcribe` share.
+  AudioTrackExtractorLive,
   // `DocumentRenderer` — HTML → PDF / image for the `document/*` steps
   // (`RENDERER_*`, [internal ref]). Building it starts no browser: Chrome is spawned
   // or connected on the first render and closed when the layer is released.
   DocumentRendererLive,
+  // `EmailCssInliner` — copies a templated email's `<style>` rules onto its
+  // elements before the email sanitizer (`juice/client`; building it does nothing).
+  EmailCssInlinerLive,
   // `BrowserDriver` — the `browser/run` steps (`BROWSER_*`, [internal ref]). Building it
   // starts nothing; the first session starts the process's one Chrome, shared
   // with the renderer above. `BrowserSessionRepository` keeps sealed jars.

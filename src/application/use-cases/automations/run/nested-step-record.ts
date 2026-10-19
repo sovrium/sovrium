@@ -34,6 +34,8 @@ export interface StoredNestedStep extends StoredNested {
   readonly input?: unknown
   readonly output?: unknown
   readonly error?: string
+  /** What a reader who does not read every run is shown in place of `error`. */
+  readonly clientError?: string
   readonly logs?: readonly StoredLogEntry[]
 }
 
@@ -53,6 +55,7 @@ const storedStep = (step: ExecutedStep): StoredNestedStep => ({
   ...(step.props === undefined ? {} : { input: step.props }),
   ...(step.output === undefined ? {} : { output: step.output }),
   ...(step.error === undefined ? {} : { error: step.error }),
+  ...(step.clientError === undefined ? {} : { clientError: step.clientError }),
   ...(step.logs === undefined ? {} : { logs: step.logs }),
   ...storedNestedOf(step),
 })
@@ -103,6 +106,14 @@ const readLogs = (value: unknown): readonly StoredLogEntry[] | undefined =>
       })
     : undefined
 
+/** A stored step's `error` and `clientError`, when each is text. */
+const textFields = (
+  step: Readonly<Record<string, unknown>>
+): Pick<StoredNestedStep, 'error' | 'clientError'> => ({
+  ...(typeof step['error'] === 'string' ? { error: step['error'] } : {}),
+  ...(typeof step['clientError'] === 'string' ? { clientError: step['clientError'] } : {}),
+})
+
 const readStep = (value: unknown): readonly StoredNestedStep[] => {
   const step = asRecord(value)
   if (step === undefined || typeof step['name'] !== 'string') return []
@@ -115,7 +126,7 @@ const readStep = (value: unknown): readonly StoredNestedStep[] => {
       status: STATUSES.has(status) ? (status as StoredNestedStep['status']) : 'failed',
       ...('input' in step ? { input: step['input'] } : {}),
       ...('output' in step ? { output: step['output'] } : {}),
-      ...(typeof step['error'] === 'string' ? { error: step['error'] } : {}),
+      ...textFields(step),
       ...(logs === undefined ? {} : { logs }),
       ...readStoredNested(step),
     },
@@ -172,6 +183,7 @@ export const executedFromStored = (step: StoredNestedStep): ExecutedStep => ({
   ...(step.input === undefined ? {} : { props: step.input as Record<string, unknown> }),
   ...(step.output === undefined ? {} : { output: step.output as Record<string, unknown> }),
   ...(step.error === undefined ? {} : { error: step.error }),
+  ...(step.clientError === undefined ? {} : { clientError: step.clientError }),
   ...(step.logs === undefined ? {} : { logs: step.logs }),
   ...(step.paths === undefined
     ? {}

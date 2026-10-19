@@ -24,7 +24,7 @@ children:
       - type: search-input
         scope: page
         props:
-          placeholder: 'Search clients, invoices…'
+          placeholder: 'Search projects, clients…'
           aria-label: Search
           className: hidden w-full max-w-md md:flex
       - type: flex
@@ -33,13 +33,13 @@ children:
         children:
           - type: link
             props:
-              href: /notifications
-              aria-label: Notifications
+              href: /worklist
+              aria-label: Worklist
               className: inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground
             children:
               - type: icon
                 props:
-                  name: bell
+                  name: inbox
                   size: 18
           - type: dropdown-menu
             triggerLabel: Account
@@ -48,7 +48,7 @@ children:
                 icon: user
                 action:
                   type: navigate
-                  path: /profile
+                  path: /settings
               - label: Settings
                 icon: settings
                 action:

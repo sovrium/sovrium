@@ -52,34 +52,6 @@
  */
 
 import { Effect, Console } from 'effect'
-import { handleAdminCommand } from '@/cli/commands/admin'
-import { handleBackupCommand } from '@/cli/commands/backup'
-import { handleBuildCommand } from '@/cli/commands/build'
-import { handleBundleCommand } from '@/cli/commands/bundle'
-import { handleChangelogCommand } from '@/cli/commands/changelog'
-import { handleDeployCommand } from '@/cli/commands/deploy'
-import { handleDesignSystemCommand } from '@/cli/commands/design-system'
-import { handleDocsCommand } from '@/cli/commands/docs'
-import { handleEnvCommand } from '@/cli/commands/env'
-import { handleInitCommand } from '@/cli/commands/init'
-import { handleLibraryCommand } from '@/cli/commands/library'
-import { handleLicensesCommand } from '@/cli/commands/licenses'
-import { handleLoginCommand } from '@/cli/commands/login'
-import { handleMcpCommand } from '@/cli/commands/mcp'
-import { handleMigrateCommand } from '@/cli/commands/migrate'
-import { handleReloadCommand } from '@/cli/commands/reload'
-import { handleRenderCommand } from '@/cli/commands/render'
-import { handleRestartCommand } from '@/cli/commands/restart'
-import { handleRestoreCommand } from '@/cli/commands/restore'
-import { handleSchemaCommand } from '@/cli/commands/schema'
-import { handleSecretCommand } from '@/cli/commands/secret'
-import { handleSeedCommand } from '@/cli/commands/seed'
-import { handleSkillsCommand } from '@/cli/commands/skills'
-import { handleStartCommand } from '@/cli/commands/start'
-import { handleStopCommand } from '@/cli/commands/stop'
-import { handleTypesCommand } from '@/cli/commands/types'
-import { getCurrentVersion, handleUpdateCommand } from '@/cli/commands/update'
-import { handleValidateCommand } from '@/cli/commands/validate'
 import { getCommandHelp } from '@/cli/runtime/command-help'
 import { parseArgs } from '@/cli/runtime/dispatch'
 import { findUnknownFlag } from '@/cli/runtime/flag-vocabulary'
@@ -90,7 +62,7 @@ import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-erro
  * Show CLI version (delegates to getCurrentVersion from cli-update module).
  */
 const showVersion = async (): Promise<void> => {
-  const version = await getCurrentVersion()
+  const version = await (await import('@/cli/commands/update')).getCurrentVersion()
   Effect.runSync(Console.log(version))
 }
 
@@ -145,7 +117,7 @@ const HELP_TEXT = [
   '  --watch, -w                   Watch config file and hot reload (start)',
   '  --output <path>               Write to a file (schema, design-system, backup, bundle) or dir (types, skills)',
   '  --typescript                  Scaffold a typed app.ts instead of app.yaml (init)',
-  '  --format <md|json|llms>       Export format (design-system, docs, changelog, licenses; default: md)',
+  '  --format <format>             md (default), json, llms or bundle (design-system, docs, changelog, licenses)',
   '  --full                        Print the whole manual (docs)',
   '  --list-sections               Print the section slugs and exit (docs)',
   '  --lang <code>                 Manual locale — `en` only (docs)',
@@ -228,13 +200,19 @@ const showHelp = (): void => {
 
 /**
  * Commands that exit after completion (no persistent server)
+ *
+ * Every handler is imported by the entry that runs it, never at the top of this
+ * file: a static import of all of them made every invocation — `--version`, a
+ * server start — evaluate every command's graph (the MCP server, backup, the
+ * template scaffolder). Literal specifiers keep each one in the compiled binary.
  */
 const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
-  stop: async () => handleStopCommand(),
-  restart: async () => handleRestartCommand(parsed.configFile),
-  reload: async () => handleReloadCommand(),
+  stop: async () => (await import('@/cli/commands/stop')).handleStopCommand(),
+  restart: async () =>
+    (await import('@/cli/commands/restart')).handleRestartCommand(parsed.configFile),
+  reload: async () => (await import('@/cli/commands/reload')).handleReloadCommand(),
   init: async () =>
-    handleInitCommand({
+    (await import('@/cli/commands/init')).handleInitCommand({
       templateName: parsed.templateName,
       outputDir: parsed.outputPath,
       positionalDir: parsed.configFile,
@@ -245,33 +223,55 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
       fromUrl: parsed.fromUrl,
     }),
   admin: async () =>
-    handleAdminCommand(parsed.subcommand, parsed.positionalArg, {
-      configFile: parsed.configFile,
-      password: parsed.password,
-    }),
-  secret: async () => handleSecretCommand(parsed.subcommand, parsed.positionalArg),
+    (await import('@/cli/commands/admin')).handleAdminCommand(
+      parsed.subcommand,
+      parsed.positionalArg,
+      {
+        configFile: parsed.configFile,
+        password: parsed.password,
+      }
+    ),
+  secret: async () =>
+    (await import('@/cli/commands/secret')).handleSecretCommand(
+      parsed.subcommand,
+      parsed.positionalArg
+    ),
   backup: async () =>
-    handleBackupCommand({ configFile: parsed.configFile, outputPath: parsed.outputPath }),
+    (await import('@/cli/commands/backup')).handleBackupCommand({
+      configFile: parsed.configFile,
+      outputPath: parsed.outputPath,
+    }),
   bundle: async () =>
-    handleBundleCommand({ configFile: parsed.configFile, outputPath: parsed.outputPath }),
-  login: async () => handleLoginCommand(rawArgs),
-  deploy: async () => handleDeployCommand({ configFile: parsed.configFile, argv: rawArgs }),
-  env: async () => handleEnvCommand({ args: parsed.positionalArgs ?? [], argv: rawArgs }),
+    (await import('@/cli/commands/bundle')).handleBundleCommand({
+      configFile: parsed.configFile,
+      outputPath: parsed.outputPath,
+    }),
+  login: async () => (await import('@/cli/commands/login')).handleLoginCommand(rawArgs),
+  deploy: async () =>
+    (await import('@/cli/commands/deploy')).handleDeployCommand({
+      configFile: parsed.configFile,
+      argv: rawArgs,
+    }),
+  env: async () =>
+    (await import('@/cli/commands/env')).handleEnvCommand({
+      args: parsed.positionalArgs ?? [],
+      argv: rawArgs,
+    }),
   restore: async () =>
-    handleRestoreCommand({
+    (await import('@/cli/commands/restore')).handleRestoreCommand({
       archivePath: parsed.configFile,
       dataDir: parsed.dataDir,
       force: parsed.forceFlag,
     }),
   update: async () =>
-    handleUpdateCommand({
+    (await import('@/cli/commands/update')).handleUpdateCommand({
       helpRequested: parsed.helpRequested ?? false,
       insecureSkipChecksum: rawArgs.includes('--insecure-skip-checksum'),
     }),
   // An EXIT command, not a persistent one: it brings the schema forward and
   // stops. A platform release phase waits on the exit code.
   migrate: async () =>
-    handleMigrateCommand({
+    (await import('@/cli/commands/migrate')).handleMigrateCommand({
       configFile: parsed.configFile,
       dryRun: parsed.dryRun ?? false,
       check: parsed.check ?? false,
@@ -281,9 +281,10 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
   // it binds no port and owns no lifetime of its own — the CLIENT owns the
   // lifetime, and the verb ends when that client closes the pipe. Exiting 0 on
   // EOF is what makes "the client quit" a success rather than a crash.
-  mcp: async () => handleMcpCommand({ projectDir: parsed.projectDir }),
+  mcp: async () =>
+    (await import('@/cli/commands/mcp')).handleMcpCommand({ projectDir: parsed.projectDir }),
   changelog: async () =>
-    handleChangelogCommand({
+    (await import('@/cli/commands/changelog')).handleChangelogCommand({
       args: parsed.positionalArgs ?? [],
       format: parsed.format,
       outputPath: parsed.outputPath,
@@ -292,9 +293,12 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
       since: parsed.changelogSince,
     }),
   // An EXIT command: it renders one template and stops — no server, no database.
-  render: async () => handleRenderCommand(rawArgs),
+  render: async () => (await import('@/cli/commands/render')).handleRenderCommand(rawArgs),
   licenses: async () =>
-    handleLicensesCommand({ format: parsed.format, outputPath: parsed.outputPath }),
+    (await import('@/cli/commands/licenses')).handleLicensesCommand({
+      format: parsed.format,
+      outputPath: parsed.outputPath,
+    }),
   '--version': async () => showVersion(),
   version: async () => showVersion(),
   '--help': async () => showHelp(),
@@ -306,31 +310,42 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
  */
 const persistentCommands: Readonly<Record<string, () => Promise<void>>> = {
   start: async () =>
-    handleStartCommand(
+    (await import('@/cli/commands/start')).handleStartCommand(
       parsed.configFile,
       parsed.watchMode,
       parsed.publicDir,
       parsed.helpRequested ?? false
     ),
-  build: async () => handleBuildCommand(parsed.configFile, parsed.publicDir),
-  schema: async () => handleSchemaCommand(parsed.outputPath),
-  types: async () => handleTypesCommand({ outputDir: parsed.outputPath }),
+  build: async () =>
+    (await import('@/cli/commands/build')).handleBuildCommand(parsed.configFile, parsed.publicDir),
+  schema: async () =>
+    (await import('@/cli/commands/schema')).handleSchemaCommand(parsed.outputPath),
+  types: async () =>
+    (await import('@/cli/commands/types')).handleTypesCommand({ outputDir: parsed.outputPath }),
   skills: async () =>
-    handleSkillsCommand({
+    (await import('@/cli/commands/skills')).handleSkillsCommand({
       outputDir: parsed.outputPath,
       target: parsed.skillsTarget,
       check: parsed.check ?? false,
       force: parsed.forceFlag,
     }),
-  validate: async () => handleValidateCommand(parsed.configFile, parsed.json),
+  validate: async () =>
+    (await import('@/cli/commands/validate')).handleValidateCommand(parsed.configFile, parsed.json),
   'design-system': async () =>
-    handleDesignSystemCommand({
-      configFile: parsed.configFile,
-      outputPath: parsed.outputPath,
-      format: parsed.format,
-    }),
+    parsed.positionalArgs?.[0] === 'import'
+      ? (await import('@/cli/commands/design-system-import')).handleDesignSystemImportCommand(
+          rawArgs,
+          parsed.positionalArgs
+        )
+      : (await import('@/cli/commands/design-system')).handleDesignSystemCommand({
+          configFile: parsed.configFile,
+          outputPath: parsed.outputPath,
+          format: parsed.format,
+          mode: parsed.mode,
+          force: parsed.forceFlag,
+        }),
   docs: async () =>
-    handleDocsCommand({
+    (await import('@/cli/commands/docs')).handleDocsCommand({
       args: parsed.positionalArgs ?? [],
       format: parsed.format,
       lang: parsed.lang,
@@ -343,7 +358,7 @@ const persistentCommands: Readonly<Record<string, () => Promise<void>>> = {
       force: parsed.forceFlag,
     }),
   library: async () =>
-    handleLibraryCommand({
+    (await import('@/cli/commands/library')).handleLibraryCommand({
       args: parsed.positionalArgs ?? [],
       kind: parsed.libraryKind,
       category: parsed.libraryCategory,
@@ -360,10 +375,10 @@ const persistentCommands: Readonly<Record<string, () => Promise<void>>> = {
       update: parsed.libraryUpdate ?? false,
     }),
   seed: async () =>
-    handleSeedCommand({
+    (await import('@/cli/commands/seed')).handleSeedCommand({
       configFile: parsed.configFile,
       seedDir: parsed.seedDir,
-      mode: parsed.seedMode,
+      mode: parsed.mode,
       tables: parsed.seedTables ?? [],
       dryRun: parsed.dryRun ?? false,
       as: parsed.seedAs,
@@ -418,6 +433,16 @@ const rejectUnknownFlag = (): void => {
 }
 
 const runCommand = async (): Promise<void> => {
+  // The E2E harness's generic-stylesheet seam, ahead of everything else: it
+  // ignores the command line. Not a capability — see the module's docblock.
+  const genericCssPath = process.env['SOVRIUM_E2E_PRECOMPILE_CSS']
+  if (genericCssPath) {
+    await (
+      await import('@/cli/runtime/precompile-generic-css')
+    ).handlePrecompileGenericCss(genericCssPath)
+    return
+  }
+
   rejectUnknownFlag()
 
   // Answered ahead of BOTH dispatch tables — see `showCommandHelpIfRequested`.

@@ -63,6 +63,8 @@ A player for direct files and for YouTube or Vimeo embeds.
 | `loop`        | Loop playback.                                                                   |
 | `aspectRatio` | Responsive sizing — `16:9`, `4:3`, or a custom ratio.                            |
 | `tracks`      | Subtitle and caption tracks, in VTT format.                                      |
+| `start`       | The second playback starts from: a number, or a `$record.<field>`.               |
+| `id`          | Names the player for a `seek` action.                                            |
 
 A self-hosted video spans its column with rounded-lg corners on the muted ground, which shows while the poster or first frame loads, in the light and the dark scheme. Reference: no shadcn counterpart.
 
@@ -77,8 +79,26 @@ An audio player.
 | `autoplay`  | Autoplay on load.                                                  |
 | `loop`      | Loop playback.                                                     |
 | `sources`   | Several formats with their MIME types, for cross-browser fallback. |
+| `start`     | The second playback starts from: a number, or a `$record.<field>`. |
+| `id`        | Names the player for a `seek` action.                              |
 
 The browser draws its own transport controls; the player spans its column and Sovrium draws no box of its own around them. Reference: no shadcn counterpart.
+
+### Starting at a moment, and moving the player from the page
+
+`start` cues a self-hosted `video` or an `audio` player at that second before the reader presses play; on a YouTube or Vimeo address it is passed through the embed's own address. It is read by Sovrium and never written onto the element.
+
+A `seek` action moves a player to a moment: `{ type: seek, target, time, play }`. `target` is the player's `props.id`, `time` the moment in seconds — a number or a `$record.<field>` of the record the trigger belongs to — and `play`, `true` by default, starts playback from there; `false` only moves the position. A button, a button in each row of a list template, a list item's `onRowClick`, a table row's `onRowClick` and a gallery or board card's `onClick` can run it, so a transcript beside its recording plays the call from the line the reader clicks. A `target` naming no `video` or `audio` on its page is refused at startup, unless it is built from the record (`clip-$record.id`). A player that is not on screen when the action runs, such as one inside a closed dialog, is left alone. Only a player the browser draws can be moved: a YouTube or Vimeo embed cannot.
+
+```yaml
+components:
+  - type: video
+    props: { id: call-player, src: /media/kickoff-call.mp4, controls: true }
+  - type: list
+    dataSource: { table: segments }
+    listDisplay: { itemTemplate: { title: $record.line } }
+    onRowClick: { type: seek, target: call-player, time: $record.start }
+```
 
 ## `iframe`
 

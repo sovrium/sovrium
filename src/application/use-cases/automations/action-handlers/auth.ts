@@ -80,8 +80,9 @@ import {
 import { isAssignableRole } from '@/domain/models/app/auth/roles'
 import { roleChangeOf } from '@/domain/models/app/auth/roles/role-write-validation'
 import { logError } from '@/infrastructure/logging/logger'
+import { unknownAccountOutcome } from './record-caller-gate'
 import { actionAttributes, stringProp } from './shared'
-import type { ActionHandler, ActionOutcome } from './shared'
+import type { ActionHandler, ActionOutcome, AutomationContext } from './shared'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'effect'
 
@@ -100,7 +101,7 @@ const userExists = (userId: string): Effect.Effect<boolean, never, AuthRepositor
   )
 
 /**
- * Shared preamble for the `assignRole` / `banUser` handlers: validate that
+ * Shared preamble for the `assignRole` / `banUser` / `unbanUser` handlers: validate that
  * a non-empty `userId` was supplied and that a matching user row exists.
  *
  * Returns a `failure` `ActionOutcome` (ready to return verbatim) when the
@@ -110,7 +111,8 @@ const userExists = (userId: string): Effect.Effect<boolean, never, AuthRepositor
  */
 const requireExistingUser = (
   userId: string,
-  actionName: string
+  actionName: string,
+  automation: AutomationContext
 ): Effect.Effect<'ok' | ActionOutcome, never, AuthRepository> =>
   Effect.gen(function* () {
     if (userId === '') {
@@ -121,10 +123,7 @@ const requireExistingUser = (
     }
     const exists = yield* userExists(userId)
     if (!exists) {
-      return {
-        status: 'failure',
-        error: `${actionName}: no user found with id '${userId}'`,
-      } as const satisfies ActionOutcome
+      return unknownAccountOutcome(automation, `${actionName}: no user found with id '${userId}'`)
     }
     return 'ok' as const
   })
@@ -182,7 +181,7 @@ export const handleAuthAssignRole: ActionHandler = (action, app, automation) =>
       } as const satisfies ActionOutcome
     }
 
-    const guard = yield* requireExistingUser(userId, 'auth.assignRole')
+    const guard = yield* requireExistingUser(userId, 'auth.assignRole', automation)
     if (guard !== 'ok') return guard
 
     // The last-admin rail the admin endpoints hold, from the same shared
@@ -230,7 +229,7 @@ export const handleAuthBanUser: ActionHandler = (action, app, automation) =>
     const rawReason = stringProp(props, 'reason').trim()
     const reason = rawReason === '' ? undefined : rawReason
 
-    const guard = yield* requireExistingUser(userId, 'auth.banUser')
+    const guard = yield* requireExistingUser(userId, 'auth.banUser', automation)
     if (guard !== 'ok') return guard
 
     // A banned admin cannot sign in, so the ban holds the last-admin rail a
@@ -277,7 +276,7 @@ export const handleAuthUnbanUser: ActionHandler = (action, _app, automation) =>
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const userId = stringProp(props, 'userId').trim()
 
-    const guard = yield* requireExistingUser(userId, 'auth.unbanUser')
+    const guard = yield* requireExistingUser(userId, 'auth.unbanUser', automation)
     if (guard !== 'ok') return guard
 
     // Read BEFORE the write: afterwards the columns say "not banned" whether or

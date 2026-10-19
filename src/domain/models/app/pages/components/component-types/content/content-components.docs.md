@@ -34,6 +34,8 @@ Two of the `element` values look like they overlap with a type of their own, and
 
 A standalone, syntax-highlighted block with chrome, a copy button and optional line numbers.
 
+A `content` that opens with a `$t:key` reads that key in the page language and keeps the text after it, its own `$record.*` and `$app.*` references still substituted, so one block can head a command with a translated comment. The highlighted code and what the copy button copies are the resolved text, never the key.
+
 When the **whole** `content` is exactly one token and its value is an object or an array — `$record.fare` on a page bound to one record, or `$leg.stops` inside a named `repeat` — the block prints that value as JSON indented by two spaces, keys in alphabetical order. The value is always text, never markup. A token mixed with any other text keeps the usual rule: an object-valued token is left as its literal `$record.<key>`.
 
 <!-- sovrium:options type:code -->
@@ -42,7 +44,18 @@ A framed block takes classes by part through `classes`: `frame` is the frame aro
 
 The frame is drawn on the card surface, with rounded corners and a faint ring for its edge. Its bar holds the filename or the terminal marker in small muted monospace, and the copy button, a ghost icon button. A block with no filename, no terminal marker and no copy button draws no bar at all.
 
-Reference: no shadcn counterpart (the code blocks of shadcn/ui's documentation); the copy control is shadcn/ui Button.
+Reference: shadcn/ui Code Block; the copy control is shadcn/ui Button.
+
+The block is drawn on shadcn/ui's Code Block anatomy, so `classes` and a theme reach the same parts shadcn documents: the frame (`code-block`, carrying `data-size` and `data-variant`), its header with the title and the actions group holding the copy button, the scrolling content, one line per source line, and a footer holding a command's `output`. A successful copy sets `data-copied` on the button for a moment and is announced in the block's own polite live region; the button keeps its name.
+
+### Lines: highlights, diffs, numbers and wrapping
+
+- `highlightLines` names the lines to highlight by the number the reader sees, counted from `startLine` (1 by default). A number past the last line highlights nothing.
+- A block written in `language: diff` draws each `+` line as added and each `-` line as removed, with the sign as a marker beside the line rather than as text. The copy button copies the diff as written, signs included.
+- `startLine` sets the number of the first line, so an excerpt keeps the numbers it has in its file. It numbers the `lineNumbers` gutter; the numbers are never copied.
+- `wrap: true` wraps long lines instead of scrolling them sideways. Wrapping is drawing only: the copied text keeps its line breaks.
+- `size: sm` draws the block in smaller text with tighter padding, for narrow columns and chat answers.
+- `variant: destructive` draws the block in the theme's destructive colour, for content that is an error, such as a failed command's output.
 
 ### Frames, output and the copy button
 
@@ -96,9 +109,9 @@ components:
 
 `endpoint` and `template` are required; `rowsKey` defaults to `items` and `separator` to a newline — declare `", "` for an inline enumeration. The endpoint is fetched on the render path with the caller's own credentials, so a visitor who may not see it gets no rows.
 
-**The template is never rendered on an empty result.** With no `empty` declared the block is simply empty: a leaked `$record` token in a block an operator pastes into a shell is worse than silence. A row value is always rendered as text, never as markup, whatever it begins with, so a template producing an XML or HTML example yields a code block rather than markup.
+**The template is never rendered on an empty result.** `empty` is the block's content when there are no rows, and like any content a leading `$t:key` in it reads in the page language. With no `empty` declared the block is simply empty: a leaked `$record` token in a block an operator pastes into a shell is worse than silence. A row value is always rendered as text, never as markup, whatever it begins with, so a template producing an XML or HTML example yields a code block rather than markup.
 
-Four declarations are refused when the config is validated, each because it would mean nothing: `content` beside `contentFrom` (two answers to what the block holds); `children` beside `contentFrom` (children render only when there is no content, so they never would); a `template` with no `$record.` reference (every row would render the same constant); and a `contentFrom` nested inside a row template (the block would be cloned per row, each clone fetching its own binding).
+Four declarations are refused when the config is validated, each because it would mean nothing: `content` beside `contentFrom` (two answers to what the block holds); `children` beside `contentFrom` (children render only when there is no content, so they never would); a `template` with no `$record.` reference (every row would render the same constant; a `$t:` key is accepted, and translated before each row fills the references its translation carries); and a `contentFrom` nested inside a row template (the block would be cloned per row, each clone fetching its own binding).
 
 ## `kbd`
 

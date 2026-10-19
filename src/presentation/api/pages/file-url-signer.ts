@@ -32,7 +32,7 @@ import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 
 export const fileUrlSigner =
   (app: App, session: SessionInfo | undefined): SignFileUrl =>
-  async (bucketName, key, scope) => {
+  async (bucketName, key, scope, display) => {
     const bucket = resolveSignBucket(app, bucketName)
     if (bucket === undefined) return undefined
     if (scope === 'bucket' && !canSignBucketUrl(bucket, 'download', session?.role, app)) {
@@ -44,6 +44,8 @@ export const fileUrlSigner =
         path: key,
         operation: 'download',
         expiresInSeconds: DEFAULT_SIGNED_URL_EXPIRES_IN,
+        // The frame address of a `file-preview`: the same gates, one more claim.
+        ...(display === undefined ? {} : { display }),
       },
       // A root-relative address: the page and the file are served by the one host.
       { secret: resolveStorageSigningSecret(process.env), now: Date.now(), origin: '' }

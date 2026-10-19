@@ -7,6 +7,7 @@
 
 import { useContext, useId, type ReactElement, type ReactNode } from 'react'
 import { computeFieldLabelClasses } from '@/presentation/design/field-default-classes'
+import { labelOf, type FieldDef } from './field-def'
 import { SideLabelsContext } from './side-labels-context'
 
 /**
@@ -17,6 +18,25 @@ import { SideLabelsContext } from './side-labels-context'
 const SIDE_ROW_CLASS = 'flex w-full flex-col gap-1 md:flex-row md:items-start md:gap-4'
 const SIDE_LABEL_COLUMN_CLASS = 'flex flex-col gap-1 md:w-48 md:shrink-0 md:pt-2'
 const SIDE_CONTROL_CLASS = 'flex min-w-0 flex-1 flex-col'
+
+/**
+ * A field's label text, and the `*` of a field marked required. The mark is
+ * hidden from assistive technology: the accessible name stays the label alone,
+ * and the control's own `required` says the rest.
+ */
+export function FieldLabelText({ field }: { readonly field: FieldDef }): ReactElement {
+  return (
+    <>
+      {labelOf(field)}
+      <RequiredMark marked={field.requiredMark} />
+    </>
+  )
+}
+
+/** The visible `*` after a required field's label, hidden from assistive technology. */
+export function RequiredMark({ marked }: { readonly marked: boolean | undefined }): ReactNode {
+  return marked === true ? <span aria-hidden="true"> *</span> : undefined
+}
 
 /** The field's name, as shadcn/ui's `FieldLabel`, pointing at its control by id. */
 function FieldLabel({

@@ -6,7 +6,12 @@
  */
 
 import { fieldWidgetOf } from '@/presentation/design/field-type-behavior'
-import { coerceFieldValue, type CoercedFieldValue } from '../../runtime/field-value-coercion'
+import {
+  coerceFieldValue,
+  coercionWordsFrom,
+  type CoercedFieldValue,
+  type CoercionWords,
+} from '../../runtime/field-value-coercion'
 import { type FieldDef, labelOf } from './field-def'
 import { readLinkedIds } from './record-picker-value'
 
@@ -30,11 +35,15 @@ import { readLinkedIds } from './record-picker-value'
  * answers it with a validation error the form already knows how to show, where a
  * silent drop would store NULL over what the reader meant.
  */
-function toWireValue(field: FieldDef | undefined, value: string): CoercedFieldValue {
+function toWireValue(
+  field: FieldDef | undefined,
+  value: string,
+  words: CoercionWords
+): CoercedFieldValue {
   if (field === undefined) return value
   const widget = fieldWidgetOf(field.type)
   if (widget === 'number' || widget === 'rating') {
-    const coerced = coerceFieldValue(value, field.type, labelOf(field))
+    const coerced = coerceFieldValue(value, field.type, labelOf(field), words)
     return coerced.ok ? coerced.value : value
   }
   if (widget === 'multi-select') return readLinkedIds(value, true)
@@ -60,12 +69,15 @@ export const isMarkedCleared = (values: Readonly<Record<string, string>>, name: 
  * Convert a map of held values into the payload a create or update sends. A
  * field marked cleared is sent as `null` — the records API's "store it empty",
  * which also unlinks every link of a relationship — and the marks themselves
- * are never sent.
+ * are never sent. `strings` are the form's words in the page language, so the
+ * shared coercion rule words any refusal in it.
  */
 export function toWireFields(
   fields: readonly FieldDef[],
-  values: Readonly<Record<string, string>>
+  values: Readonly<Record<string, string>>,
+  strings: Readonly<Record<string, string>> = {}
 ): Readonly<Record<string, CoercedFieldValue | null>> {
+  const words = coercionWordsFrom(strings)
   return Object.fromEntries(
     Object.entries(values)
       .filter(([name]) => !name.endsWith('__clear'))
@@ -75,7 +87,8 @@ export function toWireFields(
           ? null
           : toWireValue(
               fields.find((f) => f.name === name),
-              value
+              value,
+              words
             ),
       ])
   )
@@ -85,9 +98,12 @@ export function toWireFields(
  * The widgets whose visible controls do not post the value the form holds:
  * a picker posts its search box (the linked record's or account's DISPLAY
  * text), a rating its radio inputs, a multi-select one checkbox entry per
- * ticked option — which a form-encoded body reads back as a single string.
+ * ticked option — which a form-encoded body reads back as a single string —
+ * and a date picker its box, which shows the day in the PAGE's format while
+ * the form holds it as `YYYY-MM-DD`.
  */
 const POSTS_HELD_VALUE: ReadonlySet<string> = new Set([
+  'date',
   'record-picker',
   'user-picker',
   'rating',

@@ -31,6 +31,11 @@ export interface FieldDef extends TypedColumnConfig {
    */
   readonly type: FieldType
   readonly required?: boolean
+  /**
+   * Draw a visible `*` after the label. Decoration only: it is hidden from
+   * assistive technology, which reads `required` off the control instead.
+   */
+  readonly requiredMark?: boolean
   /** A choice field's options: the stored `value` and the `label` the control offers. */
   readonly options?: readonly ChoiceOption[]
   /**

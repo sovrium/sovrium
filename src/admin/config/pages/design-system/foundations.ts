@@ -49,7 +49,8 @@ import {
   DESIGN_TOKENS_ENDPOINT,
   DESIGN_TYPE_LADDER_ENDPOINT,
 } from '../../system-sources'
-import { SCHEME_DEEP_LINK_SCRIPT, designSystemBreadcrumb } from './chrome'
+import { SCHEME_DEEP_LINK_SCRIPT, designSystemDocumentShell } from './chrome'
+import { swatch } from './foundations-swatch'
 import {
   MEASURE_LG,
   MEASURE_MD,
@@ -125,245 +126,14 @@ const mono = (content: string, className: string): PageComponent =>
   ({ type: 'text', element: 'span', props: { className }, content }) as PageComponent
 
 /**
- * The copy affordance beside a value — MARKUP ONLY, and that is the point.
+ * Where the dark values come from on an app that declared no dark palette —
+ * said ONCE, above the grid. Every swatch still prints and measures a dark
+ * value (its light one kept, or the platform default it falls back to); the
+ * note names the key that would let the author choose their own.
  *
- * `copyCodeScript` is concatenated into every page's single body-end inline
- * script and is a delegated `document` handler keyed on three GENERIC selectors:
- * a `[data-code-copy-scope]` ancestor, a `[data-copy-code]` button inside it,
- * and the scope's FIRST `[data-copy-target]` as the payload. So a token value
- * becomes copyable by emitting the contract, with no new script and no island —
- * which is also the bound, since a clipboard write would otherwise spend a
- * page's whole island budget on something the platform already performs.
- */
-const copyControl = (label: string): PageComponent =>
-  ({
-    type: 'button',
-    variant: 'link',
-    props: {
-      type: 'button',
-      className:
-        'text-foreground-subtle hover:text-foreground shrink-0 font-mono text-[10px] leading-none',
-      'data-copy-code': 'true',
-      'data-copied-label': '$t:admin.common.copied',
-      'aria-label': label,
-      ...kitType('button'),
-    },
-    content: '$t:admin.ds.found.copyShort',
-  }) as PageComponent
-
-/** The value block's own `data-copy-target`, which the notation below wraps. */
-const copyTarget = (value: string): PageComponent =>
-  ({
-    type: 'text',
-    element: 'span',
-    props: { className: 'text-foreground-subtle font-mono text-sm', 'data-copy-target': 'true' },
-    content: value,
-  }) as PageComponent
-
-/**
- * One NOTATION of a colour: the value, and its own copy control.
- *
- * ONE scope per notation, which is forced rather than chosen. The delegated
- * handler reads the scope's FIRST `[data-copy-target]`, so two values under one
- * scope is one copyable value and one decoration — and a single button beside
- * two values cannot say which it took.
- */
-const copyableNotation = (
-  value: string,
-  label: string,
-  gate?: PageComponent['visibility']
-): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: {
-      className: 'flex items-baseline justify-between gap-2',
-      'data-code-copy-scope': 'true',
-    },
-    ...(gate === undefined ? {} : { visibility: gate }),
-    children: [copyTarget(value), copyControl(label)],
-  }) as PageComponent
-
-/**
- * The contrast badge beside an ink swatch: the measured ratio and its grade.
- *
- * COMPUTED upstream and never transcribed — `/tokens` measures the pair, and the
- * page composes the `:1` beside the number, which is what keeps a two-decimal
- * formatting choice out of a published contract.
- *
- * A pair that FAILS prints its failure rather than disappearing: a page that hid
- * every failing badge would be indistinguishable from one whose palette passes.
- * The verdict is two gated spans rather than one interpolated level, so `fail`
- * reads as the sentence an operator can act on.
- */
-const contrastBadge = (input: {
-  readonly ratio: string
-  readonly against: string
-  readonly level: string
-  readonly token: string
-}): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: {
-      className:
-        'bg-muted text-foreground-subtle mt-0.5 self-start rounded px-1 font-mono text-[10px]',
-      'data-design-contrast': input.token,
-      'data-design-contrast-level': input.level,
-      'data-design-contrast-against': input.against,
-    },
-    children: [
-      mono(`$t:admin.ds.found.on ${input.against} · ${input.ratio}:1 `, ''),
-      {
-        type: 'text',
-        element: 'span',
-        props: { className: '' },
-        visibility: { record: { field: input.level.slice('$record.'.length), eq: 'fail' } },
-        content: '$t:admin.ds.found.failsAa',
-      } as PageComponent,
-      {
-        type: 'text',
-        element: 'span',
-        props: { className: '' },
-        visibility: { record: { field: input.level.slice('$record.'.length), in: ['AA', 'AAA'] } },
-        content: input.level,
-      } as PageComponent,
-    ],
-  }) as PageComponent
-
-/**
- * One scheme's value block inside a swatch.
- *
- * `data-design-scheme` names the block so a reader of the DOM can address the
- * light and dark accounts separately; the gamut verdict sits on the BLOCK rather
- * than on the chip because a colour can be inside sRGB in one scheme and outside
- * it in the other, and one attribute cannot stand for two conversions.
- */
-const schemeBlock = (input: {
-  readonly scheme: 'light' | 'dark'
-  readonly hex: string
-  readonly value: string
-  readonly gamutField: string
-  readonly gamut: string
-  readonly ratio: string
-  readonly against: string
-  readonly level: string
-  readonly levelField: string
-}): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: {
-      className: input.scheme === 'light' ? 'dark:hidden flex-col' : 'hidden dark:block flex-col',
-      'data-design-scheme': input.scheme,
-      'data-design-color-gamut': input.gamut,
-    },
-    children: [
-      copyableNotation(input.hex, `$t:admin.ds.found.copyHex (${input.hex})`, {
-        record: { field: input.gamutField, eq: 'srgb' },
-      }),
-      copyableNotation(input.value, `$t:admin.ds.found.copyValue (${input.value})`),
-      {
-        type: 'text',
-        element: 'span',
-        props: { className: 'text-foreground-subtle text-[10px] leading-snug' },
-        visibility: { record: { field: input.gamutField, eq: 'wide' } },
-        content: '$t:admin.ds.found.outsideSrgb',
-      } as PageComponent,
-      {
-        type: 'container',
-        element: 'div',
-        props: { className: 'contents' },
-        // A POSITIVE gate over the closed verdict vocabulary, not an exclusion
-        // of the two ways of saying "no verdict". `background` is the ground
-        // itself, so `/tokens` measures it against nothing and OMITS the fields
-        // rather than emptying them — and an ABSENT field is neither
-        // `unmeasured` nor `''`, so the exclusion let that one row through and
-        // the badge printed its punctuation with nothing around it: `on  · :1`.
-        // A closed set refuses absence by construction.
-        visibility: { record: { field: input.levelField, in: ['fail', 'AA', 'AAA'] } },
-        children: [
-          contrastBadge({
-            ratio: input.ratio,
-            against: input.against,
-            level: input.level,
-            token: '$record.leaf',
-          }),
-        ],
-      } as PageComponent,
-    ],
-  }) as PageComponent
-
-/**
- * One swatch: the colour itself, carrying its own name and — per scheme — every
- * notation it can honestly be read in.
- *
- * The labels sit ON the painted surface, in a chip filled with the RAISED
- * surface token. Filling them with `bg-background` punches the page background
- * straight through the colour being labelled, twice per swatch.
- *
- * The paint is `var(--color-<leaf>, <value>)` — the exact registration
- * `bg-<slot>` resolves through — so it flips with the cascade the way the app
- * does, and falls back to the declared literal for a slot registered under
- * another name.
- */
-const swatch = (): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: {
-      className: 'border-border flex min-h-24 flex-col justify-end rounded-md border p-2',
-      'data-testid': 'design-system-swatch-$record.leaf',
-      style: { backgroundColor: 'var(--color-$record.leaf, $record.value)' },
-    },
-    children: [
-      {
-        type: 'container',
-        element: 'div',
-        props: { className: 'bg-card flex flex-col rounded px-2 py-1' },
-        children: [
-          mono('$record.leaf', 'text-foreground font-mono text-sm'),
-          schemeBlock({
-            scheme: 'light',
-            hex: '$record.hex',
-            value: '$record.value',
-            gamutField: 'gamut',
-            gamut: '$record.gamut',
-            ratio: '$record.contrastRatio',
-            against: '$record.contrastAgainst',
-            level: '$record.contrastLevel',
-            levelField: 'contrastLevel',
-          }),
-          schemeBlock({
-            scheme: 'dark',
-            hex: '$record.darkHex|$record.hex',
-            value: '$record.dark|$record.value',
-            gamutField: 'darkGamut',
-            gamut: '$record.darkGamut|$record.gamut',
-            ratio: '$record.darkContrastRatio',
-            against: '$record.darkContrastAgainst',
-            level: '$record.darkContrastLevel',
-            levelField: 'darkContrastLevel',
-          }),
-        ],
-      } as PageComponent,
-    ],
-  }) as PageComponent
-
-/**
- * Why the contrast badges are missing from a dark palette the app never
- * declared — said ONCE, above the grid.
- *
- * Not computing a ratio is honest; dropping the badge with it is not. The reader
- * would be left with a swatch, a value and no account of its contrast, and the
- * only available conclusion is that the ratio was fine. One line, not twenty-one
- * "unmeasured" badges.
- *
- * Gated on the PAGE record — `summary.darkDeclared` — because that is the one
- * question no rows binding answers: zero declared dark colours still render
- * twenty-one rows, and there is nothing left to gate on. Shipped whenever the
- * state holds and SHOWN only in dark, since this render cannot see the reader's
- * stored preference.
+ * Gated on the PAGE record — `summary.darkDeclared` — because no rows binding
+ * answers an app-level fact. Shipped whenever the state holds and SHOWN only in
+ * dark, since this render cannot see the reader's stored preference.
  */
 const darkContrastNote = (): PageComponent =>
   ({
@@ -580,32 +350,24 @@ const densityBlock = (): readonly PageComponent[] => [
   } as PageComponent,
 ]
 
+/** The swatch grid. One column until `md`: the console loses a 256px sidebar. */
+const swatchGrid = (): PageComponent =>
+  ({
+    type: 'container',
+    props: {
+      className: 'grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4',
+      'data-testid': 'design-system-swatches',
+      'data-design-role-table': 'true',
+    },
+    dataSource: tokenRows('color'),
+    children: [swatch()],
+  }) as PageComponent
+
 /** Colour: every token in the document painted, none demoted to a row. */
 const colourSection = (): PageComponent =>
   anchoredSection(region('colour'), [
     darkContrastNote(),
-    {
-      type: 'container',
-      element: 'div',
-      props: {
-        // ─── THE CONSOLE'S BREAKPOINTS ARE NOT THE VIEWPORT'S ──────────────
-        //
-        // A swatch carries a hex, an oklch triple and a copy affordance on one
-        // row, so it needs ~220px to hold them. The old ladder (2 / sm:3 / lg:5)
-        // read the VIEWPORT, but every console page sits inside a fixed 256px
-        // sidebar and a 40px gutter — so at `sm` (640px) this grid is ~340px
-        // wide and three columns gave each card 100px, with the value and its
-        // control overlapping. Measured at 375px it was 214px for two.
-        //
-        // The steps are therefore shifted a breakpoint later than a full-width
-        // page would use: one column until `md`, four only at `xl`.
-        className: 'grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4',
-        'data-testid': 'design-system-swatches',
-        'data-design-role-table': 'true',
-      },
-      dataSource: tokenRows('color'),
-      children: [swatch()],
-    } as PageComponent,
+    swatchGrid(),
     ...seriesBlock(),
     ...stateVocabularyBlock(),
   ])
@@ -1238,7 +1000,7 @@ const foundations: PageConfig = withShell(
     name: 'design-system-foundations',
     path: `/design-system/${SLUG}`,
     meta: {
-      title: TITLE,
+      title: '$t:admin.meta.foundations',
       description: '$t:admin.ds.found.blurb',
     },
     scripts: { inlineScripts: [{ code: SCHEME_DEEP_LINK_SCRIPT, position: 'head' }] },
@@ -1267,9 +1029,7 @@ const foundations: PageConfig = withShell(
       ],
     }),
   },
-  {
-    breadcrumb: designSystemBreadcrumb(SLUG, TITLE),
-  }
+  designSystemDocumentShell(SLUG, TITLE)
 )
 
 export default foundations

@@ -34,6 +34,7 @@ import {
   rowRuleScopeOf,
 } from '@/application/use-cases/tables/permissions/row-level-enforcement'
 import { enrichRecordsWithRelatedLabels } from '@/application/use-cases/tables/record-link-enrichment'
+import { readerRowsOf } from '@/application/use-cases/tables/row-read-admission'
 import {
   createGetPermissionsProgram,
   getViewProgram,
@@ -48,6 +49,7 @@ import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import type {
   CallerTableView,
   LoadRowRuleContext,
+  ReadReaderRows,
   ReadRecordLabels,
   ReadTableAsCaller,
 } from '@/application/ports/services/page-renderer'
@@ -86,7 +88,7 @@ async function boundViewFor(
 }
 
 /** The routes' answers for one caller; a refusal answers as an empty view. */
-export const readTableAsCaller: ReadTableAsCaller = async (
+const routesAnswerFor: ReadTableAsCaller = async (
   app,
   tableName,
   session,
@@ -205,9 +207,62 @@ const rowRuleContextLoader = (c: Context): LoadRowRuleContext => {
   }
 }
 
+/**
+ * The rows of a table the records list admits the page's reader, read by the
+ * list's own program (`readerRowsOf`) for the reader it labels a record for —
+ * once per table and caller for the whole request. A read that cannot be made
+ * admits no row: a list drawn from it fails closed.
+ */
+const readerRowsReader = (c: Context): ReadReaderRows => {
+  const loaded = new Map<string, ReturnType<ReadReaderRows>>()
+  return (app, tableName, session) => {
+    const reader = labelReaderOf(app, session)
+    const key = JSON.stringify([tableName, reader.session.userId, reader.role, reader.groups])
+    const cached = loaded.get(key)
+    if (cached !== undefined) return cached
+    const rows = runOnRequest(c, readerRowsOf(app, tableName, reader)).then((answer) => {
+      if (answer._tag === 'Success') return answer.success
+      logError(
+        `[pages] the rows of ${tableName} its reader may list could not be read`,
+        answer.failure
+      )
+      return { admission: { kind: 'no-row' as const }, grants: new Map() }
+    })
+    loaded.set(key, rows)
+    return rows
+  }
+}
+
+/**
+ * The routes' answers for one caller, and — as the views and permissions
+ * routes refuse it — a table whose records list admits her no row answered as
+ * one that does not exist (`refused`). A view's definition is the view's own
+ * route's answer, so it is kept.
+ */
+const tableAsCallerReader =
+  (readerRows: ReadReaderRows): ReadTableAsCaller =>
+  async (app, tableName, session, view) => {
+    const [answer, rows] = await Promise.all([
+      routesAnswerFor(app, tableName, session, view),
+      readerRows(app, tableName, session),
+    ])
+    if (rows.admission.kind !== 'no-row') return answer
+    const { boundView } = answer
+    return {
+      views: [],
+      permissionMap: undefined,
+      ...(view !== undefined && { boundView }),
+      refused: true,
+    }
+  }
+
 /** The table API's answers a page render carries for this request. */
-export const callerTableReaders = (c: Context) => ({
-  readTableAsCaller,
-  readRecordLabels: recordLabelReader(c),
-  loadRowRuleContext: rowRuleContextLoader(c),
-})
+export const callerTableReaders = (c: Context) => {
+  const readReaderRows = readerRowsReader(c)
+  return {
+    readTableAsCaller: tableAsCallerReader(readReaderRows),
+    readRecordLabels: recordLabelReader(c),
+    loadRowRuleContext: rowRuleContextLoader(c),
+    readReaderRows,
+  }
+}

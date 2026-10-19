@@ -20,13 +20,13 @@ Cookie: <session>
 }
 ```
 
-| Field         | Required | Default                     | Notes                                                                                                   |
-| ------------- | -------- | --------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `path`        | yes      | —                           | The exact key to write; you choose it, under the explicit-path rules of a multipart upload (else `400`) |
-| `operation`   | yes      | —                           | Must be `upload`, since the default is `download`                                                       |
-| `expiresIn`   | no       | `3600`                      | 60 to 604800 seconds                                                                                    |
-| `contentType` | no       | any type the bucket accepts | Enforced on the write; refused at signing (`400`) when the bucket's `allowedMimeTypes` does not list it |
-| `maxSize`     | no       | 10 MB                       | A byte ceiling, enforced on the write; never above the bucket's own cap                                 |
+| Field         | Required | Default                     | Notes                                                                                                                           |
+| ------------- | -------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `path`        | yes      | —                           | The exact key to write; you choose it, under the explicit-path rules of a multipart upload, its extension included (else `400`) |
+| `operation`   | yes      | —                           | Must be `upload`, since the default is `download`                                                                               |
+| `expiresIn`   | no       | `3600`                      | 60 to 604800 seconds                                                                                                            |
+| `contentType` | no       | any type the bucket accepts | Enforced on the write; refused at signing (`400`) when the bucket's `allowedMimeTypes` does not list it                         |
+| `maxSize`     | no       | 10 MB                       | A byte ceiling, enforced on the write; never above the bucket's own cap                                                         |
 
 Unlike a download token, an upload token does **not** require the file to exist — that is the point. It requires the opposite: signing for a path that already holds a file is refused with `409`, and no URL is handed out. A signed upload writes a new file; replacing one goes through the upload route, where the file's owner is checked. The `signUpload` permission gates who may mint one, and it defaults to admin-only (the built-in `admin` and the app's highest role).
 

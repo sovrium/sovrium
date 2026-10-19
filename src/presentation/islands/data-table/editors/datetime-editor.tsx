@@ -13,6 +13,7 @@ import {
   toLocalInputValue,
 } from '@/presentation/design/zoned-datetime'
 import { resolvePageLocale } from '../../runtime/page-locale'
+import { useGridString } from '../island/grid-strings'
 import { editMetaOf, type CellEditorProps } from './editor-contract'
 import { EditorPopover } from './editor-popover'
 import type { ReactElement } from 'react'
@@ -46,7 +47,9 @@ export function DateTimeEditor(props: CellEditorProps): ReactElement {
 
   return (
     <EditorPopover
-      label={`Edit ${fieldName ?? 'date and time'}`}
+      label={useGridString('datatable.editField', 'Edit {field}', {
+        field: fieldName ?? 'date and time',
+      })}
       cancel={cancel}
       tabValue={() => fromLocalInputValue(local, zone)}
       {...(tabNext && { tabNext })}

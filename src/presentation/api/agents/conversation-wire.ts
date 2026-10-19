@@ -16,6 +16,7 @@
  * answer reads exactly as it did when it streamed.
  */
 
+import { Effect } from 'effect'
 import { siblingsLookup } from '@/domain/models/app/agents/conversation-branch-service'
 import { renderChatAnswerHtml } from '@/presentation/render/markdown/chat-answer-markdown'
 import type {
@@ -56,28 +57,30 @@ const wireRole = (role: string): ConversationMessage['role'] =>
 /**
  * Project `branch` onto the wire, reading each message's siblings from `tree`
  * (the whole conversation), and naming each upload a message's parts hold
- * from `uploads` (the caller's own).
+ * from `uploads` (the caller's own). An Effect because an answer's rendering
+ * highlights its code, which is asynchronous.
  */
 export const toWireMessages = (
   tree: ReadonlyArray<AiMemoryMessage>,
   branch: ReadonlyArray<AiMemoryMessage>,
   uploads: ReadonlyMap<string, UploadDescription> = new Map()
-): ReadonlyArray<ConversationMessage> => {
+): Effect.Effect<ReadonlyArray<ConversationMessage>> => {
   const siblingsOf = siblingsLookup(tree)
-  return branch.map((message) => {
+  return Effect.forEach(branch, (message) => {
     const siblings = siblingsOf(message)
     const role = wireRole(message.role)
-    return {
+    const rendered =
+      role === 'assistant' ? renderChatAnswerHtml(message.content) : Effect.succeed('')
+    return Effect.map(rendered, (html): ConversationMessage => ({
       id: message.id,
       role,
       content: message.content,
-      ...(role === 'assistant' &&
-        message.content.length > 0 && { html: renderChatAnswerHtml(message.content) }),
+      ...(html.length > 0 && { html }),
       status: message.status === 'incomplete' ? 'incomplete' : 'complete',
       ...(siblings.length > 1 && { siblings: siblings.map((sibling) => sibling.id) }),
       ...(message.parts !== undefined && { parts: wireParts(message.parts, uploads) }),
       ...(message.elicitation !== undefined && { elicitation: message.elicitation }),
       createdAt: message.createdAt.toISOString(),
-    }
+    }))
   })
 }

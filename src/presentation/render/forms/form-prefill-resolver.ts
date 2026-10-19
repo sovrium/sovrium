@@ -29,6 +29,10 @@
  */
 
 import { NOW_TOKEN, resolveNowToken, type NowTokenColumn } from '@/domain/kernel/time/now-token'
+import {
+  isLookupDefault,
+  lookupDefaultOf,
+} from '@/domain/models/app/forms/form-lookup-default-service'
 import { serverNow } from '@/domain/models/process-env/dev-clock'
 import type { FormOptionSets } from '@/domain/models/app/forms/form-option-source-service'
 
@@ -55,6 +59,12 @@ export interface FormPrefillContext {
   readonly columns?: Readonly<Record<string, NowTokenColumn>>
   /** A private link this page was opened from: a resumed draft, or an edit. */
   readonly link?: FormLinkState
+  /**
+   * The island runtime's entry, when the form draws a field the design system
+   * mounts (a Select, a date picker): the page then loads it. Not a prefill
+   * either, but a fact of this serve the render cannot reach on its own.
+   */
+  readonly islandEntryFile?: string
 }
 
 /**
@@ -106,6 +116,8 @@ export function resolvePrefillEntry(
   value: PrefillValue,
   ctx: FormPrefillContext
 ): PrefillValue | undefined {
+  // A relationship's lookup default: the row this request's read found, if any.
+  if (isLookupDefault(value)) return lookupDefaultOf(key, ctx.optionSets)
   if (typeof value !== 'string') return value
   return resolveReference(key, value, ctx)
 }

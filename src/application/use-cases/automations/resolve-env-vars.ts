@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { mapStringsDeep } from '@/domain/kernel/config-parsing/map-strings-deep'
 import { resolveEnvInString } from '@/domain/models/app/env-reference-service'
-import { mapStringsDeep } from './value-walker'
 
 /**
  * The `$env` resolver lives in the domain (`env-reference-service.ts`) so the

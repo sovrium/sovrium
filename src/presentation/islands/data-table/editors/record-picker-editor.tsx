@@ -7,7 +7,8 @@
 
 import { useCallback } from 'react'
 import { createRelatedRecord, fetchCandidatePage } from '../../parts/record-candidates'
-import { RECORD_PICKER_COPY } from '../../runtime/picker-contract'
+import { PICKER_WORDS } from '../../runtime/picker-contract'
+import { useGridString } from '../island/grid-strings'
 import { editMetaOf, type CellEditorProps } from './editor-contract'
 import { FetchingPicker } from './fetching-picker'
 import type { CandidatePage } from '../../parts/use-candidate-search'
@@ -42,22 +43,32 @@ import type { ReactElement } from 'react'
  */
 
 /**
- * The picker's own copy, derived from what the field declares.
+ * The picker's own copy, derived from what the field declares, in the page
+ * language (`datatable.picker.*`). The linked table keeps the name its author
+ * configured: that name is what tells the reader which records she chooses
+ * among, so only the words around it are translated.
  *
  * Pulled out of the component so its branches count against a helper rather
  * than against the render, which is what `complexity` is protecting.
  */
-function pickerLabels(args: {
+function usePickerLabels(args: {
   readonly relatedTable: string | undefined
   readonly displayField: string | undefined
   readonly fieldName: string | undefined
 }) {
   const { relatedTable, displayField, fieldName } = args
+  const searchLabel = useGridString('datatable.picker.search', 'Search {table}', {
+    table: relatedTable ?? 'records',
+  })
+  const searchPlaceholder = useGridString('datatable.picker.searchBy', 'Search by {field}', {
+    field: displayField || 'id',
+  })
+  const linkedRecords = useGridString('datatable.picker.linkedRecords', 'Linked records')
   return {
     sourceKey: `${relatedTable ?? ''}:${displayField ?? ''}`,
-    searchLabel: `Search ${relatedTable ?? 'records'}`,
-    searchPlaceholder: displayField ? `Search by ${displayField}` : 'Search by id',
-    listLabel: fieldName ?? 'Linked records',
+    searchLabel,
+    searchPlaceholder,
+    listLabel: fieldName ?? linkedRecords,
   }
 }
 
@@ -89,11 +100,13 @@ export function RecordPickerEditor(props: CellEditorProps): ReactElement {
   const offersCreate =
     allowCreate === true && canCreateRelated !== false && relatedTable !== undefined
 
+  const unconfigured = useGridString('picker.unconfigured', PICKER_WORDS['picker.unconfigured'])
+  const labels = usePickerLabels({ relatedTable, displayField, fieldName: props.fieldName })
   const optional = {
     ...(offersCreate && { createFromTerm }),
     ...(maxLinked !== undefined && { maxLinked }),
     ...(relatedTable === undefined && {
-      unconfiguredLabel: RECORD_PICKER_COPY.unconfigured,
+      unconfiguredLabel: unconfigured,
     }),
   }
 
@@ -102,9 +115,12 @@ export function RecordPickerEditor(props: CellEditorProps): ReactElement {
       {...props}
       fetchCandidates={fetchCandidates}
       allowMultiple={allowMultiple === true}
-      emptyLabel={RECORD_PICKER_COPY.empty}
-      failedLabel={RECORD_PICKER_COPY.failed}
-      {...pickerLabels({ relatedTable, displayField, fieldName: props.fieldName })}
+      emptyLabel={useGridString(
+        'picker.noMatchingRecords',
+        PICKER_WORDS['picker.noMatchingRecords']
+      )}
+      failedLabel={useGridString('picker.loadFailed', PICKER_WORDS['picker.loadFailed'])}
+      {...labels}
       {...optional}
     />
   )

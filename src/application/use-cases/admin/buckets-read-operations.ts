@@ -43,6 +43,7 @@ import {
   encodeCursor,
   type BucketsListInput,
 } from '@/application/use-cases/admin/buckets-read-projection'
+import { resolveOperatorLanguage } from '@/application/use-cases/admin/operator-language'
 import { parseSortSpec } from '@/domain/kernel/format/sort-spec'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import {
@@ -51,6 +52,7 @@ import {
   normalizeBucketFilesSortKey,
 } from '@/domain/models/api/admin/buckets/files'
 import {
+  bucketAdminItemSchema,
   bucketsListQuerySchema,
   bucketsListResponseSchema,
   bucketSchema,
@@ -110,9 +112,9 @@ const bucketsList = defineAdminRead<BucketsListInput>({
   },
   subject: 'bucket list',
   decode: (raw) => ({ _tag: 'Ok', input: decodeBucketsListQuery(raw) }),
-  read: (app, { provider, cursor, limit }) =>
+  read: (app, { provider, cursor, limit }, request) =>
     Effect.gen(function* () {
-      const all = yield* buildBucketItems(app)
+      const all = yield* buildBucketItems(app, yield* resolveOperatorLanguage(request))
       const filtered = provider ? all.filter((item) => item.provider === provider) : all
       const start = cursor ? decodeCursor(cursor, filtered) : 0
       const page = filtered.slice(start, start + limit)
@@ -122,6 +124,58 @@ const bucketsList = defineAdminRead<BucketsListInput>({
       return answerWithSchema(bucketsListResponseSchema, { items: page, nextCursor })
     }),
   audit: { action: AUDIT_ACTIONS.BUCKET_LIST_QUERIED, resourceId: () => SYSTEM_BUCKET_ID },
+})
+
+// ─── One bucket ──────────────────────────────────────────────────────────────
+
+const bucketRead = defineAdminRead<string>({
+  id: 'buckets.read',
+  method: 'get',
+  path: '/api/admin/buckets/:bucketName',
+  pathParams: ['bucketName'],
+  queryParams: [],
+  tool: {
+    suffix: 'bucket_read',
+    description:
+      'Read one bucket — its readable label, provider, upload rules, file count and stored bytes — as GET /api/admin/buckets/:bucketName answers it (admin-only, read-only).',
+    inputSchema: {
+      type: 'object',
+      properties: { bucketName: { type: 'string', description: 'The bucket name, e.g. system.' } },
+      required: ['bucketName'],
+    },
+  },
+  openapi: {
+    summary: 'Read one bucket',
+    description:
+      'One bucket as the list answers it: its name made readable, its provider and upload ' +
+      'rules, and the files recorded under it. A bucket the app does not expose — or any ' +
+      'bucket while no storage provider is configured — is answered 404 and writes no audit ' +
+      'event. Admin only.',
+    operationIdBase: 'getAdminBucket',
+    paramsSchema: adminReadPathParams({ bucketName: 'The bucket name' }),
+    responseSchema: bucketAdminItemSchema,
+    responseDescription: 'The bucket',
+  },
+  subject: 'bucket detail',
+  decode: ({ bucketName }, app) =>
+    typeof bucketName === 'string' && declaredBucketNames(app.buckets).includes(bucketName)
+      ? { _tag: 'Ok', input: bucketName }
+      : { _tag: 'NotFound' },
+  read: (app, bucketName, request) =>
+    Effect.gen(function* () {
+      const language = yield* resolveOperatorLanguage(request)
+      const item = (yield* buildBucketItems(app, language)).find(
+        (bucket) => bucket.name === bucketName
+      )
+      return item === undefined
+        ? ({ _tag: 'NotFound' } as const)
+        : answerWithSchema(bucketAdminItemSchema, item)
+    }),
+  // The list's event, scoped to the one bucket: a single read discloses a row of it.
+  audit: {
+    action: AUDIT_ACTIONS.BUCKET_LIST_QUERIED,
+    resourceId: (_app, bucketName) => bucketIdForName(bucketName),
+  },
 })
 
 // ─── Overview ────────────────────────────────────────────────────────────────
@@ -185,7 +239,7 @@ const bucketsOverview = defineAdminRead<PeriodPreset>({
 
 // ─── Files ───────────────────────────────────────────────────────────────────
 
-type BucketFilesRequest = Omit<BucketFilesInput, 'app'>
+type BucketFilesRequest = Omit<BucketFilesInput, 'app' | 'language'>
 
 /**
  * Decode one bucket's file-list request. A name the app does not expose is
@@ -279,16 +333,25 @@ const bucketFiles = defineAdminRead<BucketFilesRequest>({
   },
   subject: 'bucket file list',
   decode: decodeBucketFiles,
-  read: (app, request) => BuildBucketFiles({ ...request, app }),
+  // The system listing names each table and field in the operator's console language.
+  read: (app, input, request) =>
+    Effect.flatMap(resolveOperatorLanguage(request), (language) =>
+      BuildBucketFiles({ ...input, app, language })
+    ),
   audit: {
     action: AUDIT_ACTIONS.BUCKET_FILES_QUERIED,
     resourceId: (_app, request) => bucketIdForName(request.bucket),
   },
 })
 
-/** The bucket admin reads, in the order the registry lists them (no two paths overlap). */
+/**
+ * The bucket admin reads, in the order the registry lists them. `overview` is
+ * mounted BEFORE the one-bucket read, so `/buckets/overview` is not captured as
+ * a bucket name.
+ */
 export const BUCKETS_READ_OPERATIONS: ReadonlyArray<AdminReadOperation> = [
   bucketsList,
   bucketsOverview,
+  bucketRead,
   bucketFiles,
 ]

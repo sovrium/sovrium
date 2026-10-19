@@ -33,6 +33,7 @@ import { BrowserSessionRepository } from '@/application/ports/repositories/autom
 import { BrowserDriver, type BrowserSession } from '@/application/ports/services/browser-driver'
 import { logError } from '@/infrastructure/logging/logger'
 import { parkForConfirmation } from './browser-confirm'
+import { keepStepReading, startStepReading } from './browser-own-app'
 import { EMPTY_PROGRESS, type BrowserRunScope, type StepsResult } from './browser-run-scope'
 import {
   browserRunOptionsOf,
@@ -170,7 +171,7 @@ const finishFailed = (
     const shot =
       bytes === undefined || bytes._tag === 'None'
         ? undefined
-        : yield* scope.storeShot(bytes.value, 'failure')
+        : yield* scope.storeShot(bytes.value, 'failure', scope.session)
     yield* scope.session.close
     const progress = {
       ...result.progress,
@@ -215,11 +216,16 @@ const finishParked = (
 ) =>
   Effect.gen(function* () {
     const bytes = yield* pageShot(scope.session)
-    const shot = bytes._tag === 'None' ? undefined : yield* scope.storeShot(bytes.value, 'confirm')
+    const shot =
+      bytes._tag === 'None'
+        ? undefined
+        : yield* scope.storeShot(bytes.value, 'confirm', scope.session)
     const progress = {
       ...result.progress,
       screenshots: [...result.progress.screenshots, ...(shot === undefined ? [] : [shot])],
     }
+    // What the step read so far is kept with the run, never in its output.
+    yield* keepStepReading(scope.automation, scope.seenOwnApp, scope.session)
     const parked = yield* parkForConfirmation({ scope, progress, index: result.index, holdMaxMs })
     if ('refusal' in parked) {
       yield* scope.session.close
@@ -264,6 +270,20 @@ const playWithin = (
     })
   )
 
+/** What runs just before the irreversible click: `submitting` set, the key turned `pending`. */
+const beforeSubmitOf = (
+  submitting: Ref.Ref<boolean>,
+  automation: AutomationContext,
+  stateKey: string | undefined
+) =>
+  Ref.set(submitting, true).pipe(
+    Effect.andThen(
+      stateKey === undefined
+        ? Effect.void
+        : writeIdempotencyKey(automation.id, stateKey, { state: 'pending' })
+    )
+  )
+
 /** Run the action once a session is open. */
 const runInSession = (input: {
   readonly session: BrowserSession
@@ -280,6 +300,8 @@ const runInSession = (input: {
     const resumed = resumedFrom(input.runContext)
     const start = resumed ?? { index: 0, progress: EMPTY_PROGRESS }
     const submitting = yield* Ref.make(false)
+    // Resuming, the step starts with what it had read before its confirmation.
+    const seenOwnApp = yield* startStepReading(automation, resumed !== undefined)
     const scope: BrowserRunScope = {
       session,
       app: input.app,
@@ -295,14 +317,10 @@ const runInSession = (input: {
         bucket: options.bucket,
         automation,
         counter: yield* Ref.make(start.progress.screenshots.length + 1),
+        seenOwnApp,
       }),
-      beforeSubmit: Ref.set(submitting, true).pipe(
-        Effect.andThen(
-          stateKey === undefined
-            ? Effect.void
-            : writeIdempotencyKey(automation.id, stateKey, { state: 'pending' })
-        )
-      ),
+      seenOwnApp,
+      beforeSubmit: beforeSubmitOf(submitting, automation, stateKey),
       ...(resumed === undefined ? {} : { confirmedIndex: resumed.index }),
       healPolicy: healPolicyOf(input.action, input.app),
     }

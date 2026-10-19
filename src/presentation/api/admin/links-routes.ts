@@ -71,23 +71,22 @@ import {
   utmPatchFromFlat,
   utmRecordFromFlat,
   type CatalogState,
-  type LinkMutationConflictCode,
 } from '@/application/use-cases/links'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import {
   adminLinkDetailResponseSchema,
   createLinkRequestSchema,
-  linkMutationConflictSchema,
   linkStateChangeResponseSchema,
   updateLinkRequestSchema,
 } from '@/domain/models/api/admin/links'
-import { decodeOrThrow, decodeSafe } from '@/domain/models/api/combinators/decode'
+import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import {
   provideDomain,
   runDomainPromise,
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
 import { emitAuditEvent } from '@/presentation/api/admin/audit-events'
+import { conflict } from '@/presentation/api/admin/links-conflict'
 import { chainAdminReadRoutes } from '@/presentation/api/admin/read-operation-routes'
 import { badRequest, internalError, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
@@ -113,36 +112,6 @@ const runLinks = <A, E>(
 // ---------------------------------------------------------------------------
 // Canonical response envelopes
 // ---------------------------------------------------------------------------
-
-/**
- * The prose for each refusal, keyed by its discriminant.
- *
- * A table rather than a ternary chain because the enum has three members and
- * the console branches on `code`, never on the message — so the message exists
- * only for the human reading the response, and each one must NAME the slug it
- * refused. A refusal that does not say which slug it means is unactionable when
- * a console posts several.
- */
-type ConflictCode = LinkMutationConflictCode
-
-const CONFLICT_MESSAGES: Readonly<Record<ConflictCode, (slug: string) => string>> = {
-  LINK_IS_CONFIG_DECLARED: (slug) =>
-    `Link '${slug}' is declared in app.links[] and can only be edited in the configuration file.`,
-  LINK_SLUG_TAKEN: (slug) => `Link '${slug}' already exists.`,
-  LINK_RESERVED_SLUG: (slug) =>
-    `Slug '${slug}' is reserved by the admin API and cannot be minted — a link there would ` +
-    `resolve publicly while being permanently invisible in the console.`,
-}
-
-/** 409 with the stable discriminant the console branches on. */
-const conflict = (c: Context, code: ConflictCode, slug: string) => {
-  const body = decodeOrThrow(linkMutationConflictSchema)({
-    success: false,
-    code,
-    message: CONFLICT_MESSAGES[code](slug),
-  })
-  return c.json(body, 409)
-}
 
 /** Build the detail body for a row that was just written. */
 const detailResponse = async (
@@ -266,7 +235,8 @@ async function handleCreateLink(c: Context, app: App): Promise<Response> {
 
   if (result._tag === 'Failure') {
     const { failure } = result
-    if (failure._tag === 'LinkMutationConflictError') return conflict(c, failure.code, failure.slug)
+    if (failure._tag === 'LinkMutationConflictError')
+      return conflict(c, failure.code, failure.slug, true)
     // 400, not 500: the caller sent a value that is not a link. The request
     // schema above already refuses a malformed slug, but it validates
     // `destination` as a non-empty string only — so this is the branch that

@@ -6,7 +6,7 @@
  */
 
 import { Schema } from 'effect'
-import { SelectOptionSourceSchema } from '../../table-option-source'
+import { RecordLookupDefaultSchema, SelectOptionSourceSchema } from '../../table-option-source'
 import {
   commonFieldProps,
   FormFieldAutocompleteSchema,
@@ -82,7 +82,35 @@ export const TableBoundFieldSchema = Schema.Struct({
   recordAudio: Schema.optional(FormRecordAudioSchema),
   /** Browser autofill hint; derived from the field's type when omitted. */
   autocomplete: Schema.optional(FormFieldAutocompleteSchema),
+  /**
+   * What the form says under this field when its value is already held by
+   * another record of a `unique` column — shown to every submitter. Without
+   * it, only a submitter who may read the record holding the value is told
+   * under the field; anyone else reads the form's generic refusal.
+   */
+  takenMessage: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Message shown under this field, to every submitter, when the value is already held by another record of a `unique` column — for instance "This email is already registered". Setting it tells anyone who submits the form that the value exists. Without it, the field-level message is shown only to a submitter who may read the record holding the value; anyone else, a visitor who is not signed in included, reads the form\'s generic refusal and no field is named. Nothing is stored either way.',
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
   ...commonFieldProps,
+  /**
+   * Value the field starts with. Widens the common default with a `lookup`,
+   * which a relationship column uses to preselect a related row by a stable
+   * attribute rather than by an id that changes between environments.
+   */
+  defaultValue: Schema.optional(
+    Schema.Union([
+      Schema.String,
+      Schema.Finite,
+      Schema.Boolean,
+      RecordLookupDefaultSchema,
+    ]).annotate({
+      description:
+        'Value the field starts with: a literal, `$query.{name}` to read a URL parameter, `$user.{prop}` to read a property of the signed-in user, `$now` for the current date and time, or — on a relationship column — `{ lookup: { table, where: { field, operator, value } } }` to start on the related row meeting that condition, found each time the form is served. The form starts from it wherever it is shown, embedded in a page or on its own.',
+    })
+  ),
 }).annotate({
   identifier: 'TableBoundField',
   title: 'Table-Bound Form Field',

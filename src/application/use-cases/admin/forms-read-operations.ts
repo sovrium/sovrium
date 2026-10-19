@@ -40,6 +40,7 @@ import {
   adminReadText,
   defineAdminRead,
 } from '@/application/use-cases/admin/admin-read-operation'
+import { readFormDetail, readFormsList } from '@/application/use-cases/admin/form-labels'
 import {
   readSubmission,
   readSubmissionsList,
@@ -52,11 +53,7 @@ import {
   formSubmissionsExportQuerySchema,
 } from '@/application/use-cases/admin/form-submissions-csv'
 import { FORMS_ANALYTICS_READ_OPERATIONS } from '@/application/use-cases/admin/forms-analytics-read-operations'
-import {
-  BuildFormDetail,
-  BuildFormsList,
-  type SubmissionsListInput,
-} from '@/application/use-cases/admin/forms-overview'
+import { type SubmissionsListInput } from '@/application/use-cases/admin/forms-overview'
 import {
   declaredForm,
   decodeFormsList,
@@ -120,7 +117,7 @@ const formsList = defineAdminRead<FormsListRequest>({
   },
   subject: 'forms list',
   decode: (raw) => ({ _tag: 'Ok', input: decodeFormsList(raw) }),
-  read: (app, input) => BuildFormsList(app, input),
+  read: readFormsList,
   audit: { action: AUDIT_ACTIONS.FORM_LIST_QUERIED, resourceId: (app) => app.name },
 })
 
@@ -153,7 +150,7 @@ const formRead = defineAdminRead<string>({
   subject: 'form detail',
   decode: ({ formName }) =>
     isFormNameShape(formName) ? { _tag: 'Ok', input: formName } : notFound,
-  read: (app, formName) => BuildFormDetail(app, formName),
+  read: readFormDetail,
   audit: { action: AUDIT_ACTIONS.FORM_DETAIL_QUERIED, resourceId: (_app, formName) => formName },
 })
 
@@ -223,7 +220,7 @@ const submissionsList = defineAdminRead<SubmissionsListInput>({
   },
   subject: 'submissions list',
   decode: decodeSubmissionsList,
-  read: (app, input, caller) => readSubmissionsList(app, input, caller.actorUserId),
+  read: readSubmissionsList,
   audit: {
     action: AUDIT_ACTIONS.FORM_SUBMISSION_LIST_QUERIED,
     resourceId: (_app, input) => input.formName,
@@ -294,7 +291,7 @@ const submissionRead = defineAdminRead<SubmissionRequest>({
         },
       }
     ),
-  read: (app, request, caller) => readSubmission(app, request, caller.actorUserId),
+  read: readSubmission,
   audit: {
     action: AUDIT_ACTIONS.FORM_SUBMISSION_DETAIL_QUERIED,
     resourceId: (_app, request) => request.submissionId,

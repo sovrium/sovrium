@@ -23,9 +23,9 @@ import { resolveRunAsActor } from './record'
 import { admitAttachments } from './record-attachment-gate'
 import { callerRefusal, runLinkReader, updatesOf } from './record-caller-gate'
 import { createAndAnnounce, recordEventLoopRefusal, updateAndAnnounce } from './record-events'
-import { declaredFilterFields } from './record-filter-shape'
-import { failureFromError, resolveActionTargetIds } from './record-filters'
-import { actionAttributes, findMultiSelectViolationMessage, recordProp, stringProp } from './shared'
+import { failureFromError } from './record-filters'
+import { resolveRunTargetIds } from './record-starter-targets'
+import { actionAttributes, findOptionViolationMessage, recordProp, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
 import type { StepRequirements } from '../run/types'
 import type { LinkReader } from '@/application/use-cases/tables/linked-row-visibility'
@@ -59,7 +59,7 @@ const upsertCreate = (config: {
         runContext,
       })
     )
-    if (created._tag === 'Failure') return failureFromError(created.failure)
+    if (created._tag === 'Failure') return failureFromError(created.failure, data)
     return { status: 'success', output: { operation: 'created', id: created.success.id } } as const
   })
 
@@ -95,7 +95,7 @@ const upsertUpdate = (config: {
       )
     )
     return updates._tag === 'Failure'
-      ? failureFromError(updates.failure)
+      ? failureFromError(updates.failure, data)
       : ({
           status: 'success',
           output: { operation: 'updated', id: String(matchedIds[0]) },
@@ -125,19 +125,17 @@ export const handleRecordUpsert: ActionHandler = (action, app, automation, runCo
     // Multi-select membership + cardinality — see `handleRecordCreate`. Checked
     // once here rather than inside `upsertCreate`/`upsertUpdate`: `data` is the
     // same payload on both branches, and neither branch receives `app`.
-    const multiSelectError = findMultiSelectViolationMessage(app, tableName, data)
+    const multiSelectError = findOptionViolationMessage(app, tableName, data)
     if (multiSelectError) return { status: 'failure', error: multiSelectError } as const
 
     // Lenient lookup — pre-existing behaviour, preserved explicitly. Note this
     // is the sharpest of the four lenient sites: a failed query reads as "no
     // existing row", so the upsert takes its CREATE branch and every retry
     // duplicates. See `resolveIdsByFilterLenient`. An unresolvable filter field
-    // is refused outright rather than degraded into that create branch.
-    const targets = yield* resolveActionTargetIds({
-      operator: 'record.upsert',
-      tableName,
-      filter: props['filter'],
-      declared: declaredFilterFields(app, tableName),
+    // is refused outright rather than degraded into that create branch. A
+    // hand-started run's filter reaches only what its starter may read.
+    const targets = yield* resolveRunTargetIds({
+      ...{ operator: 'record.upsert', app, automation, tableName, filter: props['filter'] },
       idFastPath: stringProp(props, 'id'),
     })
     if (!targets.resolved) return targets.outcome

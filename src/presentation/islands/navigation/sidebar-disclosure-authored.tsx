@@ -17,8 +17,11 @@ import type { LeafItem, SubItem } from './sidebar-disclosure-props'
  * sibling of the island so the island stays one job: state and toggling.
  */
 
-/** One authored row, with the icon geometry the server resolved for it. */
-function AuthoredChild({
+/**
+ * One row of the list, with the icon geometry the server resolved for it. The
+ * fetched rows are drawn by it too: a fetched entry is a leaf with neither.
+ */
+export function AuthoredChild({
   item,
   isCurrent,
   rail,

@@ -27,6 +27,7 @@ import {
   handleUpdateComment,
 } from './comment-handlers'
 import { handleListMentionable } from './comment-mention-handler'
+import { refuseUnreadableTable } from './readable-table-gate'
 import { handleInvokeRecordButton } from './record-button-handlers'
 import {
   handleListRecords,
@@ -52,12 +53,15 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, resolveApp:
     honoApp
       .get(
         '/api/tables/:tableId/records',
+        // A table she may not read answers as missing before its query is judged.
+        refuseUnreadableTable(resolveApp),
         effectValidator('query', listRecordsQuerySchema),
         conditionalRead(),
         (c) => handleListRecords(c, resolveApp())
       )
       .get(
         '/api/tables/:tableId/aggregate',
+        refuseUnreadableTable(resolveApp),
         effectValidator('query', aggregateRecordsQuerySchema),
         conditionalRead(),
         (c) => handleAggregateRecords(c, resolveApp())

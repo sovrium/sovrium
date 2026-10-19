@@ -8,7 +8,8 @@
 import { useCandidateSearch } from '../../parts/use-candidate-search'
 import { usePickerCreate } from '../../parts/use-picker-create'
 import { readsAsList } from '../../runtime/cell-value-semantics'
-import { isAtLinkCap, resolvePickerEmptyLabel } from '../../runtime/picker-contract'
+import { PICKER_WORDS, isAtLinkCap, resolvePickerEmptyLabel } from '../../runtime/picker-contract'
+import { useGridString } from '../island/grid-strings'
 import { EditorPopover } from './editor-popover'
 import { PickerPanel } from './picker-footnotes'
 import { PickerSearchBox } from './picker-search-box'
@@ -70,11 +71,13 @@ export interface FetchingPickerProps extends CellEditorProps {
  */
 function emptyLabelFor(
   props: FetchingPickerProps,
-  search: { readonly failed: boolean; readonly loading: boolean }
+  search: { readonly failed: boolean; readonly loading: boolean },
+  searchingLabel: string
 ): string {
   return resolvePickerEmptyLabel({
     failed: search.failed,
     loading: search.loading,
+    searchingLabel,
     emptyLabel: props.emptyLabel,
     failedLabel: props.failedLabel,
     ...(props.unconfiguredLabel !== undefined && { unconfiguredLabel: props.unconfiguredLabel }),
@@ -85,6 +88,7 @@ export function FetchingPicker(props: FetchingPickerProps): ReactElement {
   const { value, commit, cancel, tabNext, fieldName, allowMultiple, maxLinked } = props
   const selected = readsAsList(value)
   const search = useCandidateSearch(props.fetchCandidates, props.sourceKey)
+  const searching = useGridString('picker.searching', PICKER_WORDS['picker.searching'])
 
   // At the cap the listbox STAYS OPEN here, unlike on the form. That is not an
   // inconsistency: the form renders its links as removable chips, so it can
@@ -112,7 +116,7 @@ export function FetchingPicker(props: FetchingPickerProps): ReactElement {
 
   return (
     <EditorPopover
-      label={`Edit ${fieldName ?? 'value'}`}
+      label={useGridString('datatable.editField', 'Edit {field}', { field: fieldName ?? 'value' })}
       cancel={cancel}
       tabValue={() => (allowMultiple ? selected : (selected[0] ?? null))}
       {...(tabNext && { tabNext })}
@@ -129,7 +133,7 @@ export function FetchingPicker(props: FetchingPickerProps): ReactElement {
         onToggle={choose}
         multiple={allowMultiple}
         ariaLabel={props.listLabel}
-        emptyLabel={emptyLabelFor(props, search)}
+        emptyLabel={emptyLabelFor(props, search, searching)}
         hasMore={search.hasMore}
         onLoadMore={search.loadMore}
         {...(maxLinked !== undefined && { maxLinked })}

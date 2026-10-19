@@ -46,6 +46,7 @@ import {
   ReadValueEntry,
 } from './record-drawer-entry'
 import { isStructured, readsAsValue } from './record-drawer-field'
+import { useUploadsInFlight } from './record-drawer-uploads'
 import type { RecordDrawerField, Values, RawRecord } from './record-drawer-field'
 import type { DrawerBuiltInLabels } from './record-drawer-labels'
 import type { ReactElement, ReactNode } from 'react'
@@ -77,6 +78,8 @@ export interface DrawerContentProps {
    * read has a correct outcome. See the `loading` note in the island.
    */
   readonly loading?: boolean
+  /** An opened record still holds what it loaded: Save has nothing to send. */
+  readonly unchanged?: boolean
   readonly error?: string
   readonly actions?: ReadonlyArray<DrawerAction>
   /**
@@ -289,22 +292,25 @@ function DrawerError({
  * The save affordance: inert, like the fields, until the record has loaded, and
  * pending — spinner, the in-flight word, busy — from the press until the save
  * answers, so a second press saves nothing and the drawer holds the reader's
- * dismissals meanwhile (`overlay-pending.ts`).
+ * dismissals meanwhile (`overlay-pending.ts`); off, too, while nothing changed.
  */
 export function DrawerSaveButton({
   label,
   savingLabel = 'Saving…',
   loading,
+  unchanged = false,
   onSave,
   className,
 }: {
   readonly label: string
   readonly savingLabel?: string | undefined
   readonly loading: boolean
+  readonly unchanged?: boolean | undefined
   readonly onSave: () => Promise<void> | void
   readonly className?: string
 }): ReactElement {
   const [pending, setPending] = useState(false)
+  const uploading = useUploadsInFlight()
   const press = (): void => {
     if (pending) return
     setPending(true)
@@ -315,7 +321,7 @@ export function DrawerSaveButton({
       type="button"
       data-component-type="button"
       onClick={press}
-      disabled={loading}
+      disabled={loading || uploading || unchanged}
       {...pendingControlProps(pending)}
       className={className ?? SAVE_CLASS}
     >
@@ -371,6 +377,7 @@ export function DrawerContent(props: DrawerContentProps): ReactElement {
           label={props.saveLabel}
           savingLabel={props.savingLabel}
           loading={loading}
+          unchanged={props.unchanged}
           onSave={props.onSave}
         />
       )}

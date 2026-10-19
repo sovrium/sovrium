@@ -46,20 +46,22 @@ import {
 const isProduction = isProductionEnv()
 
 /**
- * Wrap an asset `build` step in promise-memoization that is bypassed in dev.
+ * Wrap an asset `build` step in promise-memoization, bypassed only on an
+ * explicit no-cache run.
  *
- * Prebuilt-asset modes (compiled binary, npm bundle) and normal dev runs share
- * the same cache. Only a live-edit dev run (`isDevCacheDisabled()`) re-runs
- * `build` on every call so source edits appear without a restart. The
- * `!isCompiled && !isBundled` guard keeps prebuilt assets memoized even when the
- * dev-cache flag is set, since there is no source to rebuild from in those modes.
+ * Every mode memoizes by default — prebuilt assets (compiled binary, npm
+ * bundle), production, development and test servers alike — so the island and
+ * client bundles are built once per process. Only `SOVRIUM_DEV_NO_CACHE=1`
+ * (`isDevCacheDisabled()`) re-runs `build` on every call, for someone editing
+ * client source who wants each request to pick the edit up without a restart.
+ * The `!isCompiled && !isBundled` guard keeps prebuilt assets memoized even
+ * then, since there is no source to rebuild from in those modes.
  *
- * Both bundle providers (`getClientBundle` here, `buildIslands` in
- * `static-assets.ts`) share this exact dev-bypass/memo idiom; centralizing it
- * keeps the dev-cache condition in one place and removes the per-provider
- * mutable `cachedPromise`.
+ * Every bundle provider (`getClientBundle` here, `buildIslands` in
+ * `island-assets.ts`, the page-search runtime) shares this one idiom, so the
+ * no-cache condition lives in one place.
  */
-export const memoizeUnlessDev = <T>(build: () => Promise<T>): (() => Promise<T>) => {
+export const memoizeUnlessNoCache = <T>(build: () => Promise<T>): (() => Promise<T>) => {
   let cachedPromise: Promise<T> | undefined
   return (): Promise<T> => {
     if (!isCompiled && !isBundled && isDevCacheDisabled()) return build()
@@ -208,9 +210,9 @@ const buildDevClientBundle = async (): Promise<ClientBundle> => {
  * Compiled binary: the embedded entry and chunks. npm bundle: `dist/`. Source
  * checkout: a split `Bun.build` of `src/presentation/islands/client.ts`.
  *
- * The result is cached via promise memoization (bypassed on dev live-edit runs).
+ * The result is cached via promise memoization (bypassed under `SOVRIUM_DEV_NO_CACHE=1`).
  */
-export const getClientBundle = memoizeUnlessDev((): Promise<ClientBundle> =>
+export const getClientBundle = memoizeUnlessNoCache((): Promise<ClientBundle> =>
   isCompiled
     ? readEmbeddedClientBundle()
     : isBundled
@@ -267,7 +269,7 @@ export const HASHED_TOP_LEVEL_ENTRIES: Readonly<Record<string, () => Promise<str
  * the stable one — so an entry missing from the map degrades to the alias,
  * never to a 404.
  */
-export const resolveClientScriptPaths = memoizeUnlessDev(
+export const resolveClientScriptPaths = memoizeUnlessNoCache(
   async (): Promise<Readonly<Record<string, string>>> =>
     servesPrebuiltEntries ? hashedEntryPaths(HASHED_TOP_LEVEL_ENTRIES, '/assets/') : {}
 )
@@ -322,7 +324,7 @@ export const prebuiltIslandReader = async (): Promise<IslandChunkReader> =>
 export const PREBUILT_ISLAND_ENTRY = 'island-entry.js'
 
 /** The prebuilt island entry's bytes (compiled binary or npm bundle). */
-export const readPrebuiltIslandEntry = memoizeUnlessDev(async (): Promise<string> =>
+export const readPrebuiltIslandEntry = memoizeUnlessNoCache(async (): Promise<string> =>
   (await prebuiltIslandReader()).read(PREBUILT_ISLAND_ENTRY)
 )
 

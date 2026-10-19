@@ -24,9 +24,15 @@
  */
 
 import { useCallback, useId, type ReactElement, type ReactNode } from 'react'
-import { computeInputDefaultClasses } from '@/presentation/design/input-default-classes'
+import { ChevronDownGlyph } from '@/presentation/design/control-glyphs'
+import { computeInputGroupIconButtonClasses } from '@/presentation/design/input-group-default-classes'
+import { computeInputGroupFieldClasses } from '@/presentation/design/input-group-field-classes'
+import { computeInputGroupClasses } from '@/presentation/design/input-group-root-classes'
+import { RequiredMark } from '../parts/crud-form/field-label'
 import { PickerControl } from '../parts/crud-form/record-picker-chrome'
 import { useRecordPicker } from '../parts/crud-form/use-record-picker'
+import { refusalIdOf } from './record-drawer-field'
+import { RefusalLine } from './record-drawer-refusal-line'
 import type { FieldDef } from '../parts/crud-form/field-def'
 
 /** The drawer entry a link control is drawn for — see `RecordDrawerField`. */
@@ -35,10 +41,14 @@ export interface DrawerLinkEntry {
   readonly relatedTable?: string
   readonly displayField?: string
   readonly required?: boolean
+  /** The label carries a visible `*`, hidden from assistive technology. */
+  readonly requiredMark?: boolean
   readonly description?: string
   /** The Clear control's caption and accessible name in the page language; English when absent. */
   readonly clearLabel?: string
   readonly clearName?: string
+  /** The accessible name of the button listing the records, in the page language; English when absent. */
+  readonly showOptionsName?: string
 }
 
 /** What the drawer hands a link entry's control. */
@@ -48,11 +58,13 @@ export interface LinkFieldProps {
   readonly value: string
   readonly disabled: boolean
   readonly onChange: (name: string, value: string) => void
+  /** Why the link was refused — a blank required link, or the server's reason. */
+  readonly error?: string | undefined
   readonly children?: ReactNode
 }
 
-/** The search box's surface: one input (36 px) high, as every drawer control is. */
-const PICKER_CLASS = computeInputDefaultClasses()
+/** The search box inside its input group, the group carrying the border. */
+const PICKER_CLASS = computeInputGroupFieldClasses()
 
 /** The form's field definition for the same link, as the picker modules read it. */
 const toFieldDef = (field: DrawerLinkEntry, label: string): FieldDef => ({
@@ -87,8 +99,60 @@ function ClearLink(props: {
   )
 }
 
+/** The picker in shadcn's input group, its button listing the records without typing. */
+function LinkPickerGroup({
+  field,
+  fieldDef,
+  label,
+  inputId,
+  picker,
+  error,
+}: {
+  readonly field: DrawerLinkEntry
+  readonly fieldDef: FieldDef
+  readonly label: string
+  readonly inputId: string
+  readonly picker: ReturnType<typeof useRecordPicker>
+  readonly error: string | undefined
+}): ReactElement {
+  return (
+    <span
+      data-slot="input-group"
+      className={computeInputGroupClasses()}
+    >
+      <span className="min-w-0 flex-1">
+        <PickerControl
+          field={fieldDef}
+          inputId={inputId}
+          picker={picker}
+          allowMultiple={false}
+          componentType="record-picker"
+          controlClassName={PICKER_CLASS}
+          {...(error === undefined ? {} : { invalid: true, errorId: refusalIdOf(field.name) })}
+        />
+      </span>
+      <span
+        data-slot="input-group-addon"
+        data-align="inline-end"
+        className="flex items-center pr-1"
+      >
+        <button
+          type="button"
+          data-slot="input-group-button"
+          aria-label={field.showOptionsName ?? `Show ${label} options`}
+          onClick={picker.openPopup}
+          className={computeInputGroupIconButtonClasses()}
+        >
+          <ChevronDownGlyph />
+        </button>
+      </span>
+    </span>
+  )
+}
+
 /**
- * A link entry of an editable drawer: its heading, the picker, the Clear
+ * A link entry of an editable drawer: its heading, the picker in an input
+ * group whose button lists the records without typing, the Clear
  * control while an optional link holds a record, and `children` — the
  * entry's guidance line. Inert (a disabled fieldset) until the record loads.
  */
@@ -98,6 +162,7 @@ export function LinkField({
   value,
   disabled,
   onChange,
+  error,
   children,
 }: LinkFieldProps): ReactElement {
   const inputId = useId()
@@ -113,14 +178,19 @@ export function LinkField({
         className="text-muted-foreground"
       >
         {label}
+        <RequiredMark marked={field.requiredMark} />
       </label>
-      <PickerControl
-        field={fieldDef}
+      <LinkPickerGroup
+        field={field}
+        fieldDef={fieldDef}
+        label={label}
         inputId={inputId}
         picker={picker}
-        allowMultiple={false}
-        componentType="record-picker"
-        controlClassName={PICKER_CLASS}
+        error={error}
+      />
+      <RefusalLine
+        name={field.name}
+        error={error}
       />
       {field.required !== true && value.trim() !== '' && (
         <ClearLink

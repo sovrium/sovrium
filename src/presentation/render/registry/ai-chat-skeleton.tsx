@@ -18,10 +18,10 @@ import {
   computeAiChatComposerButtonClasses,
   computeAiChatComposerClasses,
   computeAiChatErrorClasses,
+  computeAiChatSuggestionChipClasses,
   computeAiChatSuggestionStripClasses,
   computeAiChatTextareaClasses,
 } from '@/presentation/design/ai-chat-composition-classes'
-import { computePartButtonClasses } from '@/presentation/design/button-variant-classes'
 import {
   computeInputGroupAddonClasses,
   computeInputGroupClasses,
@@ -60,12 +60,8 @@ export interface AiChatSkeletonInput {
 const SEND_BUTTON = `${computeAiChatComposerButtonClasses('default')} ms-auto`
 const ATTACH_BUTTON = computeAiChatComposerButtonClasses('ghost')
 
-/**
- * A prompt chip is the small outlined button — the one variant whose fill is
- * the surface behind it, so three of them under the composer read as offers
- * rather than as three competing send buttons.
- */
-const SUGGESTION_CHIP = computePartButtonClasses({ variant: 'outline', size: 'sm' })
+/** A prompt chip, wrapping a long prompt inside the panel rather than running past it. */
+const SUGGESTION_CHIP = computeAiChatSuggestionChipClasses()
 
 /**
  * The failed-turn banner, drawn from the island's own recipe.
@@ -148,8 +144,7 @@ const renderVoiceSkeleton = (composer: AiChatComposerLabels): ReactElement => (
     type="button"
     data-slot="input-group-button"
     data-testid="chat-voice"
-    // English in every language for now: the dictation specs name the button so.
-    aria-label="Hold to talk"
+    aria-label={composer.holdToTalk}
     aria-pressed="false"
     disabled
     className={ATTACH_BUTTON}

@@ -165,15 +165,23 @@ export interface GroupedAggregationRow {
   readonly valued: Readonly<Record<string, number>>
 }
 
+/** What a sort reads of the app: each table's name and fields (single-select option order). */
+type SortAppView = {
+  readonly tables?: readonly { readonly name: string; readonly fields: readonly unknown[] }[]
+}
+
+/** A table's declared primary key, as a default sort key reads it. */
+type SortPrimaryKey = { readonly type?: string; readonly fields?: readonly string[] }
+
 /** How groups are ordered: as the list's sort first meets them, or by value. */
 export type GroupOrder =
   | {
       readonly kind: 'first-seen'
       readonly sort?: string
-      readonly app?: {
-        readonly tables?: readonly { readonly name: string; readonly fields: readonly unknown[] }[]
-      }
-      readonly primaryKey?: { readonly type?: string; readonly fields?: readonly string[] }
+      readonly app?: SortAppView
+      readonly primaryKey?: SortPrimaryKey
+      /** The text fields of the table: a sort on one compares them ignoring case. */
+      readonly caseFoldedSortFields?: readonly string[]
     }
   | { readonly kind: 'by-value' }
 
@@ -231,12 +239,7 @@ export class TableRepository extends Context.Service<
        * quietly dropped instead of becoming a hard error.
        */
       readonly columns?: readonly string[]
-      readonly app?: {
-        readonly tables?: readonly {
-          readonly name: string
-          readonly fields: readonly unknown[]
-        }[]
-      }
+      readonly app?: SortAppView
       /**
        * The declared primary key of `tableName`, used ONLY to pick the default
        * sort key when the caller supplied no `sort`.
@@ -248,15 +251,13 @@ export class TableRepository extends Context.Service<
        * PostgreSQL that is SQLSTATE 42703, surfaced as a 400 blaming the caller
        * for a sort they never sent; on SQLite the quoted identifier degrades to
        * a string literal and the read silently succeeds unordered.
-       *
        * Separate from `app` deliberately: `app` also drives single-select
        * option ordering, so passing it purely to reach the primary key would
        * change how an EXPLICIT sort is emitted too.
        */
-      readonly primaryKey?: {
-        readonly type?: string
-        readonly fields?: readonly string[]
-      }
+      readonly primaryKey?: SortPrimaryKey
+      /** The text fields of `tableName`: a sort on one compares them ignoring case. */
+      readonly caseFoldedSortFields?: readonly string[]
     }) => Effect.Effect<readonly Record<string, unknown>[], DatabaseError>
 
     readonly listTrash: (config: {

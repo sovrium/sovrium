@@ -31,6 +31,10 @@ export const adminRoleItemSchema = Schema.Struct({
     description:
       'An assignable role name: a built-in (`admin`, `member`, `viewer`), an admin-tier name, or one declared in `auth.roles`. The name is the identity; no numeric id exists.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
+  label: Schema.String.annotate({
+    description:
+      'What the console shows for the role, resolved in this order: the `label` the app declares for the role in `auth.roles` (a `$t:` key is translated into the operator\'s console language: the account language, then the language preference, then English); otherwise, for the roles every app carries, the console\'s own words (in English "Admin", "Member", "Viewer", and "Admin (read-only)" for `admin-viewer`); otherwise the name made readable, its first letter capitalised and its hyphens as spaces (`accounting-read` reads "Accounting read"). Always present. Display only — every write still takes `name`.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
   description: Schema.NullOr(
     Schema.String.annotate({
       description:

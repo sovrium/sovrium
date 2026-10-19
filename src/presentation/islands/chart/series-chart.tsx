@@ -13,7 +13,7 @@
 import { useCallback, useMemo } from 'react'
 import { CartesianChart, type CartesianTooltip } from './cartesian-chart'
 import { seriesConfig, seriesKey } from './chart-config'
-import { formatAxisValue, timeKeyLabeller } from './chart-format'
+import { dayKeyLabeller, formatAxisValue, timeKeyLabeller } from './chart-format'
 import { numericValue, xKeys } from './chart-series-shared'
 import type { CartesianMark } from './cartesian-marks'
 import type { CartesianRowInput } from './cartesian-rows'
@@ -99,7 +99,9 @@ function useAxisLabels(
 } {
   const xFormat = xAxis?.format
   const categoryLabel = useMemo(() => {
-    const labeller = xFormat === 'date' ? timeKeyLabeller(rows.map((row) => row.key)) : undefined
+    const keys = rows.map((row) => row.key)
+    const labeller =
+      (xFormat === 'date' ? timeKeyLabeller(keys) : undefined) ?? dayKeyLabeller(keys)
     return (key: string): string => labeller?.(key) ?? key
   }, [rows, xFormat])
   const format = yAxis?.format

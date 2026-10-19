@@ -23,7 +23,7 @@ export const entry = defineLibraryEntry({
   category: 'application',
   tags: ['record', 'detail', 'sidebar', 'facts', 'metadata'],
   description:
-    'The sidebar of a record page: the record’s facts as a description list, each value drawn by its type — a date in the page language, a status as its chip — with "Not set" for an empty one, and when the record was created and last changed.',
+    'The sidebar of a record page: the record’s facts as a description list, each value drawn by its type — a date in the page language, a status as its chip — with a muted em dash for an empty one, and when the record was created and last changed.',
   notes: [
     RECORD_PAGE_NOTE,
     DATA_NOTE,

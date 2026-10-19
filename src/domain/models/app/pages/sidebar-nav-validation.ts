@@ -390,14 +390,23 @@ export function sidebarNavigationViolations(
     ...landmarkContiguityViolations(groups, label),
     ...landmarkNameCollisionViolations(groups, label),
     ...groups.flatMap((group) => [
-      ...ownedPropViolations(
-        isRecord(group['source']) ? group['source']['itemProps'] : undefined,
-        `group "${nameOf(group)}"`,
-        'itemProps',
-        label
-      ),
+      ...groupSourceViolations(group, label),
       ...itemsOf(group).flatMap((item) => sidebarEntryViolations(item, label)),
     ]),
+  ]
+}
+
+/** A group source's `itemProps`, and its `childrenSource`'s, may add only attributes the renderer does not own. */
+function groupSourceViolations(
+  group: Readonly<Record<string, unknown>>,
+  label: string
+): readonly string[] {
+  const source = isRecord(group['source']) ? group['source'] : undefined
+  const children = isRecord(source?.['childrenSource']) ? source['childrenSource'] : undefined
+  const where = `group "${nameOf(group)}"`
+  return [
+    ...ownedPropViolations(source?.['itemProps'], where, 'itemProps', label),
+    ...ownedPropViolations(children?.['itemProps'], where, 'childrenSource.itemProps', label),
   ]
 }
 

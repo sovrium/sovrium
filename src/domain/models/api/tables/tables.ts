@@ -259,6 +259,26 @@ const writeOnlyPresenceSchema = Schema.Record(Schema.String, Schema.Boolean).ann
 })
 
 /**
+ * The `_disabled` block: the controls drawn on this record that its
+ * `disabledWhen` holds for — a button field, a row action, a record-bound
+ * button.
+ *
+ * The server decides it on the whole row, including a field the caller may not
+ * read, so a page can draw the control disabled without ever receiving the
+ * value it was decided on. That is one bit about the record per declared
+ * condition, the same bit a press refused with 409 reveals. Each entry is the
+ * control's id: `field:<name>` for a button field, and for a row action or a
+ * record-bound button the id the page carries on it (`data-control-id`).
+ * Omitted when no control is disabled, never sent as an empty array.
+ */
+const disabledControlsSchema = Schema.Array(
+  Schema.String.annotate({ description: 'The id of one control disabled on this record' })
+).annotate({
+  description:
+    'The controls drawn on this record that are disabled for it, by id: `field:<name>` for a button field, the id the page gives a row action or a record-bound button otherwise. Decided by the server; the values it was decided on are not included.',
+})
+
+/**
  * Record schema (Airtable-style)
  *
  * Represents a record in a table.
@@ -292,6 +312,7 @@ export const recordSchema = Schema.Struct({
     _aiCompute: optionalField(aiComputeProjectionSchema),
     _display: optionalField(displayLabelsSchema),
     _writeOnly: optionalField(writeOnlyPresenceSchema),
+    _disabled: optionalField(disabledControlsSchema),
   }).fields,
   ...timestampSchema.fields,
 }).annotate({ identifier: 'Record' })

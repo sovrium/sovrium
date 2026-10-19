@@ -36,3 +36,17 @@
  */
 export const escapeMarkdownTableCell = (value: string): string =>
   value.replace(/\r?\n/g, ' ').replace(/[\\|]/g, (character) => `\\${character}`)
+
+/**
+ * `value`, kept on the one markdown line it is interpolated into: a list
+ * item, a heading or a blockquote.
+ *
+ * A line break in an authored value does not merely wrap: a following line
+ * starting `## ` opens a section, `| a | b |` a table, `- ` a sibling item —
+ * so a voice rule can append a heading the design system never declared. A
+ * plain line break inside a list item already renders as a space (a lazy
+ * continuation), so collapsing each break to one space changes nothing a
+ * reader saw, and removes the only way a value leaves its line.
+ */
+export const foldLineBreaks = (value: string): string =>
+  value.replace(/[ \t]*(?:\r\n|\r|\n)[ \t]*/g, ' ')

@@ -82,14 +82,11 @@
 //     and there is nothing to ask for; a control that redraws and reorders
 //     nothing is worse than no control.
 //
-//  5. A READABLE TIMESTAMP. The canvas splits `bootedAt` into a date column and
-//     a time, so a reader scans dates and never reads a `T` or a `Z`. A `text`
-//     component takes no `format` (`textFields` is core + content + interaction +
-//     responsive + visibility + i18n + session, and nothing else), and the
-//     `format` that does exist belongs to `listDisplay.itemTemplate.metadata[]` —
-//     a different rendering mode, incompatible with the per-row layout this page
-//     needs. So the row prints the ISO instant whole. It is precise and it sorts;
-//     it is not what an operator would have written.
+//  5. A READABLE TIMESTAMP — now said by the engine. A `text` takes no
+//     `format`, so the row printed the ISO instant whole. A system record's ISO
+//     dates now carry their text in the page language and the operator zone
+//     (`systemRecordWithText`), so `$record.bootedAt` prints a date and a time
+//     and `$record.bootedAt.raw` keeps the stamp.
 //
 //  6. THE VERTICAL FAMILY COLUMN. `?view=current` keeps Schema's family
 //     navigation, as the wrapping chip RAIL Schema shipped for widths below
@@ -154,10 +151,10 @@ import { consolePage, toolbarRow } from '../../components/data-page'
 import {
   CONFIG_DECLARATIONS_ENDPOINT,
   CONFIG_REFLECTION_ENDPOINT,
-  RELEASES_ENDPOINT,
   RELEASE_DETAIL_ENDPOINT,
   RELEASE_DETAIL_ROWS_ENDPOINT,
 } from '../../system-sources'
+import { ledgerBody, ledgerSearch } from './changelog-ledger'
 import { rawConfigCard } from './changelog-raw-config'
 import type { Page as PageConfig } from '@/domain/models/app'
 
@@ -221,25 +218,6 @@ const card = (children: readonly PageComponent[]): PageComponent =>
   }) as PageComponent
 
 /**
- * One figure beside its noun, as two spans.
- *
- * @param nounFirst - the engine's name precedes its version (`Sovrium 0.24.0`);
- *   every other fact counts something and reads `15 engine migrations applied`.
- */
-const fact = (value: string, noun: string, nounFirst = false): PageComponent =>
-  ({
-    // A `div`, because `container` accepts only block elements — `span` is
-    // refused at decode. It is a flex ITEM of the stats row either way, so the
-    // element name changes nothing about how the line wraps.
-    type: 'container',
-    element: 'div',
-    props: { className: 'flex items-baseline gap-1' },
-    children: nounFirst
-      ? [text('span', '', noun), text('span', 'font-mono', value)]
-      : [text('span', 'font-mono', value), text('span', '', noun)],
-  }) as PageComponent
-
-/**
  * Render a value only where the record HAS one.
  *
  * `isNotEmpty: true` reads the one empty rule every surface shares: a missing
@@ -257,156 +235,6 @@ const whereUnset = (field: string) => ({ record: { field, isEmpty: true } }) as 
 // ─── THE TIMELINE ──────────────────────────────────────────────────────────
 
 /**
- * One ledger row, as ROWS over the list envelope.
- *
- * The whole row is one `link`, not a row-click handler and not a trailing
- * button: a boot has exactly one thing to do with it — open it — so the row IS
- * the affordance, and as a link it lands in the tab order, opens in a new tab on
- * the usual modifiers, and carries its address into a shared URL. The decisions
- * register needs a button in an action column because its rows live in an island
- * grid; a rows template has no such constraint.
- *
- * It links `$record.configHash` and not `$record.id`, which is the choice the
- * ledger's own contract names: "a hash is the address the console links and an
- * operator reads off a diff, so it has to work". The read resolves a hash to the
- * NEWEST row carrying it and an id to one row exactly — git's ref-or-sha shape —
- * so the hash fails only in the direction an operator recovers from, and it is
- * twelve readable characters in the breadcrumb where a row id is a UUID nobody
- * can carry to a colleague. The exact id is on the release page's own rail for
- * the case where the distinction matters.
- */
-const timelineRow = (): PageComponent =>
-  ({
-    type: 'link',
-    props: {
-      href: '/changelog/$record.configHash',
-      'data-testid': 'changelog-release-row',
-      className: `${CARD_SURFACE} hover:bg-muted flex flex-col gap-1 px-3 py-3 transition-colors`,
-    },
-    children: [
-      // The identity line: what booted, when, and whether it is the newest row.
-      {
-        type: 'container',
-        element: 'div',
-        props: { className: 'flex flex-wrap items-baseline gap-x-3 gap-y-1' },
-        children: [
-          // `$record.version|$record.configHash` is the substituter's FALLBACK
-          // CHAIN (`RECORD_VAR_CHAIN`): the first token resolving to a non-empty
-          // string wins. Most configs declare no `app.version` — the ledger is
-          // keyed on the hash, not the version — so the row would otherwise be
-          // titled by an empty span. This is the one place a chain is needed,
-          // and it is why the row can be read at all on an unversioned app.
-          text(
-            'span',
-            'text-foreground font-mono text-md font-medium',
-            '$record.version|$record.configHash'
-          ),
-          {
-            ...(text(
-              'span',
-              'border-border text-foreground-subtle rounded-md border px-1.5 py-0.5 font-mono text-sm',
-              '$record.configHash'
-            ) as object),
-            // Only where the version carried the title, so the hash is printed
-            // once per row and never twice.
-            visibility: whereSet('version'),
-          } as PageComponent,
-          text('span', 'text-foreground-subtle font-mono text-sm', '$record.bootedAt'),
-          {
-            ...(text(
-              'span',
-              'border-border text-foreground ml-auto rounded-md border px-1.5 py-0.5 text-sm font-medium',
-              '$t:admin.changelog.current'
-            ) as object),
-            visibility: { record: { field: 'current', eq: true } },
-          } as PageComponent,
-        ],
-      } as PageComponent,
-      // What changed, in the words the capture generated.
-      text('span', 'text-muted-foreground text-md', '$record.summary'),
-      // The shape of it: four facts, each a figure beside its own noun.
-      //
-      // Every fact is TWO spans, never one string. A `$t:` token resolves only
-      // when it is the WHOLE of a `content` — measured here, the mixed
-      // `'$t:admin.changelog.row.engine $record.engineVersion'` shipped the raw
-      // key into the row. So the word and the number are separate leaves, which
-      // is also what lets French put them in the other order without this file
-      // learning about it.
-      {
-        type: 'container',
-        element: 'div',
-        props: {
-          className: 'text-foreground-subtle flex flex-wrap items-baseline gap-x-3 text-sm',
-        },
-        children: [
-          // NO `+added −removed` here, deliberately. `summary` is generated from
-          // that same diff and already carries both figures plus the root keys
-          // they fell in — measured, every row read `35201 added, 35507 removed
-          // in pages` directly above `+35201 −35507`. The counts belong to the
-          // release page, where they sit beside the export rather than beside
-          // their own restatement.
-          fact('$record.engineVersion', '$t:admin.changelog.row.engine', true),
-          {
-            ...(fact(
-              '$record.engineMigrationCount',
-              '$t:admin.changelog.row.migrations'
-            ) as object),
-            visibility: { record: { field: 'engineMigrationCount', gt: 0 } },
-          } as PageComponent,
-          {
-            ...(fact('$record.schemaChangeCount', '$t:admin.changelog.row.ddl') as object),
-            visibility: { record: { field: 'schemaChangeCount', gt: 0 } },
-          } as PageComponent,
-        ],
-      } as PageComponent,
-    ],
-  }) as PageComponent
-
-/**
- * The ledger itself.
- *
- * `type: 'list'` and not `table`: a grid would put `configHash`, `bootedAt` and
- * `summary` in three columns of equal weight, and a boot is not read that way —
- * an operator scans DOWN the versions and stops at the one that looks like the
- * week it broke. The row template is what lets the identity line, the summary and
- * the counts be three different sizes.
- *
- * ─── WHY THERE IS NO EMPTY STATE HERE, AND WHY THE FRAME IS ON THE ROWS ────
- *
- * `emptyMessage` is a `table` field; `list` has none, and a rows binding at zero
- * rows DELETES its template rather than substituting anything. So a bordered
- * list box would render as an empty framed rectangle on a ledger with no rows.
- * The frame is on each ROW instead — zero rows then draws nothing at all, under
- * a blurb that already says what a row would be.
- *
- * Which is the right shape for how rare this is: the first boot always writes a
- * baseline row, so the only way to reach zero is retention pruning everything,
- * and retention keeps the newest. An empty state for a state an instance cannot
- * ordinarily be in is a sentence nobody reads.
- */
-const ledgerList = (): PageComponent =>
-  ({
-    type: 'list',
-    props: {
-      'aria-label': '$t:admin.changelog.ledger.region',
-      'data-testid': 'changelog-ledger',
-      // The rhythm lives on the LIST, not on the rows: the component renders a
-      // `ul.flex.flex-col` whose `li` children already carry `list-style: none`,
-      // so `gap-2` spaces them without leaving a trailing margin under the last
-      // one the way a per-row `mb-2` did.
-      className: 'flex flex-col gap-2',
-    },
-    dataSource: {
-      system: { endpoint: RELEASES_ENDPOINT, rowsKey: 'releases', idKey: 'id' },
-    },
-    children: [timelineRow()],
-  }) as PageComponent
-
-/** What a row IS, said once, above the ledger. */
-const ledgerBlurb = (): PageComponent =>
-  text('p', 'text-foreground-subtle max-w-2xl text-sm', '$t:admin.changelog.ledger.blurb')
-
-/**
  * The one link between the two views, in each direction.
  *
  * A link and not a tab strip: `tabbedBody` hosts its panels inside a `tabs`
@@ -420,7 +248,7 @@ const currentConfigLink = (): PageComponent =>
     props: {
       href: `/changelog?view=${VIEW_CURRENT}`,
       'data-testid': 'changelog-to-current',
-      className: 'text-muted-foreground hover:text-foreground text-sm underline',
+      className: 'text-muted-foreground hover:text-foreground text-sm underline sm:ml-auto',
     },
   }) as PageComponent
 
@@ -432,9 +260,23 @@ const ledgerView = (): PageComponent =>
     visibility: { query: { name: 'view', eq: VIEW_LIST } },
     props: {
       'aria-label': '$t:admin.changelog.ledger.region',
-      className: 'flex max-w-3xl flex-col gap-4',
+      className: 'flex flex-col gap-4',
     },
-    children: [toolbarRow([ledgerBlurb(), currentConfigLink()]), ledgerList()],
+    children: [
+      // How many starts the ledger holds, from the page's own record: the
+      // reflection read counts them, since a page binds one record.
+      {
+        type: 'text',
+        element: 'p',
+        props: {
+          className: 'text-muted-foreground text-sm tabular-nums',
+          'data-testid': 'changelog-starts',
+        },
+        content: '$record.startsLabel',
+      } as PageComponent,
+      toolbarRow([ledgerSearch(), currentConfigLink()]),
+      ...ledgerBody(),
+    ],
   }) as PageComponent
 
 // ─── `?view=current` — THE CONFIGURATION AS BOOTED ─────────────────────────
@@ -582,7 +424,7 @@ const familyPane = (): PageComponent =>
     props: {
       'aria-label': '$t:admin.schema.declared.region',
       'data-testid': 'config-schema-tree',
-      className: 'flex max-w-3xl flex-col gap-3',
+      className: 'flex flex-col gap-3',
     },
     children: [
       sectionLabel('$t:admin.schema.declared.heading'),
@@ -613,7 +455,7 @@ const overviewPane = (): PageComponent =>
     props: {
       'aria-label': '$t:admin.schema.nav.overview',
       'data-testid': 'config-schema-overview',
-      className: 'flex max-w-3xl flex-col gap-6',
+      className: 'flex flex-col gap-6',
     },
     children: [
       provenanceCard(),
@@ -681,6 +523,7 @@ const ledgerPage: PageConfig = consolePage({
   path: '/changelog',
   title: '$t:admin.meta.changelog',
   heading: ['$t:admin.changelog.heading', '$t:admin.changelog.blurb'],
+  visibleHeading: true,
   page: {
     // Without this block `$query.view` and `$query.family` are left VERBATIM —
     // no gate matches, no chip marks itself current, and the declarations read
@@ -693,7 +536,7 @@ const ledgerPage: PageConfig = consolePage({
     },
     dataSource: { system: { endpoint: CONFIG_REFLECTION_ENDPOINT } },
   },
-  shell: { breadcrumb: { changelog: '$t:admin.crumb.changelog' } },
+  shell: { breadcrumb: { changelog: '$t:admin.crumb.changelog' }, document: true },
   body: [
     {
       type: 'container',
@@ -801,10 +644,6 @@ const bootRail = (): PageComponent =>
         railText('$record.previousConfigHash', 'text-foreground-subtle font-mono'),
         whereSet('previousConfigHash')
       ),
-      railRow(
-        '$t:admin.changelog.field.id',
-        railText('$record.id', 'text-foreground-subtle font-mono')
-      ),
     ],
   }) as PageComponent
 
@@ -835,6 +674,9 @@ const diffSection = (): PageComponent =>
           // A LITERAL, for the reason `Export JSON` above carries.
           label: '$t:admin.changelog.exportDiff',
           variant: 'secondary',
+          // Offered only where there is a diff: the baseline boot has nothing
+          // before it, and a download of nothing is a control with no outcome.
+          visibility: whereSet('previousConfigHash'),
           props: { type: 'button', 'data-testid': 'changelog-export-diff' },
           action: {
             type: 'fetch',
@@ -960,11 +802,15 @@ const engineMigrationsSection = (): PageComponent =>
   card([
     sectionLabel('$t:admin.changelog.migrations.heading'),
     {
+      // Folded to a short scrolling box: a baseline row lists every migration
+      // the engine ever applied. The box takes focus so a keyboard can scroll it.
       type: 'list',
       props: {
         'aria-label': '$t:admin.changelog.migrations.heading',
         'data-testid': 'changelog-engine-migrations',
-        className: 'divide-border flex flex-col divide-y',
+        tabIndex: 0,
+        className:
+          'divide-border flex max-h-48 flex-col divide-y overflow-y-auto rounded-md border border-border px-3 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none',
       },
       dataSource: {
         system: {
@@ -1026,7 +872,7 @@ const releasePage: PageConfig = consolePage({
   page: {
     dataSource: { system: { endpoint: RELEASE_DETAIL_ENDPOINT, param: 'hash', idKey: 'id' } },
   },
-  shell: { breadcrumb: { changelog: '$t:admin.crumb.changelog' } },
+  shell: { breadcrumb: { changelog: '$t:admin.crumb.changelog' }, document: true },
   body: [
     {
       type: 'container',

@@ -69,3 +69,15 @@ export const designSystemBreadcrumb = (
   slug: string,
   label: string
 ): Readonly<Record<string, string>> => ({ 'design-system': SECTION_LABEL, [slug]: label })
+
+/**
+ * The shell of a design-system page that reads top to bottom (Foundations,
+ * Brand, Voice): its trail, and the console's one reading width.
+ */
+export const designSystemDocumentShell = (
+  slug: string,
+  label: string
+): { readonly breadcrumb: Readonly<Record<string, string>>; readonly document: true } => ({
+  breadcrumb: designSystemBreadcrumb(slug, label),
+  document: true,
+})

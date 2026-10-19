@@ -9,6 +9,7 @@ import { Data, Effect } from 'effect'
 import { CronScheduler } from '@/application/ports/services/cron-scheduler'
 import { parseSovriumAutomationRunRetentionDays } from '@/domain/models/process-env/automations'
 import { pruneExpiredAutomationRuns } from '@/infrastructure/database/automation-run-retention'
+import { describeSweepFailure } from '@/infrastructure/database/read-write-sweep'
 import { logError } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 
@@ -57,7 +58,13 @@ export const registerAutomationRunRetentionScheduler = (
           }).pipe(
             Effect.tapError((error) =>
               Effect.sync(() => {
-                logError('[automation-run-retention] scheduled sweep failed', error.cause)
+                logError(
+                  describeSweepFailure(
+                    '[automation-run-retention] scheduled sweep failed',
+                    error.cause
+                  ),
+                  error.cause
+                )
               })
             ),
             Effect.catch(() => Effect.void),

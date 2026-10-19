@@ -61,9 +61,11 @@
 import {
   appendToastDismissControl,
   appendToastMessage,
+  appendToastRetry,
   keepToastsClearOfFocus,
   markToastPoliteness,
   resolveToastDismissLabel,
+  type ToastRetry,
 } from '@/presentation/islands/runtime/toast-accessibility'
 import {
   markToastTiming,
@@ -111,7 +113,12 @@ function ensureToasterContainer(): Element {
  * every child — the sort of double announcement a live region makes worse, not
  * better.
  */
-export function renderToast(message: string, variant?: string, duration?: number): void {
+export function renderToast(
+  message: string,
+  variant?: string,
+  duration?: number,
+  retry?: ToastRetry
+): void {
   if (typeof document === 'undefined') return
   const container = ensureToasterContainer()
   const toast = document.createElement('div')
@@ -119,8 +126,9 @@ export function renderToast(message: string, variant?: string, duration?: number
   markToastTiming(toast, { variant, duration })
   markToastPoliteness(toast, variant)
   appendToastMessage(toast, message)
+  if (retry !== undefined) appendToastRetry(toast, retry)
 
-  const dismissAfter = resolveToastDuration({ duration, variant })
+  const dismissAfter = resolveToastDuration({ duration, variant, hasAction: retry !== undefined })
   if (dismissAfter === undefined) {
     appendToastDismissControl(toast, resolveToastDismissLabel(container))
     container.appendChild(toast)

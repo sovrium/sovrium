@@ -55,9 +55,36 @@ export const SEARCHING_LABEL = 'Searching…'
 /** The control that appends the next page of candidates, on both surfaces. */
 export const LOAD_MORE_LABEL = 'Load more'
 
+/**
+ * The catalogue key of each shared picker word (`picker.*`), beside the English
+ * it is written in. A surface handed the page language's words by its host
+ * reads them through {@link pickerWord}; one handed none reads this English.
+ */
+export const PICKER_WORDS = {
+  'picker.searching': SEARCHING_LABEL,
+  'picker.noMatchingRecords': RECORD_PICKER_COPY.empty,
+  'picker.loadFailed': RECORD_PICKER_COPY.failed,
+  'picker.unconfigured': RECORD_PICKER_COPY.unconfigured,
+  'picker.loadMore': LOAD_MORE_LABEL,
+  'picker.linkCount': '{linked} of {max} linked',
+  'picker.loadMoreCount': 'Load {count} more',
+  'picker.candidateCount': '{shown} of {total}',
+} as const
+
+/** The pickers' words in the page language, where they differ from English. */
+export type PickerWords = Readonly<Record<string, string>> | undefined
+
+/** One shared picker word: the page language's, else the English. */
+export const pickerWord = (words: PickerWords, key: keyof typeof PICKER_WORDS): string =>
+  words?.[key] ?? PICKER_WORDS[key]
+
 /** "N of N linked" — the wording [internal ref] fixed, asserted verbatim by the spec. */
-export function linkCountLabel(linked: number, maxLinked: number): string {
-  return `${linked} of ${maxLinked} linked`
+export function linkCountLabel(linked: number, maxLinked: number, words?: PickerWords): string {
+  return pickerWord(words, 'picker.linkCount')
+    .split('{linked}')
+    .join(String(linked))
+    .split('{max}')
+    .join(String(maxLinked))
 }
 
 /**
@@ -75,10 +102,12 @@ export function resolvePickerEmptyLabel(args: {
   readonly emptyLabel: string
   readonly failedLabel: string
   readonly unconfiguredLabel?: string
+  /** « Searching… » in the page language; English when absent. */
+  readonly searchingLabel?: string
 }): string {
   if (args.unconfiguredLabel) return args.unconfiguredLabel
   if (args.failed) return args.failedLabel
-  return args.loading ? SEARCHING_LABEL : args.emptyLabel
+  return args.loading ? (args.searchingLabel ?? SEARCHING_LABEL) : args.emptyLabel
 }
 
 /**
@@ -115,8 +144,8 @@ export const SEARCH_BY_ID_LABEL = 'Search by id'
  * and saying so costs nothing. The grid's and the form's pickers do not ask for
  * a total, and a count they cannot support would be worse than no count.
  */
-export function loadMoreCountLabel(remaining: number): string {
-  return `Load ${String(remaining)} more`
+export function loadMoreCountLabel(remaining: number, words?: PickerWords): string {
+  return pickerWord(words, 'picker.loadMoreCount').split('{count}').join(String(remaining))
 }
 
 /**
@@ -126,6 +155,10 @@ export function loadMoreCountLabel(remaining: number): string {
  * total is a claim about the table that the response cannot support, and a
  * reader who sees a total assumes they are looking at all of it.
  */
-export function candidateCountLabel(shown: number, total: number): string {
-  return `${String(shown)} of ${String(total)}`
+export function candidateCountLabel(shown: number, total: number, words?: PickerWords): string {
+  return pickerWord(words, 'picker.candidateCount')
+    .split('{shown}')
+    .join(String(shown))
+    .split('{total}')
+    .join(String(total))
 }

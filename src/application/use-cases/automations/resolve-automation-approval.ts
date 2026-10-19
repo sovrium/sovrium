@@ -56,6 +56,11 @@ import {
   type ApprovalCaller,
 } from '@/domain/models/app/automations/actions/approval/approver-validation'
 import { parseRelay, type RunRelay } from '@/domain/models/app/automations/run-relay-service'
+import {
+  handStarterOfStoredRun,
+  type StoredHandStarter,
+  type StoredRunStarter,
+} from '@/domain/models/app/automations/run-starter-service'
 import { triggerNamedOrFirst } from '@/domain/models/app/automations/trigger-entries-service'
 import { isBrowserConfirmation, settleBrowserConfirmation } from './browser-confirmation-resume'
 import { resumePastApproval } from './resume-past-approval'
@@ -143,17 +148,10 @@ type CheckedApproval = {
  * rights it runs with. Any other run resumes system-side, as before — and a
  * resume after a TIMEOUT reads the same record, never the sweep's context.
  */
-type StartedBy =
-  | { readonly startedByHand: true; readonly userId: string | undefined }
-  | { readonly userId: undefined }
+type StartedBy = StoredHandStarter | { readonly userId: undefined }
 
-const startedByOf = (run: {
-  readonly startedByHand: boolean
-  readonly triggeredByUserId: string | null
-}): StartedBy =>
-  run.startedByHand
-    ? { startedByHand: true, userId: run.triggeredByUserId ?? undefined }
-    : { userId: undefined }
+const startedByOf = (run: StoredRunStarter): StartedBy =>
+  handStarterOfStoredRun(run) ?? { userId: undefined }
 
 /**
  * The paused run an approval resolves: its automation and trigger entry, its
@@ -168,6 +166,7 @@ export interface ApprovalRunTarget {
   readonly startedBy: StartedBy
   /** The paused run's relay, which the resumed run keeps. */
   readonly relay: RunRelay | undefined
+  readonly filesLedger: unknown // the paused run's file ledgers, raw
 }
 
 /**
@@ -235,6 +234,7 @@ export const loadApprovalRunTarget = (input: {
       triggerData: coerceTriggerData(run.triggerData),
       startedBy: startedByOf(run),
       relay: parseRelay(run.relay),
+      filesLedger: run.filesLedger,
     }
   }).pipe(Effect.withSpan('automations.load-approval-run-target'))
 

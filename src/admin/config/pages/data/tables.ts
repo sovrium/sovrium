@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-// sovrium-library: block/data-table-toolbar@0.38.0#db405e294f03
+// sovrium-library: block/data-table-toolbar@0.38.0#449489a1bf03
 
 // Records — the operator's own rows, one grid per declared table.
 //
@@ -76,11 +76,19 @@ const RECORDS_CHANNEL = 'records-filter'
  *
  * The bindings are the table (`$param.table`), the channel and the copy.
  *
- * NO New and NO Import button yet. The record drawer opened from no row is not
- * a create form, and no page action opens the grid's create dialog; and the
- * import action does not yet hide itself from a reader who may not create,
- * which a read-only operator must never be shown. Both stay on the grid's own
- * controls until the page actions can carry them.
+ * Export CSV is drawn only once the table holds a record the reader may read:
+ * the block's `hideExportWhenEmpty` wraps it in a box bound to the table's
+ * first record, which draws it once per row — so an empty table, or a read
+ * that fails, draws none and the page still renders.
+ *
+ * Import CSV opens the engine's import dialog for the table in the address.
+ * The engine draws it only for a caller the table lets create records, so a
+ * read-only operator never meets it.
+ *
+ * New opens the record drawer with no row, which is the drawer's create mode:
+ * the same typed controls and refusals as editing a row. It is drawn only for
+ * a caller who may make the console's operational writes, so a read-only
+ * operator never meets a control the records API would refuse.
  */
 export const recordsToolbarCopy = {
   type: 'container',
@@ -111,16 +119,39 @@ export const recordsToolbarCopy = {
       props: { className: 'flex items-center gap-2 sm:ml-auto' },
       children: [
         {
+          type: 'container',
+          element: 'div',
+          props: { className: 'contents [&>li]:list-none' },
+          dataSource: { table: '$param.table', limit: 1 },
+          children: [
+            {
+              type: 'button',
+              label: '$t:admin.tables.export',
+              variant: 'outline',
+              size: 'sm',
+              action: {
+                type: 'fetch',
+                mode: 'download',
+                url: '/api/tables/$param.table/export?format=csv',
+                filename: '$param.table.csv',
+              },
+            },
+          ],
+        },
+        {
           type: 'button',
-          label: '$t:admin.tables.export',
+          label: '$t:admin.tables.import',
           variant: 'outline',
           size: 'sm',
-          action: {
-            type: 'fetch',
-            mode: 'download',
-            url: '/api/tables/$param.table/export?format=csv',
-            filename: '$param.table.csv',
-          },
+          action: { action: 'openImport', table: '$param.table' },
+        },
+        {
+          type: 'button',
+          label: '$t:admin.common.newRecord',
+          variant: 'default',
+          size: 'sm',
+          action: { action: 'openSheet', component: 'record-detail-drawer' },
+          visibility: { capability: 'edit-operations' },
         },
       ],
     },
@@ -184,8 +215,8 @@ const tableDirectory = (): PageComponent =>
  * `/records` — the bare collection.
  *
  * `hrefTemplate` is MOUNT-RELATIVE (`/records/{name}`), like every other href the
- * preset writes: the mount moves it onto the console's base at boot, so the
- * config never spells `/_admin` and never doubles it.
+ * preset writes: the mount moves it onto the console's base when the console is
+ * first opened, so the config never spells `/_admin` and never doubles it.
  */
 const directoryPage: PageConfig = consolePage({
   id: 'dashboard-data-tables',
@@ -292,6 +323,9 @@ const recordGrid = (): PageComponent =>
 /**
  * The record-detail drawer a row click opens.
  *
+ * NO `props.title`: the sheet is named by the record it holds — its first
+ * text field holding a value — as every untitled table sheet is.
+ *
  * NO `recordFields`: the list is optional and DERIVES one typed control per
  * declared field of the bound table, which is the only thing that can work here
  * — the bound table is not known until the request arrives.
@@ -305,7 +339,6 @@ const recordGrid = (): PageComponent =>
 const recordDrawer = (): PageComponent =>
   recordSheet({
     id: RECORD_DRAWER_ID,
-    props: { title: '$t:admin.tables.details' },
     dataSource: { table: '$param.table' },
     canEdit: true,
   }) as PageComponent
@@ -319,7 +352,9 @@ const gridPage: PageConfig = consolePage({
   page: {
     requires: ['tables'],
   },
-  shell: { breadcrumb: BREADCRUMB, fill: true },
+  // The current crumb names the table as the sidebar does: its plural label,
+  // else its name made readable — never the identifier in the URL.
+  shell: { breadcrumb: BREADCRUMB, breadcrumbCurrent: '$param.table', fill: true },
   body: [
     // `fillHost`, not `fullWidth`, and `fill: true` on the shell: the two
     // halves of the bounded parent `layout: 'fill'` requires and does not

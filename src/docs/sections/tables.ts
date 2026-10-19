@@ -6,6 +6,7 @@
  */
 
 import { TableSchema } from '@/domain/models/app/tables'
+import { TableCalendarFeedSchema } from '@/domain/models/app/tables/calendar-feed'
 import { CheckConstraintSchema } from '@/domain/models/app/tables/constraints'
 import {
   BaseFieldSchema,
@@ -22,6 +23,7 @@ import {
 } from '@/domain/models/app/tables/permissions'
 import { PrimaryKeySchema } from '@/domain/models/app/tables/primary-key'
 import { TableRetentionSchema } from '@/domain/models/app/tables/retention'
+import tableCalendarFeedBody from '@/domain/models/app/tables/table-calendar-feed.docs.md' with { type: 'file' }
 import tablePermissionsBody from '@/domain/models/app/tables/table-permissions.docs.md' with { type: 'file' }
 import tableRetentionBody from '@/domain/models/app/tables/table-retention.docs.md' with { type: 'file' }
 import tableValidationBody from '@/domain/models/app/tables/table-validation.docs.md' with { type: 'file' }
@@ -269,6 +271,28 @@ export const tables = defineSection({
       body: tableRetentionBody,
       documents: [TableRetentionSchema],
       stories: ['US-TABLES-TABLE-RETENTION'],
+    }),
+    defineArticle({
+      slug: 'table-calendar-feed',
+      title: 'Calendar Feed',
+      description:
+        'Publish a Sovrium table as an iCalendar feed each reader subscribes to from Proton, Google or Apple Calendar, through a private address that lists only the rows and fields they may read.',
+      keywords: [
+        'sovrium',
+        'calendar',
+        'calendar feed',
+        'ics',
+        'icalendar',
+        'subscribe',
+        'proton calendar',
+        'google calendar',
+        'apple calendar',
+      ],
+      order: 2080,
+      sidebarLabel: 'Calendar Feed',
+      body: tableCalendarFeedBody,
+      documents: [TableCalendarFeedSchema],
+      stories: ['US-TABLES-TABLE-CALENDAR-FEED'],
     }),
   ],
 })

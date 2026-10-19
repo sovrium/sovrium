@@ -6,6 +6,7 @@
  */
 
 export * from './aggregate'
+export * from './calendar-feed'
 export * from './comments'
 export * from './params'
 export * from './records'

@@ -29,15 +29,18 @@ import { Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import {
   UsersDirectoryRepository,
-  type UsersDirectoryDatabaseError,
+  UsersDirectoryDatabaseError,
   type DirectoryUserRow,
 } from '@/application/ports/repositories/tables/users-directory-repository'
+import { UsersOverviewRepository } from '@/application/ports/repositories/tables/users-overview-repository'
 import {
   adminUsersDirectoryResponseSchema,
   type AdminUsersDirectoryResponse,
 } from '@/domain/models/api/admin/users'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { readableName } from '@/domain/models/app/auth/readable-name-service'
 import { logError } from '@/infrastructure/logging/logger'
+import type { ConsoleLabels } from '@/application/use-cases/admin/operator-language'
 
 /**
  * The fallback role for an account whose `auth.user.role` column is NULL or
@@ -59,13 +62,27 @@ const DEFAULT_DIRECTORY_ROLE = 'member'
  * distinguishable from "this build does not send names" — an absent key would
  * make the two identical to every reader of the response.
  */
+/** Without a reader's labels, both read the name made readable. */
+const READABLE_LABELS: ConsoleLabels = { role: readableName, group: readableName }
+
+/** The row's role and what the console calls it. */
+const roleOf = (
+  row: DirectoryUserRow,
+  labels: ConsoleLabels
+): { readonly role: string; readonly roleLabel: string } => {
+  const role =
+    typeof row.role === 'string' && row.role.length > 0 ? row.role : DEFAULT_DIRECTORY_ROLE
+  return { role, roleLabel: labels.role(role) }
+}
+
 const projectRow = (
-  row: DirectoryUserRow
+  row: DirectoryUserRow,
+  labels: ConsoleLabels
 ): Readonly<AdminUsersDirectoryResponse['users'][number]> => ({
   id: row.id,
   email: row.email,
   name: typeof row.name === 'string' ? row.name : '',
-  role: typeof row.role === 'string' && row.role.length > 0 ? row.role : DEFAULT_DIRECTORY_ROLE,
+  ...roleOf(row, labels),
   banned: row.banned === true,
   // `groups` is filled for the page alone, once it is cut (`withGroups`): one
   // read for the rows the response carries rather than for every matching
@@ -160,7 +177,8 @@ export const orderAndPage = (
  * lists, because there the empty list is the truth.
  */
 const withGroups = (
-  rows: readonly DirectoryRow[]
+  rows: readonly DirectoryRow[],
+  labels: ConsoleLabels
 ): Effect.Effect<readonly DirectoryRow[], never, AuthRepository> =>
   Effect.gen(function* () {
     const repo = yield* AuthRepository
@@ -173,10 +191,10 @@ const withGroups = (
       Effect.orElseSucceed(() => undefined)
     )
     if (byUser === undefined) return rows
-    return rows.map((row) => ({
-      ...row,
-      groups: [...(byUser.get(row.id) ?? [])].toSorted((a, b) => a.localeCompare(b)),
-    }))
+    return rows.map((row) => {
+      const groups = [...(byUser.get(row.id) ?? [])].toSorted((a, b) => a.localeCompare(b))
+      return { ...row, groups, groupLabels: groups.map(labels.group) }
+    })
   })
 
 /**
@@ -198,19 +216,31 @@ const withGroups = (
  * body does not match `adminUsersDirectoryResponseSchema`.
  */
 export const BuildUsersDirectory = (
-  input: UsersDirectoryInput = {}
+  input: UsersDirectoryInput = {},
+  labels: ConsoleLabels = READABLE_LABELS
 ): Effect.Effect<
   UsersDirectoryOutcome,
   UsersDirectoryDatabaseError,
-  UsersDirectoryRepository | AuthRepository
+  UsersDirectoryRepository | UsersOverviewRepository | AuthRepository
 > =>
   Effect.gen(function* () {
     const repo = yield* UsersDirectoryRepository
 
     const rows = yield* repo.listAllUsers(input.q !== undefined ? { q: input.q } : {})
-    const matching = rows.map(projectRow)
+    // An invitation creates its account before it is accepted. That account is
+    // not a member yet — it is listed with the invitations, and the overview's
+    // `totals.users` already leaves it out — so the directory leaves it out
+    // too, and the grid counts the same people as the figure above it.
+    const pending = new Set(
+      yield* (yield* UsersOverviewRepository).listPendingInviteeIds.pipe(
+        Effect.mapError((error) => new UsersDirectoryDatabaseError({ cause: error.cause }))
+      )
+    )
+    const matching = rows
+      .filter((row) => !pending.has(row.id))
+      .map((row) => projectRow(row, labels))
     const body = {
-      users: [...(yield* withGroups(orderAndPage(matching, input)))],
+      users: [...(yield* withGroups(orderAndPage(matching, input), labels))],
       total: matching.length,
       // `null`, not `undefined`: the KEY's presence is the signal (see
       // `appliedQuerySchema`). An omitted key means "this endpoint does not

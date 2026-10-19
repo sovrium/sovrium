@@ -72,9 +72,36 @@ export const ColorNameSchema = Schema.String.pipe(
 )
 
 /**
- * A colour value in a CSS format that can be READ.
+ * The one shape a colour function may take: its name, ONE pair of parentheses,
+ * and arguments made only of numbers, units, keywords such as `none`, and the
+ * separators `,` `/` `%`. Nothing may follow the closing parenthesis.
  *
- * Supports hex 6- and 8-digit, `rgb(`/`rgba(`, `hsl(`/`hsla(` and `oklch(`.
+ * The argument alphabet is deliberately narrow. It has no `(` or `)`, so a
+ * nested `var()` or `calc()` cannot hide inside; no `:` `;` `{` `}`, so a value
+ * cannot close its own declaration and start another; and no quote, so it
+ * cannot open a `url("…")`.
+ */
+const COLOR_FUNCTION = /^(?:rgba?|hsla?|oklch)\([0-9A-Za-z.,%/+ -]*\)$/
+
+const HEX_COLOR = /^#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/
+
+/**
+ * A colour value in a CSS format that can be READ — and exactly ONE colour.
+ *
+ * Supports hex 6- and 8-digit, and one complete `rgb(`/`rgba(`, `hsl(`/`hsla(`
+ * or `oklch(` call.
+ *
+ * ## Exactly one colour, and nothing after it
+ *
+ * A colour token is written verbatim into the stylesheet the app serves, as a
+ * custom property every page reads. A value that merely STARTED with a colour
+ * function — `rgb(0 0 0) url(https://…)`, or `oklch(…); background: …` — used
+ * to pass, and carried its tail into that stylesheet: a `url()` makes every
+ * visitor's browser fetch a resource the operator never chose, which is a
+ * privacy and egress leak, and a `;` starts a declaration of its own. So the
+ * whole value must be the colour: a hex literal, or one call whose arguments
+ * hold no parenthesis, colon, semicolon, brace or quote. See
+ * {@link COLOR_FUNCTION}.
  *
  * ## Why `oklch()` and not the other two
  *
@@ -102,18 +129,22 @@ export const ColorNameSchema = Schema.String.pipe(
  */
 export const ColorValueSchema = Schema.String.pipe(
   Schema.check(
-    Schema.isPattern(/^#[0-9A-Fa-f]{6}$|^#[0-9A-Fa-f]{8}$|^rgb\(|^rgba\(|^hsl\(|^hsla\(|^oklch\(/, {
+    Schema.isPattern(new RegExp(`${HEX_COLOR.source}|${COLOR_FUNCTION.source}`), {
       message:
-        'Color value must be a LITERAL in hex (#RRGGBB or #RRGGBBAA), rgb(a), hsl(a) or oklch() format. `var(…)` and `color-mix(…)` are references, not values: nothing reading this config can resolve one, so a token that follows another is written as a reference the schema understands (`design.colorRoles[role].value`) rather than as CSS. See ADR-032.',
+        'Color value must be exactly ONE colour: a hex literal (#RRGGBB or #RRGGBBAA), or one complete rgb(a), hsl(a) or oklch() call with nothing after its closing parenthesis. Its arguments are numbers, units and separators only — no `url(…)`, no nested function, no `;`. `var(…)` and `color-mix(…)` are references, not values: nothing reading this config can resolve one, so a token that follows another is written as a reference the schema understands (`design.colorRoles[role].value`) rather than as CSS. See ADR-032.',
     })
   ),
   Schema.annotate({
     title: 'Color Value',
-    description: 'Color value in hex, rgb, rgba, hsl, hsla or oklch format',
+    description:
+      'Exactly one colour: a hex literal (6 or 8 digits), or one complete rgb(), rgba(), hsl(), hsla() or oklch() call with nothing after it',
+    howTo:
+      'Write the colour and nothing else. A value such as `rgb(0 0 0) url(…)` or `oklch(0.5 0.1 250); color: red` is refused, because everything after the colour would reach the stylesheet every page loads. To follow another token, use `design.colorRoles[role].value` with a ramp reference instead of `var()`.',
     examples: [
       '#007bff',
       '#007bff80',
       'rgb(0, 123, 255)',
+      'rgb(0 0 0 / 0.5)',
       'hsl(210, 100%, 50%)',
       'oklch(0.56 0.12 250)',
     ],

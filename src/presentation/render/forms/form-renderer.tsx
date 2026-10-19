@@ -82,6 +82,17 @@ function FormPageChrome({
   )
 }
 
+/** The island runtime, on a form that draws a Select or a date picker; nothing otherwise. */
+function FormIslandEntry({ file }: { readonly file: string | undefined }) {
+  if (file === undefined) return undefined
+  return (
+    <script
+      src={`/assets/islands/${file}`}
+      type="module"
+    />
+  )
+}
+
 /**
  * Standalone form page React component. Renders a complete HTML document
  * for SSR — the form posts to `/api/forms/{name}/submissions` via the
@@ -95,6 +106,7 @@ function FormPage({
   prefill,
   optionSets,
   link,
+  islandEntryFile,
 }: {
   readonly app: App
   readonly form: Form
@@ -103,6 +115,7 @@ function FormPage({
   readonly prefill?: Readonly<Record<string, PrefillValue>>
   readonly optionSets?: FormOptionSets
   readonly link?: FormLinkState
+  readonly islandEntryFile?: string | undefined
 }) {
   const { languages } = app
   const documentLang = resolveDocumentLang(languages, activeLang)
@@ -145,6 +158,7 @@ function FormPage({
             lang={documentLang}
           />
         )}
+        <FormIslandEntry file={islandEntryFile} />
       </body>
     </html>
   )
@@ -225,6 +239,7 @@ function renderFormDocument(opts: {
       prefill={withLinkAnswers(resolveStandalonePrefill(app, form, prefillCtx), prefillCtx?.link)}
       {...(prefillCtx?.optionSets !== undefined ? { optionSets: prefillCtx.optionSets } : {})}
       {...(prefillCtx?.link === undefined ? {} : { link: prefillCtx.link })}
+      islandEntryFile={prefillCtx?.islandEntryFile}
     />
   )
   return `<!DOCTYPE html>\n${html}`

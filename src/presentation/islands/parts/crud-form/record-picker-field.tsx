@@ -15,6 +15,7 @@ import {
   ReadOnlyPicker,
 } from './record-picker-chrome'
 import { useRecordPicker } from './use-record-picker'
+import type { PickerWords } from '../../runtime/picker-contract'
 import type { ReactElement } from 'react'
 
 /**
@@ -45,6 +46,8 @@ interface RecordPickerFieldProps {
   readonly value: string
   readonly onChange: (name: string, value: string) => void
   readonly invalid?: boolean
+  /** The pickers' words in the page language (`picker.*`). */
+  readonly words?: PickerWords
 }
 
 export function RecordPickerField({
@@ -52,6 +55,7 @@ export function RecordPickerField({
   value,
   onChange,
   invalid,
+  words,
 }: RecordPickerFieldProps): ReactElement {
   const inputId = useId()
   const picker = useRecordPicker({ field, value, onChange })
@@ -86,11 +90,13 @@ export function RecordPickerField({
         picker={picker}
         allowMultiple={allowMultiple}
         {...(invalid !== undefined && { invalid })}
+        words={words}
       />
       {field.maxLinked !== undefined && (
         <LinkCount
           linked={linkedIds.length}
           maxLinked={field.maxLinked}
+          words={words}
         />
       )}
     </FieldShell>

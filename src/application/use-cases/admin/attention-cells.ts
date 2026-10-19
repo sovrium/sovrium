@@ -11,6 +11,7 @@
  * blocks render their sub-lines with.
  */
 import { DateTime } from 'effect'
+import type { ConsoleLanguage } from './operator-language'
 
 /**
  * A block's result, carrying the name of the source when it could NOT be read.
@@ -139,11 +140,38 @@ export const formatStamp = (iso: string, timeZone: string): string => {
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-/** Render how long the oldest of a set has been waiting, in whole days. */
-export const formatWaited = (oldestIso: string, nowMs: number): string => {
+/**
+ * How long the oldest of a set has waited, per console language. The console
+ * declares English and French; the phrase is built here, by the server, for a
+ * console that may be mounted on an app declaring no languages at all.
+ */
+const WAITED_WORDS: Readonly<
+  Record<ConsoleLanguage, Readonly<Record<'unknown' | 'today' | 'one' | 'many', string>>>
+> = {
+  en: {
+    unknown: 'oldest waiting',
+    today: 'oldest today',
+    one: 'oldest 1 day',
+    many: 'oldest {n} days',
+  },
+  fr: {
+    unknown: 'la plus ancienne en attente',
+    today: 'la plus ancienne est d’aujourd’hui',
+    one: 'la plus ancienne attend depuis 1 jour',
+    many: 'la plus ancienne attend depuis {n} jours',
+  },
+}
+
+/** Render how long the oldest of a set has been waiting, in whole days, in `language`. */
+export const formatWaited = (
+  oldestIso: string,
+  nowMs: number,
+  language: ConsoleLanguage = 'en'
+): string => {
+  const words = WAITED_WORDS[language]
   const at = Date.parse(oldestIso)
-  if (Number.isNaN(at)) return 'oldest waiting'
+  if (Number.isNaN(at)) return words.unknown
   const days = Math.floor(Math.max(0, nowMs - at) / DAY_MS)
-  if (days === 0) return 'oldest today'
-  return days === 1 ? 'oldest 1 day' : `oldest ${days} days`
+  if (days === 0) return words.today
+  return days === 1 ? words.one : words.many.replace('{n}', String(days))
 }

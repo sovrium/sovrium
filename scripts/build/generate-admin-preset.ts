@@ -60,6 +60,21 @@
  * instead. That is the whole guarantee of D4: the operator cannot break the
  * console, and neither can we, because a broken preset never reaches a binary.
  *
+ * It is then decoded a second time, raw, with `Schema.decodeUnknownExit(AppSchema)`
+ * — the exact call the runtime makes when the console is first opened. The
+ * server no longer decodes the preset at start (it costs a sixth of a cold
+ * start, and most starts never open the console), so this is where "the
+ * embedded preset decodes against this release's schema" is proved, once per
+ * build rather than once per process.
+ *
+ * ## `ADMIN_PRESET_LANGUAGES`
+ *
+ * The one fact about the console the server needs at start: which languages it
+ * declares, so the account-preference write door accepts them beside the
+ * host's own. Emitted as a constant from that runtime-identical decode, without
+ * the translation tables (nothing reading the constant looks at them), so the
+ * door never decodes the preset to learn two language codes.
+ *
  * Pure script: file IO plus Prettier. No Effect.
  *
  * Run: `bun run build:admin-preset`
@@ -68,10 +83,13 @@
 import { writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { Exit, Schema } from 'effect'
 import * as prettier from 'prettier'
+import { AppSchema } from '@/domain/models/app'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { decodeAppConfigObject } from '../../src/application/use-cases/config/decode-app-config'
 import { loadSchemaFromTsFile } from '../../src/infrastructure/config/file-loader'
+import type { Languages } from '@/domain/models/app/languages'
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..')
 
@@ -110,8 +128,10 @@ const canonicalise = (value: unknown): unknown => {
  * Exported so a unit test can assert the emitted shape without running the
  * whole generator against the real app.
  */
-export const renderPresetModule = (preset: unknown): string => {
+export const renderPresetModule = (preset: unknown, languages?: unknown): string => {
   const json = JSON.stringify(canonicalise(preset), null, 2)
+  const languagesJson =
+    languages === undefined ? 'undefined' : JSON.stringify(canonicalise(languages), null, 2)
 
   return `/**
  * Copyright (c) 2025-2026 ESSENTIAL SERVICES
@@ -132,6 +152,7 @@ export const renderPresetModule = (preset: unknown): string => {
 /* eslint-disable max-lines -- a data file: its length is the console's size, not a structure to split */
 
 import type { AppEncoded } from '@/domain/models/app'
+import type { Languages } from '@/domain/models/app/languages'
 
 /**
  * The console's authored configuration, validated at build time.
@@ -151,6 +172,12 @@ import type { AppEncoded } from '@/domain/models/app'
  * both hand it straight to a schema decode, whose input IS \`AppEncoded\`.
  */
 export const EMBEDDED_ADMIN_PRESET: AppEncoded = ${json}
+
+/**
+ * The console's declared languages, as the schema decodes them, without the
+ * translation tables. Read at server start instead of decoding the preset.
+ */
+export const ADMIN_PRESET_LANGUAGES: Languages | undefined = ${languagesJson}
 `
 }
 
@@ -167,6 +194,13 @@ const write = async (target: string, contents: string): Promise<void> => {
 export type AdminPresetOutcome =
   | { readonly valid: true; readonly written: string }
   | { readonly valid: false; readonly refusal: readonly string[] }
+
+/** The decoded languages, translation tables dropped: what the constant carries. */
+const declaredLanguages = (languages: Languages | undefined): unknown => {
+  if (languages === undefined) return undefined
+  const { translations: _translations, ...declared } = languages
+  return declared
+}
 
 /**
  * Validate a parsed console config and, only if it decodes, write the module.
@@ -188,11 +222,19 @@ export const freezeAdminPreset = async (
 ): Promise<AdminPresetOutcome> => {
   const decoded = decodeAppConfigObject(parsed)
   if (!decoded.valid) return { valid: false, refusal: decoded.errors }
+  // The runtime's own call, on the raw object it will be handed (see the header).
+  const runtime = Schema.decodeUnknownExit(AppSchema)(parsed)
+  if (Exit.isFailure(runtime)) {
+    return {
+      valid: false,
+      refusal: [`the runtime decode of the preset fails: ${String(runtime.cause)}`],
+    }
+  }
   // The RAW parsed object is emitted, never `decoded.app`. The decoded value
   // carries schema-applied defaults and branded types that do not round-trip
   // through JSON; the runtime re-decodes the raw object with the SAME schema,
   // so whatever defaults exist are applied there, once, by the schema itself.
-  await write(outputPath, renderPresetModule(parsed))
+  await write(outputPath, renderPresetModule(parsed, declaredLanguages(runtime.value.languages)))
   return { valid: true, written: outputPath }
 }
 

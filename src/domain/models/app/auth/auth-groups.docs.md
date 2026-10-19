@@ -25,6 +25,21 @@ Teams are configured through groups: define one per team and reference it in per
 
 `name` is required, lowercase, alphanumeric with hyphens, and must start with a letter — the same convention role names follow. `maxMembers` is unlimited when omitted.
 
+### What the console calls a group
+
+Give a group a `label` to choose the words the operator console shows for it, in the users directory, on the account page and in the Change groups picker. The `name` stays what permissions (`group:<name>`) and the membership write use.
+
+```yaml
+auth:
+  groups:
+    - name: comptabilite
+      label: Comptabilité
+    - name: site-crew
+      label: $t:groups.site
+```
+
+The console shows a group by its declared `label`, a `$t:` key being read from `languages.translations` in the operator's console language, and otherwise by its name made readable: `equipe-a` reads "Equipe a". `GET /api/admin/groups` returns each group's `label` beside its `name`, and every account in `GET /api/admin/users` carries `groupLabels` beside `groups`, in the same order.
+
 ### Roles and groups share one namespace
 
 A group named `admin` is refused because it collides with the built-in role. Keep group names distinct from every built-in and custom role name; validation also refuses a duplicate group name.

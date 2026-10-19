@@ -69,13 +69,36 @@ export const formSubmissionDetailQuerySchema = Schema.Struct({
 })
 
 /**
+ * The revealed answers as the form asks them: an answer keyed by its
+ * question's label, and a `fieldGroups` section as an object of its answers
+ * keyed by the section's label, in the form's order.
+ */
+const submissionAnswersSchema = Schema.Record(
+  Schema.String,
+  Schema.Union([Schema.String, Schema.Record(Schema.String, Schema.String)])
+).annotate({
+  description:
+    "Present exactly when `body` is: the submitted answers read through the form. Each answer is keyed by its question's label and given as the text a reader reads (a choice by its option's label, a list joined, a file by its name); the answers of a `fieldGroups` section are an object keyed by the section's label, in the form's order, after any answer no section lists. A section holding no answer is left out.",
+})
+
+/**
  * Response shape for the detail endpoint.
  *
  * Returns the same admin-envelope-extended shape as list items. The
  * conditional `body` and `_admin.recentAuditTrail` fields are populated
- * per the D6/D7 rules above.
+ * per the D6/D7 rules above; `answers` rides with `body`.
  */
-export const formSubmissionDetailResponseSchema = formSubmissionAdminItemSchema.annotate({
+export const formSubmissionDetailResponseSchema = Schema.Struct({
+  ...formSubmissionAdminItemSchema.fields,
+  answers: optionalField(submissionAnswersSchema),
+  label: optionalField(
+    Schema.String.annotate({
+      description:
+        "What the console calls this submission, in the caller's console language. With the answers revealed, the first text answer in the form's order, the rule that names a record (`Garnier, Sophie`). Without them, a phrase that gives away no answer: the word for a submission and when it arrived, read day-relative in the operator's zone (`Submission · Today 10:00`, `Réponse · Aujourd’hui 10:00`).",
+      examples: ['Garnier, Sophie', 'Submission · Today 10:00'],
+    })
+  ),
+}).annotate({
   identifier: 'FormSubmissionDetail',
 })
 

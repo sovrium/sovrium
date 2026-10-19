@@ -151,6 +151,8 @@ export const presentationComponentArticles = [
       'US-PAGES-OVERLAYS-009',
       'US-PAGES-OVERLAYS-010',
       'US-PAGES-OVERLAYS-RECORD-DRAWER-VISIBLE-WHEN',
+      'US-PAGES-OVERLAYS-RECORD-DRAWER-VALUE-LABELS',
+      'US-PAGES-OVERLAYS-RECORD-DRAWER-SYSTEM-CHANNEL',
     ],
   }),
   defineArticle({

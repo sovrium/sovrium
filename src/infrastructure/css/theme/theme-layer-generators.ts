@@ -222,13 +222,38 @@ const DEFAULT_BORDER_COLOR_RULE = `*,
       }`
 
 /**
+ * The clear control a search-typed input draws. Chromium paints its own blue
+ * cross there, the one colour in a search box that belongs to no token. The
+ * native drawing is switched off and the control redrawn as an X glyph masked
+ * over the muted ink, the foreground ink on hover, so it follows the theme and
+ * the dark scheme. It stays the browser's own control, so it still empties the
+ * field. The mask is a URL-encoded SVG, readable in the stylesheet.
+ */
+const SEARCH_CLEAR_GLYPH =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 6 6 18M6 6l12 12'/%3E%3C/svg%3E\")"
+
+const SEARCH_CLEAR_RULE = `input[type="search"]::-webkit-search-cancel-button {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 1rem;
+        height: 1rem;
+        background-color: var(--color-muted-foreground);
+        -webkit-mask: ${SEARCH_CLEAR_GLYPH} center / contain no-repeat;
+        mask: ${SEARCH_CLEAR_GLYPH} center / contain no-repeat;
+        cursor: pointer;
+      }
+      input[type="search"]::-webkit-search-cancel-button:hover {
+        background-color: var(--color-foreground);
+      }`
+
+/**
  * Generate base layer styles with design color and font applications
  * Applies design colors and fonts to base HTML elements if design defines those tokens
  * The first rule is {@link DEFAULT_BORDER_COLOR_RULE}.
  *
  * A pending control is `aria-disabled` and `aria-busy`, never natively
  * disabled (it keeps the focus): it never shows the pointer, and while it is
- * busy the cursor says it is working.
+ * busy the cursor says it is working. The last rule is {@link SEARCH_CLEAR_RULE}.
  *
  * @param design - Optional design configuration
  * @returns CSS @layer base rule as string
@@ -294,5 +319,7 @@ export function generateBaseLayer(design?: Design): string {
         cursor: pointer;
       }
       [aria-busy="true"] { cursor: progress; }
+
+      ${SEARCH_CLEAR_RULE}
     }`
 }

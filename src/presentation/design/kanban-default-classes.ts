@@ -37,6 +37,14 @@ import { computeBadgeClasses } from '@/presentation/design/badge-default-classes
  */
 export const computeKanbanBoardClasses = (): string => 'flex w-full gap-3 overflow-x-auto p-1'
 
+/**
+ * The end-edge shadow a board casts over its right side while columns are still
+ * clipped past it — the grid's own scroll edge, so a board that scrolls
+ * sideways says so the way a wide grid does.
+ */
+export const computeKanbanScrollEdgeClasses = (): string =>
+  'pointer-events-none absolute inset-y-0 right-0 z-20 w-4 shadow-[inset_-12px_0_8px_-8px_rgb(0_0_0_/_0.18)] dark:shadow-[inset_-12px_0_8px_-8px_rgb(0_0_0_/_0.6)]'
+
 // ──────────────────────────────────────────────────────────────────────────────
 // COLUMN — the `data-column` well (`data-slot="kanban-column"`)
 // ──────────────────────────────────────────────────────────────────────────────

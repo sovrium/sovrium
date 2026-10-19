@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useContext, useEffect, useRef, useState } from 'react'
+import { subscribe as subscribeIslandEvent } from '../runtime/event-bus'
+import { IslandHostIdContext } from '../runtime/island-host-context'
 import type { RealtimeConnectionStatus } from '@/domain/models/api/realtime/realtime'
 
 /** Logical connectivity state of the realtime transport. */
@@ -177,6 +179,24 @@ export function useRealtimeSubscription(params: {
   return enabled ? status : undefined
 }
 
+/**
+ * Re-read when a sibling's `onSuccess.refetch` names this component — by its
+ * `props.id`, or by `alias` (a system source's endpoint, which an account form
+ * names instead of an id). Neither given, nothing is heard.
+ */
+export function useRefetchChannel(
+  id: string | undefined,
+  alias: string | undefined,
+  onRefresh: () => void
+): void {
+  useEffect(() => {
+    if (!id && !alias) return undefined
+    return subscribeIslandEvent('sovrium:refetch', (detail) => {
+      if (detail.id === id || detail.id === alias) onRefresh()
+    })
+  }, [id, alias, onRefresh])
+}
+
 /** The binding keys live refresh reads off a data source. */
 export interface LiveRefreshSource {
   readonly table?: string
@@ -197,12 +217,18 @@ export interface LiveRefreshSource {
  *
  * A view-bound or system-bound binding stays static: a view's rows are not the
  * table's change feed. A hidden tab skips its polls.
+ *
+ * Whatever its mode, a bound component also re-reads when a sibling's
+ * `onSuccess.refetch` names it by the `props.id` on its island host.
  */
 export function useLiveRefresh(source: LiveRefreshSource | undefined, reread: () => unknown): void {
   const mode =
     source?.table !== undefined && source.view === undefined ? source.refreshMode : undefined
   const rereadRef = useRef(reread)
   rereadRef.current = reread
+  const hostId = useContext(IslandHostIdContext)
+  const named = useCallback(() => void rereadRef.current(), [])
+  useRefetchChannel(source === undefined ? undefined : hostId, undefined, named)
   const status = useRealtimeSubscription({
     enabled: mode === 'realtime',
     table: source?.table ?? '',

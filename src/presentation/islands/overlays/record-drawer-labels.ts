@@ -28,6 +28,10 @@ export interface DrawerBuiltInLabels {
   readonly fullPage?: string
   /** The navigation landmark's name (`recordDrawer.navigation`). */
   readonly navigation?: string
+  /** The record's place in the opening list, `{position} of {count}` (`recordDrawer.position`). */
+  readonly position?: string
+  /** A save the records API refuses as not found or forbidden (`recordDrawer.saveRefused`). */
+  readonly saveRefused?: string
   /** The name of the banner a refused save shows (`recordDrawer.validationError`). */
   readonly validationError?: string
   /** A refused write's toast words, keyed by catalogue key (`rateLimit.retryIn`, …). */

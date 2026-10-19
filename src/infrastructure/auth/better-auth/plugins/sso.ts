@@ -5,7 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { sso } from '@better-auth/sso'
 import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { ssoProviderForEmail } from '@/domain/models/app/auth/sso/sso-service'
@@ -14,6 +13,7 @@ import { loopbackRequestOrigin } from './loopback-origin'
 import { provisionRole } from './sso-account-hooks'
 import type { Auth } from '@/domain/models/app/auth'
 import type { SsoProvider } from '@/domain/models/app/auth/sso'
+import type * as SsoPackage from '@better-auth/sso'
 import type { BetterAuthPlugin } from 'better-auth'
 
 /**
@@ -240,10 +240,26 @@ const baseUrlFromLoopbackHost = createAuthMiddleware(async (ctx) => {
     : { context: { context: { baseURL: `${origin}/api/auth` } } }
 })
 
+/**
+ * The SSO package (OIDC discovery, SAML with its XML signature stack), loaded
+ * the first time an app that declares `auth.sso` builds its plugin list —
+ * never at start for an app that does not, which saves most of a hundred
+ * milliseconds of every cold start.
+ *
+ * A synchronous `require`, not `import()`, for the reason `passkey.ts` gives:
+ * the plugin list is built inside the synchronous `createAuthInstance`, and
+ * the type-only import above keeps the inferred `auth.api` surface identical.
+ * The literal specifier keeps the package inside the compiled binary.
+ */
+const loadSsoPackage = (): typeof SsoPackage =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- deferred load, see above
+  require('@better-auth/sso') as typeof SsoPackage
+
 /** Build the SSO plugin for the declared providers; `[]` when there are none. */
 export const buildSsoPlugin = (authConfig: Auth | undefined, context: SsoPluginContext) => {
   const providers = authConfig?.sso ?? []
   if (authConfig === undefined || providers.length === 0) return []
+  const { sso } = loadSsoPackage()
   const plugin = sso({
     defaultSSO: providers.map((provider) => toDefaultSso(provider, context)),
     domainVerification: { enabled: true },

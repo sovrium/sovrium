@@ -19,7 +19,7 @@
  * module rather than a section of one:
  *
  *   - `write-record-programs.ts`  — {@link splitManyToManyFields} + {@link writeManyToManyLinks}
- *   - `read-record-programs.ts`   — {@link readManyToManyLinks} + {@link mergeManyToManyFields}
+ *   - `read-record-programs.ts`   — {@link mergeManyToManyFields}, over `to-many-link-reads.ts`
  *   - `list-records-program.ts`   — {@link enrichRecordsWithManyToMany} + {@link enrichRecordsWithRelatedLabels}
  *
  * The related-label enrichment sits here rather than beside the list program
@@ -45,7 +45,7 @@ import { AuthRepository } from '@/application/ports/repositories/auth/auth-repos
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import { DatabaseError } from '@/domain/errors'
 import { filterReadableLinks, readableKeys, type LinkReader } from './linked-row-visibility'
-import { getManyToManyFieldSpecs, type ManyToManyFieldSpec } from './many-to-many-fields'
+import { type ManyToManyFieldSpec } from './many-to-many-fields'
 import {
   buildRecordDisplayLabels,
   buildUserDisplayLabels,
@@ -57,6 +57,7 @@ import {
   type RecordDisplayLabels,
   type RequestedLabel,
 } from './relationship-display-fields'
+import { readManyToManyLinks, type ManyToManyLinkMap } from './to-many-link-reads'
 import type { TransformedRecord } from './record-transformer'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { App } from '@/domain/models/app'
@@ -66,9 +67,6 @@ type ManyToManyWriteLink = {
   readonly relatedIds: readonly (string | number)[]
   readonly hasReciprocal: boolean
 }
-
-/** The junction map `recordId -> fieldName -> relatedIds` (records with no links absent). */
-type ManyToManyLinkMap = Record<string, Record<string, readonly (string | number)[]>>
 
 /**
  * Split a create payload into base-column fields and many-to-many write links.
@@ -98,58 +96,6 @@ export const splitManyToManyFields = (
     .filter((link) => link.relatedIds.length > 0)
   return { baseFields, links }
 }
-
-/**
- * The many-to-many fields a read should resolve, honouring a `?fields=`
- * selection.
- *
- * A many-to-many column has no base column, so it survives `applyFieldSelection`
- * by not being there at all and is then re-injected from the table's DECLARED
- * specs. Left unfiltered that is a selection bypass: `?fields=title` came back
- * carrying `tags` because the enrichment never consulted the requested list.
- *
- * The intersection runs only when a selection is present — an absent `fields`
- * still means "every column", junction-backed ones included.
- */
-const selectedManyToManySpecs = (
-  app: App | undefined,
-  tableName: string,
-  fields: string | undefined
-): readonly ManyToManyFieldSpec[] => {
-  const specs = getManyToManyFieldSpecs(app?.tables, tableName)
-  if (fields === undefined) return specs
-  const requested = new Set(fields.split(',').map((name) => name.trim()))
-  return specs.filter((spec) => requested.has(spec.fieldName))
-}
-
-/**
- * Resolve many-to-many field values from junction tables for a set of records.
- * No-op (empty map) when the table declares no many-to-many fields, or when a
- * field selection named none of them.
- */
-export const readManyToManyLinks = (
-  app: App | undefined,
-  tableName: string,
-  ids: readonly (string | number)[],
-  options: { readonly fields?: string; readonly reader?: LinkReader } = {}
-): Effect.Effect<
-  ManyToManyLinkMap,
-  DatabaseError,
-  TableRepository | DataSourceRepository | AuthRepository
-> =>
-  Effect.gen(function* () {
-    const specs = selectedManyToManySpecs(app, tableName, options.fields)
-    if (specs.length === 0 || ids.length === 0) return {}
-    const repo = yield* TableRepository
-    const links = yield* repo.readManyToMany({
-      sourceTable: tableName,
-      sourceIds: ids,
-      fields: specs.map((s) => ({ fieldName: s.fieldName, relatedTable: s.relatedTable })),
-    })
-    // A reader sees only the linked rows the related table lets them read.
-    const readable = yield* filterReadableLinks(app, specs, links, options.reader)
-    return readable as ManyToManyLinkMap
-  }).pipe(Effect.withSpan('tables.read-many-to-many-links'))
 
 /**
  * Merge a record's resolved many-to-many arrays into its `fields` (no-op when

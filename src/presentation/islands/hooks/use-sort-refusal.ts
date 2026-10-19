@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { forgetReadsInFlight } from '../runtime/coalesced-read'
 import type { QueryClient } from '@tanstack/react-query'
 import type { OnChangeFn, SortingState } from '@tanstack/react-table'
 
@@ -169,11 +170,18 @@ function refusedColumn(before: SortingState, after: SortingState): string | unde
  * following invalidate always reach the network. For a query that already holds
  * data this changes nothing — `invalidateQueries` cancels it anyway, since
  * `cancelRefetch` defaults to `true` — so only the first-read case moves.
+ *
+ * Reaching the network takes one more step for a system-source grid: its reads
+ * share identical requests in flight (`fetchCoalesced`), and cancelling the
+ * query does not abort the request it made — so the re-read would join that
+ * very request and receive its pre-mutation answer after all. Forgetting the
+ * reads in flight first sends the re-read on its own.
  */
 export async function refreshGridQuery(
   queryClient: Readonly<QueryClient>,
   queryKey: readonly unknown[]
 ): Promise<void> {
+  forgetReadsInFlight()
   await queryClient.cancelQueries({ queryKey })
   await queryClient.invalidateQueries({ queryKey })
 }

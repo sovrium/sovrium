@@ -63,6 +63,7 @@ export const EXPORT_COVERAGE: Readonly<Record<string, ExportStatus>> = {
   'auth.oauth_access_token': 'withheld',
   'auth.oauth_refresh_token': 'withheld',
   'system.connection_tokens': 'withheld',
+  'system.calendar_feed_tokens': 'withheld',
   'system._admin_search_index': 'withheld',
   'system.webhook_outbox_subjects': 'withheld',
 

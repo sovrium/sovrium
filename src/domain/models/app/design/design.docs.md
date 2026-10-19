@@ -141,12 +141,46 @@ The whole point of declaring this is to be able to hand it over. One generator p
 sovrium design-system app.yaml                                  # the agent brief, on stdout
 sovrium design-system app.yaml --output DESIGN.md               # committed beside the config
 sovrium design-system app.yaml --format json --output tokens.json
+sovrium design-system app.yaml --format bundle --output design-system
 ```
 
-Markdown is the default because the default reader is a model. The command runs offline — no server, no database — so it fits a pre-commit hook or a CI step. It refuses an unknown `--format`, and refuses a config that fails validation rather than exporting a design system describing an app that cannot boot.
+Markdown is the default because the default reader is a model. The command runs offline — no server, no database — so it fits a pre-commit hook or a CI step. It refuses an unknown `--format`, refuses `--mode` with any format but `json` (the brief and the bundle describe both colour schemes), and refuses a config that fails validation rather than exporting a design system describing an app that cannot boot. The brief lists each colour's light and dark value side by side, one row per colour; the Dark column is what the app paints under `.dark`. `--format bundle` writes the portable bundle — the brief, the tokens for both colour modes, the theme CSS and a rendered component kit — into a directory a design tool or an assistant can be handed whole.
 
-The same content is served at runtime from `GET /api/admin/design-system.json` (a W3C DTCG 2025.10 document) and `GET /api/admin/design-system.md` (the brief the CLI prints). Both are admin-gated and read-only, and return `404` to anyone else. The design-system console renders the same content as a page a person reads, and can publish it behind a revocable link to someone with no login.
+The same content is served at runtime from `GET /api/admin/design-system.json` (a W3C DTCG 2025.10 document; `?mode=dark` answers the dark palette) and `GET /api/admin/design-system.md` (the brief the CLI prints), with the bundle at `GET /api/admin/design-system.zip`. All are admin-gated and read-only, and return `404` to anyone else. The design-system console renders the same content as a page a person reads, and can publish it behind a revocable link to someone with no login.
 
 In the JSON document tokens appear as standard DTCG types — colours as `{colorSpace, components, hex}` objects, dimensions as `{value, unit}`, the type scale as `typography` composite tokens — and the Sovrium-specific layer (principles, logo, voice, colour roles, imagery, component guidance) rides in `$extensions` under `com.sovrium.design-system`, which is exactly what DTCG reserves `$extensions` for.
 
-**What the export leaves out of the token tree.** Some values have no faithful DTCG form, and a malformed token is worse than an absent one because a tool would act on it. Those keep their raw text under `$extensions`: `design.elevation.*`, because DTCG shadows are decomposed into colour, offsets, blur and spread and a raw CSS `box-shadow` cannot be parsed back into those reliably; a spacing value the dimension type cannot carry; and `design.darkColors`, because DTCG has no scheme concept in this version.
+**What the export leaves out of the token tree.** Some values have no faithful DTCG form, and a malformed token is worse than an absent one because a tool would act on it. Those keep their raw text under `$extensions`: `design.elevation.*`, because DTCG shadows are decomposed into colour, offsets, blur and spread and a raw CSS `box-shadow` cannot be parsed back into those reliably; and a spacing value the dimension type cannot carry.
+
+**One document per colour mode.** DTCG has no scheme concept inside one file, so the dark palette is a second document of the same shape: `?mode=dark` on the endpoint, `--mode dark` with `--format json` on the CLI. Its colour group holds what the app paints in dark mode — a `darkColors` value where you declared one, a brand colour (`primary`, `secondary`, `accent`, `ring`, the chart series) declared only in `colors` kept as it is, and the platform's dark default for the rest — and every other group is identical to the light document. The light document is the default and is unchanged by the parameter.
+
+## Importing tokens back
+
+Design work often continues in a design tool. `sovrium design-system import` brings it back: it reads the token file the tool exported and maps it onto your `design` key, so nobody copies hex values off a panel by hand.
+
+```bash
+sovrium design-system import tokens.json --config app.yaml               # what would change; writes nothing
+sovrium design-system import tokens.json --config app.yaml --write       # write it, then review the diff in git
+sovrium design-system import figma-modes/ --config app.yaml --from figma # one Figma Variables file per mode
+```
+
+It reads a Claude Design system in the 0.2.47 format (`tokens.json`, or the project folder holding it), Figma Variables files in the DTCG form Figma imports (one file, or a folder of one file per mode, as the bundle's Figma folder holds them), Tokens Studio and Penpot (a folder of sets with `$themes.json`, or a single file), a Style Dictionary source tree, DTCG (a document, a `*.resolver.json`, or a folder with a `dark` file), and CSS custom properties under `:root` and `.dark` with a Tailwind `@theme` block. The format is detected from the file's shape; a file that matches two formats is refused naming both, and `--from` settles it.
+
+**Only tokens map.** A colour goes to `colors` under its path joined with `-` (a leading `color` group dropped), and the dark value the source states to `darkColors` when it differs from what the app paints in dark, even when it equals the light one. A layered source (a DTCG `dark` file or resolver context, a Tokens Studio dark theme, a `.dark` block) states only what its dark layer says; a Claude Design system or a Figma mode file states every token in every mode. A length goes to `radius`, `spacing` or `breakpoints` when its group says which; a font family under a `font` group to `typeScale.families`; a text style named for a type-scale rung (`h1`, `body`, `caption`, …) to that rung. Everything else is listed as unmapped with the reason, never guessed into a key. A colour written in a space `colors` cannot hold — `oklab()`, `lab()`, `lch()`, `hwb()`, `color()`, or a DTCG colour space other than sRGB and Oklch with no hex — is listed as unmapped too, naming the space, so an import never writes a value the config would refuse. **Components are never imported**: the report counts the ones it found and reads their tokens only. A Claude Design project's components are counted as Claude Design lists them, each name once: a `components/<Name>/` folder holding a `preview.html` or a `README.md`, a single `components/<Name>.html` or `components/<Name>.prompt.md`, a `components/<group>/<Name>/` card, and the names `components/bundle.js` declares; `lib/`, `src/` and a folder of types only are not components.
+
+**A change is a real change.** Each token is compared with what the app already paints, declared or inherited, by value: `10px` and `0.625rem` are the same length at a 16px base, and two colours are the same when their sRGB hex and their opacity are. Radius and spacing are written in `rem`, except a length of 1000px or more, written in `px` as a pill radius is (`9999px`); breakpoints are written in `px`. The import adds and changes keys; it never removes one, and a second `--write` with the same file changes nothing.
+
+**Writing.** Without `--write` (or with `--dry-run`) nothing is written. With it, a YAML or JSON config is patched on its `design` key only — the rest of the file, comments included, is left as it was; the block itself is rewritten, so a comment inside `design:` does not survive. The result is validated before it is written. A TypeScript config is never edited: the whole resulting `design` goes to a `design.json` beside it, and the command prints the two lines to paste:
+
+```ts
+import design from './design.json'
+
+export default {
+  name: 'my-app',
+  design,
+}
+```
+
+Put the import at the top of the file and replace the inline `design: { … }` block with `design,`. The sidecar already holds your own design merged with the import, so the swap loses nothing. An existing `design.json` is replaced only when it already holds this config's design; any other file of that name is refused rather than overwritten. A `design` that takes any part of itself from another file through `$ref` is not patched in place either: copy the dry-run changes into that file instead. A run with nothing to change writes nothing, and every write goes through a temporary file, so an interrupted one never leaves a half-written config.
+
+The import reads a local file or folder only: a URL is refused, and it makes no network call. It never runs over HTTP or in the console. `--json` prints the report as one document for tooling.

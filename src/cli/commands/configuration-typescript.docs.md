@@ -49,6 +49,8 @@ Neither `import type` nor `satisfies` is a style preference here.
 
 **`satisfies` beats an annotation.** It checks the literal against the type without widening it, so the export keeps its precise shape and a misspelled property is still an excess-property error. Annotating with `: AppConfig` would widen the literal and lose exactly that.
 
+**A property set to `undefined` is an absent property.** `placeholder: showHint ? 'Search' : undefined` reads exactly as if `placeholder` were not written, the way it would after a round trip through YAML or JSON. The same holds for a property the component does not accept: it is refused only when it carries a value.
+
 ## Composing with imports
 
 TypeScript already has the mechanism `$ref` provides for YAML. The declaration exports a type per section, so split the config into modules and assemble them:

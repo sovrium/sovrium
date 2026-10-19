@@ -125,6 +125,9 @@ function prefillProps(field: FormFieldConfig): Record<string, string> {
  * default is the caller's own and is emitted as the TEMPLATE, the switch drawn
  * OFF, for the browser to set once it has read the caller's session. So the
  * served bytes never say `aria-checked="true"` for somebody's saved preference.
+ * Until then it is drawn `disabled`: its value is not known yet, and a turn
+ * made before the read answered would be undone by the fill that follows. The
+ * session resolver enables it as it fills it, for an anonymous reader too.
  *
  * `aria-checked` is written explicitly even though a native checkbox already
  * exposes its state: the attribute is what a switch's contract names, and the
@@ -133,7 +136,7 @@ function prefillProps(field: FormFieldConfig): Record<string, string> {
 function switchPrefillProps(field: FormFieldConfig): Record<string, string | boolean> {
   const declared = field.defaultValue
   if (typeof declared === 'string' && declared.includes(SESSION_TOKEN_MARKER)) {
-    return { [SESSION_VALUE_ATTRIBUTE]: declared, 'aria-checked': 'false' }
+    return { [SESSION_VALUE_ATTRIBUTE]: declared, 'aria-checked': 'false', disabled: true }
   }
   const on = declared === true || declared === 'true'
   return { defaultChecked: on, 'aria-checked': on ? 'true' : 'false' }
@@ -217,6 +220,29 @@ function selectTwinField(
   return shown === undefined ? field : { ...field, defaultValue: shown }
 }
 
+/** The language code of a code or a locale: `fr` for `fr-FR` and for `fr`. */
+const languageCodeOf = (locale: string): string | undefined => locale.split('-')[0]?.toLowerCase()
+
+/**
+ * The option a `$session.language` dropdown starts on before the browser has
+ * read the caller's session: the language this page is rendered in, matched by
+ * locale or by language code. An account that saved no language resolves the
+ * token to nothing, and the resolver leaves a dropdown alone on an empty
+ * resolution — so the select shows the language the reader is reading rather
+ * than its first option, and nothing is saved by showing it.
+ */
+function renderedLanguageDefault(
+  field: FormFieldConfig,
+  options: readonly EndpointFieldOption[],
+  lang: string | undefined
+): Record<string, string> {
+  if (lang === undefined || field.defaultValue !== '$session.language') return {}
+  const match =
+    options.find((option) => option.value === lang) ??
+    options.find((option) => languageCodeOf(option.value) === languageCodeOf(lang))
+  return match === undefined ? {} : { defaultValue: match.value }
+}
+
 /**
  * A `select` field's dropdown. A read-only one is inert and keeps its `name`
  * (a disabled control is not in the form data set, so no key is sent twice)
@@ -227,13 +253,15 @@ function selectTwinField(
 function renderEndpointSelect(
   field: FormFieldConfig,
   controlClass: string,
-  prefill: Record<string, string>
+  prefill: Record<string, string>,
+  lang: string | undefined
 ): ReactElement {
   const options = (field.options ?? []) as readonly EndpointFieldOption[]
   const select = (
     <select
       name={field.field}
       className={controlClass}
+      {...renderedLanguageDefault(field, options, lang)}
       {...prefill}
       {...inertWhenReadOnly(field)}
     >
@@ -256,11 +284,15 @@ function renderEndpointSelect(
   )
 }
 
-/** Render the inner control element for one endpoint field, keyed off its `control`. */
+/**
+ * Render the inner control element for one endpoint field, keyed off its
+ * `control`. `lang` is the language the page is rendered in.
+ */
 export function renderEndpointControl(
   field: FormFieldConfig,
   part: FormPart,
-  aid: PasswordAid = {}
+  aid: PasswordAid = {},
+  lang?: string
 ): ReactElement {
   const name = field.field
   const controlClass = part('input', field.control === 'textarea' ? TEXTAREA_CLASS : CONTROL_CLASS)
@@ -271,7 +303,7 @@ export function renderEndpointControl(
     ...ruleProps(field),
     ...(autocomplete === undefined ? {} : { autoComplete: autocomplete }),
   }
-  if (field.control === 'select') return renderEndpointSelect(field, controlClass, prefill)
+  if (field.control === 'select') return renderEndpointSelect(field, controlClass, prefill, lang)
   if (field.control === 'textarea') {
     return (
       <textarea

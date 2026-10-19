@@ -102,6 +102,11 @@ export const errorResponseSchema = Schema.Struct({
     // fresh key (a new render of the form), never a retry: retrying the same
     // key and body is answered with the first response, not this code.
     'IDEMPOTENCY_MISMATCH',
+    // 409 on a press of a button, row action or record-bound button whose
+    // `disabledWhen` holds for the record. Not CONFLICT: the repair is a change
+    // to the RECORD (the balance the condition reads), never a retry or a
+    // different body, and `message` carries the author's `disabledReason`.
+    'ACTION_DISABLED',
   ]).annotate({ description: 'Machine-readable error code' }),
   details: optionalField(
     Schema.Array(Schema.String).annotate({ description: 'Optional error details' })
@@ -153,6 +158,7 @@ export const ApiErrorCode = {
   BAD_GATEWAY: 'BAD_GATEWAY',
   GATEWAY_TIMEOUT: 'GATEWAY_TIMEOUT',
   IDEMPOTENCY_MISMATCH: 'IDEMPOTENCY_MISMATCH',
+  ACTION_DISABLED: 'ACTION_DISABLED',
 } as const
 
 export type ApiErrorCode = (typeof ApiErrorCode)[keyof typeof ApiErrorCode]

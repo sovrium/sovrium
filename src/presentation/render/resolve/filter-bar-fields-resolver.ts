@@ -48,6 +48,41 @@ interface BarField {
   readonly label: string
   readonly kind: 'text' | 'number' | 'date' | 'select'
   readonly options?: ReadonlyArray<{ readonly value: string; readonly label: string }>
+  /** A link's choices: the related table's rows, resolved by the option-source pass. */
+  readonly optionsSource?: {
+    readonly table: string
+    readonly displayField: string
+    readonly sort: ReadonlyArray<{ readonly field: string; readonly direction: 'asc' }>
+  }
+}
+
+/**
+ * A many-to-one link, offered as a choice among the related table's rows by
+ * their display field ("Client is any of Garage de la Gare"): the stored value
+ * is the related row's id, which the records API compares as it is. The rows
+ * are read for THIS reader by the option-source pass that runs right after
+ * (`optionsSource`), so a related table the reader may not read offers no
+ * choice. A link with no `displayField` names no readable choice and is left
+ * out, as are the other relation shapes, which store no column to compare.
+ */
+const linkBarField = (
+  field: Readonly<Record<string, unknown>>,
+  name: string,
+  label: string
+): BarField | undefined => {
+  const { relatedTable, displayField, relationType } = field
+  if (relationType !== 'many-to-one' || typeof relatedTable !== 'string') return undefined
+  if (typeof displayField !== 'string') return undefined
+  return {
+    name,
+    label,
+    kind: 'select',
+    optionsSource: {
+      table: relatedTable,
+      displayField,
+      sort: [{ field: displayField, direction: 'asc' }],
+    },
+  }
 }
 
 /** Field type → the kind the bar offers operators for; anything absent is text. */
@@ -77,11 +112,12 @@ const CHECKBOX_OPTIONS = [
   { value: 'false', label: 'false' },
 ] as const
 
-/** One declared table field as a bar field. */
-const toBarField = (field: Readonly<Record<string, unknown>>): BarField => {
+/** One declared table field as a bar field, or `undefined` when it offers nothing to compare. */
+const toBarField = (field: Readonly<Record<string, unknown>>): BarField | undefined => {
   const name = String(field['name'])
   const { label: declaredLabel } = field
   const label = typeof declaredLabel === 'string' ? declaredLabel : nameInWords(name)
+  if (field['type'] === 'relationship') return linkBarField(field, name, label)
   const kind = KIND_OF_TYPE.get(String(field['type'])) ?? 'text'
   if (field['type'] === 'checkbox') return { name, label, kind, options: CHECKBOX_OPTIONS }
   const declared = field['options']
@@ -125,7 +161,10 @@ export function filterBarFieldsOf(
   const readable = readableFieldNames(app, table as TableLike, session)
   return (table.fields as ReadonlyArray<Readonly<Record<string, unknown>>>)
     .filter((field) => readable.has(String(field['name'])))
-    .map(toBarField)
+    .flatMap((field) => {
+      const barField = toBarField(field)
+      return barField === undefined ? [] : [barField]
+    })
 }
 
 /**

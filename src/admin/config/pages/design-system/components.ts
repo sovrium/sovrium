@@ -43,6 +43,7 @@ import { designPageHeader } from '../../components/page-header'
 import { sentence } from '../../components/sentence'
 import { DESIGN_GUIDANCE_ENDPOINT, DESIGN_USAGE_ENDPOINT } from '../../system-sources'
 import { SCHEME_DEEP_LINK_SCRIPT, designSystemBreadcrumb } from './chrome'
+import { propsTable, stackedFrame, viewportSlug } from './component-detail-blocks'
 import { componentKindGroups } from './component-kinds'
 import { NAV_ROW_CLASS, NAV_ROW_CURRENT_CLASS, docsNavOverviewRow } from './docs-nav'
 import { MEASURE_XS, caption, kitType, microLabel, sectionHeading } from './sections'
@@ -376,100 +377,6 @@ const guidanceStrip = (): PageComponent =>
     ],
   }) as PageComponent
 
-/**
- * A viewport's stable name, read off its translation key (`…viewport.mobile`
- * → `mobile`), so an id and a test hook never move with the language. The
- * chip's caption is the sibling key `…viewport.mobile375`, one string per
- * language rather than a label and a width glued together.
- */
-const viewportSlug = (labelKey: string): string => labelKey.slice(labelKey.lastIndexOf('.') + 1)
-
-/**
- * One viewport, drawn and headed — the detail page's grammar.
- *
- * The index used a `?viewport=` switcher and the detail page inherited it. A
- * switcher shows one width and hides two, and the question a reader opens a
- * template page with is what it does BETWEEN them: which crumb drops at 768,
- * which control leaves at 375. So all three are drawn, stacked, each headed
- * with the width it is.
- *
- * `overflow-x-auto`, so a frame SCROLLS rather than clipping. A clipped
- * specimen shows the top-left corner of a component and calls it the component.
- *
- * The frame is pinned LEFT rather than centred. Three widths centred inside one
- * column start at three different x positions, so the reader compares them by
- * eye against three different origins — which is the one thing a stack of
- * widths exists to make easy. Sharing an edge is what makes the difference
- * between them readable.
- *
- * ─── THE NUMBER IN THE HEADING IS NOW THE DOCUMENT'S OWN WIDTH ────────────
- *
- * `viewport` re-renders the subject in a document of its own at the stated
- * width, so the subject's `@media` rules answer THAT width. Before it, the
- * three frames were three boxes in one 1440px document: a header declaring
- * `lg:flex` drew its desktop cluster in all three and overflowed the 375 box
- * sideways, which reads as proof the operator's responsive design is broken.
- *
- * Desktop is 1280 EXPLICITLY, not the column it happens to get. The column is
- * ~854px, below Tailwind's `lg`, so a Desktop frame taking its width from the
- * layout would draw the mobile layout under a heading that says 1280 — the
- * same lie the frames were built to remove, one level in.
- *
- * The wrapper keeps the width too, clamped to the column: at 1280 it scrolls
- * to reach the rest of the document rather than shrinking it, because `-240`
- * is the promise that the number in the heading is the number in the frame.
- */
-const stackedFrame = (label: string, width: number): PageComponent =>
-  ({
-    type: 'container',
-    element: 'section',
-    props: {
-      className: 'flex scroll-mt-6 flex-col gap-3',
-      id: `viewport-${viewportSlug(label)}`,
-      'data-design-section': `viewport-${viewportSlug(label)}`,
-    },
-    children: [
-      {
-        type: 'container',
-        element: 'div',
-        props: { className: 'flex flex-wrap items-baseline gap-3' },
-        children: [
-          sectionHeading(label),
-          {
-            type: 'text',
-            element: 'span',
-            props: { className: 'text-muted-foreground font-mono text-[11px]' },
-            content: String(width),
-          },
-        ],
-      },
-      {
-        type: 'container',
-        element: 'div',
-        props: { className: 'border-border bg-background rounded-lg border p-5' },
-        children: [
-          {
-            type: 'container',
-            element: 'div',
-            props: {
-              className: 'overflow-x-auto',
-              'data-design-viewport-frame': viewportSlug(label),
-              style: { width: `${width}px`, maxWidth: '100%' },
-            },
-            children: [
-              {
-                type: 'specimen',
-                subject: { component: '$record.name' },
-                viewport: { width },
-                props: { ...kitType('specimen') },
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  }) as PageComponent
-
 /** One template, in full: header, routes, the three widths, the guidance. */
 const detailBody = (): PageComponent =>
   ({
@@ -482,6 +389,7 @@ const detailBody = (): PageComponent =>
       stackedFrame('$t:admin.ds.viewport.desktop', 1280),
       stackedFrame('$t:admin.ds.viewport.tablet', 768),
       stackedFrame('$t:admin.ds.viewport.mobile', 375),
+      propsTable(),
       guidanceStrip(),
     ],
   }) as PageComponent
@@ -797,7 +705,7 @@ const heading = (title: string): PageComponent => designPageHeader(title)
 const componentsIndex: PageConfig = consolePage({
   id: 'design-system-components',
   path: `/design-system/${SLUG}`,
-  title: TITLE,
+  title: '$t:admin.meta.components',
   description: '$t:admin.ds.components.blurb',
   page: {
     requires: ['components'],
@@ -838,7 +746,7 @@ const componentsIndex: PageConfig = consolePage({
 const componentDetail: PageConfig = consolePage({
   id: 'design-system-component-detail',
   path: `/design-system/${SLUG}/:name`,
-  title: '$t:admin.common.component',
+  title: '$t:admin.meta.component',
   description: '$t:admin.ds.components.detailBlurb',
   page: {
     requires: ['components'],

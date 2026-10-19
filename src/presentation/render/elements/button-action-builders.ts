@@ -22,13 +22,13 @@ import {
   CONFIRM_CANCEL_LABEL_ATTR,
 } from '@/domain/models/app/pages/confirm-gate-labels'
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
+import { confirmWeightAttribute } from '@/presentation/design/confirm-weight'
 import { substituteRecordInInputData } from '@/presentation/render/resolve/record-template-substitution'
 import { buildPendingLabelAttribute } from './button-pending-label'
 import type { CrudFormAction } from './crud-form/crud-form-types'
 import type { RouteParams } from '@/domain/kernel/matching/route-matcher'
 import type { Languages } from '@/domain/models/app/languages'
 import type { FetchAction } from '@/domain/models/app/pages/components/action'
-import type { FillAction } from '@/domain/models/app/pages/components/action-client'
 
 /**
  * Build data attributes for click interactions
@@ -66,7 +66,13 @@ export type AutomationAction = {
   name: string
   await?: boolean
   inputData?: Record<string, unknown>
-  onSuccess?: { toast?: { message?: string; variant?: string }; navigate?: string; close?: boolean }
+  onSuccess?: {
+    toast?: { message?: string; variant?: string }
+    navigate?: string
+    close?: boolean
+    refetch?: string | readonly string[]
+    reload?: boolean
+  }
   onError?: { toast?: { message?: string; variant?: string } }
 }
 
@@ -133,9 +139,11 @@ function outcomeToastAttributes(
 }
 
 /**
- * The `data-on-success-navigate` / `-close` pair of an automation's success:
- * the address with its `$record.*` filled here, from the record the button is
- * drawn for, so the client navigates to the row it was pressed on.
+ * The exits of an automation's success: `data-on-success-navigate` — the
+ * address with its `$record.*` filled here, from the record the button is drawn
+ * for, so the client navigates to the row it was pressed on — `-close`, and the
+ * two same-page refreshes, `-refetch` (the component ids, space-separated) and
+ * `-reload`.
  */
 function successExitAttributes(
   onSuccess: AutomationAction['onSuccess'],
@@ -148,6 +156,10 @@ function successExitAttributes(
         record === undefined ? navigate : substituteRecordVars(navigate, record),
     }),
     ...(onSuccess?.close === true && { 'data-on-success-close': 'true' }),
+    ...(onSuccess?.refetch !== undefined && {
+      'data-on-success-refetch': [onSuccess.refetch].flat().join(' '),
+    }),
+    ...(onSuccess?.reload === true && { 'data-on-success-reload': 'true' }),
   }
 }
 
@@ -171,32 +183,6 @@ export function buildAutomationDataAttributes(
     ...outcomeToastAttributes('success', action.onSuccess?.toast),
     ...outcomeToastAttributes('error', action.onError?.toast),
     ...successExitAttributes(action.onSuccess, record),
-  }
-}
-
-export type AuthButtonAction = {
-  type: 'auth'
-  method: string
-  onSuccess?: { navigate?: string }
-}
-
-/**
- * Returns true if the given action is an auth action (e.g. a logout button).
- */
-export function isAuthAction(action: unknown): action is AuthButtonAction {
-  return (action as { type?: string })?.type === 'auth'
-}
-
-/**
- * Build data attributes for an auth-action button (today: logout). The client
- * runtime reads `data-auth-method` to dispatch the Better Auth call and
- * `data-auth-navigate` for the post-action redirect.
- */
-export function buildAuthDataAttributes(action: AuthButtonAction): Record<string, string> {
-  return {
-    'data-action-type': 'auth',
-    'data-auth-method': action.method,
-    ...(action.onSuccess?.navigate && { 'data-auth-navigate': action.onSuccess.navigate }),
   }
 }
 
@@ -253,38 +239,6 @@ export function buildToastDataAttributes(action: ToastButtonAction): Record<stri
       message: action.message,
       ...(action.variant !== undefined && { variant: action.variant }),
       ...(action.duration !== undefined && { duration: action.duration }),
-    }),
-  }
-}
-
-/** A fill action: writes a value into a form control on the page (`fill-runtime.ts`). */
-export type FillButtonAction = FillAction
-
-/**
- * Returns true if the given action is a fill action
- */
-export function isFillAction(action: unknown): action is FillButtonAction {
-  return (action as { type?: string })?.type === 'fill'
-}
-
-/**
- * The fill a button runs on click, its `value` resolved against the button's
- * record (the row it is drawn in, or the page's bound record) so the client
- * writes text and never sees a `$record.` token. Carried whole in one JSON
- * attribute, like the toast and fetch actions beside it.
- */
-export function buildFillDataAttributes(
-  action: FillButtonAction,
-  record: Readonly<Record<string, unknown>> | undefined
-): Record<string, string> {
-  const value = record === undefined ? action.value : substituteRecordVars(action.value, record)
-  return {
-    'data-action-type': 'fill',
-    'data-action-config': JSON.stringify({
-      target: action.target,
-      value,
-      ...(action.field !== undefined && { field: action.field }),
-      ...(action.mode !== undefined && { mode: action.mode }),
     }),
   }
 }
@@ -370,6 +324,7 @@ export function overlayButtonSchemaFallbacks(
       lang.languages
     ),
     ...buildPendingLabelAttribute(componentRaw['action'], lang),
+    ...confirmWeightAttribute(componentRaw),
   }
 }
 

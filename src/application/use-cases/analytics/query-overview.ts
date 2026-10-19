@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { fillMissingDays } from '@/domain/kernel/time/time-series-bucketing'
 import { AnalyticsRepository } from '../../ports/repositories/analytics/analytics-repository'
 import type {
   AnalyticsQueryParams,
@@ -34,6 +35,32 @@ export interface OverviewResult {
 }
 
 /**
+ * A daily series with a point for every day of the window, so a trend over a
+ * week with one active day reads as a line along zero rather than one dot. An
+ * empty series stays empty (the reader's "nothing recorded" state); hourly,
+ * weekly and monthly series are returned as grouped.
+ */
+const denseDailySeries = (
+  input: QueryOverviewInput,
+  points: readonly TimeSeriesPoint[]
+): readonly TimeSeriesPoint[] =>
+  input.granularity !== 'day'
+    ? points
+    : fillMissingDays({
+        points,
+        dayOf: (point) => point.period,
+        fromIso: input.from.toISOString(),
+        toIso: input.to.toISOString(),
+        // Same key shape as the dialect's own (a bare day, or a day followed by its midnight and offset).
+        emptyPoint: (day, like) => ({
+          period: `${day}${like.period.slice(10)}`,
+          pageViews: 0,
+          uniqueVisitors: 0,
+          sessions: 0,
+        }),
+      })
+
+/**
  * Query analytics overview: summary metrics + time series data.
  */
 export const queryOverview = (
@@ -47,5 +74,5 @@ export const queryOverview = (
       repo.getTimeSeries(input),
     ])
 
-    return { summary, timeSeries }
+    return { summary, timeSeries: denseDailySeries(input, timeSeries) }
   }).pipe(Effect.withSpan('analytics.query-overview'))

@@ -39,6 +39,7 @@ import {
 import { conversationEditRequestSchema } from '@/domain/models/api/ai/conversations'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
 import { currentBranch, pathTo } from '@/domain/models/app/agents/conversation-branch-service'
+import { storedToolCalls } from '@/domain/models/app/agents/stored-tool-call-service'
 import { logError } from '@/infrastructure/logging/logger'
 import {
   provideDomain,
@@ -161,6 +162,12 @@ const replayFor = (
       : []
   )
 
+/** The answer a branch ends on, with one line per call its turn ran. */
+const answerOf = (turn: {
+  readonly answer: string
+  readonly toolCalls: ReturnType<typeof storedToolCalls>
+}) => ({ role: 'assistant' as const, content: turn.answer, toolCalls: turn.toolCalls })
+
 /** Write the new branch, record the turn, and answer with the branch now current. */
 const respondWithBranch = async (
   c: Context,
@@ -170,6 +177,7 @@ const respondWithBranch = async (
     readonly answer: string
     readonly actions: ConversationTurnResponse['actions']
     readonly citations: ConversationTurnResponse['citations']
+    readonly toolCalls: ReturnType<typeof storedToolCalls>
   }
 ): Promise<Response> => {
   const { userId, sessionId } = opened
@@ -181,7 +189,7 @@ const respondWithBranch = async (
         userId,
         sessionId,
         parentId: turn.plan.parentId,
-        messages: [...turn.plan.leading, { role: 'assistant', content: turn.answer }],
+        messages: [...turn.plan.leading, answerOf(turn)],
       })
       const tree = yield* loadConversationTree({ userId, sessionId })
       // The caller's own uploads the messages name, to give each its name and type.
@@ -201,12 +209,13 @@ const respondWithBranch = async (
   }
   await recordChatActivity(services, { action: 'ai.chat.message', actorName: userId })
   const { tree, uploads } = written.success
+  const messages = await runRequestEffect(c, toWireMessages(tree, currentBranch(tree), uploads))
   const body: ConversationTurnResponse = {
     sessionId,
     reply: turn.answer,
     actions: [...turn.actions],
     ...(turn.citations !== undefined && { citations: turn.citations }),
-    messages: [...toWireMessages(tree, currentBranch(tree), uploads)],
+    messages: [...messages],
   }
   return c.json(body, 200)
 }
@@ -255,6 +264,7 @@ const answerBranch = async (
     answer,
     actions: toolResults.length > 0 ? toolTurnActions(toolResults) : [],
     citations: turnCitations(answer, passages),
+    toolCalls: storedToolCalls(toolResults),
   })
 }
 

@@ -8,6 +8,7 @@
 import { Schema } from 'effect'
 import {
   cancelRunResponseSchema,
+  formActionRequestSchema,
   listAutomationApprovalsQuerySchema,
   listAutomationApprovalsResponseSchema,
   listRunsQuerySchema,
@@ -102,18 +103,12 @@ const routes: readonly RouteSpec[] = [
     pathTemplate: '/api/automations/{automationSlug}/form-action',
     summary: 'Trigger an automation form action',
     description:
-      "Runs a manual automation a page component names, under that page's access rule and the trigger's declared role, while it is neither paused nor disabled. A signed-in caller is recorded as the run's starter. Any other automation answers as an unknown name.",
+      "Runs a manual automation a page component names, under that page's access rule and the trigger's declared role, while it is neither paused nor disabled. A signed-in caller is recorded as the run's starter. Any other automation answers as an unknown name. A row action or a record-bound button names the record it was pressed on in `press`: the control's `visibleWhen` and `disabledWhen` are judged on that record, an unknown or unreadable record or a control that does not run this automation answers as an unknown name, and a disabled control answers 409 `ACTION_DISABLED` with its reason. A press with no `press` is not judged by them.",
     operationIdBase: 'triggerAutomationFormAction',
     request: {
       body: {
         content: {
-          'application/json': {
-            schema: effectSchema(
-              Schema.Struct({
-                inputData: Schema.optionalKey(Schema.Unknown),
-              })
-            ),
-          },
+          'application/json': { schema: effectSchema(formActionRequestSchema) },
         },
       },
     },
@@ -121,6 +116,7 @@ const routes: readonly RouteSpec[] = [
       200: effectJsonResponse(triggerResponseSchema, 'Run result'),
       400: errorResponse('Invalid request'),
       404: errorResponse('Automation not found'),
+      409: errorResponse('The pressed control is disabled on this record'),
       500: errorResponse('Internal error'),
     },
   },

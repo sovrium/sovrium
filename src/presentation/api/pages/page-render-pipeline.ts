@@ -57,6 +57,7 @@ import type { HonoAppConfig } from '../../../application/ports/contracts/hono-ap
 import type {
   LoadRowRuleContext,
   PageRenderResult,
+  ReadReaderRows,
   ReadRecordLabels,
   ReadTableAsCaller,
   SignFileUrl,
@@ -158,13 +159,11 @@ export interface PageRequestContext {
    * `detectedLanguage`, because only IT outranks a page's own `meta.lang`.
    */
   readonly urlLanguage?: string
-  /**
-   * The table API's answers for this caller (a grid's table, a record's labels, a
-   * row rule's context). Never supplied by a route: `renderWithCache` attaches them.
-   */
+  /** The table API's answers for this caller; never a route's: `renderWithCache` attaches them. */
   readonly readTableAsCaller?: ReadTableAsCaller
   readonly readRecordLabels?: ReadRecordLabels
   readonly loadRowRuleContext?: LoadRowRuleContext
+  readonly readReaderRows?: ReadReaderRows
   readonly signFileUrl?: SignFileUrl // the `file-preview` signer, attached beside the readers
 }
 

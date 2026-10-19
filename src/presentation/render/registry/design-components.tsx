@@ -40,7 +40,6 @@
  */
 
 import { srgbHex } from '@/domain/kernel/color/color-contrast'
-import { componentFrameHref } from '@/domain/models/app/admin/mount-hrefs'
 import { recipeClassesFor } from '@/presentation/design/component-recipe-defaults'
 import { computeCodeBlockClasses } from '@/presentation/design/typography-default-classes'
 import { CodeCopyButton, CodeCopyStatus } from '@/presentation/render/elements/code-copy-controls'
@@ -51,6 +50,7 @@ import { easingCurveComponent } from './easing-curve-component'
 import { fieldSpecimenComponent } from './field-specimen-component'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import { previewComponent } from './preview-component'
+import { declaredViewportWidth, framedRootProps, specimenFrame } from './specimen-frame'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
 import type { ClassProvenanceEntry } from '@/domain/models/api/admin/design-system/component-types'
 import type { Design } from '@/domain/models/app/design'
@@ -335,80 +335,6 @@ const specimenSubjectName = (drawn: Component): string => {
 }
 
 /**
- * The declared viewport width, when this specimen asked to be re-rendered in a
- * document of its own.
- *
- * Read defensively rather than through the schema type: a renderer is reached
- * by synthesized nodes as well as decoded ones, and a width that is not a
- * positive number draws the ordinary inline specimen rather than a frame of
- * nonsense size.
- */
-const declaredViewportWidth = (component: Component | undefined): number | undefined => {
-  const viewport = (component as { readonly viewport?: unknown } | undefined)?.viewport
-  if (typeof viewport !== 'object' || viewport === null) return undefined
-  const { width } = viewport as { readonly width?: unknown }
-  return typeof width === 'number' && Number.isFinite(width) && width > 0 ? width : undefined
-}
-
-/**
- * The stage of a FRAMED specimen: the subject re-rendered in its own document.
- *
- * ─── WHY AN `<iframe>` AND NOT A NARROWER BOX ──────────────────────────────
- *
- * A `@media` query has exactly one input — the viewport — and nothing inside a
- * document can change it. Drawing the subject into a 375px-wide `div` on the
- * console page narrows the markup while every breakpoint keeps answering the
- * reader's window, so the component squeezes sideways and overflows instead of
- * collapsing to the layout it actually has at 375. A document boundary is the
- * only thing that gives the subject a viewport of its own.
- *
- * ─── THE THREE ATTRIBUTES THAT ARE NOT DECORATION ──────────────────────────
- *
- *  - **`width` as an attribute AND a style, with NO `maxWidth`.** The width IS
- *    the claim: a `maxWidth: '100%'` would shrink a 1280 frame to the console
- *    column and leave the heading above it saying 1280 about a document that is
- *    854. The declared number reaches the document or the frame is a lie. The
- *    enclosing wrapper is what scrolls (`overflow-x-auto`), so nothing is
- *    clipped by letting the frame exceed its column.
- *  - **`title`.** An `<iframe>` is an embedded browsing context and needs an
- *    accessible name; without one a screen-reader user meets three unlabelled
- *    frames in a row.
- *  - **`loading="lazy"`** (eco R2). Not asserted by any criterion, deliberately:
- *    these frames are short and sit above the fold at an ordinary window
- *    height, so "it did not load until scrolled" is unobservable here and a
- *    test for it could not fail.
- *
- * `display: block` removes the inline baseline gap an `<iframe>` otherwise sits
- * on, which would show as a few stray pixels under a frame sized exactly to its
- * content. No `sandbox`: without `allow-same-origin` the frame gets an opaque
- * origin and loses the one property that matters — a same-origin document that
- * can read the console's resolved scheme and size its own frame. With
- * `allow-same-origin allow-scripts` it would be equivalent to no sandbox at
- * all. What actually bounds the document is `frame-ancestors 'self'`, set by
- * the route that serves it.
- *
- * The HEIGHT is not set here. The framed document measures itself and grows its
- * own frame, because it is the only party that knows how tall it is — see
- * `application/use-cases/admin/design-system-component-frame.ts`.
- */
-const frameStyle = (width: number): Record<string, string> => ({
-  width: `${width}px`,
-  display: 'block',
-  border: '0',
-})
-
-const specimenFrame = (name: string, width: number): ReactElement => (
-  <iframe
-    src={componentFrameHref(name)}
-    title={`${name} at ${width}px`}
-    width={width}
-    loading="lazy"
-    data-design-viewport-document={name}
-    style={frameStyle(width)}
-  />
-)
-
-/**
  * The specimen's stage: the subject re-rendered in a frame, or drawn inline.
  *
  * A frame needs a NAME, because the framed document resolves its subject
@@ -444,7 +370,7 @@ const specimenComponent: ComponentRenderer = ({
   const parts = showProvenance && annotations.length === 0 ? [{ part: 'root' }] : annotations
 
   return (
-    <div {...omitInternalMarkers(elementPropsWithSpacing)}>
+    <div {...framedRootProps(omitInternalMarkers(elementPropsWithSpacing), component, drawn)}>
       {specimenStage(component, drawn, renderedChildren)}
       {flag(component, 'showSnippet') && drawn !== undefined ? (
         <div data-code-copy-scope="">

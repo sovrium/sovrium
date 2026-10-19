@@ -112,7 +112,7 @@ export const adminLinkSchema = Schema.Struct({
   ),
   clicks: Schema.Int.annotate({
     description:
-      'Clicks recorded for this link over the last 30 days, counted up to the moment of the read from the analytics event store (one `link_click` event per credited redirect). A rolling window, not a lifetime total: an older click, or one the retention policy has purged, is not counted. Per-link series, referrers and devices are not part of the catalog.',
+      'Clicks recorded for this link from the analytics event store (one `link_click` event per credited redirect), over the window the request names with `from` and `to`, else over the last 30 days up to the moment of the read. A window, not a lifetime total: an older click, or one the retention policy has purged, is not counted. Per-link series, referrers and devices are not part of the catalog.',
   }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   _admin: adminEnvelopeSchema.annotate({ description: 'Canonical admin envelope.' }),
 }).annotate({ identifier: 'AdminLink' })
@@ -145,6 +145,18 @@ export const adminLinksListQuerySchema = Schema.Struct({
         'When true, soft-deleted links are included with `_admin.deletedAt` populated. Default false.',
     })
     .pipe(withDefault(false)),
+  from: optionalField(
+    looseIsoDateTime({
+      description:
+        'Lower bound (inclusive) of the window `clicks` counts over, as ISO 8601. Omitted with `to`, the window is the last 30 days up to the read. It narrows the count only, never which links are listed.',
+    })
+  ),
+  to: optionalField(
+    looseIsoDateTime({
+      description:
+        'Upper bound (exclusive) of the window `clicks` counts over, as ISO 8601; the moment of the read when omitted. Returns 400 when `from` is later than `to`.',
+    })
+  ),
 })
 
 /**

@@ -5,15 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
-import {
-  UserAccessRepository,
-  type UserAccessRow,
-} from '@/application/ports/repositories/auth/user-access-repository'
 import {
   listReadableGrants,
   type ReadableGrant,
 } from '@/application/use-cases/tables/list-readable-grants'
+import {
+  mintUserAccessGrant,
+  type GrantValueRefusal,
+} from '@/application/use-cases/tables/mint-user-access-grant'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
 import {
@@ -28,6 +27,10 @@ import { logError } from '@/infrastructure/logging/logger'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
+import type {
+  UserAccessMinted,
+  UserAccessRow,
+} from '@/application/ports/repositories/auth/user-access-repository'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -45,6 +48,10 @@ import type { Context } from 'hono'
  *   * `table_slug` ∈ `auth.scopeTables`
  *   * `role` ∈ `auth.roles[].name`
  *   * `record_ids` is non-empty
+ *   * `user_id` names an account, and each of `record_ids` a record of the table
+ *
+ * One grant is kept per account, table and role: a mint matching a grant the
+ * account holds joins its records to it (200) instead of storing a second one.
  *
  * Audit columns (`created_at`, `created_by`) are auto-populated.
  *
@@ -187,12 +194,29 @@ export const extractFields = (body: unknown): Record<string, unknown> => {
 }
 
 /**
+ * A mint's answer: 400 naming the field whose value names nothing, 201 with a
+ * created grant, 200 with the grant the records joined. A grant that moved
+ * changes what the account may read: the repository closed its live
+ * subscriptions, which are judged again at the handshake.
+ */
+const respondMintOutcome = (c: Context, outcome: GrantValueRefusal | UserAccessMinted) =>
+  'field' in outcome
+    ? respondValidationError(c, outcome.message, outcome.field)
+    : c.json(
+        decodeOrThrow(userAccessRecordSchema)(toFieldsResponse(outcome.row)),
+        outcome.created ? 201 : 200
+      )
+
+/**
  * POST /api/tables/user_access/records
  *
  * Body shape (matches the canonical record envelope):
  *   { fields: { user_id, table_slug, record_ids, role } }
  *
- * Returns 201 with `{ id, fields: {...} }` on success.
+ * Returns 201 with `{ id, fields: {...} }` when a grant is created, 200 with the
+ * grant the records joined when the account already held one over the table
+ * under that role, and 400 naming `user_id` or `record_ids` when either names
+ * nothing — in which case nothing is stored.
  */
 export async function handleCreateUserAccessRecord(c: Context, app: App): Promise<Response> {
   const session = getSessionContext(c)
@@ -227,26 +251,22 @@ export async function handleCreateUserAccessRecord(c: Context, app: App): Promis
   // After validation, fields are guaranteed to be the right types.
   const validated = fields as unknown as ValidatedRow
   const result = await runUserAccessProgram(
-    Effect.gen(function* () {
-      const repo = yield* UserAccessRepository
-      return yield* repo.insert(
-        {
-          userId: validated.user_id,
-          tableSlug: validated.table_slug,
-          recordIds: validated.record_ids,
-          role: validated.role,
-        },
-        session.userId
-      )
-    })
+    mintUserAccessGrant(
+      app,
+      {
+        userId: validated.user_id,
+        tableSlug: validated.table_slug,
+        recordIds: validated.record_ids,
+        role: validated.role,
+      },
+      session.userId
+    )
   )
 
   if (result._tag === 'Failure') {
     return respondServerError(c, result.failure.cause)
   }
-  // A new grant changes what the account may read: the repository closed its
-  // live subscriptions, which are judged again at the handshake.
-  return c.json(decodeOrThrow(userAccessRecordSchema)(toFieldsResponse(result.success)), 201)
+  return respondMintOutcome(c, result.success)
 }
 
 /** One listing criterion read from the query string, absent when not given. */

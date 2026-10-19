@@ -20,6 +20,7 @@ import {
 } from '@/domain/models/app/automations/actions/instance/engine-version-service'
 import { engineVersionOf, instanceHandler, slugOf } from './instance'
 import { verifiedBundleOf } from './instance-bundle'
+import { starterFileGate } from './starter-file-gate'
 
 /**
  * `instance/apply` — write a signed bundle as a release of a supervised app,
@@ -118,11 +119,12 @@ const releaseEngineOf = (slug: string, revision: string, named: string | undefin
     return { engine, raises: before !== undefined && raisesEngine(current, engine) }
   })
 
-export const handleInstanceApply = instanceHandler('apply', (props) =>
+export const handleInstanceApply = instanceHandler('apply', (props, _action, app, automation) =>
   Effect.gen(function* () {
     const { slug, revision, env, signed, named } = yield* applyPropsOf(props)
     // Nothing touches the host until signature and entries check out; then the socket, the app.
-    const verified = yield* verifiedBundleOf(props['bundle'], signed)
+    const gate = starterFileGate(app, automation)
+    const verified = yield* verifiedBundleOf(props['bundle'], signed, gate)
     const { engine, raises } = yield* releaseEngineOf(slug, revision, named)
     const supervisor = yield* InstanceSupervisor
     const written = yield* supervisor.writeRelease(slug, {

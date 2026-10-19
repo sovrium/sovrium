@@ -5,7 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isFillAction } from '@/presentation/render/elements/button-action-builders'
+import {
+  isFillAction,
+  isSeekAction,
+} from '@/presentation/render/elements/button-page-action-builders'
 import { extractComponentMetaFromSections } from '@/presentation/render/page/extract-component-meta'
 // Island-runtime detection lives in page-island-detection.ts (extracted on main);
 // this file keeps only interactive-runtime detection, which shares the same
@@ -76,13 +79,18 @@ function componentIsVanillaPublisher(record: Record<string, unknown>): boolean {
 }
 
 /**
- * True for an island that hands a `fill` to the vanilla runtime — a list item
- * click (`onRowClick`) or a board drop hook (`drag.onDrop[].action`). The
- * island resolves the value and dispatches `sovrium:fill`; without the runtime
- * on the page nothing listens, and the target may be a bare `textarea`.
+ * True for an island that hands a `fill` or a `seek` to the vanilla runtime —
+ * a list item click (`onRowClick`), a card click (`card.onClick`,
+ * `galleryCard.onClick`) or a board drop hook (`drag.onDrop[].action`). The
+ * island resolves the value and dispatches `sovrium:fill` / `sovrium:seek`;
+ * without the runtime on the page nothing listens, and the target may be a
+ * bare `textarea` or a `video`.
  */
 function componentDispatchesFill(record: Record<string, unknown>): boolean {
-  if (isFillAction(record['onRowClick'])) return true
+  if (isFillAction(record['onRowClick']) || isSeekAction(record['onRowClick'])) return true
+  const cardClick = (key: string): unknown =>
+    (record[key] as { readonly onClick?: unknown } | undefined)?.onClick
+  if (isSeekAction(cardClick('card')) || isSeekAction(cardClick('galleryCard'))) return true
   const onDrop = (record['drag'] as Record<string, unknown> | undefined)?.['onDrop']
   return (
     Array.isArray(onDrop) &&

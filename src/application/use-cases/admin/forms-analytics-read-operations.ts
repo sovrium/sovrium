@@ -37,6 +37,7 @@ import {
   type AdminReadOperation,
 } from '@/application/use-cases/admin/admin-read-operation'
 import { declaredForm, notFound } from '@/application/use-cases/admin/forms-read-decoding'
+import { fillMissingDays } from '@/domain/kernel/time/time-series-bucketing'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import {
   formAnalyticsQuerySchema,
@@ -64,21 +65,34 @@ const submissionDay = (row: AdminFormSubmissionRow): string =>
     .toISOString()
     .slice(0, 10)
 
-/** Submissions per UTC day, ascending; days with no submission are absent. */
+/**
+ * Submissions per UTC day, ascending, one entry for EVERY day of the window
+ * once one submission exists (a quiet day reads `0`, so the trend is a line);
+ * empty when the window holds none.
+ */
 const submissionsPerDay = (
-  rows: ReadonlyArray<AdminFormSubmissionRow>
+  rows: ReadonlyArray<AdminFormSubmissionRow>,
+  window: { readonly since: Readonly<Date>; readonly until: Readonly<Date> }
 ): ReadonlyArray<{ readonly day: string; readonly count: number }> => {
   const counts = rows.reduce<Readonly<Record<string, number>>>((acc, row) => {
     const day = submissionDay(row)
     return { ...acc, [day]: (acc[day] ?? 0) + 1 }
   }, {})
-  return Object.entries(counts)
-    .map(([day, count]) => ({ day, count }))
-    .toSorted((a, b) => a.day.localeCompare(b.day))
+  return fillMissingDays({
+    points: Object.entries(counts).map(([day, count]) => ({ day, count })),
+    dayOf: (point) => point.day,
+    fromIso: window.since.toISOString(),
+    toIso: window.until.toISOString(),
+    emptyPoint: (day) => ({ day, count: 0 }),
+  })
 }
 
 /** The aggregate over the window's rows. */
-const aggregate = (form: Form, rows: ReadonlyArray<AdminFormSubmissionRow>) => {
+const aggregate = (
+  form: Form,
+  rows: ReadonlyArray<AdminFormSubmissionRow>,
+  window: { readonly since: Readonly<Date>; readonly until: Readonly<Date> }
+) => {
   const done = rows.filter((row) => row.status === 'done' || row.status === 'processed').length
   return {
     totalCount: rows.length,
@@ -87,7 +101,7 @@ const aggregate = (form: Form, rows: ReadonlyArray<AdminFormSubmissionRow>) => {
       form.layout === 'multi-step'
         ? (form.steps ?? []).map((step) => ({ stepName: step.id, droppedCount: 0 }))
         : null,
-    submissionsPerDay: submissionsPerDay(rows),
+    submissionsPerDay: submissionsPerDay(rows, window),
     averageCompletionTime: 0,
     attachmentCount: 0,
   }
@@ -148,7 +162,10 @@ const formAnalytics = defineAdminRead<FormAnalyticsRequest>({
       const nowMs = DateTime.toEpochMillis(yield* DateTime.now)
       const since = new Date(nowMs - (WINDOW_MS[window ?? ''] ?? DEFAULT_WINDOW_MS))
       const rows = yield* (yield* AdminFormsRepository).listSubmissionsSince(form.name, since)
-      return answerWithSchema(formAnalyticsResponseSchema, aggregate(form, rows))
+      return answerWithSchema(
+        formAnalyticsResponseSchema,
+        aggregate(form, rows, { since, until: new Date(nowMs) })
+      )
     }),
   audit: {
     action: AUDIT_ACTIONS.FORM_ANALYTICS_QUERIED,

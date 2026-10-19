@@ -118,3 +118,28 @@ export const readSovriumDevClock = (env: Env = process.env): Readonly<Date> | un
  */
 export const serverNow = (env: Env = process.env): Readonly<Date> =>
   readSovriumDevClock(env) ?? new Date()
+
+/**
+ * Where a real instant falls on the development TIMELINE: the stamp a run, a
+ * conversation or a message is written with.
+ *
+ * A timeline must keep the order things happened in, so it cannot answer the
+ * single pinned instant `serverNow` answers — two runs one second apart would
+ * read as simultaneous, and "newest first" would be a coin toss. It advances
+ * instead: the pinned instant plus the real time elapsed since the server
+ * started. Unpinned, the real instant is answered unchanged.
+ *
+ * Only the stamps that order a timeline use this. A `$today` filter or a
+ * formula's `NOW()` must answer one instant for a whole request, so they stay
+ * on {@link serverNow}.
+ *
+ * @param at - the real instant to place.
+ * @param pinned - the pinned instant, or `undefined` when nothing is pinned.
+ * @param bootedAt - the real instant the server started.
+ */
+export const devTimelineInstant = (
+  at: Readonly<Date>,
+  pinned: Readonly<Date> | undefined,
+  bootedAt: Readonly<Date>
+): Readonly<Date> =>
+  pinned === undefined ? at : new Date(pinned.getTime() + (at.getTime() - bootedAt.getTime()))

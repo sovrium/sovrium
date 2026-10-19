@@ -8,6 +8,7 @@
 import { Effect, Layer } from 'effect'
 import { ServerFactory } from '@/application/ports/services/server-factory'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
+import { holdDegradedListener } from '@/infrastructure/server/degraded-listener'
 import { createRenderApp } from '@/infrastructure/server/render-app'
 import {
   runDatabaseStartup,
@@ -46,6 +47,7 @@ export const ServerFactoryLive = Layer.effect(
         authoredTableIds: options?.authoredTableIds,
       }).pipe(Effect.map((phases) => ({ phases }))),
     runDeferredMaintenance: (app) => runDeferredStartupMaintenance(app),
+    hold: (config) => holdDegradedListener(config),
     // No socket, no banner, neither boot chain — see `createRenderApp`. The
     // config arrives already narrowed to what a render reads, so this adapter
     // forwards it rather than having anything to strip out.

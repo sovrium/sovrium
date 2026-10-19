@@ -13,6 +13,7 @@ import type {
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
+import type { CallerFieldReader } from '@/domain/models/app/tables/field-read-filter-service'
 
 /**
  * Hono app configuration for route setup
@@ -86,6 +87,10 @@ export interface HonoAppConfig {
        * session does not.
        */
       readonly callerCapabilities?: readonly CallerCapability[]
+      /** The mounted console caller's role and groups, for her record sheet's field access only: see the port (`page-renderer.ts`). */
+      readonly callerFieldReader?: CallerFieldReader | undefined
+      /** A design-system specimen, drawn on sample readers: see the port (`page-renderer.ts`). */
+      readonly specimen?: boolean
     }
   ) => PageRenderResult | Promise<PageRenderResult>
   readonly renderNotFoundPage: (

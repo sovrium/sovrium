@@ -25,9 +25,11 @@
 // block's field group lists every way an app may offer (social buttons,
 // passkey, magic link, single sign-on, sign-up), each gated on what the app
 // declares; the console's field group is its own: Sovrium Cloud, the "or"
-// separator, the email form (`#admin-login-form`) and the reset link. The
-// console has no magic-link, SSO or sign-up page of its own, so those rows
-// would link to nothing under its base.
+// separator and the email form (`#admin-login-form`). The form draws its own
+// "Forgot your password?" in the Password label row, because the console serves
+// a password-reset request page (`/forgot-password`); without outgoing mail that
+// page is dropped and the link with it. The console has no magic-link, SSO or
+// sign-up page of its own, so those rows would link to nothing under its base.
 //
 // PATHS ARE MOUNT-RELATIVE (`/`, `/forgot-password`): the mount primitive
 // prefixes them with the console's base at render time. The root carries
@@ -154,7 +156,11 @@ export const loginCopy = {
                       type: 'flex',
                       props: {
                         'data-slot': 'field',
-                        className: 'flex flex-col gap-3 [&_button]:w-full',
+                        // Empty when the instance offers no Sovrium Cloud
+                        // sign-in: the field then leaves the column, and the
+                        // "or" separator below with it — a separator with
+                        // nothing above it divides nothing.
+                        className: 'flex flex-col gap-3 empty:hidden [&_button]:w-full',
                       },
                       children: [
                         {
@@ -179,7 +185,8 @@ export const loginCopy = {
                       type: 'flex',
                       props: {
                         'data-slot': 'field-separator',
-                        className: 'flex h-5 items-center gap-2 text-sm text-muted-foreground',
+                        className:
+                          'flex h-5 items-center gap-2 text-sm text-muted-foreground [[data-slot=field]:empty+&]:hidden',
                       },
                       children: [
                         {
@@ -231,14 +238,6 @@ export const loginCopy = {
                       props: {
                         id: 'admin-login-form',
                       },
-                    },
-                    {
-                      type: 'link',
-                      props: {
-                        href: '/forgot-password',
-                        className: 'self-end text-sm underline-offset-4 hover:underline',
-                      },
-                      content: '$t:admin.login.forgotLink',
                     },
                   ],
                 },

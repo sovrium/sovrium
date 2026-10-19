@@ -25,9 +25,10 @@ const withRecorderLabel = (
 
 /**
  * A field with the words the page draws around its control in the page
- * language: the Record button (above), a drop zone's prompt (`form.dropFiles`)
- * and a user picker's empty choice when the field declares no placeholder
- * (`form.selectUser`). Any other field comes back unchanged.
+ * language: the Record button (above), a drop zone's prompt (`form.dropFiles`),
+ * a user picker's empty choice when the field declares no placeholder
+ * (`form.selectUser`), and a date picker's calendar button and calendar
+ * (`datePicker.pick`, `datePicker.choose`). Any other field comes back unchanged.
  */
 export const withFieldEngineWords = (
   field: ResolvedFormField,
@@ -41,5 +42,9 @@ export const withFieldEngineWords = (
     ...(field.dropZone === true && { dropZoneLabel: word('form.dropFiles') }),
     ...(field.inputElement === 'user' &&
       field.placeholder === '' && { placeholder: word('form.selectUser') }),
+    ...(field.inputElement === 'date' && {
+      pickDateLabel: word('datePicker.pick'),
+      chooseDateLabel: word('datePicker.choose'),
+    }),
   }
 }

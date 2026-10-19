@@ -25,6 +25,10 @@ import {
   defineAdminRead,
   type AdminReadOperation,
 } from '@/application/use-cases/admin/admin-read-operation'
+import {
+  consoleLabels,
+  resolveOperatorLanguage,
+} from '@/application/use-cases/admin/operator-language'
 import { adminGroupsResponseSchema } from '@/domain/models/api/admin/users/groups'
 
 const groupsList = defineAdminRead<undefined>({
@@ -53,14 +57,17 @@ const groupsList = defineAdminRead<undefined>({
   subject: 'groups list',
   decode: () => ({ _tag: 'Ok', input: undefined }),
   // No admin audit event: a projection of configuration, like the roles read.
-  read: (app) =>
-    Effect.sync(() => {
+  // Each label is phrased in the operator's console language.
+  read: (app, _input, request) =>
+    Effect.gen(function* () {
+      const labels = consoleLabels(app, yield* resolveOperatorLanguage(request))
       const groups = (app.auth?.groups ?? [])
-        .map((group) =>
-          group.description === undefined
-            ? { name: group.name }
-            : { name: group.name, description: group.description }
-        )
+        .map((group) => {
+          const label = labels.group(group.name)
+          return group.description === undefined
+            ? { name: group.name, label }
+            : { name: group.name, label, description: group.description }
+        })
         .toSorted((a, b) => a.name.localeCompare(b.name))
       return answerWithSchema(adminGroupsResponseSchema, { groups, total: groups.length })
     }),

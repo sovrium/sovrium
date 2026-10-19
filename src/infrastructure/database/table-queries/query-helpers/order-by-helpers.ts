@@ -87,32 +87,45 @@ function buildSingleSelectCaseExpression(
   return sql`CASE ${caseWhen} END ${sql.raw(direction)} NULLS LAST`
 }
 
+/** Where one sort segment is resolved: the app's option orders, and the case-folded fields. */
+interface SortContext {
+  readonly app?: OrderByAppView
+  readonly tableName?: string
+  readonly caseFolded?: readonly string[]
+}
+
+/** The declared option order of `field` when it is a single-select with options. */
+function singleSelectOptions(field: string, context: SortContext): readonly string[] | undefined {
+  if (!context.app || !context.tableName) return undefined
+  const fieldDef = findFieldDefinition(context.app, context.tableName, field)
+  return fieldDef?.type === 'single-select' && fieldDef.options && fieldDef.options.length > 0
+    ? fieldDef.options
+    : undefined
+}
+
 /**
  * Build sort clause for a single field
  */
 function buildSortClause(
   field: string,
   direction: string | undefined,
-  app?: OrderByAppView,
-  tableName?: string
+  context: SortContext
 ): Readonly<SQL> {
   validateColumnName(field)
   const dir = direction?.toLowerCase() === 'desc' ? 'DESC' : 'ASC'
 
-  // Check if this is a single-select field with options
-  if (app && tableName) {
-    const fieldDef = findFieldDefinition(app, tableName, field)
+  const options = singleSelectOptions(field, context)
+  if (options !== undefined) return buildSingleSelectCaseExpression(field, options, dir)
 
-    if (fieldDef?.type === 'single-select' && fieldDef.options && fieldDef.options.length > 0) {
-      return buildSingleSelectCaseExpression(field, fieldDef.options, dir)
-    }
-  }
-
+  // A text field sorts by the alphabet whatever the capitals. Folded with
+  // `lower()` explicitly, so the order never rests on how either engine — or
+  // a given PostgreSQL install — collates text by default.
+  const key = context.caseFolded?.includes(field) === true ? `lower("${field}")` : `"${field}"`
   // An empty value sorts last in both directions, on both engines: PostgreSQL
   // defaults NULL to last ascending and first descending, SQLite the reverse,
   // and SQLite (since 3.30) honours the same explicit clause.
   // sql-literal: identifier -- `field` passed validateColumnName; `dir` is ASC or DESC
-  return sql.raw(`"${field}" ${dir} NULLS LAST`)
+  return sql.raw(`${key} ${dir} NULLS LAST`)
 }
 
 /**
@@ -220,22 +233,27 @@ export const defaultOrderKeys = (primaryKey?: OrderByPrimaryKey): readonly strin
  * @param sort - Sort parameter (e.g., 'field:asc' or 'field:desc')
  * @param app - Optional App config for single-select field option ordering
  * @param tableName - Optional table name for single-select field lookups
- * @param primaryKey - Optional declared primary key of `tableName`, used only
- *   to resolve the DEFAULT sort key. Omit it and the default stays `id`.
+ * @param keys.primaryKey - Optional declared primary key of `tableName`, used
+ *   only to resolve the DEFAULT sort key. Omit it and the default stays `id`.
+ * @param keys.caseFolded - The text fields of `tableName`, sorted ignoring case.
  */
 export function buildOrderByClause(
   sort?: string,
   app?: OrderByAppView,
   tableName?: string,
-  primaryKey?: OrderByPrimaryKey
+  keys: {
+    readonly primaryKey?: OrderByPrimaryKey
+    readonly caseFolded?: readonly string[]
+  } = {}
 ): Readonly<ReturnType<typeof sql.raw>> {
+  const { primaryKey, caseFolded } = keys
   // sql-literal: identifier -- primary-key field names from the table's own schema
   if (!sort) return sql.raw(defaultOrderByClause(primaryKey))
 
   const sortParts = sort.split(',').map((part) => part.trim())
   const orderClauses = sortParts.flatMap((part) => {
     const [field, direction] = part.split(':')
-    return field ? [buildSortClause(field, direction, app, tableName)] : []
+    return field ? [buildSortClause(field, direction, { app, tableName, caseFolded })] : []
   })
 
   return orderClauses.length > 0

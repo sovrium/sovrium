@@ -12,6 +12,10 @@ export default {
   'admin.ds.kind.dataViews': 'Vues de données',
   'admin.ds.kind.navigation': 'Navigation',
   'admin.ds.kind.sections': 'Sections de page',
+  'admin.ds.components.props': 'Props',
+  'admin.ds.components.prop': 'Prop',
+  'admin.ds.components.sample': 'Exemple',
+  'admin.ds.components.noProps': 'Ce modèle ne lit aucune variable.',
   'admin.ds.components.copyRef': 'Copier le $ref',
   'admin.ds.components.unused': 'Déclaré, et intégré par aucune page pour l’instant.',
   'admin.ds.viewport.desktop': 'Ordinateur',
@@ -72,6 +76,8 @@ export default {
   'admin.ds.found.muted': 'Atténué',
   'admin.ds.found.noBreakpoint': 'Aucun point de rupture publié.',
   'admin.ds.found.outsideSrgb': 'Hors sRGB — pas d’hexadécimal fidèle',
+  'admin.ds.found.darkFromPlatform': 'Valeur sombre par défaut de la plateforme',
+  'admin.ds.found.darkKeptLight': 'Reprise du clair',
   'admin.ds.found.platformLadder': 'Échelle de la plateforme, en vigueur',
   'admin.ds.found.mutedDesc': 'Présent, lisible, et clairement pas l’élément à cliquer.',
   'admin.ds.found.primary': 'Principal',
@@ -95,20 +101,21 @@ export default {
   'admin.ds.overview.engineTypes':
     'Chaque type de composant que le moteur dessine est documenté dans le binaire : ',
   'admin.ds.share.terminal': 'Depuis le terminal',
-  'admin.ds.overview.invoices': 'Factures',
   'admin.ds.share.keepPrivate': 'Le garder privé',
   'admin.ds.share.keep': 'Le garder',
   'admin.ds.share.brief': 'Brief Markdown',
+  'admin.ds.share.bundle': 'Bundle complet',
+  'admin.ds.share.stylesheet': 'Feuille de style du thème',
   'admin.ds.share.none': 'Aucun lien actif pour l’instant.',
   'admin.ds.share.publishConfirm': 'Publier ce système de design ?',
-  'admin.ds.overview.fact': 'Se lit comme un fait, pas comme une promesse.',
+  'admin.ds.overview.voiceUndeclared':
+    'Rien à citer pour l’instant : cette voix ne déclare ni tournure préférée ni personnalité.',
   'admin.ds.share.revokeConfirm': 'Révoquer ce lien ?',
   'admin.ds.overview.foundations':
     'Sept propriétés — couleur, typographie, espacement, forme, élévation, mouvement, points de rupture — chacune montrée par les composants qu’elle fait varier.',
   'admin.ds.share.created':
     'Lien de partage créé — l’adresse ci-dessous n’est affichée qu’une fois.',
   'admin.ds.share.revoked': 'Lien de partage révoqué.',
-  'admin.ds.overview.specimenTitle': 'Sovrium — Système de design',
   'admin.ds.share.revokeFailed':
     'Le lien n’a pas été révoqué et reste actif. Réessaie, ou consulte le journal du serveur.',
   'admin.ds.overview.brand':
@@ -116,21 +123,17 @@ export default {
   'admin.ds.overview.voice': 'Les phrases que cette app écrit, et la raison donnée pour chacune.',
   'admin.ds.share.tokens': 'Document de tokens',
   'admin.ds.share.blurb':
-    'Deux documents sortent ce système de la console : un brief Markdown, lu par une personne ou un agent, et un document de tokens, lu par une étape de build. Les deux se lisent avec une session admin, depuis le terminal, ou — par n’importe qui — via un lien de partage actif. Un lien de partage n’est pas référencé, ne demande aucun compte et se révoque ici.',
+    'Emporte ce système dans un outil de design ou une IA. Le bundle complet se télécharge en une fois : les tokens en clair et en sombre, les variables CSS, un kit de composants rendu, et un dossier prêt pour Claude Design, Figma, Tokens Studio, Penpot et Style Dictionary. Le brief, le document de tokens et la feuille de style en sont les pièces, un fichier à la fois. Tout se lit avec une session admin ou depuis le terminal. Via un lien de partage actif, n’importe qui peut lire le système et télécharger le bundle. Un lien de partage n’est pas référencé, ne demande aucun compte et se révoque ici.',
+  'admin.ds.share.blurbReadOnly':
+    'Emporte ce système dans un outil de design ou une IA. Le bundle complet se télécharge en une fois : les tokens en clair et en sombre, les variables CSS, un kit de composants rendu, et un dossier prêt pour Claude Design, Figma, Tokens Studio, Penpot et Style Dictionary. Le brief, le document de tokens et la feuille de style en sont les pièces, un fichier à la fois. Tout se lit avec une session admin ou depuis le terminal. Via un lien de partage actif, n’importe qui peut lire le système et télécharger le bundle. Un lien de partage n’est pas référencé et ne demande aucun compte. Seul un rôle autorisé à faire des changements crée ou révoque un lien de partage.',
   'admin.ds.overview.declared': 'Ce que tu as déclaré',
   'admin.ds.overview.components':
     'Tes propres compositions réutilisables, dessinées seules à côté des consignes écrites avec elles.',
   'admin.ds.notConfigured': 'Non configuré',
   'admin.ds.onThisPage': 'Sur cette page',
   'admin.ds.voice.avoid': 'À éviter',
-  'admin.ds.voice.practice': 'En pratique',
   'admin.ds.voice.noZone': 'Aucune zone déclarée. Cette app se lit dans un seul registre.',
   'admin.ds.voice.principles': 'Principes',
-  'admin.ds.voice.claim': 'Se lit comme une promesse',
-  'admin.ds.voice.fact': 'Se lit comme un fait',
-  'admin.ds.voice.claimExample':
-    'Sovrium est la plateforme de configuration la plus puissante du moment.',
-  'admin.ds.voice.factExample': 'Sovrium fait tourner l’application. Sur ta propre infrastructure.',
   'admin.ds.voice.blurb':
     'Les règles qu’un rédacteur suit ici : ce que cette app pense, comment elle s’adresse au lecteur, et ce qu’elle refuse de dire.',
   'admin.ds.voice.toneByMoment': 'Ton selon le moment',
@@ -139,6 +142,7 @@ export default {
   'admin.ds.voice.zoneAvoids': 'La zone évite',
   'admin.ds.voice.zonePrefers': 'La zone préfère',
   'admin.ds.voice.zoneTone': 'Ton de la zone',
+  'admin.ds.viewport.shownAt': 'affiché à',
   'admin.ds.viewport.note':
     'Une largeur, et seulement une largeur. Les variantes responsives répondent à la fenêtre du navigateur et non à ce cadre, donc un spécimen étroit défile horizontalement au lieu de passer en mise en page mobile. Rien n’est coupé, et rien ici ne prouve qu’une mise en page est cassée.',
   'admin.ds.brand.minWidthHint':
@@ -148,11 +152,11 @@ export default {
   'admin.ds.brand.clearSpaceNote':
     'Le bord en pointillé est la zone de protection : déclarée comme clearSpace et laissée libre de tout autre élément. minWidth 96px est la plus petite largeur à laquelle le logo peut être reproduit avant que ses contreformes ne se referment.',
   'admin.ds.share.publishMessage':
-    'Le lien publie plus que tes couleurs et ta typographie : tes principes, ta voix et son ton, les rôles de tes couleurs et tes consignes de composants deviennent lisibles par quiconque a le lien, sans compte. Il n’est pas référencé et reste révocable, mais il n’est pas privé.',
+    'Le lien publie plus que tes couleurs et ta typographie : tes principes, ta voix et son ton, les rôles de tes couleurs et tes consignes de composants deviennent lisibles par quiconque a le lien, sans compte. Cette personne peut aussi télécharger tout le système de design en une archive, avec ces consignes et un kit de composants rendu, et la garder. Révoquer le lien arrête les nouveaux téléchargements, mais ne rappelle pas une copie déjà prise. Rien de secret n’y figure : aucune valeur d’environnement, aucun enregistrement, aucun compte. Le lien n’est pas référencé et reste révocable, mais il n’est pas privé.',
   'admin.ds.found.paragraph':
     'Portez ce vieux whisky au juge blond qui fume, et continuez assez longtemps pour montrer comment cette police compose un paragraphe.',
   'admin.ds.found.noDark':
-    'Cette app ne déclare aucune couleur sombre, donc ces valeurs viennent de la cascade de la plateforme et ne peuvent pas être mesurées ici. Déclare design.darkColors pour publier des valeurs sombres et leur contraste.',
+    'Cette app ne déclare aucune couleur sombre : chacune garde sa valeur claire ou reprend la valeur sombre par défaut de la plateforme, affichée et mesurée ci-dessous. Déclare design.darkColors pour choisir les tiennes.',
   'admin.ds.components.emptyBody':
     'Cette app ne déclare aucun composant réutilisable. Déclares-en un sous la clé components de ta config et intègre-le par son nom depuis une page ; il apparaît ici, seul, dès que tu le fais.',
   'admin.ds.found.noSpacing':
@@ -171,9 +175,8 @@ export default {
     'Cette app n’enregistre rien sur l’usage de ses couleurs, donc chaque rôle prend celui de la plateforme et rien ne dit sur quel fond il a été conçu.',
   'admin.ds.declare': 'Déclare',
   'admin.ds.found.on': 'sur',
-  'admin.ds.found.copyHex': 'Copier la valeur hex',
-  'admin.ds.found.copyValue': 'Copier la valeur déclarée',
-  'admin.ds.found.copyShort': 'copier',
+  'admin.ds.found.copyHex': 'Copier la valeur hex de',
+  'admin.ds.found.copyValue': 'Copier la valeur déclarée de',
   'admin.ds.tpl.shell.usage': 'Enveloppe chaque page d’admin avec lui, via le shell.',
   'admin.ds.tpl.shell.when':
     'Quand une page a sa place dans l’arbre de navigation — c’est-à-dire toutes.',

@@ -27,6 +27,7 @@ import {
   validateMultiSelectOptions,
   validateMultiSelectSelectionLimits,
   validateRelationshipLinkLimits,
+  validateSingleSelectOptions,
 } from '@/presentation/api/tables/validation'
 import type {
   RecordFieldValue,
@@ -247,6 +248,7 @@ export async function validateBulkFieldValues(
     records,
     (record) =>
       Effect.gen(function* () {
+        yield* validateSingleSelectOptions(record.fields)
         yield* validateMultiSelectOptions(record.fields)
         yield* validateMultiSelectSelectionLimits(record.fields)
         yield* validateRelationshipLinkLimits(record.fields)

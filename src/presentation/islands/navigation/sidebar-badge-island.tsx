@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { computeSidebarEntryBadgeClasses } from '@/presentation/design/sidebar-menu-default-classes'
+import { fetchCoalesced } from '../runtime/coalesced-read'
 import { applyDestructiveCount } from './sidebar-collapsible-count'
 import type { ReactElement } from 'react'
 
@@ -72,14 +73,15 @@ function readPath(body: unknown, path: string): number | undefined {
  * Never throws and never surfaces an error state: a badge that cannot be read
  * renders nothing, leaving the entry exactly as the server drew it. A nav entry
  * is navigation first, and a failed count must not take it down.
- * `credentials: 'include'` so an admin read endpoint authorizes the request.
+ *
+ * Coalesced, because a sidebar commonly carries several badges reading ONE
+ * envelope at different paths — the console's attention counts are three — and
+ * they all mount in the same commit. Each keeps its own path; they share the
+ * one request in flight. Credentialed, so an admin read endpoint authorizes it.
  */
 async function fetchCount(endpoint: string, valuePath: string): Promise<number | undefined> {
   try {
-    const response = await fetch(endpoint, {
-      credentials: 'include',
-      headers: { Accept: 'application/json' },
-    })
+    const response = await fetchCoalesced(endpoint)
     if (!response.ok) return undefined
     return readPath(await response.json(), valuePath)
   } catch {

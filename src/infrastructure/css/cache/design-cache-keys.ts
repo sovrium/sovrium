@@ -36,6 +36,10 @@
  * the same bytes and should share a cache entry. They are excluded because they
  * are inert HERE, not because they are unimportant; if one of them ever grows
  * an emitter, it belongs in the list.
+ *
+ * `codeBlock` is excluded for the same reason: it is deprecated and ignored,
+ * every app draws the same code-block stylesheet, so a config naming it must
+ * share the cache entry of one that does not.
  */
 
 import type { Design } from '@/domain/models/app/design'
@@ -60,7 +64,6 @@ export const CSS_BEARING_DESIGN_KEYS = [
   'breakpoints',
   'density',
   'baseline',
-  'codeBlock',
   'components',
 ] as const satisfies readonly (keyof Design)[]
 

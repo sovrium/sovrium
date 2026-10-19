@@ -12,6 +12,7 @@ import {
   type AssetResolver,
 } from '@/application/ports/services/document-renderer'
 import { isRecord, type Raw } from '@/domain/kernel/config-parsing/plain-object'
+import { CALLER_REFUSAL } from './record-caller-gate'
 import { authoredActionProps, resolveOwnProp } from './run-context-resolution'
 import type { ActionOutcome, ActionRunContext } from './shared'
 
@@ -78,8 +79,14 @@ export const documentAssetResolver: Effect.Effect<AssetResolver> = Effect.gen(fu
   }
 }).pipe(Effect.withSpan('automations.document-asset-resolver'))
 
-/** A typed failure, as the step's error: every failure here carries a readable `message`. */
+/**
+ * A typed failure, as the step's error: every failure here carries a readable
+ * `message`. A starter's refusal is the records API's answer, word for word.
+ */
 export const failureOf = (operation: string, error: unknown): ActionOutcome => {
+  if (isRecord(error) && error['callerRefused'] === true) {
+    return { status: 'failure', error: CALLER_REFUSAL }
+  }
   const message =
     isRecord(error) && typeof error['message'] === 'string' ? error['message'] : String(error)
   return { status: 'failure', error: `${operation}: ${message}`, retryable: false }

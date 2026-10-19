@@ -5,9 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { coerceFieldValue, isComputedFieldType } from '../../runtime/field-value-coercion'
+import { useCallback, useContext, useEffect, useRef, useState } from 'react'
+import {
+  coerceFieldValue,
+  coercionWordsFrom,
+  isComputedFieldType,
+  type CoercionWords,
+} from '../../runtime/field-value-coercion'
 import { cursorOfCell, rectangleBetween, type GridCursor } from './grid-cursor-model'
+import { GridStringsContext } from './grid-strings'
 import type { DataTableGridColumn, DataTableRow } from './table-features'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 import type { CellCommit } from '../data-row-types'
@@ -60,6 +66,8 @@ export interface FillHandleParams {
   /** The display name a refusal names the column by. */
   readonly labelOf: (field: string) => string
   readonly onCellCommit: CellCommit | undefined
+  /** How a refusal is worded in the page language; English when absent. */
+  readonly refusalWords?: CoercionWords
 }
 
 const rowIdOf = (row: DataTableRow): string => String(row.original.id ?? row.id)
@@ -115,7 +123,7 @@ function commitFill(
   targetColumnIds: readonly string[],
   params: FillHandleParams
 ): readonly string[] {
-  const { rows, leafColumns, fieldMeta, labelOf, onCellCommit } = params
+  const { rows, leafColumns, fieldMeta, labelOf, onCellCommit, refusalWords } = params
   const sourceColumn = leafColumns.find((column) => column.id === source.columnId)
   const sourceField = sourceColumn?.columnDef.meta?.field
   const sourceRow = rows.find((row) => rowIdOf(row) === source.rowId)
@@ -128,7 +136,12 @@ function commitFill(
     // A read-only or computed column in the middle of a drag is SKIPPED, not
     // refused: the reader did not ask to write it, the drag merely crossed it.
     if (field === undefined || !canFillFrom(column, fieldMeta)) return []
-    const coerced = coerceFieldValue(sourceValue, fieldMeta?.[field]?.type, labelOf(field))
+    const coerced = coerceFieldValue(
+      sourceValue,
+      fieldMeta?.[field]?.type,
+      labelOf(field),
+      refusalWords
+    )
     if (!coerced.ok) return [coerced.reason]
     targetRowIds
       .filter((rowId) => rowId !== source.rowId || columnId !== source.columnId)
@@ -189,8 +202,13 @@ function useFillDragListeners(params: {
 export function useFillHandle(params: FillHandleParams) {
   const [drag, setDrag] = useState<FillDrag | undefined>(undefined)
   const [refusals, setRefusals] = useState<readonly string[]>([])
-  const paramsRef = useRef(params)
-  paramsRef.current = params
+  const strings = useContext(GridStringsContext)
+  const withWords: FillHandleParams = {
+    ...params,
+    refusalWords: coercionWordsFrom(strings),
+  }
+  const paramsRef = useRef(withWords)
+  paramsRef.current = withWords
   const dragRef = useRef<FillDrag | undefined>(drag)
   dragRef.current = drag
 

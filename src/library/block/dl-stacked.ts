@@ -27,7 +27,7 @@ export const entry = defineLibraryEntry({
     'Five short facts about one record, each term above its value, flowing as a responsive grid.',
   notes: [
     'No shadcn counterpart: shadcn/ui has no description-list component; this block draws the `description-list` type in shadcn/ui’s roles — muted terms, medium-weight values.',
-    'Place it on a page that shows one record — a path ending in `/:id` and `dataSource: { table: <your table>, mode: single, param: id }` on the page. Each detail is that record’s field drawn by its type, and an empty one reads "Not set".',
+    'Place it on a page that shows one record — a path ending in `/:id` and `dataSource: { table: <your table>, mode: single, param: id }` on the page. Each detail is that record’s field drawn by its type, and an empty one reads as a muted em dash.',
     PLACE_NOTE,
     THEME_NOTE,
   ],

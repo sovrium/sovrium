@@ -5,6 +5,7 @@
 # contact, and one assistant answers across all of it. This is the file you
 # diff, fork and redeploy — no per-module licence, no integration glue.
 name: orrin-os
+displayName: Orrin OS
 version: 2.0.0
 description: >-
   A small company's operations in one app: a sales pipeline, delivery projects

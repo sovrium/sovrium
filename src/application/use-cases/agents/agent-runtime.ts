@@ -33,7 +33,7 @@
  * never leaves half a write; the caller that interrupted ends its own stream.
  */
 
-import { Effect, Stream } from 'effect'
+import { Effect, Ref, Stream } from 'effect'
 import { AgentGuard } from '@/application/ports/services/agent-guard'
 import { logError } from '@/infrastructure/logging/logger'
 import { bufferedStep, streamedStep, type StepItem } from './agent-model-step'
@@ -172,33 +172,46 @@ const notRun = (call: ChatToolCall): AgentToolResult => ({
 const pauses = (result: AgentToolResult): boolean =>
   result.outcome === 'pending-approval' || result.outcome === 'pending-input'
 
+/** The step a call belongs to: the conversation up to its calls, and the model calls left. */
+interface StepCalls {
+  readonly messages: ReadonlyArray<ChatMessage>
+  readonly remainingSteps: number
+}
+
 /**
- * Resolve a step's calls one at a time, in the order the model made them. Once
- * a call is held for approval, or asks the person a question, the rest of the
- * step does not run.
+ * A step's calls as events, one at a time, in the order the model made them:
+ * each `tool_call` streams BEFORE its call runs, so a reader sees it running,
+ * then its `tool_result`. Once a call is held for approval, or asks the person
+ * a question, the rest of the step does not run. Each result joins `resolved`.
  */
-const resolveCalls = <R>(
+const callEvents = <R>(
   spec: AgentTurnSpec<R>,
   calls: ReadonlyArray<ChatToolCall>,
-  messages: ReadonlyArray<ChatMessage>,
-  remainingSteps: number
-): Effect.Effect<ReadonlyArray<AgentToolResult>, never, R | AgentToolRequirements> =>
-  Effect.reduce(
-    calls,
-    (): ReadonlyArray<AgentToolResult> => [],
-    (results, call) =>
-      results.some(pauses)
-        ? Effect.succeed([...results, notRun(call)])
-        : Effect.map(
-            executeAgentToolCall(call, spec, {
-              // What a held call resumes with: the conversation, plus the
-              // results of the calls of this step that ran before it.
-              messages: [...messages, ...results.map(toolMessage)],
-              tools: spec.toolDefinitions,
-              remainingSteps,
-            }),
-            (result) => [...results, result]
+  step: StepCalls,
+  resolved: Ref.Ref<ReadonlyArray<AgentToolResult>>
+): Stream.Stream<AgentTurnEvent, never, R | AgentToolRequirements> =>
+  Stream.fromIterable(calls).pipe(
+    Stream.flatMap((call) =>
+      Stream.concat(
+        Stream.succeed<AgentTurnEvent>({ type: 'tool_call', ...call }),
+        Stream.fromEffect(
+          Ref.get(resolved).pipe(
+            Effect.flatMap((earlier) =>
+              earlier.some(pauses)
+                ? Effect.succeed(notRun(call))
+                : // A held call resumes with the conversation plus the step's earlier results.
+                  executeAgentToolCall(call, spec, {
+                    messages: [...step.messages, ...earlier.map(toolMessage)],
+                    tools: spec.toolDefinitions,
+                    remainingSteps: step.remainingSteps,
+                  })
+            ),
+            Effect.tap((result) => Ref.update(resolved, (earlier) => [...earlier, result])),
+            Effect.map((result): AgentTurnEvent => ({ type: 'tool_result', ...result }))
           )
+        )
+      )
+    )
   )
 
 const toolMessage = (result: AgentToolResult): ChatMessage => ({
@@ -237,25 +250,22 @@ const afterReply = <R>(
         ...state.messages,
         { role: 'assistant', content: reply.content, toolCalls: calls },
       ]
-      const results = yield* resolveCalls(spec, calls, messages, spec.maxSteps - state.step)
-      const events: ReadonlyArray<AgentTurnEvent> = calls.flatMap((call, index) => {
-        const result = results[index] ?? notRun(call)
-        return [
-          { type: 'tool_call' as const, id: call.id, name: call.name, arguments: call.arguments },
-          { type: 'tool_result' as const, ...result },
-        ]
-      })
-      const paused = results.some(pauses)
-      const allDenied = results.every((result) => result.outcome === 'denied')
-      const rest: Stream.Stream<AgentTurnEvent, AiError, R | AgentTurnRequirements> =
-        paused || allDenied
-          ? Stream.succeed(done(reply, 'stop', { usage, step: state.step }))
-          : runStep(spec, {
-              messages: [...messages, ...results.map(toolMessage)],
-              step: state.step,
-              usage,
-            })
-      return Stream.concat(Stream.fromIterable(events), rest)
+      const resolved = yield* Ref.make<ReadonlyArray<AgentToolResult>>([])
+      const step: StepCalls = { messages, remainingSteps: spec.maxSteps - state.step }
+      const rest = Stream.unwrap(
+        Effect.map(
+          Ref.get(resolved),
+          (results): Stream.Stream<AgentTurnEvent, AiError, R | AgentTurnRequirements> =>
+            results.some(pauses) || results.every((result) => result.outcome === 'denied')
+              ? Stream.succeed(done(reply, 'stop', { usage, step: state.step }))
+              : runStep(spec, {
+                  messages: [...messages, ...results.map(toolMessage)],
+                  step: state.step,
+                  usage,
+                })
+        )
+      )
+      return Stream.concat(callEvents(spec, calls, step, resolved), rest)
     })
   )
 

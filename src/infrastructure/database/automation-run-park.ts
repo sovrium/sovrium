@@ -105,14 +105,23 @@ export const claimDelayedRun = async (input: {
   return claimed === undefined ? undefined : { cursor: claimed.cursor }
 }
 
-/** Cancel a run that still waits, with `error`; answers whether this call did. */
+/**
+ * Cancel a run that still waits, with `error`; answers whether this call did.
+ * The file ledgers it stored for its resume go with the resume.
+ */
 export const cancelWaitingRun = async (input: {
   readonly id: string
   readonly error: string
 }): Promise<boolean> => {
   const cancelled = await db
     .update(automationRuns)
-    .set({ status: 'cancelled', error: input.error, resumeAt: null, resumeCursor: null })
+    .set({
+      status: 'cancelled',
+      error: input.error,
+      resumeAt: null,
+      resumeCursor: null,
+      filesLedger: null,
+    })
     .where(and(eq(automationRuns.id, input.id), eq(automationRuns.status, WAITING_DELAY)))
     .returning({ id: automationRuns.id })
   return cancelled.length > 0
@@ -134,6 +143,7 @@ export const updateRunStep = async (input: {
       logs: (step.logs ?? null) as object | null,
       reads: (step.reads ?? null) as object | null,
       nested: (step.nested ?? null) as object | null,
+      clientError: step.clientError ?? null,
       ...(step.completedAt === undefined ? {} : { completedAt: step.completedAt }),
     })
     .where(

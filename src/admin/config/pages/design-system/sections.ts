@@ -125,7 +125,8 @@ export const caption = (body: string, testId?: string): PageComponent =>
   }) as PageComponent
 
 /**
- * The dashed card a section shows when the key behind it is not declared.
+ * The card a section shows when the key behind it is not declared. Plain, not
+ * dashed: a dashed edge promises a drop zone, and nothing can be dropped here.
  *
  * ─── AN EMPTY LABEL ROW IS WORSE THAN AN EMPTY SECTION ─────────────────────
  *
@@ -152,8 +153,7 @@ export const notConfiguredCard = (input: {
     type: 'container',
     element: 'div',
     props: {
-      className:
-        'border-border flex w-full flex-col items-start gap-2.5 rounded-md border border-dashed p-4',
+      className: 'border-border flex w-full flex-col items-start gap-2.5 rounded-md border p-4',
       'data-design-not-configured': input.configKey,
     },
     children: [

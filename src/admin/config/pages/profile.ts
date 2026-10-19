@@ -74,11 +74,13 @@
 // Name, email and password keep an explicit one — a credential or an address
 // change is a deliberate act, and the email row only sends a link.
 //
-// Each remaining row's `endpoint` names `submitVariant: 'secondary'`. A settings list has
+// Each remaining row's `endpoint` names `submitVariant: 'outline'`. A settings list has
 // one action per row and no primary among them, and this is the button schema's
 // own member list saying so — not a scoped `[&>button[type=submit]]:` repaint
 // painted from outside the component, which is what stood here until the key
-// existed. `/gdpr` needed no such change: its actions are plain `button`s that
+// existed. It is `outline`, the variant the picture row's Change and the Your
+// data link already draw, so every peer action on the page reads as one kind:
+// one variant per role, and the only quieter one is Remove, a ghost. `/gdpr` needed no such change: its actions are plain `button`s that
 // have always named their own `variant`, `destructive` on erasure included.
 
 import { consolePage } from '../components/data-page'
@@ -152,10 +154,33 @@ const notificationForm = ({
   } as const
 }
 
+/**
+ * The role chip beside the name, one per tier. Both read the session's
+ * `roleLabel` — the role as the app calls it, in the caller's language — and
+ * fall back to the tier's word only while no session has answered. Both carry
+ * the one testid a spec reads: the visibility gate leaves exactly one of them
+ * on the page.
+ */
+const roleChip = (content: string, visibility: Readonly<Record<string, string>>) =>
+  ({
+    type: 'text',
+    element: 'span',
+    visibility,
+    props: {
+      className:
+        'border-border bg-muted text-foreground-subtle inline-flex w-fit rounded-full border px-2 py-0.5 text-xs font-medium',
+      'data-testid': 'profile-identity-role',
+    },
+    session: 'roleLabel',
+    content,
+  }) as const
+
 export default consolePage({
   id: 'dashboard-profile',
   path: '/profile',
   title: '$t:admin.meta.profile',
+  // Full width, like the Users directory it is reached from: a reading cap here
+  // left a wide empty margin beside cards that are tables of facts, not prose.
   shell: { breadcrumb: { profile: '$t:admin.crumb.profile' } },
   body: [
     {
@@ -206,16 +231,12 @@ export default consolePage({
                       props: { className: 'text-3xl font-semibold tracking-tight' },
                       session: 'name',
                     },
-                    {
-                      type: 'text',
-                      element: 'span',
-                      props: {
-                        className:
-                          'border-border bg-muted text-foreground-subtle inline-flex w-fit rounded-full border px-2 py-0.5 text-xs font-medium capitalize',
-                        'data-testid': 'profile-identity-role',
-                      },
-                      session: 'role',
-                    },
+                    // The role in the words the sidebar's account row and the
+                    // top bar use: the session's `roleLabel`, so a role id is
+                    // never printed raw ("Admin-Viewer") and a read-only role
+                    // is never called by another role's word ("Viewer").
+                    roleChip('$t:admin.shell.role.admin', { capability: 'edit-operations' }),
+                    roleChip('$t:admin.shell.role.viewer', { unlessCapability: 'edit-operations' }),
                   ],
                 },
                 {
@@ -324,7 +345,10 @@ export default consolePage({
                         type: 'button',
                         variant: 'ghost',
                         content: '$t:admin.profile.picture.remove',
-                        props: { 'data-testid': 'profile-picture-remove', className: 'w-fit' },
+                        props: {
+                          'data-testid': 'profile-picture-remove',
+                          className: 'w-fit text-muted-foreground hover:text-foreground',
+                        },
                         // Removing a picture is small and reversible, so the
                         // question is a plain one — no type-to-confirm. It is asked
                         // at all because the control sits one tab stop from
@@ -376,7 +400,7 @@ export default consolePage({
                   method: 'POST',
                   responseEnvelope: 'better-auth',
                   submitLabel: '$t:admin.profile.displayName.submit',
-                  submitVariant: 'secondary',
+                  submitVariant: 'outline',
                   onSuccess: {
                     type: 'toast',
                     variant: 'success',
@@ -419,7 +443,7 @@ export default consolePage({
                   method: 'POST',
                   responseEnvelope: 'better-auth',
                   submitLabel: '$t:admin.profile.email.submit',
-                  submitVariant: 'secondary',
+                  submitVariant: 'outline',
                   onSuccess: {
                     type: 'toast',
                     variant: 'success',
@@ -466,7 +490,7 @@ export default consolePage({
                   method: 'POST',
                   responseEnvelope: 'better-auth',
                   submitLabel: '$t:admin.profile.password.submit',
-                  submitVariant: 'secondary',
+                  submitVariant: 'outline',
                   onSuccess: {
                     type: 'toast',
                     variant: 'success',
@@ -686,8 +710,10 @@ export default consolePage({
                     content: '$t:admin.profile.gdprLink',
                     props: {
                       href: '/gdpr',
+                      // shadcn's outline button, drawn on a link — the
+                      // same recipe as the row actions above, in both schemes.
                       className:
-                        'border-border-strong bg-card text-foreground hover:bg-muted inline-flex h-8 w-fit items-center rounded-[var(--radius-base,4px)] border px-3 text-base font-medium',
+                        'border-border bg-background text-foreground hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 dark:border-input dark:bg-input/30 dark:hover:bg-input/50 inline-flex h-8 w-fit shrink-0 items-center justify-center gap-1.5 rounded-lg border bg-clip-padding px-2.5 text-sm font-medium whitespace-nowrap no-underline outline-none hover:no-underline focus-visible:no-underline focus-visible:ring-3',
                       'data-testid': 'profile-gdpr-link',
                     },
                   },

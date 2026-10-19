@@ -79,7 +79,8 @@ export function sheetTitle(inputs: SheetTitleInputs, record: RawRecord): string 
 
 /**
  * A new record's entries: the ones its reader writes, a required one's label
- * marked `*` — its refusal still worded with the label as declared.
+ * marked `*` (`requiredMark`, drawn outside its accessible name) — its refusal
+ * worded with the label as declared.
  */
 export function createModeFields(
   fields: ReadonlyArray<RecordDrawerField>
@@ -91,7 +92,7 @@ export function createModeFields(
       const label = field.label ?? field.name
       return {
         ...field,
-        label: `${label} *`,
+        requiredMark: true,
         requiredMessage: field.requiredMessage ?? `${label} is required`,
       }
     })

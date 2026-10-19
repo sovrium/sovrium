@@ -51,6 +51,7 @@ import { checkViewerPermission } from './batch-permission-helpers'
 import { guardBatchCreate, guardUpsert } from './batch-write-guards'
 import { getLinkReader } from './relationship-rules'
 import { projectReadPredicateClause, resolveGuardForTable } from './row-level-guard'
+import { maskUnreadableUniqueConflict } from './unique-conflict-mask'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
@@ -133,7 +134,9 @@ async function importOverwrite(
     returnRecords: false,
     linkReader: getLinkReader(c),
   }).pipe(Effect.map(({ created, updated }) => ({ created, updated, skipped: 0 })))
-  return runEffect(c, provideDomain(c, program), importRecordsResponseSchema)
+  const response = await runEffect(c, provideDomain(c, program), importRecordsResponseSchema)
+  const written = validation.strippedRecords.map((record) => record.fields)
+  return maskUnreadableUniqueConflict(c, app, { written }, response)
 }
 
 /** Create, or skip what is already there: a batch create, behind the batch create's gates. */
@@ -167,7 +170,8 @@ async function importCreate(
     returnRecords: false,
     isSqlite: isSqliteRuntime(),
   }).pipe(Effect.map(({ created }) => ({ created, updated: 0, skipped })))
-  return runEffect(c, provideDomain(c, program), importRecordsResponseSchema)
+  const response = await runEffect(c, provideDomain(c, program), importRecordsResponseSchema)
+  return maskUnreadableUniqueConflict(c, app, { written: kept.map((row) => row.fields) }, response)
 }
 
 /** The grants an import strategy needs: an overwrite updates too. */

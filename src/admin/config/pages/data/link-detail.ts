@@ -138,10 +138,11 @@ const definitionDrawer = (): PageComponent =>
  *
  * The DOWNLOAD is absolute (`$app.origin` + the path) and the preview is not,
  * and that asymmetry is load-bearing rather than sloppy. A mount-local `href`
- * is rewritten onto the console's base at boot, so a bare `/l/…` download link
- * would resolve to `/_admin/l/…` and 404 — the `$app.origin` prefix is the
- * documented way a preset page points OUT of the console. `src` is not a
- * navigation key, so the preview is left alone and stays root-relative.
+ * is rewritten onto the console's base when the console is first opened, so a
+ * bare `/l/…` download link would resolve to `/_admin/l/…` and 404 — the
+ * `$app.origin` prefix is the documented way a preset page points OUT of the
+ * console. `src` is not a navigation key, so the preview is left alone and
+ * stays root-relative.
  *
  * Exactly one symbol inside the region, deliberately: the download is a plain
  * text link rather than an icon button, so the preview is unambiguously the
@@ -233,9 +234,11 @@ const qrRegion = (): PageComponent =>
  * `$param.slug` resolves into the URL server-side (the route-param pass walks
  * every string leaf), so the form posts to the link it is sitting on.
  *
- * `control: 'url'` gives the browser's own validation before anything is sent;
- * an empty submit still reaches the endpoint and comes back **400 `Invalid link
- * payload`**, which the `onError` toast reports rather than swallowing.
+ * `control: 'text'`, not `url`: a destination may be a path on this site
+ * (`/devis?source=salon`), which a `url` input refuses before it is sent. The
+ * server decides — a script address, another host or an empty submit comes
+ * back **400 `Invalid link payload`**, which the `onError` toast reports rather
+ * than swallowing.
  */
 const repointForm = (): PageComponent =>
   ({
@@ -267,7 +270,7 @@ const repointForm = (): PageComponent =>
         message: '$t:admin.links.repoint.failed',
       },
     },
-    fields: [{ field: 'destination', control: 'url', label: '$t:admin.links.newDestination' }],
+    fields: [{ field: 'destination', control: 'text', label: '$t:admin.links.newDestination' }],
   }) as PageComponent
 
 /**
@@ -488,12 +491,15 @@ const clickLog = (): PageComponent =>
     query: ONE_LINK_QUERY,
   })
 
-/** Everything on the deep-dive that needs a reachable `/api/analytics/*`. */
+/**
+ * Everything on the deep-dive that needs a reachable `/api/analytics/*` — an
+ * app that collects analytics, and a caller its readers answer.
+ */
 const detailAnalytics = (): PageComponent =>
   ({
     type: 'container',
     element: 'div',
-    visibility: { declares: 'analytics' },
+    visibility: { declares: 'analytics', capability: 'administer-accounts' },
     props: { className: 'flex flex-col gap-6' },
     children: [
       periodRail('/links/$param.slug'),
@@ -602,7 +608,7 @@ export const detail = consolePage({
     window: WINDOW,
     dataSource: { system: { endpoint: LINK_DETAIL_ENDPOINT, param: 'slug', recordKey: 'link' } },
   },
-  shell: { breadcrumb: { links: '$t:admin.crumb.links' } },
+  shell: { breadcrumb: { links: '$t:admin.crumb.links' }, document: true },
   body: [
     {
       type: 'container',

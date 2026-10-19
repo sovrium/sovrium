@@ -30,6 +30,7 @@ import { runErrorOutcome } from '@/presentation/islands/runtime/action-outcome'
 import { bindEndpointFormAutosave } from '@/presentation/islands/runtime/endpoint-form-autosave'
 import {
   checkEndpointFormRules,
+  markNamedFields,
   markRefusedField,
 } from '@/presentation/islands/runtime/endpoint-form-validation'
 import { fetchSuccessLeaves } from '@/presentation/islands/runtime/fetch-action-effects'
@@ -129,18 +130,28 @@ function parseEndpointFormConfig(raw: string | null): EndpointFormConfig | undef
 }
 
 /**
- * Every switch of `form` as a JSON boolean, keyed by field name.
+ * Every switch of `form` as a JSON boolean, and every rating scale's picked
+ * rank as a JSON number, keyed by field name.
  *
  * A checkbox contributes to `FormData` only when checked, and then as the
  * string `"on"`. Both halves are wrong for a switch: an endpoint that stores a
  * boolean is handed a string, and a switch turned OFF sends no key at all —
  * which a partial update such as `/api/auth/update-user` reads as "leave it
- * alone", so switching a preference off would change nothing. So these are
- * laid over whatever `FormData` said.
+ * alone", so switching a preference off would change nothing. A rank
+ * (`endpoint-form-rating.tsx`) would travel as text; an unanswered scale sends
+ * nothing, as an unchecked radio does. So these are laid over whatever
+ * `FormData` said. One pass reads both: this module ships on every page.
  */
-function readSwitchValues(form: HTMLFormElement): Record<string, boolean> {
-  const switches = [...form.querySelectorAll<HTMLInputElement>(SWITCH_SELECTOR)]
-  return Object.fromEntries(switches.map((control) => [control.name, control.checked]))
+function readTypedValues(form: HTMLFormElement): Record<string, boolean | number> {
+  const controls = [
+    ...form.querySelectorAll<HTMLInputElement>(`${SWITCH_SELECTOR},[data-rating-scale] :checked`),
+  ]
+  return Object.fromEntries(
+    controls.map((control) => [
+      control.name,
+      control.type === 'radio' ? Number(control.value) : control.checked,
+    ])
+  )
 }
 
 /**
@@ -179,11 +190,11 @@ function resetOnSuccess(form: HTMLFormElement, onSuccess: EndpointSuccessRespons
   form.querySelector<HTMLElement>('input:not([type="hidden"]), select, textarea')?.focus()
 }
 
-/** What one endpoint form sends: every field as typed, every switch as a boolean. */
+/** What one endpoint form sends: every field as typed, a switch as a boolean, a rank as a number. */
 function endpointBody(form: HTMLFormElement): Record<string, unknown> {
   return {
     ...(Object.fromEntries(new FormData(form)) as Record<string, unknown>),
-    ...readSwitchValues(form),
+    ...readTypedValues(form),
   }
 }
 
@@ -213,6 +224,22 @@ function sendHolding(
   const keepPending = (result: Awaited<ReturnType<typeof send>>) =>
     fetchSuccessLeaves(result, action.onSuccess)
   return withPending(submit, { label, keepPending }, send)
+}
+
+/**
+ * Say why a submit was refused: on the fields the body names, when it names
+ * any of this form's (no toast over them); otherwise the `onError` toast, with
+ * the field a Better Auth code is about marked beside it.
+ */
+function reportRefusal(
+  form: HTMLFormElement,
+  submit: HTMLElement | null,
+  body: unknown,
+  toast: () => void
+): void {
+  if (markNamedFields(form, body)) return
+  runErrorOutcome(submit, toast)
+  markRefusedField(form, body)
 }
 
 /**
@@ -248,10 +275,8 @@ async function submitEndpointForm(
             ),
     successEffects: () => resetOnSuccess(form, onSuccess),
   })
-  if (result?.ok === false) {
-    runErrorOutcome(submit, () => dispatchToast(config.onError))
-    markRefusedField(form, result.body)
-  }
+  if (result?.ok === false)
+    reportRefusal(form, submit, result.body, () => dispatchToast(config.onError))
   return result && { ok: result.ok, leaves: fetchSuccessLeaves(result, action.onSuccess) }
 }
 

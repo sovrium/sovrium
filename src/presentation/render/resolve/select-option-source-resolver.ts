@@ -260,11 +260,13 @@ async function resolveBindingOptions(
  * a column definition is neither. Left unresolved, the island receives an
  * editor with no options — a dropdown with nothing in it — which is exactly
  * what the `options` XOR `optionsSource` decode rule exists to make impossible.
+ * A page `button` on a record carries the same editor on itself.
  */
 async function resolveEditSelectSources(
   component: Component,
   ctx: SelectOptionSourceContext
 ): Promise<Component> {
+  if (component.type === 'button') return (await resolveAction(component, ctx)) as Component
   const { columns } = component as { readonly columns?: readonly unknown[] }
   if (!Array.isArray(columns) || columns.length === 0) return component
 
@@ -309,9 +311,7 @@ async function resolveFormField(field: unknown, ctx: SelectOptionSourceContext):
     source as SelectOptionSource | SelectSystemOptionSource,
     ctx
   )
-  // Empty → omit the key entirely, exactly as `resolveBoundSelect` does: the
-  // authored schema declares `Schema.minItems(1)`, so `[]` is a value it would
-  // reject.
+  // Empty → omit the key, as `resolveBoundSelect` does: `minItems(1)` rejects `[]`.
   return options.length === 0 ? rest : { ...rest, options }
 }
 

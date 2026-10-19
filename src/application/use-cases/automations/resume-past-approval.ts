@@ -9,6 +9,7 @@ import { Effect } from 'effect'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import { defaultActionHandlers } from './action-handlers'
 import { toleratedInRows } from './run/resume-plan'
+import { restoreRunLedgers } from './run/run-ledger-persistence'
 import { dropEndedMinimalHistory } from './run/run-persistence'
 import { executeAutomationRun, resolveAutomationId } from './run-automation'
 import type {
@@ -54,6 +55,8 @@ export const resumePastApproval = (
     )
     const stored = yield* runRepo.findStepsByRunId(runId)
     const before = stored.filter((row) => row.stepIndex < target.stepIndex)
+    // The files the run stored and read before it paused, less any changed meanwhile.
+    const ledgers = yield* restoreRunLedgers(target.filesLedger)
     const result = yield* executeAutomationRun({
       name,
       automation: target.automation,
@@ -70,6 +73,7 @@ export const resumePastApproval = (
       // A hand-started run's starter may have been banned while it waited.
       checkStarterStanding: true,
       skipActionNames,
+      ledgers,
       // A later step reads the outcome as `{{<approval step>.result.decision}}`,
       // and who decided as `{{<approval step>.result.resolvedBy}}`.
       ...(approvalStepName === undefined ? {} : { seedOutputs: { [approvalStepName]: output } }),

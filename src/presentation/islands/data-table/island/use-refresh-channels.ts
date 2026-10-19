@@ -6,6 +6,7 @@
  */
 
 import { useEffect } from 'react'
+import { useRefetchChannel } from '../../hooks/use-realtime-subscription'
 import { subscribe as subscribeIslandEvent } from '../../runtime/event-bus'
 
 interface RefreshChannelsParams {
@@ -68,11 +69,5 @@ export function useGridRefreshChannels({
     })
   }, [table, onRefresh, onRowDeleted])
 
-  useEffect(() => {
-    if (!sourceId && !endpoint) return undefined
-    return subscribeIslandEvent('sovrium:refetch', (detail) => {
-      if (detail.id !== sourceId && detail.id !== endpoint) return
-      onRefresh()
-    })
-  }, [sourceId, endpoint, onRefresh])
+  useRefetchChannel(sourceId, endpoint, onRefresh)
 }

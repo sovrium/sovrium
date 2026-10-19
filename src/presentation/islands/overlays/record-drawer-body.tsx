@@ -21,6 +21,9 @@ import type { RecordSheet } from './use-record-drawer-sheet'
 
 const DEFAULT_NOT_FOUND_LABEL = 'This record could not be found.'
 
+/** The English words a sheet draws when its record read failed and the host named none. */
+const DEFAULT_READ_FAILED_LABEL = 'This record couldn’t be read.'
+
 /**
  * A record the records API answers `404` — missing, or one its reader may not
  * read — shows the same state either way: nothing to edit, nothing to save.
@@ -59,6 +62,8 @@ export function DrawerBody({
     )
   }
   if (drawer.notFound) return <NotFound label={props.notFoundLabel} />
+  if (sheet.readFailed)
+    return <NotFound label={props.readFailedLabel ?? DEFAULT_READ_FAILED_LABEL} />
   if (props.generic === undefined || props.table === undefined)
     return <DrawerContent {...content} />
   return (

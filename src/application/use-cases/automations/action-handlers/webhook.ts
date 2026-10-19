@@ -9,7 +9,7 @@ import { createHmac } from 'node:crypto'
 import { Effect } from 'effect'
 import { HTTP_REQUEST_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
 import { guardedFetch } from '@/infrastructure/egress/guarded-fetch'
-import { resolveConnectionHeaders } from './auth-headers'
+import { connectionHeaderRefusal, resolveConnectionHeaders } from './auth-headers'
 import { authoredActionProps, resolveOwnProp } from './run-context-resolution'
 import { actionAttributes, serializeActionBody, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
@@ -58,9 +58,8 @@ export const handleWebhookSend: ActionHandler = (action, app, automation) =>
         ? yield* resolveConnectionHeaders(app, automation, baseHeaders, connectionName)
         : { headers: baseHeaders }
 
-    if (merged.error !== undefined) {
-      return { status: 'failure', error: merged.error } as const
-    }
+    const refusal = connectionHeaderRefusal(merged)
+    if (refusal !== undefined) return refusal
 
     // Serialize body if present. Receivers tolerate empty bodies on POST
     // (Slack will reject with 400 invalid_payload, but that's the

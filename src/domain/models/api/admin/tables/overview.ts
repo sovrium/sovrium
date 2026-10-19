@@ -64,7 +64,8 @@ export type TablesOverviewQuery = typeof tablesOverviewQuerySchema.Type
  * - `name`             — table slug as it appears in `tables[].name`; the
  *                        identifier every link and test id is built from
  * - `label`            — the name a person reads for the table as a collection
- *                        (`labelPlural` → `label` → `name`), translated
+ *                        (`labelPlural` → `label` → the name made readable),
+ *                        translated
  * - `rowCount`         — live rows; soft-deleted rows excluded
  * - `softDeletedCount` — rows with `deleted_at IS NOT NULL`; cleared on
  *                        force-delete or restore
@@ -80,7 +81,7 @@ export const tableOverviewBreakdownItemSchema = Schema.Struct({
   }).pipe(Schema.check(Schema.isMinLength(1))),
   label: Schema.String.annotate({
     description:
-      'The name a person reads for the table as a collection: its `labelPlural`, else its `label`, else its `name`, with a `$t:` key resolved. Display text only; links and lookups use `name`.',
+      'The name a person reads for the table as a collection: its `labelPlural`, else its `label`, with a `$t:` key resolved, else its `name` made readable — hyphens and underscores read as spaces, a camelCase boundary as a space, the first letter capitalised (`site_visits` reads `Site visits`). Display text only; links and lookups use `name`.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
   rowCount: Schema.Int.annotate({
     description: 'Live row count. Soft-deleted rows are NOT included here.',

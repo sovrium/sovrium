@@ -18,6 +18,7 @@
 import { Duration, Effect } from 'effect'
 import { announceRecordWrites } from '@/application/use-cases/tables/record-change-announcement'
 import { actionKey, missingActionHandler } from '../action-handlers'
+import { tallyStepFileInputs } from '../action-handlers/step-file-inputs'
 import {
   authoredReferenceRoots,
   fillAuthoredReferences,
@@ -123,7 +124,9 @@ const dispatchActionAsPromise = (input: DispatchActionInput): Promise<unknown> =
   // Its own announcing scope: this program runs detached from the calling
   // step's fiber, so the rows it writes are announced as one write of its own.
   const program = announceRecordWrites(ctx.app)(
-    handler({ ...action, props: resolvedProps }, ctx.app, ctx.automation, subRunContext)
+    tallyStepFileInputs(
+      handler({ ...action, props: resolvedProps }, ctx.app, ctx.automation, subRunContext)
+    )
   )
   return ctx.runProgram(program).then((outcome) => {
     // What it read is recorded whatever the outcome: a failed read may still
@@ -330,7 +333,7 @@ export const buildNestedStepInvoker = (
       ...dispatchedContext(ctx, acc, invocationStack, scope),
     }
     const program = announceRecordWrites(ctx.app)(
-      handler(rawAction, ctx.app, ctx.automation, subRunContext)
+      tallyStepFileInputs(handler(rawAction, ctx.app, ctx.automation, subRunContext))
     )
     return ctx.runProgram(Effect.timed(program)).then(([elapsed, outcome]) => {
       scope.tracker.dispatched(ctx.app, rawAction, outcome.output)

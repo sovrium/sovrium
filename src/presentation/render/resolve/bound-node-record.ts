@@ -18,6 +18,10 @@ import type { Component } from '@/domain/models/app/pages/components'
  * one only the node's table has. Its `dataSource` is still filled by the page
  * record: that is how a nested binding follows the page.
  *
+ * A `sheet` with a `dataSource` of its own does too, whatever it binds: it
+ * opens the row a reader picks, so a `$record.label` in its title names THAT
+ * row, filled when it opens, never the page's record.
+ *
  * A node bound to the page's own table reads the same record either way, so it
  * keeps the page pass; a list binding reads no single record its own text could
  * quote, so it keeps it too.
@@ -28,5 +32,6 @@ export const readsAnotherRecord = (
 ): boolean => {
   const binding = component.dataSource as
     { readonly mode?: string; readonly table?: string } | undefined
+  if (binding !== undefined && component.type === 'sheet') return true
   return binding?.mode === 'single' && binding.table !== pageTable
 }

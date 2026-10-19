@@ -17,20 +17,20 @@
  * line, the last one carrying `done: true` and the token counts. A buffered
  * call sends `stream: false` and reads the one object back.
  *
- * The request body is the one this path has always sent — `model`, `messages`,
- * `stream`, `options.temperature`, and `tools` when the call advertises any —
- * so the switch to `LanguageModel` changes nothing on the wire.
- *
- * Requests go through the bounded `HttpClient` of [internal ref] D5: a header
- * deadline, the egress retry schedule for a buffered call, never a retry for a
- * streamed one.
+ * The body is `model`, `messages`, `stream`, `options.temperature`, and `tools`
+ * when the call advertises any. Requests go through the bounded `HttpClient` of
+ * [internal ref] D5: a header deadline, the egress retry schedule for a buffered call,
+ * never a retry for a streamed one.
  */
 
 import { Context, Effect, Stream } from 'effect'
-import { AiError, LanguageModel, Tool } from 'effect/ai'
+import * as AiError from 'effect/ai/AiError'
+import * as LanguageModel from 'effect/ai/LanguageModel'
+import * as Tool from 'effect/ai/Tool'
 import { HttpClient, HttpClientRequest } from 'effect/http'
 import { splitThinkTags } from './think-tag-splitter'
-import type { Prompt, Response } from 'effect/ai'
+import type * as Prompt from 'effect/ai/Prompt'
+import type * as Response from 'effect/ai/Response'
 import type { HttpClientError, HttpClientResponse } from 'effect/http'
 
 /** The settings of one call, scoped by the adapter around it. */

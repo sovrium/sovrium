@@ -391,6 +391,11 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   checkbox: lazy(() => import('./form-controls/checkbox-island')),
   'radio-group': lazy(() => import('./form-controls/radio-island')),
   switch: lazy(() => import('./form-controls/switch-island')),
+  // `form-field` — a choice or a date field of a server-rendered form (a hosted
+  // form, or a form a page or a dialog embeds), drawn as the Select or the date
+  // picker over the skeleton the server wrote. Lazy: the skeleton holds the
+  // value and refuses a click until it mounts.
+  'form-field': lazy(() => import('./form-controls/form-field-island')),
   // Phase 2 — Overlays & Feedback
   tooltip: lazy(() => import('./overlays/tooltip-island')),
   popover: lazy(() => import('./overlays/popover-island')),

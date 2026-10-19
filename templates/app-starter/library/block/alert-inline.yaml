@@ -21,12 +21,12 @@ children:
             content: It stays available for 7 days.
           - type: link
             props:
-              href: /exports
+              href: /api/tables/projects/export?format=csv
               className: text-sm font-medium underline underline-offset-4
             content: Download
   - type: alert
     alertVariant: warning
-    title: Two invoices have no client email.
+    title: Two projects have no client email.
     props:
       className: w-full max-w-3xl
     children:
@@ -41,7 +41,7 @@ children:
             content: They will not receive reminders.
           - type: link
             props:
-              href: /invoices
+              href: /projects
               className: text-sm font-medium underline underline-offset-4
             content: Review
   - type: alert

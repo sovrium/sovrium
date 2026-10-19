@@ -18,7 +18,9 @@
  *  - its `filters` are AND-merged IN FRONT of the caller's filter, never
  *    replaced by it ({@link mergeViewFilter});
  *  - its `fields` are a whitelist the caller's `?fields=` is intersected with,
- *    never widened past ({@link intersectViewFields});
+ *    never widened past ({@link intersectViewFields}) — except by the one
+ *    field the view itself groups by, whose value its group headers already
+ *    show ({@link viewReadFields});
  *  - a caller's filter or sort may name only columns the view serves, or a
  *    reader could probe a withheld column through the rows it keeps
  *    ({@link fieldsOutsideView}).
@@ -150,6 +152,28 @@ export const intersectViewFields = (
   if (asked.length === 0) return viewFields.join(',')
   const kept = asked.filter((name) => viewFields.includes(name))
   return kept.length > 0 ? kept.join(',') : SELECT_NO_USER_FIELD
+}
+
+/**
+ * The columns a read through a view serves, with the view's grouping field
+ * kept when the view's whole list is served.
+ *
+ * A view may group by a field it does not show — a client list grouped by its
+ * type, with no Type column. The rows still have to carry that value, or every
+ * row lands in one nameless group. So when the caller asked for no narrower
+ * selection, the grouping field rides along with the view's `fields`; the grid
+ * groups by it and draws no column for it.
+ */
+export const viewReadFields = (
+  view: { readonly fields?: readonly string[]; readonly groupBy?: { readonly field: string } },
+  requested: string | undefined
+): string | undefined => {
+  const served = intersectViewFields(view.fields, requested)
+  const group = view.groupBy?.field
+  if (group === undefined || served === undefined || splitFieldList(requested).length > 0) {
+    return served
+  }
+  return splitFieldList(served).includes(group) ? served : `${served},${group}`
 }
 
 /** Every field name a filter group names, at any depth. */

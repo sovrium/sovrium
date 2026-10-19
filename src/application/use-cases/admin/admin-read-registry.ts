@@ -32,6 +32,7 @@ import { AUTOMATIONS_READ_OPERATIONS } from '@/application/use-cases/admin/autom
 import { BUCKETS_READ_OPERATIONS } from '@/application/use-cases/admin/buckets-read-operations'
 import { CONFIG_READ_OPERATIONS } from '@/application/use-cases/admin/config-read-operations'
 import { CONSOLE_READ_OPERATIONS } from '@/application/use-cases/admin/console-read-operations'
+import { DESIGN_SYSTEM_BUNDLE_READ_OPERATIONS } from '@/application/use-cases/admin/design-system-bundle-read-operations'
 import { DESIGN_SYSTEM_READ_OPERATIONS } from '@/application/use-cases/admin/design-system-read-operations'
 import { DESIGN_SYSTEM_SPECIMEN_SHARE_READ_OPERATIONS } from '@/application/use-cases/admin/design-system-specimen-share-read-operations'
 import { DEVELOPER_READ_OPERATIONS } from '@/application/use-cases/admin/developer-read-operations'
@@ -61,6 +62,7 @@ export const ADMIN_READ_OPERATIONS: ReadonlyArray<AdminReadOperation> = [
   ...DEVELOPER_READ_OPERATIONS,
   ...CONSOLE_READ_OPERATIONS,
   ...DESIGN_SYSTEM_READ_OPERATIONS,
+  ...DESIGN_SYSTEM_BUNDLE_READ_OPERATIONS,
   ...DESIGN_SYSTEM_SPECIMEN_SHARE_READ_OPERATIONS,
   ...SCHEMA_READ_OPERATIONS,
   ...LINKS_CONNECTIONS_READ_OPERATIONS,
@@ -90,6 +92,7 @@ export {
   CONFIG_READ_OPERATIONS,
   CONSOLE_READ_OPERATIONS,
   DESIGN_SYSTEM_READ_OPERATIONS,
+  DESIGN_SYSTEM_BUNDLE_READ_OPERATIONS,
   DESIGN_SYSTEM_SPECIMEN_SHARE_READ_OPERATIONS,
   DEVELOPER_READ_OPERATIONS,
   RELEASE_READ_OPERATIONS,
@@ -178,5 +181,40 @@ export const ADMIN_GET_ACTIONS: ReadonlyArray<AdminGetAction> = [
     path: '/api/admin/connections/:name/callback',
     reason:
       'The OAuth provider redirects the browser here; the route exchanges the code and stores a token.',
+  },
+]
+
+/**
+ * An admin `GET` that answers an ARCHIVE: a binary download whose content is
+ * already readable over MCP, file by file, through registry reads.
+ *
+ * A zip is not a read an assistant can use as a tool result — base64 in a text
+ * part is a payload nobody can open — and it is not an action either, since it
+ * changes nothing. So it is classified HERE, beside the reads that carry the
+ * same content, with the tool suffixes that do: the parity gate holds that
+ * each one is a registry entry, so the archive can never outlive its readable
+ * equivalent.
+ */
+export interface AdminGetArchive {
+  /** Hono form, exactly as the route mounts it. */
+  readonly path: string
+  /** The registry tool suffixes whose answers together carry the archive's content. */
+  readonly mcpEquivalent: ReadonlyArray<string>
+  /** Why the archive has no tool of its own. */
+  readonly reason: string
+}
+
+/**
+ * Every admin `GET` that is an archive. A third classification beside
+ * {@link ADMIN_READ_OPERATIONS} and {@link ADMIN_GET_ACTIONS}: the parity gate
+ * fails on an archive that is no longer mounted, on one that is also a read or
+ * an action, and on an equivalent suffix no registry entry declares.
+ */
+export const ADMIN_GET_ARCHIVES: ReadonlyArray<AdminGetArchive> = [
+  {
+    path: '/api/admin/design-system.zip',
+    mcpEquivalent: ['design_system_bundle', 'design_system_bundle_file'],
+    reason:
+      'The portable design-system bundle as one zip. Its manifest and every text file it holds are the two reads named here; its fonts are binary and have no text form.',
   },
 ]

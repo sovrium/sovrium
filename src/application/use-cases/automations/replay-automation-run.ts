@@ -13,6 +13,10 @@ import {
   parseRelay,
   type RunRelay,
 } from '@/domain/models/app/automations/run-relay-service'
+import {
+  handStarterOfStoredRun,
+  type StoredRunStarter,
+} from '@/domain/models/app/automations/run-starter-service'
 import { keepsMinimalHistory } from '@/domain/models/app/automations/trigger/trigger-history-service'
 import { redactRunTriggerData } from '@/domain/models/app/automations/trigger/webhook-credential-headers-service'
 import { triggerNamedOrFirst } from '@/domain/models/app/automations/trigger-entries-service'
@@ -123,17 +127,12 @@ const collectSkipActionNames = (
 }
 
 /** Who a replay runs as — see the call site. A starter banned since is not run as. */
-const replayActorOf = (
-  run: { readonly startedByHand: boolean; readonly triggeredByUserId: string | null },
-  actingUserId: string | undefined
-) => {
+const replayActorOf = (run: StoredRunStarter, actingUserId: string | undefined) => {
   if (actingUserId !== undefined) return { userId: actingUserId }
-  if (!run.startedByHand) return { userId: undefined }
-  return {
-    startedByHand: true,
-    userId: run.triggeredByUserId ?? undefined,
-    checkStarterStanding: true,
-  } as const
+  const starter = handStarterOfStoredRun(run)
+  return starter === undefined
+    ? { userId: undefined }
+    : ({ ...starter, checkStarterStanding: true } as const)
 }
 
 /**

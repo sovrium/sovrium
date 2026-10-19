@@ -22,6 +22,7 @@ import { substituteRecordVars } from '@/domain/models/app/pages/substitute-recor
 import { resolveSystemSource } from '@/domain/models/app/system-sources'
 import type {
   LoadRowRuleContext,
+  ReadReaderRows,
   ReadRecordLabels,
   ReadTableAsCaller,
   SignFileUrl,
@@ -34,6 +35,7 @@ import type {
 import type { Component } from '@/domain/models/app/pages/components'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { InvitationFacts } from '@/domain/models/app/pages/invitation-vars-service'
+import type { CallerFieldReader } from '@/domain/models/app/tables/field-read-filter-service'
 import type { RecordTextContext } from '@/presentation/render/props/record-value-format'
 
 export const SINGLE_RECORD_NOT_FOUND = Symbol('SINGLE_RECORD_NOT_FOUND')
@@ -141,6 +143,13 @@ export interface DataSourceDb {
   readonly readTableAsCaller?: ReadTableAsCaller
 
   /**
+   * Optional — the role and groups of a caller the page renders without a
+   * session for: a mounted operator console's. Read by the record sheet's field
+   * access alone, so a field the records API answers her is in her sheet.
+   */
+  readonly callerFieldReader?: CallerFieldReader
+
+  /**
    * Optional — the labels of the record a page is bound to, as the records API
    * answers its reader (`_display`). Absent, a `user` or relationship field of
    * that record reads as its stored id.
@@ -154,6 +163,13 @@ export interface DataSourceDb {
    * judges a row by the reader's assignments alone, and such a leaf admits no row.
    */
   readonly loadRowRuleContext?: LoadRowRuleContext
+
+  /**
+   * Optional — the rows of a table the records list admits the page's reader,
+   * with the grants behind them. Absent (a mounted console, a static build, a
+   * unit test), a server-drawn list is not narrowed to them.
+   */
+  readonly readReaderRows?: ReadReaderRows
 
   /** Optional — the request's download-address signer (`file-preview`). Absent, no preview is drawn. */
   readonly signFileUrl?: SignFileUrl

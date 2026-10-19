@@ -24,6 +24,7 @@ import { listMcpTools } from '@/domain/models/app/admin/admin-mcp-tool-listing'
 import type { InstanceFactsResponse } from '@/domain/models/api/admin/instance'
 import type { McpToolCategory } from '@/domain/models/api/admin/mcp'
 import type { App } from '@/domain/models/app'
+import type { Table } from '@/domain/models/app/tables'
 
 /**
  * Build the instance facts for one request.
@@ -38,13 +39,18 @@ import type { App } from '@/domain/models/app'
  * the first four table names still gates "this app has an API surface at all"
  * on `tableCount`, and a capped count would make a five-table app look like a
  * four-table one.
+ *
+ * `labelOf` names a table for people, in the caller's language. It is threaded
+ * in for the same reason as `origin`: the language belongs to the request.
  */
 export function buildInstanceFacts(
   app: App,
   origin: string,
-  limit?: number
+  limit: number | undefined,
+  labelOf: (table: Table) => string
 ): InstanceFactsResponse {
   const tables = app.tables ?? []
+  const example = tables[0]
   const mcpTools = listMcpTools(app)
   const countOf = (category: McpToolCategory): number =>
     mcpTools.filter((tool) => tool.category === category).length
@@ -62,10 +68,12 @@ export function buildInstanceFacts(
     // DECLARATION order throughout, never sorted: the operator's own grouping
     // is information, and the first declared table is the one every single-call
     // example on the page names, so `exampleTable` and `tables[0]` must agree.
-    exampleTable: tables[0]?.name ?? null,
+    exampleTable: example?.name ?? null,
+    ...(example === undefined ? {} : { exampleTableLabel: labelOf(example) }),
     tableCount: tables.length,
     tables: (limit === undefined ? tables : tables.slice(0, limit)).map((table) => ({
       name: table.name,
+      label: labelOf(table),
     })),
     mcpToolCount: mcpTools.length,
     mcpToolCountTable: countOf('table'),

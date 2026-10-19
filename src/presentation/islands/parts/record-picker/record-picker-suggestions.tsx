@@ -5,7 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { RECORD_PICKER_COPY, resolvePickerEmptyLabel } from '../../runtime/picker-contract'
+import {
+  pickerWord,
+  resolvePickerEmptyLabel,
+  type PickerWords,
+} from '../../runtime/picker-contract'
 import { OptionListbox } from '../option-listbox'
 import { CandidateFooter } from './record-picker-chrome'
 import type { StandalonePicker } from './use-standalone-picker'
@@ -32,10 +36,13 @@ export function PickerSuggestions({
   listboxId,
   picker,
   multiple,
+  words,
 }: {
   readonly listboxId: string
   readonly picker: StandalonePicker
   readonly multiple: boolean
+  /** The picker's words in the page language (`picker.*`), where they differ from English. */
+  readonly words?: PickerWords
 }): ReactElement {
   const { search } = picker
   return (
@@ -49,8 +56,9 @@ export function PickerSuggestions({
         emptyLabel={resolvePickerEmptyLabel({
           failed: search.failed,
           loading: search.loading,
-          emptyLabel: RECORD_PICKER_COPY.empty,
-          failedLabel: RECORD_PICKER_COPY.failed,
+          emptyLabel: pickerWord(words, 'picker.noMatchingRecords'),
+          failedLabel: pickerWord(words, 'picker.loadFailed'),
+          searchingLabel: pickerWord(words, 'picker.searching'),
         })}
       />
       <CandidateFooter
@@ -58,6 +66,7 @@ export function PickerSuggestions({
         total={search.total}
         hasMore={search.hasMore}
         onLoadMore={search.loadMore}
+        words={words}
       />
     </div>
   )

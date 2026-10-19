@@ -16,6 +16,7 @@
 import {
   CONFIG_READ_OPERATIONS,
   CONSOLE_READ_OPERATIONS,
+  DESIGN_SYSTEM_BUNDLE_READ_OPERATIONS,
   DESIGN_SYSTEM_READ_OPERATIONS,
   DESIGN_SYSTEM_SPECIMEN_SHARE_READ_OPERATIONS,
   DEVELOPER_READ_OPERATIONS,
@@ -29,6 +30,7 @@ import { chainAdminAutomationsRoutes } from '@/presentation/api/admin/automation
 import { chainAdminBucketsRoutes } from '@/presentation/api/admin/buckets-routes'
 import { chainAdminConnectionActionRoutes } from '@/presentation/api/admin/connection-action-routes'
 import { chainAdminConnectionsRoutes } from '@/presentation/api/admin/connections-routes'
+import { chainAdminDesignSystemBundleRoutes } from '@/presentation/api/admin/design-system-bundle-routes'
 import { chainAdminDesignSystemShareRoutes } from '@/presentation/api/admin/design-system-share-routes'
 import { chainAdminFormsRoutes } from '@/presentation/api/admin/forms-routes'
 import { chainAdminLinksRoutes } from '@/presentation/api/admin/links-routes'
@@ -89,8 +91,8 @@ export const chainAdminApiRoutes = <T extends Hono>(
   //               guard is EXPLICIT: `admin-route-guards.ts` lists the
   //               `/api/admin/design-system.*` exports as exact paths with no
   //               wildcard, so `/design-system/shares` inherits nothing.
-  //   The SCHEMA reads of the same family: the component-type catalogue, one
-  //               type's fields, and the class-provenance chain. Same gate, same
+  //   The SCHEMA reads of the same family: the component-type catalogue and
+  //               one type's fields. Same gate, same
   //               live-App resolver, and same explicit-guard requirement — the
   //               `/api/admin/schema/*` namespace is new, so both mirrors of
   //               `admin-route-guards.ts` list it rather than leaving it to the
@@ -107,22 +109,28 @@ export const chainAdminApiRoutes = <T extends Hono>(
   //               is a function of the operator's config, and the three console
   //               pages that read them are config rather than builders because
   //               of it.
-  const honoWithAdminConfigReads = chainAdminDesignSystemShareRoutes(
-    // Every read above that is a registry entry — the configuration and
-    // release reads, the design-system exports, facets, specimen rows and share
-    // list, and the schema reads — is mounted from the admin read registry, one
-    // description per read, with its MCP tool and OpenAPI operation derived
-    // from the same entry. The share mint and revoke are actions, chained by hand.
-    chainAdminReadRoutes(honoWithAdminAuditLog, resolveLiveApp, [
-      ...RELEASE_READ_OPERATIONS,
-      ...CONFIG_READ_OPERATIONS,
-      ...DEVELOPER_READ_OPERATIONS,
-      ...DESIGN_SYSTEM_READ_OPERATIONS,
-      ...DESIGN_SYSTEM_SPECIMEN_SHARE_READ_OPERATIONS,
-      ...SCHEMA_READ_OPERATIONS,
-      // The template catalogue and its read-only preview (rendered, never the raw file).
-      ...TEMPLATES_READ_OPERATIONS,
-    ]),
+  // [internal ref] A11: the design-system bundle as one zip — an archive, not a
+  //               registry read, so it is chained by hand beside them.
+  const honoWithAdminConfigReads = chainAdminDesignSystemBundleRoutes(
+    chainAdminDesignSystemShareRoutes(
+      // Every read above that is a registry entry — the configuration and
+      // release reads, the design-system exports, facets, specimen rows and share
+      // list, and the schema reads — is mounted from the admin read registry, one
+      // description per read, with its MCP tool and OpenAPI operation derived
+      // from the same entry. The share mint and revoke are actions, chained by hand.
+      chainAdminReadRoutes(honoWithAdminAuditLog, resolveLiveApp, [
+        ...RELEASE_READ_OPERATIONS,
+        ...CONFIG_READ_OPERATIONS,
+        ...DEVELOPER_READ_OPERATIONS,
+        ...DESIGN_SYSTEM_READ_OPERATIONS,
+        ...DESIGN_SYSTEM_BUNDLE_READ_OPERATIONS,
+        ...DESIGN_SYSTEM_SPECIMEN_SHARE_READ_OPERATIONS,
+        ...SCHEMA_READ_OPERATIONS,
+        // The template catalogue and its read-only preview (rendered, never the raw file).
+        ...TEMPLATES_READ_OPERATIONS,
+      ]),
+      resolveLiveApp
+    ),
     resolveLiveApp
   )
 

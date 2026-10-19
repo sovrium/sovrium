@@ -118,6 +118,22 @@ Anything else is answered exactly as a record or an account that does not exist 
 
 Two cases stay open on purpose. A field the form fills from the query string (`$query.<name>`) is not held: the visitor writes the URL, so the value is theirs to choose, and the link is only held to the rows the form offers. And a field the form shows is not held, even where a page locks it, because the same form is served on its own page with that field visible. A value that must not be the visitor's choice belongs in a hidden field filled from a record page, a literal or the session.
 
+## Start on a related record
+
+A relationship column stores the related row's id, and an id differs between environments and changes when the data is re-seeded. To start a relationship field on a particular row, name the row by what it is with a `lookup` default:
+
+```yaml
+fields:
+  - kind: table-field
+    column: product
+    defaultValue:
+      lookup:
+        table: products
+        where: { field: name, operator: eq, value: Temps }
+```
+
+The row is found on the server each time the form is served, so the default follows the data rather than the deploy: rename a product to "Temps" and the next visitor starts on it. The first matching row (lowest id) is preselected; no match leaves the field on its empty choice, and the form is still served. `where` is one condition in the shape a data binding's `filter` uses. `table` must be the table the column points at, and a lookup is refused when the configuration is read on any column that is not a relationship. Only a row the visitor may be offered is found. A hidden field's lookup is found again when the form is submitted, and the record is filed under that row.
+
 ## Prefill or `defaultValue`
 
 Both seed an initial value and both accept the same references. The choice is about where the wiring lives.

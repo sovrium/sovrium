@@ -45,6 +45,7 @@ import {
 } from '../views/view-generators'
 import { generateCreateTableSQL, type TableDdlInputs } from './create-table-sql'
 import { recreateTableWithDataEffect } from './migration-utils'
+import { planSqliteDrops } from './sqlite-column-drop'
 import {
   applyTableFeatures,
   applyTableFeaturesWithoutIndexes,
@@ -86,13 +87,9 @@ type ExistingColumns = ReadonlyMap<
  * and "Nothing has been changed" would be a claim about a rollback rather than
  * about what ran. Here it is literally true.
  *
- * Postgres is untouched: it already refuses at driver level with
- * `invalid input syntax`, which a migration modify type spec pins. The objective
- * is parity of OUTCOME, not parity of message.
- *
- * A boot that changes no field type plans zero probes and issues zero queries,
- * so every existing recreate — a constraint change, a primary-key reshape, an FK
- * reconciliation, a display-only property edit — is unaffected.
+ * Postgres already refuses at driver level (`invalid input syntax`): parity of
+ * OUTCOME, not of message. A boot that changes no field type plans zero probes,
+ * so every other recreate (constraint, primary key, FK, display-only) is unaffected.
  */
 const guardSqliteTypeChanges = (params: {
   readonly tx: TransactionLike
@@ -149,16 +146,14 @@ const reconcileTableStructure = (params: {
       needsTableRecreation(table, existingColumns) ||
       formulaColumnsNeedRebuild(table, existingColumns, previousTable)
     ) {
-      // Incompatible change (an `id` column whose type disagrees with the
-      // declared primary-key type, a formula column moving between a generated
-      // column and a trigger-filled one, or a formula column an earlier version
-      // converted to TEXT) — recreate preserving data.
+      // Incompatible change (an `id` type disagreeing with the primary key, a
+      // formula column changing kind or once converted to TEXT): recreate.
       yield* guardSqliteTypeChanges({ tx, table, existingColumns, previousSchema })
       yield* recreateTableWithDataEffect({ tx, table, existingColumns, ...inputs })
       return
     }
 
-    const alterStatements = generateAlterTableStatements({
+    const { statements: alterStatements, drops } = generateAlterTableStatements({
       table,
       existingColumns,
       previousSchema,
@@ -167,13 +162,13 @@ const reconcileTableStructure = (params: {
       physicalTableName: getPhysicalTableName(table),
     })
     if (alterStatements.length > 0) {
-      // Incremental, column-level migration.
-      yield* executeSQLStatements(tx, alterStatements)
+      // Incremental, column-level migration, less any drop SQLite would refuse.
+      const plan = yield* planSqliteDrops({ tx, table, alterStatements, drops })
+      yield* executeSQLStatements(tx, plan.statements)
       // SQLite carries CHECK and UNIQUE only in the CREATE TABLE text, which no
-      // ALTER rewrites: an option or unique flag changed beside a field added or
-      // renamed would otherwise not apply. Rebuild from the columns as they stand
-      // AFTER the ALTERs, so a renamed column is copied under its new name.
-      yield* rebuildIfSqliteChecksStale({ tx, table, previousSchema, inputs })
+      // ALTER rewrites, and a withheld drop leaves its column: rebuild from the
+      // columns as they stand AFTER the ALTERs (a renamed one under its new name).
+      yield* rebuildIfSqliteChecksStale({ tx, table, previousSchema, inputs, force: plan.rebuild })
       return
     }
 
@@ -186,28 +181,20 @@ const reconcileTableStructure = (params: {
         hasAuthConfig,
       })
     ) {
-      // No column-level ALTERs, but the table's definition changed in a way not
-      // expressible as an ALTER (e.g. a CHECK/UNIQUE constraint added or
-      // removed) — recreate to reconcile. The recreate is idempotent
-      // (temp-scoped constraint names, canonical names restored) so it never
-      // collides with the live catalog (the idempotent schema re-initialisation rule fix #2).
+      // A definition change no ALTER expresses (a CHECK/UNIQUE constraint added
+      // or removed): recreate, idempotently — temp-scoped constraint names, so it
+      // never collides with the live catalog (idempotent re-initialisation fix #2).
       yield* guardSqliteTypeChanges({ tx, table, existingColumns, previousSchema })
       yield* recreateTableWithDataEffect({ tx, table, existingColumns, ...inputs })
       return
     }
-    // The change has no DDL consequence — either the definition is
-    // byte-identical to the previous run (a genuine no-op, the idempotent schema re-initialisation rule fix #1) or
-    // only a display-only property moved (e.g. a currency `thousandsSeparator`,
-    // which never leaves `formatCurrencyValue`). Do NOT recreate: recreating a
-    // structurally-unchanged table needlessly drops+rebuilds it — on Postgres
-    // crashing on the pre-existing named UNIQUE constraint (the upgrade-path
-    // incident), and on SQLite orphaning the rows of every table that
-    // references it. The caller's constraint/index sync is idempotent and still
-    // runs, so anything outside the CREATE TABLE DDL is reconciled regardless.
-    //
-    // The one exception is a SQLite table whose stored CHECK clauses or unique
-    // columns are not the declared ones — left so by an earlier boot that
-    // ALTERed it — which only a rebuild repairs.
+    // No DDL consequence: a byte-identical definition (the idempotent schema
+    // re-initialisation rule fix #1) or a display-only property (a currency
+    // `thousandsSeparator`). Recreating would crash Postgres on its named UNIQUE
+    // constraint (the upgrade-path incident) and orphan SQLite's referencing
+    // rows; the caller's idempotent constraint/index sync still runs. The one
+    // exception is a SQLite table whose stored CHECK clauses or unique columns
+    // an earlier ALTER left stale, which only a rebuild repairs.
     yield* rebuildIfSqliteChecksStale({ tx, table, previousSchema, inputs })
   })
 
@@ -221,10 +208,12 @@ const rebuildIfSqliteChecksStale = (params: {
   readonly table: Table
   readonly previousSchema?: { readonly tables: readonly object[] }
   readonly inputs: TableDdlInputs
+  /** Rebuild even when nothing is stale: an ALTER this table needs was withheld. */
+  readonly force?: boolean
 }): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
     const { tx, table, previousSchema, inputs } = params
-    if (!(yield* sqliteConstraintsStale(tx, table))) return
+    if (params.force !== true && !(yield* sqliteConstraintsStale(tx, table))) return
     const existingColumns = yield* getExistingColumns(tx, getPhysicalTableName(table))
     yield* guardSqliteTypeChanges({ tx, table, existingColumns, previousSchema })
     yield* recreateTableWithDataEffect({ tx, table, existingColumns, ...inputs })

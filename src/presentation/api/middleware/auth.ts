@@ -15,6 +15,7 @@ import { resolveInheritedPermissions } from '@/domain/models/app/auth/permission
 import { isSessionBindingValid } from '@/domain/models/app/auth/session-binding-validation'
 import { logError, logWarning } from '@/infrastructure/logging/logger'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
+import { isCalendarFeedRead } from './calendar-feed-read'
 import { getRequestTrustedClientIp } from './client-ip'
 import { isPublicViewRead } from './public-view-read'
 import { carriesCredential } from './request-credential'
@@ -175,6 +176,18 @@ export function authMiddleware(auth: BetterAuthLike) {
   }
 }
 
+/** The 401 every session gate in this module answers. */
+const unauthorized = (c: Context): Response =>
+  c.json(
+    {
+      success: false,
+      error: 'Unauthorized',
+      message: 'Authentication required',
+      code: 'UNAUTHORIZED',
+    },
+    401
+  )
+
 /**
  * Middleware handler for requiring authentication
  */
@@ -182,15 +195,7 @@ async function requireAuthHandler(c: ContextWithSession, next: Next) {
   const { session } = c.var
 
   if (!session) {
-    return c.json(
-      {
-        success: false,
-        error: 'Unauthorized',
-        message: 'Authentication required',
-        code: 'UNAUTHORIZED',
-      },
-      401
-    )
+    return unauthorized(c)
   }
 
   await next()
@@ -199,8 +204,8 @@ async function requireAuthHandler(c: ContextWithSession, next: Next) {
 /**
  * Anonymous carve-outs for the otherwise-auth-gated `/api/tables/*` surface.
  *
- * Three opt-in exemptions let unauthenticated traffic reach a table handler; every
- * other path under `/api/tables/*` still gets the normal 401:
+ * Four exemptions let unauthenticated traffic reach a table handler; every other
+ * path under `/api/tables/*` still gets the normal 401:
  *
  * 1. **PG-02 guest comments** — `GET`/`POST /api/tables/:t/records/:r/comments`
  *    when the table sets `comments.guestComments: true` AND its own gates are
@@ -218,6 +223,8 @@ async function requireAuthHandler(c: ContextWithSession, next: Next) {
  * 3. **Public view read** — an anonymous `GET` on the definition or the records
  *    of a view declaring `permissions: { public: true }`, and nothing else
  *    under `/views` (the catalogue stays 401). See `public-view-read.ts`.
+ * 4. **Calendar feed read** — `GET …/calendar-feed/{token}.ics`, whose token the
+ *    feed route checks (see `calendar-feed-read.ts`).
  *
  * Every branch injects the same minimal synthetic `guest` principal so
  * downstream middleware (`enrichUserRole`, `validateTable`) and the handlers
@@ -239,22 +246,15 @@ export function requireAuthOrGuestComment(resolveApp: () => TablesApp | undefine
     const isGuestComment = isGuestCommentCreateRequest(c) && guestThreadOpens(c, app)
     const isPublicRead =
       (isPublicTableRecordReadRequest(c) && tableOpensToEveryone(c, app, 'read')) ||
-      isPublicViewRead(c, app)
+      isPublicViewRead(c, app) ||
+      isCalendarFeedRead(c)
     const isPublicCreate = isRecordCreateRequest(c) && tableOpensToEveryone(c, app, 'create')
     if (isGuestComment || isPublicRead || isPublicCreate) {
       injectGuestPrincipal(c)
       await next()
       return undefined
     }
-    return c.json(
-      {
-        success: false,
-        error: 'Unauthorized',
-        message: 'Authentication required',
-        code: 'UNAUTHORIZED',
-      },
-      401
-    )
+    return unauthorized(c)
   }
 }
 

@@ -36,6 +36,7 @@ import {
   type ActionRunContext,
   type AutomationContext,
 } from './shared'
+import { starterFileGate } from './starter-file-gate'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -147,7 +148,7 @@ const fillDocx = (
         message: 'render_failed: no template engine to render the template',
       })
     }
-    const template = yield* readTemplateSource(props['template'])
+    const template = yield* readTemplateSource(props['template'], starterFileGate(app, automation))
     const setup = yield* documentRenderSetup(app, props['locale'], 'word')
     const data = documentDataOf(props, runContext)
     return yield* fillWordTemplate(template, data, runContext.templates, {

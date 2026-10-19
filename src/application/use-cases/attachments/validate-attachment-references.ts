@@ -23,7 +23,8 @@
  *    `GET` route applies — `public` short-circuits, a declared `download` is
  *    enforced with the admin override, an undeclared one requires a session.
  *    An automation step writing as nobody instead needs its own run to have
- *    stored the key there.
+ *    stored the key there. A chat upload's key (`ai-chat/`, any letter case)
+ *    is never admitted: the chat alone serves it.
  *
  * Every failure is ONE refusal carrying ONE message. The three conditions are
  * all evaluated for every reference — the catalog is read even when the role
@@ -41,14 +42,9 @@ import {
   isStorageObjectNotFound,
   StorageService,
 } from '@/application/ports/services/storage-service'
-import { resolveUploadBucket } from '@/application/use-cases/buckets/resolve-bucket'
-import {
-  evaluatePermission,
-  grantWhenUndeclared,
-  permits,
-  SESSION_WITH_UNRESOLVED_ROLE,
-} from '@/domain/models/app/auth/permission-evaluation'
-import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
+import { resolveDownloadBucket } from '@/application/use-cases/buckets/resolve-bucket'
+import { isChatAttachmentKey } from '@/domain/kernel/identity/storage-key'
+import { permitsBucketFileRead } from '@/domain/models/app/buckets/bucket-file-access-validation'
 import { isFilePublic } from '@/domain/models/process-env/storage/storage-public-access'
 import {
   bucketForField,
@@ -84,12 +80,13 @@ export interface AttachmentWriter {
 }
 
 /**
- * May this writer download `key` from `bucketName`? The bucket `GET` route's
- * rule, restated over the port-free domain evaluator: a public bucket (or a key
- * the operator's storage toggles mark public) is readable by anyone; otherwise
- * `permissions.download` decides, with the admin override, and an undeclared
- * action requires a session. A column bound to a bucket the config cannot
- * resolve refuses.
+ * May this writer download `key` from `bucketName`? THE read rung of a bucket
+ * file (`permitsBucketFileRead`), over the bucket a download reads from
+ * (`resolveDownloadBucket`, the engine's own avatar bucket included): a public
+ * file is readable by anyone; otherwise `permissions.download` decides, with
+ * the admin override, and an undeclared action requires a session. A chat
+ * upload is the chat's alone and no record names it, its uploader's included.
+ * A column bound to a bucket the config cannot resolve refuses.
  */
 const writerMayDownload = (
   input: Readonly<ValidateAttachmentReferencesInput>,
@@ -97,21 +94,19 @@ const writerMayDownload = (
   key: string
 ): boolean => {
   const { scope, writer, publicAccess } = input
-  const bucket = resolveUploadBucket(scope.app, bucketName)
+  if (isChatAttachmentKey(key)) return false
+  const bucket = resolveDownloadBucket(scope.app, bucketName)
   if (bucket === undefined) return false
   if (writer.app !== undefined) return writer.app.wroteThisRun(bucketName, key)
-  if (bucket.public === true || isFilePublic(publicAccess, key)) return true
   const caller = writer.authenticated
     ? writer.role === undefined
-      ? SESSION_WITH_UNRESOLVED_ROLE
-      : { role: writer.role, adminEquivalent: isAdminEquivalent(writer.role, scope.app) }
+      ? {}
+      : { role: writer.role }
     : undefined
-  return permits(
-    evaluatePermission(bucket.permissions?.download, caller, {
-      whenUndeclared: grantWhenUndeclared(writer.authenticated),
-      adminOverride: 'admin-outranks-role-list',
-    })
-  )
+  return permitsBucketFileRead(bucket, caller, {
+    app: scope.app,
+    keyIsPublic: isFilePublic(publicAccess, key),
+  })
 }
 
 /**

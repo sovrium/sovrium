@@ -89,6 +89,12 @@ export interface DataTableIslandProps {
    */
   readonly tableEmptyMessage?: string
   /**
+   * What a failed read of a table-bound grid says, naming the table: any
+   * failure, and a 404 (the reader may not read it, or it is gone). Resolved
+   * server-side; absent on a system source.
+   */
+  readonly tableReadFailure?: { readonly loadFailed: string; readonly notFound: string }
+  /**
    * Message shown when a client-side search/filter reduces a NON-empty dataset
    * to zero rows — the no-match state, distinct from `emptyMessage` (the
    * zero-record empty state). Rendered in an `aria-live` `role="status"` region;
@@ -195,6 +201,8 @@ export interface DataTableIslandProps {
    * - `{ action: 'openSheet', component }` — dispatches a
    *   `sovrium:open-drawer` CustomEvent so the named drawer island opens.
    *   Note: discriminated by `action` (not `type`) per the schema.
+   * - `{ type: 'seek', target, time, play? }` — moves a player on the page to
+   *   the moment the row names (`time` supports `$record.<field>`).
    *
    * Non-supported variants pass through unchanged but are ignored by the
    * row-click handler.
@@ -206,6 +214,9 @@ export interface DataTableIslandProps {
         readonly path?: string
         readonly component?: string
         readonly openInNewTab?: boolean
+        readonly target?: string
+        readonly time?: number | string
+        readonly play?: boolean
       }
     | undefined
 }

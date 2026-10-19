@@ -7,7 +7,7 @@
 
 /*
  * The Action variants the browser resolves on its own — `navigate`, `toast`,
- * `openSheet`, `openImport` and `fill`. None of them invokes an engine
+ * `openSheet`, `openImport`, `fill` and `seek`. None of them invokes an engine
  * operation, which is what separates them from the variants in
  * `action-operations.ts` and from the arbitrary HTTP call in `action-fetch.ts`.
  */
@@ -284,6 +284,79 @@ export const FillActionSchema = Schema.Struct({
     'Writes a value into a form control on the same page, as if the reader had typed it. Nothing is sent until the form is submitted.',
 })
 
+/**
+ * Seek action - moves a `video` or `audio` player on the same page to a moment.
+ *
+ * The transcript pattern: a recorded call beside the lines transcribed from it,
+ * where clicking a line plays the call from the moment it was said. `target`
+ * names the player by its `props.id`; `time` is the moment in seconds — a
+ * number, a `$record.<field>` read from the record the trigger belongs to (the
+ * clicked list item, the row a button is drawn in), or a template. `play`
+ * (default `true`) starts playback from there; `false` only moves the position.
+ *
+ * Only the browser's own player can be moved: a YouTube or Vimeo address is
+ * drawn as an embedded frame the page cannot drive, so a seek aimed at one does
+ * nothing (its `props.start` still applies, through the embed's own address).
+ * A player that is not on the page when the action runs is a silent no-op, as a
+ * fill aimed at a closed dialog is; a `target` that names no player on its page
+ * at all is refused when the app starts.
+ *
+ * @example
+ * ```yaml
+ * # A transcript line plays the call from where it was said
+ * onRowClick:
+ *   type: seek
+ *   target: call-player
+ *   time: $record.start
+ * ```
+ */
+export const SeekActionSchema = Schema.Struct({
+  type: Schema.Literal('seek').annotate({
+    description: 'Which kind of action this is. It decides which of the other keys apply.',
+  }),
+  /** Component id (`props.id`) of the `video` or `audio` player to move. */
+  target: Schema.String.pipe(
+    Schema.annotate({
+      description:
+        'The `props.id` of the `video` or `audio` component on this page to move. Only a player the browser draws itself can be moved: a YouTube or Vimeo embed cannot.',
+      examples: ['call-player', 'episode'],
+    }),
+    Schema.check(Schema.isMinLength(1))
+  ),
+  /** The moment to move to, in seconds. */
+  time: Schema.Union([
+    Schema.Finite.pipe(
+      Schema.annotate({ description: 'A moment in seconds from the start.' }),
+      Schema.check(Schema.isGreaterThanOrEqualTo(0))
+    ),
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          'A `$record.<field>` holding the moment in seconds, or a template resolving to one.',
+      }),
+      Schema.check(Schema.isMinLength(1))
+    ),
+  ]).annotate({
+    description:
+      'The moment to move to, in seconds from the start: a number, or a `$record.<field>` read from the record the trigger belongs to. A moment past the end moves to the end.',
+    examples: [90, '$record.start'],
+  }),
+  /** Whether playback starts from the new position. */
+  play: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'Starts playback from the new position. `false` moves the position and leaves the player paused.',
+      defaultNote: 'true',
+    })
+  ),
+}).annotate({
+  title: 'Seek Action',
+  description:
+    'Moves a `video` or `audio` player on the same page to a moment, and plays it from there unless `play` is false.',
+})
+
+/** @public */
+export type SeekAction = Schema.Schema.Type<typeof SeekActionSchema>
 /** @public */
 export type NavigateAction = Schema.Schema.Type<typeof NavigateActionSchema>
 /** @public */
@@ -294,3 +367,44 @@ export type OpenImportAction = Schema.Schema.Type<typeof OpenImportActionSchema>
 export type OpenDrawerAction = Schema.Schema.Type<typeof OpenDrawerActionSchema>
 /** @public */
 export type FillAction = Schema.Schema.Type<typeof FillActionSchema>
+
+/**
+ * Theme Action
+ *
+ * Sets the reader's colour theme: `light`, `dark`, or back to `system`. It is
+ * the choice a `theme-toggle` flips, made explicit so it can sit where apps
+ * usually put it — the account menu of a sidebar footer — rather than only in a
+ * top bar.
+ *
+ * Accepted on a MENU ITEM only (dropdown-menu, context-menu, menubar). There a
+ * run of consecutive theme items is drawn as one radio group whose checked row
+ * is the reader's current choice, read when the menu opens, so the menu answers
+ * "which theme am I on" as well as changing it. Choosing `system` forgets the
+ * stored choice and follows the device again.
+ *
+ * @example
+ * ```yaml
+ * menuItems:
+ *   - { label: Theme, heading: true }
+ *   - { label: Light, action: { type: theme, value: light } }
+ *   - { label: Dark, action: { type: theme, value: dark } }
+ *   - { label: System, action: { type: theme, value: system } }
+ * ```
+ */
+export const ThemeActionSchema = Schema.Struct({
+  type: Schema.Literal('theme').annotate({
+    description: 'Which kind of action this is. It decides which of the other keys apply.',
+  }),
+  value: Schema.Literals(['light', 'dark', 'system']).annotate({
+    description:
+      "The colour theme to switch to: 'light', 'dark', or 'system' to forget the reader's choice and follow their device",
+  }),
+}).annotate({
+  identifier: 'ThemeAction',
+  title: 'Theme Action',
+  description:
+    "Switches the reader's colour theme to light, dark or their device's setting; on a menu item, consecutive theme items are drawn as one radio group with the current choice checked",
+})
+
+/** @public */
+export type ThemeAction = Schema.Schema.Type<typeof ThemeActionSchema>

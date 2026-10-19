@@ -21,6 +21,7 @@ import { requestId } from 'hono/request-id'
 import { AssetStore } from '@/application/ports/services/asset-store'
 import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-old-data'
 import { requestedPath } from '@/domain/kernel/url/requested-path'
+import { redactSecretPath } from '@/domain/kernel/url/secret-path-redaction'
 import { mountedInvitationPages } from '@/domain/models/app/pages/invitation-link-service'
 import { resolvesToDeclaredPage } from '@/domain/models/app/pages/page-path-resolvability'
 import { selfFramedPaths } from '@/domain/models/app/pages/self-framed-paths-service'
@@ -369,7 +370,9 @@ export async function createHonoApp(
                           // hold no query module and no engine type.
                           invitations: createInvitationServices(
                             authInstance,
-                            mountedInvitationPages(adminMountsFor(app))
+                            () => mountedInvitationPages(adminMountsFor(app)),
+                            // An acceptance starts the app's auth automations.
+                            { appMeta: app, domainContext: config.domainContext }
                           ),
                         }
                       ),
@@ -463,7 +466,7 @@ export async function createHonoApp(
         // Losing it collapses `hono/timeout`'s `HTTPException(504)` into a
         // hard-coded 500, which is what a production incident looked like.
         const status = error instanceof HTTPException ? error.status : 500
-        logError(`[server] ${c.req.method} ${c.req.path} → ${status}`, error)
+        logError(`[server] ${c.req.method} ${redactSecretPath(c.req.path)} → ${status}`, error)
 
         // Content negotiation by ROUTE FAMILY, not by `Accept` header: `/api/*` is
         // a machine surface and must always answer with the canonical error

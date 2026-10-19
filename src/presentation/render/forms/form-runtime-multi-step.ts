@@ -93,6 +93,8 @@ export const FORM_RUNTIME_MULTI_STEP_SCRIPT = `
     placeSubmit(newEl, idx === stepIds.length - 1)
     bindStepNav()
     applyConditions()
+    // The step's Select and date pickers mount over the skeletons it arrived with.
+    document.dispatchEvent(new Event('sovrium:mount-islands'))
   }
   // A control disabled by a false visibleWhen is skipped: the field is off
   // screen, so its answer is neither sent nor kept.

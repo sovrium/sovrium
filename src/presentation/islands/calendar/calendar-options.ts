@@ -96,7 +96,12 @@ export const CALENDAR_VIEWS = {
  */
 export const GRID_GEOMETRY = { slotMinHeight: 24, aspectRatio: 1.9 } as const
 
-/** 24-hour `09:00` slot labels (the test contract for time-grid views). */
+/**
+ * The 24-hour `09:00` clock both the time-grid slot labels and every event's
+ * time read on (the test contract for the time-grid views). FullCalendar's own
+ * event default drops the minutes on the hour, which a 24-hour locale prints as
+ * a bare `08` that reads as a date, not a time.
+ */
 export const SLOT_HEADER_FORMAT = {
   hour: '2-digit' as const,
   minute: '2-digit' as const,

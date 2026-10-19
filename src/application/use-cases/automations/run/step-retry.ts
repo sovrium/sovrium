@@ -22,6 +22,7 @@ import { Duration, Effect, Ref } from 'effect'
 import { announceRecordWrites } from '@/application/use-cases/tables/record-change-announcement'
 import { type ActionHandler, type ActionOutcome } from '../action-handlers'
 import { actionAttributes } from '../action-handlers/shared'
+import { tallyStepFileInputs } from '../action-handlers/step-file-inputs'
 import {
   isTransientFailure,
   MAX_RETRY_AFTER_MS,
@@ -225,7 +226,9 @@ export const dispatchWithRetry = (input: {
       // loop of a thousand rows included — is announced as ONE write, so the
       // per-write resync threshold counts the step, not each row of it.
       return withActionTimeout(
-        announceRecordWrites(app)(handler(action, app, automation, contextForAttempt)),
+        announceRecordWrites(app)(
+          tallyStepFileInputs(handler(action, app, automation, contextForAttempt))
+        ),
         timeoutMs,
         action
       )

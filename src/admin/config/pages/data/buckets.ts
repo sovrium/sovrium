@@ -48,8 +48,9 @@
 // `/_admin`.
 
 import { sectionCard } from '../../components/dashboard-blocks'
-import { consolePage, fillHost, toolbarRow } from '../../components/data-page'
+import { consolePage, fillHost, tabPanel, toolbarRow } from '../../components/data-page'
 import { dataTable, STATUS_BADGE, toolbarSearch } from '../../components/data-table-blocks'
+import { lineTabs } from '../../components/tabs-line'
 import { BUCKETS_ENDPOINT, BUCKETS_OVERVIEW_ENDPOINT } from '../../system-sources'
 import type { Page as PageConfig } from '@/domain/models/app'
 
@@ -173,9 +174,17 @@ const uploadControl = (endpoint: string): PageComponent =>
       id: 'admin-bucket-upload',
       'aria-label': '$t:admin.buckets.upload.region',
       label: '$t:admin.buckets.add',
+      // A tighter drop zone than the default: the list below it is the page,
+      // and under the usage tiles and the Layout strip a laptop screen has no
+      // height to spare above the list's three-row floor, now under a painted
+      // page title too.
+      className: '[&_[data-slot=empty]]:gap-1 [&_[data-slot=empty]]:p-3',
     },
     dropZone: true,
-    maxFiles: 1,
+    // No `accept`, no `maxFileSize`, no `maxFiles`: one picked file is the
+    // default, and the engine gives the control its bucket's types and size
+    // cap — named in words in the drop zone — because the page is one config
+    // for every bucket and cannot state a rule of its own.
     uploadAction: endpoint,
     onSuccess: {
       type: 'toast',
@@ -192,51 +201,19 @@ const uploadControl = (endpoint: string): PageComponent =>
     },
   }) as PageComponent
 
-/** A `text` span with the given classes, gated on one field of the row it sits in. */
-const gatedSpan = (
-  content: string,
-  condition: Readonly<Record<string, unknown>>,
-  className = ''
-): PageComponent =>
-  ({
-    type: 'text',
-    element: 'span',
-    props: { className },
-    content,
-    visibility: { record: condition },
-  }) as PageComponent
-
-/** A `record-field` printing one field of the surrounding row. */
-const rowField = (field: string, format?: 'bytes'): PageComponent =>
-  ({
-    type: 'record-field',
-    props: { field, className: 'text-muted-foreground text-sm' },
-    ...(format === undefined ? {} : { format }),
-  }) as PageComponent
-
 /**
- * What THIS bucket accepts and whether it is public, read from its row of the
- * bucket list — the line under the upload control.
+ * Whether THIS bucket is public, read from its row of the bucket list — the
+ * line under the upload control.
  *
  * There is no single-bucket read, so the row is picked the way the decision
  * register picks its document: the container expands every bucket of the list,
  * and `visibility.record` against `$param.bucket` keeps the one the URL names.
  * The route-param pass has made that literal against literal by expansion time.
  *
- * Each part is gated on its own field, so a bucket that declares no rule and
- * is private draws nothing at all, and one declaring only a size draws only the
- * size. The separator lives INSIDE the types part and is gated on the size, so
- * it shows only when both halves do.
- *
- * The types print as declared (`image/png`, `image/*`): a config page cannot
- * shorten a MIME type to a file extension, and a guessed short name is worse
- * than the exact value the server will hold the upload to. The size goes
- * through the same `bytes` format as the usage tile above it.
- *
- * The flex gap draws the spacing, but it is not text: the line's words reach a
- * screen reader as one run ("Up to10 MBper file") unless each piece carries
- * its own spaces. So the copy keys hold a space at each end, which the gap
- * hides at the edges of a flex item and the accessible name keeps.
+ * The types and the size cap are NOT repeated here: the drop zone above
+ * derives its hint from the same bucket's rules ("PDF, images · 20 MB each"),
+ * and a second line printing the raw MIME types said the same thing twice, the
+ * second time in the server's words. A private bucket draws nothing at all.
  */
 const bucketRules = (): PageComponent =>
   ({
@@ -265,28 +242,6 @@ const bucketRules = (): PageComponent =>
             props: { 'data-testid': 'admin-bucket-public', className: STATUS_BADGE.quiet.neutral },
             content: '$t:admin.buckets.public',
             visibility: { record: { field: 'public', eq: true } },
-          },
-          {
-            type: 'container',
-            element: 'div',
-            props: { className: 'inline-flex flex-wrap items-center gap-x-1.5' },
-            visibility: { record: { field: 'allowedMimeTypes', isNotEmpty: true } },
-            children: [
-              { type: 'text', element: 'span', content: '$t:admin.buckets.rules.types' },
-              rowField('allowedMimeTypes'),
-              gatedSpan(' · ', { field: 'maxFileSize', isNotEmpty: true }, 'px-0.5'),
-            ],
-          },
-          {
-            type: 'container',
-            element: 'div',
-            props: { className: 'inline-flex items-center gap-x-1.5' },
-            visibility: { record: { field: 'maxFileSize', isNotEmpty: true } },
-            children: [
-              { type: 'text', element: 'span', content: '$t:admin.buckets.rules.sizeBefore' },
-              rowField('maxFileSize', 'bytes'),
-              { type: 'text', element: 'span', content: '$t:admin.buckets.rules.sizeAfter' },
-            ],
           },
         ],
       },
@@ -348,10 +303,13 @@ const fileRowActions = (url: string, deleteMessage: string) =>
  * is the honest reading, not a gap.
  */
 const PROVENANCE_COLUMNS = [
-  { field: 'bucket', label: '$t:admin.buckets.bucket', sortable: false },
-  { field: 'table', label: '$t:admin.common.table', sortable: false },
-  { field: 'recordId', label: '$t:admin.common.record', sortable: false },
-  { field: 'field', label: '$t:admin.buckets.field', sortable: false },
+  // Each reads by the name people know it under — the bucket, table and field
+  // labels the listing carries beside their ids.
+  { field: 'bucketLabel', label: '$t:admin.buckets.bucket', sortable: false },
+  { field: 'tableLabel', label: '$t:admin.common.table', sortable: false },
+  // The record by the name its sheet heads itself with; `recordId` stays its address.
+  { field: 'recordLabel', label: '$t:admin.common.record', sortable: false },
+  { field: 'fieldLabel', label: '$t:admin.buckets.field', sortable: false },
 ] as const
 
 /** What differs between the system bucket's grid and a declared bucket's. */
@@ -391,6 +349,35 @@ const SYSTEM_GRID: FilesGridVariant = {
   rules: false,
 }
 
+/**
+ * What a file IS, in a reader's words: `PDF`, `PNG image`, `Word document`.
+ *
+ * A render-only relabel of the stored media type, keyed by the types a bucket
+ * commonly holds. A type with no entry prints as stored, so nothing is hidden;
+ * the filter and the download keep the raw value.
+ */
+const FILE_TYPE_LABELS = {
+  'application/pdf': '$t:admin.buckets.mime.pdf',
+  'image/png': '$t:admin.buckets.mime.png',
+  'image/jpeg': '$t:admin.buckets.mime.jpeg',
+  'image/webp': '$t:admin.buckets.mime.webp',
+  'image/avif': '$t:admin.buckets.mime.avif',
+  'image/gif': '$t:admin.buckets.mime.gif',
+  'image/svg+xml': '$t:admin.buckets.mime.svg',
+  'image/heic': '$t:admin.buckets.mime.heic',
+  'text/plain': '$t:admin.buckets.mime.text',
+  'text/csv': '$t:admin.buckets.mime.csv',
+  'application/json': '$t:admin.buckets.mime.json',
+  'application/zip': '$t:admin.buckets.mime.zip',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+    '$t:admin.buckets.mime.docx',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '$t:admin.buckets.mime.xlsx',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation':
+    '$t:admin.buckets.mime.pptx',
+  'video/mp4': '$t:admin.buckets.mime.mp4',
+  'audio/mpeg': '$t:admin.buckets.mime.mp3',
+} as const
+
 /** The channel the file browser's search box publishes on and its grid listens to. */
 const FILES_CHANNEL = 'files-filter'
 
@@ -409,7 +396,7 @@ const filesGrid = (variant: FilesGridVariant): PageComponent =>
     columns: [
       { field: 'filename', label: '$t:admin.buckets.file' },
       ...(variant.provenance ? PROVENANCE_COLUMNS : []),
-      { field: 'mimeType', label: '$t:admin.common.type' },
+      { field: 'mimeType', label: '$t:admin.common.type', valueLabels: FILE_TYPE_LABELS },
       { field: 'size', label: '$t:admin.common.size', align: 'right', format: 'bytes' },
       { field: 'createdAt', label: '$t:admin.buckets.modified', format: 'short-date' },
       fileRowActions(variant.fileUrl, variant.deleteMessage),
@@ -431,15 +418,82 @@ const filesGrid = (variant: FilesGridVariant): PageComponent =>
     // — the usage tile, the upload control and the section heading — keep
     // their natural height and the grid takes what is left.
     layout: 'fill',
-    // ─── NO TILE VIEW ──────────────────────────────────────────────────────
-    //
-    // The canvas draws this bucket's files as tiles too. A tile view of the
-    // same rows is a separate `gallery` component bound to the same source; it
-    // is not drawn here because a gallery over this endpoint has no caption to
-    // show but the raw storage key (`idKey`) — strictly worse than this list.
+    // The tile view of the same rows is the sibling `filesGallery`, behind the
+    // Layout tabs.
     emptyMessage: variant.emptyMessage,
     noMatchMessage: '$t:admin.buckets.noMatch',
   }) as PageComponent
+
+/**
+ * The same files as cards: an image shows itself, any other file its name.
+ *
+ * Bound to the source the list reads, on the same search channel, so the two
+ * layouts always show the same files. The thumbnail is an `image` child bound
+ * to the row's `file` — the file as an attachment value — which draws a file
+ * only when its type is an image, so a PDF's card carries no broken picture.
+ * The picture is named by the file, which is what a reader hears for it.
+ */
+const filesGallery = (variant: FilesGridVariant): PageComponent =>
+  ({
+    type: 'gallery',
+    dataSource: {
+      system: {
+        endpoint: variant.endpoint,
+        rowsKey: 'items',
+        idKey: 'key',
+        bindTo: FILES_CHANNEL,
+        sharedFilter: {},
+      },
+    },
+    gridColumns: { mobile: 2, md: 3, lg: 4, xl: 5 },
+    // A card here has no cover, so its content pads its own top; the thumbnail
+    // is a square the picture fills, whatever its own proportions.
+    classes: {
+      parts: {
+        body: 'gap-2 pt-(--card-spacing) [&_img]:aspect-square [&_img]:w-full [&_img]:rounded-md [&_img]:object-cover',
+      },
+    },
+    galleryCard: {
+      children: [
+        { type: 'image', src: '$record.file', alt: '$record.filename' },
+        {
+          type: 'text',
+          element: 'p',
+          content: '$record.filename',
+          props: { className: 'truncate text-sm font-medium' },
+        },
+      ],
+    },
+    emptyMessage: variant.emptyMessage,
+  }) as PageComponent
+
+/**
+ * The browser's two layouts, List first: the list is where an operator sorts,
+ * searches and acts on a file, the grid where she recognises one by sight.
+ *
+ * The tab set is a link of the fill chain, so the list keeps owning its
+ * scroll; the grid's panel scrolls on its own, as every sibling panel of a
+ * filling set must. The search box above the strip serves both: the two
+ * layouts read one channel, which takes one publisher.
+ */
+const layoutTabs = (variant: FilesGridVariant): PageComponent =>
+  lineTabs({
+    defaultTab: 'list',
+    layout: 'fill',
+    props: {
+      'aria-label': '$t:admin.buckets.layout',
+      // The panel's own 16 px above and below would cost the list its floor:
+      // under the usage tiles and the drop zone, a laptop screen has no room
+      // for the strip AND that padding, and the page would scroll instead of
+      // the list. The page's own padding is below it.
+      className: '[&_[role=tabpanel]]:pt-2 [&_[role=tabpanel]]:pb-0',
+    },
+    panels: [
+      { id: 'list', label: '$t:admin.buckets.layout.list' },
+      { id: 'grid', label: '$t:admin.buckets.layout.grid' },
+    ],
+    children: [tabPanel([filesGrid(variant)]), tabPanel([filesGallery(variant)], { scroll: true })],
+  })
 
 /**
  * The bucket list `redirectToFirst` reads its first row from — and, when that
@@ -495,8 +549,23 @@ const browserPage = (
     showBlurb: true,
     page: {
       requires: ['buckets'],
+      // The bucket itself, so the trail ends on its readable name ("Quote
+      // documents") rather than its address; an unknown bucket 404s here.
+      dataSource: {
+        system:
+          path === '/files/system'
+            ? { endpoint: `${BUCKETS_ENDPOINT}/system` }
+            : { endpoint: `${BUCKETS_ENDPOINT}/:bucket`, param: 'bucket' },
+      },
     },
-    shell: { breadcrumb: BREADCRUMB, fill: true },
+    shell: {
+      breadcrumb: BREADCRUMB,
+      // The built-in bucket's read answers its name as the engine spells it,
+      // in English whatever the console language; the trail names it in the
+      // reader's words instead. A declared bucket keeps its own label.
+      breadcrumbCurrent: path === '/files/system' ? '$t:admin.crumb.systemBucket' : '$record.label',
+      fill: true,
+    },
     body: [
       // `fillHost`, not `fullWidth`: the two differ by `min-h-0` alone, and
       // that one utility is what lets this column shrink below its content so
@@ -525,7 +594,7 @@ const browserPage = (
               },
               children: [
                 toolbarRow([toolbarSearch(FILES_CHANNEL, '$t:admin.buckets.search')]),
-                filesGrid(variant),
+                layoutTabs(variant),
               ],
             },
           ],

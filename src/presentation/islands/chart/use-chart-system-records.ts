@@ -6,6 +6,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
+import { useLiveRefresh } from '../hooks/use-realtime-subscription'
 import {
   fetchSystemEnvelope,
   SystemEnvelopeReadError,
@@ -42,6 +43,8 @@ import type { ChartSystemSource } from '@/domain/models/app/pages/components/com
  * same envelope; `rowsKey` is applied in `select`, so two charts reading
  * different arrays of one envelope share the request too. A refused read
  * (401/403/404) and any other failure surface as the error they always did.
+ * A sibling's `onSuccess.refetch` naming this chart's host re-reads it; a
+ * system binding has no table, so it never polls or subscribes.
  */
 export function useChartSystemRecords(system: ChartSystemSource | undefined) {
   const query = useQuery({
@@ -56,6 +59,7 @@ export function useChartSystemRecords(system: ChartSystemSource | undefined) {
       return { records }
     },
   })
+  useLiveRefresh(system === undefined ? undefined : {}, query.refetch)
   const { error } = query
   return error instanceof SystemEnvelopeReadError
     ? { ...query, error: chartReadError(error.status, error.body) }

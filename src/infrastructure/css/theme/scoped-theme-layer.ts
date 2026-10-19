@@ -76,6 +76,7 @@
  * carries no stored theme. Hence one axis.
  */
 
+import { generateDarkKeptColors } from './dark-kept-colors'
 import {
   NEUTRAL_FLOOR_ROOT_DARK,
   NEUTRAL_FLOOR_ROOT_LIGHT,
@@ -214,6 +215,7 @@ export const scopedTokenLayer = ({
   const replaced = design?.baseline === 'replace'
   const light = replaced ? NEUTRAL_FLOOR_ROOT_LIGHT : V1_ROOT_LIGHT
   const dark = replaced ? NEUTRAL_FLOOR_ROOT_DARK : V1_ROOT_DARK
+  const { colors, darkColors } = design ?? {}
 
   return [
     rule(selector, [
@@ -227,10 +229,11 @@ export const scopedTokenLayer = ({
       // The operator's own values, last, so they win on source order.
       scopedAuthorTokens(design),
     ]),
-    generateAuthorSvBridge(design?.colors, selector),
+    generateAuthorSvBridge(colors, selector),
     rule(darkSelector, [blockBody(dark)]),
-    generateDarkColorOverrides(design?.darkColors, darkSelector),
-    generateSidebarRoleFollowers(design?.colors, design?.darkColors, {
+    generateDarkKeptColors(colors, darkColors, darkSelector),
+    generateDarkColorOverrides(darkColors, darkSelector),
+    generateSidebarRoleFollowers(colors, darkColors, {
       root: selector,
       dark: darkSelector,
     }),

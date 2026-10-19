@@ -38,9 +38,10 @@ your own records:
 
 The **Blocks** pages (`/kit/navigation`, `/kit/feedback`, `/kit/data`, a client page and two
 application frames) show every other application block of the library in its stock copy —
-bracketed words are the ones you replace. The empty state and the top bar's primary action
-were pointed at this app: their "New project" opens the Worklist instead of a page the app
-does not have. Keep the ones you need, delete the rest.
+bracketed words are the ones you replace. Every link on them was pointed at a page this app
+serves — a project, the Worklist, the Metrics, a client — so none leads to a page the app
+does not have; "New project" opens the Worklist, where projects are created. Keep the ones
+you need, delete the rest.
 
 Every page is made of blocks from the Sovrium library, installed with
 `sovrium library add` — each file under [`library/block/`](./library/block) starts with
@@ -66,7 +67,8 @@ email, single sign-on).
 Load the demo data first, or every table starts empty. It creates three accounts (one per
 role), six projects with their tasks, a week of activity, this week's meetings, the team
 directory, two clients, the payment reminders and the workspace settings, all dated
-relative to today:
+relative to today. The **Kit** pages' sample links open the first demo client and project, so
+they need it too:
 
 ```bash
 SOVRIUM_SEED_PASSWORD=choose-a-password sovrium seed app.yaml

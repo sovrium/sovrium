@@ -7,6 +7,7 @@
 
 import { Popover } from '@base-ui/react/popover'
 import { useCallback, useState } from 'react'
+import { modalPortalContainer } from '../runtime/modal-portal-container'
 import { useLiveInjectedMarkup } from './live-injected-markup'
 import { useOverlayPending } from './overlay-pending'
 import {
@@ -127,7 +128,7 @@ export default function PopoverIsland({
           <span>{triggerLabel ?? 'Open'}</span>
         )}
       </Popover.Trigger>
-      <Popover.Portal>
+      <Popover.Portal container={modalPortalContainer}>
         <Popover.Positioner
           side={floatingSide}
           align={floatingAlign}

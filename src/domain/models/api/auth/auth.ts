@@ -70,6 +70,16 @@ export const userSchema = Schema.Struct({
           'Whether this account receives automation-failure emails (admin-tier accounts only; on by default)',
       })
     ),
+    // The caller's role as the app calls it, composed by Sovrium (not Better
+    // Auth) and laid on the envelope, read by `session: roleLabel` and
+    // `$session.roleLabel`. Optional for the reason `language` is: a reader of
+    // this envelope must survive an upstream shape that lacks it.
+    roleLabel: optionalField(
+      Schema.String.annotate({
+        description:
+          "The caller's role as the app calls it, in the language the caller reads (their saved preference, else the `sovrium_language` cookie the page was served by, else the app's default): the role's declared `auth.roles[].label` (a `$t:` key translated), else the built-in words for a role every app carries (`Admin`, `Member`, `Viewer`, `Admin (read-only)`), else the role name made readable. Display text only; `role` stays what every permission reads.",
+      })
+    ),
     notifyWeeklyDigest: optionalField(
       Schema.Boolean.annotate({
         description:

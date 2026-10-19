@@ -30,11 +30,14 @@ import { EMPTY_RUN_ACCUMULATOR, type RunAccumulator } from './types'
  */
 const starterStandingRefusal = (input: {
   readonly startedByHand?: boolean
+  readonly startedAsGuest?: boolean
   readonly userId: string | undefined
 }): Effect.Effect<RunAccumulator | undefined, never, AuthRepository> =>
   Effect.gen(function* () {
     if (input.startedByHand !== true) return undefined
     const { userId } = input
+    // A visitor has no account to lose: her run goes ahead, still as a visitor.
+    if (input.startedAsGuest === true) return undefined
     const auth = yield* AuthRepository
     const active =
       userId === undefined
@@ -71,6 +74,7 @@ export const unlessStarterGone = <E, R>(
   input: {
     readonly checkStarterStanding?: boolean
     readonly startedByHand?: boolean
+    readonly startedAsGuest?: boolean
     readonly userId: string | undefined
   },
   steps: Effect.Effect<RunAccumulator, E, R>

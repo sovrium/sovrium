@@ -46,6 +46,47 @@ import { type AuthFormField, type FieldErrors } from './auth-form-validation'
  * A field that sets a password carries its `rule`, worded by the server, drawn
  * under the control and listed first in its accessible description.
  */
+/**
+ * A field's label around its control. A sign-in password field carrying a way
+ * back in draws shadcn/ui's login-03 row instead: the label, then "Forgot your
+ * password?" at the end of the same row, above the control — the label naming
+ * the control by `htmlFor`, since a link inside a `<label>` would join its name.
+ */
+function FieldLabel({
+  field,
+  children,
+}: {
+  readonly field: AuthFormField
+  readonly children: React.ReactNode
+}) {
+  if (!field.recovery)
+    return (
+      <label className={computeFormFieldClasses()}>
+        <span className={computeFormFieldLabelClasses()}>{field.label}</span>
+        {children}
+      </label>
+    )
+  return (
+    <div className={computeFormFieldClasses()}>
+      <div className="flex items-center">
+        <label
+          htmlFor={`${field.errorId ?? `${field.name}-error`}-control`}
+          className={computeFormFieldLabelClasses()}
+        >
+          {field.label}
+        </label>
+        <a
+          href={field.recovery.href}
+          className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+        >
+          {field.recovery.text}
+        </a>
+      </div>
+      {children}
+    </div>
+  )
+}
+
 const INLINE_ERROR_STYLE: React.CSSProperties = { minHeight: '1.25rem' }
 export function AuthFieldRow({
   field,
@@ -65,9 +106,9 @@ export function AuthFieldRow({
   const errorId = field.errorId ?? `${field.name}-error`
   return (
     <div data-field={field.name}>
-      <label className={computeFormFieldClasses()}>
-        <span className={computeFormFieldLabelClasses()}>{field.label}</span>
+      <FieldLabel field={field}>
         <input
+          id={`${errorId}-control`}
           type={field.inputType}
           data-component-type="input"
           name={field.name}
@@ -87,7 +128,7 @@ export function AuthFieldRow({
           {...(field.placeholder && { placeholder: field.placeholder })}
           onBlur={(e) => onBlur(field.name, e.target.value)}
         />
-      </label>
+      </FieldLabel>
       {field.rule && (
         <small
           id={`${errorId}-rule`}

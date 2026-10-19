@@ -89,11 +89,50 @@ const actionRow = (hint: string, control: PageComponent): PageComponent =>
     ],
   }) as PageComponent
 
+/**
+ * The Export row's status line, which the action's two answers share: a
+ * success writes "Export generated" into it as a quiet status, a failure
+ * writes an alert with its Retry. The classes below apply only while it is an
+ * alert, so the success line keeps the row's quiet voice.
+ *
+ * The alert is shadcn's: a bordered box in the destructive tone, a mark before
+ * the message, and an outline button at the end — the runtime draws a bare
+ * `<button>` inside the region, so its anatomy is given here, by selector.
+ */
+const EXPORT_ALERT = [
+  '[&[role=alert]]:flex [&[role=alert]]:items-center [&[role=alert]]:gap-2.5',
+  '[&[role=alert]]:rounded-lg [&[role=alert]]:border [&[role=alert]]:border-destructive/40',
+  '[&[role=alert]]:px-3 [&[role=alert]]:py-2.5 [&[role=alert]]:text-foreground',
+  "[&[role=alert]]:before:content-['!'] [&[role=alert]]:before:inline-flex",
+  '[&[role=alert]]:before:size-4 [&[role=alert]]:before:shrink-0',
+  '[&[role=alert]]:before:items-center [&[role=alert]]:before:justify-center',
+  '[&[role=alert]]:before:rounded-full [&[role=alert]]:before:border-[1.5px]',
+  '[&[role=alert]]:before:border-destructive [&[role=alert]]:before:text-[10px]',
+  '[&[role=alert]]:before:font-bold [&[role=alert]]:before:text-destructive',
+  '[&[role=alert]>button]:ml-auto [&[role=alert]>button]:inline-flex',
+  '[&[role=alert]>button]:h-6 [&[role=alert]>button]:shrink-0',
+  '[&[role=alert]>button]:items-center [&[role=alert]>button]:rounded-md',
+  '[&[role=alert]>button]:border [&[role=alert]>button]:border-border',
+  '[&[role=alert]>button]:bg-background [&[role=alert]>button]:px-2',
+  '[&[role=alert]>button]:text-xs [&[role=alert]>button]:no-underline',
+  '[&[role=alert]>button]:hover:bg-muted',
+].join(' ')
+
+const exportStatus = (): PageComponent => {
+  const line = status('gdpr-export-status') as PageComponent & {
+    readonly props: Record<string, string>
+  }
+  return {
+    ...line,
+    props: { ...line.props, className: `${line.props['className']} ${EXPORT_ALERT}` },
+  } as PageComponent
+}
+
 export default consolePage({
   id: 'dashboard-gdpr',
   path: '/gdpr',
   title: '$t:admin.meta.gdpr',
-  shell: { breadcrumb: { gdpr: '$t:admin.crumb.gdpr' } },
+  shell: { breadcrumb: { gdpr: '$t:admin.crumb.gdpr' }, document: true },
   body: [
     {
       type: 'container',
@@ -171,16 +210,20 @@ export default consolePage({
                       message: '$t:admin.gdpr.export.generated',
                     },
                   },
-                  // A refused export is said, with what to do next; the
-                  // button is given back by the pending control either way.
+                  // A refused export is said where it was asked for, under the
+                  // button, and stays until the operator acts — a toast would
+                  // leave with their attention. Retry runs the same request;
+                  // a later success writes "Export generated" in its place.
                   onError: {
-                    type: 'toast',
-                    variant: 'destructive',
-                    message: '$t:admin.gdpr.export.failed',
+                    status: {
+                      target: 'gdpr-export-status',
+                      message: '$t:admin.gdpr.export.failed',
+                      retryLabel: '$t:admin.gdpr.export.retry',
+                    },
                   },
                 },
               } as PageComponent),
-              status('gdpr-export-status'),
+              exportStatus(),
             ]),
             // ── Erase ────────────────────────────────────────────────────
             //

@@ -24,6 +24,11 @@
 
 import { sql } from 'drizzle-orm'
 import { Data, Effect } from 'effect'
+import {
+  recordTitleFields,
+  recordTitleOf,
+  type TitleCandidateField,
+} from '@/domain/models/app/tables/record-title-service'
 import { db } from '@/infrastructure/database'
 import { logError } from '@/infrastructure/logging/logger'
 import { executeRaw } from './sql/dialect-execute'
@@ -45,6 +50,8 @@ export interface RecordAttachmentLink {
   readonly recordId: string
   /** The attachment field that references the file. */
   readonly field: string
+  /** The record as a person names it — its title field, else its id. */
+  readonly recordLabel: string
 }
 
 /**
@@ -78,13 +85,20 @@ export const bindingsOfCell = (
   })
 }
 
-/** The links one attachment column holds across its live records. */
+/**
+ * The links one attachment column holds across its live records, each named by
+ * its record's title (`recordTitleOf` over the table's title fields), read in
+ * the same pass: an operator reads a quote number, not a 32-hex id.
+ */
 const linksOfColumn = async (
-  target: Readonly<AttachmentColumn>
+  target: Readonly<AttachmentColumn>,
+  fields: readonly TitleCandidateField[]
 ): Promise<readonly RecordAttachmentLink[]> => {
+  const titles = recordTitleFields(fields).filter((name) => name !== target.column)
+  const titleColumns = titles.map((name) => sql`, ${sql.identifier(name)}`)
   const rows = await executeRaw(
     db,
-    sql`SELECT ${sql.identifier(target.primaryKey)} AS row_id, ${sql.identifier(target.column)} AS value
+    sql`SELECT ${sql.identifier(target.primaryKey)} AS row_id, ${sql.identifier(target.column)} AS value${sql.join(titleColumns)}
         FROM ${sql.identifier(target.relation)}
         WHERE ${sql.identifier(target.column)} IS NOT NULL
           AND deleted_at IS NULL`
@@ -96,9 +110,14 @@ const linksOfColumn = async (
       table: target.table,
       recordId: String(row['row_id']),
       field: target.column,
+      recordLabel: recordTitleOf(fields, { ...row, id: row['row_id'] }),
     }))
   )
 }
+
+/** The fields a table's records are titled from, as the app declares them. */
+const titleFieldsOf = (app: Readonly<App>, tableName: string): readonly TitleCandidateField[] =>
+  (app.tables ?? []).find((table) => table.name === tableName)?.fields ?? []
 
 /** One attachment column's relation could not be read. */
 class AttachmentColumnReadError extends Data.TaggedError('AttachmentColumnReadError')<{
@@ -129,7 +148,7 @@ export const listRecordAttachmentLinks = (
     collectAttachmentColumns(app),
     (target) =>
       Effect.tryPromise({
-        try: () => linksOfColumn(target),
+        try: () => linksOfColumn(target, titleFieldsOf(app, target.table)),
         catch: (cause) => new AttachmentColumnReadError({ cause }),
       }).pipe(
         Effect.catch(({ cause }) =>

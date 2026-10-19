@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-// sovrium-library: block/dl-rows@0.37.0#c272d6a1930e
+// sovrium-library: block/dl-rows@0.37.0#6022c00c4c51
 
 // The console's facts cards, INSTALLED from the library's `dl-rows` block: a
 // shadcn Card with a header (a title and the sentence that says what the facts
@@ -24,7 +24,7 @@ type PageComponent = NonNullable<PageConfig['components']>[number]
 
 export const factsCardCopy = {
   type: 'card',
-  props: { className: 'max-w-3xl p-0' },
+  props: { className: 'p-0' },
   children: [
     {
       type: 'container',

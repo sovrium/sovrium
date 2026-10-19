@@ -48,18 +48,39 @@ export const countLinkClicks = (
     Effect.withSpan('links.count-clicks')
   )
 
-/** The window a catalog row's click figure is defined over. */
+/** The window a catalog row's click figure is defined over by default. */
 const LINK_CLICKS_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
 
+/** The span a click figure counts over. */
+export interface ClicksWindow {
+  readonly from: Readonly<Date>
+  readonly to: Readonly<Date>
+}
+
 /**
- * Each slug's clicks over the 30 days up to `now` (inclusive), read as ONE
- * grouped count over the click store — a page of links costs one query, not one
- * per link. A slug nobody clicked reads 0.
+ * The window a caller asked for, completed: `to` defaults to `now`, `from` to
+ * the 30 days before `to` — so with neither bound it is the last 30 days.
+ */
+export const clicksWindowOf = (
+  now: Readonly<Date>,
+  bounds: {
+    readonly from?: Readonly<Date> | undefined
+    readonly to?: Readonly<Date> | undefined
+  } = {}
+): ClicksWindow => {
+  const to = bounds.to ?? now
+  return { from: bounds.from ?? new Date(to.getTime() - LINK_CLICKS_WINDOW_MS), to }
+}
+
+/**
+ * Each slug's clicks over `window`, read as ONE grouped count over the click
+ * store — a page of links costs one query, not one per link. A slug nobody
+ * clicked reads 0.
  */
 export const countRecentLinkClicks = (
   appName: string,
   slugs: readonly string[],
-  now: Readonly<Date>
+  window: ClicksWindow
 ): Effect.Effect<ReadonlyMap<string, number>, never, AnalyticsRepository> =>
   Effect.gen(function* () {
     const repository = yield* AnalyticsRepository
@@ -67,8 +88,8 @@ export const countRecentLinkClicks = (
       appName,
       eventType: 'link_click',
       names: slugs,
-      from: new Date(now.getTime() - LINK_CLICKS_WINDOW_MS),
-      to: new Date(now.getTime()),
+      from: new Date(window.from.getTime()),
+      to: new Date(window.to.getTime()),
     })
   }).pipe(
     Effect.tapCause((cause) =>

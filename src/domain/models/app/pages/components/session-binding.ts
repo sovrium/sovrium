@@ -35,8 +35,9 @@ import { Schema } from 'effect'
  *
  * The resolvable session fields are deliberately limited to non-sensitive identity
  * fields (the same `{ user }` envelope `GET /api/auth/get-session` returns): the
- * caller's own `email`, display `name`, `role`, and `id`. Nothing here exposes other
- * users' data — every value is the CALLER's own session.
+ * caller's own `email`, display `name`, `role`, `roleLabel` (that role as the app
+ * calls it, composed by the server in the caller's language) and `id`. Nothing here
+ * exposes other users' data — every value is the CALLER's own session.
  *
  * ─── THE OPTIONAL SEGMENT: `Welcome[, $session.name]` ──────────────────────────
  *
@@ -99,11 +100,17 @@ import { Schema } from 'effect'
  * `GET /api/auth/get-session`. Doubles as the `<field>` segment of the
  * `$session.<field>` interpolation token.
  */
-export const SessionFieldSchema = Schema.Literals(['email', 'name', 'role', 'id']).annotate({
+export const SessionFieldSchema = Schema.Literals([
+  'email',
+  'name',
+  'role',
+  'roleLabel',
+  'id',
+]).annotate({
   identifier: 'SessionField',
   title: 'Session Field',
   description:
-    "A field of the signed-in caller's OWN session (email/name/role/id), resolved client-side from GET /api/auth/get-session. Also the <field> of the $session.<field> interpolation token.",
+    "A field of the signed-in caller's OWN session, resolved client-side from GET /api/auth/get-session: email, name, id, role (the role's name) or roleLabel (the role as the app calls it — its declared label, translated into the caller's language when it is a $t: key, else the built-in words for a role every app carries, else the name made readable). Also the <field> of the $session.<field> interpolation token.",
 })
 
 /**
@@ -121,7 +128,7 @@ export const sessionFields = {
   session: Schema.optional(
     SessionFieldSchema.annotate({
       description:
-        "Render the signed-in caller's OWN session field (email/name/role/id), resolved client-side from GET /api/auth/get-session. Generic: any app showing 'logged in as X'. Renders nothing for anonymous callers.",
+        "Render the signed-in caller's OWN session field (email/name/role/roleLabel/id), resolved client-side from GET /api/auth/get-session. Generic: any app showing 'logged in as X'; roleLabel names their role as the app calls it. Renders nothing for anonymous callers.",
     })
   ),
 } as const

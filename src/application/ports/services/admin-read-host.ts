@@ -9,7 +9,6 @@ import { Context, type Effect } from 'effect'
 import type { StorageService } from '@/application/ports/services/storage-service'
 import type { ConfigVersionResponse } from '@/domain/models/api/admin/config/version'
 import type { App } from '@/domain/models/app'
-import type { Design } from '@/domain/models/app/design'
 
 /**
  * AdminReadHost — the facts an admin read needs from the process serving it,
@@ -18,10 +17,9 @@ import type { Design } from '@/domain/models/app/design'
  * An admin read is described once in the read registry and answered on two
  * surfaces (HTTP and MCP). Most reads are functions of the app and the store.
  * A few are functions of the SERVING PROCESS instead: the origin the caller
- * reached it at, the frozen boot instant, the engine build, the live footprint
- * telemetry, and the class provenance the renderer resolves. Those live in
- * infrastructure or in the render tree, which the application layer may not
- * import — so each surface's adapter provides this service per call, built by
+ * reached it at, the frozen boot instant, the engine build, and the live
+ * footprint telemetry. Those live in infrastructure or in the render tree,
+ * which the application layer may not import — so each surface's adapter provides this service per call, built by
  * one presentation helper, and both surfaces answer from the same values.
  *
  * Provided by the adapters (`Effect.provideService`), never by the domain
@@ -34,8 +32,10 @@ export class AdminReadHost extends Context.Service<
     /** The public origin, with no trailing slash, the caller reached this instance at. */
     readonly origin: string
     /**
-     * When this process booted, frozen at module load. The config version reports
-     * it as `startedAt`, and the attention report is byte-identical to it.
+     * When this instance started: the process boot, frozen at module load, or on
+     * a host pinned with `SOVRIUM_DEV_CLOCK` that boot on the development
+     * timeline. The config version reports it as `startedAt`, and the attention
+     * report is byte-identical to it.
      */
     readonly processStartedAt: string
     /** The engine build and runtime facts the config version answers. */
@@ -55,12 +55,6 @@ export class AdminReadHost extends Context.Service<
       rows: ReadonlyArray<Readonly<Record<string, unknown>>>,
       columns: ReadonlyArray<string>
     ) => string
-    /** Where the classes of one part of one component type come from. */
-    readonly classProvenance: (input: {
-      readonly design?: Design
-      readonly type: string
-      readonly part?: string
-    }) => Readonly<Record<string, unknown>>
   }
 >()('AdminReadHost') {}
 

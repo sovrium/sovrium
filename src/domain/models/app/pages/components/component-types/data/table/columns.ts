@@ -8,11 +8,13 @@
 import { Schema } from 'effect'
 import {
   ConditionOperatorsSchema,
+  DisabledReasonSchema,
+  DisabledWhenSchema,
   FieldConditionSchema,
 } from '@/domain/models/app/tables/condition-operators'
 import { ActionSchema } from '../../../action'
 import { ConfirmGateSchema } from '../../../confirm-gate'
-import { optStr, ToneSchema } from '../../../shared-schemas'
+import { optStr, ToneSchema, ValueLabelsSchema } from '../../../shared-schemas'
 import { CallerCapabilitySchema } from '../../../visibility'
 import { SelectOptionSourceBindingSchema } from '../../form-controls/select-option-source'
 
@@ -51,6 +53,15 @@ import { SelectOptionSourceBindingSchema } from '../../form-controls/select-opti
  * a future date as "dans N j" (fr) / "in N days" (en), a past date as
  * "il y a N j" / "N days ago". Use it for a forward-looking countdown column
  * (e.g. a grace-window "scheduled erasure" date that resolves to "dans 5 j").
+ *
+ * `day-relative-time` is how a FEED reads an instant: relative to the reader's
+ * day, with its time — `Today 06:00`, `Yesterday 18:00` — then the day and the
+ * short month in the page language's order with the time (`Oct 13, 07:30`,
+ * `13 oct., 07:30`), and the year only when the instant falls in another year
+ * (`Dec 30, 2025, 09:15`). Always a 24-hour clock; the day and the year are read
+ * in the operator timezone. A run history, an activity log: a column scanned for
+ * "how recent", where `relative-time`'s "3 h ago" loses the time of day and
+ * `datetime` repeats this year on every row.
  */
 export const ColumnFormatSchema = Schema.Literals([
   'truncate',
@@ -61,6 +72,7 @@ export const ColumnFormatSchema = Schema.Literals([
   'duration',
   'relative-date',
   'relative-time',
+  'day-relative-time',
   'short-date',
   'long-date',
   'datetime',
@@ -70,7 +82,7 @@ export const ColumnFormatSchema = Schema.Literals([
 ]).annotate({
   title: 'Column Format',
   description:
-    'Display format override for a rendered value (a table column or a record-field). bytes = binary B/KB/MB/GB (o/ko/Mo/Go on a French page), NOT the SI compact 11.5K; duration = an elapsed time as one compact figure (180 ms, 1.4 s, 2 min 18 s, 1 h 05 min), read as seconds on a duration field and as milliseconds on any other number; relative-date = past-only English; relative-time = signed, locale-aware (dans N j / il y a N j) and future-capable; short-date = day and short month in the page language order (Sep 22, 22 sept.), with the year only when the date falls in another year (Mar 5, 2024); time-ms = the time of day to the millisecond (14:03:07.512) in the operator timezone, for log and event timestamps.',
+    'Display format override for a rendered value (a table column or a record-field). bytes = binary B/KB/MB/GB (o/ko/Mo/Go on a French page), NOT the SI compact 11.5K; duration = an elapsed time as one compact figure (180 ms, 1.4 s, 2 min 18 s, 1 h 05 min), read as seconds on a duration field and as milliseconds on any other number; relative-date = past-only English; relative-time = signed, locale-aware (dans N j / il y a N j) and future-capable; day-relative-time = an instant relative to the reader’s day with its 24-hour time (Today 06:00, Yesterday 18:00), else day and short month with the time (Oct 13, 07:30), the year only for another year, in the operator timezone; short-date = day and short month in the page language order (Sep 22, 22 sept.), with the year only when the date falls in another year (Mar 5, 2024); time-ms = the time of day to the millisecond (14:03:07.512) in the operator timezone, for log and event timestamps.',
 })
 
 // ---------------------------------------------------------------------------
@@ -380,6 +392,17 @@ export const ActionColumnItemSchema = Schema.Struct({
    */
   visibleWhen: Schema.optional(actionVisibleWhenSchema),
   /**
+   * Optional per-row DISABLED predicate. On rows where it holds, the action is
+   * still drawn but marked `aria-disabled` and pressing it does nothing; on the
+   * others it works as usual. The verdict is computed by the server on the whole
+   * row and reaches the grid as a flag (`_disabled` on the record), never as the
+   * field value it was decided on. An automation it would start is refused by
+   * the press route with 409 and the reason.
+   */
+  disabledWhen: Schema.optional(DisabledWhenSchema),
+  /** Why the action is disabled: its tooltip and its accessible description. */
+  disabledReason: Schema.optional(DisabledReasonSchema),
+  /**
    * Optional visual weight. Omit and the button paints exactly as it does today
    * (the `secondary` recipe at `sm`, shrunk to 24px on 11px type) — so this key
    * is inert on every grid that does not name it. See
@@ -508,7 +531,7 @@ export const FieldColumnSchema = Schema.Struct({
    * the raw enum (so server-side relabeling is impossible).
    */
   valueLabels: Schema.optional(
-    Schema.Record(Schema.String, Schema.String).annotate({
+    ValueLabelsSchema.annotate({
       title: 'Value Labels',
       description:
         'Map of raw cell value -> display label, applied at render time only (does not mutate the record value or the API contract). On an option column the label is drawn in the option chip and colour, and an unmapped value shows the option label; elsewhere unmapped values render verbatim.',

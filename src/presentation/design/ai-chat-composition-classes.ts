@@ -55,17 +55,14 @@ export const computeAiChatBubbleContentClasses = (role: 'user' | 'assistant'): s
   }`
 
 /**
- * An answer drawn from its Markdown: the assistant bubble, with the prose
- * spacing the rendered blocks need — paragraphs and lists apart, list markers
- * shown, links underlined, code set apart — instead of the typed turn's
- * preserved whitespace, which would double every line break of the markup.
+ * An answer drawn from its Markdown: the assistant bubble, without the typed
+ * turn's preserved whitespace, which would double every line break of the
+ * markup. The rendered blocks inside it are set by Typeset's chat preset
+ * (`typeset typeset-chat` on the markup's container), so the bubble carries no
+ * prose spacing of its own.
  */
 export const computeAiChatAnswerContentClasses = (): string =>
-  computeAiChatBubbleContentClasses('assistant')
-    .replace('whitespace-pre-wrap', 'whitespace-normal')
-    .concat(
-      ' [&_ol]:list-decimal [&_ol]:ps-5 [&_ul]:list-disc [&_ul]:ps-5 [&_p+*]:mt-2 [&_ul+*]:mt-2 [&_ol+*]:mt-2 [&_a]:underline [&_a]:underline-offset-3 [&_code]:rounded [&_code]:bg-background [&_code]:px-1 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-background [&_pre]:p-2'
-    )
+  computeAiChatBubbleContentClasses('assistant').replace('whitespace-pre-wrap', 'whitespace-normal')
 
 /** The decisions on a held tool call, drawn after the line's words. */
 export const computeAiChatToolDecisionClasses = (variant: 'default' | 'outline'): string =>
@@ -100,3 +97,23 @@ export const computeAiChatComposerButtonClasses = (variant: 'ghost' | 'default')
 /** The chip strip under the composer, outside the form so a chip never submits. */
 export const computeAiChatSuggestionStripClasses = (): string =>
   'flex shrink-0 flex-wrap items-center gap-1.5 px-3 pb-3'
+
+/** The two button tokens that hold a chip to one line at one height, and what replaces them. */
+const CHIP_WRAPPING: Readonly<Record<string, string>> = {
+  'whitespace-nowrap': 'whitespace-normal',
+  'h-7': 'h-auto min-h-7',
+}
+
+/**
+ * One prompt chip: the small outlined button — the one variant whose fill is
+ * the surface behind it, so a row of chips reads as offers rather than as
+ * competing send buttons — allowed to wrap. A button holds one line at a fixed
+ * height, and a prompt longer than the panel is wide (a phone, a narrow card)
+ * would run past the panel's edge; the chip instead grows a line, capped at
+ * the strip's width, its lines set from the start like the text they insert.
+ */
+export const computeAiChatSuggestionChipClasses = (): string =>
+  `${computePartButtonClasses({ variant: 'outline', size: 'sm' })
+    .split(' ')
+    .map((token) => CHIP_WRAPPING[token] ?? token)
+    .join(' ')} max-w-full py-1 text-start wrap-break-word`

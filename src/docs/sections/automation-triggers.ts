@@ -119,7 +119,7 @@ export const automationTriggers = defineSection({
       slug: 'trigger-auth-form',
       title: 'Auth & Form Triggers',
       description:
-        'Fire an automation from something a person did — the five authentication lifecycle events, and top-level form submissions referenced by name.',
+        'Fire an automation from something a person did — the six authentication lifecycle events, and top-level form submissions referenced by name.',
       keywords: [
         'sovrium',
         'auth trigger',
@@ -128,6 +128,7 @@ export const automationTriggers = defineSection({
         'signOut',
         'passwordReset',
         'emailVerified',
+        'invitationAccepted',
         'form trigger',
         'forms name',
         'form submission',

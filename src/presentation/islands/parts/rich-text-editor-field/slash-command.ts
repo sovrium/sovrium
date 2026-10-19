@@ -5,14 +5,20 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { filterMenuItemsByToolbar, SLASH_MENU_ITEMS, TOOLBAR_ACTIONS } from './actions'
+import {
+  filterMenuItemsByToolbar,
+  type RichTextWords,
+  SLASH_MENU_ITEMS,
+  slashMenuItemsFor,
+  TOOLBAR_ACTIONS,
+} from './actions'
 import type { Editor } from '@tiptap/react'
 
 /**
  * Which entry a TYPED query names, if any.
  *
- * Prefix-matched on the label, which is what lets `/code` reach `Code block`
- * after four characters. Split out from the application below because the two
+ * Prefix-matched on the label the menu shows, in the page language, which is
+ * what lets `/code` reach `Code block` after four characters. Split out from the application below because the two
  * ways into this menu know different things: a reader who TYPES has given a
  * query and nothing else, while a reader who CLICKS has named an entry
  * outright and must not have that choice re-derived from whatever they had
@@ -20,11 +26,14 @@ import type { Editor } from '@tiptap/react'
  * back through the query would have inserted a heading whichever row was
  * pressed.
  */
-export function resolveSlashToken(query: string, toolbar: readonly string[]): string | undefined {
+export function resolveSlashToken(
+  query: string,
+  toolbar: readonly string[],
+  words?: RichTextWords
+): string | undefined {
   const lower = query.toLowerCase().trim()
-  return filterMenuItemsByToolbar(SLASH_MENU_ITEMS, toolbar).find((it) =>
-    it.label.toLowerCase().startsWith(lower)
-  )?.token
+  return slashMenuItemsFor(toolbar, words).find((it) => it.label.toLowerCase().startsWith(lower))
+    ?.token
 }
 
 /**

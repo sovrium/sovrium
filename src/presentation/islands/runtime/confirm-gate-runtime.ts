@@ -16,7 +16,11 @@
  * `message`), an optional type-to-confirm `input` whose confirm affordance stays
  * disabled until the value equals the resolved `matchValue` (a `$session.email`
  * token resolves to the caller's OWN session value), and `confirmLabel` /
- * `cancelLabel` overrides. Non-modal — a plain `<div>` that never inerts the page.
+ * `cancelLabel` overrides. A gate WITHOUT an input is non-modal — a plain `<div>`
+ * after its trigger that never inerts the page. A gate WITH one guards the most
+ * serious gestures a page offers, so it opens MODAL on the platform's own
+ * `<dialog>`: focus moves inside, its field carries a visible label, and Escape
+ * or Cancel closes it without firing.
  *
  * Extracted from `client.ts` so that always-loaded entry stays under its
  * size-limit cap; lives in `islands/shared/` so the imperative DOM construction
@@ -32,24 +36,27 @@ import {
 } from '@/domain/models/app/pages/confirm-gate-labels'
 import {
   joinPartButtonClasses,
-  PART_BUTTON_DESTRUCTIVE,
   PART_BUTTON_OUTLINE,
   PART_BUTTON_SM,
 } from '@/presentation/design/button-variant-classes'
 import {
   computeDialogDescriptionClasses,
   computeDialogTitleClasses,
+  NATIVE_ALERT_DIALOG_CONTENT,
+  NATIVE_ALERT_DIALOG_FOOTER,
+  NATIVE_ALERT_DIALOG_HEADER,
 } from '@/presentation/design/dialog-default-classes'
+import { FIELD_LABEL_PLAIN, FIELD_STACK_PLAIN } from '@/presentation/design/field-default-classes'
 import { computeInputRecipeClasses } from '@/presentation/design/input-default-classes'
 import { restoreInertTemplateValue } from '@/presentation/design/session-template'
 import { fetchSessionUser, resolveSessionTemplate } from './session-resolver'
 import type { ConfirmObject } from '@/domain/models/app/pages/components/confirm-gate'
 
 /**
- * The gate draws on shadcn/ui's alert-dialog anatomy, inline rather than modal:
+ * The inline gate draws on shadcn/ui's alert-dialog anatomy without its modality:
  * a card-ground panel, the alert-dialog title and description, the `Input`
  * recipe for the type-to-confirm textbox, and base-nova's `buttonVariants` for
- * the two affordances (destructive confirm, outline cancel), both at `sm`. The
+ * the two affordances (the confirm in the weight the server stamped, outline cancel), both at `sm`. The
  * part-button recipe rather than the `button` component's: this runtime ships to
  * every page, and the component recipe carries the schema's variant table. For
  * the same reason it reads the two variant strings and the size it draws, and
@@ -60,8 +67,13 @@ const TITLE_CLASS = computeDialogTitleClasses('alert-dialog')
 const MESSAGE_CLASS = computeDialogDescriptionClasses('alert-dialog')
 const INPUT_CLASS = computeInputRecipeClasses()
 const BUTTON_ROW_CLASS = 'flex items-center gap-2'
-const CONFIRM_BTN_CLASS = joinPartButtonClasses(PART_BUTTON_DESTRUCTIVE, PART_BUTTON_SM)
 const CANCEL_BTN_CLASS = joinPartButtonClasses(PART_BUTTON_OUTLINE, PART_BUTTON_SM)
+/** The modal gate: base-nova's alert-dialog content, header, field and footer. */
+const MODAL_CLASS = NATIVE_ALERT_DIALOG_CONTENT
+const MODAL_HEADER_CLASS = NATIVE_ALERT_DIALOG_HEADER
+const MODAL_FOOTER_CLASS = NATIVE_ALERT_DIALOG_FOOTER
+const FIELD_CLASS = FIELD_STACK_PLAIN
+const FIELD_LABEL_CLASS = FIELD_LABEL_PLAIN
 
 /**
  * Parse the `data-confirm-config` blob into the OBJECT-form confirm descriptor.
@@ -102,13 +114,24 @@ function createGateButton(opts: {
   return btn
 }
 
-/** Build the type-to-confirm textbox (labelled by `input.label`). */
-function createConfirmInput(label: string): HTMLInputElement {
+/** Build the type-to-confirm textbox, named by the visible `<label>` drawn above it. */
+function createConfirmField(label: string): {
+  readonly field: HTMLDivElement
+  readonly inputEl: HTMLInputElement
+} {
+  const id = `confirm-input-${Math.random().toString(36).slice(2)}`
+  const field = document.createElement('div')
+  field.setAttribute('class', FIELD_CLASS)
+  const labelEl = document.createElement('label')
+  labelEl.setAttribute('for', id)
+  labelEl.setAttribute('class', FIELD_LABEL_CLASS)
+  labelEl.append(label)
   const inputEl = document.createElement('input')
+  inputEl.setAttribute('id', id)
   inputEl.setAttribute('type', 'text')
-  inputEl.setAttribute('aria-label', label)
   inputEl.setAttribute('class', INPUT_CLASS)
-  return inputEl
+  field.append(labelEl, inputEl)
+  return { field, inputEl }
 }
 
 /**
@@ -143,54 +166,77 @@ function wireTypeToConfirmGate(
   }
 }
 
-/** The dialog shell: role surface + separate title + body message. */
-function buildObjectConfirmShell(config: ConfirmObject, title: string): HTMLDivElement {
-  const dialog = document.createElement('div')
+/**
+ * The dialog shell: role surface + separate title + body message. A modal gate
+ * is a `<dialog>` (opened with `showModal`) whose title and message sit in the
+ * alert-dialog header; an inline one a `<div>` after its trigger.
+ */
+function buildObjectConfirmShell(
+  config: ConfirmObject,
+  title: string,
+  modal: boolean
+): HTMLElement {
+  const dialog = document.createElement(modal ? 'dialog' : 'div')
   dialog.setAttribute('role', config.role ?? 'alertdialog')
-  dialog.setAttribute('aria-modal', 'false')
+  dialog.setAttribute('aria-modal', modal ? 'true' : 'false')
   dialog.setAttribute('aria-label', title)
   dialog.setAttribute('data-confirm-dialog', '')
-  dialog.setAttribute('class', DIALOG_CLASS)
+  dialog.setAttribute('class', modal ? MODAL_CLASS : DIALOG_CLASS)
+  if (modal) dialog.setAttribute('data-size', 'default')
   const titleEl = document.createElement('strong')
   titleEl.setAttribute('class', TITLE_CLASS)
   titleEl.append(title)
-  dialog.append(titleEl)
   const messageSpan = document.createElement('span')
   messageSpan.setAttribute('class', MESSAGE_CLASS)
   messageSpan.append(config.message)
-  dialog.append(messageSpan)
+  if (modal) {
+    const header = document.createElement('div')
+    header.setAttribute('class', MODAL_HEADER_CLASS)
+    header.append(titleEl, messageSpan)
+    dialog.append(header)
+  } else {
+    dialog.append(titleEl, messageSpan)
+  }
   return dialog
 }
 
-/** Append the optional type-to-confirm input, arming the gate when a matchValue is set. */
+/** Append the type-to-confirm field, arming the gate when a matchValue is set. */
 function appendObjectConfirmInput(
-  dialog: HTMLDivElement,
+  dialog: HTMLElement,
   input: NonNullable<ConfirmObject['input']>,
   confirmBtn: HTMLButtonElement
 ): void {
-  const inputEl = createConfirmInput(input.label)
-  dialog.append(inputEl)
+  const { field, inputEl } = createConfirmField(input.label)
+  dialog.append(field)
   if (input.matchValue !== undefined) wireTypeToConfirmGate(inputEl, confirmBtn, input.matchValue)
 }
 
-/** Append the confirm + cancel button row. */
+/**
+ * Append the two affordances: confirm then cancel inline; in a modal gate the
+ * alert-dialog footer, cancel first as base-nova orders them.
+ */
 function appendObjectConfirmButtons(
-  dialog: HTMLDivElement,
+  dialog: HTMLElement,
   confirmBtn: HTMLButtonElement,
-  cancelLabel: string
+  cancel: { readonly label: string; readonly dismiss: () => void; readonly modal: boolean }
 ): void {
   const row = document.createElement('div')
-  row.setAttribute('class', BUTTON_ROW_CLASS)
-  row.append(confirmBtn)
-  row.append(
-    createGateButton({
-      label: cancelLabel,
-      ariaLabel: cancelLabel,
-      className: CANCEL_BTN_CLASS,
-      onClick: () => dialog.remove(),
-    })
-  )
+  row.setAttribute('class', cancel.modal ? MODAL_FOOTER_CLASS : BUTTON_ROW_CLASS)
+  const cancelBtn = createGateButton({
+    label: cancel.label,
+    ariaLabel: cancel.label,
+    className: CANCEL_BTN_CLASS,
+    onClick: cancel.dismiss,
+  })
+  if (cancel.modal) row.append(cancelBtn, confirmBtn)
+  else row.append(confirmBtn, cancelBtn)
   dialog.append(row)
+}
+
+/** Close a modal gate (the top layer lets go of it), then take it out of the page. */
+function dismissGate(dialog: HTMLElement): void {
+  if (dialog instanceof HTMLDialogElement && dialog.open) dialog.close()
+  dialog.remove()
 }
 
 /**
@@ -257,16 +303,24 @@ export function openFetchConfirmObjectGate(
   if (trigger.nextElementSibling?.hasAttribute('data-confirm-dialog')) return
   const title = config.title ?? config.message
   const { confirm: confirmLabel, cancel: cancelLabel } = resolveGateLabels(trigger, config)
-  const dialog = buildObjectConfirmShell(config, title)
+  const modal = config.input !== undefined
+  const dialog = buildObjectConfirmShell(config, title, modal)
+  const dismiss = (): void => dismissGate(dialog)
   const confirmBtn = createGateButton({
     label: confirmLabel,
-    className: CONFIRM_BTN_CLASS,
+    // In the weight of the action, decided on the server (`data-confirm-class`).
+    className: trigger.getAttribute('data-confirm-class') ?? '',
     onClick: () => {
-      dialog.remove()
+      dismiss()
       onConfirm()
     },
   })
   if (config.input) appendObjectConfirmInput(dialog, config.input, confirmBtn)
-  appendObjectConfirmButtons(dialog, confirmBtn, cancelLabel)
+  appendObjectConfirmButtons(dialog, confirmBtn, { label: cancelLabel, dismiss, modal })
   trigger.insertAdjacentElement('afterend', dialog)
+  if (dialog instanceof HTMLDialogElement) {
+    // Escape closes the dialog natively; it leaves the page with it, unfired.
+    dialog.addEventListener('close', () => dialog.remove())
+    dialog.showModal()
+  }
 }

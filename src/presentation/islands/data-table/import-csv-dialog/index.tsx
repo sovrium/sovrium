@@ -15,12 +15,14 @@ import {
 import { DialogFooter } from './dialog-footer'
 import { DuplicateStep } from './duplicate-step'
 import { ImportResultView } from './import-result'
+import { useImportWord } from './import-words'
 import { MappingStep } from './mapping-step'
-import { matchHeaderToField } from './parser'
+import { matchHeaderToField, type FieldLabelCandidates } from './parser'
 import { PreviewStep } from './preview-step'
 import { UploadStep } from './upload-step'
 import { runImport, buildRecordsFromCsv } from './use-import'
 import { useImportCsvDialogState } from './use-state'
+import { WizardSteps } from './wizard-steps'
 import type { ColumnMapping, ImportResult } from './types'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 
@@ -30,21 +32,25 @@ interface ImportCsvDialogProps {
   readonly tableFields?: readonly string[]
   readonly tableName: string
   readonly fieldMeta?: FieldMetaMap
+  /** Each field's label in every language the app declares, for the auto-mapping. */
+  readonly fieldLabels?: FieldLabelCandidates
   /** Called once the rows were written, with what the import created. */
   readonly onImported?: (result: ImportResult) => void
 }
 
 /**
  * Compute the per-column mapping bag from a fresh CSV preview, attempting to
- * auto-resolve each header to the closest table field via token overlap.
+ * auto-resolve each header to a table field by its name, its label in any
+ * declared language, or the words it shares with a field name.
  */
 function buildInitialMappings(
   headers: readonly string[],
-  tableFields: readonly string[] | undefined
+  tableFields: readonly string[] | undefined,
+  fieldLabels: FieldLabelCandidates | undefined
 ): readonly ColumnMapping[] {
   return headers.map((header) => ({
     csvColumn: header,
-    tableField: matchHeaderToField(header, tableFields),
+    tableField: matchHeaderToField(header, tableFields, fieldLabels),
   }))
 }
 
@@ -73,14 +79,19 @@ export function ImportCsvDialog({
   tableFields,
   tableName,
   fieldMeta,
+  fieldLabels,
   onImported,
 }: ImportCsvDialogProps) {
   const state = useImportCsvDialogState()
+  const title = useImportWord('csvImport.title', 'Import CSV')
+  const importing = useImportWord('csvImport.importing', 'Importing records')
 
   const onPreviewNext = useCallback(() => {
-    state.setEditableMappings(buildInitialMappings(state.preview?.headers ?? [], tableFields))
+    state.setEditableMappings(
+      buildInitialMappings(state.preview?.headers ?? [], tableFields, fieldLabels)
+    )
     state.setStep('mapping')
-  }, [state, tableFields])
+  }, [state, tableFields, fieldLabels])
 
   const onMappingNext = useCallback(() => state.setStep('duplicate-handling'), [state])
 
@@ -91,6 +102,8 @@ export function ImportCsvDialog({
         rawContent: state.rawContent,
         editableMappings: state.editableMappings,
         fieldMeta,
+        separator: state.preview?.separator ?? ',',
+        valueMappings: state.valueMappings,
       })
       if (validRecords.length === 0 && errorRows.length === 0) return
 
@@ -142,20 +155,29 @@ export function ImportCsvDialog({
             data-slot="dialog-title"
             className={computeTableDialogTitleClasses()}
           >
-            Import CSV
+            {title}
           </h2>
+          <WizardSteps step={state.step} />
           {state.step === 'upload' && (
             <UploadStep
               noDataError={state.noDataError}
               onFileChange={state.onFileChange}
             />
           )}
-          {state.step === 'preview' && state.preview && <PreviewStep preview={state.preview} />}
+          {state.step === 'preview' && state.preview && (
+            <PreviewStep
+              preview={state.preview}
+              fileName={state.fileName}
+            />
+          )}
           {state.step === 'mapping' && (
             <MappingStep
               editableMappings={state.editableMappings}
               preview={state.preview}
               tableFields={tableFields}
+              fieldMeta={fieldMeta}
+              valueMappings={state.valueMappings}
+              onValueMappingChange={state.updateValueMapping}
               hoveredColumnIndex={state.hoveredColumnIndex}
               unmappedRequiredFields={unmappedRequiredFields}
               onMouseEnter={state.onMouseEnter}
@@ -170,13 +192,14 @@ export function ImportCsvDialog({
               uniqueField={state.uniqueField}
               setUniqueField={state.setUniqueField}
               tableFields={tableFields}
+              fieldMeta={fieldMeta}
             />
           )}
           {state.isImporting && (
             <div>
               <progress
                 className="w-full"
-                aria-label="Importing records"
+                aria-label={importing}
               />
             </div>
           )}

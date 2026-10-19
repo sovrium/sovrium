@@ -55,7 +55,38 @@ export type { SessionUser }
  * session, a non-2xx response, or a network failure) so the consumer resolves
  * every `$session.<field>` token to the empty string — the anon-safe path.
  */
-export async function fetchSessionUser(): Promise<SessionUser | undefined> {
+export function fetchSessionUser(): Promise<SessionUser | undefined> {
+  return ((globalThis as SessionReadHolder)[LATEST_SESSION_READ] = readSessionUser())
+}
+
+/**
+ * Where the page's NEWEST session read is kept, so a surface mounting later
+ * can reuse it instead of asking again.
+ *
+ * On `globalThis` under a registry symbol, not in a module variable: the client
+ * runtime and a lazily-loaded island are separate bundles, each with its own
+ * copy of this module, and the read worth sharing is the one the OTHER bundle
+ * made. Every fresh read replaces it — after a write, after a same-document
+ * navigation — so what a late mount reuses is never older than the last time
+ * the page itself asked.
+ */
+const LATEST_SESSION_READ = Symbol.for('sovrium.session')
+
+interface SessionReadHolder {
+  [LATEST_SESSION_READ]?: Promise<SessionUser | undefined>
+}
+
+/**
+ * The page's newest session read, or a fresh one when it has made none. Handed
+ * to {@link hydrateSessionBindings} by a surface mounting into a page that has
+ * already filled its chrome; only islands use it, so the client runtime's
+ * bundle never carries it.
+ */
+export function latestSessionUser(): Promise<SessionUser | undefined> {
+  return (globalThis as SessionReadHolder)[LATEST_SESSION_READ] ?? fetchSessionUser()
+}
+
+async function readSessionUser(): Promise<SessionUser | undefined> {
   if (typeof fetch === 'undefined') return undefined
   try {
     const res = await fetch('/api/auth/get-session', {
@@ -202,6 +233,15 @@ type ValueControl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
  * Both writes go through the reflected DOM properties (`defaultValue`,
  * `defaultSelected`), the tersest spelling: this module ships in the universal
  * client payload, which is budgeted.
+ *
+ * ─── WHAT THE READER TYPED IS NEVER OVERWRITTEN ────────────────────────────
+ *
+ * The session read can answer after the reader has started typing, and the
+ * fill would then replace their words with the stored ones. A box whose value
+ * already differs from its default has been edited — the default is what the
+ * server drew, or what the last fill wrote — so it is left alone. A dropdown is
+ * still set: picking an option before the page has finished loading is not the
+ * race a typist meets, and its check would weigh on every page.
  */
 function fillSessionValue(element: HTMLElement, user: SessionUser | undefined): void {
   const template = element.getAttribute(VALUE_BINDING_ATTRIBUTE)
@@ -214,6 +254,7 @@ function fillSessionValue(element: HTMLElement, user: SessionUser | undefined): 
   const isSelect = element.tagName === 'SELECT'
   if (resolved === '' && isSelect) return
   const control = element as ValueControl
+  if (!isSelect && control.value !== (control as HTMLInputElement).defaultValue) return
   control.value = resolved
   if (isSelect) {
     for (const o of (control as HTMLSelectElement).options) o.defaultSelected = o.selected
@@ -225,13 +266,16 @@ function fillSessionValue(element: HTMLElement, user: SessionUser | undefined): 
 /**
  * Set a `switch` from the caller's own session. Only a stored `true` turns it
  * on: an anonymous caller, an absent field and anything else leave it off,
- * which is how the server drew it.
+ * which is how the server drew it. The server drew it `disabled` until now, so
+ * no turn could be made before its value was known; it takes input from here,
+ * unless it is read-only.
  */
 function fillSessionChecked(element: HTMLElement, resolved: string): void {
   const on = resolved === 'true'
   const control = element as HTMLInputElement
   control.checked = on
   control.setAttribute('aria-checked', on ? 'true' : 'false')
+  control.disabled = control.hasAttribute('aria-readonly')
 }
 
 /** Fill one `data-session-template` element with the caller's own value. */
@@ -251,19 +295,22 @@ function fillSessionText(element: HTMLElement, user: SessionUser | undefined): v
  * ask again. That is what a lazily-hydrated island needs: its trigger content
  * is injected after the page-load pass has already run and found nothing.
  *
- * Each call costs one session read. That is deliberate over a module-level
- * memo: the client runtime and a lazily-loaded island are separate bundles and
- * would each hold their own cache anyway, so the memo would buy at most one
- * saved request while making the module hold mutable state. The read only
- * happens at all when a marker is present, which is what keeps a page with no
- * session-bound chrome at zero.
+ * `read` defaults to a fresh read, which is what a pass after a write or a
+ * same-document navigation needs. An island mounting into a page already
+ * filled passes {@link latestSessionUser} instead: nothing about the caller has
+ * changed since the page asked. The
+ * read only happens at all when a marker is present, which is what keeps a
+ * page with no session-bound chrome at zero.
  */
-export function hydrateSessionBindings(root: ParentNode = document): void {
+export function hydrateSessionBindings(
+  root: ParentNode = document,
+  read: () => Promise<SessionUser | undefined> = fetchSessionUser
+): void {
   const texts = root.querySelectorAll<HTMLElement>('[data-session-template]')
   const avatars = root.querySelectorAll<HTMLElement>(`[${AVATAR_BINDING_ATTRIBUTE}]`)
   const values = root.querySelectorAll<HTMLElement>(`[${VALUE_BINDING_ATTRIBUTE}]`)
   if (texts.length === 0 && avatars.length === 0 && values.length === 0) return
-  void fetchSessionUser().then((user) => {
+  void read().then((user) => {
     texts.forEach((element) => fillSessionText(element, user))
     avatars.forEach((element) => fillSessionAvatar(element, user))
     values.forEach((element) => fillSessionValue(element, user))

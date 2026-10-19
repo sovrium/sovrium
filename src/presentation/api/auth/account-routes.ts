@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Effect } from 'effect'
 import {
   CancelAccountDeletion,
   ExportAccount,
@@ -15,9 +16,14 @@ import {
 import { EmitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import { accountRemovalRefusal } from '@/application/use-cases/auth/last-admin-rail'
+import { getUserGroups } from '@/application/use-cases/tables/user-groups'
+import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { accountDeleteRequestSchema } from '@/domain/models/api/account/account'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
+import { relatedValuesRefusedTo } from '@/domain/models/app/tables/lookup-link-service'
+import { toManyLinksRefusedTo } from '@/domain/models/app/tables/related-field-read-service'
 import { writeOnlyFieldNames } from '@/domain/models/app/tables/write-only-field-service'
 import { resolvePurgeTableAuthorship } from '@/infrastructure/database/account-purge-authorship'
 import { purgeDueAccounts } from '@/infrastructure/database/account-purge-sweep'
@@ -89,6 +95,27 @@ const unauthorized = (c: Context) =>
 // ============================================================================
 
 /**
+ * The fields of `tableName` the caller's read rules withhold from her: a field
+ * a rule refuses her, a link to many records she may not read, and a count,
+ * rollup or lookup read through one or into a table she may not read. Her
+ * export leaves them out, as every other read of her records does.
+ */
+const withheldFieldNames = (
+  app: App,
+  tableName: string,
+  reader: { readonly role: string; readonly groups: readonly string[] }
+): readonly string[] => {
+  const related = { ...reader, signedOut: false }
+  const refused = new Set([
+    ...relatedValuesRefusedTo(app, tableName, related),
+    ...toManyLinksRefusedTo(app, tableName, related),
+  ])
+  return (app.tables?.find((t) => t.name === tableName)?.fields ?? [])
+    .map((field) => field.name)
+    .filter((name) => refused.has(name) || !isFieldReadableByCaller(app, tableName, reader, name))
+}
+
+/**
  * Handle GET /api/account/export.
  *
  * Aggregates the caller's full personal-data footprint. The user id comes
@@ -101,6 +128,10 @@ async function handleExport(c: Context, app: App): Promise<Response> {
   const session = getSessionContext(c)
   if (session === undefined) return unauthorized(c)
   const { userId } = session
+  const [role, groups] = await runRequestEffect(
+    c,
+    provideDomain(c, Effect.all([getUserRole(userId, app), getUserGroups(userId)]))
+  )
 
   const outcome = await runRequestEffect(
     c,
@@ -117,6 +148,7 @@ async function handleExport(c: Context, app: App): Promise<Response> {
             tableName: resolved.name,
             columns: resolved.createdByColumns,
             writeOnly: writeOnlyFieldNames(app, t.name),
+            withheld: withheldFieldNames(app, t.name, { role, groups }),
           }
         })
       )

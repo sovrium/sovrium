@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
+import { RoleLabelSchema } from './label'
 
 /**
  * Built-in Role Names
@@ -224,6 +225,7 @@ export type DashboardTier = Schema.Schema.Type<typeof DashboardTierSchema>
 
 export const RoleDefinitionSchema = Schema.Struct({
   name: RoleNameSchema,
+  label: Schema.optional(RoleLabelSchema),
   description: Schema.optional(
     Schema.String.pipe(Schema.annotate({ description: 'Human-readable description of the role' }))
   ),
@@ -292,6 +294,7 @@ export const RoleDefinitionSchema = Schema.Struct({
       { name: 'moderator', level: 20 },
       { name: 'contributor' },
       { name: 'engineer', defaultLanding: '/admin' },
+      { name: 'accounting-read', label: 'Accounting (read only)', level: 15 },
       {
         name: 'customer-admin',
         defaultLanding: '/portal/clients/$currentUser.assignments.clients[0]',
@@ -338,7 +341,7 @@ export type RoleDefinition = Schema.Schema.Type<typeof RoleDefinitionSchema>
 export const RolesConfigSchema = Schema.Array(RoleDefinitionSchema)
   .annotate({
     description:
-      'Roles of your own, on top of the built-in admin, member and viewer. Each carries a level that decides what it inherits. A built-in role may also be listed, with nothing but a `defaultLanding` (and `pickerLanding`), to choose where it lands after signing in.',
+      'Roles of your own, on top of the built-in admin, member and viewer. Each carries a level that decides what it inherits. A built-in role may also be listed, with nothing but a `defaultLanding` (and `pickerLanding`) or a `label`, to choose where it lands after signing in or what the console calls it.',
   })
   .pipe(
     Schema.check(
@@ -351,20 +354,20 @@ export const RolesConfigSchema = Schema.Array(RoleDefinitionSchema)
           return `Duplicate role names: ${duplicates.join(', ')}`
         }
 
-        // A built-in role may be named only to give it a landing: its level,
-        // tier and invite right are the engine's, never redefined here.
+        // A built-in role may be named only to give it a landing or a label:
+        // its level, tier and invite right are the engine's, never redefined here.
         const conflicts = roles
           .filter((role) => (BUILT_IN_ROLES as readonly string[]).includes(role.name))
           .filter(
             (role) =>
-              role.defaultLanding === undefined ||
+              (role.defaultLanding === undefined && role.label === undefined) ||
               role.level !== undefined ||
               role.dashboardTier !== undefined ||
               role.canInvite !== undefined
           )
           .map((role) => role.name)
         if (conflicts.length > 0) {
-          return `Custom role names cannot conflict with built-in roles: ${conflicts.join(', ')}. A built-in role may be listed only to give it a defaultLanding (and pickerLanding).`
+          return `Custom role names cannot conflict with built-in roles: ${conflicts.join(', ')}. A built-in role may be listed only to give it a defaultLanding (and pickerLanding) or a label.`
         }
 
         return undefined

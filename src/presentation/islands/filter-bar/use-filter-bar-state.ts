@@ -18,13 +18,30 @@ import type { FilterBarCondition, FilterBarField } from '@/presentation/design/f
 import type { KeyboardEvent } from 'react'
 
 /**
+ * Publish the bar's expression whenever it changes, except an EMPTY opening
+ * set: it narrows nothing, and sending it would re-key every subscriber's query
+ * from the untouched state to an explicit `filter: ''` that builds the identical
+ * request, so each grid on the channel would read its first page twice. Once
+ * the reader has edited the set, an emptied one IS published, so the
+ * subscribers drop the cleared filter.
+ */
+function usePublishExpression(publish: (value: unknown) => void, expression: string): void {
+  const edited = useRef(false)
+  useEffect(() => {
+    if (!edited.current && expression === '') return
+    edited.current = true
+    publish(expression)
+  }, [publish, expression])
+}
+
+/**
  * The condition set the bar is holding, the expression it publishes, and the
  * two edits a reader can make to it.
  *
  * The publish runs as an EFFECT on the expression rather than inside each edit
- * handler, so the opening conditions are published on mount by the same path
- * that publishes an edit — one channel with one code path, instead of a mount
- * case that can drift from the edit case.
+ * handler, so non-empty opening conditions are published on mount by the same
+ * path that publishes an edit — one channel with one code path, instead of a
+ * mount case that can drift from the edit case.
  *
  * With `url` the expression is also mirrored in the page address, as
  * `?<channel>.filter=`, and a page opened on such an address starts from the
@@ -60,9 +77,7 @@ export function useFilterBarState({
   // A fresh object literal per render is deliberate and free: the hook memoizes
   // on `bindTo` / `param` (both primitives), not on the object's identity.
   const publish = useSharedFilterPublisher(publishes)
-  useEffect(() => {
-    publish(expression)
-  }, [publish, expression])
+  usePublishExpression(publish, expression)
 
   const removeAt = useCallback((index: number) => {
     setConditions((previous) => previous.filter((_condition, at) => at !== index))

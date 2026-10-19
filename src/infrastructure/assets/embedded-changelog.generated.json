@@ -3,6 +3,1643 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.40.0",
+      "date": "2026-10-19",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.39.1...v0.40.0",
+      "sections": [
+        {
+          "kind": "features",
+          "heading": "Features",
+          "entries": [
+            {
+              "scope": "pages",
+              "text": "let a button on a record open a pre-filled picker"
+            },
+            {
+              "scope": "tables",
+              "text": "show a button or row action disabled with its reason"
+            },
+            {
+              "scope": "pages",
+              "text": "seek a video or audio player from any button, link or list item"
+            },
+            {
+              "scope": "automations",
+              "text": "run an automation when an invited person accepts"
+            },
+            {
+              "scope": "automations",
+              "text": "write, read and delete record comments from an automation"
+            },
+            {
+              "scope": "automations",
+              "text": "extract the audio track of a video"
+            },
+            {
+              "scope": "design",
+              "text": "make the Claude Design folder of the design-system bundle publish as it is"
+            },
+            {
+              "scope": "admin",
+              "text": "offer the design-system bundle download in the console's share and export section"
+            },
+            {
+              "scope": "automations",
+              "text": "import calendar events from an ICS feed"
+            },
+            {
+              "scope": "tables",
+              "text": "subscribe to a table as a calendar feed"
+            },
+            {
+              "scope": "pages",
+              "text": "refetch re-reads every data component named on success"
+            },
+            {
+              "scope": "design",
+              "text": "add a Style Dictionary dark config to the design-system bundle"
+            },
+            {
+              "scope": "design",
+              "text": "count every component a Claude Design project ships when importing"
+            },
+            {
+              "scope": "design",
+              "text": "show each colour's light and dark value in the design-system brief"
+            },
+            {
+              "scope": "admin-buckets",
+              "text": "name buckets for people, and read one bucket by name"
+            },
+            {
+              "scope": "design",
+              "text": "render a clean, documented component kit in the design-system bundle"
+            },
+            {
+              "scope": "forms",
+              "text": "start a relationship field on a row found by a lookup"
+            },
+            {
+              "scope": "design",
+              "text": "import design tokens from Claude Design, Figma, Tokens Studio, Style Dictionary and CSS into the app config"
+            },
+            {
+              "scope": "pages",
+              "text": "fetched sidebar entries can open onto their own fetched children"
+            },
+            {
+              "scope": "forms",
+              "text": "draw a rating scale on endpoint forms"
+            },
+            {
+              "scope": "design",
+              "text": "include Claude Design, Figma, Tokens Studio and Style Dictionary files in the design-system bundle"
+            },
+            {
+              "scope": "automations",
+              "text": "let revokeAccess take a record away under one role only"
+            },
+            {
+              "scope": "pages",
+              "text": "let an automation button re-read or reload once its run succeeds"
+            },
+            {
+              "scope": "design",
+              "text": "add Claude Design, Figma, Tokens Studio and Style Dictionary exports of the design tokens"
+            },
+            {
+              "scope": "pages",
+              "text": "menu items can switch the colour theme"
+            },
+            {
+              "scope": "design",
+              "text": "export the design system as a portable bundle with a rendered component kit"
+            },
+            {
+              "scope": "admin-api",
+              "text": "read run durations, boot engines and click windows in words"
+            },
+            {
+              "scope": "admin",
+              "text": "tell operators a design-system share link allows a bundle download"
+            },
+            {
+              "scope": "tables",
+              "text": "filter by a linked record or a date window, and read empty values as a dash"
+            },
+            {
+              "scope": "design",
+              "text": "export the dark theme in the design-system tokens"
+            },
+            {
+              "scope": "admin-console",
+              "text": "show a submission's answers in its form's own sections"
+            },
+            {
+              "scope": "admin-console",
+              "text": "browse a bucket's files as a grid of thumbnails"
+            },
+            {
+              "scope": "storage",
+              "text": "an upload control states the types and size its bucket takes"
+            },
+            {
+              "scope": "pages",
+              "text": "fill record references a translation carries"
+            },
+            {
+              "scope": "auth",
+              "text": "name the signed-in caller's role in their session"
+            },
+            {
+              "scope": "pages",
+              "text": "say a failed fetch action inline under its control, with an optional Retry"
+            },
+            {
+              "scope": "admin",
+              "text": "name people and agents in the conversations viewer, with one toolbar and a phone layout"
+            },
+            {
+              "scope": "admin",
+              "text": "read one agent, export conversations as CSV, and keep the tool calls a turn ran"
+            },
+            {
+              "scope": "data-table",
+              "text": "a three-step CSV import that reads semicolon files and matches unknown choice values"
+            },
+            {
+              "scope": "pages",
+              "text": "hold a record sheet's Previous and Next in its header, with the record's place in the list"
+            },
+            {
+              "scope": "actions",
+              "text": "a failure toast can offer Retry"
+            },
+            {
+              "scope": "console",
+              "text": "page the run history by number and describe each run"
+            },
+            {
+              "scope": "pages",
+              "text": "add a duration format for KPI tiles"
+            },
+            {
+              "scope": "pages",
+              "text": "resolve $app and $param references in a page's title and description"
+            },
+            {
+              "scope": "auth",
+              "text": "let roles and groups declare the label the console shows"
+            },
+            {
+              "scope": "pages",
+              "text": "leave out the \"All\" view entry beside a view that filters nothing"
+            },
+            {
+              "scope": "pages",
+              "text": "draw \"Forgot your password?\" in a sign-in form's Password label row"
+            },
+            {
+              "scope": "admin",
+              "text": "draw a 7-day runs chart on the console's Welcome page"
+            },
+            {
+              "scope": "automations",
+              "text": "publish the overview buckets as a top-level points array"
+            },
+            {
+              "scope": "automations",
+              "text": "name the automation and its steps by their labels on the run detail"
+            },
+            {
+              "scope": "library",
+              "text": "let the data table toolbar hold back Export CSV on an empty table"
+            },
+            {
+              "scope": "pages",
+              "text": "label a record sheet's stored values the way its grid does"
+            },
+            {
+              "scope": "admin",
+              "text": "create a record from the Records page"
+            },
+            {
+              "scope": "ai-chat",
+              "text": "set an answer's prose as a chat message with Typeset"
+            },
+            {
+              "scope": "ai-chat",
+              "text": "open a tool line onto what the call was given and returned"
+            },
+            {
+              "scope": "ai-chat",
+              "text": "draw code in an answer as a small highlighted code block"
+            },
+            {
+              "scope": "markdown",
+              "text": "set markdown pages and the article block with shadcn/ui's Typeset"
+            },
+            {
+              "scope": "ai-chat",
+              "text": "show the tokens each answer used, for a chat that opts in"
+            },
+            {
+              "scope": "code-block",
+              "text": "draw code blocks on shadcn/ui's Code Block anatomy"
+            },
+            {
+              "scope": "ai-chat",
+              "text": "show a cited number's source and passage in a hover card"
+            },
+            {
+              "scope": "ai-chat",
+              "text": "draw the agent at work as Trace lines in the chat window"
+            },
+            {
+              "scope": "ai-chat",
+              "text": "carry a reader preview of each tool call and its result on the chat stream"
+            }
+          ]
+        },
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "auth",
+              "text": "keep typing in an account form when its code finishes loading"
+            },
+            {
+              "scope": "language-switcher",
+              "text": "keep the two-language toggle's link relative"
+            },
+            {
+              "scope": "data-sources",
+              "text": "answer a re-read after a write with rows from after it"
+            },
+            {
+              "scope": "data-table",
+              "text": "keep a row's action menu open while the grid re-reads"
+            },
+            {
+              "scope": "pages",
+              "text": "a sidebar standing on its own is as tall as its entries again"
+            },
+            {
+              "scope": "islands",
+              "text": "release the islands a page booted with when its content is swapped"
+            },
+            {
+              "scope": "forms",
+              "text": "start a form field's choice where the text inputs beside it start"
+            },
+            {
+              "scope": "pages",
+              "text": "paint a choice's option colour above the record drawer's Select"
+            },
+            {
+              "scope": "admin",
+              "text": "put an account's actions in labelled buttons at the head of its page"
+            },
+            {
+              "scope": "pages",
+              "text": "draw the Select for choices in the editable record drawer"
+            },
+            {
+              "scope": "forms",
+              "text": "draw the date picker and the Select in table-bound forms"
+            },
+            {
+              "scope": "forms",
+              "text": "draw the date picker and the Select on hosted and dialog forms"
+            },
+            {
+              "scope": "admin",
+              "text": "keep the demo notice out of design-system preview frames"
+            },
+            {
+              "scope": "pages",
+              "text": "keep the footer badge inside a full-height sidebar shell"
+            },
+            {
+              "scope": "admin",
+              "text": "one scroll, a readable run page and tidier design-system pages"
+            },
+            {
+              "scope": "sidebar",
+              "text": "keep a group's label still and draw a linked parent as one row"
+            },
+            {
+              "scope": "automations",
+              "text": "skip runs whose connection credential is not set"
+            },
+            {
+              "scope": "pages",
+              "text": "type the inline related-record create in the record drawer"
+            },
+            {
+              "scope": "api",
+              "text": "log a request refused for its own input as a warning, not an error"
+            },
+            {
+              "scope": "tables",
+              "text": "refuse an undeclared single-select or status option before the write"
+            },
+            {
+              "scope": "automations",
+              "text": "a hand-started run reads the records and fields its starter may read"
+            },
+            {
+              "scope": "pages",
+              "text": "refuse a press that names no record when only judged controls start it"
+            },
+            {
+              "scope": "automations",
+              "text": "judge a press only on a record its presser may read"
+            },
+            {
+              "scope": "tables",
+              "text": "draw a record page's button field disabled on its record"
+            },
+            {
+              "scope": "automations",
+              "text": "answer an unknown and an unreadable pressed record alike"
+            },
+            {
+              "scope": "pages",
+              "text": "refuse a disabledWhen the server would never judge"
+            },
+            {
+              "scope": "pages",
+              "text": "judge a disabled control when its binding lists only some fields"
+            },
+            {
+              "scope": "tables",
+              "text": "a calendar feed whose owner may read no row of its table answers not found"
+            },
+            {
+              "scope": "records",
+              "text": "record pages, grids and table descriptions follow the list's row admission"
+            },
+            {
+              "scope": "automations",
+              "text": "answer a machine the write-only fields a session webhook reveals"
+            },
+            {
+              "scope": "automations",
+              "text": "let a hand-started run list a write-only field and read it masked"
+            },
+            {
+              "scope": "ai",
+              "text": "a chat figure counts only what the reader can read"
+            },
+            {
+              "scope": "records",
+              "text": "every read of a table agrees with the list"
+            },
+            {
+              "scope": "auth",
+              "text": "an invitation acceptance still answers when its automations cannot start"
+            },
+            {
+              "scope": "tables",
+              "text": "a comment thread lists comments posted by the table's id or its name"
+            },
+            {
+              "scope": "automations",
+              "text": "a hand-started run that names no starter cannot use comment steps"
+            },
+            {
+              "scope": "auth",
+              "text": "accepting an invitation now counts as verifying the address"
+            },
+            {
+              "scope": "automations",
+              "text": "a paused run hashes a local file written moments before its fingerprint"
+            },
+            {
+              "scope": "automations",
+              "text": "an uncertain reading of an app address no longer lends a file standing"
+            },
+            {
+              "scope": "records",
+              "text": "an aggregate agrees with the rows the reader can list"
+            },
+            {
+              "scope": "data-table",
+              "text": "read a grid's first page once when it opens on a default view"
+            },
+            {
+              "scope": "automations",
+              "text": "browser pictures of the app, and paused-run fingerprints, keep a run's file standing"
+            },
+            {
+              "scope": "automations",
+              "text": "a bucket file URL of the app carries its file's standing on any host"
+            },
+            {
+              "scope": "forms",
+              "text": "read a field's takenMessage against the column it writes"
+            },
+            {
+              "scope": "tables",
+              "text": "a table button answers a refused write as a manual trigger does"
+            },
+            {
+              "scope": "automations",
+              "text": "bound the audio remux by the file it reads"
+            },
+            {
+              "scope": "automations",
+              "text": "type the revokeAccess role for typed configs"
+            },
+            {
+              "scope": "automations",
+              "text": "a loop or path in a hand-started run reports a refused write as its step does"
+            },
+            {
+              "scope": "records",
+              "text": "a refused bulk-form update or delete answers its refusal, never success"
+            },
+            {
+              "scope": "forms",
+              "text": "tell a submitter a value is taken only when she may read the record holding it"
+            },
+            {
+              "scope": "automations",
+              "text": "transcribe a video from its audio track only"
+            },
+            {
+              "scope": "languages",
+              "text": "the grid's new row and pickers, the paged picker, the slash menu and the chat follow the page language"
+            },
+            {
+              "scope": "data-table",
+              "text": "offer Load more on an unpaginated grid over the automation runs endpoint"
+            },
+            {
+              "scope": "pages",
+              "text": "ship the sidebar current-entry script only on pages with a sidebar"
+            },
+            {
+              "scope": "theming",
+              "text": "keep a brand colour's derived text colour in dark"
+            },
+            {
+              "scope": "tables",
+              "text": "retire calendar feed addresses with their feed, and answer HEAD probes"
+            },
+            {
+              "scope": "automations",
+              "text": "a cancelled wait no longer keeps the file ledgers it would have resumed with"
+            },
+            {
+              "scope": "automations",
+              "text": "a fetch redirected to one of the app's files carries that file's standing"
+            },
+            {
+              "scope": "pages",
+              "text": "an upload's choose-file button works without an author id"
+            },
+            {
+              "scope": "automations",
+              "text": "judge attachTo audiences per reader and admit assets the configuration names"
+            },
+            {
+              "scope": "tables",
+              "text": "build calendar feed addresses on the public origin and redact every spelling of a token"
+            },
+            {
+              "scope": "automations",
+              "text": "read a large or malformed ICS feed in linear time"
+            },
+            {
+              "scope": "pages",
+              "text": "refetch re-reads a chart or KPI fed by a system endpoint"
+            },
+            {
+              "scope": "automations",
+              "text": "attachTo in a run nobody started admits only files that qualify"
+            },
+            {
+              "scope": "automations",
+              "text": "a paused run keeps the files it stored and read"
+            },
+            {
+              "scope": "automations",
+              "text": "a run's files carry the standing of what they were made from"
+            },
+            {
+              "scope": "languages",
+              "text": "account forms, form refusals, comments, presence, dictation and charts follow the page language"
+            },
+            {
+              "scope": "languages",
+              "text": "grid, pickers, CSV import and rich-text toolbar follow the page language"
+            },
+            {
+              "scope": "records",
+              "text": "a unique write over a record the caller may not read answers the ordinary refusal"
+            },
+            {
+              "scope": "storage",
+              "text": "console totals and search count no file still being written"
+            },
+            {
+              "scope": "storage",
+              "text": "a replacing write settles only its own pending catalog row"
+            },
+            {
+              "scope": "design",
+              "text": "report colour spaces the config cannot hold as unmapped on import"
+            },
+            {
+              "scope": "design",
+              "text": "import dark colours a design tool states, and keep pill radii in px"
+            },
+            {
+              "scope": "storage",
+              "text": "a replacing write never takes over a row another writer created meanwhile"
+            },
+            {
+              "scope": "cli",
+              "text": "refuse --mode outside the JSON token document"
+            },
+            {
+              "scope": "storage",
+              "text": "list only stored files on the local provider, without following links"
+            },
+            {
+              "scope": "storage",
+              "text": "fail a listing whose store cycles through its page tokens"
+            },
+            {
+              "scope": "pages",
+              "text": "turn a record drawer's Save on only once something changed"
+            },
+            {
+              "scope": "admin-console",
+              "text": "list each readable table's records page in the command palette"
+            },
+            {
+              "scope": "tables",
+              "text": "match imported choice values to an option by its label in any language"
+            },
+            {
+              "scope": "tables",
+              "text": "name each CSV import column-mapping control after its column"
+            },
+            {
+              "scope": "admin-console",
+              "text": "shorten the conversations search placeholder so it fits a narrow toolbar"
+            },
+            {
+              "scope": "admin-console",
+              "text": "keep the short read-only notice on pages that show facts in the top bar"
+            },
+            {
+              "scope": "tables",
+              "text": "answer a table its reader receives no field of as a missing table, on every read"
+            },
+            {
+              "scope": "admin-console",
+              "text": "match import headers to labels in every language on the records page"
+            },
+            {
+              "scope": "tables",
+              "text": "read a scope table by the rows a grant admits and the fields its reader may read"
+            },
+            {
+              "scope": "admin-console",
+              "text": "draw no grid column for a value the records API withholds from its reader"
+            },
+            {
+              "scope": "admin-console",
+              "text": "show a dash for an empty attachment field in a read-only record sheet"
+            },
+            {
+              "scope": "tables",
+              "text": "keep the creation date given for a row written to a table with a computed field"
+            },
+            {
+              "scope": "forms",
+              "text": "an edit form carries no value for a link its reader may not read"
+            },
+            {
+              "scope": "account",
+              "text": "the personal-data export follows the caller's read rules"
+            },
+            {
+              "scope": "records",
+              "text": "an export holds no column its reader may not read"
+            },
+            {
+              "scope": "admin-console",
+              "text": "label the built-in bucket in the operator's console language"
+            },
+            {
+              "scope": "admin-console",
+              "text": "phrase the French same-day oldest-invitation detail naturally"
+            },
+            {
+              "scope": "tables",
+              "text": "match CSV import headers to field labels in any declared language"
+            },
+            {
+              "scope": "admin-console",
+              "text": "stack the conversation list and thread by the viewer's own width"
+            },
+            {
+              "scope": "admin-console",
+              "text": "make the overview's counts read correctly for any number"
+            },
+            {
+              "scope": "admin-console",
+              "text": "keep the top bar's controls inside it at every width"
+            },
+            {
+              "scope": "automations",
+              "text": "judge a link to many records when showing a run's captured records"
+            },
+            {
+              "scope": "records",
+              "text": "leave out a count, rollup or lookup read through a withheld link to many records"
+            },
+            {
+              "scope": "admin-console",
+              "text": "a pinned host counts its form submissions since its pinned start"
+            },
+            {
+              "scope": "calendar",
+              "text": "name every event chip by its title on hover"
+            },
+            {
+              "scope": "auth",
+              "text": "a language saved as a bare code reads back as its declared locale"
+            },
+            {
+              "scope": "buckets",
+              "text": "name the bucket, table and field of a system-bucket file by their labels"
+            },
+            {
+              "scope": "links",
+              "text": "name the slug as taken when a new link claims a slug the configuration declares"
+            },
+            {
+              "scope": "seed",
+              "text": "an undated seeded row is created at the pinned development clock"
+            },
+            {
+              "scope": "overlays",
+              "text": "a record sheet draws only what its reader may read and keeps its place while stepping"
+            },
+            {
+              "scope": "records",
+              "text": "a link to many records follows its related table's read rule and its own field rule"
+            },
+            {
+              "scope": "languages",
+              "text": "show the language a page reads in on an unsaved language select, and remember a saved one in the browser"
+            },
+            {
+              "scope": "design",
+              "text": "quote imported font names that contain a quote"
+            },
+            {
+              "scope": "design",
+              "text": "keep authored guidance on its own line in DESIGN.md and the brand book"
+            },
+            {
+              "scope": "design",
+              "text": "escape font names and shadows in the Claude Design token export"
+            },
+            {
+              "scope": "css",
+              "text": "keep a design value inside its declaration in the served stylesheet"
+            },
+            {
+              "scope": "admin-api",
+              "text": "name an agent's tools the way people read them on the agent read"
+            },
+            {
+              "scope": "record-drawer",
+              "text": "count a record's place across the groups of a grouped grid"
+            },
+            {
+              "scope": "design",
+              "text": "accept exactly one colour value in design colours"
+            },
+            {
+              "scope": "storage",
+              "text": "refuse a path of a type the bucket does not take with the file-type refusal"
+            },
+            {
+              "scope": "admin-console",
+              "text": "read only a short list of abbreviations in capitals, and keep a name's own capitals"
+            },
+            {
+              "scope": "admin-buckets",
+              "text": "carry the bucket's label on the one-bucket read"
+            },
+            {
+              "scope": "migrations",
+              "text": "drop a user or relationship field on SQLite by rebuilding the table"
+            },
+            {
+              "scope": "dev",
+              "text": "stamp form submissions, uploaded files and API keys on the pinned development clock"
+            },
+            {
+              "scope": "calendar",
+              "text": "read a month chip by its time alone when its title has no room for a letter and an ellipsis"
+            },
+            {
+              "scope": "storage",
+              "text": "recognise office documents, archives and common video by their extension"
+            },
+            {
+              "scope": "record-drawer",
+              "text": "count a record's place through the whole list the grid reads"
+            },
+            {
+              "scope": "record-drawer",
+              "text": "decide the console record sheet's fields for the signed-in operator"
+            },
+            {
+              "scope": "design-system",
+              "text": "print and measure the derived foreground ink in the token rows"
+            },
+            {
+              "scope": "storage",
+              "text": "hold an explicit upload path to the types its bucket allows"
+            },
+            {
+              "scope": "admin-console",
+              "text": "keep known abbreviations in capitals in readable names"
+            },
+            {
+              "scope": "overlays",
+              "text": "let a record sheet on a record page name the row it opens"
+            },
+            {
+              "scope": "cli",
+              "text": "do not follow symlinks when listing skill files"
+            },
+            {
+              "scope": "cli",
+              "text": "do not follow symlinks when listing backup and bundle files"
+            },
+            {
+              "scope": "admin-forms",
+              "text": "name forms and submissions for people on the admin reads"
+            },
+            {
+              "scope": "design",
+              "text": "import a colour function only when it is one complete call"
+            },
+            {
+              "scope": "data-table",
+              "text": "count one row in the singular in a grid that does not page"
+            },
+            {
+              "scope": "cli",
+              "text": "write imported design tokens atomically and refuse to overwrite what the import does not own"
+            },
+            {
+              "scope": "cli",
+              "text": "keep design-system import reads inside the given path, and refuse oversized sources"
+            },
+            {
+              "scope": "design",
+              "text": "read imported token names as the file's own keys, and keep resolver references inside the source"
+            },
+            {
+              "scope": "design",
+              "text": "keep colour opacity in the Tokens Studio export"
+            },
+            {
+              "scope": "admin-api",
+              "text": "name each table for people on the instance facts"
+            },
+            {
+              "scope": "cli",
+              "text": "report a bundle build failure as an error line"
+            },
+            {
+              "scope": "design",
+              "text": "audit only whole design-system downloads, not each file read"
+            },
+            {
+              "scope": "design-system",
+              "text": "print a translucent colour's hex with its alpha"
+            },
+            {
+              "scope": "admin-console",
+              "text": "name the admin tiers in French on a French console"
+            },
+            {
+              "scope": "pages",
+              "text": "moving the sidebar's current mark keeps the author's link classes"
+            },
+            {
+              "scope": "cli",
+              "text": "refuse a seeded grant naming a record in the trash"
+            },
+            {
+              "scope": "automations",
+              "text": "refuse to grant access to a record that is missing or in the trash"
+            },
+            {
+              "scope": "design",
+              "text": "compare translucent colours by their opacity when importing design tokens"
+            },
+            {
+              "scope": "design",
+              "text": "read percentage chroma and a/b channels at their CSS reference range in exported tokens"
+            },
+            {
+              "scope": "auth",
+              "text": "give an invitee one grant per scope table"
+            },
+            {
+              "scope": "tables",
+              "text": "fold a grant changed onto a held role and refuse trashed records"
+            },
+            {
+              "scope": "storage",
+              "text": "end a paged listing whose store cycles its page tokens"
+            },
+            {
+              "scope": "design",
+              "text": "report which dark colours the operator chose in the flat dark token rows"
+            },
+            {
+              "scope": "pages",
+              "text": "name a linked record in a breadcrumb, and draw currentLabel on an enumerated trail"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a session-bound switch inert until the session answers"
+            },
+            {
+              "scope": "pages",
+              "text": "fetched sidebar entries mark the current page"
+            },
+            {
+              "scope": "pages",
+              "text": "let a still click open a card on a draggable board"
+            },
+            {
+              "scope": "records",
+              "text": "sort text fields by the alphabet whatever the capitals"
+            },
+            {
+              "scope": "pages",
+              "text": "read a kanban badge footer as its option label"
+            },
+            {
+              "scope": "pages",
+              "text": "open a record's web address in a new tab, and draw a button with href as a link"
+            },
+            {
+              "scope": "navigation",
+              "text": "keep the current sidebar row in view when a group opens later"
+            },
+            {
+              "scope": "tables",
+              "text": "refuse access grants naming unknown accounts or records, and merge duplicates"
+            },
+            {
+              "scope": "cli",
+              "text": "combine seed grant entries with the same table and role"
+            },
+            {
+              "scope": "storage",
+              "text": "keep found bytes on a lost create-only write, finish paged listings, and replace database files atomically"
+            },
+            {
+              "scope": "automations",
+              "text": "a copy of a file stored before the run no longer attaches as new"
+            },
+            {
+              "scope": "pages",
+              "text": "menus, popovers and selects opened inside a modal dialog open above it"
+            },
+            {
+              "scope": "pages",
+              "text": "draw an empty description-list field as a muted dash and format currency formulas"
+            },
+            {
+              "scope": "admin",
+              "text": "show the same dark colours in the design-system console as the app paints"
+            },
+            {
+              "scope": "console",
+              "text": "write a thread begun today in lower case inside its header"
+            },
+            {
+              "scope": "pages",
+              "text": "an in-layout sidebar holds the screen height and stays in view"
+            },
+            {
+              "scope": "pages",
+              "text": "fill record values at every depth of an action body"
+            },
+            {
+              "scope": "pages",
+              "text": "head create sheets and the palette create dialog in sentence case"
+            },
+            {
+              "scope": "admin-console",
+              "text": "name attention subjects as the console does, list the app's agents first"
+            },
+            {
+              "scope": "calendar",
+              "text": "keep a whole ellipsis in a narrow month chip"
+            },
+            {
+              "scope": "automations",
+              "text": "count a pinned development host's runs on its own timeline"
+            },
+            {
+              "scope": "console",
+              "text": "write a pause's moment as the run history writes it"
+            },
+            {
+              "scope": "console",
+              "text": "read conversation, search and API key moments on the operator's clock"
+            },
+            {
+              "scope": "kanban",
+              "text": "keep shared columns readable on a narrow board"
+            },
+            {
+              "scope": "data-table",
+              "text": "open a row from its phone item"
+            },
+            {
+              "scope": "design-system",
+              "text": "draw each component specimen in the state its users meet"
+            },
+            {
+              "scope": "file-preview",
+              "text": "show a private PDF in its frame instead of an empty box"
+            },
+            {
+              "scope": "admin-console",
+              "text": "accept site paths as link destinations and list runs on phones"
+            },
+            {
+              "scope": "auth",
+              "text": "name the session's role in the language the reader chose by cookie too"
+            },
+            {
+              "scope": "admin",
+              "text": "name tables in the console language, name files by their record, and read form insights once"
+            },
+            {
+              "scope": "pages",
+              "text": "keep the time on narrow calendar chips and expose the palette's search state"
+            },
+            {
+              "scope": "theming",
+              "text": "centre icon-only buttons and derive readable foregrounds"
+            },
+            {
+              "scope": "charts",
+              "text": "draw no axis baselines and keep daily trends continuous"
+            },
+            {
+              "scope": "automations",
+              "text": "read a pause as one line and draw the run filters as toolbar facets"
+            },
+            {
+              "scope": "admin",
+              "text": "say a failed export under its button, name the role as the app calls it, and translate the request examples"
+            },
+            {
+              "scope": "records",
+              "text": "type a record sheet's dates in the page's format, list a link's records from a button, and name a refused save"
+            },
+            {
+              "scope": "automations",
+              "text": "stop a paged file listing whose store repeats its cursor"
+            },
+            {
+              "scope": "storage",
+              "text": "write a create-only database file and its bytes in one transaction"
+            },
+            {
+              "scope": "automations",
+              "text": "read each trigger the same way in the catalogue, its filter and a run"
+            },
+            {
+              "scope": "records",
+              "text": "keep a record's stored files in its sheet and hold Save while a file uploads"
+            },
+            {
+              "scope": "automations",
+              "text": "keep a file stored after a hand-started run's check, and own every file a run writes"
+            },
+            {
+              "scope": "storage",
+              "text": "count the storage overview totals from the catalog"
+            },
+            {
+              "scope": "admin-console",
+              "text": "give a reader who may not change a table its record sheet read-only"
+            },
+            {
+              "scope": "records",
+              "text": "draw a record sheet's currency as an amount box and its attachment as a drop zone"
+            },
+            {
+              "scope": "automations",
+              "text": "stamp runs and conversations on the development clock"
+            },
+            {
+              "scope": "admin-console",
+              "text": "name unlabelled fields in sentence case in the grid and record sheet"
+            },
+            {
+              "scope": "admin-console",
+              "text": "offer the Comments tab in the console's record sheet"
+            },
+            {
+              "scope": "admin-console",
+              "text": "name the record sheet by the record it holds"
+            },
+            {
+              "scope": "navigation",
+              "text": "show the current sidebar row on load"
+            },
+            {
+              "scope": "pages",
+              "text": "translate a code block's content"
+            },
+            {
+              "scope": "forms",
+              "text": "draw a refusal on the field it names instead of a toast over the form"
+            },
+            {
+              "scope": "records",
+              "text": "say why a required link was refused, and keep Save off the read-only tabs"
+            },
+            {
+              "scope": "calendar",
+              "text": "print event times as HH:mm and never truncate them"
+            },
+            {
+              "scope": "charts",
+              "text": "tick count axes in whole numbers and label date buckets as days"
+            },
+            {
+              "scope": "console",
+              "text": "format numbers and dates in the operator app's region"
+            },
+            {
+              "scope": "ai-chat",
+              "text": "wrap a long suggestion chip inside the panel"
+            },
+            {
+              "scope": "data-table",
+              "text": "name the grid when its read fails, and recognise a 404 from a system endpoint"
+            },
+            {
+              "scope": "automations",
+              "text": "a hand-started run writes over no stored file it did not write, on every file road"
+            },
+            {
+              "scope": "storage",
+              "text": "fail an S3 listing whose store repeats its page token"
+            },
+            {
+              "scope": "database",
+              "text": "keep apps with table views starting when a migration changes a table"
+            },
+            {
+              "scope": "automations",
+              "text": "judge stored-file removal and taken keys per run"
+            },
+            {
+              "scope": "buckets",
+              "text": "refuse an attachment field naming an undeclared bucket"
+            },
+            {
+              "scope": "storage",
+              "text": "read every page of an S3 listing"
+            },
+            {
+              "scope": "admin",
+              "text": "name tables, automations and steps readably in the console, and draw states as status badges"
+            },
+            {
+              "scope": "buckets",
+              "text": "a record write never names a chat upload, and judges a reference as a download"
+            },
+            {
+              "scope": "storage",
+              "text": "the database provider lists a literal prefix, completely"
+            },
+            {
+              "scope": "automations",
+              "text": "a hand-started bundle check or apply reads a stored key as its starter may"
+            },
+            {
+              "scope": "automations",
+              "text": "a hand-started run writes over no stored file it did not write"
+            },
+            {
+              "scope": "automations",
+              "text": "keep chat attachments out of reach of a hand-started run"
+            },
+            {
+              "scope": "automations",
+              "text": "never read a stored key through a file reference's url form"
+            },
+            {
+              "scope": "automations",
+              "text": "answer an unknown account alike when a hand-started run lifts a ban"
+            },
+            {
+              "scope": "automations",
+              "text": "a hand-started run lists, uploads and reads stored files as its starter may"
+            },
+            {
+              "scope": "admin",
+              "text": "print each assignable role by its label on the account page"
+            },
+            {
+              "scope": "admin",
+              "text": "show each pending invitation's role by its label"
+            },
+            {
+              "scope": "admin",
+              "text": "show roles and groups by their labels in the users console"
+            },
+            {
+              "scope": "automations",
+              "text": "run a page press with no session as a visitor, and a session webhook as its caller"
+            },
+            {
+              "scope": "automations",
+              "text": "a hand-started run reads key-named stored files as its starter"
+            },
+            {
+              "scope": "automations",
+              "text": "answer an unknown account alike in a hand-started run"
+            },
+            {
+              "scope": "theme",
+              "text": "keep a brand colour without a dark value on every channel in dark"
+            },
+            {
+              "scope": "automations",
+              "text": "keep a called run out of its chain starter's own runs"
+            },
+            {
+              "scope": "automations",
+              "text": "report a batch item refused for a taken value like a single write"
+            },
+            {
+              "scope": "admin",
+              "text": "tell a read-only operator who can create and revoke share links"
+            },
+            {
+              "scope": "design",
+              "text": "centre the sidebar fold control on the console shell's taller header"
+            },
+            {
+              "scope": "pages",
+              "text": "print a system record's dates and lists in the page language"
+            },
+            {
+              "scope": "pages",
+              "text": "narrow a fully loaded system grid by the filter conditions a page control publishes"
+            },
+            {
+              "scope": "admin",
+              "text": "the conversations viewer no longer offers a second assistant"
+            },
+            {
+              "scope": "admin",
+              "text": "phrase the attention details in the operator's console language"
+            },
+            {
+              "scope": "pages",
+              "text": "confirm a reversible action with the default button, not the destructive one"
+            },
+            {
+              "scope": "admin",
+              "text": "carry each role and group name in a readable form in the console reads"
+            },
+            {
+              "scope": "pages",
+              "text": "draw one row menu when a grid has several action columns"
+            },
+            {
+              "scope": "pages",
+              "text": "say a record could not be read instead of drawing an empty sheet"
+            },
+            {
+              "scope": "pages",
+              "text": "keep what the reader typed when a session prefill arrives late"
+            },
+            {
+              "scope": "admin",
+              "text": "tell console search results apart, and match pages and quick actions"
+            },
+            {
+              "scope": "admin",
+              "text": "say what an API key can read on the keys page"
+            },
+            {
+              "scope": "admin",
+              "text": "give API keys one home in the console"
+            },
+            {
+              "scope": "admin",
+              "text": "show the declared environment variables as a searchable table"
+            },
+            {
+              "scope": "automations",
+              "text": "hold grants and revocations in a run started by hand to the starter's rights"
+            },
+            {
+              "scope": "admin",
+              "text": "read a run by its labels, failure first, raw data folded"
+            },
+            {
+              "scope": "admin",
+              "text": "show the app's own mark on the password recovery pages"
+            },
+            {
+              "scope": "admin",
+              "text": "refresh a user account's facts after an action changes them"
+            },
+            {
+              "scope": "admin",
+              "text": "draw the console's site header at 48px"
+            },
+            {
+              "scope": "sidebar",
+              "text": "fold a shut collapsible group to a single 32px row"
+            },
+            {
+              "scope": "library",
+              "text": "draw the console shell's site header at shadcn's 48px height"
+            },
+            {
+              "scope": "admin",
+              "text": "give the Developers pages a visible title and description"
+            },
+            {
+              "scope": "admin",
+              "text": "open a run from its row in the runs history"
+            },
+            {
+              "scope": "analytics",
+              "text": "count link clicks on one clock under a pinned development clock"
+            },
+            {
+              "scope": "admin",
+              "text": "leave pending invitees out of the account directory"
+            },
+            {
+              "scope": "auth",
+              "text": "state the app's own password minimum on the console's account pages"
+            },
+            {
+              "scope": "tables",
+              "text": "name the table in a failed read and keep the grid silent until it answers"
+            },
+            {
+              "scope": "admin",
+              "text": "send a signed-in reader back to the page named by next"
+            },
+            {
+              "scope": "admin",
+              "text": "fold a boot's engine migrations and offer the diff only where there is one"
+            },
+            {
+              "scope": "admin",
+              "text": "read console dates in the operator's locale and record boots on the dev clock"
+            },
+            {
+              "scope": "pages",
+              "text": "print a list value as a comma-separated list in text"
+            },
+            {
+              "scope": "admin",
+              "text": "offer CSV import in the records toolbar, and export only once a table has a record"
+            },
+            {
+              "scope": "admin",
+              "text": "show a user account as labelled facts"
+            },
+            {
+              "scope": "admin",
+              "text": "draw the console's not-found page as an empty state"
+            },
+            {
+              "scope": "admin",
+              "text": "drop the sign-in separator when nothing sits above it"
+            },
+            {
+              "scope": "admin",
+              "text": "show the role and expiry on an invitation, and a clear dead end for a link that no longer works"
+            },
+            {
+              "scope": "admin",
+              "text": "name a required, unset environment variable and stop calling a blank default a default"
+            },
+            {
+              "scope": "tables",
+              "text": "read the records that point at a record through a one-to-many field"
+            },
+            {
+              "scope": "tables",
+              "text": "open a grid on the table's default view and draw its columns and grouping"
+            },
+            {
+              "scope": "tables",
+              "text": "keep a wide grid's first column and row menu on screen"
+            },
+            {
+              "scope": "tables",
+              "text": "draw date columns in the text face with tabular figures"
+            },
+            {
+              "scope": "admin",
+              "text": "name expired connections by their declared label on the welcome attention read"
+            },
+            {
+              "scope": "design-system",
+              "text": "preview the Overview pages from the app's own design"
+            },
+            {
+              "scope": "admin",
+              "text": "fold the second navigation column below the xl width"
+            },
+            {
+              "scope": "design-system",
+              "text": "draw component specimens on sample data, list their props, and scale wide frames"
+            },
+            {
+              "scope": "admin",
+              "text": "recompose the console overview around what needs attention"
+            },
+            {
+              "scope": "design-system",
+              "text": "show the palette in shadcn's names, filled, with paired contrast and dark defaults"
+            },
+            {
+              "scope": "database",
+              "text": "keep retention sweeps deleting when PostgreSQL defaults to read-only"
+            },
+            {
+              "scope": "server",
+              "text": "boot into a 503 state while the database is unreachable instead of exiting"
+            },
+            {
+              "scope": "automations",
+              "text": "a hand-started run acts as its starter in attachments, grantee lists, refused unique values and called automations"
+            },
+            {
+              "scope": "config",
+              "text": "treat a TypeScript config key set to undefined as absent"
+            },
+            {
+              "scope": "admin",
+              "text": "name a connection by the label its configuration declares"
+            },
+            {
+              "scope": "admin",
+              "text": "read the submissions export gate from the inbox itself"
+            },
+            {
+              "scope": "admin",
+              "text": "tighten the user account page"
+            },
+            {
+              "scope": "pages",
+              "text": "keep the required asterisk out of a new record's field names"
+            },
+            {
+              "scope": "admin",
+              "text": "Voice page shows only what the app declares"
+            },
+            {
+              "scope": "admin",
+              "text": "give every Welcome count card a way to its page"
+            },
+            {
+              "scope": "pages",
+              "text": "keep focus inside a sheet when the action that had it disappears"
+            },
+            {
+              "scope": "admin",
+              "text": "show a submission's status word and revealed answers in its drawer"
+            },
+            {
+              "scope": "admin",
+              "text": "name the run page's last breadcrumb Run instead of the run's id"
+            },
+            {
+              "scope": "css",
+              "text": "record which compiler built a pre-compiled stylesheet"
+            },
+            {
+              "scope": "automations",
+              "text": "resolve a started run's update and delete filters within what its starter may read"
+            },
+            {
+              "scope": "design",
+              "text": "colour the github-light token kinds code blocks drew in plain ink"
+            },
+            {
+              "scope": "agents",
+              "text": "keep the database's own words out of a failed chat lookup"
+            },
+            {
+              "scope": "agents",
+              "text": "tell an agent how a request it sent failed, without the reply"
+            },
+            {
+              "scope": "agents",
+              "text": "narrow every record value in a streamed tool call to what the reader may read"
+            },
+            {
+              "scope": "admin",
+              "text": "read the links once on the Links page"
+            },
+            {
+              "scope": "design",
+              "text": "draw every code block in shadcn/ui's default colours"
+            },
+            {
+              "scope": "pages",
+              "text": "share one read when two components ask for the same query in a different order"
+            },
+            {
+              "scope": "agents",
+              "text": "hand back a refused agent write as one sentence that repeats no value"
+            },
+            {
+              "scope": "ai-chat",
+              "text": "keep values a reader may not read out of an agent's tool events"
+            },
+            {
+              "scope": "pages",
+              "text": "show a plain notice when a chart's read fails"
+            },
+            {
+              "scope": "admin",
+              "text": "name search results in the reader's language"
+            },
+            {
+              "scope": "pages",
+              "text": "open a type-to-confirm gate as a modal alert dialog"
+            },
+            {
+              "scope": "admin",
+              "text": "read the attention and session feeds once per page"
+            },
+            {
+              "scope": "navigation",
+              "text": "draw a sidebar row's disclosure chevron as the group header's"
+            },
+            {
+              "scope": "pages",
+              "text": "print a system-source drawer's date-time as its grid column does"
+            },
+            {
+              "scope": "admin",
+              "text": "label and date the console submission drawer as its grid does"
+            },
+            {
+              "scope": "admin",
+              "text": "show the analytics-off sentence on the console Analytics page"
+            },
+            {
+              "scope": "storage",
+              "text": "serve SVG and other non-raster files to a browser's image request"
+            },
+            {
+              "scope": "admin",
+              "text": "stop printing light colour values as dark ones on Foundations"
+            },
+            {
+              "scope": "admin",
+              "text": "draw component specimens whose choice controls read a table"
+            },
+            {
+              "scope": "admin",
+              "text": "name a connection once in the Overview's reconnect notice"
+            },
+            {
+              "scope": "admin",
+              "text": "show an account's access grants only to an administrator"
+            },
+            {
+              "scope": "tables",
+              "text": "tell a refused grid sort at once instead of retrying it"
+            },
+            {
+              "scope": "admin",
+              "text": "stop offering a sort on the Users Groups column"
+            },
+            {
+              "scope": "admin",
+              "text": "keep click analytics off the console Links pages for read-only operators"
+            },
+            {
+              "scope": "admin",
+              "text": "open console Analytics on Footprint where the audience cannot be read"
+            },
+            {
+              "scope": "admin",
+              "text": "show the app's own mark on the design-system Overview and Brand pages"
+            },
+            {
+              "scope": "admin",
+              "text": "link the design-system Overview's gap rows to the published manual"
+            },
+            {
+              "scope": "agents",
+              "text": "word a tool call refused for the person's own permissions like any other unreachable table"
+            }
+          ]
+        },
+        {
+          "kind": "performance",
+          "heading": "Performance Improvements",
+          "entries": [
+            {
+              "scope": "pages",
+              "text": "load the record picker on first use"
+            },
+            {
+              "scope": "forms",
+              "text": "load the choice Select on demand in forms and the record drawer"
+            },
+            {
+              "scope": "tables",
+              "text": "read a grid's records once per load when a filter bar shares its channel"
+            },
+            {
+              "scope": "design",
+              "text": "build the design-system bundle once under concurrent reads"
+            },
+            {
+              "scope": "ai",
+              "text": "import only the AI modules the provider layer uses"
+            },
+            {
+              "scope": "email",
+              "text": "load the SMTP client on first send"
+            },
+            {
+              "scope": "email",
+              "text": "load the email CSS inliner on first message"
+            },
+            {
+              "scope": "css",
+              "text": "load the Tailwind engine on first compile"
+            },
+            {
+              "scope": "cli",
+              "text": "load each command on demand"
+            },
+            {
+              "scope": "automations",
+              "text": "load the TypeScript validator on first use"
+            },
+            {
+              "scope": "auth",
+              "text": "load the SSO and passkey plugins only when configured"
+            },
+            {
+              "scope": "openapi",
+              "text": "build the OpenAPI document on first request"
+            },
+            {
+              "scope": "admin-console",
+              "text": "open the console preset on first use instead of at start"
+            },
+            {
+              "scope": "css",
+              "text": "reuse a compiled stylesheet across restarts when the app's CSS inputs are unchanged"
+            },
+            {
+              "scope": "assets",
+              "text": "keep the island bundle cache on under NODE_ENV=development unless SOVRIUM_DEV_NO_CACHE=1"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.39.1",
       "date": "2026-10-16",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.39.0...v0.39.1",

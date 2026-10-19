@@ -25,48 +25,61 @@ export default {
   // et pour une visite anonyme, « Bienvenue » tout court — la virgule s’en va
   // avec le nom auquel elle appartient.
   'admin.welcome.heading': 'Bienvenue[, $session.name]',
-  'admin.welcome.heroRegion': 'Demander ou chercher',
+  'admin.welcome.intro': 'Ce qui t’attend, et ce que cette app déclare.',
+  'admin.welcome.ask.title': 'Pose une question sur cette app',
+  'admin.welcome.ask.description':
+    'Réponses tirées des données et de la configuration de cette app. Lecture seule. Aussi dans ⌘K.',
   'admin.invitation.heading': 'Rejoindre la console',
   'admin.invitation.invitedYouTo': 't’invite sur',
   'admin.invitation.signInAs': 'Tu te connecteras avec',
   'admin.invitation.submit': 'Choisir un mot de passe et rejoindre',
+  'admin.invitation.asRole': 'comme',
+  'admin.invitation.worksUntil': 'Cette invitation est valable jusqu’au',
+  'admin.invitation.unusable.heading': 'Ce lien d’invitation ne fonctionne plus',
+  'admin.invitation.unusable.body':
+    'Il a peut-être expiré ou déjà servi. Demande à la personne qui t’a invité·e de t’en envoyer un nouveau.',
+  'admin.invitation.unusable.signIn': 'Aller à la connexion',
   'admin.notFound.heading': 'Page introuvable',
   'admin.notFound.body':
     'Rien dans cette console ne répond à cette adresse. La section n’existe peut-être pas dans cette app, ou le lien est périmé.',
-  'admin.notFound.back': 'Aller à la vue d’ensemble',
-  'admin.welcome.noAi': 'Aucun fournisseur d’IA configuré — cherche dans l’app à la place.',
-  'admin.welcome.readOnlySearch':
-    'Cherche dans l’app. L’assistant est proposé aux rôles qui peuvent faire des changements.',
-  // Le déclencheur de la palette côté héros, nommé À PART de celui de la barre
-  // latérale : Bienvenue est la seule surface où les deux sont à l’écran, et
-  // ils portaient le même nom. La barre latérale garde le verbe seul — c’est
-  // l’affordance permanente de la console — et le héros nomme sa cible, dans
-  // les mots de la légende juste en dessous.
-  'admin.welcome.searchHero': 'Rechercher dans l’app',
+  'admin.notFound.back': 'Revenir à la vue d’ensemble',
 
   // Les destinations reprennent mot pour mot le vocabulaire du fil d’Ariane :
   // une exécution s’appelle « Exécutions » ici comme ailleurs, sinon
   // l’opérateur·ice a deux noms pour une seule console.
   'admin.welcome.pulse.region': 'Ce qui demande ton attention',
-  'admin.welcome.pulse.heading': 'Depuis le démarrage de cette instance',
+  'admin.welcome.pulse.heading': 'À traiter',
+  'admin.welcome.pulse.since': 'Depuis le démarrage de cette instance',
   'admin.welcome.pulse.failedRuns': 'Exécutions en échec',
-  'admin.welcome.pulse.failedRuns.where': 'Exécutions →',
+  'admin.welcome.pulse.failedRuns.action': 'Voir les exécutions',
   'admin.welcome.pulse.variablesUnset': 'Variables requises non définies',
-  'admin.welcome.pulse.variablesUnset.where': 'Environnement →',
+  'admin.welcome.pulse.variablesUnset.action': 'Voir l’environnement',
   'admin.welcome.pulse.tokensExpired': 'Connexions à reconnecter',
-  'admin.welcome.pulse.tokensExpired.where': 'Connexions →',
+  'admin.welcome.pulse.tokensExpired.action': 'Voir les connexions',
   'admin.welcome.pulse.invitationsPending': 'Invitations en attente',
-  'admin.welcome.pulse.invitationsPending.where': 'Utilisateurs →',
+  'admin.welcome.pulse.invitationsPending.action': 'Voir les utilisateurs',
   'admin.welcome.pulse.recentSubmissions': 'Nouvelles réponses',
-  'admin.welcome.pulse.recentSubmissions.where': 'Réponses →',
+  'admin.welcome.pulse.recentSubmissions.action': 'Voir les réponses',
   'admin.welcome.pulse.findingsCount': 'Constats',
-  'admin.welcome.pulse.findingsCount.where': 'constats →',
+  'admin.welcome.pulse.findingsCount.action': 'Examiner les constats',
   'admin.welcome.pulse.allClear': 'Rien à signaler',
   'admin.welcome.pulse.allClear.body':
     'Aucune exécution en échec, aucune variable manquante, aucune connexion à reconnecter, rien en attente.',
 
   'admin.welcome.counts.region': 'Ce que cette app déclare',
   'admin.welcome.counts.heading': 'Ce que cette app déclare',
+  'admin.welcome.counts.description':
+    'Une ligne apparaît quand la configuration déclare la fonctionnalité.',
+  'admin.welcome.figures.region': 'Chiffres clés',
+  'admin.welcome.figures.runs': 'Exécutions, dernières 24 h',
+  'admin.welcome.figures.runs.sub': 'en échec depuis le démarrage de cette instance',
+  'admin.welcome.figures.submissions': 'Réponses',
+  'admin.welcome.figures.submissions.sub': 'depuis le démarrage de cette instance',
+  'admin.welcome.figures.accounts': 'Comptes',
+  'admin.welcome.figures.storage': 'Fichiers stockés',
+  'admin.welcome.runsChart.region': 'Exécutions, 7 derniers jours',
+  'admin.welcome.runsChart.runs': 'Exécutions',
+  'admin.welcome.runsChart.failures': 'En échec',
 
   'admin.profile.identity.region': 'Ton compte',
   'admin.profile.rows.region': 'Réglages du compte',
@@ -102,13 +115,14 @@ export default {
   'admin.profile.email.failed': 'Impossible d’envoyer le lien.',
 
   'admin.profile.password.formRegion': 'Changer ton mot de passe',
-  'admin.profile.password.submit': 'Changer',
+  'admin.profile.password.submit': 'Changer le mot de passe',
   'admin.profile.password.saved': 'Mot de passe changé.',
   'admin.profile.password.failed':
     'Impossible de changer ton mot de passe — vérifie ton mot de passe actuel.',
 
   'admin.profile.language.label': 'Langue',
-  'admin.profile.language.hint': 'Suit ton compte sur tous les navigateurs où tu te connectes.',
+  'admin.profile.language.hint':
+    'Enregistrée sur ton compte, elle te suit sur tous les navigateurs. Tant que tu n’en enregistres pas, chaque navigateur garde la sienne.',
   'admin.profile.language.formRegion': 'Changer la langue de la console',
   'admin.profile.language.saved': 'Langue enregistrée.',
   'admin.profile.language.savedDetail':
@@ -142,7 +156,8 @@ export default {
   'admin.gdpr.identity.heading': 'Mon identité',
   'admin.gdpr.export.heading': 'Exporter mes données',
   'admin.gdpr.export.submit': 'Générer l’export',
-  'admin.gdpr.export.failed': 'Impossible de générer ton export. Réessaie dans un instant.',
+  'admin.gdpr.export.failed': 'Impossible de préparer ton export. Rien n’a été envoyé.',
+  'admin.gdpr.export.retry': 'Réessayer',
   'admin.gdpr.erase.heading': 'Effacer mon compte',
   'admin.gdpr.erase.submit': 'Demander l’effacement',
   'admin.gdpr.erase.confirm.title': 'Confirmer l’effacement',
@@ -167,16 +182,30 @@ export default {
   'admin.gdpr.profileLink': 'Ouvrir Mon profil',
 
   'admin.apiKeys.heading': 'Clés API',
+  'admin.apiKeys.readScope': 'Cette clé lit ce que tu peux lire.',
   'admin.apiKeys.region': 'Tes clés API',
   'admin.apiKeys.loading': 'Chargement de tes clés API…',
 
   'admin.env.heading': 'Environnement',
+  'admin.env.search': 'Rechercher une variable',
+  'admin.env.filter.status': 'Filtrer par statut',
+  'admin.env.filter.allStatuses': 'Tous les statuts',
+  'admin.env.filter.required': 'Filtrer par obligation',
+  'admin.env.filter.allRequirements': 'Obligatoires et facultatives',
+  'admin.env.col.variable': 'Variable',
+  'admin.env.col.required': 'Obligatoire',
+  'admin.env.col.status': 'Statut',
+  'admin.env.col.source': 'Source',
+  'admin.env.empty': 'Cette app ne déclare aucune variable d’environnement.',
+  'admin.env.noMatch': 'Aucune variable ne correspond. Efface la recherche ou un filtre.',
   'admin.env.blurb':
     'Les variables que cette app déclare, et si cette instance a résolu chacune d’elles. Les valeurs ne sont jamais affichées.',
   'admin.env.callout.heading': 'Les valeurs vivent dans l’environnement de déploiement',
   'admin.env.declared.heading': 'Variables déclarées',
   'admin.env.declared.region': 'Variables d’environnement déclarées',
   'admin.env.usedBy': 'Utilisée par',
+  'admin.env.requiredUnset':
+    'est obligatoire et n’est pas définie. Définis-la là où tu exécutes cette instance, puis redémarre.',
   'admin.env.unused': 'Inutilisée',
   'admin.env.required': 'Obligatoire',
   'admin.env.optional': 'Facultative',
@@ -220,7 +249,6 @@ export default {
   'admin.login.submit': 'Se connecter',
   'admin.login.pending': 'Connexion…',
   'admin.login.cloudSignIn': 'Se connecter avec Sovrium Cloud',
-  'admin.login.forgotLink': 'Mot de passe oublié ?',
   'admin.login.orEmail': 'Ou avec ton e-mail',
 
   'admin.forgotPassword.heading': 'Mot de passe oublié',

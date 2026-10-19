@@ -89,6 +89,8 @@ export interface DisclosureSource extends RowProjection {
    * at the server narrows nothing and the entry quietly lists everything.
    */
   readonly query?: Readonly<Record<string, string | number | boolean>>
+  /** How each fetched row matches the address: `exact` (default) or `prefix`. */
+  readonly activeMatch?: string
   readonly loadingLabel: string
   /** `skeleton` draws placeholder rows while the list loads, instead of the loading line. */
   readonly loading?: 'skeleton'

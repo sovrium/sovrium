@@ -24,6 +24,8 @@ import type {
   InvitationMailer,
   InvitationServices,
   InvitationStore,
+  InvitationTokenRow,
+  InvitationUser,
 } from '@/application/ports/contracts/invitation-services'
 import type { Auth } from '@/domain/models/app/auth'
 import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles'
@@ -268,26 +270,71 @@ const linkPassword = async (
 }
 
 /**
- * Best-effort post-acceptance bookkeeping: flip emailVerified=true (proven
- * by clicking the link) and consume the verification row (single-use).
- * Both are non-blocking — a failure here does not invalidate the
- * already-set password.
+ * Best-effort post-acceptance bookkeeping: flip emailVerified=true (proven by
+ * following the link) and consume the verification row (single-use). Neither
+ * blocks — a failure here does not invalidate the already-set password. Answers
+ * whether the address was newly verified.
  */
 const finalizeAcceptedInvitation = async (
   store: InvitationStore,
   userId: string,
   invitationRowId: string
-): Promise<void> => {
-  // eslint-disable-next-line functional/no-expression-statements -- best-effort verification flag
-  await store.markUserEmailVerified(userId).catch(() => undefined)
+): Promise<boolean> => {
+  const verified = await store.markUserEmailVerified(userId).catch((error: unknown) => {
+    logError('[admin-invitation] Failed to mark the address verified', error)
+    return false
+  })
   // eslint-disable-next-line functional/no-expression-statements -- best-effort token consumption
   await store.deleteInvitationToken(invitationRowId).catch(() => undefined)
+  return verified
+}
+
+/**
+ * Who sent the invitation, as the `invitationAccepted` trigger hands it on:
+ * `null` when no sender was recorded or the account is gone, or the lookup failed.
+ */
+const inviterOf = async (
+  store: InvitationStore,
+  invitedBy: string | undefined
+): Promise<{ readonly id: string; readonly email: string; readonly name: string } | null> => {
+  if (invitedBy === undefined) return null
+  const inviter = await store.findUserById(invitedBy).catch(() => undefined)
+  return inviter === undefined ? null : { id: inviter.id, email: inviter.email, name: inviter.name }
+}
+
+/**
+ * Fire the auth events an acceptance caused, in their order: `emailVerified`
+ * when the address was newly verified, then `invitationAccepted` (the route's
+ * sign-in fires `signIn` after). The payload carries the account, its role, who
+ * invited it and when — never the link token, never the password.
+ */
+const announceAcceptance = async (
+  services: InvitationServices,
+  accepted: {
+    readonly user: InvitationUser
+    readonly row: InvitationTokenRow
+    readonly newlyVerified: boolean
+  }
+): Promise<void> => {
+  const dispatch = services.dispatchAuthEvent
+  if (dispatch === undefined) return
+  const { user, row } = accepted
+  if (accepted.newlyVerified) await dispatch('emailVerified', { ...user, emailVerified: true })
+  await dispatch(
+    'invitationAccepted',
+    { ...user },
+    {
+      role: user.role ?? null,
+      invitedBy: await inviterOf(services.store, row.invitedBy),
+      invitationCreatedAt: row.createdAt?.toISOString() ?? null,
+    }
+  )
 }
 
 /**
  * Accept an admin invitation: validate the token, set the customer's
  * password (linking a credential account row), mark their email verified,
- * and consume the token.
+ * consume the token, and fire the auth events the acceptance caused.
  *
  * The route handler is responsible for translating the success result into
  * a Better Auth sign-in (so the customer ends up with a valid session
@@ -331,6 +378,10 @@ export const acceptInvitation = async (params: {
   const linkFailure = await linkPassword(params.services, user.id, validated.password)
   if (linkFailure) return linkFailure
 
-  await finalizeAcceptedInvitation(params.services.store, user.id, row.id)
-  return { status: 'accepted', user }
+  await announceAcceptance(params.services, {
+    user,
+    row,
+    newlyVerified: await finalizeAcceptedInvitation(params.services.store, user.id, row.id),
+  })
+  return { status: 'accepted', user: { id: user.id, email: user.email, name: user.name } }
 }

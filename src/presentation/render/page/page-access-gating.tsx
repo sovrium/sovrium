@@ -24,8 +24,10 @@
  * different declarations and together exceeded the tree's file ceiling.
  */
 
+import { mountHref } from '@/domain/models/app/admin/mount-hrefs'
 import { resolveLandingPath } from '@/domain/models/app/pages/landing-resolver'
-import { isCapabilityMet } from '@/domain/models/app/pages/page-requires'
+import { isCapabilityMet, passwordResetRequestPath } from '@/domain/models/app/pages/page-requires'
+import { getMountBasePath } from '@/infrastructure/css/mount-identity'
 import { resolveFirstObjectRedirect } from '@/presentation/render/resolve/first-object-redirect-resolver'
 import { hideComponent } from './page-crud-gating'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'
@@ -126,14 +128,30 @@ const isEmailSignIn = (component: Component): boolean => {
 
 type ChildNode = NonNullable<Component['children']>[number]
 
+/** The address of the app's password-reset request page, under the mount serving it. */
+function recoveryHrefOf(app: App): string | undefined {
+  const path = passwordResetRequestPath(app)
+  if (path === undefined) return undefined
+  const basePath = getMountBasePath(app)
+  return basePath === undefined ? path : mountHref(basePath, path)
+}
+
 /**
- * Marks every sign-in form of an app offering passkeys, at any depth, so its
- * email field asks the browser for passkey autofill (`username webauthn`). The
- * mark rides the action — the auth-form renderer is the one reader — and an app
- * without passkeys gets its tree back untouched.
+ * Marks every email sign-in form, at any depth, with what the app around it
+ * offers: passkeys, so its email field asks the browser for passkey autofill
+ * (`username webauthn`); a password-reset request page, so its Password label
+ * row links there ("Forgot your password?"). The marks ride the action — the
+ * auth-form renderer is the one reader — and an app offering neither gets its
+ * tree back untouched.
  */
-export function markPasskeyAutofill(components: Page['components'], app: App): Page['components'] {
-  if (!components || !isCapabilityMet(app, 'auth.passkeys')) return components
+export function markSignInForms(components: Page['components'], app: App): Page['components'] {
+  const passkeys = isCapabilityMet(app, 'auth.passkeys')
+  const recoveryHref = recoveryHrefOf(app)
+  if (!components || (!passkeys && recoveryHref === undefined)) return components
+  const marks = {
+    ...(passkeys && { _passkeyAutofill: true }),
+    ...(recoveryHref !== undefined && { _recoveryHref: recoveryHref }),
+  }
   const mark = (component: Component): Component => {
     const children = component.children?.map((child: ChildNode) =>
       typeof child === 'string' || 'component' in child || '$ref' in child
@@ -141,7 +159,7 @@ export function markPasskeyAutofill(components: Page['components'], app: App): P
         : mark(child as Component)
     )
     const marked = isEmailSignIn(component)
-      ? { ...component, action: { ...component.action, _passkeyAutofill: true } }
+      ? { ...component, action: { ...component.action, ...marks } }
       : component
     return (children === undefined ? marked : { ...marked, children }) as Component
   }

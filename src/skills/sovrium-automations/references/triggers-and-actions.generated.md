@@ -4,7 +4,7 @@
 
 > Generated from the Sovrium schema by scripts/build/generate-skill-references.ts — do not edit. It carries no version on purpose: when it and the binary you run disagree, the binary is right.
 
-Every trigger an automation can start from (9) and every action a step can run (128), in the words of the schema. An action is chosen by its `type` and, within a family, its `operator`.
+Every trigger an automation can start from (9) and every action a step can run (133), in the words of the schema. An action is chosen by its `type` and, within a family, its `operator`.
 
 ## Contents
 
@@ -20,7 +20,7 @@ Read: `sovrium docs automation-triggers`
 | `webhook` | Trigger automation via incoming HTTP webhook |
 | `cron` | Trigger automation on a schedule using cron expressions |
 | `record` | Trigger automation when records are created, updated, or deleted. The run reads the row as stored at trigger.data.record (id, created_at, updated_at and the stamped columns included) and, for a record created through the records API or written by an automation step, who made the write at trigger.user ({ id, role, email, name }; id and role read system, email and name empty, for a write no person made). |
-| `auth` | Trigger automation on authentication events (sign-up, sign-in, etc.) |
+| `auth` | Trigger automation on authentication events (sign-up, sign-in, invitation accepted, etc.) |
 | `form` | Trigger automation when a top-level form is submitted. The `form` property references forms[].name (HARD BREAK: was a page path). |
 | `manual` | Admin-initiated workflow execution via button or API call |
 | `automation-call` | Trigger that fires when another automation invokes this one via the automation/call action. Enables sub-workflow composition. |
@@ -71,6 +71,9 @@ Read: `sovrium docs automation-actions`
 | `link` | `create` | Mint a tracked short link and return its address for a later step to use. Fails the step rather than shadowing a config-declared slug or overwriting one a live link already holds. |
 | `link` | `update` | Apply a sparse edit to an existing runtime link. Omitted props are left unchanged; the slug names the target and cannot be renamed. |
 | `link` | `delete` | Soft-delete a runtime link so it stops resolving while its click history survives. Fails the step for a config-declared slug. |
+| `comment` | `create` | Post a comment on a record's thread, through the same content, reply, mention, moderation and comment-trigger rules as the comments API |
+| `comment` | `list` | Read a record's comments, oldest first, as the system or as the triggering user would read them |
+| `comment` | `delete` | Soft-delete one comment of a record's thread, as the system or under the triggering user's comment rules |
 | `webhook` | `send` | Send outgoing webhook (envelope or pass-through mode) |
 | `webhook` | `response` | Construct a custom response for synchronous webhook triggers (respondImmediately: false) |
 | `delay` | `wait` | Pause automation execution for a fixed duration or until a specific datetime |
@@ -101,6 +104,7 @@ Read: `sovrium docs automation-actions`
 | `file` | `transformImage` | Resize or convert an image file |
 | `file` | `compress` | Create a ZIP archive from one or more storage files |
 | `file` | `parseXlsx` | Parse a sheet of an .xlsx workbook into structured row data |
+| `file` | `extractAudio` | Copy the audio track of a stored video into an audio-only file, without re-encoding it |
 | `document` | `generatePdf` | Render an HTML template filled with data into a paginated PDF |
 | `document` | `generateImage` | Render an SVG or HTML template filled with data into a PNG, JPEG or WebP image |
 | `document` | `generateDocx` | Fill a Word (.docx) template with data |
@@ -135,6 +139,7 @@ Read: `sovrium docs automation-actions`
 | `crypto` | `hmac` | Compute an HMAC for secure message authentication |
 | `crypto` | `sign` | Make a detached Ed25519 signature with a private key from the environment |
 | `crypto` | `verify` | Check a detached Ed25519 signature and answer { valid } |
+| `calendar` | `importIcs` | Read an iCalendar (`.ics`) feed and create or update one row per event, matched on the event's `UID`. A row whose values already equal the event's is left untouched, so a frequent schedule does not rewrite unchanged rows. |
 | `date` | `format` | Render an instant as a string in a given timezone and locale |
 | `date` | `parse` | Parse a string into an instant, reporting validity as data rather than as a step failure |
 | `date` | `add` | Shift an instant forward by a calendar duration, DST-correct in a given timezone |

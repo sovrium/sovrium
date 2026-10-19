@@ -93,12 +93,6 @@ typeScale:
     caption: { size: 0.8125rem, lineHeight: 1.4 }
     overline: { size: 0.75rem, lineHeight: 1.3, weight: 500, letterSpacing: 0.04em }
 
-# Every fenced code block is highlighted on the server with this one Shiki
-# theme, in both schemes: code reads the same by day and by night. Swap it for
-# any Shiki theme name (`github-light`, `nord`, `vitesse-dark`…).
-codeBlock:
-  theme: github-dark
-
 # Standard corners: a reference you trust, neither a ledger nor a toy.
 radius:
   sm: 0.25rem

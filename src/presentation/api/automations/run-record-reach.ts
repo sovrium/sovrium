@@ -35,6 +35,7 @@ import {
   CANONICAL_READ_POLICY,
   type TableLike,
 } from '@/domain/models/app/tables/read-access-plan-service'
+import { toManyLinksRefusedTo } from '@/domain/models/app/tables/related-field-read-service'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
@@ -80,13 +81,18 @@ export const readableColumns = (app: App, table: AppTable, reader: Reader): Read
   return new Set(plan.columnWhitelist ?? table.fields.map((field) => field.name))
 }
 
-/** Every related value of `table` `reader` may not read ({@link relatedValuesRefusedTo}). */
-export const refusedTo = (app: App, table: AppTable, reader: Reader): ReadonlySet<string> =>
-  relatedValuesRefusedTo(app, table.name, {
-    role: reader.role,
-    groups: reader.groups,
-    signedOut: false,
-  })
+/**
+ * Every related value of `table` `reader` may not read: a lookup, rollup or
+ * count she may not see ({@link relatedValuesRefusedTo}), and a link to many
+ * records the records API leaves out of her read ({@link toManyLinksRefusedTo}).
+ */
+export const refusedTo = (app: App, table: AppTable, reader: Reader): ReadonlySet<string> => {
+  const related = { role: reader.role, groups: reader.groups, signedOut: false }
+  return new Set([
+    ...relatedValuesRefusedTo(app, table.name, related),
+    ...toManyLinksRefusedTo(app, table.name, related),
+  ])
+}
 
 /**
  * True when `reader` reads `table` and every one of `columns`, and no related

@@ -9,7 +9,6 @@ import { and, eq, isNull, sql } from 'drizzle-orm'
 import {
   UNATTRIBUTED_BUCKET,
   storageObjectNotFound,
-  uploadTargetParts,
 } from '@/application/ports/services/storage-service'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
@@ -17,7 +16,9 @@ import { db } from '@/infrastructure/database'
 import { hasBuiltDbClient } from '@/infrastructure/database/drizzle/db-bun'
 import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { pingThroughMaintenanceSlot } from '@/infrastructure/database/sql/postgres-connection-budget'
-import type { BucketBinding, UploadTarget } from '@/application/ports/services/storage-service'
+import { devTimelineCreatedAt } from '@/infrastructure/process/server-boot-instant'
+import { notClaimed } from './catalog-claim'
+import type { BucketBinding } from '@/application/ports/services/storage-service'
 
 /**
  * The value the `bucket` column takes for a binding.
@@ -112,60 +113,6 @@ export const byteaValidateAndInit = async (): Promise<void> => {
     : db.execute(sql`SELECT 1`))
 }
 
-/**
- * Upsert a file: write metadata row (or update on key conflict) and
- * upsert binary content keyed by the resulting metadata id.
- *
- * The target's `uploadedById` names the person behind the write, and is recorded
- * only when the key is new. An overwrite replaces the bytes but never the
- * uploader: re-recording it would hand the object to whoever wrote last, who
- * could then delete it under the owner rule, and an unattributed road would
- * strip it of the owner erasure finds it by.
- */
-export const byteaUpload = async (
-  key: string,
-  content: Uint8Array,
-  mimeType: string,
-  target: UploadTarget
-): Promise<void> => {
-  const { bucket, uploadedById, generatedBy } = uploadTargetParts(target)
-  const filename = key.split('/').at(-1) ?? key
-  const buf = Buffer.from(content)
-
-  const result = (await db.execute(sql`
-    INSERT INTO system.file_storage_metadata
-      (key, filename, mime_type, size, storage_provider, bucket, uploaded_by_id, generated_by)
-    VALUES (${key}, ${filename}, ${mimeType}, ${content.length}, 'bytea', ${bucketColumnValue(bucket)}, ${uploadedById ?? null}, ${generatedBy ?? null})
-    ON CONFLICT (key) DO UPDATE SET
-      filename = EXCLUDED.filename,
-      mime_type = EXCLUDED.mime_type,
-      size = EXCLUDED.size,
-      storage_provider = EXCLUDED.storage_provider
-    WHERE file_storage_metadata.bucket IS NOT DISTINCT FROM EXCLUDED.bucket
-    RETURNING id
-  `)) as readonly Record<string, unknown>[]
-
-  // `bucket` is no longer in the SET list, and the guarded `DO UPDATE` skips the
-  // row entirely when the recorded owner disagrees — so a rebind writes nothing
-  // and RETURNING is empty. `IS NOT DISTINCT FROM` rather than `=` so that a
-  // NULL binding matches only another NULL. See {@link bucketBindingPermitsWrite}.
-  //
-  // The content upsert below is deliberately downstream of this: refusing here
-  // means the stored bytes are never touched.
-  const row = result[0] as { id: string } | undefined
-  if (!row) {
-    // Shaped as not-found so the route answers 404 and never distinguishes
-    // "owned by another bucket" from "absent" (S1 anti-enumeration).
-    throw storageObjectNotFound(key)
-  }
-
-  await db.execute(sql`
-    INSERT INTO system.file_storage_bytea (metadata_id, content)
-    VALUES (${row.id}, ${buf})
-    ON CONFLICT (metadata_id) DO UPDATE SET content = EXCLUDED.content
-  `)
-}
-
 export const byteaDownload = async (key: string, bucket: BucketBinding): Promise<Uint8Array> => {
   // An unattributed caller compares nothing; a bucket-scoped one must match the
   // recorded binding, and a NULL binding matches no bucket (fail closed).
@@ -227,17 +174,6 @@ export const byteaDelete = async (key: string, bucket: BucketBinding): Promise<v
   }
 }
 
-export const byteaList = async (prefix: string): Promise<readonly string[]> => {
-  const limit = 1000
-  const result = (await db.execute(sql`
-    SELECT key FROM system.file_storage_metadata
-    WHERE storage_provider = 'bytea' AND key LIKE ${prefix + '%'}
-    ORDER BY key
-    LIMIT ${limit}
-  `)) as readonly Record<string, unknown>[]
-  return result.map((r) => (r as { key: string }).key)
-}
-
 /**
  * Sum the `size` column across all bytea-provider rows in
  * `system.file_storage_metadata`. Used for total-storage quota enforcement
@@ -253,6 +189,46 @@ export const byteaGetTotalBytes = async (): Promise<number> => {
   return toFiniteCount(row?.total)
 }
 
+/** What a catalog write records for one object. */
+export interface CatalogWrite {
+  readonly key: string
+  readonly mimeType: string
+  readonly size: number
+  readonly storageProvider: string
+  readonly bucket: BucketBinding
+  /** The person behind the write, recorded only when the key is new. */
+  readonly uploadedById?: string
+  /** The automation behind the write, recorded only when the key is new. */
+  readonly generatedBy?: string
+}
+
+/** The catalog row `file` inserts: its basename, its MIME type without parameters. */
+export const catalogRowValues = (file: CatalogWrite) => ({
+  key: file.key,
+  filename: file.key.split('/').at(-1) ?? file.key,
+  // "text/plain;charset=utf-8" → "text/plain": the stored value is the base type.
+  mimeType: (file.mimeType.split(';').at(0) ?? file.mimeType).trim(),
+  size: file.size,
+  storageProvider: file.storageProvider,
+  bucket: bucketColumnValue(file.bucket),
+  uploadedById: file.uploadedById ?? null,
+  generatedBy: file.generatedBy ?? null,
+  // On a host pinned with `SOVRIUM_DEV_CLOCK`, dated on its development timeline.
+  ...devTimelineCreatedAt(),
+})
+
+/**
+ * The `created_at` a hand-written catalog insert supplies: on a host pinned
+ * with `SOVRIUM_DEV_CLOCK`, the instant on its development timeline; otherwise
+ * nothing, so the column's own default stamps the row as it always has.
+ */
+export const pinnedCreatedAtSql = () => {
+  const { createdAt } = devTimelineCreatedAt()
+  return createdAt === undefined
+    ? { column: sql.raw(''), value: sql.raw('') }
+    : { column: sql.raw(', created_at'), value: sql`, ${createdAt.toISOString()}::timestamptz` }
+}
+
 /**
  * Upsert a metadata row in the file_storage_metadata catalog for non-bytea
  * providers (e.g. S3, local) that store binary content outside the database.
@@ -266,24 +242,10 @@ export const byteaGetTotalBytes = async (): Promise<number> => {
  * The local provider — the zero-config SQLite default — relies on this path, and
  * the bun:sqlite runtime has no `db.execute()`.
  */
-export const writeFileMetadata = async (file: {
-  readonly key: string
-  readonly mimeType: string
-  readonly size: number
-  readonly storageProvider: string
-  readonly bucket: BucketBinding
-  /** The person behind the write, recorded only when the key is new. */
-  readonly uploadedById?: string
-  /** The automation behind the write, recorded only when the key is new. */
-  readonly generatedBy?: string
-}): Promise<void> => {
-  const { key, mimeType, size, storageProvider, uploadedById, generatedBy } = file
-  const filename = key.split('/').at(-1) ?? key
-  // Strip MIME type parameters (e.g. "text/plain;charset=utf-8" → "text/plain")
-  // so the stored value is always the canonical base type.
-  const baseMimeType = (mimeType.split(';').at(0) ?? mimeType).trim()
+export const writeFileMetadata = async (file: CatalogWrite): Promise<void> => {
+  const values = catalogRowValues(file)
+  const { filename, mimeType: baseMimeType, size, storageProvider, bucket: bucketValue } = values
   const files = fileStorageMetadataTable()
-  const bucketValue = bucketColumnValue(file.bucket)
   // Only update a row whose recorded owner already equals the one this write
   // asserts. Composed from `isNull` / `eq` rather than PostgreSQL's
   // `IS NOT DISTINCT FROM` because this path must also run on SQLite, where that
@@ -291,16 +253,7 @@ export const writeFileMetadata = async (file: {
   const ownerUnchanged = bucketValue === null ? isNull(files.bucket) : eq(files.bucket, bucketValue)
   const written = await db
     .insert(files)
-    .values({
-      key,
-      filename,
-      mimeType: baseMimeType,
-      size,
-      storageProvider,
-      bucket: bucketValue,
-      uploadedById: uploadedById ?? null,
-      generatedBy: generatedBy ?? null,
-    })
+    .values(values)
     .onConflictDoUpdate({
       target: files.key,
       // `bucket` is absent from the SET list on purpose: a write REPLACES bytes,
@@ -314,8 +267,8 @@ export const writeFileMetadata = async (file: {
   if (written.length === 0) {
     // The conflicting row belongs to a different bucket, so the guarded update
     // matched nothing. Not-found shaped for the same anti-enumeration reason as
-    // {@link byteaUpload}.
-    throw storageObjectNotFound(key)
+    // `byteaUpload` (`./bytea-upload`).
+    throw storageObjectNotFound(file.key)
   }
 }
 
@@ -344,7 +297,7 @@ export const deleteFileMetadata = async (key: string, bucket: BucketBinding): Pr
 /**
  * Read the catalog row for `key` from the file_storage_metadata catalog. Every
  * provider (S3, local, bytea) keeps this table in sync via {@link writeFileMetadata}
- * / {@link byteaUpload}, so this is the provider-agnostic source for a file's
+ * / `byteaUpload` (`./bytea-upload`), so this is the provider-agnostic source for a file's
  * content type / size / last-modified timestamp. Returns `undefined` when no
  * file is stored under `key`.
  *
@@ -377,7 +330,8 @@ export const readFileMetadata = async (
       generatedBy: files.generatedBy,
     })
     .from(files)
-    .where(eq(files.key, key))
+    // A claim — a replacing write's row whose bytes are not stored yet — reads as absent.
+    .where(and(eq(files.key, key), notClaimed()))
     .limit(1)
   const row = rows[0]
   if (!row) return undefined

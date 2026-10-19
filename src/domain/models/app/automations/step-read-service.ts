@@ -132,6 +132,8 @@ const READS_NOTHING: ReadonlySet<string> = new Set([
   'ai/extract',
   'analytics/track',
   'approval/request',
+  // Counts of the rows it created, updated and left: no stored value comes back.
+  'calendar/importIcs',
   'auth/assignRole',
   'auth/banUser',
   'auth/createUser',
@@ -146,6 +148,9 @@ const READS_NOTHING: ReadonlySet<string> = new Set([
   'auth/grantAccess',
   'auth/revokeAccess',
   'automation/return',
+  // The comment the step wrote or removed, named by the props it was handed.
+  'comment/create',
+  'comment/delete',
   'connection/call',
   'crypto/hash',
   'crypto/hmac',
@@ -185,6 +190,7 @@ const READS_NOTHING: ReadonlySet<string> = new Set([
   'file/delete',
   'file/compress',
   'file/transformImage',
+  'file/extractAudio',
   'filter/continue',
   'flow/stop',
   'http/request',
@@ -312,6 +318,15 @@ const recordRead = (walk: Walk, action: StepAction, output: unknown): StepRead =
     : { kind: 'records', table: table.name, records }
 }
 
+/** A thread a `comment` `list` step read: the comments of one record of `table`. */
+const commentThreadRead = (walk: Walk, action: StepAction): StepRead => {
+  const name = stringProp(action, 'table')
+  const table = walk.app.tables?.find((candidate) => candidate.name === name)
+  return table === undefined
+    ? unknownRead('reads a table the config does not declare')
+    : { kind: 'table', table: table.name }
+}
+
 const agentRead = (walk: Walk, action: StepAction): StepRead => {
   const name = stringProp(action, 'agent')
   const agent = walk.app.agents?.find((candidate) => candidate.name === name)
@@ -386,6 +401,7 @@ const BY_TYPE: ReadonlyMap<string, Classifier> = new Map<string, Classifier>([
 const BY_KEY: ReadonlyMap<string, Classifier> = new Map<string, Classifier>([
   ['ai/agent', (walk, action) => agentRead(walk, action)],
   ['automation/call', (walk, action) => callRead(walk, action)],
+  ['comment/list', (walk, action) => commentThreadRead(walk, action)],
   ['loop/each', (walk, action) => nestedRead(walk, asActions(action.props?.['actions']))],
   ['path/branch', (walk, action) => nestedRead(walk, branchActions(action))],
 ])

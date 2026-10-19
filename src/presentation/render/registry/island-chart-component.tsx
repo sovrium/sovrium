@@ -89,6 +89,23 @@ const untitledChartName = (
 }
 
 /**
+ * The name a chart's folded remainder takes when the author named none
+ * (`chart.other`), in the page language — written into `otherLabel` only where
+ * it differs from the island's English « Other », so an English page is
+ * unchanged and the island ships no catalogue.
+ */
+const withOtherLabel = (
+  aggregate: unknown,
+  currentLang: string | undefined,
+  languages: Parameters<typeof islandUiStrings>[2]
+): { readonly chartAggregate?: unknown } => {
+  const config = aggregate as { readonly limit?: number; readonly otherLabel?: string } | undefined
+  if (config?.limit === undefined || config.otherLabel !== undefined) return {}
+  const other = resolveInterpreterString('chart.other', currentLang, languages)
+  return other === 'Other' ? {} : { chartAggregate: { ...config, otherLabel: other } }
+}
+
+/**
  * SSR placeholder for the chart island. The outer wrapper carries
  * `data-island="chart"` (so the runtime can mount the React component) plus
  * `data-chart-type` (so spec attribute assertions resolve before hydration).
@@ -108,12 +125,14 @@ export const islandChartComponent: ComponentRenderer = ({
   const islandProps = {
     ...extracted,
     ...(extracted.ariaLabel === undefined && untitledChartName(chartType, currentLang, languages)),
+    ...withOtherLabel(extracted.chartAggregate, currentLang, languages),
     uiStrings: islandUiStrings('chart', currentLang, languages),
   }
   const propsJson = JSON.stringify(islandProps)
 
   return (
     <div
+      id={elementProps.id as string | undefined}
       data-island="chart"
       data-island-props={propsJson}
       {...namedHost('chart')}

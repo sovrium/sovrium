@@ -37,6 +37,7 @@ import { reconcileTimestamptzColumns } from '@/infrastructure/database/timestamp
 import { StartupMaintenanceError } from '@/infrastructure/errors/startup-maintenance-error'
 import { logError, logWarning } from '@/infrastructure/logging/logger'
 import { captureBootLedgerEntry } from '@/infrastructure/server/boot-ledger-capture'
+import { purgeStaleCalendarFeedAddresses } from '@/infrastructure/server/calendar-feed-purge'
 import { databaseStartupLabel } from '@/infrastructure/server/startup-degradation-phases'
 import type { App } from '@/domain/models/app'
 import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
@@ -230,6 +231,12 @@ export const runDatabaseStartup = (
     ),
     // effect-promise: total -- `runOrgTeamSeeding` wraps its whole body in a try/catch that logs.
     Effect.flatMap(() => Effect.promise(() => runOrgTeamSeeding(app))), // org + team seeding
+    // Delete the calendar feed addresses of tables this config no longer
+    // publishes. Best-effort (it logs and never fails the boot), and skipped by
+    // a render-and-exit command, which applies no config to a running instance.
+    Effect.flatMap(() =>
+      options.ephemeral === true ? Effect.void : purgeStaleCalendarFeedAddresses(app)
+    ),
     // Seed the MCP resource server's own confidential OAuth client and link it
     // to the MCP protected resource. It only ever authenticates the server to
     // its own introspection endpoint, so it is derived from the root secret

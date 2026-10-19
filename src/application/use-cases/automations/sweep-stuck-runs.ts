@@ -28,6 +28,7 @@ import { Effect } from 'effect'
 import { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
 import { STUCK_RUN_ERROR } from '@/domain/models/app/automations/automation-run-outcome-service'
 import { resolveAutomationDefaultTimeoutMs } from '@/domain/models/process-env/automations'
+import { onDevTimeline } from '@/infrastructure/process/server-boot-instant'
 import { notifyPlatformFailure } from './notify-platform-failure'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { AutomationRunOutcomeDatabaseError } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
@@ -46,12 +47,13 @@ const declaredTimeoutMs = (automation: NonNullable<App['automations']>[number]) 
 /**
  * Close every stuck run and alert each one, answering the ids closed.
  *
- * @param now - the instant the cutoffs are measured from (defaults to now).
+ * @param now - the instant the cutoffs are measured from (defaults to now, on the
+ *   timeline the runs are stamped on — the pinned one on a development host).
  */
 export const sweepStuckRuns = (
   app: App,
   processEnv: Readonly<Record<string, string | undefined>> = process.env,
-  now: Readonly<Date> = new Date()
+  now: Readonly<Date> = onDevTimeline()
 ): Effect.Effect<
   readonly string[],
   AutomationRunOutcomeDatabaseError,

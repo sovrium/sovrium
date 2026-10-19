@@ -212,6 +212,31 @@ export const guidanceListResponseSchema = Schema.Struct({
   total: Schema.Int.annotate({
     description: 'How many rows this response carries',
   }),
+  // ONE row, always, so a page can bind it and gate on its `state`: the
+  // sentence the Overview's Voice row quotes is a choice across two lists
+  // (the first `prefer`, else the first `personality`), and a config page has
+  // no `or`. Zero rows would draw nothing at all, where the undeclared state
+  // has to be drawn as such.
+  voicePreview: optionalField(
+    Schema.Array(
+      Schema.Struct({
+        state: Schema.Literals(['declared', 'undeclared']).annotate({
+          description:
+            '`declared` when `line` carries a sentence of this app’s voice, `undeclared` when the voice declares neither a `prefer` line nor a `personality` trait',
+        }),
+        line: optionalField(
+          Schema.String.annotate({
+            description:
+              'The first `design.voice.prefer` line, else the first `design.voice.personality` trait, verbatim. ABSENT when `state` is `undeclared`.',
+            examples: ['Lead a CTA with its verb.'],
+          })
+        ),
+      }).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'VoicePreviewRow' })
+    ).annotate({
+      description:
+        'Exactly one row: the sentence that previews this app’s voice, or the undeclared state. The rows a page binds to quote the voice without choosing between lists itself.',
+    })
+  ),
 }).annotate({
   strictKeys: true,
   title: 'sovrium:strict-keys',

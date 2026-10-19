@@ -14,6 +14,10 @@ import { templatedEmail } from './email-template-body'
 import { fileRefsOf } from './file-ref-origin'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
+import type { EmailCssInliner } from '@/application/ports/services/email-css-inliner'
+
+/** The services an `email/send` step reaches: the sender, and the inliner a templated body runs. */
+export type EmailStepRequirements = EmailSender | EmailCssInliner
 
 /**
  * Tagged error for the inner `sendEmail` promise. Wrapping the unknown

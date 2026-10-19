@@ -11,8 +11,9 @@
  * approval and question controls — under `aiChat.*`, a dot for each group
  * (`aiChat.composer.send`, `aiChat.branch.retry`). Part of the interpreter
  * catalogue: English is the default, French is built in, and an author renames
- * any of them under `sovrium.aiChat.<key>`. The panel speaks to its reader
- * informally in French (« Pose une question… »), as it always has.
+ * any of them under `sovrium.aiChat.<key>`. The panel addresses its reader
+ * as « vous » in French (« Posez une question… »), as the rest of the catalogue
+ * does.
  */
 export const AI_CHAT_UI_STRINGS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   'aiChat.failure': { en: 'The assistant is unavailable.', fr: 'L’assistant est indisponible.' },
@@ -22,15 +23,21 @@ export const AI_CHAT_UI_STRINGS: Readonly<Record<string, Readonly<Record<string,
   'aiChat.stop': { en: 'Stop', fr: 'Arrêter' },
   'aiChat.stopped': { en: 'Stopped', fr: 'Arrêté' },
   'aiChat.reasoning': { en: 'Reasoning', fr: 'Raisonnement' },
+  'aiChat.input': { en: 'Input', fr: 'Entrée' },
+  'aiChat.output': { en: 'Output', fr: 'Sortie' },
+  'aiChat.truncated': {
+    en: 'Showing the first 2,000 characters',
+    fr: 'Seuls les 2\u202f000 premiers caractères sont affichés',
+  },
   'aiChat.approve': { en: 'Approve', fr: 'Approuver' },
   'aiChat.deny': { en: 'Deny', fr: 'Refuser' },
-  'aiChat.awaitingApproval': { en: 'Waiting for your approval', fr: 'En attente de ton accord' },
+  'aiChat.awaitingApproval': { en: 'Waiting for your approval', fr: 'En attente de votre accord' },
   'aiChat.denied': { en: 'Denied', fr: 'Refusé' },
   'aiChat.failed': { en: 'Failed', fr: 'Échec' },
   'aiChat.running': { en: 'Running…', fr: 'En cours…' },
   'aiChat.closed': {
     en: 'No longer waiting for a decision. Ask again if you still need it.',
-    fr: 'Plus en attente de décision. Redemande si tu en as encore besoin.',
+    fr: 'Plus en attente de décision. Redemandez si vous en avez encore besoin.',
   },
   'aiChat.question.send': { en: 'Send answer', fr: 'Envoyer la réponse' },
   'aiChat.question.decline': { en: 'Decline', fr: 'Refuser' },
@@ -44,9 +51,12 @@ export const AI_CHAT_UI_STRINGS: Readonly<Record<string, Readonly<Record<string,
   'aiChat.question.askedBy': { en: 'Asked by', fr: 'Demandé par' },
   'aiChat.question.closed': {
     en: 'This question is closed. Ask again if you still need it.',
-    fr: 'Cette question est close. Redemande si tu en as encore besoin.',
+    fr: 'Cette question est close. Redemandez si vous en avez encore besoin.',
   },
   'aiChat.sources': { en: 'Sources', fr: 'Sources' },
+  'aiChat.usageTotal': { en: '{count} tokens', fr: '{count} jetons' },
+  'aiChat.usageInput': { en: '{count} input', fr: '{count} en entrée' },
+  'aiChat.usageOutput': { en: '{count} output', fr: '{count} en sortie' },
   'aiChat.branch.conversations': { en: 'Conversations', fr: 'Conversations' },
   'aiChat.branch.newConversation': { en: 'New conversation', fr: 'Nouvelle conversation' },
   'aiChat.branch.edit': { en: 'Edit', fr: 'Modifier' },
@@ -78,14 +88,24 @@ export const AI_CHAT_UI_STRINGS: Readonly<Record<string, Readonly<Record<string,
   'aiChat.composer.listening': { en: 'Listening…', fr: 'À l’écoute…' },
   'aiChat.composer.voiceError': {
     en: 'The recording could not be transcribed. Try again.',
-    fr: 'L’enregistrement n’a pas pu être transcrit. Réessaie.',
+    fr: 'L’enregistrement n’a pas pu être transcrit. Réessayez.',
+  },
+  /** The dictation button's accessible name, and why it could not start recording. */
+  'aiChat.composer.holdToTalk': { en: 'Hold to talk', fr: 'Maintenir pour parler' },
+  'aiChat.composer.micUnsupported': {
+    en: 'This browser cannot record from a microphone.',
+    fr: 'Ce navigateur ne peut pas enregistrer depuis un micro.',
+  },
+  'aiChat.composer.micRefused': {
+    en: 'Microphone access was refused.',
+    fr: 'L’accès au micro a été refusé.',
   },
   'aiChat.log': { en: 'Chat messages', fr: 'Messages du chat' },
   'aiChat.responding': { en: 'Assistant is responding', fr: 'L’assistant répond' },
   'aiChat.suggestions': { en: 'Suggested questions', fr: 'Questions suggérées' },
-  'aiChat.placeholder': { en: 'Ask a question…', fr: 'Pose une question…' },
+  'aiChat.placeholder': { en: 'Ask a question…', fr: 'Posez une question…' },
   'aiChat.notConfigured': {
     en: 'AI chat is not configured here. Set AI_PROVIDER, and AI_API_KEY for a hosted provider, to turn it on.',
-    fr: 'Le chat IA n’est pas configuré ici. Définis AI_PROVIDER, et AI_API_KEY pour un fournisseur hébergé, pour l’activer.',
+    fr: 'Le chat IA n’est pas configuré ici. Définissez AI_PROVIDER, et AI_API_KEY pour un fournisseur hébergé, pour l’activer.',
   },
 }

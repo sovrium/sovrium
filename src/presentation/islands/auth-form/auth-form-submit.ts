@@ -96,7 +96,7 @@ async function handleLogin(
     ?.twoFactorRedirect
   if (pending !== true) return {}
   if (codePage !== undefined) return { navigate: codePage }
-  return { success: input.pendingSignIn ?? TWO_FACTOR_PENDING_MESSAGE }
+  return { success: input.words?.['twoFactor.pendingSignIn'] ?? TWO_FACTOR_PENDING_MESSAGE }
 }
 
 async function handleSignup(email: string, password: string): Promise<string | undefined> {
@@ -197,11 +197,18 @@ interface AuthMethodInput {
   readonly redirectUrl: string | undefined
   /** The form's `onSuccess.toast` config, when it declares one. */
   readonly successToast: ToastConfig | undefined
-  /** The two-step pending banner in the page language, where it differs from English. */
-  readonly pendingSignIn?: string
+  /** The form's banners in the page language (two-step owed, a link mailed), where they differ from English. */
+  readonly words?: Readonly<Record<string, string>>
   /** `login`: the page an account still owing its code is sent to (`onTwoFactor.navigate`). */
   readonly twoFactorPath?: string
 }
+
+/**
+ * The banner a mailed link answers with: the form's `onSuccess.toast.message`,
+ * else the engine's words in the page language, else the English.
+ */
+const sentBanner = (input: AuthMethodInput, key: string, english: string): string =>
+  input.successToast?.message ?? input.words?.[key] ?? english
 
 /**
  * A magic-link login resolves to a banner rather than a navigation: the reader
@@ -212,7 +219,7 @@ async function executeMagicLinkLogin(
 ): Promise<{ error?: string; success?: string }> {
   const error = await handleMagicLinkRequest(input.email, input.redirectUrl)
   if (error) return { error }
-  return { success: input.successToast?.message ?? MAGIC_LINK_SENT_MESSAGE }
+  return { success: sentBanner(input, 'auth.magicLinkSent', MAGIC_LINK_SENT_MESSAGE) }
 }
 
 async function executeAuthMethod(input: AuthMethodInput): Promise<AuthOutcome> {
@@ -234,7 +241,7 @@ async function executeAuthMethod(input: AuthMethodInput): Promise<AuthOutcome> {
       // `/_admin` recovery form) speak its own language — and phrase the
       // banner conditionally, matching Better Auth's always-200,
       // anti-enumeration contract. The English string is only the fallback.
-      return { success: input.successToast?.message ?? RESET_PASSWORD_SENT_MESSAGE }
+      return { success: sentBanner(input, 'auth.resetSent', RESET_PASSWORD_SENT_MESSAGE) }
     }
     case 'setNewPassword':
       return { error: await handleSetNewPassword(password) }
@@ -251,8 +258,8 @@ export interface SubmitContext {
   readonly errorToast: ToastConfig | undefined
   /** The form declares `onSuccess.type: 'successPage'`. */
   readonly hasSuccessPage?: boolean
-  /** The two-step pending banner in the page language, where it differs from English. */
-  readonly pendingSignIn?: string
+  /** The form's banners in the page language (two-step owed, a link mailed), where they differ from English. */
+  readonly words?: Readonly<Record<string, string>>
   /** `login`: the page an account still owing its code is sent to. */
   readonly twoFactorPath?: string
   readonly setState: (s: AuthState) => void
@@ -309,7 +316,7 @@ export async function submitAuthForm(ctx: SubmitContext): Promise<void> {
       password,
       redirectUrl: ctx.redirectUrl,
       successToast: ctx.successToast,
-      pendingSignIn: ctx.pendingSignIn,
+      words: ctx.words,
       twoFactorPath: ctx.twoFactorPath,
     })
     const codePage = toSafeRedirectPath(result.navigate)

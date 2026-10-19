@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { logError } from '@/infrastructure/logging/logger'
 import {
   deleteCredentialAccountForUser,
   deleteInvitationToken,
@@ -22,6 +23,7 @@ import {
 } from './invitation-queries'
 import { inheritScopeAssignments } from './invitation-scope-queries'
 import type { createAuthInstance } from './auth'
+import type { AuthHookContext } from './auth-database-hooks'
 import type {
   InvitationAuthEngine,
   InvitationServices,
@@ -88,24 +90,49 @@ const createInvitationAuthEngine = (authInstance: AuthInstance): InvitationAuthE
  * The invitation store and engine the composition root hands to the invitation
  * routes — `undefined` exactly when there is no auth instance, which is when the
  * routes are not mounted at all.
+ *
+ * `linkPages` is a thunk read on first access: the console's invitation pages
+ * come from its preset, which is decoded on first use rather than at start.
+ * `hookContext` reaches the app's auth automations, which an acceptance starts
+ * (`emailVerified`, `invitationAccepted`); absent, it starts none.
  */
 export function createInvitationServices(
   authInstance: AuthInstance,
-  linkPages?: InvitationServices['linkPages']
+  linkPages?: () => NonNullable<InvitationServices['linkPages']>,
+  hookContext?: AuthHookContext
 ): InvitationServices
 export function createInvitationServices(
   authInstance: AuthInstance | undefined,
-  linkPages?: InvitationServices['linkPages']
+  linkPages?: () => NonNullable<InvitationServices['linkPages']>,
+  hookContext?: AuthHookContext
 ): InvitationServices | undefined
 export function createInvitationServices(
   authInstance: AuthInstance | undefined,
-  linkPages?: InvitationServices['linkPages']
+  linkPages?: () => NonNullable<InvitationServices['linkPages']>,
+  hookContext?: AuthHookContext
 ): InvitationServices | undefined {
-  return authInstance === undefined
-    ? undefined
-    : {
-        store: invitationStore,
-        engine: createInvitationAuthEngine(authInstance),
-        ...(linkPages === undefined ? {} : { linkPages }),
-      }
+  if (authInstance === undefined) return undefined
+  const services: InvitationServices = {
+    store: invitationStore,
+    engine: createInvitationAuthEngine(authInstance),
+    ...(hookContext === undefined
+      ? {}
+      : {
+          // Imported on first use: the hooks module loads the auth engine, which
+          // an app without auth must never load at boot. The dispatcher never
+          // rejects (its contract): a module that fails to load is logged, and
+          // the acceptance it reacts to still answers as accepted.
+          dispatchAuthEvent: (event, user, data) =>
+            import('./auth-event-hooks').then(
+              (hooks) => hooks.dispatchAuthEvent(event, user, hookContext, data),
+              (error: unknown) => {
+                logError('[admin-invitation] the auth automations could not be started', error)
+              }
+            ),
+        }),
+  }
+  // A getter on the object itself, never spread in: spreading would call it.
+  return linkPages === undefined
+    ? services
+    : Object.defineProperty(services, 'linkPages', { get: linkPages, enumerable: true })
 }

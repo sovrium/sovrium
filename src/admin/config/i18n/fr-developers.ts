@@ -24,18 +24,29 @@ export default {
   'admin.api.keys.blurb':
     'Un script n’a pas de session de navigateur. Donne-lui plutôt une clé de longue durée et envoie-la dans l’en-tête x-api-key.',
   'admin.api.keys.link': 'Gérer les clés',
-  'admin.api.tabs.region': 'Sous-vues API',
-  'admin.api.keys.disabled.heading': 'Les clés API ne sont pas activées sur cette instance',
-  'admin.api.keys.disabled.body':
-    'Une clé de longue durée permet à un script d’appeler cette API sans session de navigateur. Les points d’accès qui émettent et révoquent les clés ne sont montés que si l’app les déclare.',
-  'admin.api.keys.disabled.hint':
-    'Passe auth.apiKeys à true dans la config de l’app, puis redémarre.',
   'admin.api.examples.heading': 'Exemples de requêtes',
   'admin.api.examples.note':
     'Le verbe et le chemin suffisent ; la référence interactive détaille les paramètres, les corps de requête et les réponses de chaque point d’accès.',
+  'admin.api.examples.httpList':
+    '# Lister « $record.label »\nGET  /api/tables/$record.name/records',
+  'admin.api.examples.httpCreate':
+    '# Créer un enregistrement dans « $record.exampleTableLabel »\nPOST /api/tables/$record.exampleTable/records',
+  'admin.api.examples.curlListComment':
+    '# Lister « $record.exampleTableLabel » (la session admin de ce navigateur authentifie l’appel)',
+  'admin.api.examples.jsListComment':
+    '// Lister « $record.exampleTableLabel » depuis ce navigateur (le cookie de session est inclus)',
+  'admin.api.examples.httpListAny':
+    'GET  /api/tables/{table}/records      # Lister les enregistrements d’une table',
+  'admin.api.examples.httpCreateAny':
+    'POST /api/tables/{table}/records      # Créer un enregistrement',
+  'admin.api.examples.curlListAnyComment':
+    '# Lister les enregistrements d’une table (la session admin de ce navigateur authentifie l’appel)',
+  'admin.api.examples.jsListAnyComment':
+    '// Lister les enregistrements d’une table depuis ce navigateur (le cookie de session est inclus)',
   'admin.api.createUser.heading': 'Créer un utilisateur',
   'admin.api.createUser.blurb':
-    'La création de compte n’a plus de formulaire dans le tableau de bord : elle passe par l’API admin de Better Auth (ou le serveur MCP). Un mot de passe fort est requis ; la personne le réinitialise ensuite.',
+    'Crée un compte avec l’API admin de Better Auth, ou avec le serveur MCP. Choisis un mot de passe fort ; la personne le change après sa première connexion.',
+  'admin.api.createUser.comment': '# POST /api/auth/admin/create-user — créer un compte',
   'admin.api.reference.heading': 'Référence interactive',
   'admin.api.reference.blurb':
     'Parcours chaque point d’accès, essaie des requêtes et lis les schémas dans la référence interactive (Scalar).',
@@ -44,21 +55,19 @@ export default {
   'admin.mcp.heading': 'MCP',
   'admin.mcp.blurb':
     'Connecte ton IA (Claude, Cursor…) à cette instance via MCP. Émets un identifiant, colle la config dans ton client, et ton IA atteint les outils ci-dessous — lecture et écriture de données, actions et automatisations.',
-  'admin.mcp.tabs.region': 'Sous-vues MCP',
-  'admin.mcp.clients.pending.heading': 'Les clients connectés ne sont pas encore listés',
-  'admin.mcp.clients.pending.body':
-    'Cette instance enregistre quels clients IA se sont inscrits, ce qu’ils ont accepté et quand ils ont appelé pour la dernière fois. Aucune lecture ne relie ces trois enregistrements, donc la console ne peut pas les montrer sans inventer la réponse.',
-  'admin.mcp.clients.pending.hint':
-    'En attendant, révoque l’accès d’un client depuis la config de l’app.',
   'admin.mcp.endpoint.heading': 'Point d’accès MCP',
   'admin.mcp.endpoint.blurb':
     'Ton serveur MCP est monté à cette adresse. Colle-la telle quelle dans la config de ton client IA.',
+  'admin.mcp.endpoint.filename': 'Point d’accès',
   'admin.mcp.credential.heading': 'Émettre un identifiant',
   'admin.mcp.credential.blurb':
     'Enregistre un client MCP pour obtenir un identifiant. La réponse renvoie un « client_id » et un « client_secret » à coller dans ton client IA. Lance-la connecté en tant qu’admin — sans session, le point d’accès répond 401, et « $SOVRIUM_SESSION » porte ton cookie de connexion.',
+  'admin.mcp.credential.comment':
+    '# POST /api/auth/oauth2/register — émettre un identifiant MCP (RFC 7591)',
   'admin.mcp.credential.anonymous':
     'Claude Desktop, Cursor et ChatGPT Dev Mode s’enregistrent eux-mêmes avant qu’aucune session de navigateur n’existe. Pour le leur permettre, mets « SOVRIUM_OAUTH_ANONYMOUS_CLIENT_REGISTRATION=true » — l’enregistrement accepte alors n’importe quel appelant, plafonné à 20 par minute et par IP.',
   'admin.mcp.config.heading': 'Configuration de référence',
+  'admin.mcp.config.filename': 'Config du client MCP',
   'admin.mcp.config.blurb':
     'La config MCP à coller dans ton client, avec le point d’accès déjà réglé sur l’adresse de cette instance.',
   'admin.mcp.tools.heading': 'Outils disponibles',
@@ -77,14 +86,14 @@ export default {
   'admin.changelog.ledger.region': 'Journal des démarrages',
   'admin.changelog.ledger.blurb':
     'Une ligne par démarrage dont la version ou la configuration différait du précédent.',
+  'admin.changelog.ledger.search': 'Rechercher une version',
+  'admin.changelog.ledger.empty': 'Aucun démarrage enregistré pour l’instant.',
+  'admin.changelog.ledger.noMatch': 'Aucun démarrage ne correspond à cette recherche.',
   'admin.changelog.current': 'en cours',
   'admin.changelog.current.heading': 'Configuration telle qu’elle a démarré',
   'admin.changelog.current.declarations': 'déclarations',
   'admin.changelog.toCurrent': 'Lire la configuration telle qu’elle a démarré',
   'admin.changelog.back': 'Retour au journal',
-  'admin.changelog.row.engine': 'Sovrium',
-  'admin.changelog.row.migrations': 'migrations moteur appliquées',
-  'admin.changelog.row.ddl': 'tables modifiées',
 
   // ── Un démarrage (`/changelog/:hash`) ───────────────────────────────────
   'admin.changelog.one.heading': 'Version',
@@ -99,7 +108,6 @@ export default {
   'admin.changelog.field.previousEngine': 'Moteur précédent',
   'admin.changelog.field.config': 'Config',
   'admin.changelog.field.previousConfig': 'Config précédente',
-  'admin.changelog.field.id': 'Ligne',
   'admin.changelog.diff.heading': 'Différences de configuration',
   'admin.changelog.diff.baseline':
     'Le premier démarrage enregistré n’a rien avant lui à comparer : il ne porte donc aucune différence.',

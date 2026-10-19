@@ -27,12 +27,14 @@ import {
   aiMessages as aiMessagesSqlite,
 } from '@/infrastructure/database/drizzle/schema-sqlite/ai'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import { devTimelineCreatedAt, onDevTimeline } from '@/infrastructure/process/server-boot-instant'
 import type {
   AiMemoryMessage,
   AiMemoryThread,
   AiMessageElicitation,
   AiMessagePart,
 } from '@/application/ports/repositories/ai/ai-memory-repository'
+import type { StoredToolCall } from '@/domain/models/app/agents/stored-tool-call-service'
 
 const aiConversations = resolveDialectSchema(aiConversationsPg, aiConversationsSqlite)
 const aiMessages = resolveDialectSchema(aiMessagesPg, aiMessagesSqlite)
@@ -44,8 +46,15 @@ const aiMessages = resolveDialectSchema(aiMessagesPg, aiMessagesSqlite)
  */
 const ASK_USER_CALL = 'ask_user'
 
-const toToolCalls = (elicitation: AiMessageElicitation | undefined) =>
-  elicitation === undefined ? {} : { toolCalls: [{ name: ASK_USER_CALL, elicitation }] }
+/** An answer's `tool_calls`: the question first ({@link elicitationOf}), then its calls. */
+const toToolCalls = (
+  elicitation: AiMessageElicitation | undefined,
+  calls: ReadonlyArray<StoredToolCall> = []
+) => {
+  const asked = elicitation === undefined ? [] : [{ name: ASK_USER_CALL, elicitation }]
+  const toolCalls = [...asked, ...calls]
+  return toolCalls.length === 0 ? {} : { toolCalls }
+}
 
 /** The question a stored message asked, read back from its `tool_calls`. */
 const elicitationOf = (toolCalls: unknown): { readonly elicitation?: AiMessageElicitation } => {
@@ -73,6 +82,12 @@ const partOf = (raw: unknown): readonly AiMessagePart[] => {
 /** A stored message's `parts` column read back; absent for a message sent as text alone. */
 const partsOf = (raw: unknown): { readonly parts?: readonly AiMessagePart[] } =>
   Array.isArray(raw) ? { parts: raw.flatMap(partOf) } : {}
+
+/** A new conversation's stamps on a pinned host; the columns' defaults otherwise. */
+const openedOnDevTimeline = () => {
+  const { createdAt } = devTimelineCreatedAt()
+  return createdAt === undefined ? {} : { createdAt, updatedAt: createdAt }
+}
 
 /** Wrap a DB promise, adapting failures to AiMemoryDatabaseError. */
 const wrap = makeDbWrap((cause) => new AiMemoryDatabaseError({ cause }))
@@ -116,7 +131,7 @@ const ensureConversation = async (input: {
   if (found !== undefined) {
     return db
       .update(aiConversations)
-      .set({ updatedAt: new Date() })
+      .set({ updatedAt: onDevTimeline() })
       .where(eq(aiConversations.id, found.id))
       .then(() => found.id)
   }
@@ -127,6 +142,7 @@ const ensureConversation = async (input: {
       sessionId: input.sessionId,
       title: deriveTitle(input.firstMessage),
       ...(input.agentName !== undefined ? { agentName: input.agentName } : {}),
+      ...openedOnDevTimeline(),
     })
     .returning({ id: aiConversations.id })
   // `returning()` always yields the inserted row; the fallback keeps the
@@ -200,6 +216,8 @@ interface ChainMessage {
   readonly model?: string | undefined
   /** A question the message asked that was cancelled, kept in its `tool_calls`. */
   readonly elicitation?: AiMessageElicitation | undefined
+  /** On an answer: the calls its turn ran, one line each. */
+  readonly toolCalls?: ReadonlyArray<StoredToolCall> | undefined
   /** A user message sent as parts: its parts, as references. */
   readonly parts?: ReadonlyArray<AiMessagePart> | undefined
 }
@@ -227,7 +245,8 @@ const insertChain = async (
 ): Promise<ReadonlyArray<string>> => {
   const { parentId, chain, existing } = write
   if (chain.length === 0) return []
-  const firstAt = nextInstant(existing, Date.now())
+  // A pinned development host stamps its messages on its timeline, in order.
+  const firstAt = nextInstant(existing, onDevTimeline().getTime())
   const ids = chain.map((message) => message.id ?? crypto.randomUUID())
   const rows = chain.map((message, index) => ({
     id: ids[index] ?? crypto.randomUUID(),
@@ -239,7 +258,7 @@ const insertChain = async (
     createdAt: new Date(firstAt + index),
     ...(message.model !== undefined ? { model: message.model } : {}),
     ...(message.parts !== undefined ? { parts: message.parts } : {}),
-    ...toToolCalls(message.elicitation),
+    ...toToolCalls(message.elicitation, message.toolCalls),
   }))
   await db.insert(aiMessages).values(rows)
   return ids
@@ -261,6 +280,7 @@ export const AiMemoryRepositoryLive = Layer.succeed(AiMemoryRepository, {
     agentName,
     model,
     assistantElicitation,
+    assistantToolCalls,
     parentId,
     ids,
     userParts,
@@ -288,6 +308,7 @@ export const AiMemoryRepositoryLive = Layer.succeed(AiMemoryRepository, {
             content: assistantReply,
             model,
             elicitation: assistantElicitation,
+            toolCalls: assistantToolCalls,
           },
         ],
         existing,
@@ -312,7 +333,7 @@ export const AiMemoryRepositoryLive = Layer.succeed(AiMemoryRepository, {
       })
       await db
         .update(aiConversations)
-        .set({ updatedAt: new Date() })
+        .set({ updatedAt: onDevTimeline() })
         .where(eq(aiConversations.id, conversation.id))
       return ids
     }),
@@ -354,7 +375,7 @@ export const AiMemoryRepositoryLive = Layer.succeed(AiMemoryRepository, {
 
   listExpired: ({ userId, maxAgeDays }) =>
     wrap(async () => {
-      const cutoff = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000)
+      const cutoff = new Date(onDevTimeline().getTime() - maxAgeDays * 24 * 60 * 60 * 1000)
       const expired = await db
         .select({ sessionId: aiConversations.sessionId })
         .from(aiConversations)
@@ -364,7 +385,7 @@ export const AiMemoryRepositoryLive = Layer.succeed(AiMemoryRepository, {
 
   purgeExpired: ({ userId, maxAgeDays }) =>
     wrap(async () => {
-      const cutoff = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000)
+      const cutoff = new Date(onDevTimeline().getTime() - maxAgeDays * 24 * 60 * 60 * 1000)
       const removed = await db
         .delete(aiConversations)
         .where(and(eq(aiConversations.userId, userId), lt(aiConversations.updatedAt, cutoff)))

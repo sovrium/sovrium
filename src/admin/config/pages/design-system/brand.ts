@@ -48,7 +48,7 @@ import {
   DESIGN_GUIDANCE_ENDPOINT,
   DESIGN_ZONES_ENDPOINT,
 } from '../../system-sources'
-import { designSystemBreadcrumb } from './chrome'
+import { designSystemDocumentShell } from './chrome'
 import {
   MEASURE_MD,
   MEASURE_SM,
@@ -219,8 +219,7 @@ const markPanel = (variant: 'light' | 'dark'): PageComponent =>
         type: 'container',
         element: 'div',
         props: {
-          className:
-            'border-border flex h-[140px] items-center justify-center rounded-md border border-dashed p-4',
+          className: 'flex h-[140px] items-center justify-center p-4',
           'data-design-logo': variant,
         },
         children: [
@@ -358,7 +357,7 @@ const markExampleTile = (verdict: 'do' | 'dont', note: string): PageComponent =>
                   ? 'text-foreground text-md font-semibold tracking-tight'
                   : 'text-foreground text-md font-semibold tracking-tight italic',
             },
-            content: 'Sovrium',
+            content: '$app.label',
           },
         ],
       },
@@ -405,7 +404,7 @@ const markLockupExample = (): PageComponent =>
                 type: 'text',
                 element: 'span',
                 props: { className: 'text-foreground text-md font-semibold tracking-tight' },
-                content: 'Sovrium',
+                content: '$app.label',
               },
             ],
           },
@@ -517,19 +516,20 @@ const markSection = (): PageComponent =>
 /**
  * One colour role: what it is, what it is painted at, and what it is FOR.
  *
- * The swatch is the public `swatch` kit type fed the role's own name, which is
- * what carries the chip, the resolved hex and the legibility verdict without
- * the page computing any of them. `contrastAgainst` is the declared `pairsWith`
- * rather than the page background, and that pairing is the whole reason the
- * verdict is here: a badge that always measured against the background would
- * print a passing number for the exact pairing a config marks as the one to
- * watch.
+ * The swatch is the public `swatch` kit type fed the role's own name: it draws
+ * the chip, the resolved hex and the legibility verdict. `contrastAgainst` is
+ * the declared `pairsWith`, not the page background — a badge measured against
+ * the background would pass the exact pairing a config marks as the one to
+ * watch. A fixed two-column grid puts every description at the same x.
  */
+const ROLE_ROW_CLASS =
+  'border-border grid grid-cols-1 items-start gap-3 border-b py-3 last:border-b-0 sm:grid-cols-[17rem_minmax(0,1fr)]'
+
 const roleRow = (): PageComponent =>
   ({
     type: 'container',
     element: 'div',
-    props: { className: 'border-border flex items-start gap-3 border-b py-3 last:border-b-0' },
+    props: { className: ROLE_ROW_CLASS },
     children: [
       {
         type: 'swatch',
@@ -537,7 +537,7 @@ const roleRow = (): PageComponent =>
         contrastAgainst: '$record.pairsWith',
         showHex: true,
         props: {
-          className: 'flex shrink-0 items-center gap-2 font-mono text-sm',
+          className: 'flex min-w-0 flex-wrap items-center gap-2 font-mono text-sm',
           ...kitType('swatch'),
         },
       },
@@ -827,7 +827,7 @@ const brand: PageConfig = withShell(
     path: `/design-system/${SLUG}`,
     requires: ['design.brand'],
     meta: {
-      title: TITLE,
+      title: '$t:admin.meta.brand',
       description: DECK,
     },
     // The ONE gate no rows binding can answer: whether this app declares a mark
@@ -842,9 +842,7 @@ const brand: PageConfig = withShell(
       children: [markSection(), colorRolesSection(), imagerySection(), zonesSection()],
     }),
   },
-  {
-    breadcrumb: designSystemBreadcrumb(SLUG, TITLE),
-  }
+  designSystemDocumentShell(SLUG, TITLE)
 )
 
 export default brand

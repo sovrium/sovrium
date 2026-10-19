@@ -23,6 +23,7 @@ import { signSignedUrl } from '@/domain/models/app/buckets/signed-url-service'
 import type { App } from '@/domain/models/app'
 import type { Bucket } from '@/domain/models/app/buckets'
 import type {
+  SignedUrlDisplay,
   SignedUrlOperation,
   SignedUrlScope,
   SignedUrlUploadConstraints,
@@ -67,6 +68,8 @@ export interface SignedUrlRequest {
   readonly constraints?: SignedUrlUploadConstraints
   /** A download an automation step hands out: see {@link SignedUrlScope}. */
   readonly scope?: SignedUrlScope
+  /** A download a `file-preview` frames: see {@link SignedUrlDisplay}. */
+  readonly display?: SignedUrlDisplay
 }
 
 /**
@@ -89,7 +92,7 @@ export function mintSignedUrl(
   request: SignedUrlRequest,
   minting: SignedUrlMinting
 ): { readonly signedUrl: string; readonly expiresAt: string } {
-  const { bucket, path, operation, expiresInSeconds, constraints, scope } = request
+  const { bucket, path, operation, expiresInSeconds, constraints, scope, display } = request
   const expires = minting.now + expiresInSeconds * 1000
   const token = signSignedUrl(minting.secret, {
     bucket,
@@ -98,9 +101,11 @@ export function mintSignedUrl(
     expires,
     constraints,
     ...(scope === undefined ? {} : { scope }),
+    ...(display === undefined ? {} : { display }),
   })
   const params = new URLSearchParams({ path, op: operation, expires: String(expires), token })
   if (operation === 'download' && scope !== undefined) params.set('scope', scope)
+  if (operation === 'download' && display !== undefined) params.set('display', display)
   if (operation === 'upload' && constraints) {
     params.set('ct', constraints.contentType)
     params.set('max', String(constraints.maxSize))

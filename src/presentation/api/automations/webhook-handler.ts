@@ -34,7 +34,7 @@ import {
   webhookUnauthorized,
   webhookValidationFailed,
 } from './webhook-refusals'
-import { buildSyncResponse } from './webhook-sync-response'
+import { buildSyncResponse, revealsToMachine } from './webhook-sync-response'
 import { coerceQueryForSchema, validateAgainstSchema } from './webhook-validation'
 import { answerVerificationHandshake } from './webhook-verification'
 import { webhookJson } from './webhook-wire-json'
@@ -341,14 +341,13 @@ const dispatchSync = async (
     processEnv: process.env,
     triggerData: input.triggerData,
     ...(input.userId !== undefined ? { userId: input.userId } : {}),
+    revealsToMachine: revealsToMachine(input.trigger, presentsApiKeyOnly(c)),
   })
   const result = await runRequestEffect(c, Effect.result(provideDomain(c, program)))
   if (result._tag === 'Failure') {
-    // The pre-dispatch gate already filtered AutomationNotFound /
-    // AutomationNotWebhookTriggered with 404 — by the time we reach here, a
-    // Left can only come from the lazy registry seed (`AutomationRegistrySeedError`).
-    // Surface that as 500 so operator dashboards / oncall paging treat it as
-    // an outage rather than a missing automation.
+    // The pre-dispatch gate already answered a missing or non-webhook automation
+    // with 404, so a failure here can only be the lazy registry seed: a 500, so
+    // operator dashboards / oncall paging treat it as an outage, not a miss.
     if (result.failure._tag === 'AutomationRegistrySeedError') {
       logError('[automation] webhook dispatch failed: registry seed error', result.failure)
       return webhookRegistrySeedFailure(c)

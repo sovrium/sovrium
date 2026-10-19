@@ -12,7 +12,7 @@ import {
   computeRichTextToolbarButtonClasses,
   computeRichTextToolbarClasses,
 } from '@/presentation/design/rich-text-editor-default-classes'
-import { TOOLBAR_ACTIONS, type ToolbarActionDef } from './actions'
+import { TOOLBAR_ACTIONS, type RichTextWords, type ToolbarActionDef } from './actions'
 import type { Editor } from '@tiptap/react'
 import type { ReactElement } from 'react'
 
@@ -20,6 +20,7 @@ interface ToolbarProps {
   readonly editor: Editor | null
   readonly items: readonly string[]
   readonly onImageButtonClick: () => void
+  readonly words?: RichTextWords
 }
 
 const TOOLBAR_CLASSES = computeRichTextToolbarClasses()
@@ -54,7 +55,7 @@ function ActionGlyph({ paths }: { readonly paths: readonly string[] }): ReactEle
  * group. The pressed set is read from the editor's state, so a mark turned on
  * at the caret shows as pressed before anything is typed.
  */
-export function Toolbar({ editor, items, onImageButtonClick }: ToolbarProps) {
+export function Toolbar({ editor, items, onImageButtonClick, words }: ToolbarProps) {
   const pressed = useEditorState({
     editor,
     selector: ({ editor: ed }) =>
@@ -65,9 +66,9 @@ export function Toolbar({ editor, items, onImageButtonClick }: ToolbarProps) {
   const run = useCallback(
     (item: string, def: ToolbarActionDef) => {
       if (item === 'image') onImageButtonClick()
-      else if (editor) def.action?.(editor)
+      else if (editor) def.action?.(editor, words)
     },
-    [editor, onImageButtonClick]
+    [editor, onImageButtonClick, words]
   )
   if (!editor) return undefined
   const defs = items.flatMap((item) => {
@@ -78,7 +79,7 @@ export function Toolbar({ editor, items, onImageButtonClick }: ToolbarProps) {
   return (
     <div
       role="toolbar"
-      aria-label="Formatting"
+      aria-label={words?.['richText.toolbar'] ?? 'Formatting'}
       data-slot="input-group-addon"
       data-align="block-start"
       className={TOOLBAR_CLASSES}
@@ -101,7 +102,7 @@ export function Toolbar({ editor, items, onImageButtonClick }: ToolbarProps) {
             data-slot="toggle"
             data-variant="ghost"
             data-size="sm"
-            aria-label={def.ariaLabel}
+            aria-label={words?.[def.word] ?? def.ariaLabel}
             aria-pressed={pressed?.[items.indexOf(item)] === '1'}
             onClick={() => run(item, def)}
             className={BUTTON_CLASSES}

@@ -34,6 +34,11 @@ const APP_REFERENCE = /\$app\.([a-zA-Z][a-zA-Z0-9]*)/g
  * a breadcrumb's root label — rather than in the handful of places a renderer
  * happens to walk.
  *
+ * The page's `meta` is NOT walked here: its title and description may name a
+ * `$t:` key, translated only when the head is built, per language. The head
+ * substitutes after that translation instead — see `head-references.ts`, which
+ * reuses {@link substituteAppVars} so both reaches answer one closed set.
+ *
  * A reference the app cannot answer is left VERBATIM: any name outside the
  * closed set, and `$app.origin` outside a request. A blank would be
  * indistinguishable from a formatting bug, and the surviving literal is how an
@@ -87,19 +92,13 @@ export function resolvePageAppVars(
 ): Page {
   const values = resolveAppVarValues(app, origin, serving)
 
-  const substitute = (str: string): string => {
-    if (!str.includes('$app.')) return str
-    // An author HTML template (`<p>Nothing at $app.path</p>`) reaches the raw
-    // HTML sink, so each value it takes is escaped: `$app.path` is whatever
-    // address a visitor typed, decoded, and `$app.origin` can come from a
-    // request header. A text template is escaped by React on output instead,
-    // and escaping it here would print the entities.
-    const encode = str.trim().startsWith('<') ? escapeHtml : (value: string) => value
-    return str.replaceAll(APP_REFERENCE, (match, name: string) => {
-      const value = values[name as AppVarName]
-      return value === undefined ? match : encode(value)
-    })
-  }
+  // An author HTML template (`<p>Nothing at $app.path</p>`) reaches the raw
+  // HTML sink, so each value it takes is escaped: `$app.path` is whatever
+  // address a visitor typed, decoded, and `$app.origin` can come from a
+  // request header. A text template is escaped by React on output instead,
+  // and escaping it here would print the entities.
+  const substitute = (str: string): string =>
+    substituteAppVars(str, values, str.trim().startsWith('<') ? escapeHtml : undefined)
 
   // The app's mark is the other fact about the serving app a page can ask for
   // (`data-app-mark`), filled from the same `app` — see `app-mark-resolver.ts`.
@@ -116,6 +115,28 @@ export function resolvePageAppVars(
     app
   )
 }
+
+/**
+ * Replace every `$app.<name>` in one string with its value from `values`,
+ * leaving a name the map cannot answer VERBATIM.
+ *
+ * The one substitution both readers share: the page-tree pass above, and the
+ * document head (`head-references.ts`), whose `meta.title` / `meta.description`
+ * are only known AFTER the late `$t:` translation and so cannot ride the tree
+ * pass. `encode` is applied to each substituted value — `escapeHtml` for a raw
+ * HTML template, nothing for text that React escapes on output.
+ */
+export const substituteAppVars = (
+  str: string,
+  values: Readonly<Partial<Record<AppVarName, string>>>,
+  encode: (value: string) => string = (value) => value
+): string =>
+  str.includes('$app.')
+    ? str.replaceAll(APP_REFERENCE, (match, name: string) => {
+        const value = values[name as AppVarName]
+        return value === undefined ? match : encode(value)
+      })
+    : str
 
 /** Does a `content` string start with markup — the renderer's raw-HTML test? */
 const startsAsMarkup = (value: unknown): boolean =>

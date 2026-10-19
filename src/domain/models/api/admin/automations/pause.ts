@@ -85,6 +85,10 @@ const automationCatalogTriggerSchema = Schema.Struct({
     description:
       "The trigger's name: its own `name`, else its type. The word a run started by it records as `triggerName`",
   }),
+  label: Schema.String.annotate({
+    description:
+      "What the trigger reads as, in the operator's console language — the same words a run it started reads as in the history (`triggerLabel`): `Schedule · daily 06:00`, `Quotes · status → Signed`, `Form · Quote request`, and for an entry its author named, that name after the description (`Manual · on-demand`). Display text only; `name` stays what a filter takes.",
+  }),
 }).annotate({ identifier: 'AutomationCatalogTrigger' })
 
 /** @public */
@@ -106,9 +110,10 @@ export const automationCatalogItemSchema = Schema.Struct({
   name: Schema.String.annotate({
     description: 'The config automation name (kebab-case) — the stable identity',
   }),
-  label: optionalField(
-    Schema.String.annotate({ description: 'Human-readable label from config, when set' })
-  ),
+  label: Schema.String.annotate({
+    description:
+      'What a person reads for the automation: its declared `label`, else its `name` made readable — hyphens and underscores read as spaces, a camelCase boundary as a space, the first letter capitalised (`weekly-digest` reads `Weekly digest`). Always present. Display text only; filters and addresses use `name`.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
   trigger: Schema.String.annotate({
     description:
       "The FIRST trigger's type, e.g. 'webhook', 'cron', 'record', 'form'. Kept for existing readers; `triggers` lists every entry",
@@ -132,6 +137,14 @@ export const automationCatalogItemSchema = Schema.Struct({
     })
   ),
   reason: optionalField(automationPauseReasonSchema),
+  pausedLabel: optionalField(
+    Schema.NullOr(
+      Schema.String.annotate({
+        description:
+          "The pause as one reading in the operator's console language — who, then when, on the operator's clock: `Camille Martin · Oct 9, 10:12`, or `System · Oct 13, 16:40` for a pause the platform set itself after repeated failures. Null unless state is paused. Display text only.",
+      })
+    )
+  ),
 }).annotate({ identifier: 'AutomationCatalogItem' })
 
 /** @public */
@@ -154,6 +167,10 @@ export const automationsCatalogResponseSchema = Schema.Struct({
     Schema.Struct({
       name: Schema.String.annotate({
         description: 'A trigger name, as a run records it and `?triggerName=` filters on it',
+      }),
+      label: Schema.String.annotate({
+        description:
+          "What the choice reads as, in the operator's console language: the description every entry of that name shares (`Quotes · status → Signed`); when they differ, the kind of trigger in words (`Schedule`), followed by the name when the author gave the entries one; when their kinds differ too, the name as written. Display text only; `name` stays the value the filter sends.",
       }),
     })
   ).annotate({

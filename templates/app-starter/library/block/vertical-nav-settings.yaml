@@ -18,23 +18,23 @@ children:
               - label: General
                 action:
                   type: navigate
-                  path: /settings?section=general
+                  path: /kit/navigation?section=general
               - label: Members
                 action:
                   type: navigate
-                  path: /settings/members?section=members
+                  path: /kit/navigation?section=members
               - label: Billing
                 action:
                   type: navigate
-                  path: /settings/billing?section=billing
+                  path: /kit/navigation?section=billing
               - label: Notifications
                 action:
                   type: navigate
-                  path: /settings/notifications?section=notifications
+                  path: /kit/navigation?section=notifications
               - label: Danger zone
                 action:
                   type: navigate
-                  path: /settings/danger?section=danger
+                  path: /kit/navigation?section=danger
       - type: container
         element: nav
         props:
@@ -43,7 +43,7 @@ children:
         children:
           - type: link
             props:
-              href: /settings?section=general
+              href: /kit/navigation?section=general
               className: inline-flex h-8 items-center justify-start rounded-lg px-2.5 text-sm font-medium whitespace-nowrap text-muted-foreground no-underline hover:bg-muted hover:text-foreground hover:no-underline
             activeWhen:
               value: $query.section
@@ -54,7 +54,7 @@ children:
             content: General
           - type: link
             props:
-              href: /settings/members?section=members
+              href: /kit/navigation?section=members
               className: inline-flex h-8 items-center justify-start rounded-lg px-2.5 text-sm font-medium whitespace-nowrap text-muted-foreground no-underline hover:bg-muted hover:text-foreground hover:no-underline
             activeWhen:
               value: $query.section
@@ -65,7 +65,7 @@ children:
             content: Members
           - type: link
             props:
-              href: /settings/billing?section=billing
+              href: /kit/navigation?section=billing
               className: inline-flex h-8 items-center justify-start rounded-lg px-2.5 text-sm font-medium whitespace-nowrap text-muted-foreground no-underline hover:bg-muted hover:text-foreground hover:no-underline
             activeWhen:
               value: $query.section
@@ -76,7 +76,7 @@ children:
             content: Billing
           - type: link
             props:
-              href: /settings/notifications?section=notifications
+              href: /kit/navigation?section=notifications
               className: inline-flex h-8 items-center justify-start rounded-lg px-2.5 text-sm font-medium whitespace-nowrap text-muted-foreground no-underline hover:bg-muted hover:text-foreground hover:no-underline
             activeWhen:
               value: $query.section
@@ -87,7 +87,7 @@ children:
             content: Notifications
           - type: link
             props:
-              href: /settings/danger?section=danger
+              href: /kit/navigation?section=danger
               className: inline-flex h-8 items-center justify-start rounded-lg px-2.5 text-sm font-medium whitespace-nowrap text-muted-foreground no-underline hover:bg-muted hover:text-foreground hover:no-underline
             activeWhen:
               value: $query.section

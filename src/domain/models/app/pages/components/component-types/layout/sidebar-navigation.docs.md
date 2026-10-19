@@ -41,7 +41,7 @@ An `href` written as a translation key (`href: $t:href.portal.invoices`) is matc
 
 ### Styling the entries
 
-A sidebar's inner elements take classes by part, through `classes` on the sidebar or `design.components.sidebar` for every sidebar in the app: `nav` (the list of entries), `link` (each entry), `groupLabel` (a group's heading) and `badge` (an entry's count). The current entry takes `states.current`:
+A sidebar's inner elements take classes by part, through `classes` on the sidebar or `design.components.sidebar` for every sidebar in the app: `inner` (the panel holding the header, the groups and the footer), `nav` (the list of entries), `link` (each entry), `groupLabel` (a group's heading) and `badge` (an entry's count). The current entry takes `states.current`:
 
 ```yaml
 design:
@@ -159,7 +159,7 @@ Two options change what happens when a reader follows one of the sidebar's links
 
 `collapsible: icon` folds the sidebar to a strip of its entries' icons, whose links keep their names; `collapsible: offcanvas` moves it off the page and gives its width to the content beside it; `none`, the default, never folds. A folding sidebar draws its `trigger` (`{ label, shortcut }`), and Control or Command with B folds it too unless `shortcut: false`; `railHandle: true` adds a thin rail along its inner edge that folds it when pressed. The fold is remembered in the `sidebar_state` cookie and the page is served already folded after a reload; `persist: none` forgets it. `side: right` places the sidebar after the content, and `variant` frames it as the default `sidebar`, a `floating` panel standing off the page edge, or an `inset` one. A sidebar that folds, stands on the right or is framed as a panel sits beside the content written next to it.
 
-`header` and `footer` are component lists drawn above the first group and at the foot of the sidebar, such as a workspace switcher and the account menu. The sidebar never grows taller than the screen: groups that do not fit scroll between the header and the footer, which stay in view, and the edge of the list fades while more lies below. A group's `action` and an entry's `menuAction` (`{ icon, label, href }`) draw a named icon control at the end of the heading row or the entry row. A disclosure's `source.loading: skeleton` draws placeholder rows while the list loads, instead of its `loadingLabel` line.
+`header` and `footer` are component lists drawn above the first group and at the foot of the sidebar, such as a workspace switcher and the account menu. Beside the page, in a row it stretches across, the sidebar is exactly as tall as the screen and stays at its top while the page beside it scrolls, so the footer sits at the foot of the screen however few entries there are; a sidebar standing on its own in the page is as tall as its entries; groups that do not fit scroll between the header and the footer, which stay in view, and the edge of the list fades while more lies below. A group's `action` and an entry's `menuAction` (`{ icon, label, href }`) draw a named icon control at the end of the heading row or the entry row. A disclosure's `source.loading: skeleton` draws placeholder rows while the list loads, instead of its `loadingLabel` line.
 
 ## `rail` — an icon rail on a narrow screen
 

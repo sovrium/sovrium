@@ -75,6 +75,7 @@ import { DETAIL_SEPARATOR, EMPTY_CELL, unread } from './attention-cells'
 import { FINDINGS_SOURCE, findingsBlock } from './attention-findings'
 import type { AutomationStates, LinkSplit } from './attention-blocks'
 import type { Cell, Sourced } from './attention-cells'
+import type { ConsoleLanguage } from './operator-language'
 import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import type { InvitationTokenRepository } from '@/application/ports/repositories/auth/invitation-token-repository'
 import type { OrganizationTeamRepository } from '@/application/ports/repositories/auth/organization-team-repository'
@@ -168,31 +169,45 @@ interface AttentionSources {
 }
 
 /**
+ * Where the two "since" windows start: runs are stamped on the development
+ * timeline, submissions on the real clock — the same instant everywhere but a
+ * host pinned with `SOVRIUM_DEV_CLOCK`.
+ */
+interface Since {
+  readonly runs: Readonly<Date>
+  readonly submissions: Readonly<Date>
+}
+
+/**
  * The five sources behind attention items that have no tile sub-line of their own.
  *
  * Each is wrapped so BOTH degradation axes land on the same `unread` envelope:
  * the block's own `orElseSucceed` for a source that fails, this
  * `withBlockTimeout` for one that is merely slow.
  */
-const pulseSources = (app: App, since: Readonly<Date>, nowMs: number) =>
+const pulseSources = (app: App, since: Since, nowMs: number, language: ConsoleLanguage) =>
   [
     withBlockTimeout(
-      failedRunsBlock(since),
+      failedRunsBlock(app, since.runs),
       unread(EMPTY_CELL, 'automation runs'),
       SOURCE_TIMEOUT_MS
     ),
-    withBlockTimeout(tokensExpiredBlock, unread(EMPTY_CELL, 'connections'), SOURCE_TIMEOUT_MS),
+    withBlockTimeout(tokensExpiredBlock(app), unread(EMPTY_CELL, 'connections'), SOURCE_TIMEOUT_MS),
     withBlockTimeout(
-      invitationsPendingBlock(nowMs),
+      invitationsPendingBlock(nowMs, language),
       unread(EMPTY_CELL, 'invitations'),
       SOURCE_TIMEOUT_MS
     ),
     withBlockTimeout(
-      recentSubmissionsBlock(app, since),
+      recentSubmissionsBlock(app, since.submissions, language),
       unread(EMPTY_CELL, 'form submissions'),
       SOURCE_TIMEOUT_MS
     ),
-    withBlockTimeout(findingsBlock(app), unread(EMPTY_CELL, FINDINGS_SOURCE), SOURCE_TIMEOUT_MS),
+    withBlockTimeout(
+      findingsBlock(app, language),
+      unread(EMPTY_CELL, FINDINGS_SOURCE),
+      SOURCE_TIMEOUT_MS
+    ),
   ] as const
 
 /**
@@ -224,12 +239,15 @@ const tileSources = (app: App) =>
  */
 const readSources = (
   app: App,
-  since: Readonly<Date>,
-  nowMs: number
+  since: Since,
+  nowMs: number,
+  language: ConsoleLanguage
 ): Effect.Effect<AttentionSources, never, AdminAttentionServices> =>
   Effect.gen(function* () {
     const [failedRuns, tokensExpired, invitationsPending, recentSubmissions, findings] =
-      yield* Effect.all(pulseSources(app, since, nowMs), { concurrency: SOURCE_CONCURRENCY })
+      yield* Effect.all(pulseSources(app, since, nowMs, language), {
+        concurrency: SOURCE_CONCURRENCY,
+      })
     const [automations, links, usersBanned] = yield* Effect.all(tileSources(app), {
       concurrency: SOURCE_CONCURRENCY,
     })
@@ -347,6 +365,9 @@ const assembleAttention = (
  * same constant `GET /api/admin/config/version` reports as `startedAt`), and
  * the two must be byte-identical. Passing it through is what makes that a
  * property of ONE value rather than of two clocks that agree most of the time.
+ * On a pinned development host that instant is on the development timeline,
+ * which runs and submissions are both stamped on, so one instant opens both
+ * windows.
  *
  * Every source-reading block cannot fail and cannot hang, so the composed
  * program requires the runtime's services and nothing else. The route validates
@@ -355,9 +376,11 @@ const assembleAttention = (
  */
 export const buildAdminAttention = (
   app: App,
-  since: string
+  since: string,
+  language: ConsoleLanguage = 'en'
 ): Effect.Effect<AdminAttentionResponse, never, AdminAttentionServices> =>
   Effect.gen(function* () {
-    const sources = yield* readSources(app, new Date(since), Date.now())
+    const windows = { runs: new Date(since), submissions: new Date(since) }
+    const sources = yield* readSources(app, windows, Date.now(), language)
     return assembleAttention(app, since, sources)
   }).pipe(Effect.withSpan('admin.build-admin-attention'))

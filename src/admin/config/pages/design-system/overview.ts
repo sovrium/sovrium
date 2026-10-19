@@ -54,7 +54,7 @@
 //
 // ─── THE SEVENTH PAGE IS HERE, NOT BESIDE THIS ONE ────────────────────────
 //
-// `/design-system/agents` is retired. What it carried — the share link, the two
+// `/design-system/agents` is retired. What it carried — the share link, the
 // export documents and the CLI block — is the `Share and export` section at the
 // foot of this page, because a hand-over is what a reader does AFTER reading
 // what they have, and a page of its own put it somewhere nobody arrived at. The
@@ -66,6 +66,7 @@ import { consolePage } from '../../components/data-page'
 import { designPageHeader } from '../../components/page-header'
 import { DESIGN_COVERAGE_ENDPOINT, SHARES_ENDPOINT } from '../../system-sources'
 import { designSystemBreadcrumb } from './chrome'
+import { PREVIEWS } from './overview-previews'
 import { MEASURE_MD, kitType, microLabel } from './sections'
 import type { Page as PageConfig } from '@/domain/models/app'
 
@@ -79,12 +80,28 @@ const MARKDOWN_EXPORT = '/api/admin/design-system.md'
 const JSON_EXPORT = '/api/admin/design-system.json'
 
 /**
+ * The whole bundle as one download — the export a reader takes into a design
+ * tool or an AI, so it heads the list. The brief, the tokens and the stylesheet
+ * below it are its parts, one file at a time.
+ */
+const BUNDLE_EXPORT = '/api/admin/design-system.zip'
+
+/** The theme stylesheet, in shadcn/ui variable names. */
+const CSS_EXPORT = '/api/admin/design-system.css'
+
+/**
  * The CLI form of the same two documents, WITH the config file it reads.
  *
  * A command pasted without its argument fails at the first prompt, which is the
  * worst possible place to learn that a copy button was approximate.
  */
 const CLI_COMMAND = 'sovrium design-system app.ts --format md'
+
+/**
+ * The CLI form of the bundle. `--output` is not optional for a bundle — it is a
+ * directory, not a stream — so the copied line names one.
+ */
+const CLI_BUNDLE_COMMAND = 'sovrium design-system app.ts --format bundle --output design-system'
 
 /**
  * The four destinations below the Overview, each with the noun it renders and
@@ -98,136 +115,6 @@ const SECTIONS: readonly (readonly [slug: string, title: string, blurb: string])
   ['brand', '$t:admin.common.brand', '$t:admin.ds.overview.brand'],
   ['voice', '$t:admin.common.voice', '$t:admin.ds.overview.voice'],
 ]
-
-// ─── THE PREVIEW BESIDE EACH ROW ───────────────────────────────────────────
-//
-// A row naming a page and describing it in a line still leaves a reader
-// guessing what is on the other side of the chevron. A small drawing lifted
-// from that page answers it in the width the row already has — the colour
-// ramp for Foundations, the console topbar for Components, the mark for Brand, one sentence in the app's own
-// voice for Voice.
-//
-// Each is composed from real kit types, drawn at rest. None of them is a
-// screenshot and none is an iframe: the console renders its own components, so
-// a drawing here IS the thing it previews, and it moves when the theme does.
-
-/**
- * The frame every preview sits in, so the five read as one column.
- *
- * It carries the console's body step because font-size INHERITS: a drawing
- * holding a component that rules no typography class would otherwise inherit
- * the document root and draw bigger than the row naming it.
- */
-const previewSlot = (children: readonly PageComponent[]): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: {
-      className:
-        'border-border bg-muted hidden min-h-[4.5rem] flex-1 items-center justify-center gap-3 rounded-md border px-4 text-base md:flex',
-    },
-    children: [...children],
-  }) as PageComponent
-
-/** Foundations: the neutral ramp, and the one colour left with a job. */
-const foundationsPreview = (): PageComponent =>
-  previewSlot(
-    ['foreground', 'foreground-subtle', 'foreground-muted', 'border', 'error'].map(
-      (token) =>
-        ({ type: 'swatch', token, size: 24, props: { ...kitType('swatch') } }) as PageComponent
-    )
-  )
-
-/** Components: the console topbar, which is one of the four declared. */
-const componentsPreview = (): PageComponent =>
-  previewSlot([
-    {
-      type: 'container',
-      element: 'div',
-      props: {
-        className:
-          'border-border bg-background flex w-full items-center gap-2 rounded-sm border px-3 py-2',
-      },
-      children: [
-        {
-          type: 'text',
-          element: 'span',
-          props: { className: 'text-muted-foreground text-[10px]' },
-          content: '$t:admin.common.records',
-        },
-        {
-          type: 'text',
-          element: 'span',
-          props: { className: 'text-muted-foreground text-[10px]' },
-          content: '/',
-        },
-        {
-          type: 'text',
-          element: 'span',
-          props: { className: 'text-foreground text-[10px] font-medium' },
-          content: '$t:admin.ds.overview.invoices',
-        },
-        {
-          type: 'icon',
-          props: {
-            name: 'search',
-            size: 12,
-            className: 'text-muted-foreground ml-auto',
-            ...kitType('icon'),
-          },
-        } as PageComponent,
-        {
-          type: 'icon',
-          props: { name: 'moon', size: 12, className: 'text-muted-foreground' },
-        } as PageComponent,
-      ],
-    } as PageComponent,
-  ])
-
-/** Brand: the mark beside the wordmark, at the size a header uses. */
-const brandPreview = (): PageComponent =>
-  previewSlot([
-    {
-      type: 'container',
-      element: 'div',
-      props: { className: 'flex items-center gap-2.5' },
-      children: [
-        {
-          type: 'text',
-          element: 'span',
-          props: {
-            className:
-              'bg-foreground text-background flex h-6 w-6 items-center justify-center rounded-md text-[13px] font-semibold',
-          },
-          content: 'S',
-        },
-        {
-          type: 'text',
-          element: 'span',
-          props: { className: 'text-foreground text-md font-semibold tracking-tight' },
-          content: 'Sovrium',
-        },
-      ],
-    } as PageComponent,
-  ])
-
-/** Voice: the rule stated in the voice it describes. */
-const voicePreview = (): PageComponent =>
-  previewSlot([
-    {
-      type: 'text',
-      element: 'p',
-      props: { className: 'text-foreground-subtle text-md italic' },
-      content: '$t:admin.ds.overview.fact',
-    } as PageComponent,
-  ])
-
-const PREVIEWS: Readonly<Record<string, () => PageComponent>> = {
-  foundations: foundationsPreview,
-  components: componentsPreview,
-  brand: brandPreview,
-  voice: voicePreview,
-}
 
 /**
  * One destination row: the page's name, what is on it, its preview, and a chevron.
@@ -346,8 +233,8 @@ const gatedRow = (slug: string, row: PageComponent): PageComponent => {
 /**
  * Which published article explains each undeclared layer.
  *
- * Every one of these resolves: `apps/website/content/docs/{en,fr}/design.md`,
- * `design-components.md`, `design-type-scale.md` and `design-density.md` all
+ * Every one of these resolves on sovrium.com: `design`,
+ * `design-components`, `design-type-scale` and `design-density` all
  * exist in both locales. The four that point at the components article do so
  * because that is where colour roles, component guidance, imagery and the
  * per-type restyling block are actually documented — sending all seven to the
@@ -364,13 +251,19 @@ const DOC_LINKS: readonly (readonly [key: string, slug: string])[] = [
   ['types-restyled', 'design-components'],
 ]
 
-/** One address, linked to the article that explains it. */
+/**
+ * One address, linked to the article that explains it — on sovrium.com.
+ *
+ * Absolute, like every other manual link in the design-system pages: a
+ * root-relative `/en/docs/...` is a console path, and the mount prefixes it
+ * into `/_admin/en/docs/...`, which the console answers with 404.
+ */
 const docsLink = (key: string, slug: string): PageComponent =>
   ({
     type: 'link',
     visibility: { record: { field: 'key', eq: key } },
     props: {
-      href: `/en/docs/${slug}`,
+      href: `https://sovrium.com/en/docs/${slug}`,
       className: 'text-foreground-subtle hover:text-foreground font-mono text-sm',
       'data-design-coverage-doc': slug,
     },
@@ -506,6 +399,11 @@ const coverageLedger = (): PageComponent =>
  * as `GET /api/…` because a reader needs the verb, and COPIES the path alone,
  * because `GET ` pasted into a browser bar, a fetch call or an agent brief is
  * broken in all three. So the displayed verb sits OUTSIDE the copy target.
+ *
+ * The name sits ABOVE its address, not beside it. Side by side, the address
+ * got what the name column left over and every row truncated to the same
+ * `/api/admin/design-sy…` — four rows a reader could not tell apart by the one
+ * part that differs.
  */
 const exportRow = (input: {
   readonly name: string
@@ -517,15 +415,14 @@ const exportRow = (input: {
     type: 'container',
     element: 'div',
     props: {
-      className:
-        'border-border flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-3 last:border-b-0',
+      className: 'border-border flex flex-col gap-2 border-b px-4 py-3 last:border-b-0',
     },
     children: [
       {
         type: 'link',
         props: {
           href: input.path,
-          className: 'text-foreground w-40 shrink-0 text-md font-medium',
+          className: 'text-foreground self-start text-md font-medium',
           'data-testid': input.nameTestId,
         },
         content: input.name,
@@ -535,7 +432,7 @@ const exportRow = (input: {
         element: 'div',
         props: {
           className:
-            'border-border bg-muted flex min-w-0 flex-1 items-center gap-2 rounded-md border px-3 py-1.5',
+            'border-border bg-muted flex min-w-0 items-center gap-2 rounded-md border px-3 py-1.5',
           'data-code-copy-scope': 'true',
         },
         children: [
@@ -578,21 +475,24 @@ const exportRow = (input: {
   }) as PageComponent
 
 /**
- * The terminal half — the same two documents without a session.
+ * One command, as its own copy scope: a payload and the button that copies it.
  *
- * The copy affordance is MARKUP, not an island: the delegated `copyCodeScript`
- * every page already carries resolves a scope from the BUTTON upward
- * (`closest('[data-code-copy-scope]')`) and copies the first
- * `[data-copy-target]` inside it. An island here would buy nothing and cost the
- * read-only guarantee a whole console page is swept for.
+ * The testid sits on a WRAPPER rather than on the scope itself, so a reader of
+ * the page locates the scope as a descendant — one wrapper, one scope, one
+ * target. The command WRAPS at its spaces instead of truncating: a command
+ * whose `--output` is cut off at a phone width is a command the reader cannot
+ * check before running it.
  */
-const terminalBlock = (): PageComponent =>
+const commandLine = (input: {
+  readonly command: string
+  readonly testId: string
+  readonly targetTestId: string
+}): PageComponent =>
   ({
     type: 'container',
     element: 'div',
-    props: { className: 'flex flex-col gap-1.5', 'data-testid': 'design-system-copy-cli' },
+    props: { 'data-testid': input.testId },
     children: [
-      microLabel('$t:admin.ds.share.terminal'),
       {
         type: 'container',
         element: 'div',
@@ -606,11 +506,11 @@ const terminalBlock = (): PageComponent =>
             type: 'text',
             element: 'p',
             props: {
-              className: 'text-foreground min-w-0 truncate font-mono text-sm',
+              className: 'text-foreground min-w-0 break-words font-mono text-sm',
               'data-copy-target': 'true',
-              'data-testid': 'design-system-cli',
+              'data-testid': input.targetTestId,
             },
-            content: CLI_COMMAND,
+            content: input.command,
           },
           {
             type: 'button',
@@ -621,12 +521,42 @@ const terminalBlock = (): PageComponent =>
                 'text-foreground-subtle hover:text-foreground shrink-0 font-mono text-[10px] leading-none',
               'data-copy-code': 'true',
               'data-copied-label': '$t:admin.common.copied',
-              'aria-label': `$t:admin.common.copy ${CLI_COMMAND}`,
+              'aria-label': `$t:admin.common.copy ${input.command}`,
             },
             content: '$t:admin.common.copy',
           },
         ],
       },
+    ],
+  }) as PageComponent
+
+/**
+ * The terminal half — the brief and the bundle without a session.
+ *
+ * The copy affordance is MARKUP, not an island: the delegated `copyCodeScript`
+ * every page already carries resolves a scope from the BUTTON upward
+ * (`closest('[data-code-copy-scope]')`) and copies the first
+ * `[data-copy-target]` inside it. An island here would buy nothing and cost the
+ * read-only guarantee a whole console page is swept for. Each command is its
+ * own scope, so a copy button never copies the line beside it.
+ */
+const terminalBlock = (): PageComponent =>
+  ({
+    type: 'container',
+    element: 'div',
+    props: { className: 'flex flex-col gap-1.5' },
+    children: [
+      microLabel('$t:admin.ds.share.terminal'),
+      commandLine({
+        command: CLI_COMMAND,
+        testId: 'design-system-copy-cli',
+        targetTestId: 'design-system-cli',
+      }),
+      commandLine({
+        command: CLI_BUNDLE_COMMAND,
+        testId: 'design-system-copy-cli-bundle',
+        targetTestId: 'design-system-cli-bundle',
+      }),
     ],
   }) as PageComponent
 
@@ -933,7 +863,7 @@ const sharePanel = (): PageComponent =>
  * have, and because two places to do it is two places to keep true.
  *
  * The mint control is the section's only island, and it is one because minting
- * a link is a WRITE. Everything around it is markup: the prose, the two
+ * a link is a WRITE. Everything around it is markup: the prose, the
  * document rows, and the terminal block are all server-rendered, so a reader
  * who only wanted to paste a path pays for no client component.
  *
@@ -961,8 +891,25 @@ const shareAndExport = (): PageComponent =>
       {
         type: 'text',
         element: 'p',
-        props: { className: `text-foreground-subtle ${MEASURE_MD} text-md leading-relaxed` },
+        visibility: { capability: 'edit-operations' },
+        props: {
+          className: `text-foreground-subtle ${MEASURE_MD} text-md leading-relaxed`,
+          'data-testid': 'design-system-share-blurb',
+        },
         content: '$t:admin.ds.share.blurb',
+      },
+      // A read-only operator cannot create or revoke a share link: minting one
+      // publishes the app's design system, an app write. The sentence they
+      // read says who can, rather than offering a control they do not have.
+      {
+        type: 'text',
+        element: 'p',
+        visibility: { unlessCapability: 'edit-operations' },
+        props: {
+          className: `text-foreground-subtle ${MEASURE_MD} text-md leading-relaxed`,
+          'data-testid': 'design-system-share-blurb',
+        },
+        content: '$t:admin.ds.share.blurbReadOnly',
       },
       // TWO COLUMNS from `md` up: what the system is handed over AS on the
       // left, and who currently holds it on the right. Stacked, the addresses
@@ -985,6 +932,12 @@ const shareAndExport = (): PageComponent =>
                 props: { className: 'border-border rounded-md border' },
                 children: [
                   exportRow({
+                    name: '$t:admin.ds.share.bundle',
+                    path: BUNDLE_EXPORT,
+                    nameTestId: 'design-system-export-bundle',
+                    pathTestId: 'design-system-export-bundle-path',
+                  }),
+                  exportRow({
                     name: '$t:admin.ds.share.brief',
                     path: MARKDOWN_EXPORT,
                     nameTestId: 'design-system-export-markdown',
@@ -995,6 +948,12 @@ const shareAndExport = (): PageComponent =>
                     path: JSON_EXPORT,
                     nameTestId: 'design-system-export-json',
                     pathTestId: 'design-system-export-json-path',
+                  }),
+                  exportRow({
+                    name: '$t:admin.ds.share.stylesheet',
+                    path: CSS_EXPORT,
+                    nameTestId: 'design-system-export-css',
+                    pathTestId: 'design-system-export-css-path',
                   }),
                 ],
               },
@@ -1015,7 +974,7 @@ const shareAndExport = (): PageComponent =>
 export default consolePage({
   id: 'design-system-overview',
   path: '/design-system',
-  title: '$t:admin.ds.overview.specimenTitle',
+  title: '$t:admin.meta.designSystem',
   page: {
     // ─── THE PAGE RECORD IS THE SHARE ENVELOPE ──────────────────────────────
     //
@@ -1036,7 +995,10 @@ export default consolePage({
     // lets one page carry a record AND two rows bindings.
     dataSource: { system: { endpoint: SHARES_ENDPOINT, idKey: 'total' } },
   },
-  shell: { breadcrumb: designSystemBreadcrumb('design-system', '$t:admin.common.designSystem') },
+  shell: {
+    breadcrumb: designSystemBreadcrumb('design-system', '$t:admin.common.designSystem'),
+    document: true,
+  },
   body: [
     designPageHeader('$t:admin.common.designSystem'),
     pagesList(),

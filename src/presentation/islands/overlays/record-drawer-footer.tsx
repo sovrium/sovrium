@@ -57,7 +57,7 @@ function editedText(
   return time === '' ? undefined : fillPlaceholders(edited, { time, name })
 }
 
-/** The sticky footer: the last change, Cancel and Save. */
+/** The sticky footer: the last change, then Cancel and Save for a reader who may edit. */
 export function SheetFooter({
   record,
   stamps,
@@ -65,6 +65,7 @@ export function SheetFooter({
   words,
   canEdit,
   loading,
+  unchanged,
   save,
   onCancel,
 }: {
@@ -75,6 +76,8 @@ export function SheetFooter({
   readonly words: Readonly<Record<string, string>>
   readonly canEdit: boolean
   readonly loading: boolean
+  /** The opened record still holds what it loaded: Save stays off. */
+  readonly unchanged?: boolean | undefined
   readonly save: {
     readonly label: string
     readonly saving: string
@@ -88,18 +91,21 @@ export function SheetFooter({
     <div className={FOOTER_CLASS}>
       {edited !== undefined && <p className="text-muted-foreground text-sm">{edited}</p>}
       <div className="ml-auto flex items-center gap-2">
-        <button
-          type="button"
-          className={CANCEL_CLASS}
-          onClick={onCancel}
-        >
-          {words['cancel']}
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            className={CANCEL_CLASS}
+            onClick={onCancel}
+          >
+            {words['cancel']}
+          </button>
+        )}
         {canEdit && (
           <DrawerSaveButton
             label={save.label}
             savingLabel={save.saving}
             loading={loading}
+            unchanged={unchanged}
             onSave={save.run}
             className={SAVE_CLASS}
           />

@@ -133,6 +133,8 @@ export interface AdminRecordAttachmentLink {
   readonly table: string
   readonly recordId: string
   readonly field: string
+  /** The record as a person names it: its title field, else its id. */
+  readonly recordLabel: string
 }
 
 /** How many objects one bucket records, and how many bytes they occupy. */
@@ -198,6 +200,17 @@ export class AdminBucketFilesRepository extends Context.Service<
     readonly listUploadsSince: (
       since: Date
     ) => Effect.Effect<readonly AdminBucketUploadRow[], AdminBucketFilesDatabaseError>
+
+    /**
+     * How many files the storage catalog records, and their bytes — one
+     * count-and-sum read, the storage overview's totals. It never lists the
+     * store, so an object the app did not store (no catalog row) is not counted,
+     * and the totals describe the same corpus {@link listUploadsSince} sums.
+     */
+    readonly summariseCatalog: Effect.Effect<
+      { readonly files: number; readonly bytes: number },
+      AdminBucketFilesDatabaseError
+    >
 
     /**
      * How many files, and how many bytes, were stored in `[from, to)` — one

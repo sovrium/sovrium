@@ -10,6 +10,7 @@ import { optionColor, optionLabel, optionValue } from '@/domain/models/app/table
 import { computeTableEditorPopoverClasses } from '@/presentation/design/table-default-classes'
 import { OptionListbox, type ListboxCandidate } from '../../parts/option-listbox'
 import { readsAsList } from '../../runtime/cell-value-semantics'
+import { useGridString } from '../island/grid-strings'
 import { editMetaOf, optionsOf, type CellEditorProps } from './editor-contract'
 import { EditorPopover } from './editor-popover'
 import type { ReactElement } from 'react'
@@ -54,9 +55,13 @@ export function MultiSelectEditor(props: CellEditorProps): ReactElement {
     commit(next)
   }
 
+  const noOptions = useGridString(
+    'datatable.noOptions',
+    'This field declares no options to choose from'
+  )
   return (
     <EditorPopover
-      label={`Edit ${fieldName ?? 'value'}`}
+      label={useGridString('datatable.editField', 'Edit {field}', { field: fieldName ?? 'value' })}
       cancel={cancel}
       tabValue={() => selected}
       {...(tabNext && { tabNext })}
@@ -68,9 +73,7 @@ export function MultiSelectEditor(props: CellEditorProps): ReactElement {
           onToggle={toggle}
           multiple={true}
           ariaLabel={fieldName ?? 'Options'}
-          emptyLabel={
-            editMetaOf(fieldMeta).placeholder ?? 'This field declares no options to choose from'
-          }
+          emptyLabel={editMetaOf(fieldMeta).placeholder ?? noOptions}
         />
       </div>
     </EditorPopover>

@@ -25,7 +25,8 @@ import {
   substituteRecordVars,
   withDisplayLabels,
 } from '@/domain/models/app/pages/substitute-record-vars'
-import { dispatch, subscribe } from '@/presentation/islands/runtime/event-bus'
+import { dispatch } from '@/presentation/islands/runtime/event-bus'
+import { openingPlace } from './record-drawer-opening-list'
 import type { DrawerBuiltInLabels } from './record-drawer-labels'
 import type { RawRecord } from './record-drawer-record-read'
 import type { ReactElement } from 'react'
@@ -51,17 +52,6 @@ const ENGLISH_WORDS = {
 const STEP_CLASS =
   'border-border text-foreground hover:bg-muted rounded-md border px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50'
 
-/**
- * The ids of the list that last opened each drawer, by drawer id. Recorded by a
- * listener registered when this module loads — before any row is clicked — so
- * the FIRST open is captured too: the navigation is not on screen to hear it,
- * because the drawer only draws it once it has opened.
- */
-const OPENING_LISTS = new Map<string, readonly string[]>()
-subscribe('sovrium:open-drawer', (detail) => {
-  OPENING_LISTS.set(detail.id, detail.siblings ?? [])
-})
-
 /** The record's own page, its `$record.*` filled, once the record has loaded. */
 const fullPageHref = (fullPage: string | undefined, record: RawRecord): string | undefined =>
   fullPage === undefined || record['id'] === undefined
@@ -83,11 +73,10 @@ export function DrawerNavigation({
   readonly labels?: DrawerBuiltInLabels | undefined
 }): ReactElement {
   const words = { ...ENGLISH_WORDS, ...labels }
-  const siblings = (id === undefined ? undefined : OPENING_LISTS.get(id)) ?? []
-  const index = recordId === undefined ? -1 : siblings.indexOf(recordId)
+  const { siblings, index, offset, total } = openingPlace(id, recordId)
   const stepTo = (next: string | undefined): void => {
     if (id && next !== undefined)
-      dispatch('sovrium:open-drawer', { id, record: { id: next }, siblings })
+      dispatch('sovrium:open-drawer', { id, record: { id: next }, siblings, offset, total })
   }
   const href = fullPageHref(navigation.fullPage, record)
   return (

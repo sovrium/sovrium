@@ -23,19 +23,19 @@
  */
 
 import { Effect } from 'effect'
-import { createListRecordsProgram } from '@/application/use-cases/tables/list-records-program'
 import {
-  loadCurrentUserContext,
-  rowRuleScopeOf,
-  toSessionProjection,
-} from '@/application/use-cases/tables/permissions/row-level-enforcement'
+  listRecordsAsCaller,
+  synthesizeCallerSession,
+} from '@/application/use-cases/tables/list-records-as-caller'
+import {
+  buildReadListFilter,
+  recordPassesReadPredicate,
+} from '@/application/use-cases/tables/permissions/row-level-read-filter'
 import { createGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
 import { getUserAccessRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { isAiAccessEnabled, toolSafeTableName } from '@/domain/models/app/auth/ai-access'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
-import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { isRecordKeyShaped } from '@/domain/models/app/tables/record-id-service'
-import { type CurrentUserContext } from '@/domain/models/app/tables/row-level-evaluator-service'
 import { provideTableLive } from '@/infrastructure/layers/table-layer'
 import { runOnDomain } from '@/infrastructure/logging/request-effect'
 import { handleActionCall, resolveActionTemplateTool } from './action-call'
@@ -46,7 +46,7 @@ import {
   resolveCallerAuthority,
   type CallerAuthority,
 } from './caller-authority'
-import { buildReadListFilter, recordPassesReadPredicate } from './row-level-read-gate'
+import { resolveUserContextOrUndefined } from './caller-row-context'
 import { createIsInScope, existingRowIsInScope } from './row-level-write-gate'
 import {
   applyMcpFieldExposureToRecord,
@@ -269,13 +269,13 @@ async function executeList(input: ExecBranchInput): Promise<McpToolResult> {
   }
 
   return runProgramAsToolResult({
-    program: createListRecordsProgram({
-      session,
-      tableName: table.name,
+    program: listRecordsAsCaller({
       app,
-      userRole: authority.role,
-      userGroups: authority.groups,
-      filter: filter ?? undefined,
+      tableName: table.name,
+      session,
+      role: authority.role,
+      groups: authority.groups,
+      rowFilter: filter,
       limit,
       offset,
     }),
@@ -334,7 +334,7 @@ async function executeCreate(input: ExecBranchInput): Promise<McpToolResult> {
   return runMcpRecordCreate({
     ...{ app, session, tableName: table.name, fields, userRole: authority.role },
     ...{ userGroups: authority.groups, linkReader: linkReaderOf(input) },
-    domainContext: input.domainContext,
+    ...{ domainContext: input.domainContext, conflictScope: input },
     // The echoed record answers to the same whitelist a read does: a write
     // naming only whitelisted fields must not hand back the rest of the row.
     formatSuccess: (out) => applyMcpFieldExposureToRecord(out, table),
@@ -360,7 +360,7 @@ async function executeUpdate(input: ExecBranchInput): Promise<McpToolResult> {
   return runMcpRecordUpdate({
     ...{ app, session, tableName: table.name, recordId, fields, userRole: authority.role },
     ...{ userGroups: authority.groups, linkReader: linkReaderOf(input) },
-    domainContext: input.domainContext,
+    ...{ domainContext: input.domainContext, conflictScope: input },
     formatSuccess: (out) => applyMcpFieldExposureToRecord(out, table),
   })
 }
@@ -492,48 +492,13 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> => {
   return !Array.isArray(value)
 }
 
-/**
- * Build a synthetic UserSession suitable for the application-layer
- * programs. Every authenticated caller names a user; `userId` is `undefined`
- * only on the unreachable fail-closed fallback caller, for which the
- * authorship helpers fall back to `null` for created_by / updated_by. The
- * `null`s are what the Better Auth-shaped UserSession contract demands.
- */
-function synthesizeSession(userId: string | undefined): UserSession {
-  const now = new Date()
-  return {
-    id: 'mcp-session',
-    userId: userId ?? '',
-    token: 'mcp-bearer',
-    expiresAt: now,
-    createdAt: now,
-    updatedAt: now,
-    ipAddress: null,
-    userAgent: null,
-    impersonatedBy: null,
-    activeOrganizationId: null,
-    signInMethod: null,
-  }
-}
+/** How the sessions an MCP call synthesises are named. */
+const MCP_SESSION_LABEL = { id: 'mcp-session', token: 'mcp-bearer' } as const
 
 /**
- * Resolve a `CurrentUserContext` from the authenticated caller, or `undefined`
- * with no userId (only the unreachable fail-closed fallback caller): the
- * row-level gates read an absent context as "no identity" and DENY every row.
+ * The synthetic session an MCP call runs the application programs with. Every
+ * authenticated caller names a user; `userId` is `undefined` only on the
+ * unreachable fail-closed fallback caller.
  */
-async function resolveUserContextOrUndefined(
-  userId: string | undefined,
-  authority: CallerAuthority,
-  table: Table,
-  app: App
-): Promise<CurrentUserContext | undefined> {
-  if (!userId) return undefined
-  const projection = toSessionProjection(
-    { userId },
-    { role: authority.role, isUnrestricted: isAdminEquivalent(authority.role, app) }
-  )
-  const scope = rowRuleScopeOf(table, app.tables)
-  return Effect.runPromise(
-    provideTableLive(loadCurrentUserContext(projection, table.rowLevelPermissions, scope))
-  )
-}
+const synthesizeSession = (userId: string | undefined): UserSession =>
+  synthesizeCallerSession(userId, MCP_SESSION_LABEL)

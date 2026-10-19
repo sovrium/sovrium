@@ -8,7 +8,7 @@ Chat is **native** once a provider is configured: every table and field is detec
 
 An update or delete asked through chat reaches exactly the records the records API would let the same user change. Each record is checked against the table's row-level rules: the `read` rule and the `write` rule for an update (on the record as it stands and as the change would leave it), the `read` rule and the `delete` rule for a delete. A record either rule keeps from her, a record in the trash, and a record that does not exist are all answered the same way, as not found, and nothing is written. A delete through chat moves the records to the trash, exactly as the records API's delete does, so they can be restored.
 
-A question asked through chat answers only what the records API would answer the same user. A record query (a list, a count, a total or an average) and a table the model looks up through a tool both read the tables the records API lets her read, with the same roles, groups and assignment roles, and only the rows the table's row-level read rule shows her: a row the rule hides from her is not listed, not counted and not summed. A row in the trash is left out the same way, as the records API leaves it out of a list — an agent declared in the app does not read it either. A table the records API would refuse her is neither offered to the model nor queried. An agent declared in the app reads under the role it declares instead.
+A question asked through chat answers only what the records API would answer the same user. A record query (a list, a count, a total or an average) and a table the model looks up through a tool both read the tables the records API lets her read, with the same roles, groups and assignment roles, and only the rows the records API lists her: a row the table's row-level read rule hides from her, or one in which she may read no field, is not listed, not counted and not summed, and a table in which she may read no field at all is refused her as a table out of her reach. A count, a total, an average, a filter or a sort runs only over a field she may read. A row in the trash is left out the same way, as the records API leaves it out of a list — an agent declared in the app does not read it either. A table the records API would refuse her is neither offered to the model nor queried. An agent declared in the app reads under the role it declares instead.
 
 ## What it can and cannot do
 
@@ -49,7 +49,7 @@ An empty composer is the hardest thing to answer: a reader who does not already 
 
 **A chip fills the composer; it does not send.** Clicking one puts its text in the input and leaves the send to the reader, who can edit it first, and the chip's visible text _is_ the text inserted — so what a click will do is predictable.
 
-The chips appear in the order declared; nothing sorts, deduplicates or truncates the list, and a chat declaring none shows no strip at all. Each entry may be a translation key.
+The chips appear in the order declared; nothing sorts, deduplicates or truncates the list, and a chat declaring none shows no strip at all. A prompt longer than the panel is wide is not cut either: its chip wraps onto further lines inside the panel. Each entry may be a translation key.
 
 ### Opening words from a link
 
@@ -115,18 +115,22 @@ A destructive operation additionally requires confirmation before it executes. T
 
 Responses stream as server-sent events from `POST /api/ai/chat/stream`, so a reader sees progressive text rather than waiting for the whole answer. Each event names its type on its `event:` line and carries JSON:
 
-| Event         | Carries                                                                                                 |
-| ------------- | ------------------------------------------------------------------------------------------------------- |
-| `content`     | `{ text }`, the next piece of the answer; now and then `html`, the answer so far rendered and sanitized |
-| `reasoning`   | `{ text }`, the model's thinking, apart from the answer (a reasoning model's `<think>` block too)       |
-| `tool_call`   | `{ id, name, arguments }`, a tool the agent calls                                                       |
-| `tool_result` | `{ id, name, ok, outcome, content }`, what the call did: `ok`, `denied`, `failed` or `pending-approval` |
-| `elicit`      | `{ elicitationId, message, requestedSchema }`, a question the agent asks the person (below)             |
-| `done`        | `{ sessionId, messageId, questionId, stopReason, html, citations? }`, last (below)                      |
+| Event         | Carries                                                                                                         |
+| ------------- | --------------------------------------------------------------------------------------------------------------- |
+| `content`     | `{ text }`, the next piece of the answer; now and then `html`, the answer so far rendered and sanitized         |
+| `reasoning`   | `{ text }`, the model's thinking, apart from the answer (a reasoning model's `<think>` block too)               |
+| `tool_call`   | `{ id, name, arguments, input }`, a tool the agent calls                                                        |
+| `tool_result` | `{ id, name, ok, outcome, content, output }`, what the call did: `ok`, `denied`, `failed` or `pending-approval` |
+| `elicit`      | `{ elicitationId, message, requestedSchema }`, a question the agent asks the person (below)                     |
+| `done`        | `{ sessionId, messageId, questionId, stopReason, html, citations? }`, last (below)                              |
 
-A final `data: [DONE]` follows `done`. `messageId` and `questionId` are the ids the answer and its question are saved under, so they can be edited or regenerated through the conversation routes once the stream has closed. `citations` lists the knowledge passages the answer cites, as on the buffered reply. A tool call and its result come before the answer they lead to. `stopReason` is `end`, `stopped`, `awaiting_input` (a call waits for approval, or a question for its answer, below), `length`, `tool-limit` or `error`.
+A final `data: [DONE]` follows `done`. `messageId` and `questionId` are the ids the answer and its question are saved under, so they can be edited or regenerated through the conversation routes once the stream has closed. `citations` lists the knowledge passages the answer cites, as on the buffered reply. A `tool_call` arrives as the call starts and its `tool_result` once it has run, both before the answer they lead to. `stopReason` is `end`, `stopped`, `awaiting_input` (a call waits for approval, or a question for its answer, below), `length`, `tool-limit` or `error`.
+
+`input` and `output` are previews for the person reading the chat: the call's arguments and its result as indented JSON (a result that is not JSON as its text), at most 2,000 characters each, with `inputTruncated: true` or `outputTruncated: true` when one was cut. The model is still handed the whole result in `content`. Neither preview holds a value the reader may not read: the tools of a chat turn read as her, and a value the model wrote into a field she may not read, or into a filter condition on such a field, is left out of `input`, as is any argument a record action or a lookup does not read. The call's `arguments` on the stream carry the same projection: the model keeps what it wrote, the stream does not repeat it. A call refused because of her own permissions reads exactly like a call on a table the agent cannot reach, so the stream never tells her that a table she may not see exists. A write that runs and is refused by the database is handed back, to the model and to her alike, as one sentence naming the action and the table, and at most the field it could not hold: it never repeats the value, never carries the database's own words, and a value already taken reads exactly like any other refused write. Any other action that runs and fails is handed back the same way, naming the action; a request that fails says only the HTTP status the server answered with, or that it timed out, could not resolve its host, could not connect, did not trust the certificate, or was refused because the address is not one the server may reach. The full reason stays in the server log, and in the run history when an automation ran the agent. The `ai-chat` component draws each tool the agent called as a line that opens onto these previews, as two small code blocks titled Input and Output: the output of a failed call is drawn in the destructive colour, a call waiting for approval shows its input only, and a cut preview says so in its block's footer.
 
 The answer's Markdown is rendered on the server — raw HTML in a reply is shown as text, and an image a reply names is never loaded — then cleaned by the same sanitizer as every rich-text value, and sent as `html`. The `ai-chat` component draws that, so the browser runs no Markdown renderer of its own.
+
+Code in an answer is a small code block. A fenced block is highlighted on the server, its colours coming from the theme's classes rather than inline styles, and drawn in a frame titled by the language the fence names, exactly as written (`sql`), with a copy button that copies the code as written. A fence naming no language has no title and keeps its copy button. While the answer streams, a fence still being written is already framed, with the lines received so far, and gains its copy button once it closes, so half a block is never offered to copy. The reader's own message is never rendered as Markdown: a fence she types stays text.
 
 | Behaviour            | Detail                                                                 |
 | -------------------- | ---------------------------------------------------------------------- |

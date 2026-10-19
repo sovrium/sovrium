@@ -30,6 +30,7 @@ import { readDisplayText } from '../runtime/record-display-label'
 import { buildSortParam } from '../runtime/records-api'
 import { ReadOnlyValue } from './record-drawer-read-only-value'
 import { RelatedCreateForm } from './record-drawer-related-create'
+import type { RecordDrawerField } from './record-drawer-field'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 
 type Row = Readonly<Record<string, unknown>>
@@ -47,6 +48,8 @@ export interface RelatedSection {
     readonly label: string
     readonly type: string
     readonly currency?: CurrencyDisplayOptions
+    /** The create form's control settings for the column — absent when the caller may not create. */
+    readonly control?: Omit<RecordDrawerField, 'name' | 'type' | 'label'>
   }[]
   readonly sort?: readonly { readonly field: string; readonly direction: 'asc' | 'desc' }[]
   readonly limit: number

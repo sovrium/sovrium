@@ -87,7 +87,7 @@ export interface FormRenderers {
     form: Readonly<Form>,
     activeLang?: string,
     prefillCtx?: FormPrefillContext
-  ) => string
+  ) => string | Promise<string>
   readonly renderEmbed: (
     app: Readonly<App>,
     form: Readonly<Form>,
@@ -177,7 +177,7 @@ async function respondWithForm(
   )
   // A private link's page: an edit, or a draft reopened from its resume link.
   const link = editLink ?? (await resolveResumeLink(c, form))
-  const html = renderers.renderForm(app, form, activeLang, {
+  const html = await renderers.renderForm(app, form, activeLang, {
     ...prefillCtx,
     optionSets,
     ...(link === undefined ? {} : { link }),

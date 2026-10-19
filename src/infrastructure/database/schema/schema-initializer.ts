@@ -363,8 +363,8 @@ const ensureConditionalSystemTables = (
  *    table that still holds rows is refused unless the one-shot
  *    `sovrium migrate --allow-destructive` consented;
  *  - 5.5 move rows between `<name>` and `<name>_base` by RENAME when a table
- *    gains its first or loses its last computed field, and drop every lookup
- *    view so its base table can change under it (rebuilt in Steps 9-11).
+ *    gains its first or loses its last computed field.
+ * Every view is dropped first and rebuilt in Steps 9-11 (`dropEveryView`).
  */
 const reconcileRelationSet = (
   tx: TransactionLike,
@@ -373,12 +373,9 @@ const reconcileRelationSet = (
   options: SchemaInitOptions
 ): Effect.Effect<void, SQLExecutionError, never> =>
   Effect.gen(function* () {
-    yield* renameTablesIfNeeded(
-      tx,
-      tables,
-      previousSchema,
-      options.authoredTableIds ?? NO_AUTHORED_TABLE_IDS
-    )
+    yield* viewGenerators.dropEveryView(tx)
+    const authoredTableIds = options.authoredTableIds ?? NO_AUTHORED_TABLE_IDS
+    yield* renameTablesIfNeeded(tx, tables, previousSchema, authoredTableIds)
     yield* dropObsoleteTables(tx, tables, options, previousSchema)
     yield* reconcileViewTopology(tx, tables)
   })

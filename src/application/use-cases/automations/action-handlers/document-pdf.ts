@@ -31,6 +31,7 @@ import {
   type ActionRunContext,
   type AutomationContext,
 } from './shared'
+import { starterFileGate, type StarterFileGate } from './starter-file-gate'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -74,11 +75,12 @@ const renderBand = (
   run: {
     readonly runContext: ActionRunContext | undefined
     readonly check: (template: { readonly name: string }) => PictureFileCheck
+    readonly gate: StarterFileGate
   }
 ) =>
   Effect.gen(function* () {
     if (source === undefined) return undefined
-    const template = yield* readTemplateSource(source)
+    const template = yield* readTemplateSource(source, run.gate)
     const context = templateContext(
       template,
       { ...data, pageNumber: PAGE_NUMBER_TOKEN, totalPages: TOTAL_PAGES_TOKEN },
@@ -102,7 +104,8 @@ const renderPdf = (
     const data = documentDataOf(props, runContext)
     const check = (template: { readonly name: string }) =>
       pictureFileCheck(template, data, { app, automation, runContext })
-    const template = yield* readTemplateSource(props['template'])
+    const gate = starterFileGate(app, automation)
+    const template = yield* readTemplateSource(props['template'], gate)
     const setup = {
       ...(yield* documentRenderSetup(app, props['locale'], 'html')),
       target: 'html',
@@ -113,8 +116,8 @@ const renderPdf = (
       { ...setup, pictures: check(template) },
       runContext
     )
-    const headerHtml = yield* renderBand(props['header'], data, setup, { runContext, check })
-    const footerHtml = yield* renderBand(props['footer'], data, setup, { runContext, check })
+    const headerHtml = yield* renderBand(props['header'], data, setup, { runContext, check, gate })
+    const footerHtml = yield* renderBand(props['footer'], data, setup, { runContext, check, gate })
     const rendered = yield* (yield* DocumentRenderer).renderPdf(
       html,
       {

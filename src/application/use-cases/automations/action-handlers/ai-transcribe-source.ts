@@ -108,13 +108,12 @@ export const resolveTranscribeSource = (
 }
 
 /**
- * Containers a browser records audio into but that one extension maps to a
- * VIDEO type — an audio-only `.webm` is announced as `video/webm`. They are
- * sent to the speech engine under their audio name.
+ * The one container a browser records audio into that its extension announces
+ * as VIDEO: an Ogg file is sent to the speech engine as it is, under its audio
+ * type. MP4, QuickTime, WebM and Matroska are no longer relabelled: a video
+ * among them has its audio track extracted first (`video-audio-track.ts`).
  */
 const AUDIO_CAPABLE_CONTAINERS: Readonly<Record<string, string>> = {
-  'video/webm': 'audio/webm',
-  'video/mp4': 'audio/mp4',
   'video/ogg': 'audio/ogg',
 }
 
@@ -127,3 +126,11 @@ export const audioMimeForTranscription = (mimeType: string): string | undefined 
   if (base.startsWith('audio/')) return base
   return AUDIO_CAPABLE_CONTAINERS[base]
 }
+
+/**
+ * The audio type a video container holding no picture is sent under: an
+ * audio-only MP4 or QuickTime file as `audio/mp4`, an audio-only WebM or
+ * Matroska file as `audio/webm`.
+ */
+export const audioMimeOfContainer = (videoMime: string): string =>
+  videoMime === 'video/mp4' || videoMime === 'video/quicktime' ? 'audio/mp4' : 'audio/webm'

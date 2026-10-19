@@ -11,6 +11,7 @@ import {
   computeTableEditorPopoverClasses,
 } from '@/presentation/design/table-default-classes'
 import { CodeEditorField } from '../../parts/code-editor-field'
+import { useGridString } from '../island/grid-strings'
 import { editMetaOf, type CellEditorProps } from './editor-contract'
 import { EditorPopover } from './editor-popover'
 import type { ReactElement } from 'react'
@@ -71,7 +72,7 @@ export default function CodeCellEditor(props: CellEditorProps): ReactElement {
 
   return (
     <EditorPopover
-      label={`Edit ${fieldName ?? 'code'}`}
+      label={useGridString('datatable.editField', 'Edit {field}', { field: fieldName ?? 'code' })}
       cancel={() => {
         // Escape closes the surface and PERSISTS the draft, as rich text does:
         // a code cell holds a statement rather than a token, and silently

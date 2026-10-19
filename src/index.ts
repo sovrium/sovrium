@@ -27,6 +27,7 @@
 
 import { Cause, Effect, Exit, Result } from 'effect'
 import { ServerFactory } from '@/application/ports/services/server-factory'
+import { buildDesignSystemBundle as buildDesignSystemBundleUseCase } from '@/application/use-cases/admin/design-system-bundle'
 import {
   createAdminAccount,
   describeBootstrapDatabaseError,
@@ -51,12 +52,17 @@ import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database
 import { resolveIdleExitSeconds } from '@/domain/models/process-env/server-lifecycle'
 import { provisionRootSecret } from '@/infrastructure/crypto/root-secret'
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
-import { createAppLayer, createStaticBuildLayer } from '@/infrastructure/layers/app-layer'
+import {
+  createAppLayer,
+  createDesignBundleLayer,
+  createStaticBuildLayer,
+} from '@/infrastructure/layers/app-layer'
 import { formatRuntimeError, logDebug } from '@/infrastructure/logging'
 import { armIdleExit } from '@/infrastructure/server/idle-exit'
 import { installShutdownHandlers, requestGracefulStop } from '@/infrastructure/server/lifecycle'
 import type { AuthDatabaseError } from '@/application/ports/repositories/auth/auth-repository'
 import type { ServerInstance } from '@/application/ports/services/server-instance'
+import type { DesignSystemBundle } from '@/application/use-cases/admin/design-system-bundle'
 import type {
   BootstrapDatabaseError,
   InvalidEmailError,
@@ -371,6 +377,26 @@ export const prebuildSearchIndex = async (app: AppConfig, publicDir: string): Pr
     )
   )
 }
+
+/**
+ * Build the portable design-system bundle of a DECODED app, offline. Used
+ * internally by `sovrium design-system --format bundle`, which validates the
+ * config first and writes the files.
+ *
+ * Runs in the static-build layer — the page renderer, the stylesheet compiler
+ * and the embedded files the bundle copies; no database, no auth.
+ */
+export const buildDesignSystemBundle = (
+  app: App,
+  options: { readonly publicDir?: string } = {}
+): Promise<DesignSystemBundle> =>
+  Effect.runPromise(
+    // The app's own logo files are read from its public directory, when the
+    // caller names one; everything else comes from the binary.
+    buildDesignSystemBundleUseCase(app).pipe(
+      Effect.provide(createDesignBundleLayer(options.publicDir))
+    )
+  )
 
 /** Credentials for `createAdmin`. */
 export interface CreateAdminCredentials {

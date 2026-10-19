@@ -7,6 +7,7 @@
 
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import { computeTableEditorFooterClasses } from '@/presentation/design/table-default-classes'
+import { useImportWord } from './import-words'
 import type { ImportResult, ImportWizardStep, CsvPreview } from './types'
 
 interface DialogFooterProps {
@@ -20,6 +21,30 @@ interface DialogFooterProps {
   readonly onImport: () => void
 }
 
+/** One footer button: the primary fill or the secondary one. */
+function FooterButton({
+  variant,
+  disabled,
+  onClick,
+  children,
+}: {
+  readonly variant: 'default' | 'secondary'
+  readonly disabled?: boolean
+  readonly onClick: () => void
+  readonly children: string
+}) {
+  return (
+    <button
+      type="button"
+      className={computeButtonDefaultClasses({ variant, size: 'sm' })}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  )
+}
+
 export function DialogFooter({
   step,
   preview,
@@ -30,53 +55,52 @@ export function DialogFooter({
   onMappingNext,
   onImport,
 }: DialogFooterProps) {
+  const next = useImportWord('csvImport.next', 'Next')
+  const importLabel = useImportWord('csvImport.import', 'Import')
+  const done = useImportWord('csvImport.done', 'Done')
+  const cancel = useImportWord('csvImport.cancel', 'Cancel')
   return (
     <div className={computeTableEditorFooterClasses()}>
       {step === 'preview' && preview && (
-        <button
-          type="button"
-          className={computeButtonDefaultClasses({ variant: 'default', size: 'sm' })}
+        <FooterButton
+          variant="default"
           onClick={onPreviewNext}
         >
-          Next
-        </button>
+          {next}
+        </FooterButton>
       )}
       {step === 'mapping' && !importResult && (
         <>
-          <button
-            type="button"
-            className={computeButtonDefaultClasses({ variant: 'default', size: 'sm' })}
+          <FooterButton
+            variant="default"
             onClick={onMappingNext}
           >
-            Next
-          </button>
-          <button
-            type="button"
-            className={computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })}
+            {next}
+          </FooterButton>
+          <FooterButton
+            variant="secondary"
             disabled={isImporting}
             onClick={onImport}
           >
-            Import
-          </button>
+            {importLabel}
+          </FooterButton>
         </>
       )}
       {step === 'duplicate-handling' && !importResult && (
-        <button
-          type="button"
-          className={computeButtonDefaultClasses({ variant: 'default', size: 'sm' })}
+        <FooterButton
+          variant="default"
           disabled={isImporting}
           onClick={onImport}
         >
-          Import
-        </button>
+          {importLabel}
+        </FooterButton>
       )}
-      <button
-        type="button"
-        className={computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })}
+      <FooterButton
+        variant="secondary"
         onClick={onClose}
       >
-        {importResult ? 'Done' : 'Cancel'}
-      </button>
+        {importResult ? done : cancel}
+      </FooterButton>
     </div>
   )
 }

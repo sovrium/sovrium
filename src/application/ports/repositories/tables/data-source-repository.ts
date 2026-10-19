@@ -156,6 +156,20 @@ export class DataSourceRepository extends Context.Service<
     }) => Effect.Effect<readonly unknown[], DataSourceDatabaseError>
 
     /**
+     * For each of `sourceIds`, the ids of the live rows of each field's
+     * `relatedTable` whose `reciprocalField` points at it — a `one-to-many`
+     * field's values, every source record present (empty when none points).
+     */
+    readonly fetchOneToManyLinks: (input: {
+      readonly sourceIds: readonly (string | number)[]
+      readonly fields: readonly {
+        readonly fieldName: string
+        readonly relatedTable: string
+        readonly reciprocalField: string
+      }[]
+    }) => Effect.Effect<Record<string, Record<string, readonly string[]>>, DataSourceDatabaseError>
+
+    /**
      * The ids of the rows of `table` whose list of people `column` (a `user`
      * field with `allowMultiple`) holds at least one of `userIds` — a
      * `contains` row rule's membership test, with every id bound. An empty

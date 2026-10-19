@@ -6,10 +6,12 @@
  */
 
 /**
- * The interpreter strings of two console islands mounted from a plain
+ * The interpreter strings of the console's own islands mounted from a plain
  * container: the API-key manager (`apiKeys.*`) and the agents' conversation
  * viewer's controls, composer and run trail (`agentConversations.*`, beside
- * the list states the components table holds). Part of
+ * the list states the components table holds), and the search palette's kind
+ * words (`commandPalette.kind.*` for a group, `commandPalette.kindOne.*` for a
+ * row). Part of
  * {@link INTERPRETER_UI_STRINGS} through the components table; kept apart only
  * so no file outgrows its ceiling. English is today's literal word for word,
  * French is built in, and an author renames any key under `sovrium.<key>`.
@@ -48,8 +50,8 @@ export const CONSOLE_UI_STRINGS: Readonly<Record<string, Readonly<Record<string,
     fr: 'La clé agit en votre nom. Sa valeur ne s’affiche qu’une fois, juste après sa création.',
   },
   'apiKeys.namePlaceholder': {
-    en: 'What will carry this key?',
-    fr: 'Qu’est-ce qui utilisera cette clé ?',
+    en: 'e.g. Zapier sync',
+    fr: 'ex. synchro Zapier',
   },
   'apiKeys.nameHint': {
     en: 'Name it after the job that will use it — that name is how you will recognise it later.',
@@ -75,10 +77,8 @@ export const CONSOLE_UI_STRINGS: Readonly<Record<string, Readonly<Record<string,
   },
   'apiKeys.done': { en: 'Done', fr: 'Terminé' },
 
-  // ---- Agents' conversations: the controls, the composer and the turn's run trail ----
-  'agentConversations.newConversation': { en: 'New conversation', fr: 'Nouvelle conversation' },
+  // ---- Agents' conversations: the controls above the list ----
   'agentConversations.agent': { en: 'Agent', fr: 'Agent' },
-  'agentConversations.chooseAgent': { en: 'Choose an agent…', fr: 'Choisissez un agent…' },
   'agentConversations.filterByAgent': { en: 'Filter by agent', fr: 'Filtrer par agent' },
   'agentConversations.allAgents': { en: 'All agents', fr: 'Tous les agents' },
   'agentConversations.search': {
@@ -90,46 +90,30 @@ export const CONSOLE_UI_STRINGS: Readonly<Record<string, Readonly<Record<string,
     fr: 'Rechercher des conversations',
   },
   'agentConversations.list': { en: 'Conversations', fr: 'Conversations' },
-  'agentConversations.conversation': { en: 'Conversation', fr: 'Conversation' },
   'agentConversations.thread': { en: 'Message thread', fr: 'Fil des messages' },
-  'agentConversations.message': { en: 'Message the agent…', fr: 'Écrire à l’agent…' },
-  'agentConversations.messageLabel': { en: 'Message the agent', fr: 'Écrire à l’agent' },
-  'agentConversations.send': { en: 'Send', fr: 'Envoyer' },
-  'agentConversations.reply': { en: 'Agent reply', fr: 'Réponse de l’agent' },
-  'agentConversations.actionsTaken': { en: 'Actions taken', fr: 'Actions effectuées' },
-  /** `{table}` is the table the agent acted on; `{name}` the automation it ran. */
-  'agentConversations.queried': { en: 'Queried {table}', fr: 'A consulté {table}' },
-  'agentConversations.queriedRecords': {
-    en: 'Queried records',
-    fr: 'A consulté des enregistrements',
-  },
-  'agentConversations.created': {
-    en: 'Created a record in {table}',
-    fr: 'A créé un enregistrement dans {table}',
-  },
-  'agentConversations.updated': {
-    en: 'Updated a record in {table}',
-    fr: 'A modifié un enregistrement dans {table}',
-  },
-  'agentConversations.deleted': {
-    en: 'Deleted a record from {table}',
-    fr: 'A supprimé un enregistrement de {table}',
-  },
-  'agentConversations.ran': { en: 'Ran {name}', fr: 'A lancé {name}' },
-  'agentConversations.anAutomation': { en: 'an automation', fr: 'une automatisation' },
-  'agentConversations.theTable': { en: 'the table', fr: 'la table' },
-  /** `{id}` is the run's id. */
-  'agentConversations.run': { en: 'run {id}', fr: 'exécution {id}' },
-  'agentConversations.statusSuccess': { en: 'Success', fr: 'Réussi' },
-  'agentConversations.statusFailed': { en: 'Failed', fr: 'Échec' },
-  'agentConversations.statusRunning': { en: 'Running', fr: 'En cours' },
-  'agentConversations.runLog': {
-    en: 'Open Automations to read the run log.',
-    fr: 'Ouvrez Automatisations pour lire le journal d’exécution.',
-  },
   /** The speaker tag of each message in a transcript. */
   'agentConversations.roleUser': { en: 'User', fr: 'Utilisateur' },
   'agentConversations.roleAssistant': { en: 'Agent', fr: 'Agent' },
   'agentConversations.roleTool': { en: 'Tool', fr: 'Outil' },
   'agentConversations.roleSystem': { en: 'System', fr: 'Système' },
+
+  // ---- The console search palette: each result kind's group heading and its row badge ----
+  'commandPalette.kind.record': { en: 'Records', fr: 'Enregistrements' },
+  'commandPalette.kind.submission': { en: 'Submissions', fr: 'Réponses' },
+  'commandPalette.kind.run': { en: 'Runs', fr: 'Exécutions' },
+  'commandPalette.kind.user': { en: 'Users', fr: 'Utilisateurs' },
+  'commandPalette.kind.file': { en: 'Files', fr: 'Fichiers' },
+  'commandPalette.kind.conversation': { en: 'Conversations', fr: 'Conversations' },
+  'commandPalette.kind.connection': { en: 'Connections', fr: 'Connexions' },
+  'commandPalette.kind.design-console': { en: 'Design system', fr: 'Système de design' },
+  'commandPalette.kind.component-type': { en: 'Component types', fr: 'Types de composants' },
+  'commandPalette.kindOne.record': { en: 'Record', fr: 'Enregistrement' },
+  'commandPalette.kindOne.submission': { en: 'Submission', fr: 'Réponse' },
+  'commandPalette.kindOne.run': { en: 'Run', fr: 'Exécution' },
+  'commandPalette.kindOne.user': { en: 'User', fr: 'Utilisateur' },
+  'commandPalette.kindOne.file': { en: 'File', fr: 'Fichier' },
+  'commandPalette.kindOne.conversation': { en: 'Conversation', fr: 'Conversation' },
+  'commandPalette.kindOne.connection': { en: 'Connection', fr: 'Connexion' },
+  'commandPalette.kindOne.design-console': { en: 'Console page', fr: 'Page de la console' },
+  'commandPalette.kindOne.component-type': { en: 'Component type', fr: 'Type de composant' },
 }

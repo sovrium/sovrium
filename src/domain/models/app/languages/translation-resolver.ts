@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { mapStringsDeep } from '@/domain/kernel/config-parsing/map-strings-deep'
+import { findDeclaredLanguageCode } from '@/domain/models/app/languages/language-detection'
 import {
   DEFAULT_INTERPRETER_LANG,
   ENGINE_KEY_PREFIX,
@@ -291,31 +293,41 @@ export const defaultLanguageTranslator =
     resolveTranslationPattern(text, languages?.default ?? '', languages)
 
 /**
- * Recursively apply a string transform to every string in a value
- * (strings, arrays, plain objects). Non-string leaves pass through untouched.
- *
- * Shared deep-walk scaffold: the app-level token replacer
- * (`translation-replacer.ts`) and the island prop-payload resolver
- * (`resolveTranslationTokensDeep`) both map strings over arbitrary config
- * shapes — this keeps the recursion in one place.
+ * A translator of `$t:` text into `language` when `languages` declares it, else
+ * into the default language — for a surface read by one reader whose language
+ * is known: the operator console names the app's tables in the language the
+ * operator reads it in, not in the app's first.
  */
-export function mapStringsDeep(value: unknown, transform: (str: string) => string): unknown {
-  if (typeof value === 'string') {
-    return transform(value)
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((item) => mapStringsDeep(item, transform))
-  }
-
-  if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, val]) => [key, mapStringsDeep(val, transform)])
+export const readerLanguageTranslator =
+  (languages: Languages | undefined, language: string | undefined) =>
+  (text: string): string =>
+    resolveTranslationPattern(
+      text,
+      findDeclaredLanguageCode(languages, language) ?? languages?.default ?? '',
+      languages
     )
-  }
 
-  return value
-}
+/**
+ * The translators the operator console names an app's fields with: `translate`
+ * into the operator's language (see {@link readerLanguageTranslator}), for what
+ * it displays, and `labelsIn`, one per language the app declares, for the words
+ * a reader may have written in any of them — the headers of a spreadsheet the
+ * console imports, kept by a colleague who reads the app in another language.
+ */
+export const consoleLabelTranslators = (
+  languages: Languages | undefined,
+  language: string | undefined
+): {
+  readonly translate: (text: string) => string
+  readonly labelsIn: ReadonlyArray<(text: string) => string>
+} => ({
+  translate: readerLanguageTranslator(languages, language),
+  labelsIn: (languages?.supported ?? []).map(
+    ({ code }) =>
+      (text: string) =>
+        resolveTranslationPattern(text, code, languages)
+  ),
+})
 
 /**
  * Resolve `$t:key` tokens throughout an arbitrary value (deeply).

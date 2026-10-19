@@ -238,7 +238,8 @@ const linesOfOutputs = (
  * A finished run's own error as its answer shows it: whole to an
  * admin-equivalent, and to anyone else with each admin-only line its steps
  * carry painted over — a step that failed quoting the journal fails the run
- * with the same text.
+ * with the same text. Anyone else is shown the run's `clientError` instead
+ * when it has one (a hand-started write refused for a taken value).
  */
 export const runErrorAsSeenBy = (
   app: App,
@@ -248,11 +249,13 @@ export const runErrorAsSeenBy = (
     readonly result: {
       readonly actions: Readonly<Record<string, unknown>>
       readonly error?: string | undefined
+      readonly clientError?: string | undefined
     }
   }
 ): string | undefined => {
   const { automationName, readsWhole, result } = input
   if (readsWhole || result.error === undefined) return result.error
+  if (result.clientError !== undefined) return result.clientError
   const lines = linesOfOutputs(adminOnlyKeysOf(app, automationName), result.actions)
   return textWithoutAdminOnlyLines(result.error, lines)
 }

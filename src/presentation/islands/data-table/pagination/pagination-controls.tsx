@@ -11,13 +11,21 @@ import {
   computeTablePagerClasses,
   computeTablePagerSelectClasses,
 } from '@/presentation/design/table-default-classes'
-import { useGridString } from '../island/grid-strings'
+import { usePhoneViewport } from '../../hooks/use-phone-viewport'
+import { useGridString, useResultCount } from '../island/grid-strings'
 import { PagerEdgeButton } from './pager-edge-button'
 import type { DataTableInstance } from '../island/table-features'
 
 interface PaginationControlsProps {
   readonly table: DataTableInstance
   readonly total: number
+  /**
+   * The rows have no answer yet — a first read, one being retried after a
+   * fault, or one that failed before any row arrived. The summary says nothing
+   * then: "No results" over a read that never came back is a claim the grid
+   * never got from the server.
+   */
+  readonly reading?: boolean
   readonly pageSizeOptions?: readonly number[]
   /**
    * Which edge of the grid this pager sits on. It decides the separating border
@@ -92,10 +100,18 @@ function usePagerLabels(input: {
   })
   const noResults = useGridString('datatable.pagination.empty', 'No results')
   // A bar that numbers no pages counts the rows instead of a range of them.
-  const count = useGridString('sharedFilter.resultCount', '{count} records', { count: total })
+  const count = useResultCount(total)
   return {
+    // The rows before this page, which a bar numbering no pages has none of.
+    offset: paged ? pageIndex * pageSize : 0,
     summary: paged ? (total > 0 ? range : noResults) : count,
     page: useGridString('datatable.pagination.page', 'Page {page} of {count}', {
+      page: pageIndex + 1,
+      count: pageCount || 1,
+    }),
+    // The readout a phone draws when the bar spends its width on the endpoint's
+    // own result sentence: `1 / 2`. Empty when the grid sends no such sentence.
+    pageShort: useGridString('datatable.pagination.pageShort', '', {
       page: pageIndex + 1,
       count: pageCount || 1,
     }),
@@ -122,6 +138,7 @@ function PagerSteps({
 }) {
   const canBack = table.getCanPreviousPage()
   const canOn = table.getCanNextPage()
+  const short = usePhoneViewport(labels.pageShort !== '')
   return (
     <>
       <PagerEdgeButton
@@ -139,7 +156,16 @@ function PagerSteps({
       >
         {labels.previous}
       </button>
-      <span className="whitespace-nowrap">{labels.page}</span>
+      {short ? (
+        <span
+          className="whitespace-nowrap"
+          aria-label={labels.page}
+        >
+          {labels.pageShort}
+        </span>
+      ) : (
+        <span className="whitespace-nowrap">{labels.page}</span>
+      )}
       <button
         type="button"
         onClick={() => table.nextPage()}
@@ -188,15 +214,19 @@ export function PaginationControls(props: PaginationControlsProps) {
   )
 
   const labels = usePagerLabels({ pageIndex, pageSize, pageCount, total, paged })
+  const summary = props.reading === true && total === 0 ? '' : labels.summary
 
   return (
     <nav
       aria-label="pagination"
       data-slot="data-table-pagination"
       data-pagination
+      // Where the page sits in the whole list, for a record sheet's `n of N`.
+      data-row-offset={labels.offset}
+      data-row-total={total}
       className={`${computeTablePagerClasses({ position })} flex-wrap justify-between gap-y-1`}
     >
-      {props.leading ?? <span className="whitespace-nowrap">{labels.summary}</span>}
+      {props.leading ?? <span className="whitespace-nowrap">{summary}</span>}
       <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
         {props.trailing}
         {paged && pageSizeOptions && pageSizeOptions.length > 0 && (

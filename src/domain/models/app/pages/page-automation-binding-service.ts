@@ -11,6 +11,7 @@ import {
   someRenderedNode,
 } from '@/domain/models/app/pages/component-tree-has-type'
 import { checkPageAccess } from '@/domain/models/app/pages/page-access-check'
+import { CONTROL_ID_KEY, stampControlIds } from '@/domain/models/app/pages/record-control-service'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 
@@ -39,6 +40,28 @@ const carriesAutomationAction = (value: unknown, name: string): boolean => {
   if (record['type'] === 'automation' && record['name'] === name) return true
   return Object.entries(record).some(
     ([key, nested]) => key !== 'children' && carriesAutomationAction(nested, name)
+  )
+}
+
+/**
+ * {@link carriesAutomationAction}, less the actions the server judges on a
+ * record: the `action` of a holder carrying a control id (`_controlId`, a row
+ * action or a record-bound button {@link stampControlIds} gave one), whose
+ * press names its record. Classified per action holder — a row action item,
+ * not the table node around it — and keyed on the stamp, which survives the
+ * caller-view rebuild where object identity does not.
+ */
+const carriesUnjudgedAutomationAction = (value: unknown, name: string): boolean => {
+  if (value === null || typeof value !== 'object') return false
+  if (Array.isArray(value)) return value.some((item) => carriesUnjudgedAutomationAction(item, name))
+  const record = value as Readonly<Record<string, unknown>>
+  if (record['type'] === 'automation' && record['name'] === name) return true
+  const judged = typeof record[CONTROL_ID_KEY] === 'string'
+  return Object.entries(record).some(
+    ([key, nested]) =>
+      key !== 'children' &&
+      !(judged && key === 'action') &&
+      carriesUnjudgedAutomationAction(nested, name)
   )
 }
 
@@ -83,15 +106,34 @@ const shownBreakpoints = (
     })
   )
 
-/** The pages whose drawn tree, filtered by `shown`, binds the automation `name`. */
-const pagesBinding = (app: App, name: string, shown: ShownTest): readonly Page[] => {
+/** The pages of `pages` whose drawn tree, filtered by `shown`, holds a node `binds` admits. */
+const pagesBinding = (
+  app: App,
+  pages: readonly Page[],
+  shown: ShownTest,
+  binds: (node: unknown) => boolean
+): readonly Page[] => {
   const templates = shownItems(app.components ?? [], shown)
-  return (app.pages ?? []).filter((page) => {
+  return pages.filter((page) => {
     const items = shownItems(page.components ?? [], shown)
-    return someRenderedNode(items, placedTemplatesOf(items, templates), (node) =>
-      carriesAutomationAction(node, name)
-    )
+    return someRenderedNode(items, placedTemplatesOf(items, templates), binds)
   })
+}
+
+/**
+ * Per-`App` memo of its pages with their control ids stamped: which bindings
+ * are judged is fixed by the config, so it is read once per page, the first
+ * time a press asks; a config reload builds a new `App` and misses here.
+ */
+const stampedPagesByApp = new WeakMap<App, readonly Page[]>()
+
+const stampedPagesOf = (app: App): readonly Page[] => {
+  const cached = stampedPagesByApp.get(app)
+  if (cached !== undefined) return cached
+  const stamped = (app.pages ?? []).map((page, index) => stampControlIds(page, index))
+  // eslint-disable-next-line functional/no-expression-statements -- memoization of a pure function over an immutable input is referentially transparent
+  stampedPagesByApp.set(app, stamped)
+  return stamped
 }
 
 /**
@@ -101,7 +143,12 @@ const pagesBinding = (app: App, name: string, shown: ShownTest): readonly Page[]
  * declared on the automation for this.
  */
 export const pagesBindingAutomation = (app: App, name: string): readonly Page[] =>
-  pagesBinding(app, name, () => true)
+  pagesBinding(
+    app,
+    app.pages ?? [],
+    () => true,
+    (node) => carriesAutomationAction(node, name)
+  )
 
 /**
  * The automation `name` when a page press may run it for `session`, otherwise
@@ -134,8 +181,34 @@ export const pressablePageAutomation = (
   const automation = app.automations?.find((candidate) => candidate.name === name)
   if (automation === undefined || !isManual(automation)) return undefined
   const shown: ShownTest = (node) => isShownToSession(node, session, app)
-  const admitted = pagesBinding(app, name, shown).some(
+  const binds = (node: unknown) => carriesAutomationAction(node, name)
+  const admitted = pagesBinding(app, app.pages ?? [], shown, binds).some(
     (page) => checkPageAccess(page.access, app, session).allowed
   )
   return admitted ? automation : undefined
+}
+
+/**
+ * Whether `session` can reach an UNJUDGED binding of the automation `name`: a
+ * node starting it that the server gives no control id — a plain button, a
+ * data form, an alert-dialog confirm, anything inside a placed template — on a
+ * page that admits the caller under its `access` rule, through nodes the page
+ * shows her (the view {@link pressablePageAutomation} reads).
+ *
+ * A press that names no record runs only when this holds. Without it, a
+ * request that drops the record reference from the press of a judged control
+ * (a row action, a record-bound button) would run what its `disabledWhen`
+ * refuses. The judged bindings are read off the stamped pages, once per app;
+ * per call only the caller's view and the page rule are applied.
+ */
+export const reachesUnjudgedBinding = (
+  app: App,
+  name: string,
+  session: SessionInfo | undefined
+): boolean => {
+  const shown: ShownTest = (node) => isShownToSession(node, session, app)
+  const binds = (node: unknown) => carriesUnjudgedAutomationAction(node, name)
+  return pagesBinding(app, stampedPagesOf(app), shown, binds).some(
+    (page) => checkPageAccess(page.access, app, session).allowed
+  )
 }

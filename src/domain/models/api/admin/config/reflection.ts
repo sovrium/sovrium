@@ -158,6 +158,12 @@ export const configReflectionResponseSchema = Schema.Struct({
   agentCount: Schema.Finite.annotate({ description: 'Declarations in `agents`.' }),
   bucketCount: Schema.Finite.annotate({ description: 'Declarations in `buckets`.' }),
   connectionCount: Schema.Finite.annotate({ description: 'Declarations in `connections`.' }),
+  startsLabel: optionalField(
+    Schema.String.annotate({
+      description:
+        'How many starts the boot ledger records, as one phrase in the operator’s language — the rows `GET /api/admin/releases` answers, as its `total` counts them: `18 starts`, `1 start` in English, `18 démarrages`, `1 démarrage` in French. Carried here because this read is the changelog page’s own record, so the count can stand beside the page title. The language is the operator’s own — their account language, else the `sovrium_language` preference — and English otherwise.',
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
   generatedAt: looseIsoDateTime({
     description:
       'ISO 8601 UTC timestamp of the read. Per-request, so an operator comparing two reflections knows which is newer.',

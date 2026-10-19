@@ -11,7 +11,8 @@
  * A run carries what started it — a webhook's payload, a form's answers — and
  * what each step produced, so it is read only by:
  *   - an admin (a role equivalent to the app's top role), who reads every run;
- *   - the person who started it by hand (a manual trigger, a record button);
+ *   - the person who started it by hand (a manual trigger, a record button),
+ *     unless another run started it on her behalf (a call names its parent);
  *   - an approver a request on that run names (`isPersistedApprover`, the rule
  *     the approval endpoints apply), who must read what they are asked to approve.
  *
@@ -38,6 +39,7 @@ import {
   isApprovalAdmin,
   isPersistedApprover,
 } from '@/domain/models/app/automations/actions/approval/approver-validation'
+import { relayNamesRun } from '@/domain/models/app/automations/run-relay-service'
 import type {
   AuthDatabaseError,
   AuthRepository,
@@ -92,6 +94,20 @@ export const loadRunAccess = (input: {
     }
   }).pipe(Effect.withSpan('automations.load-run-access'))
 
+/**
+ * True when `userId` started `run` by hand herself. A run another run started
+ * on her behalf (its relay names that run) is not hers as its starter: she
+ * reads it only as an admin or a named approver would.
+ */
+export const startedByHandBy = (
+  run: Pick<PersistedRun, 'startedByHand' | 'triggeredByUserId' | 'relay'>,
+  userId: string | undefined
+): boolean =>
+  userId !== undefined &&
+  run.startedByHand &&
+  run.triggeredByUserId === userId &&
+  !relayNamesRun(run.relay)
+
 /** A run its caller may read, and whether that caller reads every run (an admin). */
 export interface ReadableRun {
   readonly run: PersistedRun
@@ -129,7 +145,7 @@ export const findReadableRun = (input: {
     )
     if (run === undefined) return undefined
     const readsEveryRun = isAdminEquivalent(role, input.app)
-    const startedIt = run.startedByHand && run.triggeredByUserId === input.userId
+    const startedIt = startedByHandBy(run, input.userId)
     const named = approvedRunIds(rows, { userId: input.userId, role }, input.app)
     return readsEveryRun || startedIt || named.includes(input.runId)
       ? { run, readsEveryRun }

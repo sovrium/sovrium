@@ -41,7 +41,7 @@ tables:
 
 - `labelPlural` names the table as a collection: its row in the operator console sidebar and table directory, the record grid's accessible name, and the command palette's "Create new record in …" action.
 - `label` names one record's table: the accessible name of a generated edit form, "Edit Ligne de facture".
-- When `labelPlural` is unset, `label` is used, then `name`. When `label` is unset, `name` is used. The singular is never guessed from the plural.
+- When `labelPlural` is unset, `label` is used, then `name`. When `label` is unset, `name` is used. The singular is never guessed from the plural. The operator console, which names your tables to an operator rather than to your users, ends on the name made readable instead — `site_visits` reads `Site visits` in its sidebar, breadcrumb and grid. It names a field that declares no `label` the same way, in sentence case, in its grid's column headers and its record sheet — `due_date` reads `Due date`.
 - Either may be a `$t:<key>` translation key, resolved against the active language like a field's `label`.
 
 Exported files keep the `name` in their file name (`invoice_lines-2026-10-14.csv`): a file name is something you script against, not prose.

@@ -48,8 +48,12 @@
  */
 
 import {
+  DEFAULT_SHADCN_DARK_VALUES,
+  DEFAULT_SHADCN_LIGHT_VALUES,
+  DESIGN_COLOR_VARS,
+} from './default-design.generated'
+import {
   INHERITED_BREAKPOINT_TOKENS as GENERATED_INHERITED_BREAKPOINT_TOKENS,
-  INHERITED_COLOR_TOKENS as GENERATED_INHERITED_COLOR_TOKENS,
   INHERITED_DURATION_TOKENS as GENERATED_INHERITED_DURATION_TOKENS,
   INHERITED_EASING_TOKENS as GENERATED_INHERITED_EASING_TOKENS,
   INHERITED_FONT_TOKENS as GENERATED_INHERITED_FONT_TOKENS,
@@ -57,19 +61,76 @@ import {
   INHERITED_SHADOW_TOKENS as GENERATED_INHERITED_SHADOW_TOKENS,
   INHERITED_SPACING_TOKENS as GENERATED_INHERITED_SPACING_TOKENS,
   PLATFORM_TYPE_LADDER as GENERATED_PLATFORM_TYPE_LADDER,
-  ROLE_COLOR_PROPERTY as GENERATED_ROLE_COLOR_PROPERTY,
 } from './inherited-tokens.generated'
 
 /**
- * The v1 colour roles, keyed by the name an author writes in
- * `design.colors` and valued as the light cascade resolves them.
+ * The colour tokens an app inherits, in shadcn/ui's own names and order
+ * ([internal ref] D5, D12.6): the variables the engine actually emits, spelled as
+ * shadcn's `globals.css` spells them. Sidebar and chart variables are left
+ * out: they are drawn on their own, not as palette roles.
  *
- * Only CANONICAL spellings appear. `DESIGN_COLOR_VARS` also accepts author keys
- * that collapse onto the same shadcn variable — `muted` for `background-subtle`,
- * `card` for `background-raised`, `destructive` for `error` — and publishing
- * both spellings of one token would read as two different colours.
+ * Sovrium's older role vocabulary (`background-subtle`, `foreground-muted`,
+ * `primary-hover`, …) is not published here. An author key with a shadcn twin
+ * is reported under the twin ({@link canonicalColorName}); an extension key
+ * with none (`primary-hover`, `success`) appears only when the app declares it.
  */
-export const INHERITED_COLOR_TOKENS = GENERATED_INHERITED_COLOR_TOKENS
+export const SHADCN_COLOR_ROLES = [
+  'background',
+  'foreground',
+  'card',
+  'card-foreground',
+  'popover',
+  'popover-foreground',
+  'primary',
+  'primary-foreground',
+  'secondary',
+  'secondary-foreground',
+  'muted',
+  'muted-foreground',
+  'accent',
+  'accent-foreground',
+  'destructive',
+  'border',
+  'input',
+  'ring',
+] as const
+
+const shadcnValues = (values: Readonly<Record<string, string>>): Readonly<Record<string, string>> =>
+  Object.fromEntries(
+    SHADCN_COLOR_ROLES.flatMap((role) => {
+      const value = values[role]
+      return value === undefined ? [] : [[role, value] as const]
+    })
+  )
+
+/** The inherited colour tokens, valued as the light cascade resolves them. */
+export const INHERITED_COLOR_TOKENS: Readonly<Record<string, string>> = shadcnValues(
+  DEFAULT_SHADCN_LIGHT_VALUES
+)
+
+/**
+ * The same tokens as the DARK cascade resolves them: what each one falls back
+ * to in dark when the app declares no dark value of its own.
+ */
+export const INHERITED_DARK_COLOR_TOKENS: Readonly<Record<string, string>> = shadcnValues(
+  DEFAULT_SHADCN_DARK_VALUES
+)
+
+/**
+ * The name a `design.colors` key is published under: its shadcn twin when it
+ * has one (`background-raised` → `card`, `error` → `destructive`), else itself.
+ */
+export const canonicalColorName = (key: string): string => DESIGN_COLOR_VARS[key] ?? key
+
+/**
+ * The surface a `*-foreground` token is read on: `primary-foreground` sits on
+ * `primary`, `muted-foreground` on `muted`. `foreground` itself, and every other
+ * colour, sits on `background`.
+ */
+export const colorGroundOf = (name: string): string =>
+  name.endsWith('-foreground') && name !== 'foreground'
+    ? name.slice(0, -'-foreground'.length)
+    : 'background'
 
 /** The v1 radius scale. */
 export const INHERITED_RADIUS_TOKENS = GENERATED_INHERITED_RADIUS_TOKENS
@@ -242,22 +303,3 @@ export const INHERITED_SPACING_TOKENS = GENERATED_INHERITED_SPACING_TOKENS
  * deriving it from a block.
  */
 export const INHERITED_BREAKPOINT_TOKENS = GENERATED_INHERITED_BREAKPOINT_TOKENS
-
-/**
- * The `--color-*` custom property a canonical role name resolves through, for
- * the seven names where the registered property is spelled differently from the
- * name an author writes.
- *
- * `bg-<name>` is minted from `--color-<name>`, and for most roles those two
- * spellings agree. They do not for the semantic quartet (an author's `error`
- * drives the `error-solid` SLOT, which is the one a surface actually paints)
- * nor for the two `-foreground` roles and `ring`, which the token layer
- * abbreviates. A specimen that wants to paint what the app paints has to follow
- * the same indirection; every name absent from this map is its own property.
- *
- * This is the subset of `COLOR_TO_SV_TOKEN` whose slot name differs. It is not
- * a copy of that map: both are emitted from the same source, and the layering
- * constraint (a domain service may not import `src/infrastructure/css`) is
- * satisfied by the source living in `src/domain/models/app/design/`.
- */
-export const ROLE_COLOR_PROPERTY = GENERATED_ROLE_COLOR_PROPERTY

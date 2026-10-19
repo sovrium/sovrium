@@ -1,0 +1,1 @@
+ALTER TABLE `system_file_storage_bytea` ADD `write_count` integer DEFAULT 1 NOT NULL;

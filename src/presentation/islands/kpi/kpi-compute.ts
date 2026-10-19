@@ -10,6 +10,7 @@ import {
   formatCurrencyValue,
   type CurrencyDisplayOptions,
 } from '@/domain/kernel/format/currency-format'
+import { formatLongDuration } from '@/domain/kernel/format/uptime-duration'
 import { usableLocale } from '@/domain/kernel/format/usable-locale'
 import { type AggregateFunction, reduceAggregate } from '../runtime/aggregate-functions'
 import type { TableRecord } from '../runtime/types'
@@ -39,7 +40,7 @@ export interface KpiAggregateConfig {
   readonly denominator?: KpiRatioSide
 }
 
-export type KpiFormatType = 'number' | 'currency' | 'percentage' | 'compact' | 'bytes'
+export type KpiFormatType = 'number' | 'currency' | 'percentage' | 'compact' | 'bytes' | 'duration'
 
 export interface KpiFormatConfig {
   readonly type: KpiFormatType
@@ -83,6 +84,10 @@ export function aggregateKpi(records: readonly TableRecord[], config: KpiAggrega
  *   `1536` -> `1.5 KB` (`1,5 ko`). THE SAME
  *   `formatByteCount` a column / `record-field` `format: 'bytes'` spends, so a
  *   tile and a row on one page cannot print one number two ways.
+ * - `duration` renders an elapsed time as one compact readout (`8.9 s`,
+ *   `2 min 50 s`, `6 d 4 h`) through the same `formatElapsedDuration` a column's
+ *   `format: 'duration'` spends, with days past a day. The value is milliseconds unless
+ *   `options.unit` is `s`.
  * - `number` (default) inserts thousands separators in the page's language
  *   (`locale`, read from `<html lang>` by the island) and applies the declared
  *   `minimumFractionDigits` / `maximumFractionDigits` options — so a French
@@ -101,6 +106,9 @@ export function formatKpiValue(
     currency: () => formatKpiCurrency(value, options?.currency, tag, display),
     percentage: () => formatPercentage(value, options, tag),
     bytes: () => formatByteCount(value, tag),
+    duration: () =>
+      formatLongDuration(value, tag, options?.unit === 's' ? 'seconds' : undefined) ??
+      String(value),
     compact: () => new Intl.NumberFormat(tag, { notation: 'compact' }).format(value),
   }
   return formatters[format?.type ?? 'number']()

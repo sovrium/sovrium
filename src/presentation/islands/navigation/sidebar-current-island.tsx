@@ -7,7 +7,7 @@
 
 import { useEffect, useRef } from 'react'
 import { sidebarEntryMatches } from '@/domain/models/app/pages/sidebar-active-match'
-import { computeSidebarEntryClasses } from '@/presentation/design/sidebar-default-classes'
+import { setSidebarEntryMark } from './sidebar-entry-mark'
 import { currentSidebarAddress, subscribeSidebarNavigation } from './sidebar-navigation-signal'
 
 /**
@@ -28,7 +28,8 @@ import { currentSidebarAddress, subscribeSidebarNavigation } from './sidebar-nav
  * and may host a badge island of its own. Re-rendering them here would mean
  * shipping the icon set to the browser and tearing down a nested island on every
  * navigation, to change one attribute and one class. So this island renders
- * nothing and edits the two things that actually differ.
+ * nothing and edits the two things that actually differ — the classes only by
+ * their difference, so the author's own link classes stay.
  *
  * It deliberately does NOT touch a link inside a `sidebar-disclosure` host:
  * those sub-entries are React-owned, they re-derive the same mark from the same
@@ -50,19 +51,14 @@ export default function SidebarCurrentIsland() {
       const path = currentSidebarAddress()
       root.querySelectorAll<HTMLAnchorElement>('a[data-sidebar-entry]').forEach((entry) => {
         if (entry.closest('[data-island="sidebar-disclosure"]') !== null) return
-        const isCurrent = sidebarEntryMatches(
-          entry.getAttribute('href') ?? '',
-          entry.getAttribute('data-active-match'),
-          path
+        setSidebarEntryMark(
+          entry,
+          sidebarEntryMatches(
+            entry.getAttribute('href') ?? '',
+            entry.getAttribute('data-active-match'),
+            path
+          )
         )
-        if (isCurrent) {
-          entry.setAttribute('aria-current', 'page')
-          entry.setAttribute('data-active', '')
-        } else {
-          entry.removeAttribute('aria-current')
-          entry.removeAttribute('data-active')
-        }
-        entry.setAttribute('class', computeSidebarEntryClasses(isCurrent))
       })
     }
 

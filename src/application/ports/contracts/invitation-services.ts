@@ -27,6 +27,8 @@ export interface InvitationUser {
   readonly id: string
   readonly email: string
   readonly name: string
+  /** The role the account holds, where the read selects it (`findUserById`). */
+  readonly role?: string | null | undefined
 }
 
 /** One persisted invitation token row. */
@@ -35,6 +37,10 @@ export interface InvitationTokenRow {
   readonly token: string
   readonly userId: string
   readonly expiresAt: Date
+  /** The inviter's user id, when one was recorded. */
+  readonly invitedBy?: string | undefined
+  /** When the invitation was sent, where the read selects it (`findInvitationToken`). */
+  readonly createdAt?: Date | undefined
 }
 
 /**
@@ -77,7 +83,8 @@ export interface InvitationStore {
     readonly userId: string
     readonly hashedPassword: string
   }) => Promise<void>
-  readonly markUserEmailVerified: (userId: string) => Promise<void>
+  /** Mark the address verified; answers whether it was not verified before. */
+  readonly markUserEmailVerified: (userId: string) => Promise<boolean>
   readonly deleteCredentialAccountForUser: (userId: string) => Promise<void>
   /** Copy a scoped inviter's table grants onto the invitee; answers how many. */
   readonly inheritScopeAssignments: (params: {
@@ -113,9 +120,24 @@ export interface InvitationMailer {
 }
 
 /** The store and engine an invitation route hands to the use-cases. */
+/** The auth events an acceptance fires, for the app's auth automations. */
+export type InvitationAuthEvent = 'emailVerified' | 'invitationAccepted'
+
+/**
+ * Starts the app's auth automations for an event the acceptance caused. Never
+ * rejects: an automation must not fail the acceptance it reacts to.
+ */
+export type InvitationEventDispatcher = (
+  event: InvitationAuthEvent,
+  user: Readonly<Record<string, unknown>>,
+  data?: Readonly<Record<string, unknown>>
+) => Promise<void>
+
 export interface InvitationServices {
   readonly store: InvitationStore
   readonly engine: InvitationAuthEngine
+  /** Absent where no automation can listen (an automation's own `auth.inviteUser`). */
+  readonly dispatchAuthEvent?: InvitationEventDispatcher
   /**
    * The invitation pages of the apps mounted on this server, under their mount
    * (the operator console's), listed after the app's own pages when a link is

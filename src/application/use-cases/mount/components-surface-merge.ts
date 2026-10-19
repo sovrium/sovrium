@@ -5,6 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  componentSampleVars,
+  withSampleVars,
+} from '@/domain/models/app/pages/component-sample-service'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -70,7 +74,14 @@ export const routeBoundOperatorComponents = (
   operatorApp: App,
   mountPath: string
 ): NonNullable<App['components']> =>
-  isComponentsSurfacePath(mountPath) ? (operatorApp.components ?? []) : []
+  isComponentsSurfacePath(mountPath)
+    ? // Each drawn on its SAMPLE vars (`componentSampleVars`): this surface is
+      // the only one that draws a template on its own, with no page handing it
+      // `vars`, and an unfilled one printed `$label` where a card belonged.
+      (operatorApp.components ?? []).map((template) =>
+        withSampleVars(template, componentSampleVars(operatorApp, template.name))
+      )
+    : []
 
 /** One language table, as `LanguagesSchema` shapes it: key → string. */
 type TranslationTable = Readonly<Record<string, unknown>>

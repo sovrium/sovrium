@@ -113,8 +113,6 @@ One thing here is a **floor** — classes applied after yours, so the guarantee 
 
 Beyond the floor: `aria-*` attributes and roles are not styling, and a class list is not the place to change what a component **is**; the names of the role tokens cannot move, because every recipe reads them (retuning a role's **value** is what `colorRoles` is for); the parts a type is made of belong to the renderer; and the Sovrium element mark is a trademark.
 
-**Seeing which layer won.** `GET /api/admin/design-system/provenance?type=button&part=root` returns the resolved class list with the chain that produced it — one entry per contributing layer, with the floor entry marked locked and carrying the reason. A layer that contributed nothing is omitted, so the chain's length is itself readable.
-
 ## Ramps and role values
 
 A palette is not a bag of hex values. It is usually a small number of **ramps** — ordered lightness ladders — plus a set of **roles** pointing into them.
@@ -146,7 +144,7 @@ design:
 
 A reference that resolves to nothing is refused at boot, listing the ramps that do exist — an unresolved one would reach the browser as a variable nothing defines, and the surface would paint its initial value in silence.
 
-**`oklch()` yes, `var()` no.** Colour values accept hex, `rgb()`, `hsl()` and `oklch()`. Sovrium's own ramps are written in `oklch`, the only widely supported space in which a ramp can be retuned by lightness without the hue drifting underneath. `var()` and `color-mix()` are refused because they are **references**, not values: they resolve against the browser's cascade, so nothing reading your config can know what colour they name — not the contrast checker, not the token export, not an agent reading your design system. When you want a token to follow another, say so with a reference the schema understands.
+**`oklch()` yes, `var()` no.** A colour value is exactly one colour: a hex literal, or one complete `rgb()`, `hsl()` or `oklch()` call with nothing after it. Anything trailing the colour, such as `rgb(0 0 0) url(…)`, is refused, because it would reach the stylesheet every page loads and could make each visitor's browser fetch a resource you never chose. Sovrium's own ramps are written in `oklch`, the only widely supported space in which a ramp can be retuned by lightness without the hue drifting underneath. `var()` and `color-mix()` are refused because they are **references**, not values: they resolve against the browser's cascade, so nothing reading your config can know what colour they name — not the contrast checker, not the token export, not an agent reading your design system. When you want a token to follow another, say so with a reference the schema understands.
 
 ## One badge for an option, everywhere
 

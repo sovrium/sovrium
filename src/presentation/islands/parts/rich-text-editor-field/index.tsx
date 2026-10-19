@@ -13,6 +13,7 @@ import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table
 import { useEditor, EditorContent, type Editor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { useCallback, useEffect, useRef } from 'react'
+import { fillPlaceholders } from '@/domain/kernel/format/placeholder-format'
 import { computeFormFieldLabelClasses } from '@/presentation/design/form-layout-classes'
 import {
   computeRichTextBodyBoxClasses,
@@ -22,7 +23,7 @@ import {
   computeRichTextOverLimitClasses,
   computeRichTextPlaceholderClasses,
 } from '@/presentation/design/rich-text-editor-default-classes'
-import { DEFAULT_TOOLBAR, filterMenuItemsByToolbar, SLASH_MENU_ITEMS } from './actions'
+import { DEFAULT_TOOLBAR, slashMenuItemsFor } from './actions'
 import { useDomInputSync, usePasteImage, useSlashMenu } from './hooks'
 import { insertImageAtCursor, uploadImageToBucket } from './image-helpers'
 import { SlashMenu } from './slash-menu'
@@ -76,6 +77,7 @@ export function RichTextEditorField({
   maxLength,
   displayLabel,
   imageBucket,
+  words,
 }: RichTextEditorFieldProps) {
   const toolbarItems = toolbar ?? DEFAULT_TOOLBAR
   // The built-in `system` bucket stores an image whose field names no bucket.
@@ -120,7 +122,7 @@ export function RichTextEditorField({
     [bucket]
   )
 
-  const slashState = useSlashMenu({ editor, toolbar: toolbarItems, onImageButtonClick })
+  const slashState = useSlashMenu({ editor, toolbar: toolbarItems, onImageButtonClick, words })
   usePasteImage({ editor, bucket })
   const domLength = useDomInputSync({ editor, name, onChange })
 
@@ -180,6 +182,7 @@ export function RichTextEditorField({
           editor={editor}
           items={toolbarItems}
           onImageButtonClick={onImageButtonClick}
+          words={words}
         />
         {/*
           The body and its prompt share a `relative` box, and that box is the
@@ -237,7 +240,8 @@ export function RichTextEditorField({
         </div>
         <SlashMenu
           state={slashState}
-          items={filterMenuItemsByToolbar(SLASH_MENU_ITEMS, toolbarItems)}
+          items={slashMenuItemsFor(toolbarItems, words)}
+          emptyLabel={words?.['richText.noMatches']}
         />
         {counter}
         {overLimit && (
@@ -246,7 +250,10 @@ export function RichTextEditorField({
             data-form-error={name}
             className={computeRichTextOverLimitClasses()}
           >
-            Content exceeds maximum of {maxLength} characters
+            {fillPlaceholders(
+              words?.['richText.overLimit'] ?? 'Content exceeds maximum of {max} characters',
+              { max: maxLength ?? 0 }
+            )}
           </div>
         )}
       </div>

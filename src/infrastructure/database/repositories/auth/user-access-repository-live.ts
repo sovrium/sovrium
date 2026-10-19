@@ -10,11 +10,14 @@ import { Layer, Option } from 'effect'
 import {
   UserAccessDatabaseError,
   UserAccessRepository,
+  type RecordKeySource,
   type RecordLabel,
   type RecordLabelSource,
   type UserAccessChange,
   type UserAccessFilter,
+  type UserAccessInsertInput,
   type UserAccessRecordGrant,
+  type UserAccessRecordRevocation,
   type UserAccessRow,
 } from '@/application/ports/repositories/auth/user-access-repository'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
@@ -27,7 +30,10 @@ import { userAccess as userAccessPg } from '@/infrastructure/database/drizzle/sc
 import { userAccess as userAccessSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/user-access'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import {
+  lockGrantsOf,
+  type GrantTransaction,
+} from '@/infrastructure/database/user-access-grant-lock'
 import { closeUserConnections } from '@/infrastructure/realtime/connection-counter'
 
 const userAccess = resolveDialectSchema(userAccessPg, userAccessSqlite)
@@ -101,6 +107,29 @@ const readRecordLabels = async (
 }
 
 /**
+ * The ids among `ids` naming a record of the source table outside the trash,
+ * compared as TEXT (see above). A trashed record is no grantable record: a grant
+ * naming it would store access nobody can use until a restore nobody tied to it.
+ */
+const readRecordIds = async (
+  source: Readonly<RecordKeySource>,
+  ids: readonly string[]
+): Promise<readonly string[]> => {
+  const key = sql.identifier(source.primaryKey)
+  const wanted = sql.join(
+    [...new Set(ids)].map((id) => sql`${id}`),
+    sql`, `
+  )
+  const rows = await executeRaw(
+    db,
+    sql`SELECT CAST(${key} AS TEXT) AS record_id
+        FROM ${sql.identifier(sanitizeTableName(source.tableName))}
+        WHERE CAST(${key} AS TEXT) IN (${wanted}) AND deleted_at IS NULL`
+  )
+  return rows.map((row) => String(row['record_id']))
+}
+
+/**
  * The record half of a listing filter, applied to the rows read: `record_ids`
  * is a `TEXT[]` on PostgreSQL and a JSON array on SQLite, and the grants of
  * one table are few, so one portable comparison serves both engines.
@@ -126,74 +155,73 @@ const closingConnectionsOf = (row: Readonly<UserAccessRow>): UserAccessRow => {
   return row
 }
 
-type GrantTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
-
-/**
- * Hold the account's grants over one table until the transaction ends, so the
- * read-change-write of `record_ids` below is never interleaved with another.
- *
- * PostgreSQL: a transaction-scoped advisory lock keyed on the account and the
- * table — it serialises the changes even when no grant exists yet to lock as a
- * row (two first grants would otherwise both insert). SQLite: nothing to take,
- * the transaction itself is `BEGIN IMMEDIATE`, serialised against every other
- * statement on the one connection (`sqlite-serialized-client.ts`).
- */
-const lockGrantsOf = async (
-  tx: GrantTransaction,
-  grant: Readonly<UserAccessRecordGrant>
-): Promise<void> => {
-  if (isSqliteRuntime()) return
-  const key = JSON.stringify(['user_access', grant.userId, grant.tableSlug])
-  await executeRaw(tx, sql`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`)
-}
-
 /** The account's grants over the table, oldest first, read inside the lock. */
-const grantsHeld = (tx: GrantTransaction, grant: Readonly<UserAccessRecordGrant>) =>
+const grantsHeld = (
+  tx: GrantTransaction,
+  grant: Readonly<Pick<UserAccessRecordGrant, 'userId' | 'tableSlug'>>
+) =>
   tx
     .select()
     .from(userAccess)
     .where(and(eq(userAccess.userId, grant.userId), eq(userAccess.tableSlug, grant.tableSlug)))
     .orderBy(asc(userAccess.createdAt))
 
-/** The grant the record now joins, written inside the lock; `undefined` when it already held it. */
-const addRecord = async (
+/**
+ * The account's grant over the table under the input's role, with the input's
+ * records it does not name yet appended — or a new grant naming them, when it
+ * holds none — written inside the lock. `changed` is `false` when the grant
+ * already named every record.
+ *
+ * `created_at` comes from the host clock, not the DDL's `DEFAULT NOW()`: the
+ * response is compared against the caller's own clock, and a database clock a
+ * few milliseconds apart would put a fresh grant in the caller's future.
+ */
+const mergeRecords = async (
   tx: GrantTransaction,
-  grant: Readonly<UserAccessRecordGrant & { readonly role: string }>,
+  input: Readonly<UserAccessInsertInput>,
   createdBy: string
 ) => {
-  await lockGrantsOf(tx, grant)
-  const held = (await grantsHeld(tx, grant)).find((row) => row.role === grant.role)
+  await lockGrantsOf(tx, input)
+  const held = (await grantsHeld(tx, input)).find((row) => row.role === input.role)
   if (held === undefined) {
     const [row] = await tx
       .insert(userAccess)
       .values({
-        userId: grant.userId,
-        tableSlug: grant.tableSlug,
-        recordIds: [grant.recordId],
-        role: grant.role,
+        userId: input.userId,
+        tableSlug: input.tableSlug,
+        recordIds: [...new Set(input.recordIds)],
+        role: input.role,
         createdAt: new Date(),
         createdBy,
       })
       .returning()
-    return row
+    if (!row) throw new Error('user_access INSERT returned no rows')
+    return { row, created: true, changed: true }
   }
-  if (held.recordIds.includes(grant.recordId)) return undefined
+  const added = [...new Set(input.recordIds)].filter((id) => !held.recordIds.includes(id))
+  if (added.length === 0) return { row: held, created: false, changed: false }
   const [row] = await tx
     .update(userAccess)
-    .set({ recordIds: [...held.recordIds, grant.recordId] })
+    .set({ recordIds: [...held.recordIds, ...added] })
     .where(eq(userAccess.id, held.id))
     .returning()
-  return row
+  if (!row) throw new Error('user_access UPDATE returned no rows')
+  return { row, created: false, changed: true }
 }
 
-/** Take the record out of each grant naming it, inside the lock; how many grants changed. */
+/**
+ * Take the record out of each grant naming it — under the revocation's role
+ * only, when it names one — inside the lock; how many grants changed.
+ */
 const takeRecord = async (
   tx: GrantTransaction,
-  grant: Readonly<UserAccessRecordGrant>
+  grant: Readonly<UserAccessRecordRevocation>
 ): Promise<number> => {
   await lockGrantsOf(tx, grant)
-  const naming = (await grantsHeld(tx, grant)).filter((row) =>
-    row.recordIds.includes(grant.recordId)
+  const naming = (await grantsHeld(tx, grant)).filter(
+    (row) =>
+      row.recordIds.includes(grant.recordId) &&
+      (grant.role === undefined || row.role === grant.role)
   )
   for (const row of naming) {
     const remaining = row.recordIds.filter((id) => id !== grant.recordId)
@@ -211,6 +239,50 @@ const changedColumns = (change: Readonly<UserAccessChange>) => ({
 })
 
 /**
+ * Apply `change` to the grant `id` inside the lock, or `undefined` when no grant
+ * has the id. A role change onto a role the account already holds over the
+ * table folds the grant into the held one — which keeps its id and its records'
+ * order, gains the records not yet named, and is the answer — and deletes it.
+ */
+const changeGrant = async (
+  tx: GrantTransaction,
+  id: string,
+  change: Readonly<UserAccessChange>
+): Promise<typeof userAccess.$inferSelect | undefined> => {
+  const byId = () => tx.select().from(userAccess).where(eq(userAccess.id, id)).limit(1)
+  const [found] = await byId()
+  if (found === undefined) return undefined
+  await lockGrantsOf(tx, found)
+  const [target] = await byId()
+  if (target === undefined) return undefined
+  const held =
+    change.role === undefined || change.role === target.role
+      ? undefined
+      : (await grantsHeld(tx, target)).find(
+          (row) => row.role === change.role && row.id !== target.id
+        )
+  if (held === undefined) {
+    const [row] = await tx
+      .update(userAccess)
+      .set(changedColumns(change))
+      .where(eq(userAccess.id, id))
+      .returning()
+    return row
+  }
+  const added = [...new Set(change.recordIds ?? target.recordIds)].filter(
+    (recordId) => !held.recordIds.includes(recordId)
+  )
+  await tx.delete(userAccess).where(eq(userAccess.id, id))
+  if (added.length === 0) return held
+  const [row] = await tx
+    .update(userAccess)
+    .set({ recordIds: [...held.recordIds, ...added] })
+    .where(eq(userAccess.id, held.id))
+    .returning()
+  return row
+}
+
+/**
  * User-Access Repository Implementation (Drizzle).
  *
  * Replaces the raw `bun:sql` access that previously lived in
@@ -219,36 +291,15 @@ const changedColumns = (change: Readonly<UserAccessChange>) => ({
  * type-safe inserts/selects against that schema.
  */
 export const UserAccessRepositoryLive = Layer.succeed(UserAccessRepository, {
-  insert: (input, createdBy) =>
+  mintGrant: (input, createdBy) =>
     wrap(async () => {
-      // We populate `createdAt` from the JS clock rather than relying
-      // on the DDL's `DEFAULT NOW()`. Two reasons:
-      //   1. The Z-2 spec asserts the returned `created_at` is bounded
-      //      by the test process's `Date.now()` at request entry — a
-      //      DB-clock-vs-host-clock skew (≤10ms in containerised
-      //      Postgres) flips that assertion intermittently.
-      //   2. The previous raw-SQL implementation paid ~50ms of
-      //      connection-setup latency per call, which incidentally
-      //      masked any clock skew. Reusing the pool removes that
-      //      latency and exposes the timestamp ordering directly.
-      // This is a *behaviour-preserving* tweak: the timestamp still
-      // represents grant time within milliseconds of the request.
-      const [row] = await db
-        .insert(userAccess)
-        .values({
-          userId: input.userId,
-          tableSlug: input.tableSlug,
-          recordIds: [...input.recordIds],
-          role: input.role,
-          createdAt: new Date(),
-          createdBy,
-        })
-        .returning()
-      if (!row) {
-        throw new Error('user_access INSERT returned no rows')
-      }
-      return closingConnectionsOf(shapeRow(row))
+      const merged = await db.transaction((tx) => mergeRecords(tx, input, createdBy))
+      const row = shapeRow(merged.row)
+      return { row: merged.changed ? closingConnectionsOf(row) : row, created: merged.created }
     }),
+
+  findRecordIds: (source, ids) =>
+    wrap(async () => (ids.length === 0 ? [] : readRecordIds(source, ids))),
 
   list: (filter) =>
     wrap(async () => {
@@ -281,24 +332,22 @@ export const UserAccessRepositoryLive = Layer.succeed(UserAccessRepository, {
 
   update: (id, change) =>
     wrap(async () => {
-      const columns = changedColumns(change)
-      if (Object.keys(columns).length === 0) {
+      if (Object.keys(changedColumns(change)).length === 0) {
         const [row] = await db.select().from(userAccess).where(eq(userAccess.id, id)).limit(1)
         return row === undefined ? Option.none() : Option.some(shapeRow(row))
       }
-      const [row] = await db
-        .update(userAccess)
-        .set(columns)
-        .where(eq(userAccess.id, id))
-        .returning()
+      const row = await db.transaction((tx) => changeGrant(tx, id, change))
       return row === undefined ? Option.none() : Option.some(closingConnectionsOf(shapeRow(row)))
     }),
 
   grantRecord: (grant, createdBy) =>
     wrap(async () => {
-      const row = await db.transaction((tx) => addRecord(tx, grant, createdBy))
-      if (row === undefined) return false
-      closingConnectionsOf(shapeRow(row))
+      const { recordId, ...rest } = grant
+      const merged = await db.transaction((tx) =>
+        mergeRecords(tx, { ...rest, recordIds: [recordId] }, createdBy)
+      )
+      if (!merged.changed) return false
+      closingConnectionsOf(shapeRow(merged.row))
       return true
     }),
 

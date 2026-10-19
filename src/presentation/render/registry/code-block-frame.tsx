@@ -6,9 +6,9 @@
  */
 
 /**
- * The FRAME of a `code` block — the `<figure>` with its file or terminal bar —
- * lifted out of `code-block-component.tsx`, which owns the `<pre>` branches,
- * together with the frame precedence. The frame and its bar are the two elements an author's
+ * The FRAME of a `code` block — shadcn/ui's Code Block: the `<figure>` with its
+ * header, content and footer — lifted out of `code-block-component.tsx`, which
+ * owns the `<pre>` branches, together with the frame precedence. The frame and its bar are the two elements an author's
  * `classes` reach by name: `frame` on the `<figure>`, `caption` on the
  * `<figcaption>`.
  */
@@ -21,16 +21,21 @@ import {
   computeCodeBlockClasses,
   computeCodeBlockFilenameClasses,
   computeCodeBlockHeaderClasses,
-  computeCodeBlockOutputClasses,
 } from '../../design/code-block-default-classes'
+import {
+  computeCodeBlockActionsClasses,
+  computeCodeBlockFooterClasses,
+  computeCodeBlockTitleClasses,
+} from '../../design/code-block-line-classes'
 import type { ReactElement, ReactNode } from 'react'
 
 /** Chrome drawn around the block. Mirrors `CodeFrameSchema`. */
 export type CodeFrame = 'none' | 'file' | 'terminal'
 
 /**
- * Header row: the filename caption, or the terminal marker — and, on the right,
- * the copy control. The control lives HERE rather than over the code because on
+ * Header row, on shadcn/ui's Code Block anatomy: the TITLE (the filename, or
+ * the terminal marker) and, beside it, the ACTIONS group holding the copy
+ * button. The control lives in the header rather than over the code because on
  * a narrow viewport a floating button covers the first line's trailing tokens,
  * which are exactly the ones the reader is trying to read.
  *
@@ -38,11 +43,10 @@ export type CodeFrame = 'none' | 'file' | 'terminal'
  * would be swept up by the copy button and by a manual selection, and the reader
  * would paste `$ curl …` and get "command not found: $".
  *
- * The copy BUTTON sits inside the `code-block-filename` part, at its trailing
- * edge: `[data-code-filename]` / `[data-code-terminal]` is the element the
- * suite reads as "the header that holds the copy button". The status region
- * stays outside it, in the bar, so a "Copied" announcement never becomes part
- * of the filename's text.
+ * The text itself is the `code-block-filename` part inside the title, carrying
+ * `[data-code-filename]` / `[data-code-terminal]`: those name the header's TEXT,
+ * so the button is kept out of them. The status region stays outside the
+ * title too, so a "Copied" announcement never becomes part of the title's text.
  */
 function renderFrameHeader(
   frame: Exclude<CodeFrame, 'none'>,
@@ -57,14 +61,26 @@ function renderFrameHeader(
       className={cn(computeCodeBlockHeaderClasses(), captionPart)}
     >
       <span
-        data-slot="code-block-filename"
-        data-code-filename={isFile ? 'true' : undefined}
-        data-code-terminal={isFile ? undefined : 'true'}
-        className={computeCodeBlockFilenameClasses()}
+        data-slot="code-block-title"
+        className={computeCodeBlockTitleClasses()}
       >
-        <span className="truncate">{isFile ? filename : `>_ ${terminalLabel}`}</span>
-        {copyButton}
+        <span
+          data-slot="code-block-filename"
+          data-code-filename={isFile ? 'true' : undefined}
+          data-code-terminal={isFile ? undefined : 'true'}
+          className={computeCodeBlockFilenameClasses()}
+        >
+          {isFile ? filename : `>_ ${terminalLabel}`}
+        </span>
       </span>
+      {copyButton !== undefined && (
+        <span
+          data-slot="code-block-actions"
+          className={computeCodeBlockActionsClasses()}
+        >
+          {copyButton}
+        </span>
+      )}
       {copyStatus}
     </figcaption>
   )
@@ -77,6 +93,11 @@ interface FrameHeaderInput {
   readonly captionPart?: string | undefined
 }
 
+/** shadcn/ui's Code Block size. Mirrors the schema's `size`. */
+export type CodeBlockSize = 'default' | 'sm'
+/** shadcn/ui's Code Block variant. Mirrors the schema's `variant`. */
+export type CodeBlockVariant = 'default' | 'destructive'
+
 /** Inputs for the framed (`file` / `terminal`) composition. */
 interface FrameInput {
   readonly frame: Exclude<CodeFrame, 'none'>
@@ -86,27 +107,32 @@ interface FrameInput {
   readonly codePre: ReactElement
   readonly copyButton: ReactNode
   readonly copyStatus: ReactNode
+  readonly size: CodeBlockSize
+  readonly variant: CodeBlockVariant
   /** The author's part classes: `frame` on the `<figure>`, `caption` on its bar. */
   readonly parts?: Readonly<Record<string, string>>
 }
 
 /**
- * The framed composition: ONE `<figure>` holding the header, the command, and —
- * when the author supplied one — the command's output as a SECOND `<pre>`. The
- * figure's accessible name is the filename (or the terminal marker), so a
- * screen-reader user hears which file they are in before hearing its contents.
+ * The framed composition: ONE `<figure>` — shadcn/ui's `code-block`, naming its
+ * size and variant — holding the header, the command as the scrolling content,
+ * and, when the author supplied one, the command's output as the FOOTER, outside
+ * the content so it never reads as part of the command. The figure's accessible
+ * name is the filename (or the terminal marker), so a screen-reader user hears
+ * which file they are in before hearing its contents.
  *
  * The `<figure>` IS the copy scope: the button sits in the header, above the
  * code, so the scope has to enclose both. That puts the output `<pre>` inside
- * the scope for the first time — which is why the delegated handler resolves the
- * payload through `[data-copy-target]` rather than through the scope's first
- * `<pre>`.
+ * the scope — which is why the delegated handler resolves the payload through
+ * `[data-copy-target]` rather than through the scope's first `<pre>`.
  */
 export function renderFramedBlock(input: FrameInput): ReactElement {
   const { frame, filename, terminalLabel, output, codePre, copyButton, copyStatus, parts } = input
   return (
     <figure
       data-slot="code-block"
+      data-size={input.size}
+      data-variant={input.variant}
       data-code-frame={frame}
       data-code-copy-scope="true"
       aria-label={frame === 'file' ? filename : terminalLabel}
@@ -120,8 +146,9 @@ export function renderFramedBlock(input: FrameInput): ReactElement {
       {cloneElement(codePre, { 'data-slot': 'code-block-content' } as Record<string, unknown>)}
       {output !== undefined && (
         <pre
+          data-slot="code-block-footer"
           data-code-output="true"
-          className={computeCodeBlockOutputClasses()}
+          className={computeCodeBlockFooterClasses()}
         >
           {output}
         </pre>

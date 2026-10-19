@@ -6,7 +6,11 @@
  */
 
 import { Schema } from 'effect'
-import { FieldConditionSchema } from '../../../condition-operators'
+import {
+  DisabledReasonSchema,
+  DisabledWhenSchema,
+  FieldConditionSchema,
+} from '../../../condition-operators'
 import { BaseFieldWithoutLabelSchema } from '../base-field'
 import { validateButtonAction } from '../validation-utils'
 
@@ -66,6 +70,16 @@ const ButtonFieldBaseSchema = BaseFieldWithoutLabelSchema.pipe(
           'Render the button only on records whose named field satisfies the condition. Omit to show it on every record.',
       })
     ),
+    /**
+     * Per-record DISABLED predicate: the button stays drawn, marked
+     * `aria-disabled`, and pressing it starts nothing. The server checks it on
+     * the whole row after the dispatch, write and role gates and after
+     * `visibleWhen` (a hidden button answers 404, as an absent one does), and
+     * answers a press it holds for with 409 and the reason.
+     */
+    disabledWhen: Schema.optional(DisabledWhenSchema),
+    /** Why the button is disabled: its tooltip and its accessible description. */
+    disabledReason: Schema.optional(DisabledReasonSchema),
   })
 )
 

@@ -51,12 +51,13 @@ export async function performDownload(
 ): Promise<FetchActionResult> {
   const url = substituteRecord(action.url, options.record)
   const filename = action.filename ? substituteRecord(action.filename, options.record) : ''
+  const again = () => void performDownload(action, options)
   try {
     const res = await fetch(url, { method: 'GET', credentials: 'include' })
     if (!res.ok) {
       // A refused download is said, like a refused fetch: without this the
       // button came back and nothing on the page told the reader it had failed.
-      renderActionToast(action.onError, options)
+      renderActionToast(action.onError, options, again)
       return { ok: false, status: res.status, body: undefined }
     }
     saveBlob(await res.blob(), filename)
@@ -70,7 +71,7 @@ export async function performDownload(
     applyFetchSuccessEffects(action.onSuccess)
     return { ok: true, status: res.status, body: undefined }
   } catch {
-    renderActionToast(action.onError, options)
+    renderActionToast(action.onError, options, again)
     return { ok: false, status: 0, body: undefined }
   }
 }

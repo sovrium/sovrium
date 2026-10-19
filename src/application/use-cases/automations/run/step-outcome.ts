@@ -22,6 +22,7 @@ import { type ActionOutcome } from '../action-handlers'
 import { laterResponse } from '../action-handlers/response-precedence'
 import { parkedAt } from '../action-handlers/run-park'
 import { redactSecretsForRunHistory } from '../redact-secrets'
+import { runClientErrorAfterStep } from './client-error'
 import { withMetadataOf } from './step-metadata'
 import { buildStep, maskRunSecrets, redactString, withDuration } from './step-record'
 import { type RunAccumulator, type StepContext } from './types'
@@ -214,11 +215,13 @@ const appendStepToAccumulator = (input: {
       : undefined
   const ret = pickReturnData(outcome, acc)
   const { actions, lastOutput } = foldStepOutput(acc, stepName, out)
+  const runError = resolveRunErrorAfterStep(input, outcome, acc, ctx)
   return {
     steps: [...acc.steps, step],
     stepMetadata: withMetadataOf(acc.stepMetadata ?? {}, stepName, step),
     runStatus: resolveRunStatusAfterStep(rawAction, outcome, acc),
-    runError: resolveRunErrorAfterStep(input, outcome, acc, ctx),
+    runError,
+    ...runClientErrorAfterStep(acc, runError, step.clientError),
     actions,
     lastOutput,
     halted: acc.halted || ret.halt,
@@ -274,6 +277,33 @@ const suspendedOrCancelled = (input: {
 }
 
 /**
+ * A run halted as SKIPPED: by a filter that evaluated false, or by an action
+ * whose connection is not configured — which also carries its reason (which
+ * connection, and which variable to set) as the run's error.
+ */
+const skippedRun = (input: {
+  readonly acc: RunAccumulator
+  readonly rawAction: Readonly<Record<string, unknown>>
+  readonly resolvedProps: Readonly<Record<string, unknown>>
+  readonly outcome: ActionOutcome
+  readonly ctx: StepContext
+  readonly durationMs?: number
+}): RunAccumulator => {
+  const { acc, outcome, ctx } = input
+  const runError =
+    outcome.unconfigured !== undefined && outcome.error !== undefined
+      ? redactString(outcome.error, ctx.app, ctx.processEnv)
+      : acc.runError
+  return {
+    ...acc,
+    steps: [...acc.steps, recordOf(input)],
+    runStatus: 'skipped',
+    runError,
+    halted: true,
+  }
+}
+
+/**
  * Fold an action's `outcome` into the run accumulator. Pure synchronous;
  * tracks `lastOutput` as a shallow merge of every step's output (later
  * steps win on key collisions; see RunAccumulator docstring).
@@ -301,14 +331,7 @@ export const foldOutcome = (input: {
   // The filter-continue contract accepts either
   // "step omitted" or "step recorded as filtered/skipped" for the
   // FOLLOWING action — recording only the filter itself is compatible.
-  if (outcome.status === 'filtered') {
-    return {
-      ...acc,
-      steps: [...acc.steps, recordOf(input)],
-      runStatus: 'skipped',
-      halted: true,
-    }
-  }
+  if (outcome.status === 'filtered') return skippedRun({ ...input, acc })
   if (outcome.park !== undefined || outcome.cancelRun !== undefined) {
     return suspendedOrCancelled({ ...input, acc })
   }

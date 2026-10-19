@@ -136,51 +136,46 @@ export default {
   // sideways on one line, where a bare `$session.name` heading would have
   // arrived empty and filled in.
   'admin.welcome.heading': 'Welcome[, $session.name]',
-  'admin.welcome.heroRegion': 'Ask or search',
+  'admin.welcome.intro': 'What needs you, and what this app declares.',
+  'admin.welcome.ask.title': 'Ask about this app',
+  'admin.welcome.ask.description':
+    'Answers from this app’s data and configuration. Read-only. Also in ⌘K.',
   'admin.invitation.heading': 'Join the console',
   'admin.invitation.invitedYouTo': 'invited you to',
   'admin.invitation.signInAs': 'You will sign in as',
   'admin.invitation.submit': 'Set password and join',
+  'admin.invitation.asRole': 'as',
+  'admin.invitation.worksUntil': 'This invitation works until',
+  'admin.invitation.unusable.heading': 'This invitation link no longer works',
+  'admin.invitation.unusable.body':
+    'It may have expired or already been used. Ask the person who invited you to send a new one.',
+  'admin.invitation.unusable.signIn': 'Go to sign in',
   'admin.notFound.heading': 'Page not found',
   'admin.notFound.body':
     'Nothing in this console answers this address. The section may not exist in this app, or the link is out of date.',
-  'admin.notFound.back': 'Go to Overview',
-  'admin.welcome.noAi': 'No AI provider configured — search the app instead.',
-  'admin.welcome.readOnlySearch':
-    'Search the app. The assistant is offered to roles that can make changes.',
-  // The hero's palette trigger, named APART from the sidebar's.
-  //
-  // Both controls open the same palette, and Welcome is the one surface where
-  // both are on screen at once. They carried the same `admin.shell.search`
-  // name — so a reader listing the page's buttons heard "Search" twice, with
-  // nothing to tell them apart, and a strict locator resolved to two elements.
-  // The sidebar keeps the bare verb: it is the console's standing affordance
-  // on EVERY surface, and qualifying it there would be a longer name for a
-  // control that has no rival to be distinguished from. The hero names its
-  // target instead, in the same words as the caption directly beneath it
-  // (BRAND §6 — one term per concept, so both still say "search").
-  'admin.welcome.searchHero': 'Search the app',
+  'admin.notFound.back': 'Back to Overview',
 
-  // ── Welcome · the pulse strip ───────────────────────────────────────────
+  // ── Welcome · needs attention ───────────────────────────────────────────
   //
-  // Each cell reads `<count> <what>`, so the label is the PREDICATE and starts
-  // lower-case: the number is the first word of the phrase. The destinations
-  // are the sidebar's own nouns, unchanged — Runs is Runs in both places, or an
-  // operator has two names for one console (BRAND §6).
+  // Each row reads `<what> <count>`, the label first, so no label has to agree
+  // in number with the figure beside it. The actions name the sidebar's own
+  // nouns — Runs is Runs in both places, or an operator has two names for one
+  // console.
   'admin.welcome.pulse.region': 'What needs attention',
-  'admin.welcome.pulse.heading': 'Since this instance started',
+  'admin.welcome.pulse.heading': 'Needs attention',
+  'admin.welcome.pulse.since': 'Since this instance started',
   'admin.welcome.pulse.failedRuns': 'Failed runs',
-  'admin.welcome.pulse.failedRuns.where': 'Runs →',
+  'admin.welcome.pulse.failedRuns.action': 'Open runs',
   'admin.welcome.pulse.variablesUnset': 'Required variables unset',
-  'admin.welcome.pulse.variablesUnset.where': 'Environment →',
+  'admin.welcome.pulse.variablesUnset.action': 'Open environment',
   'admin.welcome.pulse.tokensExpired': 'Connections to reconnect',
-  'admin.welcome.pulse.tokensExpired.where': 'Connections →',
+  'admin.welcome.pulse.tokensExpired.action': 'Open connections',
   'admin.welcome.pulse.invitationsPending': 'Invitations pending',
-  'admin.welcome.pulse.invitationsPending.where': 'Users →',
+  'admin.welcome.pulse.invitationsPending.action': 'Open users',
   'admin.welcome.pulse.recentSubmissions': 'New submissions',
-  'admin.welcome.pulse.recentSubmissions.where': 'Submissions →',
+  'admin.welcome.pulse.recentSubmissions.action': 'Open submissions',
   'admin.welcome.pulse.findingsCount': 'Findings',
-  'admin.welcome.pulse.findingsCount.where': 'findings →',
+  'admin.welcome.pulse.findingsCount.action': 'Review findings',
   'admin.welcome.pulse.allClear': 'All clear',
   'admin.welcome.pulse.allClear.body':
     'No failed run, no unset variable, no connection to reconnect, nothing waiting.',
@@ -188,6 +183,17 @@ export default {
   // ── Welcome · the declaration tiles ─────────────────────────────────────
   'admin.welcome.counts.region': 'What this app declares',
   'admin.welcome.counts.heading': 'What this app declares',
+  'admin.welcome.counts.description': 'A row appears when the configuration declares the feature.',
+  'admin.welcome.figures.region': 'Headline figures',
+  'admin.welcome.figures.runs': 'Runs, last 24 h',
+  'admin.welcome.figures.runs.sub': 'failed since this instance started',
+  'admin.welcome.figures.submissions': 'Submissions',
+  'admin.welcome.figures.submissions.sub': 'since this instance started',
+  'admin.welcome.figures.accounts': 'Accounts',
+  'admin.welcome.figures.storage': 'Files stored',
+  'admin.welcome.runsChart.region': 'Runs, last 7 days',
+  'admin.welcome.runsChart.runs': 'Runs',
+  'admin.welcome.runsChart.failures': 'Failed',
 
   // ── Profile (`/profile`) ────────────────────────────────────────────────
   //
@@ -231,12 +237,13 @@ export default {
   'admin.profile.email.failed': 'Could not send the link.',
 
   'admin.profile.password.formRegion': 'Change your password',
-  'admin.profile.password.submit': 'Change',
+  'admin.profile.password.submit': 'Change password',
   'admin.profile.password.saved': 'Password changed.',
   'admin.profile.password.failed': 'Could not change your password — check your current one.',
 
   'admin.profile.language.label': 'Language',
-  'admin.profile.language.hint': 'Follows your account to any browser you sign in from.',
+  'admin.profile.language.hint':
+    'Saved to your account, it follows you to any browser. Until you save one, each browser keeps its own.',
   'admin.profile.language.formRegion': 'Change the console language',
   'admin.profile.language.saved': 'Language saved.',
   'admin.profile.language.savedDetail': 'Language saved. The console switches on your next page.',
@@ -269,7 +276,8 @@ export default {
   'admin.gdpr.identity.heading': 'My identity',
   'admin.gdpr.export.heading': 'Export my data',
   'admin.gdpr.export.submit': 'Generate export',
-  'admin.gdpr.export.failed': 'Couldn’t generate your export. Try again in a moment.',
+  'admin.gdpr.export.failed': 'Couldn’t prepare your export. Nothing was sent.',
+  'admin.gdpr.export.retry': 'Retry',
   'admin.gdpr.erase.heading': 'Erase my account',
   'admin.gdpr.erase.submit': 'Request erasure',
   // The type-to-confirm gate. It repeats the irreversibility the row hint
@@ -302,11 +310,23 @@ export default {
 
   // ── API keys (`/api-keys`) ──────────────────────────────────────────────
   'admin.apiKeys.heading': 'API keys',
+  'admin.apiKeys.readScope': 'This key reads what you can read.',
   'admin.apiKeys.region': 'Your API keys',
   'admin.apiKeys.loading': 'Loading your API keys…',
 
   // ── Environment (`/env`) ────────────────────────────────────────────────
   'admin.env.heading': 'Environment',
+  'admin.env.search': 'Search variables',
+  'admin.env.filter.status': 'Filter by status',
+  'admin.env.filter.allStatuses': 'All statuses',
+  'admin.env.filter.required': 'Filter by requirement',
+  'admin.env.filter.allRequirements': 'Required and optional',
+  'admin.env.col.variable': 'Variable',
+  'admin.env.col.required': 'Required',
+  'admin.env.col.status': 'Status',
+  'admin.env.col.source': 'Source',
+  'admin.env.empty': 'This app declares no environment variables.',
+  'admin.env.noMatch': 'No variable matches. Clear the search or a filter.',
   'admin.env.blurb':
     'The variables this app declares, and whether this instance resolved each one. Values are never shown.',
   'admin.env.callout.heading': 'Values live in the deployment environment',
@@ -316,6 +336,8 @@ export default {
   // necessity rather than by restraint — and each is a different fact, which is
   // why "Set" and "From the environment" are two keys and not one sentence.
   'admin.env.usedBy': 'Used by',
+  'admin.env.requiredUnset':
+    'is required and not set. Set it where you run this instance, then restart.',
   'admin.env.unused': 'Unused',
   'admin.env.required': 'Required',
   'admin.env.optional': 'Optional',
@@ -367,7 +389,6 @@ export default {
   // what it is busy doing.
   'admin.login.pending': 'Signing in…',
   'admin.login.cloudSignIn': 'Sign in with Sovrium Cloud',
-  'admin.login.forgotLink': 'Forgot your password?',
   // The rule between the Sovrium Cloud button and the email form.
   'admin.login.orEmail': 'Or with your email',
 

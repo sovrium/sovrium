@@ -18,7 +18,7 @@ import { LinkRepository } from '@/application/ports/repositories/links/link-repo
 import { UsersDirectoryRepository } from '@/application/ports/repositories/tables/users-directory-repository'
 import { BuildAutomationsCatalog } from '@/application/use-cases/admin/automations-catalog'
 import { buildEnvVarStatuses } from '@/application/use-cases/admin/config/env-status'
-import { BuildConnectionsList } from '@/application/use-cases/admin/connections'
+import { BuildConnectionsListFor } from '@/application/use-cases/admin/connections'
 import { projectInvitations } from '@/application/use-cases/auth/admin-invitation-lifecycle'
 import { buildCatalog } from '@/application/use-cases/links/catalog'
 import { configSlugs } from '@/application/use-cases/links/config-slugs'
@@ -27,17 +27,10 @@ import { FINAL_FAILURE_RUN_STATUSES } from '@/domain/models/app/automations/auto
 import { isAiProviderConfigured } from '@/domain/models/process-env/ai/ai-providers'
 import { parseStorageEnvConfig } from '@/domain/models/process-env/storage/storage'
 import { Logger } from '@/infrastructure/logging/logger'
-import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
-import {
-  EMPTY_CELL,
-  cellOf,
-  formatStamp,
-  formatWaited,
-  measured,
-  tallyCell,
-  unread,
-} from './attention-cells'
+import { EMPTY_CELL, cellOf, formatWaited, measured, tallyCell, unread } from './attention-cells'
+import { automationLabelOf, formLabelOf, pausedSubjectOf } from './attention-subject-labels'
 import type { Cell, Sourced } from './attention-cells'
+import type { ConsoleLanguage } from './operator-language'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
 import type { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
@@ -97,6 +90,7 @@ const degradeTo = <A, E, R>(
  * tells the operator where to look precisely nothing.
  */
 export const failedRunsBlock = (
+  app: App,
   since: Readonly<Date>
 ): Effect.Effect<Sourced<Cell>, never, AdminAutomationsRepository | Logger> =>
   degradeTo(
@@ -109,7 +103,7 @@ export const failedRunsBlock = (
       const perStatus = yield* Effect.forEach(FINAL_FAILURE_RUN_STATUSES, (status) =>
         repo.listAdminRuns({ status, from: since, limit: FAILED_RUNS_SCAN_LIMIT })
       )
-      return tallyCell(perStatus.flat().map((run) => run.automationName))
+      return tallyCell(perStatus.flat().map((run) => automationLabelOf(app, run.automationName)))
     }),
     'automation runs',
     EMPTY_CELL
@@ -147,44 +141,46 @@ const NEEDS_OPERATOR: ReadonlySet<string> = new Set([
  * or `not-connected` (an OAuth2 connection nobody has authorized yet).
  *
  * `expiring-soon` is deliberately NOT counted: that credential still works and
- * the runtime refreshes it on its own, and a cell that counted it would cry
- * wolf every time a token entered its renewal window.
+ * the runtime refreshes it itself; counting it would cry wolf at every renewal.
  *
- * The detail names the connection and its provider — never the token (S4).
+ * The detail names each connection as the Connections list does — its declared
+ * label, else its name and provider — and never the token (S4).
  */
-export const tokensExpiredBlock: Effect.Effect<
+export const tokensExpiredBlock = (
+  app: App
+): Effect.Effect<
   Sourced<Cell>,
   never,
   ConnectionRepository | ConnectionTokenRepository | OAuthStateStore | Logger
-> = degradeTo(
-  BuildConnectionsList.pipe(
-    Effect.map((outcome) =>
-      outcome._tag === 'Ok'
-        ? cellOf(
-            outcome.body.connections
-              .filter((connection) => NEEDS_OPERATOR.has(connection.status))
-              .map((connection) => `${connection.name} · ${connection.provider}`)
-          )
-        : EMPTY_CELL
-    )
-  ),
-  'connections',
-  EMPTY_CELL
-).pipe(Effect.withSpan('admin.attention-tokens-expired'))
+> =>
+  degradeTo(
+    BuildConnectionsListFor(app.connections).pipe(
+      Effect.map((outcome) =>
+        outcome._tag === 'Ok'
+          ? cellOf(
+              outcome.body.connections
+                .filter((connection) => NEEDS_OPERATOR.has(connection.status))
+                .map((connection) => connection.label)
+            )
+          : EMPTY_CELL
+      )
+    ),
+    'connections',
+    EMPTY_CELL
+  ).pipe(Effect.withSpan('admin.attention-tokens-expired'))
 
 /**
  * `invitationsPending` — invitations still awaiting acceptance (STATE).
  *
- * An EXPIRED invitation is not pending: its link is dead, so nothing is
- * outstanding for the operator to wait on. It is still listed as expired by
- * `GET /api/admin/invitations`, which is where that distinction belongs.
+ * An EXPIRED invitation is not pending: its link is dead. `GET /api/admin/invitations`
+ * still lists it as expired, which is where that distinction belongs.
  *
- * The detail reports how long the OLDEST has waited rather than naming the
- * invitees: an invitee address is a person's email, and the strip is a pulse
- * rather than a directory.
+ * The detail says how long the OLDEST has waited, in the operator's language,
+ * never who: an invitee address is a person's email, and the strip is a pulse.
  */
 export const invitationsPendingBlock = (
-  nowMs: number
+  nowMs: number,
+  language: ConsoleLanguage = 'en'
 ): Effect.Effect<Sourced<Cell>, never, InvitationTokenRepository | Logger> =>
   degradeTo(
     Effect.gen(function* () {
@@ -198,7 +194,7 @@ export const invitationsPendingBlock = (
           .toSorted((a, b) => Date.parse(a) - Date.parse(b))
           .at(0)
         if (oldest === undefined) return EMPTY_CELL
-        return { count: pending.length, detail: formatWaited(oldest, nowMs) }
+        return { count: pending.length, detail: formatWaited(oldest, nowMs, language) }
       })
     ),
     'invitations',
@@ -215,7 +211,8 @@ export const invitationsPendingBlock = (
  */
 export const recentSubmissionsBlock = (
   app: App,
-  since: Readonly<Date>
+  since: Readonly<Date>,
+  language: ConsoleLanguage
 ): Effect.Effect<Sourced<Cell>, never, AdminFormsRepository | Logger> => {
   const forms = app.forms ?? []
   return degradeTo(
@@ -226,7 +223,7 @@ export const recentSubmissionsBlock = (
         (form) =>
           repo
             .listSubmissionsSince(form.name, since)
-            .pipe(Effect.map((rows) => rows.map(() => form.name))),
+            .pipe(Effect.map((rows) => rows.map(() => formLabelOf(app, form, language)))),
         { concurrency: 2 }
       )
       return tallyCell(perForm.flat())
@@ -258,16 +255,10 @@ export const automationStatesBlock = (
   app: App
 ): Effect.Effect<Sourced<AutomationStates>, never, AutomationPauseRepository | Logger> =>
   degradeTo(
-    BuildAutomationsCatalog(app).pipe(
+    BuildAutomationsCatalog(app, 'en').pipe(
       Effect.map((catalog) => ({
         paused: cellOf(
-          catalog.items
-            .filter((item) => item.state === 'paused')
-            .map((item) =>
-              item.pausedAt === undefined
-                ? item.name
-                : `${item.name} · since ${formatStamp(item.pausedAt, resolveOperatorTimezone())}`
-            )
+          catalog.items.filter((item) => item.state === 'paused').map(pausedSubjectOf)
         ),
         disabled: catalog.items.filter((item) => item.state === 'disabled').length,
       }))

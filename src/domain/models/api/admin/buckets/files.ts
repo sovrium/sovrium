@@ -120,6 +120,24 @@ export const bucketFilesOrderSchema = Schema.Literals(['asc', 'desc'])
   .pipe(withDefault('desc'))
 
 /**
+ * The file itself, in the shape a record's attachment value has: its key, its
+ * type and the address a signed-in reader fetches it at. A page component that
+ * draws an attachment — a card's `image` child bound to `$record.file` — draws
+ * this one the same way, and so only when it is an image.
+ */
+const bucketFileReferenceSchema = Schema.Struct({
+  key: Schema.String.annotate({ description: 'The storage key, as `key` above.' }),
+  mimeType: Schema.String.annotate({ description: 'The MIME type, as `mimeType` above.' }),
+  url: Schema.String.annotate({
+    description:
+      'The file route that serves the bytes to a signed-in reader: `/api/buckets/<bucket>/files/<key>`, through the bucket that holds the file.',
+  }),
+}).annotate({
+  description:
+    'The file as an attachment value (`key`, `mimeType`, `url`), so a component that draws an attachment can draw it. Present on every row of the file-browser listing; absent from the upload echo.',
+})
+
+/**
  * A single file row in the browser. Flat projection of
  * `system.file_storage_metadata` — admin-only, no public counterpart, so no
  * `_admin` envelope (see file-level docstring).
@@ -147,10 +165,17 @@ export const bucketFileItemSchema = Schema.Struct({
   createdAt: looseIsoDateTime({
     description: 'ISO 8601 UTC timestamp of the upload (`file_storage_metadata.created_at`).',
   }),
+  file: optionalField(bucketFileReferenceSchema),
   bucket: optionalField(
     Schema.String.annotate({
       description:
         "The bucket that holds the file: the one the attachment cell's URL names, or the attachment column's own bucket when the cell stores a bare key. Present on the built-in `system` bucket listing, which gathers every file a live record links to, whichever bucket stores it. Not stored beside the file: derived when the listing is read, from the attachment cells of live records.",
+    })
+  ),
+  bucketLabel: optionalField(
+    Schema.String.annotate({
+      description:
+        'That bucket as a person reads it, the same name the bucket list gives it (`label`): a bucket declares no label, so it is its name made readable, e.g. `Quote documents`. Present whenever `bucket` is. Display text only; `bucket` stays the address.',
     })
   ),
   table: optionalField(
@@ -159,16 +184,34 @@ export const bucketFileItemSchema = Schema.Struct({
         'The table of the record whose attachment cell references this file. Present on the built-in `system` bucket listing. Derived when the listing is read, from the attachment cells of live records — soft-deleted records are excluded — so a cleared cell or a deleted record simply stops being listed.',
     })
   ),
+  tableLabel: optionalField(
+    Schema.String.annotate({
+      description:
+        "That table as a person reads it, in the operator's console language: its declared `labelPlural`, else its `label`, else its name. Present whenever `table` is. Display text only; `table` stays the address.",
+    })
+  ),
   recordId: optionalField(
     Schema.String.annotate({
       description:
         'The id of the record whose attachment cell references this file, as a string. Present on the built-in `system` bucket listing. Derived when the listing is read, from the attachment cells of live records.',
     })
   ),
+  recordLabel: optionalField(
+    Schema.String.annotate({
+      description:
+        'That record as a person names it — the first title field (text, email, URL or phone) holding a value, e.g. a quote number, else its id. Present whenever `recordId` is. Display text only; `recordId` stays the address.',
+    })
+  ),
   field: optionalField(
     Schema.String.annotate({
       description:
         'The attachment field whose cell references this file. Present on the built-in `system` bucket listing. Derived when the listing is read, from the attachment cells of live records.',
+    })
+  ),
+  fieldLabel: optionalField(
+    Schema.String.annotate({
+      description:
+        "That field as a person reads it, in the operator's console language: its declared `label`, else its name. Present whenever `field` is. Display text only; `field` stays the address.",
     })
   ),
 }).annotate({ identifier: 'BucketFileItem' })

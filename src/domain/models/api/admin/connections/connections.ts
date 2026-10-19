@@ -46,7 +46,8 @@
  *
  * The exposed fields are EXACTLY:
  *   - per connection (list + detail): `id`, `name`, `provider`, the derived
- *     `label` (name · provider, or the name alone when they match), `type`,
+ *     `label` (the declared config `label` when there is one; otherwise
+ *     name · provider, or the name alone when they match), `type`,
  *     `tokenCount` (int), `expiresAt` (soonest token expiry, ISO 8601 nullable),
  *     a derived `status` (`active | expired | expiring-soon`), `createdAt`.
  *   - per-user token row (detail only): `userId`, `expiresAt` (nullable),
@@ -190,7 +191,7 @@ export const connectionListItemSchema = Schema.Struct({
   }).pipe(Schema.check(Schema.isMinLength(1))),
   label: Schema.String.annotate({
     description:
-      'The connection named in one reading: its `name` and `provider` joined by ` · ` (`pennylane-prod · pennylane`), or the `name` alone when the two are the same word, compared without regard to case. Made of the configuration’s own words, so it is the same in every language. `name` and `provider` stay on the row beside it.',
+      'The connection named in one reading: the `label` its configuration declares when it declares one; otherwise its `name` and `provider` joined by ` · ` (`pennylane-prod · pennylane`), or the `name` alone when the two are the same word, compared without regard to case. Made of the configuration’s own words, so it is the same in every language. `name` and `provider` stay on the row beside it.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
   type: Schema.String.annotate({
     description:

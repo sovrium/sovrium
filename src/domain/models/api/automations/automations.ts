@@ -190,7 +190,7 @@ export const runSchema = Schema.Struct({
   ),
   attempt: Schema.Int.annotate({ description: 'Retry attempt number (1 = first attempt)' }),
   error: Schema.NullOr(
-    Schema.String.annotate({ description: 'Top-level error message if run failed' })
+    Schema.String.annotate({ description: 'Why the run failed, or why it was skipped' })
   ),
   valuesErasedAt: optionalField(
     Schema.NullOr(
@@ -393,6 +393,61 @@ export const replayRunRequestSchema = Schema.Struct({
 })
 
 export type ReplayRunRequest = typeof replayRunRequestSchema.Type
+
+// ─── Page press (form-action) request ──────────────────────────────────────
+
+/**
+ * The record a press was made on, sent by a row action or a record-bound button
+ * with its `POST /api/automations/:name/form-action`.
+ *
+ * It NAMES the record and the control; it never carries the condition. The
+ * server finds the control by `control` in the config, reads the row through the
+ * caller's row-level read gate, and judges the control's `visibleWhen` and
+ * `disabledWhen` on the whole row. A record the caller may not read, an unknown
+ * record, or a control that does not run this automation is answered exactly as
+ * an unknown automation name is: the route has no session gate, so a refusal
+ * must not tell which records exist.
+ */
+export const pressReferenceSchema = Schema.Struct({
+  table: Schema.String.pipe(
+    Schema.annotate({
+      description: 'The table the record the control is drawn on belongs to',
+    }),
+    Schema.check(Schema.isMinLength(1))
+  ),
+  recordId: Schema.String.pipe(
+    Schema.annotate({
+      description: 'The id of the record the control was pressed on',
+    }),
+    Schema.check(Schema.isMinLength(1))
+  ),
+  control: Schema.String.pipe(
+    Schema.annotate({
+      description:
+        'The id the page gave the pressed control (`data-control-id`): which row action or record-bound button this press came from',
+    }),
+    Schema.check(Schema.isMinLength(1))
+  ),
+}).annotate({
+  identifier: 'PressReference',
+  description:
+    'The record a press was made on and the control pressed. The server judges the control’s conditions on that record; nothing about them is sent.',
+})
+
+export type PressReference = typeof pressReferenceSchema.Type
+
+/**
+ * Body of `POST /api/automations/:name/form-action`: the trigger input the page
+ * resolved, and — from a row action or a record-bound button — the record it was
+ * pressed on. `inputData` is unchanged by `press`: the run receives exactly what
+ * it received before.
+ */
+export const formActionRequestSchema = Schema.Struct({
+  inputData: optionalField(describedUnknown('The trigger input the page resolved for this press')),
+  press: optionalField(pressReferenceSchema),
+})
+
+export type FormActionRequest = typeof formActionRequestSchema.Type
 
 // ─── Trigger Response ────────────────────────────────────────────────────────
 

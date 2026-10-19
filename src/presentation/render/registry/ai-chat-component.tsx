@@ -186,15 +186,18 @@ const readUploads = (component: unknown): { readonly chatId: string } | undefine
 }
 
 /**
- * The island props of the window's features: the upload target, and whether the
- * chat lists the reader's conversations (`conversations: true`).
+ * The island props of the window's features: the upload target, whether the
+ * chat lists the reader's conversations (`conversations: true`), and whether
+ * each answer ends with the tokens its turn used (`showUsage: true`).
  */
-const windowFeatures = (component: unknown, uploads: ReturnType<typeof readUploads>) => ({
-  ...(uploads !== undefined && { uploads }),
-  ...((component as { readonly conversations?: unknown } | undefined)?.conversations === true && {
-    conversations: true,
-  }),
-})
+const windowFeatures = (component: unknown, uploads: ReturnType<typeof readUploads>) => {
+  const { conversations, showUsage } = (component ?? {}) as Readonly<Record<string, unknown>>
+  return {
+    ...(uploads !== undefined && { uploads }),
+    ...(conversations === true && { conversations: true }),
+    ...(showUsage === true && { showUsage: true }),
+  }
+}
 
 /**
  * `allowAttachments` as declared, whether the attach control shows — for it or

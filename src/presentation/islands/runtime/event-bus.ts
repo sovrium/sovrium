@@ -40,6 +40,7 @@ export type SovriumEventName =
   | 'sovrium:navigated'
   | 'sovrium:open-drawer'
   | 'sovrium:refetch'
+  | 'sovrium:seek'
   | 'sovrium:session-ended'
 
 /**
@@ -95,6 +96,10 @@ export interface OpenDrawerDetail {
    * what a drawer's Previous / Next steps through (`drawer.navigation`).
    */
   readonly siblings?: readonly string[]
+  /** How many rows of the whole list come before `siblings` — the page's start. */
+  readonly offset?: number
+  /** How many rows the whole list holds, when the dispatcher knows it. */
+  readonly total?: number
 }
 
 /**
@@ -113,13 +118,26 @@ export interface FillDetail {
 /**
  * Payload shape for `sovrium:refetch`. Fired by a fetch action's
  * `onSuccess.refetch` effect (the shared `action-executor`) after a successful
- * mutate, naming a sibling data-bound component by its `props.id`. The
- * data-table island whose `searchSourceId` matches `detail.id` re-queries — so a
- * freshly-mutated DB-table OR `dataSource.system` list reflects the change
+ * mutate, naming a sibling data-bound component by its `props.id`. The grid
+ * whose `searchSourceId` matches `detail.id` re-queries, and so does a kpi,
+ * chart, kanban or list whose island host carries that id (`useLiveRefresh`) —
+ * so a freshly-mutated DB-table OR `dataSource.system` read reflects the change
  * without a full reload.
  */
 export interface RefetchDetail {
   readonly id: string
+}
+
+/**
+ * Payload shape for `sovrium:seek`. Fired by an island whose row or card click
+ * resolves to a `seek` action (a list item, a table row, a card), with `time`
+ * already resolved against that record. The always-loaded client runtime
+ * (`seek-runtime.ts`) moves the `video` or `audio` player `target` names.
+ */
+export interface SeekDetail {
+  readonly target: string
+  readonly time: number
+  readonly play?: boolean
 }
 
 /**
@@ -141,6 +159,7 @@ export interface SovriumEventPayloads {
   readonly 'sovrium:navigated': NavigatedDetail
   readonly 'sovrium:open-drawer': OpenDrawerDetail
   readonly 'sovrium:refetch': RefetchDetail
+  readonly 'sovrium:seek': SeekDetail
   readonly 'sovrium:session-ended': SessionEndedDetail
 }
 

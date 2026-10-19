@@ -23,6 +23,7 @@
 import {
   mayReadRelatedField,
   mayReadRelatedTable,
+  toManyLinksRefusedTo,
   type RelatedReader,
 } from './related-field-read-service'
 import { extractFieldReferences } from './table-formula-validation'
@@ -388,6 +389,24 @@ const maySeeLinkSource = (
 }
 
 /**
+ * May `reader` see what `link` reads, the link being a field of a table whose
+ * links to many records refused to them are `refusedLinks`
+ * ({@link toManyLinksRefusedTo})? A value read through such a link is a read
+ * of what the link lists, so it is refused with it; otherwise the link's source
+ * decides ({@link maySeeLinkSource}).
+ */
+const maySeeLink = (
+  app: App,
+  reader: RelatedReader,
+  target: { readonly link: LookupLink; readonly refusedLinks: ReadonlySet<string> },
+  seen: ReadonlySet<string>
+): boolean => {
+  const { link, refusedLinks } = target
+  if (link.road === 'junction' && refusedLinks.has(link.relationship)) return false
+  return maySeeLinkSource(app, reader, link, seen)
+}
+
+/**
  * Is `field` of `tableName` a value {@link relatedValuesRefusedTo} would leave
  * out for `reader` — a lookup, rollup or count reading what they may not read,
  * or a formula over one, directly or through another formula? Judged for the
@@ -405,7 +424,10 @@ const relatedFieldRefused = (
   if (seen.has(key)) return false
   const next = new Set([...seen, key])
   const reads = derivedLinksOf(app, tableName, DERIVED).filter((inner) => inner.lookup === field)
-  if (reads.some((inner) => !maySeeLinkSource(app, reader, inner, next))) return true
+  const refusedLinks = toManyLinksRefusedTo(app, tableName, reader)
+  if (reads.some((inner) => !maySeeLink(app, reader, { link: inner, refusedLinks }, next))) {
+    return true
+  }
   const refs = formulaReferencesOf(app, tableName).find(([name]) => name === field)?.[1]
   return [...(refs ?? [])].some((ref) =>
     relatedFieldRefused(app, reader, { tableName, field: ref }, next)
@@ -478,8 +500,9 @@ export const lookupKeyColumnsFor = (
 /**
  * The fields of `tableName` that read a related table `reader` may not read —
  * a lookup or a rollup into a related table or field refused to them, a count
- * of a related table refused to them — and every formula built over one of
- * them. Each is left out of every record, exactly as the label of the same
+ * of a related table refused to them, any of the three read through a link to
+ * many records refused to them ({@link toManyLinksRefusedTo}) — and every
+ * formula built over one of them. Each is left out of every record, exactly as the label of the same
  * relationship is. A judgement on the schema alone: it reads no row. Within a
  * table the reader may read, a rollup and a count still aggregate every
  * related record whatever the reader's row-level rule; only a lookup answers
@@ -489,15 +512,36 @@ export const relatedValuesRefusedTo = (
   app: App,
   tableName: string,
   reader: RelatedReader
-): ReadonlySet<string> =>
-  withDependentFormulas(
+): ReadonlySet<string> => {
+  const refusedLinks = toManyLinksRefusedTo(app, tableName, reader)
+  return withDependentFormulas(
     formulaReferencesOf(app, tableName),
     new Set(
       derivedLinksOf(app, tableName, DERIVED)
-        .filter((link) => !maySeeLinkSource(app, reader, link, new Set()))
+        .filter((link) => !maySeeLink(app, reader, { link, refusedLinks }, new Set()))
         .map((link) => link.lookup)
     )
   )
+}
+
+/**
+ * Every field of `tableName` the records API withholds from `reader` for what
+ * it reads elsewhere: a link to many records refused to them
+ * ({@link toManyLinksRefusedTo}) and every value read from a related table or
+ * field they may not read ({@link relatedValuesRefusedTo}). No reader is a
+ * visitor who is not signed in and holds no role.
+ */
+export const relatedFieldsWithheldFrom = (
+  app: App,
+  tableName: string,
+  reader: RelatedReader | undefined
+): ReadonlySet<string> => {
+  const asked = reader ?? { role: '', signedOut: true }
+  return new Set([
+    ...relatedValuesRefusedTo(app, tableName, asked),
+    ...toManyLinksRefusedTo(app, tableName, asked),
+  ])
+}
 
 /** `rows` without the named fields; a row naming none of them is returned as it is. */
 export const withoutLookups = <Row extends Readonly<Record<string, unknown>>>(

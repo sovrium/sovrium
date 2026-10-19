@@ -139,8 +139,23 @@ const listAdminRunsImpl = async (
     .innerJoin(automationDefinitions, eq(automationDefinitions.id, automationRuns.automationId))
   const filtered = whereClause === undefined ? baseQuery : baseQuery.where(whereClause)
   return (await filtered
-    .orderBy(desc(automationRuns.createdAt))
-    .limit(filters.limit + 1)) as ReadonlyArray<AdminAutomationRunRow>
+    .orderBy(desc(automationRuns.createdAt), desc(automationRuns.id))
+    .limit(filters.limit + 1)
+    .offset(filters.offset ?? 0)) as ReadonlyArray<AdminAutomationRunRow>
+}
+
+/** The matching runs per stored status, every filter applied but the page window. */
+const countAdminRunsByStatusImpl = async (
+  filters: AdminRunsListFilters
+): Promise<ReadonlyMap<string, number>> => {
+  const conditions = buildListConditions({ ...filters, cursorBefore: undefined })
+  const baseQuery = db
+    .select({ status: automationRuns.status, runs: count() })
+    .from(automationRuns)
+    .innerJoin(automationDefinitions, eq(automationDefinitions.id, automationRuns.automationId))
+  const filtered = conditions.length === 0 ? baseQuery : baseQuery.where(and(...conditions))
+  const rows = await filtered.groupBy(automationRuns.status)
+  return new Map(rows.map((row) => [row.status ?? 'pending', toFiniteCount(row.runs)] as const))
 }
 
 /**
@@ -177,6 +192,8 @@ export const AdminAutomationsRepositoryLive = Layer.succeed(AdminAutomationsRepo
     ),
 
   listAdminRuns: (filters) => wrap(async () => listAdminRunsImpl(filters)),
+
+  countAdminRunsByStatus: (filters) => wrap(async () => countAdminRunsByStatusImpl(filters)),
 
   findAdminRunById: (runId) =>
     wrap(async () => {

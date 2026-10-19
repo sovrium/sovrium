@@ -54,17 +54,19 @@ The access rows behind the token are grants: an account, the records of one tabl
 
 An admin manages grants through `/api/tables/user_access/records`:
 
-| Request                                      | Does                                                                                                   |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `POST /api/tables/user_access/records`       | Mints a grant: `{ fields: { user_id, table_slug, record_ids, role } }`, answered `201`                 |
-| `GET /api/tables/user_access/records`        | Lists grants, oldest first — narrowed by `?user_id=`, `?user_email=`, `?table_slug=` and `?record_id=` |
-| `GET /api/tables/user_access/records/:id`    | Reads one grant                                                                                        |
-| `PATCH /api/tables/user_access/records/:id`  | Changes a grant's `record_ids`, its `role`, or both                                                    |
-| `DELETE /api/tables/user_access/records/:id` | Revokes a grant, answered `204`                                                                        |
+| Request                                      | Does                                                                                                                                           |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/tables/user_access/records`       | Mints a grant: `{ fields: { user_id, table_slug, record_ids, role } }`, answered `201` (`200` when it joins a grant the account already holds) |
+| `GET /api/tables/user_access/records`        | Lists grants, oldest first — narrowed by `?user_id=`, `?user_email=`, `?table_slug=` and `?record_id=`                                         |
+| `GET /api/tables/user_access/records/:id`    | Reads one grant                                                                                                                                |
+| `PATCH /api/tables/user_access/records/:id`  | Changes a grant's `record_ids`, its `role`, or both                                                                                            |
+| `DELETE /api/tables/user_access/records/:id` | Revokes a grant, answered `204`                                                                                                                |
 
 The filters combine: `?user_email=` names an account by its address, matched without regard to case, and an address no account holds lists nothing; `?table_slug=&record_id=` answers who holds access to one record. Each listed grant also reads back, without a second request, `user_email` and `user_name` for its account — both absent when the grant names an account that no longer exists — and `record_labels`, one label per entry of `record_ids` in the same order: the value of the table's first `single-line-text` field that is not `writeOnly` (a write-only value is never read back, not even to an admin), or the record id itself when the table has no such field, the value is empty, or no record has that id. These three are computed when the list is read; a write never accepts them. On an app that lists no `scopeTables`, an admin's listing is empty, and minting a grant is answered `404`.
 
-A change is validated as a new grant is — `record_ids` names at least one record, `role` is declared — and keeps the grant's account and table: a body naming `user_id` or `table_slug` is refused, because moving access to someone else is a revocation and a new grant. A revoked grant is erased, not hidden. Whatever changes, the account reads what its grants now name on its next request, and its open realtime connections are closed so that they reconnect under the grants as they now stand.
+A grant names an account that exists and records that exist: a `user_id` no account holds, or a `record_ids` entry that is no record of `table_slug`, is refused with `400` naming the field (and, for a record, the id), and nothing is stored — not even the records that do exist. An account holds at most one grant per table and role, so minting one for an account, table and role that already hold a grant adds the new records to that grant and answers `200` with it; records it already names are not repeated, and a mint that adds nothing changes nothing. A grant under another role is a grant of its own. Granting twice — a button pressed twice — therefore leaves one grant. A record in the trash is not one a grant may name: it is refused like a record that does not exist. A grant that already names a record when it is trashed is kept, and restoring the record gives the access back.
+
+A change is validated as a new grant is — `record_ids` names at least one record of the table, `role` is declared — and keeps the grant's account and table: a body naming `user_id` or `table_slug` is refused, because moving access to someone else is a revocation and a new grant. Changing a grant's `role` to one the account already holds a grant under on that table folds it into that grant: the grant that was there first keeps its id and gains the changed grant's records, the changed grant is removed, and the answer is the grant that remains. A revoked grant is erased, not hidden. Whatever changes, the account reads what its grants now name on its next request, and its open realtime connections are closed so that they reconnect under the grants as they now stand.
 
 Every one of these routes is for an admin-equivalent role only: anyone else — the grant's own holder included — is answered `404`, as if the grant did not exist, and nothing changes. An automation can grant, revoke and list them too, through the `auth` actions.
 
@@ -84,7 +86,9 @@ users:
         role: client
 ```
 
-Each grant names one table listed in `scopeTables`, at least one record of that table, and a role the app declares. A record written as a reference into another table, or as a bare id, is refused when the file is read; a key no seed file defines, a table that is not a scope table, or an undeclared role is refused before anything is written, naming the account. Grants are written after the tables, once every key has an id. A run restricted with `--table` writes the grants over the tables it seeds and leaves the others alone, and a replay in `upsert` mode leaves each grant once.
+Each grant names one table listed in `scopeTables`, at least one record of that table, and a role the app declares. A record written as a reference into another table, or as a bare id, is refused when the file is read; a key no seed file defines, a table that is not a scope table, or an undeclared role is refused before anything is written, naming the account. Grants are written after the tables, once every key has an id. Several entries of one account with the same table and role combine into one grant naming every record they list, so a roster written one line per record loses none. A run restricted with `--table` writes the grants over the tables it seeds and leaves the others alone, and a replay in `upsert` mode leaves each grant once, naming the records the file lists now.
+
+A reference that resolves to a record in the trash is refused, naming the account and the reference; the account's grant is left as it was.
 
 ## The mount path's page is the access guard
 

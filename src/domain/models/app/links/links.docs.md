@@ -109,7 +109,7 @@ Clicks land in the same analytics store as your page views and honour the same s
 
 Read the numbers in the operator console at `/_admin/links`: clicks over time, referrers, devices, campaigns and the raw click log, for all links together or one link at a time.
 
-Every row of the admin catalog, `GET /api/admin/links`, and the detail of one link carry `clicks`: the clicks recorded for that link over the last 30 days, up to the moment of the read. It is a rolling window, not a lifetime total — a click older than 30 days, or one your `retentionDays` already removed, is not counted — and a link nobody clicked reads `0`. The whole page is counted in one query, however many links it lists. A link's clicks over time, its referrers and its devices are read from the analytics endpoints, not from the catalog.
+Every row of the admin catalog, `GET /api/admin/links`, and the detail of one link carry `clicks`: the clicks recorded for that link over the last 30 days, up to the moment of the read. The catalog takes an optional window instead — `from` and `to`, as ISO 8601 instants — which narrows the count and never which links are listed; a `from` later than `to` is answered 400. It is a window, not a lifetime total — a click outside it, or one your `retentionDays` already removed, is not counted — and a link nobody clicked reads `0`. The whole page is counted in one query, however many links it lists. A link's clicks over time, its referrers and its devices are read from the analytics endpoints, not from the catalog.
 
 ## Creating links outside config
 

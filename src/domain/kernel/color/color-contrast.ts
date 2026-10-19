@@ -290,3 +290,43 @@ export const srgbHex = (value: string): string | undefined => {
     .map((channel) => encodeChannel(channel).toString(16).padStart(2, '0'))
     .join('')}`.toUpperCase()
 }
+
+/** A colour in Oklch: lightness 0–1, chroma, hue in degrees. */
+export interface OklchColour {
+  readonly l: number
+  readonly c: number
+  readonly h: number
+}
+
+/** Linear-light sRGB → Oklch, through Ottosson's LMS and Oklab matrices. */
+const oklchFromLinear = ([r, g, b]: LinearRgb): OklchColour => {
+  const long = Math.cbrt(0.412_221_470_8 * r + 0.536_332_536_3 * g + 0.051_445_992_9 * b)
+  const medium = Math.cbrt(0.211_903_498_2 * r + 0.680_699_545_1 * g + 0.107_396_956_6 * b)
+  const short = Math.cbrt(0.088_302_461_9 * r + 0.281_718_837_6 * g + 0.629_978_700_5 * b)
+  const l = 0.210_454_255_3 * long + 0.793_617_785 * medium - 0.004_072_046_8 * short
+  const a = 1.977_998_495_1 * long - 2.428_592_205 * medium + 0.450_593_709_9 * short
+  const bAxis = 0.025_904_037_1 * long + 0.782_771_766_2 * medium - 0.808_675_766 * short
+  const c = Math.hypot(a, bAxis)
+  const h = c < 0.0001 ? 0 : ((((Math.atan2(bAxis, a) * 180) / Math.PI) % 360) + 360) % 360
+  return { l, c, h }
+}
+
+/**
+ * Any colour {@link measureContrast} understands, in Oklch — what a derivation
+ * that moves a colour's LIGHTNESS while keeping its hue works in.
+ *
+ * An `oklch()` value is read as written rather than round-tripped through sRGB,
+ * so a wide-gamut colour keeps the chroma its author gave it. `undefined` for
+ * anything not understood, on this module's terms.
+ */
+export const oklchOf = (value: string): OklchColour | undefined => {
+  const trimmed = value.trim()
+  const functional = FUNCTIONAL.exec(trimmed)
+  if (functional !== null && (functional[1] ?? '').toLowerCase() === 'oklch') {
+    const parts = argumentsOf(functional[2] ?? '')
+    const [l, c, h] = [numberAt(parts, 0, 1), numberAt(parts, 1, 0.4), numberAt(parts, 2, 360)]
+    return [l, c, h].some((part) => Number.isNaN(part)) ? undefined : { l, c, h }
+  }
+  const linear = toLinearRgb(trimmed)
+  return linear === undefined ? undefined : oklchFromLinear(linear)
+}

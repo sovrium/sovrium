@@ -18,6 +18,8 @@ import {
   labelOf,
   operatorLabel,
   operatorsFor,
+  WITHIN_WINDOWS,
+  withinLabel,
 } from '@/presentation/design/filter-expression'
 import type {
   FilterBarCondition,
@@ -55,12 +57,12 @@ function useDraft(onApply: (condition: FilterBarCondition) => void) {
   }, [])
 
   const chooseOperator = useCallback((operator: string) => {
-    // A `between` holds two ends and any other operator one, so switching
-    // between the two shapes starts the value again.
+    // A `between` holds two ends, a `within` a window, any other operator one
+    // value, so switching between the shapes starts the value again.
     setDraft((previous) => ({
       ...previous,
       operator,
-      value: (operator === 'between') === (previous.operator === 'between') ? previous.value : '',
+      value: valueShape(operator) === valueShape(previous.operator) ? previous.value : '',
     }))
   }, [])
 
@@ -122,7 +124,14 @@ export function ConditionBuilder({
           onChange={changeValue}
         />
       )}
-      {draft.field && draft.operator !== 'between' && (
+      {draft.field && draft.operator === 'within' && (
+        <WithinControl
+          value={draft.value}
+          strings={strings}
+          onChange={changeValue}
+        />
+      )}
+      {draft.field && valueShape(draft.operator) === 'one' && (
         <ValueControl
           field={draft.field}
           value={draft.value}
@@ -143,6 +152,10 @@ export function ConditionBuilder({
     </div>
   )
 }
+
+/** The shape of value an operator holds: two ends, a relative window, or one value. */
+const valueShape = (operator: string | undefined): string =>
+  operator === 'between' || operator === 'within' ? operator : 'one'
 
 /** A value a condition can be applied with: both ends for `between`, anything else non-empty. */
 function isComplete(operator: string, value: string): boolean {
@@ -182,6 +195,37 @@ function RangeControl({
         className={FILTER_BAR_VALUE_CONTROL_CLASSES}
       />
     </span>
+  )
+}
+
+/** The relative windows of a `within`, as one choice. */
+function WithinControl({
+  value,
+  strings,
+  onChange,
+}: {
+  readonly value: string
+  readonly strings: Strings
+  readonly onChange: (value: string) => void
+}): ReactElement {
+  return (
+    <select
+      data-filter-value-input
+      aria-label={strings?.['filterBar.operator.within'] ?? 'is within'}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className={FILTER_BAR_VALUE_CONTROL_CLASSES}
+    >
+      <option value="">—</option>
+      {Object.keys(WITHIN_WINDOWS).map((window) => (
+        <option
+          key={window}
+          value={window}
+        >
+          {withinLabel(window, strings)}
+        </option>
+      ))}
+    </select>
   )
 }
 

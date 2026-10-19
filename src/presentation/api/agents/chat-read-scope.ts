@@ -20,7 +20,9 @@
  *  - which rows, through {@link resolveChatRowScope}: the records read gate for
  *    a named caller (`callerReadScope`), whose row-level read rule is ANDed onto
  *    the read in SQL — over the live rows only ({@link readScopeOf}): a row in
- *    the trash is never listed, counted, summed or averaged.
+ *    the trash is never listed, counted, summed or averaged — and only over
+ *    the rows the records list admits her ({@link chatReaderRows}): on a table
+ *    whose fields she may not read, the rows a grant admits, or none at all.
  *
  * A declared agent reads under its declared role and has no user identity: its
  * reach is a property of the config, so no row rule narrows it here. When it
@@ -58,9 +60,11 @@ import { INTRINSIC_DELETED_AT_COLUMN } from '@/domain/models/app/tables/system-f
 import { logError } from '@/infrastructure/logging/logger'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import { chatReaderRows, isSignedOut } from './chat-reader-rows'
 import { readableColumnsForTable, type ProjectedTable } from './chat-table-projection'
 import type { QueryFilterNode } from '@/application/ports/repositories/tables/table-repository'
 import type { App } from '@/domain/models/app'
+import type { RowReadAdmission } from '@/domain/models/app/tables/row-read-admission-service'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
 import type { Context } from 'hono'
 
@@ -93,10 +97,6 @@ export const roleOnlyReader = (role: string, agent: boolean): ChatReader => ({
  * row-level rule governs.
  */
 export const signedOutReader: ChatReader = roleOnlyReader('', false)
-
-/** True for {@link signedOutReader}: no role, no identity, not an agent. */
-const isSignedOut = (reader: ChatReader): boolean =>
-  reader.role === '' && reader.agent !== true && reader.userId === undefined
 
 /**
  * A declared agent's reader: its declared role alone, narrowed to `caller`'s
@@ -236,8 +236,31 @@ const intersectRowScopes = (left: ChatRowScope, right: ChatRowScope): ChatRowSco
   return { kind: 'scoped', clause: { and: [left.clause, right.clause] } }
 }
 
-/** The rows of `tableName` `reader` alone may read. */
+/**
+ * The rows of `tableName` `reader` alone may read: those her row-level rule
+ * admits, narrowed to those the records list admits her ({@link chatReaderRows}).
+ */
 const ownRowScope = async (
+  services: DomainContext,
+  app: App | undefined,
+  tableName: string,
+  reader: ChatReader
+): Promise<ChatRowScope> => {
+  const ruled = await ruledRowScope(services, app, tableName, reader)
+  if (ruled.kind === 'refused' || ruled.kind === 'nothing') return ruled
+  const rows = await chatReaderRows(services, app, tableName, reader)
+  return rows === undefined ? ruled : intersectRowScopes(ruled, admittedRowScope(rows.admission))
+}
+
+/** The rows the records list admits, as a chat row scope: admitting none refuses the table. */
+const admittedRowScope = (admission: RowReadAdmission): ChatRowScope => {
+  if (admission.kind === 'every-row') return { kind: 'all' }
+  if (admission.kind === 'no-row') return { kind: 'refused' }
+  return { kind: 'scoped', clause: { field: 'id', operator: 'in', value: admission.ids } }
+}
+
+/** The rows of `tableName` `reader`'s row-level rule admits her. */
+const ruledRowScope = async (
   services: DomainContext,
   app: App | undefined,
   tableName: string,

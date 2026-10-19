@@ -27,22 +27,31 @@
 import { Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
+import { triggerEntryLabel } from '@/application/use-cases/admin/automations-run-labels'
 import { deliverAutomationNotice } from '@/application/use-cases/automations/automation-notice'
+import { formatDayRelativeTime } from '@/domain/kernel/format/day-relative-time'
+import { usableLocale } from '@/domain/kernel/format/usable-locale'
+import { entityLabelFor } from '@/domain/models/app/auth/readable-name-service'
 import { resolveAutomationOperationalState } from '@/domain/models/app/automations/automation-operational-state'
+import { describeTriggerChoice } from '@/domain/models/app/automations/trigger-description-service'
 import { firstTrigger } from '@/domain/models/app/automations/trigger-entries-service'
 import { triggerEntryName } from '@/domain/models/app/automations/trigger-list-validation'
 import { logError } from '@/infrastructure/logging/logger'
+import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
+import { onDevTimeline } from '@/infrastructure/process/server-boot-instant'
 import type {
   AutomationPauseDatabaseError,
   AutomationPauseRow,
 } from '@/application/ports/repositories/automations/automation-pause-repository'
 import type { EmailSender } from '@/application/ports/services/email-sender'
+import type { ConsoleLanguage } from '@/application/use-cases/admin/operator-language'
 import type {
   AutomationCatalogItem,
   AutomationPauseResponse,
   AutomationsCatalogResponse,
 } from '@/domain/models/api/admin/automations'
 import type { App } from '@/domain/models/app'
+import type { TriggerChoiceEntry } from '@/domain/models/app/automations/trigger-description-service'
 import type { Context } from 'effect'
 
 /**
@@ -53,6 +62,8 @@ import type { Context } from 'effect'
  * here rather than at the column, so the API contract's `z.string().datetime()`
  * holds on either engine.
  */
+type TriggerType = TriggerChoiceEntry['type']
+
 const toIso = (value: Readonly<Date> | string): string =>
   value instanceof Date ? value.toISOString() : new Date(value).toISOString()
 
@@ -60,6 +71,45 @@ const toIso = (value: Readonly<Date> | string): string =>
 const indexPauses = (
   rows: readonly AutomationPauseRow[]
 ): ReadonlyMap<string, AutomationPauseRow> => new Map(rows.map((row) => [row.automationName, row]))
+
+/** Who a pause is attributed to when no operator chose it, or the operator is gone. */
+const PAUSE_ACTOR_WORDS: Readonly<
+  Record<ConsoleLanguage, Readonly<Record<'system' | 'unknown', string>>>
+> = {
+  en: { system: 'System', unknown: 'Unknown' },
+  fr: { system: 'Système', unknown: 'Inconnu' },
+}
+
+/** The region a console language writes in when the operator's app declares none for it. */
+const CONSOLE_LOCALE: Readonly<Record<ConsoleLanguage, string>> = { en: 'en-US', fr: 'fr-FR' }
+
+/**
+ * The locale the console writes `language` in: the region the operator's app
+ * declares for that language, else the console's own — the region the rest of
+ * the console page formats in.
+ */
+const consoleLocaleOf = (app: App, language: ConsoleLanguage): string =>
+  app.languages?.supported.find((entry) => entry.code === language)?.locale ??
+  CONSOLE_LOCALE[language]
+
+/**
+ * A pause as one reading — who, then when: `Camille Martin · 9 Oct, 10:12`, or
+ * `System · Today 16:40` for a pause the platform set itself (a pause with a
+ * `reason`). The moment reads as the run history's Started column reads an
+ * instant (`day-relative-time`), on the operator's wall clock, in the app's
+ * region, with "today" read on the server's timeline.
+ */
+const pausedLabelOf = (app: App, pause: AutomationPauseRow, language: ConsoleLanguage): string => {
+  const words = PAUSE_ACTOR_WORDS[language]
+  const actor = pause.reason === null ? (pause.pausedBy ?? words.unknown) : words.system
+  const stamp = formatDayRelativeTime(
+    toIso(pause.pausedAt),
+    usableLocale(consoleLocaleOf(app, language)),
+    resolveOperatorTimezone(),
+    onDevTimeline()
+  )
+  return `${actor} · ${stamp}`
+}
 
 /**
  * Build one catalog row.
@@ -72,37 +122,59 @@ const indexPauses = (
  * Resume, which cannot help them.
  */
 const buildItem = (
+  app: App,
   automation: App['automations'] extends readonly (infer T)[] | undefined ? T : never,
-  pauses: ReadonlyMap<string, AutomationPauseRow>
+  pauses: ReadonlyMap<string, AutomationPauseRow>,
+  language: ConsoleLanguage
 ): Readonly<AutomationCatalogItem> => {
   const state = resolveAutomationOperationalState(automation, new Set(pauses.keys()))
   const pause = state === 'paused' ? pauses.get(automation.name) : undefined
   return {
     name: automation.name,
-    ...(automation.label === undefined ? {} : { label: automation.label }),
+    // The declared label, else the name made readable: never the bare identifier.
+    label: entityLabelFor(automation),
     // The first trigger's type, kept for existing readers; `triggers` lists every entry.
     trigger: firstTrigger(automation).type,
     triggers: automation.triggers.map((entry) => ({
       type: entry.type,
       name: triggerEntryName(entry),
+      // The reading a run it started carries as `triggerLabel`.
+      label: triggerEntryLabel(app, entry, language),
     })),
     state,
+    // One reading of the pause for the console's Paused column; null when running.
+    pausedLabel: pause === undefined ? null : pausedLabelOf(app, pause, language),
     ...(pause === undefined
       ? {}
-      : { pausedBy: pause.pausedBy, pausedAt: toIso(pause.pausedAt), reason: pause.reason }),
+      : {
+          pausedBy: pause.pausedBy,
+          pausedAt: toIso(pause.pausedAt),
+          reason: pause.reason,
+        }),
   }
 }
 
 /**
  * Every distinct trigger name across the catalog, in config order of first
- * appearance: the option list of the run history's trigger filter.
+ * appearance, with what it reads as: the option list of the run history's
+ * trigger filter.
  */
 const distinctTriggerNames = (
-  items: ReadonlyArray<AutomationCatalogItem>
-): ReadonlyArray<{ readonly name: string }> =>
-  [...new Set(items.flatMap((item) => item.triggers.map((entry) => entry.name)))].map((name) => ({
+  items: ReadonlyArray<AutomationCatalogItem>,
+  language: ConsoleLanguage
+): AutomationsCatalogResponse['triggerNames'] => {
+  const entries = items.flatMap((item) => item.triggers)
+  return [...new Set(entries.map((entry) => entry.name))].map((name) => ({
     name,
+    label: describeTriggerChoice(
+      name,
+      entries
+        .filter((entry) => entry.name === name)
+        .map((entry) => ({ type: entry.type as TriggerType, label: entry.label })),
+      language
+    ),
   }))
+}
 
 /**
  * Every automation declared in config, in CONFIG ORDER.
@@ -112,7 +184,8 @@ const distinctTriggerNames = (
  * disagree.
  */
 export const BuildAutomationsCatalog = (
-  app: App
+  app: App,
+  language: ConsoleLanguage
 ): Effect.Effect<
   AutomationsCatalogResponse,
   AutomationPauseDatabaseError,
@@ -121,8 +194,10 @@ export const BuildAutomationsCatalog = (
   Effect.gen(function* () {
     const repository = yield* AutomationPauseRepository
     const pauses = indexPauses(yield* repository.listPauses)
-    const items = (app.automations ?? []).map((automation) => buildItem(automation, pauses))
-    return { items, triggerNames: distinctTriggerNames(items) }
+    const items = (app.automations ?? []).map((automation) =>
+      buildItem(app, automation, pauses, language)
+    )
+    return { items, triggerNames: distinctTriggerNames(items, language) }
   }).pipe(Effect.withSpan('admin.build-automations-catalog'))
 
 /**
@@ -182,7 +257,9 @@ const runMutation = (
     const changed = yield* mutate(repository)
 
     const pauses = indexPauses(yield* repository.listPauses)
-    return { outcome: { _tag: 'Ok', body: buildItem(automation, pauses) }, changed } as const
+    // The response projects no trigger reading, so its language is moot.
+    const body = buildItem(app, automation, pauses, 'en')
+    return { outcome: { _tag: 'Ok', body }, changed } as const
   })
 
 /**

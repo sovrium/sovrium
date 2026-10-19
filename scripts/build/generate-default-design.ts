@@ -550,9 +550,6 @@ export const INHERITED_BREAKPOINT_TOKENS: Readonly<Record<string, string>> = {
 ${record(Object.entries(s.inherited.breakpoints))}
 }
 
-export const ROLE_COLOR_PROPERTY: Readonly<Record<string, string>> = {
-${record(Object.entries(s.inherited.roleColorProperty))}
-}
 `
 }
 

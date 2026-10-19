@@ -55,9 +55,10 @@
 
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join, relative, sep } from 'node:path'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { walkSync } from '../lib/drift/walk'
+import { posixRelative } from '../lib/posix-path'
 
 /**
  * Repo root, resolved from this module's own location rather than `process.cwd()`
@@ -115,6 +116,17 @@ const INPUT_FILES = ['package.json', 'bun.lock'] as const
 const EXTRA_SKIPPED_DIRS = ['__snapshots__']
 
 /**
+ * The fingerprint's per-file keys: repo-relative, forward-slashed, sorted.
+ *
+ * Through `posixRelative` rather than `relative(...).split(sep).join('/')`: the
+ * idiom was right on Windows but a no-op on POSIX, so no test on the machines
+ * that run the suite could feed it a Windows spelling. The key is hashed, so a
+ * backslash surviving here would give one tree two fingerprints.
+ */
+export const binaryInputKeys = (root: string, absolute: readonly string[]): readonly string[] =>
+  absolute.map((abs) => posixRelative(root, abs)).toSorted()
+
+/**
  * SHA-256 over every build input, path-qualified and order-stable.
  *
  * Paths are folded into the digest alongside content so that a pure RENAME —
@@ -137,9 +149,7 @@ export function computeBinaryInputFingerprint(): string {
     if (existsSync(abs)) absolute.push(abs)
   }
 
-  const relPaths = absolute
-    .map((abs) => relative(PROJECT_ROOT, abs).split(sep).join('/'))
-    .toSorted()
+  const relPaths = binaryInputKeys(PROJECT_ROOT, absolute)
 
   const hash = createHash('sha256')
   for (const rel of relPaths) {

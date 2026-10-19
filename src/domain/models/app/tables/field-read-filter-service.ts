@@ -24,6 +24,23 @@ import type { App } from '@/domain/models/app'
 import type { TablePermission } from '@/domain/models/app/tables/permissions'
 
 /**
+ * The narrow reader a field's read and write rules are decided for when the
+ * page renders without a session — a mounted operator console: her role and
+ * groups, and nothing a `$user.*` reference, a visibility gate or a row filter
+ * could read.
+ */
+export interface CallerFieldReader {
+  readonly role: string
+  readonly groups: readonly string[]
+}
+
+/** The field reader of a signed-in caller — her role and groups — or `undefined` without one. */
+export const callerFieldReaderOf = (
+  session: { readonly role: string; readonly groups?: readonly string[] | undefined } | undefined
+): CallerFieldReader | undefined =>
+  session === undefined ? undefined : { role: session.role, groups: session.groups ?? [] }
+
+/**
  * System fields that are always preserved in record filtering
  * These include authorship metadata and timestamps
  */
@@ -204,6 +221,13 @@ export function isFieldReadableUnderFieldRules(
 }
 
 /**
+ * Whether `tableName` declares field rules (`permissions.fields`), which then
+ * replace the built-in role defaults ({@link isFieldReadableByCaller} step 3).
+ */
+export const declaresFieldRules = (app: App, tableName: string): boolean =>
+  app.tables?.find((t) => t.name === tableName)?.permissions?.fields !== undefined
+
+/**
  * Filter fields from a record based on user's read permissions
  *
  * This implements Better Auth layer field read filtering.
@@ -241,6 +265,27 @@ export function filterReadableFields<T extends Record<string, unknown>>(
     }
     return { ...acc, [fieldName]: record[fieldName] }
   }, {})
+}
+
+/**
+ * {@link filterReadableFields} for a reader who reads a row under several
+ * roles — her own, and each one a grant gives her on that row: every field any
+ * of them may read. One caller is {@link filterReadableFields} itself.
+ */
+export function filterFieldsReadableByAny<T extends Record<string, unknown>>(
+  params: Readonly<{
+    app: App
+    tableName: string
+    callers: readonly PermissionCaller[]
+    record: T
+    includeWriteOnly?: boolean | undefined
+  }>
+): Readonly<Record<string, unknown>> {
+  const { callers, ...rest } = params
+  return callers.reduce<Readonly<Record<string, unknown>>>(
+    (readable, caller) => ({ ...readable, ...filterReadableFields({ ...rest, caller }) }),
+    {}
+  )
 }
 
 /**

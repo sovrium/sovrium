@@ -16,7 +16,10 @@
 
 import { automationsRunsListQuerySchema } from '@/domain/models/api/admin/automations'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { triggerNameFilterOf } from '@/domain/models/app/automations/trigger-entries-service'
 import type { AdminRunsListInput } from './automations-overview'
+import type { AdminRunsListFilters } from '@/application/ports/repositories/automations/admin-automations-repository'
+import type { App } from '@/domain/models/app'
 
 // ─── Runs cursor (opaque base64 of `{ startedAt, id }`) ─────────────────────────
 
@@ -86,7 +89,38 @@ export function decodeAdminRunsListQuery(raw: unknown): AdminRunsListQueryDecode
       to: query.to,
       q: query.q,
       cursor: query.cursor,
+      page: query.page,
       limit: query.limit,
     },
+  }
+}
+
+// ─── Read filters ─────────────────────────────────────────────────────────────
+
+/**
+ * The repository read a runs-list request asks for. The cursor anchors on
+ * `createdAt` (non-null by schema): the encoded cursor carries the previous
+ * page's last `createdAt` under the historical `startedAt` key, decoded here
+ * into the `cursorBefore` predicate; a malformed cursor is ignored. A numbered
+ * `page` is read by offset, and only when no cursor names a position.
+ */
+export function runsListFilters(app: App, input: AdminRunsListInput): AdminRunsListFilters {
+  const decoded = input.cursor ? decodeRunsCursor(input.cursor) : null
+  const cursorBefore = decoded === null ? undefined : new Date(decoded.startedAt)
+  const paged = cursorBefore === undefined && input.page !== undefined
+  return {
+    status: input.status,
+    automationName: input.automationName,
+    triggerName:
+      input.triggerName === undefined
+        ? undefined
+        : triggerNameFilterOf(app.automations, input.automationName, input.triggerName),
+    automationId: input.automationId,
+    from: input.from === undefined ? undefined : new Date(input.from),
+    to: input.to === undefined ? undefined : new Date(input.to),
+    q: input.q,
+    cursorBefore,
+    limit: input.limit,
+    offset: paged ? ((input.page ?? 1) - 1) * input.limit : undefined,
   }
 }

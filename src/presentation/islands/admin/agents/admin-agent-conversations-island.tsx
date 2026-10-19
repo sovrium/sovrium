@@ -25,13 +25,9 @@
  * island stays a thin render under the per-island `max-lines` cap.
  */
 
-import { type ReactElement } from 'react'
-import { ChatComposer } from './admin-agent-chat-composer'
+import { type ReactElement, useMemo } from 'react'
 import { ConversationList } from './admin-agent-conversations-list'
-import {
-  useAgentConversations,
-  type AgentConversationsController,
-} from './admin-agent-conversations-state'
+import { useAgentConversations } from './admin-agent-conversations-state'
 import { AgentConversationStringsContext } from './admin-agent-conversations-strings'
 import { ConversationThread } from './admin-agent-conversations-thread'
 import type { SharedFilterBindingConfig } from '../../hooks/use-shared-filter'
@@ -51,71 +47,60 @@ interface AdminAgentConversationsIslandProps {
   readonly dataSource?: SharedFilterBindingConfig
   /** The viewer's words in the console language, where they differ from English. */
   readonly uiStrings?: Readonly<Record<string, string>>
+  /** The agent as the console names it — an answer's author and the thread's badge. */
+  readonly agentLabel?: string
+  /** The model the agent answers with, for a thread whose answers named none. */
+  readonly agentModel?: string
 }
 
 const EMPTY_NAMES: ReadonlyArray<string> = []
 const UNBOUND: SharedFilterBindingConfig = {}
 const ENGLISH: Readonly<Record<string, string>> = {}
 
-/**
- * The thread column body: the "New conversation" composer when the compose
- * flow is active with a picked agent, otherwise the selected
- * conversation's read-only transcript (the default observe-only viewer). The
- * composer is keyed by `composerKey` so each new conversation remounts it with a
- * fresh sessionId.
- */
-function ThreadColumn({ ctl }: { readonly ctl: AgentConversationsController }): ReactElement {
-  const { active, agent, composerKey } = ctl.newConversation
-  if (active && agent.length > 0) {
-    return (
-      <ChatComposer
-        key={composerKey}
-        agentSlug={agent}
-      />
-    )
-  }
-  return (
-    <ConversationThread
-      state={ctl.thread}
-      onRetry={ctl.reloadThread}
-    />
-  )
-}
-
 /** The agent conversation-viewer surface region (two columns: list + thread). */
 export default function AdminAgentConversationsIsland({
   agentNames = EMPTY_NAMES,
   dataSource = UNBOUND,
   uiStrings = ENGLISH,
+  agentLabel = '',
+  agentModel = '',
 }: AdminAgentConversationsIslandProps): ReactElement {
   const ctl = useAgentConversations(agentNames, dataSource)
-  // Below `md` the two panes stack, the list first: side by side, the thread
-  // was squeezed into whatever a phone had left beside a 288 px list.
+  const names = useMemo(() => ({ agentLabel, agentModel }), [agentLabel, agentModel])
+  // Where the viewer is narrower than 42rem the list and an open thread
+  // REPLACE each other: the list until a row is tapped, then the thread, whose
+  // back control returns. From 42rem up they stand side by side. The width is
+  // the viewer's own (`@container`), not the window's: at 768px the console's
+  // sidebar leaves the page 512px, too little for two columns.
+  const thread = ctl.selectedId === undefined ? 'hidden @2xl:block' : 'block'
   return (
     <AgentConversationStringsContext.Provider value={uiStrings}>
-      <div className="flex flex-col gap-6 md:flex-row">
-        <ConversationList
-          state={ctl.list}
-          visibleConversations={ctl.visibleConversations}
-          selectedId={ctl.selectedId}
-          search={ctl.search}
-          onSearch={ctl.setSearch}
-          onSelect={ctl.onSelect}
-          onRetry={ctl.reloadList}
-          onResetSearch={ctl.onResetSearch}
-          agent={ctl.agent}
-          onAgent={ctl.setAgent}
-          agentNames={agentNames}
-          newConversation={ctl.newConversation}
-          onStartNewConversation={ctl.onStartNewConversation}
-          onPickNewAgent={ctl.onPickNewAgent}
-        />
-        <section
-          aria-label="Conversation"
-          className="w-full min-w-0 md:flex-1"
-        >
-          <ThreadColumn ctl={ctl} />
-        </section>
+      <div className="@container">
+        <div className="flex flex-col gap-6 @2xl:flex-row">
+          <ConversationList
+            state={ctl.list}
+            visibleConversations={ctl.visibleConversations}
+            selectedId={ctl.selectedId}
+            search={ctl.search}
+            onSelect={ctl.onSelect}
+            onRetry={ctl.reloadList}
+            onResetSearch={ctl.onResetSearch}
+            agent={ctl.agent}
+            onAgent={ctl.setAgent}
+            agentNames={agentNames}
+          />
+          <section
+            aria-label="Conversation"
+            className={`${thread} w-full min-w-0 @2xl:flex-1`}
+          >
+            <ConversationThread
+              state={ctl.thread}
+              onRetry={ctl.reloadThread}
+              onBack={ctl.onBack}
+              names={names}
+            />
+          </section>
+        </div>
       </div>
     </AgentConversationStringsContext.Provider>
   )

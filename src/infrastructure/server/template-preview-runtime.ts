@@ -14,6 +14,7 @@ import {
   type TemplatePreviewInput,
 } from '@/application/use-cases/automations/template-preview'
 import { SvgRasterizerLive } from '@/infrastructure/assets/svg-rasterizer-live'
+import { EmailCssInlinerLive } from '@/infrastructure/email/email-css-inliner-live'
 import { DocumentRendererLive } from '@/infrastructure/export/document-renderer-live'
 import { OfficeConverterLive } from '@/infrastructure/export/office-converter-live'
 import { ImageTransformServiceLive } from '@/infrastructure/storage/image-transform-live'
@@ -40,14 +41,18 @@ const OfflineStorage = Layer.succeed(StorageService, {
   getSignedUrl: () => offline,
   getMetadata: () => offline,
   statObject: () => offline,
+  objectIdentity: () => offline,
   findOtherSpelling: () => offline,
   list: () => offline,
+  listPage: () => offline,
+  catalogBuckets: () => offline,
   getTotalBytes: offline,
 })
 
 const PreviewServices = Layer.mergeAll(
   TemplateEngineLive,
   DocumentRendererLive,
+  EmailCssInlinerLive,
   SvgRasterizerLive,
   ImageTransformServiceLive,
   OfficeConverterLive,

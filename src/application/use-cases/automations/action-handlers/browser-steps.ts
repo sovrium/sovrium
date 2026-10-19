@@ -106,13 +106,17 @@ const stepShots = (
 ): Effect.Effect<readonly ScreenshotRef[], never, StepRequirements> =>
   Effect.gen(function* () {
     if (result.screenshot !== undefined) {
-      const shot = yield* scope.storeShot(result.screenshot.bytes, result.screenshot.name)
+      const shot = yield* scope.storeShot(
+        result.screenshot.bytes,
+        result.screenshot.name,
+        scope.session
+      )
       return shot === undefined ? [] : [shot]
     }
     if (scope.screenshots !== 'steps') return []
     const bytes = yield* pageShot(scope.session)
     if (bytes._tag === 'None') return []
-    const shot = yield* scope.storeShot(bytes.value, `step-${String(index + 1)}`)
+    const shot = yield* scope.storeShot(bytes.value, `step-${String(index + 1)}`, scope.session)
     return shot === undefined ? [] : [shot]
   })
 

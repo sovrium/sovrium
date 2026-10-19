@@ -22,14 +22,17 @@ const BUTTON_CLASSES = `${computeButtonDefaultClasses()} w-full`
 export function KeyReveal({
   secret,
   onDone,
+  words,
 }: {
   readonly secret: string
   readonly onDone: () => void
+  /** Its words in the page language, where they differ from English. */
+  readonly words?: Readonly<Record<string, string>>
 }): ReactElement {
   const [copied, setCopied] = useState(false)
   return (
     <div className={computeFormLayoutClasses()}>
-      <p>Copy this key now — it will not be shown again.</p>
+      <p>{words?.['apiKeys.copyOnce'] ?? 'Copy this key now — it will not be shown again.'}</p>
       <code
         data-testid="api-key-secret"
         className="font-mono break-all"
@@ -42,7 +45,7 @@ export function KeyReveal({
           checked={copied}
           onChange={(event) => setCopied(event.target.checked)}
         />
-        I have copied this key
+        {words?.['apiKeys.copiedConfirm'] ?? 'I have copied this key'}
       </label>
       {/* `data-dialog-cancel`: in a dialog, Done also closes it. */}
       <button
@@ -53,7 +56,7 @@ export function KeyReveal({
         className={BUTTON_CLASSES}
         onClick={onDone}
       >
-        Done
+        {words?.['apiKeys.done'] ?? 'Done'}
       </button>
     </div>
   )

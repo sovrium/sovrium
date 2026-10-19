@@ -23,7 +23,12 @@
  * decides validity.
  */
 
+import { findConstraintViolation } from '@/domain/errors/driver-failure'
+import type { ActionOutcome } from './shared'
+import type { RefusedWrite } from '@/domain/models/app/agents/agent-action-failure-service'
+
 interface ErrorNode {
+  readonly _tag?: unknown
   readonly message?: unknown
   readonly fieldName?: unknown
   readonly query?: unknown
@@ -86,3 +91,41 @@ export const describeWriteFailure = (
   const column = fieldName ?? columnOfEchoedValue(reason, fields)
   return column === undefined ? `${base}: ${reason}` : `${base}: ${column} — ${reason}`
 }
+
+/** Whether the database refused the write because another row already holds the value. */
+const isTakenValue = (failure: unknown): boolean =>
+  (failure as ErrorNode | null)?._tag === 'UniqueConstraintViolationError' ||
+  findConstraintViolation(failure) === 'unique'
+
+/**
+ * The refused write as the agent path may know it: whether the value was
+ * taken, and the column the database refused when it can be told — read off
+ * the failure's structure, never off its sentence. A taken value carries no
+ * column at all.
+ */
+export const refusedWriteOf = (
+  failure: unknown,
+  fields: Readonly<Record<string, unknown>>
+): RefusedWrite => {
+  if (isTakenValue(failure)) return { unique: true }
+  const named = (failure as ErrorNode | null)?.fieldName
+  const reason = driverReason(failure)
+  const column =
+    typeof named === 'string'
+      ? named
+      : reason === undefined
+        ? undefined
+        : columnOfEchoedValue(reason, fields)
+  return column === undefined ? { unique: false } : { unique: false, column }
+}
+
+/**
+ * The failure outcome of a refused record write: the operator's sentence for
+ * the run history ({@link describeWriteFailure} on a create, the write's own
+ * message otherwise) and the structured refusal the agent path reads.
+ */
+export const writeFailureOutcome = (
+  failure: unknown,
+  fields: Readonly<Record<string, unknown>>,
+  error: string = describeWriteFailure(failure, fields)
+): ActionOutcome => ({ status: 'failure', error, refusedWrite: refusedWriteOf(failure, fields) })

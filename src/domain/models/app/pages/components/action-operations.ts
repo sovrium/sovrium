@@ -7,7 +7,7 @@
 
 import { Schema } from 'effect'
 import { LOGIN_PAGE_PATTERN } from '../../auth/auth'
-import { ActionResponseSchema } from './action-response'
+import { ActionResponseSchema, AutomationSuccessResponseSchema } from './action-response'
 import { ButtonVariantSchema } from './button-variant'
 
 /**
@@ -487,6 +487,14 @@ export const CrudActionSchema = Schema.Struct({
  *       variant: success
  *     navigate: /reports
  *
+ * # A list the run changes is re-read in place once the run has ended
+ * action:
+ *   type: automation
+ *   name: touch
+ *   await: true
+ *   onSuccess:
+ *     refetch: tasks-grid
+ *
  * # A button inside a dialog: once the run is accepted, the dialog closes
  * action:
  *   type: automation
@@ -500,9 +508,10 @@ export const CrudActionSchema = Schema.Struct({
  * ```
  *
  * On success the button follows `onSuccess.navigate` (with `$record.*` filled
- * from its record) and `onSuccess.close`, after the start is accepted or, with
- * `await: true`, after the run has ended. A refused start or a failed run shows
- * `onError.toast` and neither closes nor navigates.
+ * from its record), `onSuccess.close`, `onSuccess.refetch` (the components it
+ * names re-read their rows) and `onSuccess.reload`, after the start is accepted
+ * or, with `await: true`, after the run has ended. A refused start or a failed
+ * run shows `onError.toast` and neither closes, re-reads nor navigates.
  */
 export const AutomationActionSchema = Schema.Struct({
   type: Schema.Literal('automation').annotate({
@@ -551,7 +560,7 @@ export const AutomationActionSchema = Schema.Struct({
       examples: ['Generating…', 'Génération…', '$t:report.generating'],
     })
   ),
-  onSuccess: Schema.optional(ActionResponseSchema),
+  onSuccess: Schema.optional(AutomationSuccessResponseSchema),
   onError: Schema.optional(ActionResponseSchema),
 }).annotate({
   title: 'Automation Action',

@@ -142,6 +142,29 @@ export function appendToastDismissControl(toast: Element, label: string): void {
   installToastEscapeDismiss()
 }
 
+/** What a toast's Retry runs: its label, and the action to run again. */
+export interface ToastRetry {
+  readonly label: string
+  readonly run: () => void
+}
+
+/**
+ * Append a Retry to a failure toast: pressing it removes the toast and runs the
+ * failed action again, which raises its own toast for the new outcome. Shared
+ * by both renderers, so a Retry reads and behaves the same whichever drew it.
+ */
+export function appendToastRetry(toast: Element, retry: ToastRetry): void {
+  const button = document.createElement('button')
+  button.setAttribute('type', 'button')
+  button.setAttribute('data-toast-action', '')
+  button.textContent = retry.label
+  button.addEventListener('click', () => {
+    toast.remove()
+    retry.run()
+  })
+  toast.appendChild(button)
+}
+
 /**
  * Let `Escape` clear the most recent dismissible toast.
  *

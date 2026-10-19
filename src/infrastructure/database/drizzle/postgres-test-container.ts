@@ -32,8 +32,34 @@
  *
  * A reset that lands AFTER the container was created can leave that container
  * behind; Ryuk is disabled on the runner, whose label-based reaper sweeps it.
+ *
+ * ## Finding Docker, and saying so when it is not there
+ *
+ * {@link postgresContainerGate} decides whether a PG-container suite runs. It
+ * used to be `existsSync('/var/run/docker.sock') || DOCKER_HOST`, copied into
+ * every suite, which skipped SILENTLY on colima (whose socket lives under
+ * `~/.colima/<profile>/`): a skip reads like a pass in the reporter. The order
+ * is now, first match wins:
+ *
+ * 1. `DOCKER_HOST`, honoured verbatim and never probed. This is the CI path:
+ *    the runner sets `DOCKER_HOST=tcp://…:2375` to reach the docker-socket-proxy,
+ *    and the workflow sets the `TESTCONTAINERS_*` overrides beside it.
+ * 2. `/var/run/docker.sock` — Linux, and Docker Desktop's symlink.
+ * 3. `~/.colima/<profile>/docker.sock`, `default` first, then the other
+ *    profiles alphabetically (Colima's own `_`-prefixed directories skipped).
+ * 4. `~/.docker/run/docker.sock` — Docker Desktop without the `/var/run` link.
+ *
+ * A socket found at 3 or 4 is exported as `DOCKER_HOST` so testcontainers,
+ * which only knows 1 and 2, connects to it; `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE`
+ * is set to the in-VM `/var/run/docker.sock` (unless already set) because the
+ * Ryuk reaper mounts that path inside the VM, not the host path. Every skip
+ * prints one line on stderr naming the reason and, when Docker was looked for,
+ * every path tried.
  */
 
+import { readdirSync, statSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql'
 
 /** The image every PG-container suite runs: `0000` creates a `vector(1536)` column. */
@@ -124,3 +150,141 @@ export const startPostgresTestContainer = (
     const { PostgreSqlContainer } = await import('@testcontainers/postgresql')
     return new PostgreSqlContainer(POSTGRES_TEST_IMAGE).start()
   }, options)
+
+/** The filesystem and environment {@link resolveDockerHost} reads — injectable for tests. */
+export interface DockerProbe {
+  readonly env: Readonly<Record<string, string | undefined>>
+  readonly home: string
+  /** True when `path` exists and is a unix socket (following symlinks). */
+  readonly isSocket: (path: string) => boolean
+  /** The entry names of `path`, or `[]` when it cannot be read. */
+  readonly listDir: (path: string) => readonly string[]
+}
+
+export type DockerHostResolution =
+  | {
+      readonly kind: 'env'
+      /** `DOCKER_HOST` exactly as the environment gave it. */
+      readonly dockerHost: string
+    }
+  | {
+      readonly kind: 'socket'
+      /** `unix://<socketPath>`, ready to export as `DOCKER_HOST`. */
+      readonly dockerHost: string
+      readonly socketPath: string
+      /** Whether testcontainers would have found this socket on its own. */
+      readonly standard: boolean
+      readonly tried: readonly string[]
+    }
+  | { readonly kind: 'missing'; readonly tried: readonly string[] }
+
+const STANDARD_SOCKET = '/var/run/docker.sock'
+
+const isSocketOnDisk = (path: string): boolean => {
+  try {
+    return statSync(path).isSocket()
+  } catch {
+    return false
+  }
+}
+
+const listDirOnDisk = (path: string): readonly string[] => {
+  try {
+    return readdirSync(path)
+  } catch {
+    return []
+  }
+}
+
+/** The real filesystem and `process.env`. */
+export const liveDockerProbe = (): DockerProbe => ({
+  env: process.env,
+  home: process.env['HOME'] ?? homedir(),
+  isSocket: isSocketOnDisk,
+  listDir: listDirOnDisk,
+})
+
+/** Colima profile directories, `default` first, then alphabetical; Colima's `_*` internals excluded. */
+const colimaProfiles = (probe: DockerProbe): readonly string[] => {
+  const names = probe
+    .listDir(join(probe.home, '.colima'))
+    .filter((name) => !name.startsWith('_') && !name.includes('.'))
+  const rest = names.filter((name) => name !== 'default').toSorted()
+  return names.includes('default') ? ['default', ...rest] : rest
+}
+
+/** The candidate sockets after `DOCKER_HOST`, in resolution order. */
+export const dockerSocketCandidates = (probe: DockerProbe): readonly string[] => [
+  STANDARD_SOCKET,
+  ...colimaProfiles(probe).map((profile) => join(probe.home, '.colima', profile, 'docker.sock')),
+  join(probe.home, '.docker', 'run', 'docker.sock'),
+]
+
+/**
+ * Where testcontainers should reach Docker: `DOCKER_HOST` first, then the
+ * sockets of {@link dockerSocketCandidates} in order. Pure over `probe`.
+ */
+export const resolveDockerHost = (probe: DockerProbe): DockerHostResolution => {
+  const fromEnv = probe.env['DOCKER_HOST']
+  if (fromEnv !== undefined && fromEnv.trim() !== '') return { kind: 'env', dockerHost: fromEnv }
+  const candidates = dockerSocketCandidates(probe)
+  const index = candidates.findIndex((candidate) => probe.isSocket(candidate))
+  if (index === -1) return { kind: 'missing', tried: candidates }
+  const socketPath = candidates[index] as string
+  return {
+    kind: 'socket',
+    dockerHost: `unix://${socketPath}`,
+    socketPath,
+    standard: socketPath === STANDARD_SOCKET,
+    tried: candidates.slice(0, index + 1),
+  }
+}
+
+export interface GateOptions {
+  readonly probe?: DockerProbe
+  /** Where the gate writes `DOCKER_HOST` and the socket override. Defaults to `process.env`. */
+  readonly targetEnv?: Record<string, string | undefined>
+  /** One line per decision. Defaults to stderr. */
+  readonly log?: (line: string) => void
+}
+
+const logLine = (line: string): void => {
+  process.stderr.write(`${line}\n`)
+}
+
+/**
+ * Whether a PG-container suite named `suite` runs. `optIn` is the suite's own
+ * read of the lane variable — it stays in each test file because
+ * `[internal ref]` pins a file to the PostgreSQL shard by finding
+ * that variable's name in its CONTENT.
+ *
+ * Returns `false` (and logs why) when the suite is not opted in or no Docker
+ * endpoint resolves; on a non-standard socket it exports `DOCKER_HOST` (and the
+ * Ryuk socket override) so testcontainers connects to what was found.
+ */
+export const postgresContainerGate = (
+  suite: string,
+  optIn: boolean,
+  options: GateOptions = {}
+): boolean => {
+  const log = options.log ?? logLine
+  const prefix = `[postgres-test-container] ${suite}:`
+  if (!optIn) {
+    log(`${prefix} SKIPPED — the PostgreSQL lane is opt-in; set RUN_PG_MIGRATION_TESTS=1 to run it`)
+    return false
+  }
+  const resolution = resolveDockerHost(options.probe ?? liveDockerProbe())
+  if (resolution.kind === 'missing') {
+    log(
+      `${prefix} SKIPPED — no Docker endpoint: DOCKER_HOST is unset and no socket exists at ${resolution.tried.join(', ')}. Start Docker/colima or export DOCKER_HOST.`
+    )
+    return false
+  }
+  if (resolution.kind === 'socket' && !resolution.standard) {
+    const target = options.targetEnv ?? process.env
+    target['DOCKER_HOST'] = resolution.dockerHost
+    target['TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE'] ??= STANDARD_SOCKET
+    log(`${prefix} using ${resolution.dockerHost} (exported as DOCKER_HOST)`)
+  }
+  return true
+}

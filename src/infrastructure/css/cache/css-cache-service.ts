@@ -35,6 +35,11 @@ export interface CompiledCSS {
    * the compile happened before the report ran.
    */
   readonly staleIgnored?: boolean
+  /**
+   * Served from the on-disk compile cache: the bytes an earlier process
+   * compiled for the same engine and the same inputs.
+   */
+  readonly reused?: boolean
 }
 
 /**

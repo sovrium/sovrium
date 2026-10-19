@@ -19,30 +19,30 @@ import { ADMIN_GROUPS_ENDPOINT, ADMIN_ROLES_ENDPOINT } from '../../system-source
  * The role picker's option source, shared by the directory's inline editor and
  * the invite form.
  *
- * `valueKey: 'name'` because a role name IS its identity — the endpoint's rows
- * are `{ name }` and no write endpoint accepts anything else. `labelKey` is the
- * same key: there is no separate display name for a role, and inventing one
- * would put a label in the picker that the operator cannot find in their config.
+ * `valueKey: 'name'` because a role name IS its identity — no write endpoint
+ * accepts anything else. `labelKey: 'label'` because the operator reads words:
+ * the label the app declares on the role, else the console's own words for a
+ * built-in, else the name made readable, all computed by the roles read.
  */
 export const ROLE_OPTIONS_SOURCE = {
   system: { endpoint: ADMIN_ROLES_ENDPOINT, rowsKey: 'roles' },
   valueKey: 'name',
-  labelKey: 'name',
+  labelKey: 'label',
 } as const
 
 /**
  * The group picker's option source — every group in `auth.groups[]`.
  *
  * Keyed on `name` for the reason roles are: a group's name is the identity the
- * membership write accepts, and the label an operator can find in their config.
- * An app that declares no group gets an empty list here, and the write refuses
+ * membership write accepts. Shown by its `label`: the one the app declares, else
+ * the name made readable. An app that declares no group gets an empty list here, and the write refuses
  * any name it does not declare, so the picker can never offer more than the
  * boundary allows.
  */
 export const GROUP_OPTIONS_SOURCE = {
   system: { endpoint: ADMIN_GROUPS_ENDPOINT, rowsKey: 'groups' },
   valueKey: 'name',
-  labelKey: 'name',
+  labelKey: 'label',
 } as const
 
 /**
@@ -60,7 +60,7 @@ export const GROUP_OPTIONS_SOURCE = {
  * answers its refusals with their own status (400 for an undeclared group, 422
  * past a group's member cap), so the status line is the truth.
  */
-export const changeGroupsAction = (refetch: string) =>
+export const changeGroupsAction = (refetch: string | readonly string[]) =>
   ({
     label: '$t:admin.users.changeGroups',
     editSelect: {
@@ -84,7 +84,7 @@ export const changeGroupsAction = (refetch: string) =>
  * The row action that sets an account's role, through the Better-Auth admin
  * plugin's `set-role`.
  */
-export const changeRoleAction = (refetch: string) =>
+export const changeRoleAction = (refetch: string | readonly string[]) =>
   ({
     label: '$t:admin.users.changeRole',
     editSelect: {
@@ -108,7 +108,7 @@ export const changeRoleAction = (refetch: string) =>
   }) as const
 
 /** Ban an account — the one row gesture that takes access away, so it confirms. */
-export const banAction = (refetch: string) =>
+export const banAction = (refetch: string | readonly string[]) =>
   ({
     label: '$t:admin.users.ban',
     variant: 'destructive',
@@ -134,7 +134,7 @@ export const banAction = (refetch: string) =>
   }) as const
 
 /** Lift a ban. */
-export const liftBanAction = (refetch: string) =>
+export const liftBanAction = (refetch: string | readonly string[]) =>
   ({
     // No confirm: lifting a ban is the reversal of a reversible action.
     // Confirmation is reserved for the direction that removes access.

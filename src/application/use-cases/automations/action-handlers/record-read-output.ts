@@ -27,6 +27,7 @@ import { shapeRecordsForReader } from '@/application/use-cases/tables/read-recor
 import { buildGuestSession, buildSystemSession } from '../build-guest-session'
 import { singleUserFieldNames, withHydratedId } from '../hydrated-field-reference'
 import { runLinkReader, type RunReadAccess } from './record-caller-gate'
+import { recordReadAttachments } from './run-written-files'
 import type { ActionOutcome, AutomationContext } from './shared'
 import type { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
@@ -156,6 +157,16 @@ const expandUserFields = (
   })
 
 /**
+ * Whether the shaped rows keep their write-only columns. A run nobody started
+ * reads write-only values — the one reader they are for — unless a chain a
+ * person started called it; a hand-started run keeps the mask its rows already
+ * hold in their place (see `readableRows`), never a value. Named positively, so
+ * an access kind added later keeps nothing by default.
+ */
+const keepsWriteOnly = (access: RunReadAccess, automation: AutomationContext): boolean =>
+  access.kind === 'scoped' || (access.kind === 'system' && automation.writeOnly?.blind !== true)
+
+/**
  * Build the canonical read success output, SHARED by `record/read` and
  * `record/list`. Surfaces both `record` (first row or undefined) and `records`
  * (the whole array), so `{{getUser.record.email}}` works for the single-row
@@ -190,11 +201,9 @@ export const buildReadOutput = (
       userRole: reader.role,
       userGroups: reader.groups ?? [],
       origin: attachmentOrigin(process.env),
-      // A run nobody started reads write-only values: the one reader they are for.
-      // Named positively, so an access kind added later reads nothing by default.
-      // A run called from a chain a person started reads as the system, yet not these.
-      readsWriteOnly:
-        context.access.kind === 'system' && context.automation.writeOnly?.blind !== true,
+      readsWriteOnly: keepsWriteOnly(context.access, context.automation),
+      // Each granted record is shaped with the roles granted on it, as the records API shapes it.
+      grants: context.access.kind === 'scoped' ? context.access.grants : undefined,
     }
     // One read per relation for the whole set, never one per row.
     const shaped = yield* Effect.result(shapeRecordsForReader(config, rows))
@@ -210,5 +219,14 @@ export const buildReadOutput = (
     const records = expanded.success.map((record) =>
       selected === undefined ? record : selectFields(record, selected)
     )
+    // A key the starter's own read handed the run may reach a file step later.
+    if (context.access.kind === 'scoped') {
+      yield* Effect.sync(() =>
+        recordReadAttachments(context.automation.readFiles, {
+          scope: { app, tableName },
+          records,
+        })
+      )
+    }
     return { status: 'success', output: { record: records[0] ?? undefined, records } } as const
   }).pipe(Effect.withSpan('automations.build-read-output'))

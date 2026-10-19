@@ -8,10 +8,27 @@
 // Must stay first: the compiled binary needs the polyfill installed before the
 // passkey package's dependency graph initialises (see that module's comment).
 import './reflect-metadata-polyfill'
-import { passkey } from '@better-auth/passkey'
 import { createAuthMiddleware } from 'better-auth/api'
 import { loopbackRequestOrigin } from './loopback-origin'
 import type { Auth } from '@/domain/models/app/auth'
+import type * as PasskeyPackage from '@better-auth/passkey'
+
+/**
+ * The passkey package, loaded the first time an app that declares
+ * `auth.passkeys` builds its plugin list — never at start for an app that
+ * does not. Its graph (WebAuthn verification, X.509 and ASN.1 parsing) is a
+ * few dozen milliseconds of every cold start otherwise.
+ *
+ * A synchronous `require`, not `import()`: the plugin list is built inside the
+ * synchronous `createAuthInstance`, whose return type every route reads, and
+ * the module type comes from the type-only import above, so the inferred
+ * `auth.api` surface is exactly what the static import produced. The literal
+ * specifier is what keeps the package inside the compiled binary. The polyfill
+ * import at the top of this file still runs first, as the comment there needs.
+ */
+const loadPasskeyPackage = (): typeof PasskeyPackage =>
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- deferred load, see above
+  require('@better-auth/passkey') as typeof PasskeyPackage
 
 /** The endpoint whose sessions a passkey opened. */
 export const PASSKEY_SIGN_IN_PATH = '/passkey/verify-authentication'
@@ -43,6 +60,7 @@ export const buildPasskeyPlugin = (authConfig: Auth | undefined, appName: string
   if (!authConfig?.passkeys) return []
   const config = typeof authConfig.passkeys === 'boolean' ? {} : authConfig.passkeys
   const base = baseUrlOrigin()
+  const { passkey } = loadPasskeyPackage()
   const plugin = passkey({
     ...(base === undefined ? {} : { rpID: base.hostname, origin: base.origin }),
     ...((config.rpName ?? appName) ? { rpName: config.rpName ?? appName } : {}),

@@ -17,7 +17,7 @@ The `auth` family operates on the same user store and the same roles as end-user
 | `rotateOAuthClientSecret` | `clientId`                                          | Replaces a sign-in client's secret; outputs `clientId`, `clientSecret`         |
 | `deleteOAuthClient`       | `clientId`                                          | Deletes a sign-in client; outputs `clientId`, `deleted`                        |
 | `grantAccess`             | `userId`, `table`, `recordId`, `role`               | Gives an account one record of a scope table under a role                      |
-| `revokeAccess`            | `userId`, `table`, `recordId`                       | Takes one record of a scope table away from an account                         |
+| `revokeAccess`            | `userId`, `table`, `recordId`, `role?`              | Takes one record of a scope table away from an account                         |
 | `listGrantees`            | `table`, `recordId`, `role?`                        | Lists the accounts granted one record; outputs `grantees`, `count`             |
 
 <!-- sovrium:options AuthActionSchema -->
@@ -45,6 +45,8 @@ An omitted `role` on `createUser` falls back to the app's configured default rol
 
 `assignRole` writes through the same guard the admin endpoints use, so a role name the app has not declared is refused rather than stored, and the last remaining admin cannot be demoted by an automation any more than by a person, nor banned: `banUser` refuses to ban the last admin able to sign in and fails the step. A role an automation changes is recorded in the audit log as `user.role.changed`, a ban as `user.banned` (with `expiresAt: null`, since `banUser` sets no end, and never with its reason) and a lifted ban as `user.unbanned`, each attributed to the automation by name — the entry's actor is the automation, and its name is in the entry's `metadata.automation`. Lifting a ban from an account that was not banned records nothing. A workflow that provisions accounts is therefore safe to run against a trigger you do not fully control; it is still worth gating with a filter, because a refused write fails the step and fails the run.
 
+In a run someone started by hand, `assignRole`, `banUser`, `unbanUser`, `addToGroup` and `removeFromGroup` answer an account that does not exist with `Resource not found`. A run nobody started names the id it was given.
+
 ## Group membership
 
 `addToGroup` and `removeFromGroup` manage who belongs to the groups the app declares in `auth.groups`, so membership — which the configuration never states — can follow your data. `group` is the group's name. A name the configuration does not declare is refused by `sovrium validate` when it is written literally, and fails the step when it arrives through a template.
@@ -62,7 +64,7 @@ Both operators are idempotent: adding an account that is already a member, or re
 
 An app that lists tables in `auth.scopeTables` decides who sees which of their records through grants — an account, some records of one scope table, and a role. These three operators let who sees a record follow your data, and let a workflow reach everyone who sees it. They write through the same store and the same validation as the access-grant routes: a table `auth.scopeTables` does not list, or a role `auth.roles` does not declare, is refused by `sovrium validate` when it is written literally, naming the automation and the step, and fails the step and writes nothing when it arrives through a template.
 
-`grantAccess` gives an account one record under a role, and `revokeAccess` takes one record away: the record leaves every grant of that account over that table, and a grant left naming no record is deleted. Both are idempotent — granting a record the account already holds under that role, or revoking one it does not hold, succeeds and changes nothing — so a workflow that mirrors a team field into grants can run on every change. Their output is `{ userId, table, recordId, role, changed }` (no `role` on a revocation), where `changed` says whether access moved. A change counts on the account's next request, and closes its open realtime connections, which reconnect under the grants as they now stand.
+`grantAccess` gives an account one record under a role, and `revokeAccess` takes one record away: the record leaves every grant of that account over that table — or, given a `role`, only the grant held under that role, so an account holding the record under two roles keeps it under the other — and a grant left naming no record is deleted. Both are idempotent — granting a record the account already holds under that role, or revoking one it does not hold, succeeds and changes nothing — so a workflow that mirrors a team field into grants can run on every change. Their output is `{ userId, table, recordId, role, changed }` (no `role` on a revocation that names none), where `changed` says whether access moved. A change counts on the account's next request, and closes its open realtime connections, which reconnect under the grants as they now stand.
 
 ```yaml
 - name: grant
@@ -104,6 +106,10 @@ automations:
                 subject: 'Ready to test: {{trigger.data.projectName}}'
                 body: '<p>Hello {{loop.item.name}}, the build is ready for you to test.</p>'
 ```
+
+A run someone started by hand — a manual trigger, a table button, an MCP action template, an agent's chat turn, or an automation one of them calls — manages grants as that person. `grantAccess` and `revokeAccess` change the grants of a record only when that person may update it, and `listGrantees` lists the grantees of a record only when that person may read it. A record outside those rights, and one that does not exist, fail the step alike with `Resource not found`, and nothing is granted or revoked. A run nobody started — a webhook, a schedule, a record event — manages every grant as the system.
+
+In a run nobody started, `grantAccess` naming a record that does not exist, or one in the trash, fails the step with `auth.grantAccess: recordId '<id>' is no record of '<table>'`, and nothing is granted.
 
 ## Sign-in clients
 

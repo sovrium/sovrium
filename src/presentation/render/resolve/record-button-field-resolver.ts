@@ -18,11 +18,14 @@
  * - nothing, on a record its `visibleWhen` does not admit, judged on the record
  *   as she may read it (a condition on a field hidden from her is not met);
  * - otherwise the `record-field-button` island, which mounts the grid's
- *   `RecordButton` and runs the automation on the page's record.
+ *   `RecordButton` and runs the automation on the page's record — drawn
+ *   disabled, with its reason, on a record its `disabledWhen` holds for (the
+ *   server's verdict, judged on the whole row).
  *
  * Every other component passes through untouched.
  */
 
+import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import {
   callerReaderFromSession,
   callerTableGate,
@@ -71,16 +74,40 @@ async function mountOf(
   if (!fieldReadable(ctx, table.name, field.name)) return null
   const config = resolveButtonFieldMeta(field)['button'] as {
     readonly visibleWhen?: Parameters<typeof satisfiesFieldCondition>[0]
+    readonly disabledReason?: string
   }
-  if (config.visibleWhen !== undefined) {
-    const record = await readRecordForCaller({
-      ...ctx,
-      tableName: table.name,
-      at: { field: 'id', value: String(recordId) },
-    })
-    if (record === undefined || !satisfiesFieldCondition(config.visibleWhen, record)) return null
+  const mount = { config, field: field.name, table: table.name, recordId: String(recordId) }
+  const judged = (field as { readonly disabledWhen?: unknown }).disabledWhen !== undefined
+  if (config.visibleWhen === undefined && !judged) return mount
+  const record = await readRecordForCaller({
+    ...ctx,
+    tableName: table.name,
+    at: { field: 'id', value: String(recordId) },
+  })
+  if (record === undefined) return null
+  if (config.visibleWhen !== undefined && !satisfiesFieldCondition(config.visibleWhen, record)) {
+    return null
   }
-  return { config, field: field.name, table: table.name, recordId: String(recordId) }
+  return { ...mount, ...disabledOnRecordOf(record, field.name, config.disabledReason) }
+}
+
+/**
+ * The server's verdict on the button for this record (its id in the record's
+ * `_disabled`, judged on the whole row), with its reason read from what the
+ * reader may read; nothing when the button is usable.
+ */
+function disabledOnRecordOf(
+  record: Readonly<Record<string, unknown>>,
+  fieldName: string,
+  reason: string | undefined
+): { readonly disabledOnRecord?: { readonly reason: string | undefined } } {
+  const listed = record['_disabled']
+  if (!Array.isArray(listed) || !listed.includes(`field:${fieldName}`)) return {}
+  return {
+    disabledOnRecord: {
+      reason: reason === undefined ? undefined : substituteRecordVars(reason, record),
+    },
+  }
 }
 
 async function resolveNode(node: Component | string, ctx: ButtonFieldContext) {

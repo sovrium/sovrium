@@ -104,7 +104,7 @@ const DescriptionTextItemSchema = Schema.Struct({
 /**
  * One term whose detail is a field of the bound record drawn BY ITS TYPE: a
  * date in the page language, a select or status as its chip, a checkbox as Yes
- * or No, an empty value as "Not set".
+ * or No, an empty value as a muted em dash.
  * `detail: $record.<field>` prints the raw value as text; this is the
  * record-page form.
  */
@@ -114,7 +114,7 @@ const DescriptionFieldItemSchema = Schema.Struct({
     Schema.annotate({
       title: 'Field',
       description:
-        'A field of the bound record drawn as the detail by its type — a date in the page language, a select or status as its chip, a checkbox as Yes or No, an empty value as "Not set"',
+        'A field of the bound record drawn as the detail by its type — a date in the page language, a select or status as its chip, a checkbox as Yes or No, an amount as the grid prints it, an empty value as a muted em dash',
       examples: ['owner', 'due_date', 'status'],
     }),
     Schema.check(Schema.isMinLength(1))

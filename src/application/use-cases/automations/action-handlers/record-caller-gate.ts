@@ -22,36 +22,51 @@
 import { Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { refuseUnreadableLinkTargets } from '@/application/use-cases/tables/link-target-check'
-import {
-  callerReadScope,
-  type CallerReadScope,
-} from '@/application/use-cases/tables/permissions/caller-read-authority'
+import { callerReadScope } from '@/application/use-cases/tables/permissions/caller-read-authority'
 import {
   authorizeCallerWrites,
   type CallerWriteRequest,
 } from '@/application/use-cases/tables/permissions/caller-write-authority'
 import { getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
+import { SIGNED_OUT_VISITOR_ROLE } from '@/domain/models/app/auth/permission-evaluation'
 import { toGrantingRole } from '@/domain/models/app/auth/roles/granting-role-service'
 import { logError } from '@/infrastructure/logging/logger'
-import { buildSyntheticSession } from '../build-guest-session'
+import { buildGuestSession, buildSyntheticSession } from '../build-guest-session'
 import { recordEventLoopRefusal } from './record-events'
+import { admittedReadScope, type RunReadScope } from './run-read-admission'
 import type { ActionOutcome, ActionRunContext, AutomationContext } from './shared'
+import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { LinkReader } from '@/application/use-cases/tables/linked-row-visibility'
 import type { App } from '@/domain/models/app'
+import type { RowGrants } from '@/domain/models/app/tables/row-read-admission-service'
 
 /** The error a refused step reports — the records API's own answer. */
 export const CALLER_REFUSAL = 'Resource not found'
+
+/**
+ * A step's answer to an account that does not exist: in a run someone started
+ * by hand, the records API's `Resource not found`; otherwise the step's `named`
+ * message.
+ */
+export const unknownAccountOutcome = (
+  automation: AutomationContext | undefined,
+  named: string
+): ActionOutcome => ({
+  status: 'failure',
+  error: automation?.startedByHand === true ? CALLER_REFUSAL : named,
+})
 
 type GateRequirements = AuthRepository | DataSourceRepository | TableRepository
 
 /**
  * The account a record write is attributed to by default: the caller of a run
  * started by hand (their `created_by` / `updated_by` / `deleted_by`, the rule that a manual run writes as the person who started it),
- * the durable system actor for any other run. A hand-started run that lost its
- * caller never reaches a write — {@link callerMayWrite} refuses it first.
+ * the durable system actor for any other run — and for a visitor's run, which
+ * names nobody. A hand-started run that lost its caller never reaches a write —
+ * {@link callerMayWrite} refuses it first.
  */
 export const writerActorOf = (automation: AutomationContext): string =>
   automation.startedByHand === true && automation.userId !== undefined
@@ -59,19 +74,30 @@ export const writerActorOf = (automation: AutomationContext): string =>
     : SYSTEM_USER_ID
 
 /**
+ * The session a hand-started run's record steps are judged as: its starter's,
+ * the visitor's for a run a visitor who is not signed in started (the records
+ * API's rules for such a visitor), or `undefined` when it no longer names
+ * anyone — a run that then reads and writes nothing.
+ */
+const starterSessionOf = (automation: AutomationContext): UserSession | undefined => {
+  if (automation.startedAsGuest === true) return buildGuestSession()
+  return automation.userId === undefined ? undefined : buildSyntheticSession(automation.userId)
+}
+
+/**
  * Whether every write in `requests` is allowed for the run's caller. Always
  * `true` for a run nobody started by hand, and always `false` for a
- * hand-started run that no longer names its caller.
+ * hand-started run that no longer names its caller. A visitor's run (the guest
+ * sentinel) is judged as the records API judges a visitor who is not signed in.
  */
 export const callerMayWrite = (
   app: App,
   automation: AutomationContext,
   requests: readonly CallerWriteRequest[]
 ): Effect.Effect<boolean, never, GateRequirements> => {
-  const { userId } = automation
   if (automation.startedByHand !== true) return Effect.succeed(true)
-  if (userId === undefined) return Effect.succeed(false)
-  const session = buildSyntheticSession(userId)
+  const session = starterSessionOf(automation)
+  if (session === undefined) return Effect.succeed(false)
   // One identity per table the batch writes to, never one per row.
   const byTable = Map.groupBy(requests, (request) => request.tableName)
   return Effect.forEach([...byTable], ([tableName, onTable]) =>
@@ -84,19 +110,23 @@ export const callerMayWrite = (
 
 /**
  * The failed outcome for a refused step, or `undefined` when the caller may
- * perform every write in `requests`.
+ * perform every write in `requests`. A `'batch'` write is refused outright to
+ * a visitor's run: the records API gives a visitor who is not signed in no
+ * batch write.
  */
 export const callerRefusal = (
   app: App,
   automation: AutomationContext,
-  requests: readonly CallerWriteRequest[]
+  requests: readonly CallerWriteRequest[],
+  shape: 'single' | 'batch' = 'single'
 ): Effect.Effect<
   { readonly status: 'failure'; readonly error: string } | undefined,
   never,
   GateRequirements
 > =>
   Effect.gen(function* () {
-    if (!(yield* callerMayWrite(app, automation, requests))) {
+    const visitorBatch = shape === 'batch' && automation.startedAsGuest === true
+    if (visitorBatch || !(yield* callerMayWrite(app, automation, requests))) {
       return { status: 'failure', error: CALLER_REFUSAL } as const
     }
     const linkRefusal = yield* callerLinkRefusal(app, automation, requests)
@@ -182,12 +212,14 @@ export const writeRefusal = (input: {
  * How a record step reads: a run nobody started reads as the system (every row,
  * every column); a hand-started run reads as its starter, under their scope —
  * or not at all when they may not read the table or no longer have an account
- * in good standing.
+ * in good standing. The scope carries the records API's row admission: the
+ * records a grant names, where her own role reads no field of a record, each
+ * read with the fields of her role and of the roles granted on it (`grants`).
  */
 export type RunReadAccess =
   | { readonly kind: 'system' }
   | { readonly kind: 'refused' }
-  | { readonly kind: 'scoped'; readonly scope: CallerReadScope }
+  | { readonly kind: 'scoped'; readonly scope: RunReadScope; readonly grants: RowGrants }
 
 /** The read access of the run's caller for `tableName`. */
 export const runReadAccess = (
@@ -195,13 +227,20 @@ export const runReadAccess = (
   automation: AutomationContext,
   tableName: string
 ): Effect.Effect<RunReadAccess, never, GateRequirements> => {
-  const { userId } = automation
   if (automation.startedByHand !== true) return Effect.succeed({ kind: 'system' } as const)
-  if (userId === undefined) return Effect.succeed({ kind: 'refused' } as const)
-  return callerReadScope(app, buildSyntheticSession(userId), tableName).pipe(
-    Effect.map((scope): RunReadAccess =>
-      scope === undefined ? { kind: 'refused' } : { kind: 'scoped', scope }
-    ),
+  const session = starterSessionOf(automation)
+  if (session === undefined) return Effect.succeed({ kind: 'refused' } as const)
+  return Effect.gen(function* () {
+    const scope = yield* callerReadScope(app, session, tableName)
+    if (scope === undefined) return { kind: 'refused' } as const
+    const reader = yield* callerLinkReader(
+      automation.startedAsGuest === true ? undefined : automation.userId
+    )
+    const admitted = yield* admittedReadScope({ app, tableName, scope, reader })
+    return admitted === undefined
+      ? ({ kind: 'refused' } as const)
+      : ({ kind: 'scoped', ...admitted } as const)
+  }).pipe(
     Effect.withSpan('automations.run-read-access', { attributes: { 'table.name': tableName } })
   )
 }
@@ -216,10 +255,26 @@ export const runLinkReader = (
 ): Effect.Effect<LinkReader | undefined, never, AuthRepository> =>
   Effect.gen(function* () {
     const { userId } = automation
-    if (automation.startedByHand !== true || userId === undefined) return undefined
+    if (automation.startedByHand !== true) return undefined
+    if (automation.startedAsGuest === true) return yield* callerLinkReader(undefined)
+    if (userId === undefined) return undefined
+    return yield* callerLinkReader(userId)
+  }).pipe(Effect.withSpan('automations.run-link-reader'))
+
+/**
+ * A caller as a {@link LinkReader}: the signed-in user `userId` with her role
+ * and groups, or a visitor who is not signed in when `userId` is `undefined`.
+ */
+export const callerLinkReader = (
+  userId: string | undefined
+): Effect.Effect<LinkReader, never, AuthRepository> =>
+  Effect.gen(function* () {
+    if (userId === undefined) {
+      return { session: buildGuestSession(), role: SIGNED_OUT_VISITOR_ROLE, groups: [] }
+    }
     const auth = yield* AuthRepository
-    // effect-swallow: an unreadable role reads as no role at all, which grants nothing — it can only NARROW what the run reads.
+    // effect-swallow: an unreadable role reads as no role at all, which grants nothing — it can only NARROW what is read.
     const role = yield* auth.getUserRole(userId).pipe(Effect.orElseSucceed(() => undefined))
     const groups = yield* getUserGroups(userId)
     return { session: buildSyntheticSession(userId), role: toGrantingRole(role), groups }
-  }).pipe(Effect.withSpan('automations.run-link-reader'))
+  }).pipe(Effect.withSpan('automations.caller-link-reader'))

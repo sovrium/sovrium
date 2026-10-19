@@ -19,7 +19,7 @@
  */
 
 import { parseSovriumAdmin } from '@/domain/models/process-env/admin'
-import { resolveAdminPresetApp } from '@/infrastructure/assets/admin-preset'
+import { ADMIN_PRESET_LANGUAGES } from '@/infrastructure/assets/embedded-admin-preset.generated'
 import {
   acceptedPreferenceLanguages,
   applyLanguagePreferenceGuard,
@@ -71,12 +71,12 @@ export async function applyAccountPreferenceGuards(
  *
  * The same two switches `buildEmbeddedAppMounts` reads — the app's
  * `admin: false` and the deployment's `SOVRIUM_ADMIN=off` — so the write door
- * and the mount cannot disagree about whether the console exists. The kill
- * switch is read first, so an instance running without the console never
- * decodes its preset here.
+ * and the mount cannot disagree about whether the console exists. The languages
+ * themselves are the build-time `ADMIN_PRESET_LANGUAGES`, so the door never
+ * decodes the preset to learn them.
  */
 const mountedConsoleLanguages = (admin: App['admin'] | undefined): Languages | undefined =>
-  parseSovriumAdmin() === 'off' || admin === false ? undefined : resolveAdminPresetApp().languages
+  parseSovriumAdmin() === 'off' || admin === false ? undefined : ADMIN_PRESET_LANGUAGES
 
 /**
  * The vocabulary the language guard accepts for this app: its own declared

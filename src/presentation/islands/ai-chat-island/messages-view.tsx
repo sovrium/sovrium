@@ -21,16 +21,12 @@ import {
   computeMessageContentClasses,
 } from '@/presentation/design/message-default-classes'
 import { computeMessageScrollerClasses } from '@/presentation/design/message-scroller-default-classes'
-import {
-  AnswerBubble,
-  CitedSources,
-  ReasoningMarker,
-  StoppedMarker,
-  ToolLine,
-} from './answer-parts'
+import { AnswerBubble, CitedSources, StoppedMarker } from './answer-parts'
 import { AttachmentChip } from './attachment-chip'
 import { ChatElicitationPart } from './chat-elicitation'
 import { isBlankAnswer } from './chat-stream-client'
+import { AnswerTrace } from './trace-parts'
+import { UsageMeter } from './usage-meter'
 import type { ChatElicitationAnswer, ChatLabels, ChatMessage, ChatStatus } from './types'
 import type { ReactElement } from 'react'
 
@@ -64,6 +60,8 @@ interface MessagesViewProps {
   /** The conversation on screen, and the branch a turn's actions answer. */
   readonly sessionId: string
   readonly showBranch: (branch: Promise<readonly ChatMessage[]>) => void
+  /** Whether each answer ends with the tokens its turn used. */
+  readonly showUsage: boolean
 }
 
 /** What a turn needs beyond itself: the view's props, and whether a request is in flight. */
@@ -73,8 +71,8 @@ interface TurnContext extends MessagesViewProps {
 
 /**
  * An assistant turn's parts in reading order: its reasoning, the tools it
- * called, the question it asked the reader, the answer, and the line a
- * stopped answer keeps.
+ * called, the question it asked the reader, the answer, the line a stopped
+ * answer keeps, and the tokens the turn used when the chat shows them.
  */
 const AnswerParts = ({
   message,
@@ -84,21 +82,13 @@ const AnswerParts = ({
   readonly context: TurnContext
 }): ReactElement => (
   <>
-    {(message.reasoning ?? '').length > 0 && (
-      <ReasoningMarker
-        text={message.reasoning ?? ''}
-        label={context.labels.reasoning}
-      />
-    )}
-    {(message.tools ?? []).map((tool) => (
-      <ToolLine
-        key={tool.id}
-        tool={tool}
-        labels={context.labels}
-        busy={context.busy}
-        onDecide={context.onDecide}
-      />
-    ))}
+    <AnswerTrace
+      reasoning={message.reasoning}
+      tools={message.tools}
+      labels={context.labels}
+      busy={context.busy}
+      onDecide={context.onDecide}
+    />
     {message.elicitation !== undefined && (
       <ChatElicitationPart
         elicitation={message.elicitation}
@@ -115,6 +105,12 @@ const AnswerParts = ({
       />
     )}
     {message.stopReason === 'stopped' && <StoppedMarker label={context.labels.stopped} />}
+    {context.showUsage && message.usage !== undefined && message.usage.totalTokens > 0 && (
+      <UsageMeter
+        usage={message.usage}
+        labels={context.labels}
+      />
+    )}
   </>
 )
 

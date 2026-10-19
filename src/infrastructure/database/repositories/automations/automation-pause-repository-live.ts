@@ -13,6 +13,7 @@ import {
   type AutomationPauseReason,
   type AutomationPauseRow,
 } from '@/application/ports/repositories/automations/automation-pause-repository'
+import { readSovriumDevClock } from '@/domain/models/process-env/dev-clock'
 import { db } from '@/infrastructure/database'
 import {
   authUsersTable,
@@ -21,6 +22,7 @@ import {
 import { automationPauses as automationPausesPg } from '@/infrastructure/database/drizzle/schema/automation'
 import { automationPauses as automationPausesSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/automation'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import { onDevTimeline } from '@/infrastructure/process/server-boot-instant'
 
 // Dialect-aware resolution: the PG variant qualifies `system.automation_pauses`,
 // the SQLite mirror maps the flat `system_automation_pauses` name. Resolved once
@@ -93,6 +95,8 @@ export const AutomationPauseRepositoryLive = Layer.succeed(AutomationPauseReposi
           automationName,
           ...(pausedByUserId === undefined ? {} : { pausedByUserId }),
           ...(reason === undefined ? {} : { reason }),
+          // On a pinned development host, stamped on its timeline like a run.
+          ...(readSovriumDevClock() === undefined ? {} : { pausedAt: onDevTimeline() }),
         })
         .onConflictDoNothing({ target: automationPauses.automationName })
         .returning({ id: automationPauses.id })

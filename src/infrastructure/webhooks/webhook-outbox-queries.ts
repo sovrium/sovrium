@@ -25,11 +25,13 @@ import { sql, type SQL } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { WebhookOutboxScope } from '@/application/ports/services/record-webhook-dispatcher'
 import { db, DatabaseError, type DrizzleTransaction } from '@/infrastructure/database'
+import { inReadWriteTransaction } from '@/infrastructure/database/read-write-sweep'
 import { executeRaw, type RawSqlRunner } from '@/infrastructure/database/sql/dialect-execute'
 import { listTableColumns } from '@/infrastructure/database/sql/dialect-introspection'
 import { systemTableRef } from '@/infrastructure/database/sql/dialect-sql'
 import { withTransaction } from '@/infrastructure/database/transaction'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { logInfo } from '@/infrastructure/logging/logger'
 import type { CommittedRowChange } from '@/application/ports/services/record-change-feed'
 import type {
   PlannedDelivery,
@@ -326,9 +328,21 @@ export const parkDelivery = async (
  * log row therefore never outlives its delivery, and erasure, which finds log
  * rows through their delivery, reaches every one of them. Resolves to how many
  * deliveries went.
+ *
+ * The transaction is opened READ WRITE (`read-write-sweep.ts`), so the purge
+ * keeps freeing space on a managed PostgreSQL that has gone read-only for lack
+ * of disk, and its outcome is logged every time, zero included.
  */
-export const deleteSettledBefore = async (cutoffMs: number): Promise<number> =>
-  db.transaction(async (tx) => {
+export const deleteSettledBefore = async (cutoffMs: number): Promise<number> => {
+  const deleted = await deleteSettledRows(cutoffMs)
+  logInfo(
+    `[webhook-outbox] retention: deleted ${String(deleted)} delivery(ies) settled before ${new Date(cutoffMs).toISOString()}`
+  )
+  return deleted
+}
+
+const deleteSettledRows = async (cutoffMs: number): Promise<number> =>
+  inReadWriteTransaction(async (tx) => {
     const settled = sql`SELECT id FROM ${outbox()}
                          WHERE status <> 'pending' AND settled_at < ${instant(cutoffMs)}`
     // The log exists only once some table declared webhooks.

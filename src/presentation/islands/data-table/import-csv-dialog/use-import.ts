@@ -6,13 +6,25 @@
  */
 
 import { escapeCsvCell } from '@/domain/kernel/format/csv-format'
-import type { ColumnMapping, DuplicateStrategy, ImportResult, ValidImportRecord } from './types'
+import { isSingleChoice, storedChoice } from './field-reading'
+import { csvLines, splitCsvLine } from './parser'
+import type {
+  ColumnMapping,
+  CsvSeparator,
+  DuplicateStrategy,
+  ImportResult,
+  ValidImportRecord,
+  ValueMappings,
+} from './types'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 
 interface BuildRecordsFromCsvParams {
   readonly rawContent: string
   readonly editableMappings: readonly ColumnMapping[]
   readonly fieldMeta: FieldMetaMap | undefined
+  /** The separator the file was read with — the preview's, so both read the same columns. */
+  readonly separator: CsvSeparator
+  readonly valueMappings: ValueMappings
 }
 
 interface BuildRecordsResult {
@@ -23,16 +35,13 @@ interface BuildRecordsResult {
 /**
  * Apply the column mappings to each data line in the CSV body, partitioning
  * the result into rows that satisfy the required-field constraints
- * (`validRecords`) and rows that don't (`errorRows`).
+ * (`validRecords`) and rows that don't (`errorRows`). A single-choice field
+ * stores an option: a cell the field has no option for is replaced by the
+ * option chosen for it, or left out.
  */
 export function buildRecordsFromCsv(params: BuildRecordsFromCsvParams): BuildRecordsResult {
-  const { rawContent, editableMappings, fieldMeta } = params
-
-  const lines = rawContent
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0)
-  const [, ...dataLines] = lines
+  const { rawContent, editableMappings, fieldMeta, separator, valueMappings } = params
+  const [, ...dataLines] = csvLines(rawContent)
 
   const requiredFields = fieldMeta
     ? Object.entries(fieldMeta)
@@ -45,10 +54,13 @@ export function buildRecordsFromCsv(params: BuildRecordsFromCsvParams): BuildRec
     errorRows: readonly { line: string; reason: string }[]
   }>(
     (acc, line) => {
-      const cells = line.split(',').map((c) => c.trim())
+      const cells = splitCsvLine(line, separator)
       const fields = editableMappings.reduce<Record<string, string>>((fieldAcc, mapping, i) => {
         if (mapping.tableField === undefined) return fieldAcc
-        return { ...fieldAcc, [mapping.tableField]: cells[i] ?? '' }
+        const meta = fieldMeta?.[mapping.tableField]
+        const cell = cells[i] ?? ''
+        const value = isSingleChoice(meta) ? storedChoice(cell, meta, valueMappings[i]) : cell
+        return value === undefined ? fieldAcc : { ...fieldAcc, [mapping.tableField]: value }
       }, {})
       const missingFields = requiredFields.filter((f) => !fields[f] || fields[f].trim() === '')
       if (missingFields.length > 0) {

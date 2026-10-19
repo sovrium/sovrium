@@ -117,12 +117,17 @@ const envList = defineAdminRead<undefined>({
   subject: 'env config response',
   decode: noInput,
   read: (app) =>
-    Effect.sync(() =>
-      answerWithSchema(envConfigResponseSchema, {
-        variables: buildEnvVarStatuses(app, processEnv()),
+    Effect.sync(() => {
+      const variables = buildEnvVarStatuses(app, processEnv())
+      return answerWithSchema(envConfigResponseSchema, {
+        variables,
+        // The keys the page's alert names: required and resolved to nothing.
+        requiredUnset: variables
+          .filter((variable) => variable.required && !variable.isSet)
+          .map((variable) => variable.key),
         generatedAt: new Date().toISOString(),
       })
-    ),
+    }),
   audit: { action: AUDIT_ACTIONS.CONFIG_ENV_QUERIED, resourceId: byActor },
 })
 

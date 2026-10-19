@@ -237,3 +237,16 @@ export function zeroJsDialogNeedsNoRuntime(component: {
   if (component.type === 'collapsible') return component.hydrate !== true
   return isZeroJsDialog(component) && component.formRef === undefined
 }
+
+/**
+ * True when a component is markup the server already wrote that carries an
+ * island marker: a form embedded through `formRef` (expanded into a
+ * `customHTML` node holding `trustedContent`) whose choice or date field is
+ * drawn by the `form-field` island. Read by both gates above, so a page whose
+ * only island is inside an embedded form still builds the bundle AND loads it.
+ */
+export function embedsIslandMarkup(component: { readonly type?: string }): boolean {
+  if (component.type !== 'customHTML') return false
+  const { trustedContent } = component as { readonly trustedContent?: unknown }
+  return typeof trustedContent === 'string' && trustedContent.includes('data-island="')
+}

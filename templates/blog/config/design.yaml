@@ -89,10 +89,6 @@ typeScale:
     caption: { size: 0.8125rem, lineHeight: 1.4 }
     overline: { size: 0.75rem, lineHeight: 1.3, weight: 500, letterSpacing: 0.04em }
 
-# One Shiki theme for the code an essay quotes.
-codeBlock:
-  theme: github-dark
-
 # Standard corners: neither a ledger nor a toy.
 radius:
   sm: 0.25rem

@@ -206,7 +206,7 @@ const directoryBody = (): PageComponent =>
   ({
     type: 'container',
     element: 'div',
-    props: { className: 'flex max-w-4xl flex-col gap-4 pt-2' },
+    props: { className: 'flex flex-col gap-4 pt-2' },
     children: [
       gated({ field: 'templates', isNotEmpty: true }, [templateList()]),
       gated({ field: 'templates', isEmpty: true }, [
@@ -229,7 +229,7 @@ const directory = consolePage({
     requires: ['assets.templates'],
     dataSource: { system: { endpoint: TEMPLATES_ENDPOINT } },
   },
-  shell: { breadcrumb: BREADCRUMB },
+  shell: { breadcrumb: BREADCRUMB, document: true },
   body: [directoryBody()],
 }) satisfies PageConfig
 
@@ -343,6 +343,55 @@ const renderCommand = (extension: string): PageComponent =>
     } as PageComponent,
   ])
 
+/** The title of the one listing row the gate picks. */
+const titleBlock = (record: Readonly<Record<string, unknown>>): PageComponent =>
+  gated(
+    record,
+    [
+      text('h2', 'text-foreground text-lg font-medium', '$record.description|$record.path'),
+      gatedText('p', 'text-foreground-subtle font-mono text-sm break-all', '$record.path', {
+        field: 'description',
+        isNotEmpty: true,
+      }),
+    ],
+    { 'data-testid': 'template-preview-title', className: 'flex flex-col gap-0.5' }
+  )
+
+/**
+ * What the preview is OF, named the way the config names it.
+ *
+ * The preview read returns the rendered document and no description, so the
+ * title is read from the directory listing the gallery reads, picking the one
+ * row whose `previewPath` is this page's address. The description leads, as a
+ * reader recognises a template by what it is for ("The quote, A4."); the path
+ * follows in mono, as the address an automation names it by. A template with no
+ * description is titled by its path, once.
+ *
+ * Every other row of the listing renders nothing, and its empty item is hidden
+ * so it costs the column no gap.
+ */
+const previewTitle = (): PageComponent =>
+  ({
+    type: 'container',
+    element: 'div',
+    // A row the gates drop still leaves its item holding empty gate
+    // containers, so an item with nothing but those is hidden too.
+    props: {
+      className:
+        'flex flex-col [&>li:empty]:hidden [&>li:not(:has(>:not(:empty)))]:hidden [&>li]:list-none',
+    },
+    dataSource: { system: { endpoint: TEMPLATES_ENDPOINT, rowsKey: 'templates', idKey: 'path' } },
+    children: [
+      titleBlock({ field: 'previewPath', eq: '$param.path' }),
+      // The page also answers the template's declared path; the row is then
+      // picked by `path`, and only where the preview address differs, so a
+      // template whose two addresses agree is titled once.
+      gated({ field: 'previewPath', neq: '$param.path' }, [
+        titleBlock({ field: 'path', eq: '$param.path' }),
+      ]),
+    ],
+  }) as PageComponent
+
 /**
  * A Word, Excel or PowerPoint template renders to a FILE, so there is nothing
  * for the browser to draw. Instead of an empty frame, the page names the
@@ -374,14 +423,14 @@ const preview = consolePage({
     requires: ['assets.templates'],
     dataSource: { system: { endpoint: TEMPLATE_PREVIEW_ENDPOINT, param: 'path' } },
   },
-  shell: { breadcrumb: BREADCRUMB },
+  shell: { breadcrumb: BREADCRUMB, document: true },
   body: [
     {
       type: 'container',
       element: 'div',
-      props: { className: 'flex max-w-5xl flex-col gap-4 pt-2' },
+      props: { className: 'flex flex-col gap-4 pt-2' },
       children: [
-        text('p', 'text-foreground font-mono text-sm break-all', '$record.path'),
+        previewTitle(),
         noSampleNotice(),
         gated({ field: 'rendersAs', neq: 'none' }, [previewCaption(), previewFrame()], {
           className: 'flex flex-col gap-2',

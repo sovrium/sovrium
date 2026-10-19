@@ -33,6 +33,7 @@ import type {
   AiMessagePart,
 } from '@/application/ports/repositories/ai/ai-memory-repository'
 import type { ChatMessage } from '@/application/ports/services/ai-service'
+import type { StoredToolCall } from '@/domain/models/app/agents/stored-tool-call-service'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
 import type { ConversationMessage } from '@/presentation/api/agents/chat-conversation-store'
 
@@ -143,6 +144,8 @@ export interface ChatTurnToPersist {
   readonly agentName?: string
   /** The question the reply asked, for a turn saved while paused on it. */
   readonly assistantElicitation?: AiMessageElicitation
+  /** What the reply's turn ran, one line per call — never its arguments or result. */
+  readonly assistantToolCalls?: ReadonlyArray<StoredToolCall>
   /** The message the turn follows, for a turn asked on a branch other than the current one. */
   readonly parentId?: string | undefined
   /** The ids the question and the answer are written under, when the caller already told them. */

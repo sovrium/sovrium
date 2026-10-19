@@ -12,6 +12,10 @@ export default {
   'admin.ds.kind.dataViews': 'Data views',
   'admin.ds.kind.navigation': 'Navigation',
   'admin.ds.kind.sections': 'Page sections',
+  'admin.ds.components.props': 'Props',
+  'admin.ds.components.prop': 'Prop',
+  'admin.ds.components.sample': 'Sample',
+  'admin.ds.components.noProps': 'This template reads no variable.',
   'admin.ds.components.copyRef': 'Copy $ref',
   'admin.ds.components.unused': 'Declared, and embedded by no page yet.',
   'admin.ds.viewport.desktop': 'Desktop',
@@ -70,6 +74,8 @@ export default {
   'admin.ds.found.muted': 'Muted',
   'admin.ds.found.noBreakpoint': 'No breakpoint published.',
   'admin.ds.found.outsideSrgb': 'Outside sRGB — no faithful hex',
+  'admin.ds.found.darkFromPlatform': 'Platform dark default',
+  'admin.ds.found.darkKeptLight': 'Kept from light',
   'admin.ds.found.platformLadder': 'Platform ladder, in force',
   'admin.ds.found.mutedDesc': 'Present, readable, and clearly not the thing to click.',
   'admin.ds.found.primary': 'Primary',
@@ -92,19 +98,20 @@ export default {
   'admin.ds.overview.engineTypes':
     'Every component type the engine draws is documented in the binary: ',
   'admin.ds.share.terminal': 'From the terminal',
-  'admin.ds.overview.invoices': 'Invoices',
   'admin.ds.share.keepPrivate': 'Keep it private',
   'admin.ds.share.keep': 'Keep it',
   'admin.ds.share.brief': 'Markdown brief',
+  'admin.ds.share.bundle': 'Full bundle',
+  'admin.ds.share.stylesheet': 'Theme stylesheet',
   'admin.ds.share.none': 'No active link yet.',
   'admin.ds.share.publishConfirm': 'Publish this design system?',
-  'admin.ds.overview.fact': 'Reads as a fact, not as a claim.',
+  'admin.ds.overview.voiceUndeclared':
+    'Nothing to quote yet: this voice declares no preferred line and no personality.',
   'admin.ds.share.revokeConfirm': 'Revoke this link?',
   'admin.ds.overview.foundations':
     'Seven properties — colour, type, space, shape, elevation, motion, breakpoints — each shown by the components it moves.',
   'admin.ds.share.created': 'Share link created — the address below is shown once.',
   'admin.ds.share.revoked': 'Share link revoked.',
-  'admin.ds.overview.specimenTitle': 'Sovrium — Design system',
   'admin.ds.share.revokeFailed':
     'The link was not revoked and is still active. Try again, or check the server log.',
   'admin.ds.overview.brand': 'The mark, the imagery rules, the zones, and what may not be changed.',
@@ -112,21 +119,17 @@ export default {
     'The sentences this app writes, and the reasons given for each of them.',
   'admin.ds.share.tokens': 'Token document',
   'admin.ds.share.blurb':
-    'Two documents carry this system out of the console: a markdown brief a person or an agent reads, and a token document a build step reads. Both are readable with an admin session, from the terminal, or — by anyone at all — through an active share link. A share link is unlisted, needs no account, and can be revoked here.',
+    'Take this system into a design tool or an AI. The full bundle is one download: tokens in light and dark, CSS variables, a rendered component kit, and a ready folder for Claude Design, Figma, Tokens Studio, Penpot and Style Dictionary. The brief, the token document and the stylesheet are its parts, one file at a time. All of it is readable with an admin session or from the terminal. Through an active share link, anyone can read the system and download the bundle. A share link is unlisted, needs no account, and can be revoked here.',
+  'admin.ds.share.blurbReadOnly':
+    'Take this system into a design tool or an AI. The full bundle is one download: tokens in light and dark, CSS variables, a rendered component kit, and a ready folder for Claude Design, Figma, Tokens Studio, Penpot and Style Dictionary. The brief, the token document and the stylesheet are its parts, one file at a time. All of it is readable with an admin session or from the terminal. Through an active share link, anyone can read the system and download the bundle. A share link is unlisted and needs no account. Share links are created and revoked by an operator who can make changes.',
   'admin.ds.overview.declared': 'What you have declared',
   'admin.ds.overview.components':
     'Your own reusable compositions, drawn on their own beside the guidance written with them.',
   'admin.ds.notConfigured': 'Not configured',
   'admin.ds.onThisPage': 'On this page',
   'admin.ds.voice.avoid': 'Avoid',
-  'admin.ds.voice.practice': 'In practice',
   'admin.ds.voice.noZone': 'No zone declared. This app reads in one register.',
   'admin.ds.voice.principles': 'Principles',
-  'admin.ds.voice.claim': 'Reads as a claim',
-  'admin.ds.voice.fact': 'Reads as a fact',
-  'admin.ds.voice.claimExample':
-    'Sovrium is the most powerful configuration platform available today.',
-  'admin.ds.voice.factExample': 'Sovrium runs the application. On your own infrastructure.',
   'admin.ds.voice.blurb':
     'The rules a writer follows here: what this app believes, how it addresses a reader, and what it refuses to say.',
   'admin.ds.voice.toneByMoment': 'Tone by moment',
@@ -135,6 +138,7 @@ export default {
   'admin.ds.voice.zoneAvoids': 'Zone avoids',
   'admin.ds.voice.zonePrefers': 'Zone prefers',
   'admin.ds.voice.zoneTone': 'Zone tone',
+  'admin.ds.viewport.shownAt': 'shown at',
   'admin.ds.viewport.note':
     'A width, and only a width. Responsive variants answer the browser viewport rather than this frame, so a narrow specimen scrolls sideways instead of collapsing to its mobile layout. Nothing is clipped, and nothing here proves a layout broken.',
   'admin.ds.brand.minWidthHint':
@@ -144,11 +148,11 @@ export default {
   'admin.ds.brand.clearSpaceNote':
     'The dashed edge is the clear space: declared as clearSpace and kept free of every other element. minWidth 96px is the smallest width the mark may be reproduced at before its counters close up.',
   'admin.ds.share.publishMessage':
-    'The link publishes more than your colours and type: your principles, your voice and its tone, your colour roles and your component guidance all become readable by anyone with the link, with no account. It is unlisted and revocable, not private.',
+    'The link publishes more than your colours and type: your principles, your voice and its tone, your colour roles and your component guidance all become readable by anyone with the link, with no account. They can also download the whole design system as one archive, this guidance and a rendered component kit included, and keep it. Revoking the link stops new downloads; it cannot recall a copy already taken. Nothing secret goes in: no env values, no records, no accounts. The link is unlisted and revocable, not private.',
   'admin.ds.found.paragraph':
     'The quick brown fox jumps over the lazy dog, and keeps reading long enough to show how this face sets a paragraph.',
   'admin.ds.found.noDark':
-    'This app declares no dark colours, so these values come from the platform cascade and cannot be measured here. Declare design.darkColors to publish dark values and their contrast.',
+    'This app declares no dark colours: each one keeps its light value or falls back to the platform dark default, printed and measured below. Declare design.darkColors to choose your own.',
   'admin.ds.components.emptyBody':
     'This app declares no reusable components. Declare one under the components key of your config and embed it by name from a page; it appears here, on its own, the moment you do.',
   'admin.ds.found.noSpacing':
@@ -167,9 +171,8 @@ export default {
     'This app records nothing about what its colours are FOR, so every role resolves to the platform’s own and nothing says which ground it was designed to sit against.',
   'admin.ds.declare': 'Declare',
   'admin.ds.found.on': 'on',
-  'admin.ds.found.copyHex': 'Copy the hex value',
-  'admin.ds.found.copyValue': 'Copy the declared value',
-  'admin.ds.found.copyShort': 'copy',
+  'admin.ds.found.copyHex': 'Copy the hex value of',
+  'admin.ds.found.copyValue': 'Copy the declared value of',
   'admin.ds.tpl.shell.usage': 'Wrap every admin page with it, through the shell.',
   'admin.ds.tpl.shell.when':
     'When a page has a place in the navigation tree — which is all of them.',

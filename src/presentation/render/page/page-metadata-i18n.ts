@@ -7,6 +7,7 @@
 
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { resolveFrontmatterReferences } from '@/domain/models/app/pages/frontmatter-reference-service'
+import type { HeadReferences } from './head-references'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
 import type { Meta } from '@/domain/models/app/pages/meta'
@@ -133,6 +134,16 @@ function resolveBaseMeta(meta: Meta, currentLang: string, languages: Languages):
   return resolvedMeta
 }
 
+/** The two fields the head substitutes `$app.*` / `$param.*` into. */
+type TitledEntry = { readonly title?: string; readonly description?: string }
+
+/** `entry` with its title and description passed through `resolve`. */
+const withHeadReferences = <T extends TitledEntry>(entry: T, resolve: HeadReferences): T => ({
+  ...entry,
+  ...(entry.title !== undefined && { title: resolve(entry.title) }),
+  ...(entry.description !== undefined && { description: resolve(entry.description) }),
+})
+
 /**
  * Builds i18n metadata structure for client-side language switching
  *
@@ -146,12 +157,16 @@ function resolveBaseMeta(meta: Meta, currentLang: string, languages: Languages):
  * @param page - Page configuration
  * @param languages - Languages configuration
  * @param frontmatter - Optional rendered-markdown frontmatter for `$frontmatter.*`
+ * @param headReferences - The request's `$app.*` / `$param.*` substitution,
+ *   applied to every language's TRANSLATED title and description, so the
+ *   client's repaint names what the server's `<title>` named
  * @returns Page meta with i18n structure populated and all $t: tokens resolved
  */
 export function buildPageMetadataI18n(
   page: Page,
   languages: Languages | undefined,
-  frontmatter?: Readonly<Record<string, string>>
+  frontmatter?: Readonly<Record<string, string>>,
+  headReferences: HeadReferences = (text) => text
 ): Meta | Record<string, never> {
   if (!page.meta || !languages) {
     return (page.meta || {}) as Meta | Record<string, never>
@@ -182,10 +197,18 @@ export function buildPageMetadataI18n(
       >
     | undefined
 
-  const i18n = mergeI18n(generatedI18n, existingI18n)
+  const i18n = Object.fromEntries(
+    Object.entries(mergeI18n(generatedI18n, existingI18n)).map(([code, entry]) => [
+      code,
+      withHeadReferences(entry, headReferences),
+    ])
+  )
 
   // Resolve all $t: tokens in base meta fields for current language
-  const resolvedMeta = resolveBaseMeta(meta, currentLang, languages)
+  const resolvedMeta = withHeadReferences(
+    resolveBaseMeta(meta, currentLang, languages),
+    headReferences
+  )
 
   // Return resolved meta with i18n structure
   return {

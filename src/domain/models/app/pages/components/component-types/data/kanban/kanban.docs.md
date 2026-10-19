@@ -62,7 +62,7 @@ The card takes `children` for its body — record components bound to the card's
 
 ### Column widths
 
-By default every column takes the same readable width and the board scrolls sideways. `kanbanGroupBy.columnSizing: fill` lets the columns share the board's width from the `md` breakpoint up instead, so a five-stage pipeline fits a desktop screen. `kanbanGroupBy.columnWidths` gives named columns a fixed width from `md` up, in `px` or `rem` — the narrow closing columns of a pipeline, which hold few cards: `columnWidths: { Won: 6rem, Lost: 6rem }`. Below `md`, columns keep their fixed width whatever you declare.
+By default every column takes the same readable width and the board scrolls sideways. `kanbanGroupBy.columnSizing: fill` lets the columns share the board's width from the `md` breakpoint up instead, so a five-stage pipeline fits a desktop screen; a shared column never gets narrower than 12rem, so on a narrower board, a tablet beside a sidebar, the board scrolls sideways rather than squeezing its columns. A board whose columns run past its right edge shades that edge, as a wide grid does. `kanbanGroupBy.columnWidths` gives named columns a fixed width from `md` up, in `px` or `rem` — the narrow closing columns of a pipeline, which hold few cards: `columnWidths: { Won: 6rem, Lost: 6rem }`. Below `md`, columns keep their fixed width whatever you declare.
 
 ## Swimlanes — the second axis
 

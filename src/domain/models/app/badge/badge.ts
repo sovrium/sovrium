@@ -47,7 +47,7 @@ const BadgePlacementSchema = Schema.Literals(['floating', 'footer']).pipe(
   Schema.annotate({
     title: 'Badge Placement',
     description:
-      "Where the badge sits: 'floating' (the default) pins it to the bottom-right corner of the window, over the page; 'footer' renders it as a static line in a footer after the page content, so it never covers anything.",
+      "Where the badge sits: 'floating' (the default) pins it to the bottom-right corner of the window, over the page; 'footer' renders it as a static line in a footer after the page content, so it never covers anything — on a page laid out as a window-high shell whose inset scrolls on its own, at the end of that inset.",
     examples: ['floating', 'footer'],
   })
 )

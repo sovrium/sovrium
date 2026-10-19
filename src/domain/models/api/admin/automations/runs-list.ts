@@ -80,7 +80,7 @@
 import { Schema } from 'effect'
 import { adminEnvelopeSchema } from '@/domain/models/api/admin/envelope/admin-envelope'
 import { runSchema, runStatusSchema, stepLogEntrySchema } from '@/domain/models/api/automations'
-import { booleanFlag } from '@/domain/models/api/combinators/coerce'
+import { booleanFlag, coercedNumber } from '@/domain/models/api/combinators/coerce'
 import {
   cursorPaginationQuerySchema,
   cursorPaginationResponseSchema,
@@ -113,6 +113,14 @@ import { withDefault } from '../../combinators/schema-defaults'
  */
 export const automationsRunsListQuerySchema = Schema.Struct({
   ...cursorPaginationQuerySchema.fields,
+  page: optionalField(
+    coercedNumber
+      .annotate({
+        description:
+          'Read the history by page NUMBER instead of by cursor: `?page=2&limit=25` answers the runs 26 to 50 of the matching runs, newest first, with `nextCursor: null`. 1-based. A request carrying a `cursor` is read by the cursor and `page` is ignored; a request carrying neither starts at the first page by cursor. `total` on the response counts every matching run, so a reader can number the pages.',
+      })
+      .pipe(Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(1)))
+  ),
   status: optionalField(
     runStatusSchema.annotate({
       description:
@@ -183,7 +191,9 @@ export type AutomationsRunsListQuery = typeof automationsRunsListQuerySchema.Typ
  * type that says "this is an automation run with admin extras", not just
  * "extended Run". The canonical fields (`id`, `status`, `startedAt`, ...)
  * are inherited verbatim from the public `runSchema`. The admin additions are
- * derived facts a run history reads at a glance — `recordTable` + `recordId`
+ * derived facts a run history reads at a glance — `automationLabel` (the
+ * automation as a person reads it, beside the `automationName` every filter
+ * takes), `recordTable` + `recordId`
  * (the record the run concerns; two flat facts rather than one object, because
  * a console addresses one field at a time, as `$record.recordId` in a link) and
  * `stepsRun` + `stepCount` (how far it got), with `stepsLabel` reading the two
@@ -192,6 +202,12 @@ export type AutomationsRunsListQuery = typeof automationsRunsListQuerySchema.Typ
  */
 export const automationRunAdminItemSchema = Schema.Struct({
   ...runSchema.fields,
+  automationLabel: optionalField(
+    Schema.String.annotate({
+      description:
+        'What a person reads for the automation this run belongs to: its declared `label`, else its `name` made readable — hyphens and underscores read as spaces, a camelCase boundary as a space, the first letter capitalised (`weekly-digest` reads `Weekly digest`). Read from the live configuration; for an automation no longer declared, the stored `automationName` made readable. Display text only; `automationName` stays the identifier every filter and address takes.',
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
   recordTable: Schema.NullOr(
     Schema.String.annotate({
       description:
@@ -218,6 +234,22 @@ export const automationRunAdminItemSchema = Schema.Struct({
     description:
       'How far the run got, as one reading built on the server from `stepsRun` and `stepCount` in the operator’s language: `2 of 3` in English, `2 sur 3` in French. Just the number of steps that ran (`2`) when `stepCount` is null. The language is the operator’s own — their account language, else the `sovrium_language` preference — and English otherwise. The two figures stay on the row beside it.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
+  durationLabel: optionalField(
+    Schema.String.annotate({
+      description:
+        'How long the run took, as one readout built on the server from `durationMs` in the operator’s language, the way a `duration` column prints an elapsed time: `180 ms` under a second, one decimal under ten seconds (`1.4 s`, « 1,4 s » in French), whole seconds under a minute (`42 s`), then minutes and seconds (`2 min 18 s`) and hours and minutes (`1 h 05 min`). Absent while `durationMs` is null — a run still going has no duration yet. The figure stays on the row beside it.',
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
+  recordLabel: Schema.NullOr(
+    Schema.String.annotate({
+      description:
+        'What a person calls the record this run concerns: its first text field holding a value, in the order the table declares its fields (a line of text, an email, a web address or a phone number; never a write-only field), else its id. The same name a record sheet heads itself with. Read at the time of the request, so a record renamed since reads its current name. Null exactly when `recordId` is.',
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
+  triggerLabel: Schema.String.annotate({
+    description:
+      'What started the run, as one reading in the operator’s language, composed on the server from the trigger the configuration declares today: a schedule as `Schedule · daily 06:00`, `Schedule · every 15 min`, `Schedule · Mon 07:30` (the expression itself when it reads as none of these); a record trigger as the table and what it watches, `Quotes · status → Signed` for a condition that one field equals one value, `Quotes · status changed` for watched fields, `Quotes · created` for events alone; a form as `Form · ` and its title. Any other trigger reads as its kind (`Webhook`, `Manual`). An entry its author named reads its name after the description (`Manual · on-demand`), so two entries of one kind stay apart. For an automation no longer declared, the stored trigger name made readable. Display text only; `triggerName` stays what the filter takes.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
   _admin: adminEnvelopeSchema,
 }).annotate({ identifier: 'AutomationRunAdminItem' })
 
@@ -235,6 +267,26 @@ export type AutomationRunAdminItem = typeof automationRunAdminItemSchema.Type
 export const automationsRunsListResponseSchema = Schema.Struct({
   ...cursorPaginationResponseSchema(automationRunAdminItemSchema).fields,
   appliedQuery: appliedQuerySchema,
+  total: Schema.Int.annotate({
+    description:
+      'How many runs match the request’s filters and search, across every page — the same figure on every page of one query, so a reader can number the pages. Pagination parameters do not change it.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  counts: Schema.Struct({
+    failed: Schema.Int.annotate({
+      description:
+        'How many of the matching runs failed, retries exhausted included. Pagination parameters do not change it.',
+    }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+    waiting: Schema.Int.annotate({
+      description:
+        'How many of the matching runs are waiting: for an approval, or to resume after a delay. Pagination parameters do not change it.',
+    }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  }).annotate({
+    description: 'Status counts over every matching run, the facts `resultSummary` reads.',
+  }),
+  resultSummary: Schema.String.annotate({
+    description:
+      'The matching runs as one sentence in the operator’s language, composed on the server from `total` and `counts`: `35 runs · 3 failed · 1 waiting` in English, `35 exécutions · 3 en échec · 1 en attente` in French, with a zero count left out (`35 runs` when none failed or waits) and the singular for one (`1 run`). A data-table bound to this endpoint prints it in its pager in place of its own range.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
 }).annotate({ identifier: 'AutomationsRunsListResponse' })
 
 /** @public */
@@ -301,6 +353,12 @@ const adminRunStepBaseSchema = Schema.Struct({
     description: 'Zero-based position of this step within the run (persisted `step_index`).',
   }),
   name: Schema.String.annotate({ description: 'Action step name (the automation action `name`).' }),
+  label: optionalField(
+    Schema.String.annotate({
+      description:
+        'What a person reads for this step: the `label` the action declares, else its `name` made readable — a camelCase boundary, a hyphen or an underscore read as a space, the first letter capitalised (`renderInvoice` reads `Render invoice`). Read from the live configuration, so a step renamed since the run reads its current label. Display text only; `name` stays the identifier.',
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
   status: Schema.String.annotate({
     description: 'Step execution status (e.g. completed / failed / skipped).',
   }),

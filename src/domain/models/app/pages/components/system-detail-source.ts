@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { SharedFilterBindingSchema } from './data-source'
 
 // ---------------------------------------------------------------------------
 // Shared system DETAIL-endpoint source (single-record envelope)
@@ -100,6 +101,44 @@ export const SystemDetailSourceSchema = Schema.Struct({
       Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])
     ).annotate({
       description: 'Static query params merged into the request to the detail endpoint',
+    })
+  ),
+  /**
+   * Channel whose published params this record read follows — the rows
+   * source's `bindTo`, same name and same meaning, on the single-record read.
+   *
+   * The DYNAMIC counterpart to the static `query`: the params the channel's
+   * publishers hold (a switch, a search box, a select) are merged into the
+   * detail request beside `query`, and the record is read again when they
+   * change. Inert without `sharedFilter`, as on the rows source.
+   *
+   * @example
+   * ```yaml
+   * # The submission sheet follows the inbox's Reveal answers switch, and
+   * # only that: the inbox's search text never reaches the detail read
+   * dataSource:
+   *   system:
+   *     endpoint: /api/admin/forms/contact/submissions/:id
+   *     bindTo: submissions-filter
+   *     sharedFilter: { params: [reveal] }
+   * ```
+   */
+  bindTo: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Channel whose published params are merged into the request to the detail endpoint, beside the static query; the record is read again when they change. Inert without sharedFilter.',
+      examples: ['submissions-filter'],
+    })
+  ),
+  /**
+   * Which of the channel's params this record read takes (companion to
+   * `bindTo`) — `SharedFilterBindingSchema` by reference. A param the channel
+   * publishes and `params` does not name is not sent.
+   */
+  sharedFilter: Schema.optional(
+    SharedFilterBindingSchema.annotate({
+      description:
+        "Companion to bindTo: the channel's params merged into the request to the detail endpoint (all of them when params is omitted). Inert without bindTo.",
     })
   ),
 }).annotate({

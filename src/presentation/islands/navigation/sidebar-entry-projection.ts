@@ -12,6 +12,8 @@ export interface ProjectedEntry {
   readonly label: string
   readonly href: string
   readonly props?: Readonly<Record<string, unknown>>
+  /** The flattened row, which a second fetched level fills its `query` from. */
+  readonly row?: Readonly<Record<string, unknown>>
 }
 
 /** The projection an endpoint's rows are read through. */
@@ -95,5 +97,6 @@ export function toProjectedEntry(
     ...(projection.itemProps === undefined
       ? {}
       : { props: fillItemProps(projection.itemProps, flat) }),
+    row: flat,
   }
 }

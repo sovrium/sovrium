@@ -22,7 +22,7 @@ No request body, query or path parameters — the user id comes only from the se
 - **Profile** — the caller's user row.
 - **Sessions** — the caller's session rows.
 - **Linked accounts** — the caller's OAuth providers and email/password credential, **with all secret material omitted**.
-- **Authored records** — every table record the caller authored, across every table declaring a `created-by` field.
+- **Authored records** — every table record the caller authored, across every table declaring a `created-by` field, with the fields the caller may read. A field, a link, or a count, rollup or lookup that the caller's read rules withhold is left out of the export, as it is left out of every other read; an access request covering it is served from the operator side, by an admin reading or exporting the record.
 - **Form submissions** — every form submission the caller made. Anonymous submissions belong to nobody and are never adopted into somebody's export.
 - **Audit trail** — every admin audit-log entry the caller made, newest first, as `{ action, occurredAt, resourceType, resourceId, result }`. The entry's metadata is left out, because it can describe somebody else (a role change carries the target's roles). Entries in which the caller was only the account acted upon (their role was changed, for example) are another person's act and are not listed.
 - **Chat files** (`aiChatAttachments`) — every file the caller attached to a chat: its name, size, type and the conversation it was sent in. The bytes are downloaded separately while the file exists.

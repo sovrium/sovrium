@@ -71,11 +71,17 @@ import { resolveTranslationPattern } from '@/domain/models/app/languages/transla
 import { codeLineNumbers } from '@/domain/models/app/pages/code-line-numbers'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import {
+  shapeCodeBlockCode,
+  type CodeBlockLineOptions,
+} from '@/presentation/render/elements/code-block-lines'
+import {
   readCodeHighlight,
   type CodeHighlight,
 } from '@/presentation/render/resolve/code-highlight-resolver'
 import { omitInternalMarkers } from '../props/internal-marker-props'
 import { copyParts, renderFramedBlock, resolveCodeFrame } from './code-block-frame'
+import { renderLineGutter } from './code-block-gutter'
+import { readLineOptions, readLook, wrapOf } from './code-block-options'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { Languages } from '@/domain/models/app/languages'
 import type { ReactElement, ReactNode } from 'react'
@@ -124,54 +130,8 @@ interface CodePreInput {
   readonly gutter: readonly number[]
   readonly content: string | undefined
   readonly renderedChildren: readonly ReactElement[]
-}
-
-/**
- * The line-number gutter — one ADDRESSABLE element per line.
- *
- * ## Why each number is an element and not a CSS counter
- *
- * A `::before { content: counter(line) }` gutter is less markup and is the
- * wrong tool. `lineNumbers` shipped half-wired — read off the open `props` bag,
- * turned into a `data-line-numbers` attribute, and never styled by anything —
- * so an author could ask for a gutter, watch it validate, and get nothing while
- * the published docs advertised it in both locales. A counter-generated number
- * is unreachable to everything that could have caught that: it cannot be
- * counted, addressed by its own value, or asserted absent from a clipboard
- * payload. Each number is therefore a real `[data-line-number="N"]` element,
- * addressable exactly as this file's own command and output are by
- * `[data-code-command]` / `[data-code-output]`.
- *
- * ## Why it sits inside `<pre>` but outside `<code>`
- *
- * The delegated copy handler resolves its payload as
- * `pre[data-copy-target] → querySelector('code') → textContent`. A gutter
- * inside the `<code>` would be copied WITH the snippet and pasted into the
- * reader's editor as a leading column of digits — the filename failure of
- * a pages content spec, one element down. Outside it, exclusion is structural:
- * nothing has to remember to strip the numbers, because they were never in the
- * element that gets read.
- *
- * `aria-hidden` because the numbers are chrome. A screen-reader user reaching a
- * numbered snippet should hear the code, not "one two three" ahead of it; the
- * block is already named for them by its filename.
- */
-function renderLineGutter(numbers: readonly number[]): ReactElement {
-  return (
-    <span
-      data-line-numbers-gutter="true"
-      aria-hidden="true"
-    >
-      {numbers.map((line) => (
-        <span
-          key={line}
-          data-line-number={String(line)}
-        >
-          {line}
-        </span>
-      ))}
-    </span>
-  )
+  /** How the lines are drawn: diff signs, highlights, the first number, wrapping. */
+  readonly lines: CodeBlockLineOptions
 }
 
 /**
@@ -184,9 +144,17 @@ function renderLineGutter(numbers: readonly number[]): ReactElement {
  * size or hide a code block without wrapping it in a container.
  */
 function renderHighlightedPre(input: CodePreInput, highlight: CodeHighlight): ReactElement {
-  const { rest, dataTestId, gutter } = input
-  const className = resolveClasses(highlight.preClass, input.authorClassName)
+  const { rest, dataTestId, gutter, lines } = input
+  const wrapping = wrapOf(lines)
+  const className = resolveClasses(highlight.preClass, input.authorClassName, wrapping.classes)
   const componentType = rest['data-component-type'] as string | undefined
+  // shadcn/ui's line parts, added to the highlighted subtree the sanitizer has
+  // already passed — it would strip their `data-*` had they come before it.
+  const innerHtml = shapeCodeBlockCode(highlight.innerHtml, {
+    ...lines,
+    numbered: gutter.length > 0,
+  })
+  const wrap = wrapping.attr
   // UNGUTTERED: the injected subtree is the `<pre>`'s only content — byte-for-
   // byte the markup every existing block already ships, so adding a gutter
   // option repaints nothing that did not ask for one.
@@ -197,10 +165,11 @@ function renderHighlightedPre(input: CodePreInput, highlight: CodeHighlight): Re
         className={className}
         data-testid={dataTestId}
         data-component-type={componentType}
+        data-wrap={wrap}
         data-code-command="true"
         data-copy-target="true"
         // eslint-disable-next-line sovrium/require-sanitized-html -- syntax-highlighter output, which HTML-escapes the code text
-        dangerouslySetInnerHTML={{ __html: highlight.innerHtml }}
+        dangerouslySetInnerHTML={{ __html: innerHtml }}
       />
     )
   }
@@ -217,6 +186,7 @@ function renderHighlightedPre(input: CodePreInput, highlight: CodeHighlight): Re
       data-testid={dataTestId}
       data-component-type={componentType}
       data-line-numbers="true"
+      data-wrap={wrap}
       data-code-command="true"
       data-copy-target="true"
     >
@@ -224,7 +194,7 @@ function renderHighlightedPre(input: CodePreInput, highlight: CodeHighlight): Re
       <span
         data-code-lines="true"
         // eslint-disable-next-line sovrium/require-sanitized-html -- syntax-highlighter output, which HTML-escapes the code text
-        dangerouslySetInnerHTML={{ __html: highlight.innerHtml }}
+        dangerouslySetInnerHTML={{ __html: innerHtml }}
       />
     </pre>
   )
@@ -237,12 +207,14 @@ function renderHighlightedPre(input: CodePreInput, highlight: CodeHighlight): Re
  */
 function renderPlainPre(input: CodePreInput): ReactElement {
   const { rest, dataTestId, preClass, language, gutter, content } = input
+  const wrapping = wrapOf(input.lines)
   const payload =
     typeof language === 'string' && language.length > 0 && typeof content === 'string'
       ? Buffer.from(content, 'utf-8').toString('base64')
       : undefined
   const codeEl = (
     <code
+      data-slot="code-block-code"
       className={language ? `language-${language}` : undefined}
       data-language={language}
     >
@@ -252,9 +224,10 @@ function renderPlainPre(input: CodePreInput): ReactElement {
   return (
     <pre
       {...rest}
-      className={preClass}
+      className={resolveClasses(preClass, undefined, wrapping.classes)}
       data-testid={dataTestId}
       data-line-numbers={gutter.length > 0 ? 'true' : undefined}
+      data-wrap={wrapping.attr}
       data-code-block={payload}
       data-code-lang={payload !== undefined ? language : undefined}
       data-code-command="true"
@@ -322,14 +295,11 @@ export const codeBlockComponent: ComponentRenderer = ({
 }) => {
   const c = (component ?? {}) as Record<string, unknown>
   const language = elementProps['language'] as string | undefined
-  // `component.lineNumbers`, NEVER `elementProps.lineNumbers`. The field is
-  // declared at the component TOP LEVEL (`code-element.ts`) precisely because
-  // the open `props` bag validates any key — which is how this option spent its
-  // whole life being read, rendered as an attribute, and styled by nothing.
-  // Reading it off `props` here would re-break it in silence the moment the
-  // schema moved, so the spec asserts the attribute rather than the gutter
-  // alone.
-  const gutter = c['lineNumbers'] === true ? codeLineNumbers(content) : []
+  // `component.lineNumbers`, NEVER `elementProps.lineNumbers`: the open
+  // `props` bag validates any key, which is how this option was once read,
+  // rendered as an attribute and styled by nothing (see `code-element.ts`).
+  const lines = readLineOptions(c, language)
+  const gutter = c['lineNumbers'] === true ? codeLineNumbers(content, lines.startLine) : []
   const { frame, filename, terminalLabel } = resolveCodeFrame({
     component: c,
     filename: topLevelString(c, 'filename', currentLang, languages),
@@ -368,10 +338,10 @@ export const codeBlockComponent: ComponentRenderer = ({
     gutter,
     content,
     renderedChildren,
+    lines,
   })
   const { copyButton, copyStatus } = copyParts(c['copy'] !== false, copyLabel, copiedLabel)
   if (frame === 'none') return renderBareScope(codePre, copyButton, copyStatus)
-  const parts = designStyles?.parts
   return renderFramedBlock({
     frame,
     filename,
@@ -380,6 +350,7 @@ export const codeBlockComponent: ComponentRenderer = ({
     codePre,
     copyButton,
     copyStatus,
-    parts,
+    ...readLook(c),
+    parts: designStyles?.parts,
   })
 }

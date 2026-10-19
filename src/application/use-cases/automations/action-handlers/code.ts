@@ -7,7 +7,6 @@
 
 import vm from 'node:vm'
 import { Effect } from 'effect'
-import ts from 'typescript'
 import { authoredReferenceRoots } from '../authored-references'
 import { buildAutomationContext, type TriggerData } from '../resolve-trigger-data'
 import { resolveCodeInputData } from './code-input-resolution'
@@ -15,6 +14,7 @@ import { createCodeLogCollector } from './code-log-collector'
 import { authoredActionProps } from './run-context-resolution'
 import { actionAttributes } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
+import type Typescript from 'typescript'
 
 /**
  * `code/runTypescript` handler — execute a named `execute(context)` function from
@@ -196,12 +196,11 @@ const buildSandboxContext = (input: {
 const compileExecuteFn = (
   source: string
 ): ((context: Readonly<Record<string, unknown>>) => unknown) => {
-  // The user authors TypeScript (`async function execute(context: CodeContext)`).
-  // V8's vm module only accepts plain JS, so we strip type annotations first.
-  // `ts.transpileModule` is already a runtime dependency (used by the
-  // startup TypeScriptValidator); reusing it here avoids pulling in a
-  // second transpiler. Type errors were already caught at server startup;
-  // this transpile pass is a pure syntactic stripping.
+  // The user authors TypeScript; V8's vm takes plain JS, so annotations are
+  // stripped with the compiler the startup validator also uses (type errors were
+  // caught there). Required HERE, on the first run, never at start (~9 MB).
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- deferred load, literal for the binary
+  const ts = require('typescript') as typeof Typescript
   const transpiled = ts.transpileModule(source, {
     compilerOptions: {
       target: ts.ScriptTarget.ES2020,

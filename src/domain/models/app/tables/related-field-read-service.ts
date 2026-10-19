@@ -84,3 +84,40 @@ export const mayReadRelatedField = (
     { role: reader.role, groups: reader.groups ?? [] },
     fieldName
   )
+
+/**
+ * The links to many records of `tableName` — `one-to-many` and `many-to-many`
+ * relationship fields — that `reader` may not read. Such a link lists the keys
+ * of another table's rows, so it is a read of that table: it is refused when
+ * the related TABLE refuses the reader ({@link mayReadRelatedTable}), and,
+ * being a field of the record like any other, when a field rule on it refuses
+ * them. A refused link is left out of the record whole — its keys and its
+ * labels — never answered as an empty list. A many-to-one key is the record's
+ * own stored value and is never in this set.
+ */
+export const toManyLinksRefusedTo = (
+  app: App,
+  tableName: string,
+  reader: RelatedReader
+): ReadonlySet<string> =>
+  new Set(
+    (app.tables?.find((t) => t.name === tableName)?.fields ?? [])
+      .filter((field) => {
+        if (field.type !== 'relationship') return false
+        const { relationType, relatedTable } = field as {
+          readonly relationType?: unknown
+          readonly relatedTable?: unknown
+        }
+        if (relationType !== 'one-to-many' && relationType !== 'many-to-many') return false
+        return (
+          !mayReadRelatedTable(app, reader, String(relatedTable)) ||
+          !isFieldReadableByCaller(
+            app,
+            tableName,
+            { role: reader.role, groups: reader.groups ?? [] },
+            field.name
+          )
+        )
+      })
+      .map((field) => field.name)
+  )

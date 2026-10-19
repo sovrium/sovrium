@@ -10,6 +10,7 @@ import {
   UserAccessRepository,
   type UserAccessRow,
 } from '@/application/ports/repositories/auth/user-access-repository'
+import { changeUserAccessGrant } from '@/application/use-cases/tables/mint-user-access-grant'
 import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
 import { userAccessRecordSchema } from '@/domain/models/api/tables'
 import { isRecordKeyShaped } from '@/domain/models/app/tables/record-id-service'
@@ -74,8 +75,11 @@ export async function handleGetUserAccessRecord(c: Context, app: App): Promise<R
 /**
  * PATCH /api/tables/user_access/records/:grantId
  *
- * Body: `{ fields: { record_ids?, role? } }`. Validated as a new grant is; a
+ * Body: `{ fields: { record_ids?, role? } }`. Validated as a new grant is — a
+ * record id that is no record of the grant's table is refused (400) — and a
  * body naming `user_id` or `table_slug` is refused (400) and changes nothing.
+ * A role change onto a role the account already holds over the table folds the
+ * grant into the held one, and the answer is that grant.
  * The account reads what the grant now names on its next request: the
  * repository closes its live subscriptions, which are judged again at the
  * handshake.
@@ -95,18 +99,17 @@ export async function handleUpdateUserAccessRecord(c: Context, app: App): Promis
   })
   if (invalid) return respondValidationError(c, invalid.message, invalid.field)
 
+  const recordIds = fields['record_ids'] as readonly string[] | undefined
   const result = await runUserAccessProgram(
-    Effect.gen(function* () {
-      const repo = yield* UserAccessRepository
-      return yield* repo.update(id, {
-        ...(fields['record_ids'] === undefined
-          ? {}
-          : { recordIds: fields['record_ids'] as readonly string[] }),
-        ...(fields['role'] === undefined ? {} : { role: fields['role'] as string }),
-      })
+    changeUserAccessGrant(app, id, {
+      ...(recordIds === undefined ? {} : { recordIds }),
+      ...(fields['role'] === undefined ? {} : { role: fields['role'] as string }),
     })
   )
   if (result._tag === 'Failure') return respondServerError(c, result.failure.cause)
+  if ('field' in result.success) {
+    return respondValidationError(c, result.success.message, result.success.field)
+  }
   return Option.match(result.success, {
     onNone: () => respondNotFound(c),
     onSome: (row) => respondGrant(c, row),

@@ -31,6 +31,8 @@ Tables connect through the `relationship` field, which creates a foreign-key lin
 | `one-to-many`  | One record here links to many in the related table, using `foreignKey`        |
 | `many-to-many` | Both sides link to many on the other; `allowMultiple` then defaults to `true` |
 
+A `one-to-many` field stores nothing on its own table: the link lives on the related table's `many-to-one` field, which `reciprocalField` names (or the one field of that table pointing back, when there is exactly one). A read of the record lists the ids of the live related records pointing at it — an empty list when none does — and their titles beside them, so a grid cell and a record sheet show the linked records by name. A deleted related record is no longer listed.
+
 ## Referential actions
 
 `onDelete` and `onUpdate` say what happens to dependent rows when the related row is deleted or its key changes.

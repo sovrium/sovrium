@@ -12,15 +12,26 @@
  * approval, which `POST /api/ai/chat/approvals/:id` goes on with.
  */
 
-import { Deferred, Exit } from 'effect'
+import { Deferred, Effect, Exit } from 'effect'
 import { ASK_USER_TOOL_NAME } from '@/domain/models/app/agents/ask-user-service'
 import { turnCitations } from '@/presentation/api/agents/chat-knowledge-citations'
+import {
+  readerArguments,
+  toolInputPreview,
+  toolOutputPreview,
+  turnReaderColumns,
+  type ReaderColumns,
+} from '@/presentation/api/agents/chat-tool-preview'
 import { renderChatAnswerHtml } from '@/presentation/render/markdown/chat-answer-markdown'
 import type { AiMessagePart } from '@/application/ports/repositories/ai/ai-memory-repository'
 import type { PendingElicitation } from '@/application/ports/services/agent-approval-store'
 import type { ChatFinishReason } from '@/application/ports/services/ai-service'
 import type { AgentTurnEvent, AgentTurnSpec } from '@/application/use-cases/agents/agent-runtime'
 import type { StepRequirements } from '@/application/use-cases/automations/run/types'
+import type {
+  chatToolCallEventSchema,
+  chatToolResultEventSchema,
+} from '@/domain/models/api/ai/chat'
 import type { KnowledgePassage } from '@/domain/models/app/agents/knowledge-citation-service'
 import type { EncodedChunk } from '@/presentation/api/runtime/effect-sse'
 
@@ -63,26 +74,45 @@ const withCitations = (
 ): { readonly citations?: ReturnType<typeof turnCitations> } =>
   citations === undefined ? {} : { citations }
 
-/** A tool call as the wire carries it. */
+/**
+ * A tool call as the wire carries it: the model's arguments without a value
+ * the reader may not read, and the `input` preview of those same arguments.
+ * The model itself keeps what it wrote; only the wire is narrowed.
+ */
 const toolCallPayload = (
-  event: Extract<AgentTurnEvent, { readonly type: 'tool_call' }>
-): Readonly<Record<string, unknown>> => ({
-  id: event.id,
-  name: event.name,
-  arguments: event.arguments,
-})
+  event: Extract<AgentTurnEvent, { readonly type: 'tool_call' }>,
+  readerColumns: ReaderColumns
+): typeof chatToolCallEventSchema.Encoded => {
+  const input = toolInputPreview(event.name, event.arguments, readerColumns)
+  return {
+    id: event.id,
+    name: event.name,
+    arguments: readerArguments(event.name, event.arguments, readerColumns),
+    input: input.text,
+    ...(input.truncated && { inputTruncated: true as const }),
+  }
+}
 
-/** A tool call's result as the wire carries it. */
+/**
+ * A tool call's result as the wire carries it: what the model was handed —
+ * read as the reader, so it holds only what she may read — and the `output`
+ * preview of that same result.
+ */
 const toolResultPayload = (
   event: Extract<AgentTurnEvent, { readonly type: 'tool_result' }>
-): Readonly<Record<string, unknown>> => ({
-  id: event.id,
-  name: event.name,
-  ok: event.outcome === 'ok',
-  outcome: event.outcome,
-  content: event.content,
-  ...(event.approvalId !== undefined && { approvalId: event.approvalId }),
-})
+): typeof chatToolResultEventSchema.Encoded => {
+  const output = toolOutputPreview(event.content)
+  return {
+    id: event.id,
+    name: event.name,
+    ok: event.outcome === 'ok',
+    outcome: event.outcome,
+    content: event.content,
+    ...(event.approvalId !== undefined && { approvalId: event.approvalId }),
+    output: output.text,
+    ...(output.truncated && { outputTruncated: true as const }),
+  }
+}
 
 /**
  * A question the agent asks the person (`ask_user`), or an external MCP server
@@ -97,6 +127,16 @@ const elicitPayload = (elicitation: PendingElicitation): Readonly<Record<string,
   ...(elicitation.server !== undefined && { server: elicitation.server }),
 })
 
+/** A tool call on the wire. */
+const toolCallChunk = (
+  event: Extract<AgentTurnEvent, { readonly type: 'tool_call' }>,
+  readerColumns: ReaderColumns
+): EncodedChunk => ({
+  kind: 'data',
+  event: 'tool_call',
+  payload: toolCallPayload(event, readerColumns),
+})
+
 /** A tool call's result on the wire — or, for a question asked, the `elicit` event. */
 const toolResultChunk = (
   event: Extract<AgentTurnEvent, { readonly type: 'tool_result' }>
@@ -105,13 +145,60 @@ const toolResultChunk = (
     ? { kind: 'data', event: 'tool_result', payload: toolResultPayload(event) }
     : { kind: 'data', event: 'elicit', payload: elicitPayload(event.elicitation) }
 
+/** What the encoder of one turn knows of it besides its events. */
+interface TurnEncoderMeta {
+  readonly sessionId: string
+  /** The ids the question and its answer are saved under. */
+  readonly ids: { readonly question: string; readonly answer: string }
+  readonly passages: ReadonlyArray<KnowledgePassage>
+  /** The fields the person reading may read, which narrow each call's `input`. */
+  readonly readerColumns: ReaderColumns
+}
+
+/**
+ * What the encoder of a turn starts from: the ids the exchange is saved under,
+ * the passages it may cite, and the fields the person the turn answers may
+ * read, which narrow each call's preview.
+ */
+export const turnMeta = (input: {
+  readonly sessionId: string
+  readonly passages?: ReadonlyArray<KnowledgePassage> | undefined
+  readonly spec: AgentTurnSpec<StepRequirements>
+}): TurnEncoderMeta => ({
+  sessionId: input.sessionId,
+  ids: { question: crypto.randomUUID(), answer: crypto.randomUUID() },
+  passages: input.passages ?? [],
+  readerColumns: turnReaderColumns(input.spec),
+})
+
+/** The `done` event: the ids, the stop reason, the final rendering, citations and usage. */
+const doneChunk = (input: {
+  readonly meta: TurnEncoderMeta
+  readonly answer: string
+  readonly html: string
+  readonly awaitingInput: boolean
+  readonly event: Extract<WireEvent, { readonly type: 'done' }>
+}): EncodedChunk => ({
+  kind: 'data',
+  event: 'done',
+  payload: {
+    sessionId: input.meta.sessionId,
+    messageId: input.meta.ids.answer,
+    questionId: input.meta.ids.question,
+    stopReason: input.awaitingInput ? 'awaiting_input' : STOP_REASONS[input.event.finishReason],
+    ...(input.html.length > 0 && { html: input.html }),
+    ...withCitations(turnCitations(input.answer, input.meta.passages)),
+    ...(input.event.usage !== undefined && { usage: input.event.usage }),
+  },
+})
+
 /**
  * The encoder of ONE streamed turn: each event as a typed SSE event. The
  * answer and the reasoning carry `{ text }`, and an answer delta now and then
- * `html` too, the whole answer so far rendered; a tool call its name and
- * arguments; its result whether it ran (`ok`), its `outcome` and what the model
- * was handed; `done` the session, the message id, the stop reason and the
- * answer's final `html`.
+ * `html` too, the whole answer so far rendered; a tool call its name,
+ * arguments and `input` preview; its result whether it ran (`ok`), its
+ * `outcome`, what the model was handed and its `output` preview; `done` the
+ * session, the message id, the stop reason and the answer's final `html`.
  *
  * A question the agent asked the person is the `elicit` event in place of its
  * tool result (the stream never carries `ask_user`'s own call).
@@ -120,53 +207,50 @@ const toolResultChunk = (
  * rendering, and remembers a call held for approval, or a question asked, so
  * the `done` that follows reads `awaiting_input` — the turn is waiting on the
  * person, not finished.
+ *
+ * Each chunk is an Effect because rendering the answer highlights its code,
+ * which is asynchronous (`chat-answer-markdown.ts`); the stream maps its
+ * events through the encoder one at a time, so the order on the wire is the
+ * order of the turn.
  */
-export const createTurnEncoder = (meta: {
-  readonly sessionId: string
-  /** The ids the question and its answer are saved under. */
-  readonly ids: { readonly question: string; readonly answer: string }
-  readonly passages: ReadonlyArray<KnowledgePassage>
-}): ((event: WireEvent) => EncodedChunk) => {
+export const createTurnEncoder = (
+  meta: TurnEncoderMeta
+): ((event: WireEvent) => Effect.Effect<EncodedChunk>) => {
   let answer = ''
   let snapshotAt = 0
   let awaitingInput = false
-  const content = (delta: string): EncodedChunk => {
+  const content = (delta: string): Effect.Effect<EncodedChunk> => {
     answer += delta
     const now = Date.now()
     const snapshot = now - snapshotAt >= HTML_SNAPSHOT_INTERVAL_MS
-    if (snapshot) snapshotAt = now
-    return {
+    if (!snapshot)
+      return Effect.succeed({ kind: 'data', event: 'content', payload: { text: delta } })
+    snapshotAt = now
+    return Effect.map(renderChatAnswerHtml(answer), (html) => ({
       kind: 'data',
       event: 'content',
-      payload: { text: delta, ...(snapshot && { html: renderChatAnswerHtml(answer) }) },
-    }
+      payload: { text: delta, html },
+    }))
   }
-  const done = (event: Extract<WireEvent, { readonly type: 'done' }>): EncodedChunk => ({
-    kind: 'data',
-    event: 'done',
-    payload: {
-      sessionId: meta.sessionId,
-      messageId: meta.ids.answer,
-      questionId: meta.ids.question,
-      stopReason: awaitingInput ? 'awaiting_input' : STOP_REASONS[event.finishReason],
-      ...(answer.length > 0 && { html: renderChatAnswerHtml(answer) }),
-      ...withCitations(turnCitations(answer, meta.passages)),
-      ...(event.usage !== undefined && { usage: event.usage }),
-    },
-  })
+  const done = (
+    event: Extract<WireEvent, { readonly type: 'done' }>
+  ): Effect.Effect<EncodedChunk> =>
+    Effect.map(renderChatAnswerHtml(answer), (html) =>
+      doneChunk({ meta, answer, html, awaitingInput, event })
+    )
   return (event) => {
     switch (event.type) {
       case 'sentinel':
-        return { kind: 'terminal' }
+        return Effect.succeed({ kind: 'terminal' })
       case 'content':
         return content(event.delta)
       case 'reasoning':
-        return { kind: 'data', event: 'reasoning', payload: { text: event.delta } }
+        return Effect.succeed({ kind: 'data', event: 'reasoning', payload: { text: event.delta } })
       case 'tool_call':
-        return { kind: 'data', event: 'tool_call', payload: toolCallPayload(event) }
+        return Effect.succeed(toolCallChunk(event, meta.readerColumns))
       case 'tool_result':
         awaitingInput ||= event.outcome === 'pending-approval' || event.outcome === 'pending-input'
-        return toolResultChunk(event)
+        return Effect.succeed(toolResultChunk(event))
       case 'done':
         return done(event)
     }

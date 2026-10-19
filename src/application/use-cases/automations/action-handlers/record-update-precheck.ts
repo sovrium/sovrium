@@ -6,7 +6,7 @@
  */
 
 import { recordEventLoopRefusal } from './record-events'
-import { findMultiSelectViolationMessage } from './shared'
+import { findOptionViolationMessage } from './shared'
 import type { ActionOutcome, ActionRunContext } from './shared'
 import type { App } from '@/domain/models/app'
 
@@ -37,7 +37,7 @@ export const recordUpdatePrecheck = (input: {
       error: 'record.update requires an id or a filter naming the rows to change',
     }
   }
-  const multiSelectError = findMultiSelectViolationMessage(app, tableName, data)
+  const multiSelectError = findOptionViolationMessage(app, tableName, data)
   if (multiSelectError) return { status: 'failure', error: multiSelectError }
   return recordEventLoopRefusal(runContext, tableName, 'update', Object.keys(data))
 }

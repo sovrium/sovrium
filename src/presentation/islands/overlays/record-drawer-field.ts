@@ -5,11 +5,19 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { fieldDescriptionId } from '@/presentation/design/field-display'
 import type { DrawerChoice } from './record-drawer-choices'
 import type { RecordButtonConfig } from '../runtime/record-button'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type { FieldCondition } from '@/domain/models/app/tables/condition-operators'
 import type { OptionChipPaint } from '@/presentation/design/option-chip-paint'
+
+/** What an attachment's drop zone says: `Drop files or {browse}`, and what its bucket takes. */
+export interface DrawerDropZoneWords {
+  readonly prompt: string
+  readonly browse: string
+  readonly hint?: string
+}
 
 /** A schema-derived field the drawer renders a control (or structured block) for. */
 export interface RecordDrawerField {
@@ -46,15 +54,29 @@ export interface RecordDrawerField {
   /** A datetime column's own `timeZone`, read before the operator zone. */
   readonly timeZone?: string
   /**
+   * The grid column format a date-time over a SYSTEM source reads in, stamped
+   * by the SSR host: such a row has no field schema, so its grid can only print
+   * the instant through the `datetime` column format, and the drawer follows it.
+   */
+  readonly format?: 'datetime'
+  /**
    * A `single-select` / `status` field's `value → paint` map, resolved by the
    * SSR host as the grid's pill paints it, so a read-only entry draws the
    * grid's badge. Only options declaring a colour are listed.
    */
   readonly paints?: Readonly<Record<string, OptionChipPaint>>
+  /**
+   * The words a read-only entry prints for a stored value, keyed by its text —
+   * the entry's `valueLabels` over an option field's option labels, folded by
+   * the SSR host. An editable control keeps the stored value.
+   */
+  readonly valueLabels?: Readonly<Record<string, string>>
   /** An attachment column's upload bucket and constraints, for the editable file picker. */
   readonly bucket?: string
   readonly allowedFileTypes?: readonly string[]
   readonly maxFileSize?: number
+  /** An attachment's drop zone words, in the page language, resolved by the SSR host. */
+  readonly dropZone?: DrawerDropZoneWords
   /**
    * A single-valued `relationship`'s related table and `displayField`, resolved
    * by the SSR host, so an editable drawer offers the link as a picker of named
@@ -67,6 +89,8 @@ export interface RecordDrawerField {
    * link offers a Clear control.
    */
   readonly required?: boolean
+  /** Its label carries a visible `*` (create mode), hidden from assistive technology. */
+  readonly requiredMark?: boolean
   /** The words a blank required entry is refused with, in the page language. */
   readonly requiredMessage?: string
   /**
@@ -113,3 +137,6 @@ export function isStructured(field: RecordDrawerField): boolean {
 export function readsAsValue(field: RecordDrawerField): boolean {
   return field.readOnly === true && !field.button && !isStructured(field)
 }
+
+/** The id of the line saying why an entry's value was refused. */
+export const refusalIdOf = (name: string): string => `${fieldDescriptionId(name)}-error`

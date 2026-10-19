@@ -20,7 +20,9 @@ import { validateTranslatedFormAddresses } from './form-address-validation'
 import { validateFormAutocompleteHints } from './form-autocomplete-validation'
 import { validateCalculationFormulas } from './form-calculation-validation'
 import { validateFormCreatePaths } from './form-create-path-validation'
+import { validateFormLookupDefaults } from './form-lookup-default-validation'
 import { validateFormOptionSources } from './form-option-source-validation'
+import { validateFormTakenMessages } from './form-taken-message-validation'
 
 /**
  * Compound condition shape used for cross-validation. Mirrors
@@ -47,7 +49,7 @@ interface FormFieldShape {
   readonly name?: string
   readonly inputType?: string
   readonly formula?: string
-  readonly defaultValue?: string | number | boolean
+  readonly defaultValue?: string | number | boolean | { readonly lookup: unknown }
   readonly hidden?: boolean
   readonly visibleWhen?: ConditionRuleShape
   readonly requiredWhen?: ConditionRuleShape
@@ -707,6 +709,7 @@ export const validateAllFormsReferences = (app: AppForFormsValidation): string |
     () => validateSubmitToMappingTargets(forms, tables),
     () => validateFieldNameUniqueness(forms),
     () => validateDefaultValueTypes(forms),
+    () => validateFormLookupDefaults(forms, tables),
     () => validateConditionalFieldReferences(forms),
     () => validateConditionalOperatorTypes(forms, tables),
     () => validateMultiStepRequiresSteps(forms),
@@ -720,6 +723,7 @@ export const validateAllFormsReferences = (app: AppForFormsValidation): string |
     // A `$t:` address a form sends its visitor to, checked in every language.
     () => validateTranslatedFormAddresses(app),
     () => validateFormAutocompleteHints(app),
+    () => validateFormTakenMessages(forms, tables),
   ]
 
   const firstError = rules.reduce<string | undefined>((acc, rule) => acc ?? rule(), undefined)

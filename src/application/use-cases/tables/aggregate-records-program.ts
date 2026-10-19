@@ -26,8 +26,9 @@ import {
   type AggregationOutput,
   type GroupPartition,
 } from './aggregation-helpers'
-import { lookupReadMasks } from './lookup-read-masks'
+import { lookupReadMasks, withRuledRelatedText } from './lookup-read-masks'
 import { orderedAnswerFor, readRecordGroups } from './record-groups'
+import { filterToReaderRows, readerRowsOf, type ReaderRows } from './row-read-admission'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
@@ -35,7 +36,7 @@ import type {
   GroupInterval,
   QueryFilter,
 } from '@/application/ports/repositories/tables/table-repository'
-import type { DatabaseError } from '@/domain/errors'
+import type { DatabaseError, NotFoundError } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
 
 export interface AggregateRecordsConfig {
@@ -54,6 +55,8 @@ export interface AggregateRecordsConfig {
    * filter (row rule and search included) AND that side's conditions.
    */
   readonly ratio?: { readonly numerator?: QueryFilter; readonly denominator?: QueryFilter }
+  /** The rows the reader may list, when the caller already read them. */
+  readonly readerRows?: ReaderRows
 }
 
 /** A ratio's two counts and their quotient as a percentage, `null` over an empty denominator. */
@@ -117,15 +120,40 @@ const readRatio = (config: AggregateRecordsConfig) =>
     return { ratio: { numerator, denominator, percent } }
   })
 
+/**
+ * The read's filters — its own and each ratio side's — narrowed exactly as the
+ * list narrows its rows: the related-text rules, then the rows the reader may
+ * read. A reader who may read no row of the table is refused as on the list,
+ * as a table that does not exist. So a figure only ever describes rows its
+ * reader could list.
+ */
+const narrowToReaderRows = (config: AggregateRecordsConfig) =>
+  Effect.gen(function* () {
+    const reader = { session: config.session, role: config.userRole, groups: config.userGroups }
+    const { admission } =
+      config.readerRows ?? (yield* readerRowsOf(config.app, config.tableName, reader))
+    const narrow = (filter: QueryFilter | undefined) =>
+      withRuledRelatedText({ app: config.app, filter }, reader).pipe(
+        Effect.flatMap((ruled) => filterToReaderRows(ruled, admission))
+      )
+    const filter = yield* narrow(config.filter)
+    if (config.ratio === undefined) return { ...config, filter }
+    const ratio = {
+      numerator: yield* narrow(config.ratio.numerator),
+      denominator: yield* narrow(config.ratio.denominator),
+    }
+    return { ...config, filter, ratio }
+  })
+
 export function createAggregateRecordsProgram(
-  config: AggregateRecordsConfig
+  input: AggregateRecordsConfig
 ): Effect.Effect<
   AggregateRecordsAnswer,
-  DatabaseError | ValidationError,
+  DatabaseError | ValidationError | NotFoundError,
   TableRepository | AuthRepository | DataSourceRepository
 > {
   return Effect.gen(function* () {
-    const repo = yield* TableRepository
+    const [repo, config] = [yield* TableRepository, yield* narrowToReaderRows(input)]
     const { app, tableName, session, filter, includeDeleted, groupBy } = config
     const aggregate = withCount(config.aggregate)
     // A lookup the read steers on is evaluated as empty where its linked record

@@ -29,6 +29,7 @@ import {
   fileUploadDropzoneHint,
   computeFileUploadDropzoneClasses,
   computeFileUploadTriggerClasses,
+  type FileUploadHintInput,
 } from '@/presentation/design/file-upload-default-classes'
 import { FileUploadDropzoneParts } from '@/presentation/design/file-upload-dropzone-parts'
 import {
@@ -63,7 +64,7 @@ export interface RenderFileUploadIslandConfig {
 }
 
 export function renderFileUploadIsland(config: RenderFileUploadIslandConfig): ReactElement {
-  const { props, islandProps, dropZone, disabled, label, accept, maxFiles } = config
+  const { props, islandProps, dropZone, disabled, label } = config
   const id = props.id as string | undefined
   const strings = islandProps['uiStrings'] as Readonly<Record<string, string>> | undefined
   const fallback = strings?.['fileUpload.button'] ?? 'Upload file'
@@ -71,8 +72,8 @@ export function renderFileUploadIsland(config: RenderFileUploadIslandConfig): Re
   const className = props.className as string | undefined
   const testId = props['data-testid'] as string | undefined
   const buttonText = label ?? ariaLabel
-  const maxFileSize = islandProps['maxFileSize'] as number | undefined
-  const dropzoneHint = fileUploadDropzoneHint({ accept, maxFiles, maxFileSize }, strings)
+  // The island's own props carry the limits and the types in words: one source for both.
+  const dropzoneHint = fileUploadDropzoneHint(islandProps as FileUploadHintInput, strings)
   const controlState = disabled === true ? 'disabled' : 'default'
   const ariaDisabled = disabled === true ? 'true' : undefined
 

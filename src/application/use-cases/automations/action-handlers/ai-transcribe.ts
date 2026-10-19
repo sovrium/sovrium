@@ -14,13 +14,25 @@ import { logError } from '@/infrastructure/logging/logger'
 import { isTransientSpeechFailure } from '../run/retry-classification'
 import {
   audioMimeForTranscription,
+  audioMimeOfContainer,
   resolveTranscribeSource,
   type TranscribeSource,
 } from './ai-transcribe-source'
-import { authoredActionProps, resolveOwnProp } from './run-context-resolution'
+import { CALLER_REFUSAL } from './record-caller-gate'
 import { actionAttributes, stringProp } from './shared'
-import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
+import { starterFileGate, starterStanding, type StarterFileGate } from './starter-file-gate'
+import {
+  baseMimeType,
+  extractAudioTrack,
+  extractionRefusal,
+  isOverReadLimit,
+  oversizedSourceRefusal,
+  rawSource,
+  VIDEO_CONTAINER_TYPES,
+} from './video-audio-track'
+import type { ActionHandler, ActionOutcome } from './shared'
 import type { SpeechError, Transcript } from '@/application/ports/services/speech-service'
+import type { App } from '@/domain/models/app'
 
 /**
  * `ai/transcribe` — turn a stored recording into text on the operator's speech
@@ -54,21 +66,6 @@ const optionalString = (p: Readonly<Record<string, unknown>>, key: string): stri
 }
 
 /**
- * The raw `source` value. The run loop renders every prop to a string, which
- * turns an attachment OBJECT into `"[object Object]"`; a whole-string
- * `{{path}}` is therefore re-read from the raw action so the attachment value
- * arrives intact. Anything else keeps the loop's rendering.
- */
-const rawSource = (
-  resolved: Readonly<Record<string, unknown>>,
-  runContext: ActionRunContext | undefined
-): unknown => {
-  if (runContext === undefined) return resolved['source']
-  const whole = resolveOwnProp(runContext, authoredActionProps(runContext)['source'])
-  return typeof whole === 'object' && whole !== null ? whole : resolved['source']
-}
-
-/**
  * The recording's catalog row, read ONCE for both its MIME type and its size,
  * or `undefined` when the key has none.
  *
@@ -94,21 +91,43 @@ const resolveMimeType = (source: TranscribeSource, catalogued: string | undefine
 }
 
 /**
- * Everything decided before a byte is downloaded: the audio MIME type, or the
- * reason the step fails. A recording whose CATALOGUED size is over
- * `STT_MAX_FILE_BYTES` is refused here, so a two-hour recording is never read
- * into memory only to be refused by the speech service afterwards.
+ * Everything decided before a byte is downloaded: the audio MIME type, the
+ * video container whose audio track is to be extracted, or the reason the step
+ * fails. A recording the run's starter may not reach, an audio recording whose
+ * CATALOGUED size is over `STT_MAX_FILE_BYTES`, or a video catalogued past the
+ * 100 MiB read bound is refused here, so a two-hour recording is never read
+ * into memory only to be refused afterwards. A video's speech limit is
+ * measured on its extracted audio instead.
+ *
+ * `content` marks a refusal about what the file HOLDS (not audio, no audio
+ * track, an audio codec no remux carries), which a hand-started run's starter
+ * who is not admin-equivalent is answered as for a key nothing holds.
  */
-type Preflight = { readonly refusal: string } | { readonly audioMime: string }
+type Refusal = { readonly refusal: string; readonly content?: true }
 
-const preflight = (source: TranscribeSource) =>
+type Preflight = Refusal | { readonly audioMime: string } | { readonly video: string }
+
+const preflight = (source: TranscribeSource, gate: StarterFileGate) =>
   Effect.gen(function* () {
+    // Before the type check: in a run started by hand, a file the gate refuses
+    // answers as a missing one does, whatever it holds.
+    const refusal = yield* gate(source.key)
+    if (refusal !== undefined) return { refusal } satisfies Preflight
     const row = yield* readCatalogRow(source)
     const mimeType = resolveMimeType(source, row?.contentType)
+    const video = baseMimeType(mimeType)
+    if (VIDEO_CONTAINER_TYPES.has(video)) {
+      const decided: Preflight =
+        row !== undefined && isOverReadLimit(row.size)
+          ? { refusal: oversizedSourceRefusal(source.fileName) }
+          : { video }
+      return decided
+    }
     const audioMime = audioMimeForTranscription(mimeType)
     if (audioMime === undefined) {
       const notAudio: Preflight = {
         refusal: `ai.transcribe needs an audio recording, but "${source.fileName}" is ${mimeType}`,
+        content: true,
       }
       return notAudio
     }
@@ -119,6 +138,52 @@ const preflight = (source: TranscribeSource) =>
         : oversizedRecordingRefusal(row.size, maxFileBytes)
     const decided: Preflight = oversized === undefined ? { audioMime } : { refusal: oversized }
     return decided
+  })
+
+/** What is sent to the speech endpoint: the bytes and the audio type they are announced as. */
+type Recording = { readonly bytes: Uint8Array; readonly mimeType: string }
+
+/**
+ * The audio of a downloaded video: its extracted audio track when it holds a
+ * picture; the file as it is, under its audio type, when it holds none (an
+ * audio-only MP4 or WebM is sent as before). A video with no audio track, or
+ * whose audio codec no audio container carries, is refused.
+ */
+const audioOfVideo = (bytes: Uint8Array, video: string, name: string) =>
+  Effect.gen(function* () {
+    if (isOverReadLimit(bytes.length)) {
+      const refused: Refusal | Recording = { refusal: oversizedSourceRefusal(name) }
+      return refused
+    }
+    const asItIs: Recording = { bytes, mimeType: audioMimeOfContainer(video) }
+    const extracted = yield* extractAudioTrack(bytes)
+    if ('audio' in extracted) {
+      const { audio } = extracted
+      const sent: Recording = audio.hadVideo
+        ? { bytes: audio.bytes, mimeType: audio.mimeType }
+        : asItIs
+      return sent
+    }
+    const { error } = extracted
+    // A file whose picture could not be found is sent as it was before extraction existed.
+    if (!error.hadVideo && error.reason !== 'no-audio-track') return asItIs
+    const refused: Refusal | Recording = {
+      refusal: extractionRefusal(name, error),
+      content: true,
+    }
+    return refused
+  })
+
+/**
+ * A refusal as the step answers it: a refusal about what the file holds is
+ * `Resource not found` for a hand-started run's starter who is not
+ * admin-equivalent, word for word as a key nothing holds.
+ */
+const answerRefusal = (app: App, automation: Parameters<ActionHandler>[2], refused: Refusal) =>
+  Effect.gen(function* () {
+    if (refused.content !== true) return permanentFailure(refused.refusal)
+    const standing = yield* starterStanding(app, automation)
+    return permanentFailure(standing.kind === 'judged' ? CALLER_REFUSAL : refused.refusal)
   })
 
 /** A failed transcription, retryable only when the speech endpoint's answer allows it. */
@@ -135,7 +200,31 @@ const toOutput = (transcript: Transcript): Readonly<Record<string, unknown>> => 
   ...(transcript.segments !== undefined ? { segments: transcript.segments } : {}),
 })
 
-export const handleAiTranscribe: ActionHandler = (action, _app, _automation, runContext) =>
+/** Send `recording` to the speech endpoint with the step's hints. */
+const transcribeRecording = (
+  p: Readonly<Record<string, unknown>>,
+  source: TranscribeSource,
+  recording: Recording
+) =>
+  Effect.gen(function* () {
+    const speech = yield* SpeechService
+    const quality = optionalString(p, 'quality')
+    const language = optionalString(p, 'language')
+    const model = optionalString(p, 'model')
+    const prompt = optionalString(p, 'prompt')
+    return yield* speech.transcribe({
+      bytes: recording.bytes,
+      fileName: source.fileName,
+      mimeType: recording.mimeType,
+      quality: quality === 'fast' ? 'fast' : 'accurate',
+      ...(language !== undefined ? { language } : {}),
+      ...(model !== undefined ? { model } : {}),
+      ...(prompt !== undefined ? { prompt } : {}),
+      timestamps: p['timestamps'] === true || p['timestamps'] === 'true',
+    })
+  })
+
+export const handleAiTranscribe: ActionHandler = (action, app, automation, runContext) =>
   Effect.gen(function* () {
     const p = props(action)
     const source = resolveTranscribeSource(rawSource(p, runContext), optionalString(p, 'bucket'))
@@ -145,9 +234,8 @@ export const handleAiTranscribe: ActionHandler = (action, _app, _automation, run
       )
     }
 
-    const checked = yield* preflight(source)
-    if ('refusal' in checked) return permanentFailure(checked.refusal)
-    const { audioMime } = checked
+    const checked = yield* preflight(source, starterFileGate(app, automation))
+    if ('refusal' in checked) return yield* answerRefusal(app, automation, checked)
 
     const storage = yield* StorageService
     // The step fails either way, but its message cannot tell a missing key from
@@ -163,24 +251,13 @@ export const handleAiTranscribe: ActionHandler = (action, _app, _automation, run
       Effect.result
     )
     if (downloaded._tag === 'Failure') return failure(`recording not found: ${source.key}`)
+    const recording: Refusal | Recording =
+      'video' in checked
+        ? yield* audioOfVideo(downloaded.success, checked.video, source.fileName)
+        : { bytes: downloaded.success, mimeType: checked.audioMime }
+    if ('refusal' in recording) return yield* answerRefusal(app, automation, recording)
 
-    const speech = yield* SpeechService
-    const quality = optionalString(p, 'quality')
-    const language = optionalString(p, 'language')
-    const model = optionalString(p, 'model')
-    const prompt = optionalString(p, 'prompt')
-    const transcribed = yield* Effect.result(
-      speech.transcribe({
-        bytes: downloaded.success,
-        fileName: source.fileName,
-        mimeType: audioMime,
-        quality: quality === 'fast' ? 'fast' : 'accurate',
-        ...(language !== undefined ? { language } : {}),
-        ...(model !== undefined ? { model } : {}),
-        ...(prompt !== undefined ? { prompt } : {}),
-        timestamps: p['timestamps'] === true || p['timestamps'] === 'true',
-      })
-    )
+    const transcribed = yield* Effect.result(transcribeRecording(p, source, recording))
     if (transcribed._tag === 'Failure') return speechFailure(transcribed.failure)
     return { status: 'success', output: toOutput(transcribed.success) } as const
   }).pipe(

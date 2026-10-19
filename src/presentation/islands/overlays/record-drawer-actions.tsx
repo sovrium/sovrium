@@ -13,7 +13,15 @@
  */
 
 import { useQueryClient } from '@tanstack/react-query'
-import { useCallback, useMemo, useState, type ReactElement } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactElement,
+} from 'react'
 import {
   substituteRecordVars,
   withRecordText,
@@ -26,6 +34,11 @@ import { executeFetchAction } from '../runtime/action-executor'
 import { dispatch } from '../runtime/event-bus'
 import { InlineConfirmDialog, ObjectConfirmDialog } from '../runtime/inline-confirm-dialog'
 import { renderToast } from '../runtime/toast'
+import {
+  holdActionFocus,
+  settleActionFocus,
+  type ActionFocusHold,
+} from './record-drawer-action-focus'
 import { runDrawerCrud } from './record-drawer-crud'
 import type { DrawerBuiltInLabels } from './record-drawer-labels'
 import type { Action, FetchAction } from '@/domain/models/app/pages/components/action'
@@ -203,9 +216,27 @@ export function DrawerActions({
     }),
     [onLeave, queryClient]
   )
+  // The control that fired, held until the re-read its write started is done:
+  // only a loading → loaded transition settles it (`record-drawer-action-focus.ts`).
+  const held = useRef<ActionFocusHold | undefined>(undefined)
+  const wasLoading = useRef(loading)
+  const onPress = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    const control = (event.target as Element).closest('button')
+    if (control !== null) held.current = holdActionFocus(control)
+  }, [])
+  useEffect(() => {
+    const settled = wasLoading.current && !loading
+    wasLoading.current = loading
+    if (!settled || held.current === undefined) return
+    settleActionFocus(held.current)
+    held.current = undefined
+  }, [loading])
   if (actions.length === 0) return null
   return (
-    <div className="border-border mt-2 flex flex-wrap gap-2 border-t pt-4">
+    <div
+      className="border-border mt-2 flex flex-wrap gap-2 border-t pt-4"
+      onClickCapture={onPress}
+    >
       {actions.map((item, index) => (
         <DrawerActionButton
           key={`${item.label}-${index}`}

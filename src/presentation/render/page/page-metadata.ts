@@ -5,9 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { useContext } from 'react'
 import { resolveForLanguage } from '@/domain/models/app/languages/locale-lookup-service'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { resolveFrontmatterReferences } from '@/domain/models/app/pages/frontmatter-reference-service'
+import { HeadReferencesContext, type HeadReferences } from './head-references'
 import type { Design } from '@/domain/models/app/design'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
@@ -196,7 +198,9 @@ function determineKeywords(
  * @param page - Page configuration
  * @param design - Optional design configuration
  * @param languages - Optional languages configuration
- * @param options - Active language + rendered-markdown frontmatter (`$frontmatter.*`)
+ * @param options - Active language, rendered-markdown frontmatter (`$frontmatter.*`),
+ *   and the request's `$app.*` / `$param.*` substitution, applied AFTER
+ *   translation so a reference inside a `$t:` value resolves too
  * @returns Computed page metadata
  */
 export function extractPageMetadata(
@@ -206,11 +210,14 @@ export function extractPageMetadata(
   options: {
     readonly lang: string
     readonly frontmatter?: Readonly<Record<string, string>>
+    /** `$app.*` / `$param.*` in the TRANSLATED title and description. */
+    readonly headReferences?: HeadReferences
   }
 ): Readonly<PageMetadata> {
   const { lang, frontmatter } = options
-  const title = determineTitle(page, lang, languages, frontmatter)
-  const description = determineDescription(page, lang, languages, frontmatter)
+  const resolveReferences = options.headReferences ?? ((text: string) => text)
+  const title = resolveReferences(determineTitle(page, lang, languages, frontmatter))
+  const description = resolveReferences(determineDescription(page, lang, languages, frontmatter))
   const keywords = determineKeywords(page, lang, languages, frontmatter)
   const canonical = page.meta?.canonical
   const bodyStyle = buildBodyStyle(design)
@@ -223,3 +230,19 @@ export function extractPageMetadata(
     bodyStyle,
   }
 }
+
+/**
+ * {@link extractPageMetadata} for the document being rendered, with the head's
+ * `$app.*` / `$param.*` substitution read from `HeadReferencesContext` — which
+ * `renderPageHtml` provides once per request.
+ */
+export const usePageMetadata = (
+  page: Page,
+  design: Design | undefined,
+  languages: Languages | undefined,
+  options: Omit<Parameters<typeof extractPageMetadata>[3], 'headReferences'>
+): Readonly<PageMetadata> =>
+  extractPageMetadata(page, design, languages, {
+    ...options,
+    headReferences: useContext(HeadReferencesContext),
+  })

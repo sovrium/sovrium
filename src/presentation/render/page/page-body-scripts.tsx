@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { type ReactElement } from 'react'
+import { useContext, type ReactElement } from 'react'
 import { ClientEntryScript } from '@/presentation/render/page/client-script-paths'
 import { isSchemaAuthoredComponent } from '@/presentation/render/registry/synthesized-component-types'
 import { CARRIED_TOAST_READER_SCRIPT } from '@/presentation/render/scripts/carried-toast-reader-script'
@@ -15,6 +15,8 @@ import {
   renderScriptTag,
   renderWindowConfig,
 } from '@/presentation/render/scripts/script-renderers'
+import { SIDEBAR_CURRENT_REVEAL_SCRIPT } from '@/presentation/render/scripts/sidebar-current-reveal-script'
+import { HeadReferencesContext } from './head-references'
 import { buildPageMetadataI18n } from './page-metadata-i18n'
 import type { GroupedScripts } from './page-scripts'
 import type { Design } from '@/domain/models/app/design'
@@ -87,7 +89,9 @@ function LanguageSwitcherScripts({
   readonly frontmatter?: Readonly<Record<string, string>>
 }): ReactElement {
   // Build enriched metadata with i18n translations for all languages
-  const enrichedMeta = buildPageMetadataI18n(page, languages, frontmatter)
+  // ...with the request's `$app.*` / `$param.*` resolved in every language.
+  const references = useContext(HeadReferencesContext)
+  const enrichedMeta = buildPageMetadataI18n(page, languages, frontmatter, references)
 
   // Deliberately excludes `translations`: the client switcher reads only these
   // fields (per-element strings arrive via `data-translations` attributes), and
@@ -252,14 +256,15 @@ const clickScript = `!function(){function openModal(id){window.__sovriumOpenModa
 /**
  * Design-toggle runtime (SECURITY: Safe - static code, no user input).
  *
- * Delegated click handler for `[data-theme-toggle]` buttons: flips the `dark`
- * class on `<html>` and persists the new choice to `localStorage.theme`
- * ('dark' | 'light'). The complementary no-FOUC head script (see
- * `ThemeColorSchemeScript`) reads that stored value on the next page load so
- * the choice survives navigation without a flash. Concatenated into the single
- * body-end inline script to keep the page inline-script count stable.
+ * Delegated click handler for `[data-theme-toggle]` buttons, which flip the
+ * `dark` class on `<html>`, and `[data-theme-set]` menu rows, which set it to
+ * `light`, `dark` or `system`. The choice persists to `localStorage.theme`
+ * ('dark' | 'light'); `system` removes it and follows `prefers-color-scheme`.
+ * The complementary no-FOUC head script (`ThemeColorSchemeScript`) reads that
+ * stored value on the next page load so the choice survives navigation without
+ * a flash. Concatenated into the single body-end inline script.
  */
-const themeToggleScript = `!function(){document.addEventListener("click",function(t){var e=t.target.closest("[data-theme-toggle]");if(!e)return;var root=document.documentElement;var willEnable=!root.classList.contains("dark");if(willEnable){root.classList.add("dark")}else{root.classList.remove("dark")}try{window.localStorage.setItem("theme",willEnable?"dark":"light")}catch(err){}})}();`
+const themeToggleScript = `!function(){var root=document.documentElement,mq=window.matchMedia("(prefers-color-scheme: dark)"),follow=!1;document.addEventListener("click",function(t){var e=t.target.closest("[data-theme-toggle], [data-theme-set]");if(!e)return;var v=e.getAttribute("data-theme-set"),dark=v===null?!root.classList.contains("dark"):v==="system"?mq.matches:v==="dark";root.classList.toggle("dark",dark);try{if(v==="system"){window.localStorage.removeItem("theme");if(!follow){follow=!0;mq.addEventListener("change",function(m){var s=window.localStorage.getItem("theme");if(s!=="dark"&&s!=="light")root.classList.toggle("dark",m.matches)})}}else{window.localStorage.setItem("theme",dark?"dark":"light")}}catch(err){}})}();`
 
 /**
  * Code-block copy runtime (SECURITY: Safe - static code, no user input).
@@ -341,7 +346,9 @@ function renderBodyEndScripts(config: {
         themeToggleScript, copyCodeScript (code-block copy), MARQUEE_PAUSE_SCRIPT,
         and the carried-toast reader — the one enhancer that is not delegated:
         it shows, once, a success toast the previous page carried here as it
-        navigated, on every page whatever runtime or palette it ships.
+        navigated, on every page whatever runtime or palette it ships — and
+        the sidebar reveal, which scrolls the current entry into its sidebar
+        and ships only on a page that draws a sidebar.
       */}
       <script
         // eslint-disable-next-line sovrium/require-sanitized-html -- a concatenation of engine-authored enhancer script constants
@@ -352,7 +359,8 @@ function renderBodyEndScripts(config: {
             themeToggleScript +
             copyCodeScript +
             MARQUEE_PAUSE_SCRIPT +
-            CARRIED_TOAST_READER_SCRIPT,
+            CARRIED_TOAST_READER_SCRIPT +
+            (scripts.revealsSidebarCurrent ? SIDEBAR_CURRENT_REVEAL_SCRIPT : ''),
         }}
       />
     </>

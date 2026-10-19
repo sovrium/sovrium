@@ -10,11 +10,10 @@
  * (`GET /api/admin/buckets/overview`).
  *
  * The series answers "when were these bytes stored?", which the `totals` block
- * cannot: totals are a live reading of the storage backend
- * (`StorageService.list('')` / `.getTotalBytes()`) and carry no time dimension.
- * The two are deliberately different sources describing the same corpus, so
- * summing the series over the whole window must equal the totals — a chart whose
- * bars do not add up to the headline number is worse than no chart.
+ * cannot: totals are one count-and-sum read of the same catalog and carry no
+ * time dimension. Both describe the same corpus, so summing the series over the
+ * whole window equals the totals — a chart whose bars do not add up to the
+ * headline number is worse than no chart.
  *
  * Source: `system.file_storage_metadata`. It is the only complete, sized,
  * timestamped record of what is stored — `size` and `created_at` are both NOT

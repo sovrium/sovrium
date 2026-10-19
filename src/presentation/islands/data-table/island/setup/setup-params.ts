@@ -28,6 +28,8 @@ export interface IslandSetupParams {
    * see `SetupContext.isViewBound`.
    */
   readonly isViewBound?: boolean
+  /** The grid draws a view switcher: its table declares views (`viewSwitcher`). */
+  readonly hasViewSwitcher?: boolean
   readonly dataSource: {
     /** Bound DB table name — ABSENT for a system-source binding. */
     readonly table?: string

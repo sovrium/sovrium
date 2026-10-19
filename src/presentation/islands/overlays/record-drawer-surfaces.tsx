@@ -45,17 +45,17 @@ import { OverlayCloseGlyph } from '@/presentation/design/overlay-close-glyph'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { useHostControls } from './dialog-open-state'
 import { useOverlayPending } from './overlay-pending'
+import { SheetHeader } from './record-drawer-sheet-header'
 import {
   computeSheetClosePositionClasses,
   computeSheetContentClasses,
-  computeSheetTitleClasses,
 } from './sheet-default-classes'
+import type { SheetHeaderParts } from './record-drawer-navigation-slot'
 import type { ReactElement } from 'react'
 
 /** shadcn's `sheet-content` on its right side, at the record drawer's 32rem. */
 const POPUP_CLASS = `${computeSheetContentClasses()} w-[32rem] max-w-full overflow-auto`
 const PANEL_CLASS = 'flex h-full flex-col gap-4 p-4'
-const TITLE_CLASS = `${computeSheetTitleClasses()} pr-8`
 const CLOSE_CLASS = `${computeDialogCloseClasses()} ${computeSheetClosePositionClasses()}`
 
 /** The surface's classes, with the author's `props.className` appended. */
@@ -70,6 +70,7 @@ const popupClass = (className: string | undefined): string =>
  */
 export function RegionSurface({
   title,
+  header,
   body,
   closeLabel,
   open,
@@ -77,6 +78,7 @@ export function RegionSurface({
   className,
 }: {
   readonly title: string
+  readonly header?: SheetHeaderParts | undefined
   readonly body: ReactElement
   /** Interpreter string (SSR-resolved): the icon button's whole accessible name. */
   readonly closeLabel: string
@@ -97,12 +99,11 @@ export function RegionSurface({
       className={popupClass(className)}
     >
       <div className={PANEL_CLASS}>
-        <h2
-          data-slot="sheet-title"
-          className={TITLE_CLASS}
-        >
-          {title}
-        </h2>
+        <SheetHeader
+          title={title}
+          header={header}
+          modal={false}
+        />
         {body}
         <button
           type="button"
@@ -129,21 +130,22 @@ export function RegionSurface({
 /** The modal sheet's inside: its title, the record body, and its close button. */
 function DialogSheetPanel({
   title,
+  header,
   body,
   closeLabel,
 }: {
   readonly title: string
+  readonly header: SheetHeaderParts | undefined
   readonly body: ReactElement
   readonly closeLabel: string
 }): ReactElement {
   return (
     <div className={PANEL_CLASS}>
-      <Dialog.Title
-        data-slot="sheet-title"
-        className={TITLE_CLASS}
-      >
-        {title}
-      </Dialog.Title>
+      <SheetHeader
+        title={title}
+        header={header}
+        modal
+      />
       {body}
       <Dialog.Close
         data-component-type="button"
@@ -161,6 +163,7 @@ function DialogSheetPanel({
 /** The default modal `dialog` surface (the historical record-drawer behavior). */
 export function DialogSurface({
   title,
+  header,
   body,
   closeLabel,
   open,
@@ -168,6 +171,7 @@ export function DialogSurface({
   className,
 }: {
   readonly title: string
+  readonly header?: SheetHeaderParts | undefined
   readonly body: ReactElement
   /** Interpreter string (SSR-resolved): the icon button's whole accessible name. */
   readonly closeLabel: string
@@ -201,6 +205,7 @@ export function DialogSurface({
         >
           <DialogSheetPanel
             title={title}
+            header={header}
             body={body}
             closeLabel={closeLabel}
           />

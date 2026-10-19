@@ -15,6 +15,7 @@ import { CartesianChart, type CartesianTooltip } from './cartesian-chart'
 import { categoryConfig, categoryKey, chartColorVar, paletteColor, seriesKey } from './chart-config'
 import {
   axisKeyLabeller,
+  dayKeyLabeller,
   formatAxisLabel,
   formatAxisValue,
   monthKeyLabeller,
@@ -73,7 +74,9 @@ export function CategoryLineChart(args: CategoryChartProps): ReactElement {
   const categoryLabel = useMemo(() => {
     const keys = data.map((datum) => datum.key)
     const labeller =
-      (xAxis?.format === 'date' ? timeKeyLabeller(keys) : undefined) ?? monthKeyLabeller(keys)
+      (xAxis?.format === 'date' ? timeKeyLabeller(keys) : undefined) ??
+      monthKeyLabeller(keys) ??
+      dayKeyLabeller(keys)
     return (key: string): string => labeller?.(key) ?? key
   }, [data, xAxis?.format])
   const valueLabel = useValueLabel(yAxis, fields)

@@ -26,6 +26,7 @@
 
 import { join } from 'node:path'
 import ts from 'typescript'
+import { toPosixPath } from '../lib/posix-path'
 
 // ---------------------------------------------------------------------------
 // Module-reference inlining
@@ -193,7 +194,7 @@ export const inlineModuleReferences = (
  * spelling either side used.
  */
 const virtualFileKey = (fileName: string, caseSensitive: boolean): string => {
-  const slashed = fileName.replace(/\\/g, '/')
+  const slashed = toPosixPath(fileName)
   return caseSensitive ? slashed : slashed.toLowerCase()
 }
 

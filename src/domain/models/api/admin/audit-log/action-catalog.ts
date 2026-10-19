@@ -255,6 +255,7 @@ export const ACTION_CATALOG: Readonly<Record<string, string>> = {
   // singular `agent` type as its conversation siblings, so one
   // `?resourceType=agent` filter still returns every agent-domain action.
   'agent.list.queried': 'agent',
+  'agent.detail.queried': 'agent',
   // Admin app-connections readbacks. The connection
   // list + detail endpoints both key on the singular `connection` resource
   // type — a connection read is a read OF a connection, so the resource is the
@@ -365,6 +366,7 @@ export const AUDIT_ACTIONS = {
   AUTOMATION_RESUMED: 'automation.resumed',
   AUTOMATION_AUTO_PAUSED: 'automation.auto_paused',
   AGENT_LIST_QUERIED: 'agent.list.queried',
+  AGENT_DETAIL_QUERIED: 'agent.detail.queried',
   AGENT_CONVERSATION_LIST_QUERIED: 'agent.conversation.list.queried',
   AGENT_CONVERSATION_DETAIL_QUERIED: 'agent.conversation.detail.queried',
   CONNECTION_LIST_QUERIED: 'connection.list.queried',

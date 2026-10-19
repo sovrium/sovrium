@@ -15,6 +15,7 @@ import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/service
 import { extractTextFromBytes, type ExtractTextFormat } from './file-extract'
 import { extOf, mimeByExt, tempKey, uploadArtifact } from './file-support'
 import { buildStoredZip } from './file-zip'
+import { builtFromRunBytes, recordRunArtifact } from './run-written-files'
 import { actionAttributes, numberProp, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 
@@ -54,7 +55,7 @@ const compressKeys = (p: Readonly<Record<string, unknown>>): readonly string[] =
   return []
 }
 
-export const handleFileCompress: ActionHandler = (action) =>
+export const handleFileCompress: ActionHandler = (action, _app, automation) =>
   Effect.gen(function* () {
     const p = props(action)
     const keys = compressKeys(p)
@@ -79,6 +80,9 @@ export const handleFileCompress: ActionHandler = (action) =>
     const key = destination ?? tempKey('.zip')
     const wrote = yield* uploadArtifact(storage, key, zip, 'application/zip')
     if (!wrote) return softError(`failed to write zip to ${key}`)
+    // An archive carries run bytes only when every file in it does.
+    const carriesRunBytes = builtFromRunBytes(automation.writtenFiles, keys)
+    yield* recordRunArtifact(automation.writtenFiles, key, { carriesRunBytes })
 
     const base = {
       key,
@@ -221,7 +225,7 @@ const buildTransformImageOutput = (
   return destination ? { ...base, path: destination } : { ...base, temporary: true }
 }
 
-export const handleFileTransformImage: ActionHandler = (action) =>
+export const handleFileTransformImage: ActionHandler = (action, _app, automation) =>
   Effect.gen(function* () {
     const p = props(action)
     const key = resolveSourceKey(p)
@@ -249,6 +253,10 @@ export const handleFileTransformImage: ActionHandler = (action) =>
     const contentType = mimeByExt(destinationKey) ?? result.contentType
     const wrote = yield* uploadArtifact(storage, destinationKey, result.bytes, contentType)
     if (!wrote) return softError(`failed to write image to ${destinationKey}`)
+    // A transformed image carries the standing of the image it was made from.
+    yield* recordRunArtifact(automation.writtenFiles, destinationKey, {
+      carriesRunBytes: builtFromRunBytes(automation.writtenFiles, [key]),
+    })
 
     return {
       status: 'success',

@@ -85,8 +85,11 @@ export type OAuthApplicationType = typeof oauthApplicationTypeSchema.Type
 /**
  * One declared table, by the name its REST routes are keyed on.
  *
- * Name only. A docs page composing `GET /api/tables/<name>/records` needs the
- * identifier and nothing else, and the per-table roll-up an operator might also
+ * The identifier a docs page composes `GET /api/tables/<name>/records` from,
+ * and the table's own declared name for people (`label`) that the page's
+ * comment line reads. The label is not a console word — it is the app's, the
+ * same one the overview endpoint gives the table — which is why it is admitted
+ * under the rule above. The per-table roll-up an operator might also
  * want — row counts, soft-deleted backlog, last write — already has its own
  * endpoint at `/api/admin/tables/overview`. Two projections of the same entity
  * that disagree is the failure mode a second aggregation path always produces.
@@ -95,6 +98,13 @@ export const instanceTableSchema = Schema.Struct({
   name: Schema.String.annotate({
     description: "The table's name, as its REST routes are keyed on it",
   }),
+  label: optionalField(
+    Schema.String.annotate({
+      description:
+        "The name a person reads for the table as a collection, in the caller's console language: its `labelPlural`, else its `label`, with a `$t:` key resolved, else its `name` made readable (`site_visits` reads `Site visits`) — the same name `/api/admin/tables/overview` gives the table. A fact the app declared, not a word of the console's. Display text only; the request lines keep `name`.",
+      examples: ['Site visits'],
+    })
+  ),
 }).annotate({ identifier: 'InstanceTable' })
 
 /** @public */
@@ -127,6 +137,13 @@ export const instanceFactsResponseSchema = Schema.Struct({
     description:
       "The FIRST declared table's name — the one the single-call examples (cURL, JavaScript, the create line) are written against. Null when the app declares no table. Declaration order, so every example on the page names the same table.",
   }),
+  exampleTableLabel: optionalField(
+    Schema.String.annotate({
+      description:
+        "The `exampleTable`'s name as a person reads it, in the caller's console language — the same reading as each `tables[].label`. Absent when the app declares no table.",
+      examples: ['Clients'],
+    })
+  ),
   tableCount: Schema.Finite.annotate({
     description:
       'How many tables the config declares. The gate for "this app has an API surface at all" — a fact, where "no tables yet" is a sentence the console keeps.',

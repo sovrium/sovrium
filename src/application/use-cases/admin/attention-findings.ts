@@ -43,6 +43,7 @@ import {
 import { isCapabilityMet } from '@/domain/models/app/pages/page-requires'
 import { DETAIL_SEPARATOR, EMPTY_CELL, measured, unread } from './attention-cells'
 import type { Cell, Sourced } from './attention-cells'
+import type { ConsoleLanguage } from './operator-language'
 import type { AdminOrganisationGraphResponse } from '@/domain/models/api/admin/organisation/graph'
 import type { App } from '@/domain/models/app'
 import type { PageCapability } from '@/domain/models/app/pages/requires'
@@ -70,26 +71,46 @@ const FINDINGS_SOURCES: ReadonlySet<string> = new Set(['principals', 'team-membe
 export const FINDINGS_SOURCE = 'organisation findings'
 
 /** The severities, gravest first, with the singular and plural of each. */
-const SEVERITY_WORDS = [
-  { key: 'critical', one: 'critical', many: 'critical' },
-  { key: 'warning', one: 'warning', many: 'warnings' },
-  { key: 'notice', one: 'notice', many: 'notices' },
-] as const
+const SEVERITY_WORDS: Readonly<
+  Record<
+    ConsoleLanguage,
+    ReadonlyArray<{
+      readonly key: 'critical' | 'warning' | 'notice'
+      readonly one: string
+      readonly many: string
+    }>
+  >
+> = {
+  en: [
+    { key: 'critical', one: 'critical', many: 'critical' },
+    { key: 'warning', one: 'warning', many: 'warnings' },
+    { key: 'notice', one: 'notice', many: 'notices' },
+  ],
+  fr: [
+    { key: 'critical', one: 'critique', many: 'critiques' },
+    { key: 'warning', one: 'avertissement', many: 'avertissements' },
+    { key: 'notice', one: 'remarque', many: 'remarques' },
+  ],
+}
 
 type FindingsCounts = Pick<AdminOrganisationGraphResponse, 'findingsCount' | 'findingsBySeverity'>
 
 /**
  * Render the findings as a cell: the count, and the severities PRESENT, gravest
- * first — `"1 critical · 2 warnings"`. A severity at zero is not named, so a
+ * first — `"1 critical · 2 warnings"` (`"1 critique · 2 avertissements"`). A severity at zero is not named, so a
  * zero count renders `''` and the pairing contract holds by construction.
  */
-export const findingsCell = (counts: Readonly<FindingsCounts>): Cell => ({
+export const findingsCell = (
+  counts: Readonly<FindingsCounts>,
+  language: ConsoleLanguage = 'en'
+): Cell => ({
   count: counts.findingsCount,
-  detail: SEVERITY_WORDS.map(({ key, one, many }) => ({
-    n: counts.findingsBySeverity[key],
-    one,
-    many,
-  }))
+  detail: SEVERITY_WORDS[language]
+    .map(({ key, one, many }) => ({
+      n: counts.findingsBySeverity[key],
+      one,
+      many,
+    }))
     .filter(({ n }) => n > 0)
     .map(({ n, one, many }) => `${n} ${n === 1 ? one : many}`)
     .join(DETAIL_SEPARATOR),
@@ -104,7 +125,8 @@ export const findingsCell = (counts: Readonly<FindingsCounts>): Cell => ({
  * to the zero and names itself, exactly as every other unread cell does.
  */
 export const findingsBlock = (
-  app: App
+  app: App,
+  language: ConsoleLanguage = 'en'
 ): Effect.Effect<Sourced<Cell>, never, AdminOrganisationGraphServices> => {
   const read: Effect.Effect<
     Sourced<Cell>,
@@ -114,7 +136,7 @@ export const findingsBlock = (
     ? Effect.map(buildAdminOrganisationGraph(app), (graph) =>
         graph.degraded.some((source) => FINDINGS_SOURCES.has(source))
           ? unread(EMPTY_CELL, FINDINGS_SOURCE)
-          : measured(findingsCell(graph))
+          : measured(findingsCell(graph, language))
       )
     : Effect.succeed(measured(EMPTY_CELL))
   return read.pipe(Effect.withSpan('admin.attention-findings'))

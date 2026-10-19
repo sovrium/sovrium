@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto'
 import { lstat, mkdir, readFile, readdir, realpath, rm, rmdir, writeFile } from 'node:fs/promises'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { getCurrentVersion } from '@/cli/commands/update'
+import { listFilesBelow } from '@/infrastructure/filesystem/list-files-below'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 
 /**
@@ -119,15 +120,9 @@ const diskSha = async (path: string): Promise<string | undefined> =>
     () => undefined
   )
 
-/** Every file below `root`, as POSIX paths relative to it. */
+/** Every file below `root`, as POSIX paths relative to it, never through a symlink. */
 const listFiles = async (root: string): Promise<readonly string[]> =>
-  readdir(root, { recursive: true, withFileTypes: true }).then(
-    (entries) =>
-      entries
-        .filter((entry) => entry.isFile())
-        .map((entry) => relative(root, join(entry.parentPath, entry.name)).split(sep).join('/')),
-    () => []
-  )
+  listFilesBelow(root).catch(() => [])
 
 type EntryKind = 'absent' | 'link' | 'directory' | 'file'
 

@@ -85,6 +85,8 @@ Beside `activities`, the list response carries `entries`: what your AI agents di
 
 **Activity entries are retained for one year, then deleted.** A sweep runs daily at 03:15 in the operator timezone (`SOVRIUM_TIMEZONE`, UTC when unset) and physically removes every activity row whose `created_at` is older than one calendar year, counted on that zone's calendar — the same boundary the record-history API uses to hide expired entries, so what you can no longer read is also what is no longer stored. The deletion is a real `DELETE`, not a `deleted_at` tombstone: an activity row's change set holds the before-and-after field values of the record it describes, and a tombstone would retain exactly the data the window says is gone.
 
+Each run of the sweep writes one line to the server log — `[activity-log-retention] Deleted N activity-log row(s) older than …`, zero included — so the log shows that it ran. The sweep opens its transaction read-write explicitly: a managed PostgreSQL that has run out of disk stays reachable but defaults every transaction to read-only, and a read-write transaction is the one write it still allows, so the sweep keeps freeing space in exactly that state. A sweep the server still refuses — a standby does — is logged with the rows that were due and the refusal, and the next day's sweep runs regardless.
+
 Two neighbouring stores have deliberately different lifetimes:
 
 | Store                        | Lifetime                    | Why                                                                                                                                                                                       |

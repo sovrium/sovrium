@@ -43,10 +43,9 @@ contentDir:
 # layout draws by name: the current page and the links carry the accent, and
 # each kind of callout sits on its own ground in light and dark.
 #
-# `#0d0d0d` is the ground of the `github-dark` code theme (`codeBlock.theme` in
-# design.yaml): the bar naming each code block — "terminal", or the file it
-# belongs in — is painted the same, so block and bar read as one dark panel.
-# Change the code theme, change this colour with it.
+# Code blocks follow the colour scheme, light by day and dark by night, and
+# the bar naming each one ("terminal", or the file it belongs in) follows with
+# them: the code parts below only set its spacing and size.
 markdown:
   layout: docs
   toc:
@@ -87,11 +86,11 @@ markdown:
       heading2: '!mt-6 !mb-3 !text-[24px]'
       heading3: '!my-3'
       lead: '!mt-0 !mb-3.5 !text-[16px] !leading-[1.6] text-muted-foreground'
-      paragraph: '!my-3 !text-[15px] !leading-[1.7] text-[var(--tw-prose-body)]'
+      paragraph: '!my-3 !text-[15px] !leading-[1.7]'
       list: '!my-3'
       table: '!my-3'
       quote: '!my-3'
-      listItem: '!text-[15px] !leading-[1.7] text-[var(--tw-prose-body)]'
+      listItem: '!text-[15px] !leading-[1.7]'
       link: '!text-primary-subtle-foreground underline underline-offset-2'
       # A callout's first line is its title, written on a line of its own.
       callout: >-
@@ -102,8 +101,8 @@ markdown:
       calloutNote: '!border-l-primary !bg-primary-subtle'
       calloutTip: '!border-l-success !bg-success/10'
       calloutWarning: '!border-l-warning !bg-muted'
-      codeFrame: '!my-3 !border-[#0d0d0d]'
-      codeCaption: '!h-[34px] !border-white/10 !bg-[#0d0d0d] !py-0 !text-[#8b949e]'
+      codeFrame: '!my-3'
+      codeCaption: '!h-[34px] !py-0'
       codeBlock: '!py-3 !text-[13px] !leading-[1.65]'
       image: rounded-lg border border-border
     states:

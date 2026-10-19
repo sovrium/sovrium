@@ -10,6 +10,7 @@ import { Suspense, type ReactElement } from 'react'
 import { flushSync } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 import { ISLANDS, PRIORITY_ISLAND_LOADERS } from './island-registry'
+import { IslandHostIdContext } from './runtime/island-host-context'
 import { IslandReadySignal } from './runtime/island-ready-signal'
 import {
   replayPendingFiles,
@@ -128,17 +129,17 @@ export async function preloadIslandsWithin(root: ParentNode = document.body): Pr
 
 /**
  * The live React root for each mounted island host, keyed by its host element.
+ * A root outlives its host leaving the DOM (an SPA swap replaces `innerHTML`):
+ * its `document` listeners, portals and query observers live on. Tracking it
+ * lets {@link unmountIslandsWithin} tear it down BEFORE the swap.
  *
- * An island's `createRoot` root is NOT auto-unmounted when its host element
- * leaves the DOM (e.g. the admin SPA content swap replaces `innerHTML`). The
- * orphaned root keeps its effects alive — most consequentially its `document`-
- * level cross-island event listeners (`sovrium:open-drawer` etc.) and its
- * Dialog/portal subtree rendered into `document.body`. Tracking the root here
- * lets {@link unmountIslandsWithin} tear it down BEFORE the swap so a re-rendered
- * surface does not accumulate duplicate, still-listening island instances (which
- * would, e.g., open two record-detail drawers on a single row click).
+ * On `globalThis`: a built page evaluates this module TWICE, as the hashed
+ * `island-entry-<hash>.js` it loads and as the `island-entry.js` its chunks'
+ * `import()` names, and a map per copy hid the page's first roots from a swap.
  */
-const islandRoots = new WeakMap<HTMLElement, Root>()
+const ROOTS = Symbol.for('sovrium.island-roots')
+const pageGlobal = globalThis as { [ROOTS]?: WeakMap<HTMLElement, Root> }
+const islandRoots = (pageGlobal[ROOTS] ??= new WeakMap<HTMLElement, Root>())
 
 /** The Suspense fallback's wrapper lays out as if absent — see {@link ssrFallback}. */
 const FALLBACK_WRAPPER_STYLE = { display: 'contents' } as const
@@ -165,8 +166,8 @@ function ssrFallback(html: string): ReactElement {
 }
 
 /**
- * Wraps an island component with providers (the page's shared QueryClient,
- * Suspense)
+ * Wraps an island component with providers (the page's shared QueryClient, its
+ * host's id, Suspense)
  */
 export function IslandWrapper({
   Component,
@@ -181,10 +182,12 @@ export function IslandWrapper({
 }): ReactElement {
   return (
     <QueryClientProvider client={getPageQueryClient()}>
-      <Suspense fallback={fallback}>
-        <Component {...props} />
-        <IslandReadySignal host={host} />
-      </Suspense>
+      <IslandHostIdContext.Provider value={host.id || undefined}>
+        <Suspense fallback={fallback}>
+          <Component {...props} />
+          <IslandReadySignal host={host} />
+        </Suspense>
+      </IslandHostIdContext.Provider>
     </QueryClientProvider>
   )
 }

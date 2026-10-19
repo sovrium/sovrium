@@ -27,12 +27,9 @@ darkColors:
 
 ## Code highlighting
 
-Every fenced block is highlighted on the server with one Shiki theme:
-
-```yaml title="config/design.yaml"
-codeBlock:
-  theme: github-dark
-```
+Every fenced block is highlighted on the server, with nothing to configure.
+It follows the reader's colour scheme: light code on a light page, dark code
+on a dark one.
 
 ## Collection options
 

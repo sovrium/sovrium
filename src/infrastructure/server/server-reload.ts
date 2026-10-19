@@ -37,6 +37,7 @@ import { LockFileWriteError } from '@/infrastructure/errors/lock-file-write-erro
 import { ServerReloadError } from '@/infrastructure/errors/server-reload-error'
 import { logDebug, logWarning } from '@/infrastructure/logging/logger'
 import { notifyDevReload } from '@/infrastructure/realtime/dev-reload-channel'
+import { purgeStaleCalendarFeedAddresses } from '@/infrastructure/server/calendar-feed-purge'
 import { writeLockFile as writeLockFileToDisk } from '@/infrastructure/server/lock-file'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
@@ -135,6 +136,11 @@ export const createServerReload =
       // connections on a save that changed a page's text, which is a worse
       // developer experience than a stream that is at most 25 s stale.
       yield* Effect.sync(() => deps.swapHandler(nextHonoApp, app))
+
+      // A swap applies the new config without the boot chain, so it deletes the
+      // feed addresses of tables the new config no longer publishes here.
+      // Best-effort: it logs and never fails the reload.
+      yield* purgeStaleCalendarFeedAddresses(app)
 
       if (!deps.silent) {
         yield* refreshLockFile(deps.server.port ?? 0, configHash, deps.configPath)

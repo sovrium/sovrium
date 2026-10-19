@@ -24,6 +24,7 @@
  */
 
 import { fieldNamesMatch } from '@/domain/models/app/tables/field-name-matching'
+import { toManyLinksRefusedTo } from '@/domain/models/app/tables/related-field-read-service'
 import { readRowsForCaller } from './record-read-gate'
 import type { DataSourceDb } from './data-source-contracts'
 import type { App } from '@/domain/models/app'
@@ -79,15 +80,30 @@ type AppTable = NonNullable<App['tables']>[number]
 /**
  * The many-to-many fields of `table` a `form` shows and this visitor may read:
  * the ones it lists (all of them when it lists none), less the plan's
- * restricted columns. Empty for any other component type.
+ * restricted columns and the links into a table she may not read
+ * ({@link toManyLinksRefusedTo}). Such a link is left out of the form's record
+ * whole, never handed over as an empty list that reads as "nothing linked".
+ * Empty for any other component type.
  */
 export function formManyToManyFields(
   component: Component,
   table: AppTable,
-  plan: ReadAccessPlan | undefined
+  access: {
+    readonly plan: ReadAccessPlan | undefined
+    readonly app: App
+    readonly session: SessionInfo | undefined
+  }
 ): readonly FormManyToManyField[] {
   if (component.type !== 'form') return []
   const listed = listedFieldNames(component)
+  const { plan, app, session } = access
+  const refused = toManyLinksRefusedTo(
+    app,
+    table.name,
+    session === undefined
+      ? { role: 'guest', signedOut: true }
+      : { role: session.role, groups: session.groups ?? [], signedOut: false }
+  )
   return table.fields.flatMap((field) => {
     const { relationType, relatedTable } = field as {
       readonly relationType?: string
@@ -95,7 +111,7 @@ export function formManyToManyFields(
     }
     if (field.type !== 'relationship' || relationType !== 'many-to-many') return []
     if (typeof relatedTable !== 'string') return []
-    if (plan?.restrictedColumns.has(field.name) === true) return []
+    if (plan?.restrictedColumns.has(field.name) === true || refused.has(field.name)) return []
     if (listed.length > 0 && !listed.some((name) => fieldNamesMatch(field.name, name))) return []
     return [{ fieldName: field.name, relatedTable }]
   })

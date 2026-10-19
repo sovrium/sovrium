@@ -56,6 +56,8 @@ A template written in the config (`inline`) or read from `assets` was written by
 
 `attachments` lists files to attach, in order: `{ step: <name> }` (a document a previous step generated), a key, `{ key, bucket }`, `{ asset: <path> }`, `{ record: { table, id, field, index? } }` or `{ url }` — or one template resolving to such a list. A list that arrives with the run's data (`'{{trigger.data.files}}'`) may only name files this run produced — `{ step: <name> }`, or a temporary file a step of this run wrote (a step that only reads stored files, such as `file/list` or `file/getMetadata`, wrote none); a key, `{ key, bucket }`, `{ asset }`, `{ record }` or `{ url }` from run data fails the step, and nothing is sent. A `{ record }` reference reads the record as the run does: in a run someone started by hand, a record they cannot read is not found. Each is attached under its filename and content type. Attachments travel whole or not at all: if one cannot be read, the step fails and nothing is sent. A message carries at most **15 MB** of attachments (15 × 1024 × 1024 bytes, the files' own sizes added up with the pictures a template shows inline); above that the step fails with `attachments_too_large` and nothing is sent — put a larger file in a bucket and send a link to it.
 
+In a run someone started by hand, an attachment or a `template` named `{ key, bucket }` whose file sits in a table attachment field's bucket, or in a bucket whose `download` permission does not admit the person who started it, fails the step with `Resource not found`, as a key nothing holds does, and no message is sent. A starter with the admin role is not refused, and a key nothing holds is named in her step's error.
+
 ```yaml
 - name: mailInvoice
   type: email

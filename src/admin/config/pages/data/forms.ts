@@ -14,15 +14,16 @@
 //
 // The toolbar carries an "Open form" link to the LIVE, submittable form — a page
 // of the OPERATOR's app, not of the console. Every mount-local `href` a preset
-// page writes is moved onto the mount's base at boot, which is exactly right for
-// a console link and exactly wrong for this one: `/forms/contact` would become
-// `/_admin/forms/contact`, the page the operator is already on.
+// page writes is moved onto the mount's base when the console is first opened,
+// which is exactly right for a console link and exactly wrong for this one:
+// `/forms/contact` would become `/_admin/forms/contact`, the page the operator
+// is already on.
 //
 // `$app.origin` resolves that without a new primitive. A value that does not
-// begin with `/` is not a mount-local path, so the boot walk leaves it alone;
-// at render it becomes the scheme and host THIS request arrived on, which for a
-// mounted console is the operator's own app. The result is an absolute URL out
-// of the console and into the live form.
+// begin with `/` is not a mount-local path, so the walk that moves the others
+// leaves it alone; at render it becomes the scheme and host THIS request
+// arrived on, which for a mounted console is the operator's own app. The result
+// is an absolute URL out of the console and into the live form.
 //
 // ─── ONE BEHAVIOUR CHANGE, STATED ─────────────────────────────────────────
 //
@@ -67,19 +68,23 @@ const TOOLBAR_BTN =
   'border-border text-foreground-subtle hover:text-foreground inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-md'
 
 /**
- * Submission lifecycle status → display label.
+ * Submission lifecycle status → display label, read by the inbox's status
+ * column AND the detail drawer's status entry, so a submission reads the same
+ * word in both places.
  *
  * The endpoint returns the RAW status, so this is a render-only relabel and the
- * API contract is untouched. An unmapped status renders verbatim rather than
+ * API contract is untouched. Every word is a `$t:` key, so the console speaks
+ * its own language here too; `done` and `processed` share one, being the same
+ * outcome stored two ways. An unmapped status renders verbatim rather than
  * disappearing.
  */
 const STATUS_LABELS = {
-  received: 'received',
-  processing: 'in progress',
-  processed: 'processed',
-  done: 'processed',
-  failed: 'failed',
-  spam: 'spam',
+  received: '$t:admin.forms.status.received',
+  processing: '$t:admin.forms.status.processing',
+  processed: '$t:admin.forms.status.processed',
+  done: '$t:admin.forms.status.processed',
+  failed: '$t:admin.forms.status.failed',
+  spam: '$t:admin.forms.status.spam',
 } as const
 
 /** This form's admin submissions endpoint (rows envelope: `{ items }`). */
@@ -195,11 +200,47 @@ const submissionsGrid = (): PageComponent =>
 const detailDrawer = (): PageComponent =>
   recordSheet({
     id: DETAIL_DRAWER_ID,
-    dataSource: { system: { endpoint: `${SUBMISSIONS_ENDPOINT}/:id` } },
+    dataSource: {
+      system: {
+        endpoint: `${SUBMISSIONS_ENDPOINT}/:id`,
+        // The drawer follows the inbox's Reveal answers switch and nothing
+        // else on that channel: `reveal` reaches the detail read, the search
+        // text never does. Opening a submission is therefore never a reveal on
+        // its own — the answers show here exactly when they show in its row.
+        bindTo: SUBMISSIONS_CHANNEL,
+        sharedFilter: { params: ['reveal'] },
+      },
+    },
     canEdit: false,
+    // Named by the submission: its first answer while answers are revealed,
+    // else when it arrived — never the generic "Record details".
+    props: { title: '$record.label' },
+    // Labelled with the grid's own headers, and the date typed as a date-time
+    // so it prints as the Received column does — a system source has no field
+    // schema to resolve either from, so the raw keys and an ISO string were
+    // what the drawer showed without them. The status takes the column's own
+    // words, so `done` reads "Processed" here as it does in the row.
     recordFields: [
-      { name: 'status', type: 'single-line-text' },
-      { name: 'submittedAt', type: 'single-line-text' },
+      {
+        name: 'status',
+        // A choice, so the sheet draws it as the badge the inbox row draws.
+        type: 'single-select',
+        label: '$t:admin.common.status',
+        valueLabels: STATUS_LABELS,
+      },
+      { name: 'submittedAt', type: 'datetime', label: '$t:admin.forms.received' },
+      // What the person wrote, as the form asked it: each answer under its
+      // question's label, in the form's own sections. The read carries
+      // `answers` only while Reveal answers is on, so with the switch off the
+      // entry is left out rather than drawn as an empty heading. Not `body`,
+      // which is keyed by the questions' names rather than their labels.
+      {
+        name: 'answers',
+        type: 'json',
+        renderAs: 'key-value',
+        label: '$t:admin.forms.answers',
+        visibleWhen: { field: 'answers', isNotEmpty: true },
+      },
     ],
   }) as PageComponent
 
@@ -236,6 +277,41 @@ const revealSwitch = (): PageComponent =>
     ],
   }) as PageComponent
 
+/**
+ * Export to CSV, drawn only once the form has a submission to export.
+ *
+ * An empty inbox offering a download of nothing is a control with no outcome.
+ * The button sits inside a ONE-ROW read of the inbox (`limit=1`): a row
+ * template renders once per row, so the button exists when a submission does,
+ * and a read that fails leaves it out rather than taking the page down.
+ * `contents` keeps the row's list item out of the toolbar's layout.
+ */
+const exportAffordance = (): PageComponent =>
+  ({
+    type: 'container',
+    element: 'div',
+    props: { className: 'contents [&>li]:list-none' },
+    dataSource: {
+      system: { endpoint: SUBMISSIONS_ENDPOINT, query: { limit: '1' }, rowsKey: 'items' },
+    },
+    children: [
+      {
+        type: 'button',
+        label: '$t:admin.forms.exportCsv',
+        // Outline, like the link beside it: the default fill is the primary
+        // colour, which the toolbar's muted text cannot be read against.
+        variant: 'outline',
+        props: { 'aria-label': '$t:admin.forms.export.region', className: TOOLBAR_BTN },
+        action: {
+          type: 'fetch',
+          mode: 'download',
+          url: `${SUBMISSIONS_ENDPOINT}/export?format=csv`,
+          filename: '$param.form-submissions.csv',
+        },
+      },
+    ],
+  }) as PageComponent
+
 const toolbar = (): PageComponent =>
   toolbarRow([
     toolbarSearch(SUBMISSIONS_CHANNEL, '$t:admin.forms.search'),
@@ -251,20 +327,7 @@ const toolbar = (): PageComponent =>
         className: TOOLBAR_BTN,
       },
     } as PageComponent,
-    {
-      type: 'button',
-      label: '$t:admin.forms.exportCsv',
-      // Outline, like the link beside it: the default fill is the primary
-      // colour, which the toolbar's muted text cannot be read against.
-      variant: 'outline',
-      props: { 'aria-label': '$t:admin.forms.export.region', className: TOOLBAR_BTN },
-      action: {
-        type: 'fetch',
-        mode: 'download',
-        url: `${SUBMISSIONS_ENDPOINT}/export?format=csv`,
-        filename: '$param.form-submissions.csv',
-      },
-    } as PageComponent,
+    exportAffordance(),
   ])
 
 /**
@@ -415,7 +478,10 @@ const submissionsChart = (): PageComponent =>
     props: { 'aria-label': '$t:admin.forms.trend.region' },
     dataSource: { system: { endpoint: FORM_ANALYTICS_ENDPOINT, rowsKey: 'submissionsPerDay' } },
     chartType: 'area',
-    xAxis: { field: 'date', format: 'date' },
+    // `day` is the key the analytics envelope carries each point under.
+    xAxis: { field: 'day', format: 'date' },
+    // Horizontal rules only, no axis baselines: shadcn's chart anatomy.
+    yAxis: { field: 'count', gridLines: true },
     series: [{ field: 'count', label: '$t:admin.forms.submissions' }],
     emptyState: {
       role: 'region',
@@ -467,8 +533,11 @@ const inboxPage: PageConfig = consolePage({
     // `?tab=` is the address of each half. Without this block `$query.tab` is
     // left verbatim and the strip silently opens on Inbox for every link.
     query: tabQuery(TABS),
+    // The form itself, so the trail ends on its title ("Quote request")
+    // rather than its address; an unknown form 404s here, as it should.
+    dataSource: { system: { endpoint: `${FORMS_ENDPOINT}/:form`, param: 'form' } },
   },
-  shell: { breadcrumb: BREADCRUMB, fill: true },
+  shell: { breadcrumb: BREADCRUMB, breadcrumbCurrent: '$record.label', fill: true },
   body: [
     fillHost([
       tabbedBody('$t:admin.forms.tabs.region', TABS, [inboxPanel(), insightsPanel()], {

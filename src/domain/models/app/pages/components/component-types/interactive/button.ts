@@ -6,9 +6,14 @@
  */
 
 import { Schema } from 'effect'
+import {
+  DisabledReasonSchema,
+  DisabledWhenSchema,
+} from '@/domain/models/app/tables/condition-operators'
 import { ButtonSizeSchema } from '../../button-variant'
 import { ConfirmGateSchema } from '../../confirm-gate'
 import { ButtonVariantSchema } from '../../shared-schemas'
+import { EditSelectSchema } from '../data/table/columns'
 import { actionFields } from '../modules/action'
 import { contentFields } from '../modules/content'
 import { coreFields } from '../modules/core'
@@ -77,4 +82,32 @@ export const buttonFields = {
    * the vocabulary the admin RGPD erasure needs.
    */
   confirm: Schema.optional(ConfirmGateSchema),
+  /**
+   * Per-record DISABLED predicate, for a button drawn on a record: in a row
+   * template, on a record page, in a card. Valid only under a record binding,
+   * as `visibility.record` is, since it is matched against the bound record.
+   * Where it holds, the button stays drawn and focusable, marked
+   * `aria-disabled`, and pressing it does nothing — no navigation, no fetch, no
+   * run; an automation it would start is also refused by the server with 409.
+   * Unlike `props.disabled`, which is the same on every record.
+   */
+  disabledWhen: Schema.optional(DisabledWhenSchema),
+  /** Why the button is disabled: its tooltip and its accessible description. */
+  disabledReason: Schema.optional(DisabledReasonSchema),
+  /**
+   * A pre-filled picker between the press and the `action`, for a button drawn
+   * on a record: the same `editSelect` a table row action takes. Pressing the
+   * button opens a menu of `options` (or `optionsSource`) with the record's
+   * current `field` value checked; picking a value — or, with `multiple`,
+   * checking values and pressing `saveLabel` — dispatches `action` with the
+   * pick in place of `$record.<field>`. Valid only under a record binding, as
+   * `disabledWhen` is: with no record there is nothing to pre-fill or to
+   * replace, so it is refused at startup.
+   */
+  editSelect: Schema.optional(
+    EditSelectSchema.annotate({
+      description:
+        'A pre-filled picker for a button drawn on a record: pressing the button opens a menu of options with the record’s current field value checked, and picking one (or, with multiple, checking several and pressing the save label) runs the button’s action with the pick in place of $record.<field>. Valid only under a record binding (a list or gallery row template, a single-record container, or a page bound to one record); refused at startup elsewhere.',
+    })
+  ),
 } as const

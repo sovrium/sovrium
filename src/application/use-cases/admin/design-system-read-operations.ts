@@ -13,41 +13,31 @@
  * the OpenAPI operation are all derived from it. Every facet is a function of
  * the operator's LIVE config, which the registry resolves per call.
  *
- * The markdown export answers TEXT, byte for byte the same on both surfaces.
- * Audit: the two exports write the design read event naming the caller; the
- * facets write none, as their routes never have. The schema reads are the
+ * The two exports live in `design-system-export-read-operations.ts` and are
+ * listed first. Audit: the exports write the design read event naming the
+ * caller; the facets write none, as their routes never have. The schema reads are the
  * sibling `schema-read-operations.ts`.
  */
 
 import { Effect } from 'effect'
 import {
-  adminReadText,
   answerWithSchema,
   decodeAdminReadQuery,
   defineAdminRead,
   type AdminReadDecode,
   type AdminReadDefinition,
   type AdminReadOperation,
-  type AdminReadOutcome,
 } from '@/application/use-cases/admin/admin-read-operation'
-import { buildDesignSystem } from '@/application/use-cases/admin/design-system'
 import { brandFacet, zonesFacet } from '@/application/use-cases/admin/design-system-brand-facet'
 import { coverageFacet } from '@/application/use-cases/admin/design-system-coverage'
+import { DESIGN_SYSTEM_EXPORT_READS } from '@/application/use-cases/admin/design-system-export-read-operations'
 import {
   designTokenFacet,
   exportsFacet,
   guidanceFacet,
   typeLadderFacet,
 } from '@/application/use-cases/admin/design-system-facets'
-import { renderDesignSystemMarkdown } from '@/application/use-cases/admin/design-system-markdown'
-import { flattenDesignTokens } from '@/application/use-cases/admin/design-system-token-rows'
 import { usageFacet } from '@/application/use-cases/admin/design-system-usage-facet'
-import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
-import {
-  designSystemDocumentSchema,
-  designSystemJsonQuerySchema,
-} from '@/domain/models/api/admin/design-system'
-import { flatTokensResponseSchema } from '@/domain/models/api/admin/design-system/component-types'
 import {
   brandFacetResponseSchema,
   designCoverageQuerySchema,
@@ -62,110 +52,11 @@ import {
   usageQuerySchema,
   usageResponseSchema,
 } from '@/domain/models/api/admin/design-system/facets'
-import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import type { App } from '@/domain/models/app'
 import type { Schema } from 'effect'
 
-const NO_ARGUMENTS = { type: 'object', properties: {} } as const
-
 /** A string argument of a design read, as the MCP tool advertises it. */
 const stringArgument = (description: string) => ({ type: 'string', description })
-
-/** The design read event, naming the caller: the config is the one entity both exports target. */
-const DESIGN_AUDIT = {
-  action: AUDIT_ACTIONS.CONFIG_DESIGN_QUERIED,
-  resourceId: (_app: App, _input: unknown, request: { readonly actorUserId: string }) =>
-    request.actorUserId,
-}
-
-/** The token document, validated against its wire schema. */
-const validatedDocument = (app: App) =>
-  decodeSafe(designSystemDocumentSchema)(buildDesignSystem(app))
-
-// ─── The two exports ──────────────────────────────────────────────────────────
-
-const designSystemJson = defineAdminRead<boolean>({
-  id: 'design-system.json',
-  method: 'get',
-  path: '/api/admin/design-system.json',
-  pathParams: [],
-  queryParams: ['flat'],
-  tool: {
-    suffix: 'design_system_json',
-    description:
-      'The design token document of this app, or the same tokens as flat rows with flat set, as GET /api/admin/design-system.json answers it (admin-only, read-only).',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        flat: { type: 'boolean', description: 'Answer the same tokens as flat rows.' },
-      },
-    },
-  },
-  openapi: {
-    summary: 'Export the design system as a token document',
-    description:
-      'The design token document the operator config resolves to. `?flat` answers the SAME ' +
-      'tokens as rows; without it the document is the published standard format, unchanged. ' +
-      'Writes a design read event naming the caller. Admin only.',
-    operationIdBase: 'getAdminDesignSystemJson',
-    // Presence is the flag, so no value is refused.
-    querySchema: designSystemJsonQuerySchema,
-    refusesQuery: false,
-    responseSchema: designSystemDocumentSchema,
-    responseDescription: 'The design token document',
-  },
-  subject: 'design system document',
-  // Presence is the flag over HTTP (`?flat=…`); over MCP it is `true`.
-  decode: (raw) => ({ _tag: 'Ok', input: raw['flat'] !== undefined && raw['flat'] !== false }),
-  read: (app, flat) =>
-    Effect.sync((): AdminReadOutcome => {
-      const document = validatedDocument(app)
-      if (!document.success) return { _tag: 'ValidationFailed', error: document.error }
-      if (!flat) return { _tag: 'Ok', body: document.data }
-      const items = flattenDesignTokens(document.data as Readonly<Record<string, unknown>>, app)
-      return answerWithSchema(flatTokensResponseSchema, { items, total: items.length })
-    }),
-  audit: DESIGN_AUDIT,
-})
-
-const designSystemMarkdown = defineAdminRead<undefined>({
-  id: 'design-system.markdown',
-  method: 'get',
-  path: '/api/admin/design-system.md',
-  pathParams: [],
-  queryParams: [],
-  tool: {
-    suffix: 'design_system_markdown',
-    description:
-      'The design system of this app as markdown, byte for byte what GET /api/admin/design-system.md answers (admin-only, read-only).',
-    inputSchema: NO_ARGUMENTS,
-  },
-  openapi: {
-    summary: 'Export the design system as markdown',
-    description:
-      'The same design system as the token document, rendered as markdown a person or an ' +
-      'assistant reads. Writes a design read event naming the caller. Admin only.',
-    operationIdBase: 'getAdminDesignSystemMarkdown',
-    responseSchema: designSystemDocumentSchema,
-    responseContentType: 'text/markdown; charset=utf-8',
-    responseDescription: 'The design system as markdown',
-  },
-  subject: 'design system document',
-  decode: () => ({ _tag: 'Ok', input: undefined }),
-  read: (app) =>
-    Effect.sync((): AdminReadOutcome => {
-      const document = validatedDocument(app)
-      if (!document.success) return { _tag: 'ValidationFailed', error: document.error }
-      return {
-        _tag: 'Ok',
-        body: adminReadText(
-          'text/markdown; charset=utf-8',
-          renderDesignSystemMarkdown(document.data, app.name)
-        ),
-      }
-    }),
-  audit: DESIGN_AUDIT,
-})
 
 // ─── The facets ───────────────────────────────────────────────────────────────
 
@@ -384,8 +275,7 @@ const typeLadder = facetRead({
 
 /** The design-system admin reads, in the order the registry lists them. */
 export const DESIGN_SYSTEM_READ_OPERATIONS: ReadonlyArray<AdminReadOperation> = [
-  designSystemJson,
-  designSystemMarkdown,
+  ...DESIGN_SYSTEM_EXPORT_READS,
   tokens,
   guidance,
   coverage,

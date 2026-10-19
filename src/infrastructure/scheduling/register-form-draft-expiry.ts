@@ -5,10 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
+import { Cause, Effect } from 'effect'
 import { CronScheduler } from '@/application/ports/services/cron-scheduler'
 import { purgeExpiredFormDrafts } from '@/application/use-cases/forms/purge-expired-form-drafts'
-import { logDebug, logError } from '@/infrastructure/logging/logger'
+import { describeSweepFailure } from '@/infrastructure/database/read-write-sweep'
+import { logError, logInfo } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import type { FormSubmissionRepository } from '@/application/ports/repositories/forms/form-submission-repository'
 import type { App } from '@/domain/models/app'
@@ -20,16 +21,24 @@ const DRAFT_EXPIRY_CRON_EXPRESSION = '0 * * * *'
 const DRAFT_EXPIRY_JOB_ID = 'form-draft-expiry'
 const BOOT_SWEEP_JOB_ID = 'form-draft-expiry-boot'
 
-/** One sweep, its failure logged and absorbed: the next tick retries. */
+/**
+ * One sweep, its outcome logged every time (zero included, so the journal
+ * shows it ran) and its failure absorbed: the next tick retries.
+ */
 const sweepOnce = (app: App, when: 'boot' | 'scheduled') =>
   purgeExpiredFormDrafts(app).pipe(
     Effect.tap((removed) =>
       Effect.sync(() =>
-        logDebug(`[form-drafts] ${when} sweep deleted ${String(removed)} expired draft(s)`)
+        logInfo(`[form-drafts] ${when} sweep deleted ${String(removed)} expired draft(s)`)
       )
     ),
     Effect.tapCause((cause) =>
-      Effect.sync(() => logError(`[form-drafts] ${when} sweep failed`, cause))
+      Effect.sync(() =>
+        logError(
+          describeSweepFailure(`[form-drafts] ${when} sweep failed`, Cause.squash(cause)),
+          cause
+        )
+      )
     ),
     // effect-swallow: logged above; a failed sweep never fails the boot, and the next hour retries.
     Effect.catchCause(() => Effect.void),

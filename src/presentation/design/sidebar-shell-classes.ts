@@ -27,19 +27,23 @@ export const computeSidebarShellBoxClasses = (): string =>
   'group/sidebar relative shrink-0 [--sidebar-width:16rem] [--sidebar-width-icon:3rem] w-(--sidebar-width) transition-[width] duration-200 ease-linear data-[collapsible=icon]:w-(--sidebar-width-icon) data-[collapsible=icon]:data-[variant=floating]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)] data-[collapsible=icon]:data-[variant=inset]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))] data-[collapsible=offcanvas]:w-0 data-[side=right]:order-last data-[variant=floating]:bg-transparent data-[variant=floating]:p-2 data-[variant=inset]:bg-transparent data-[variant=inset]:p-2'
 
 /**
- * The drawn panel: shadcn/ui's inner `data-sidebar="sidebar"` surface. It fills
- * the box only on a shell sidebar: an ordinary sidebar's box sets its own height
- * and scrolls, and a full-height flex column inside it would shrink its groups
- * until they overlapped.
+ * The drawn panel: shadcn/ui's inner `data-sidebar="sidebar"` surface.
  *
- * It never grows past the screen, though: a navigation taller than the viewport
+ * It takes its box's height, as shadcn's non-folding sidebar does (`h-full`),
+ * never more than the screen, and sticks to the top. Beside the page, in a row
+ * the box is stretched to, it is therefore as tall as the screen: the footer
+ * (the reader's account, most often) sits at the foot of the screen however few
+ * entries the groups hold, and the panel stays in view while the page beside it
+ * scrolls. A sidebar standing on its own in the page's flow has no stretched
+ * box, and is as tall as its content. A navigation taller than the panel
  * scrolls inside its own content region, between a header and a footer that
- * stay in view, rather than pushing the footer (the reader's account, most
- * often) below the fold. Inside the phone drawer it fills the panel below the
- * close button (`in-[dialog]`), so the same holds there.
+ * stay in view. A shell sidebar's panel fills its box.
+ *
+ * Inside the phone drawer it is neither sticky nor screen-tall: it fills the
+ * panel below the close button (`in-[dialog]`).
  */
 export const computeSidebarSurfaceClasses = (): string =>
-  'flex max-h-svh w-full min-w-0 flex-col in-[dialog]:min-h-0 in-[dialog]:flex-1 group-data-[sidebar-shell]/sidebar:h-full group-data-[collapsible]/sidebar:overflow-hidden group-data-[variant=floating]/sidebar:rounded-lg group-data-[variant=floating]/sidebar:border group-data-[variant=floating]/sidebar:border-sidebar-border group-data-[variant=floating]/sidebar:bg-sidebar group-data-[variant=floating]/sidebar:shadow-sm group-data-[variant=inset]/sidebar:bg-sidebar'
+  'sticky top-0 flex h-full max-h-svh w-full min-w-0 flex-col in-[dialog]:static in-[dialog]:h-auto in-[dialog]:min-h-0 in-[dialog]:flex-1 group-data-[sidebar-shell]/sidebar:h-full group-data-[collapsible]/sidebar:overflow-hidden group-data-[variant=floating]/sidebar:rounded-lg group-data-[variant=floating]/sidebar:border group-data-[variant=floating]/sidebar:border-sidebar-border group-data-[variant=floating]/sidebar:bg-sidebar group-data-[variant=floating]/sidebar:shadow-sm group-data-[variant=inset]/sidebar:bg-sidebar'
 
 /** shadcn/ui `SidebarHeader`. */
 export const computeSidebarHeaderClasses = (): string => 'flex flex-col gap-2 p-2'
@@ -47,9 +51,15 @@ export const computeSidebarHeaderClasses = (): string => 'flex flex-col gap-2 p-
 /** shadcn/ui `SidebarFooter`, pushed to the foot of the panel. */
 export const computeSidebarFooterClasses = (): string => 'mt-auto flex flex-col gap-2 p-2'
 
+/**
+ * How far below the sidebar's top edge the fold controls stand: centred on an
+ * `h-11` header bar (8px + half a 28px button = 22px) unless the frame sets
+ * `--sidebar-trigger-top` on the sidebar, as a frame with a taller header does.
+ */
+
 /** shadcn/ui `SidebarTrigger`, standing just outside the sidebar's inner edge so a folded sidebar can be unfolded. */
 export const computeSidebarTriggerClasses = (): string =>
-  'absolute top-2 z-20 inline-flex size-7 items-center justify-center rounded-md text-sidebar-foreground ring-sidebar-ring outline-hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 group-data-[side=left]/sidebar:left-full group-data-[side=left]/sidebar:ml-2 group-data-[side=right]/sidebar:right-full group-data-[side=right]/sidebar:mr-2 [&>svg]:size-4'
+  'absolute top-[var(--sidebar-trigger-top,0.5rem)] z-20 inline-flex size-7 items-center justify-center rounded-md text-sidebar-foreground ring-sidebar-ring outline-hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 group-data-[side=left]/sidebar:left-full group-data-[side=left]/sidebar:ml-2 group-data-[side=right]/sidebar:right-full group-data-[side=right]/sidebar:mr-2 [&>svg]:size-4'
 
 /** shadcn/ui `SidebarRail`: a thin handle centred on the sidebar's inner edge. */
 export const computeSidebarRailHandleClasses = (): string =>
@@ -114,4 +124,4 @@ export const computeSidebarFoldControlDrawerClasses = (
  * header. Its label stays in the document as the button's name.
  */
 export const computeSidebarShellDrawerTriggerClasses = (): string =>
-  'absolute top-2 z-20 size-7 gap-0 self-auto rounded-md px-0 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[side=left]/sidebar:left-2 group-data-[side=right]/sidebar:right-2 [&>span]:sr-only'
+  'absolute top-[var(--sidebar-trigger-top,0.5rem)] z-20 size-7 gap-0 self-auto rounded-md px-0 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[side=left]/sidebar:left-2 group-data-[side=right]/sidebar:right-2 [&>span]:sr-only'

@@ -1,4 +1,5 @@
 name: kestrel-crm
+displayName: Kestrel CRM
 version: 3.0.0
 description: >-
   A sales CRM for a small team: a pipeline board with the figures a sales lead
@@ -57,10 +58,11 @@ pages:
   - $ref: ./config/pages/assistant.yaml
   - $ref: ./config/pages/sign-in.yaml
 
-# A small "Built with Sovrium" line after each page's content rather than a
-# floating pill, so it never sits over the last row of a grid.
+# The "Built with Sovrium" badge floats in the bottom-right corner. Every page
+# here fills the window beside a full-height sidebar, so a line after the
+# content would push the page past the window and give it a second scroll.
 badge:
-  placement: footer
+  placement: floating
 
 connections:
   - $ref: ./library/connection/slack.yaml

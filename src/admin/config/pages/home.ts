@@ -12,46 +12,36 @@
 // intra-app path with it at render time. Writing `/_admin` here would double the
 // prefix rather than confirm it.
 //
-// ─── WHAT REPLACED WHAT ────────────────────────────────────────────────────
+// ─── WHAT IT SHOWS, IN THE ORDER A PERSON ARRIVING READS IT ───────────────
 //
-// This route used to be the Dashboard: seven `kpi` islands over
-// `/api/admin/overview` and a recent-activity grid. Round 7 of the console
-// canvas replaced it with a landing page whose shape is a greeting, one thing to
-// DO, and then what needs attention — the order a person arriving actually reads
-// in. The `id`, the `name` and the sidebar row's `data-nav-overview` testid are
-// deliberately unchanged: a testid is an address, and the route is still the
-// console's front page.
-//
-// The activity grid moved nowhere and is simply gone from `/`. It answered
-// "what just happened" for a reader who had already decided to audit; the pulse
-// strip below answers "what needs me" for a reader who has not decided anything
-// yet, which is the question a landing page is for.
+// A greeting and one sentence; then what needs attention, one row per thing
+// with the one action that answers it, the assistant beside it; four headline
+// figures, and the runs of the last seven days under them; and what the configuration declares, one row per kind of object
+// with the console page that answers it. The `id`, the `name` and the sidebar
+// row's `data-nav-overview` testid are unchanged: a testid is an address, and
+// the route is still the console's front page.
 //
 // ─── ONE READ, NO ISLANDS, FOR EVERYTHING THAT VARIES ──────────────────────
 //
 // `dataSource` at PAGE level binds a RECORD (the same binding one level down is
 // a ROWS binding), so every `$record.*` below resolves SERVER-SIDE and ships as
-// text. That is what lets the six pulse cells carry twelve live values —
-// counts AND their detail strings — for one fetch and zero client bytes. Twelve
-// `kpi` islands could not have carried the detail strings at all: a `kpi` has
-// one value slot.
+// text: the attention rows' counts AND details, and the breakdowns beside the
+// declarations, for one fetch and zero client bytes.
 //
-// The nine tiles are the honest exception, and the reason is measured rather
-// than assumed: `GET /api/admin/attention` carries each tile's SUB-LINE
-// (`tableFields`, `bucketsS3`, `linksDb`, …) and none of their head COUNTS,
-// which live on `/api/admin/config/reflection`, `/api/admin/links`,
-// `/api/admin/overview` and `/api/admin/roles`. A page has exactly one record,
-// so the head counts stay `kpi` islands — four shared fetches across nine tiles,
-// since the system-value hook keys its query on the endpoint — and the
-// sub-lines are server text beneath them.
+// The head counts are the honest exception: `GET /api/admin/attention` carries
+// each declaration's breakdown and none of their head COUNTS, which live on
+// `/api/admin/config/reflection`, `/api/admin/links`, `/api/admin/overview` and
+// `/api/admin/roles`. A page has exactly one record, so the head counts stay
+// `kpi` islands — four shared fetches, since the system-value hook keys its
+// query on the endpoint.
 
-import { CARD_SURFACE } from '../components/card'
 import { dashboardContent, sectionCard, sectionCards } from '../components/dashboard-blocks'
 import { consolePage } from '../components/data-page'
 import { sentence } from '../components/sentence'
 import {
   ADMIN_ROLES_ENDPOINT,
   ATTENTION_ENDPOINT,
+  AUTOMATIONS_OVERVIEW_ENDPOINT,
   CONFIG_REFLECTION_ENDPOINT,
   LINKS_ENDPOINT,
   OVERVIEW_ENDPOINT,
@@ -61,21 +51,19 @@ import type { Page as PageConfig } from '@/domain/models/app'
 /** One node of a page's component tree, as the config type expresses it. */
 type PageComponent = NonNullable<PageConfig['components']>[number]
 
-// ───────────────────────────────────────────────────────────── the hero
+// ───────────────────────────────────────────────────────────── the header
 //
-// Two containers, one of which renders. `visibility.runtime: 'ai'` holds
+// The assistant card renders under `visibility.runtime: 'ai'`, which holds
 // wherever an AI provider is configured: every app carries the built-in System
-// Agent, so a provider is all the composer needs. `declares: 'agents'` was
-// refused for this switch and the reason is visible here: an app that declares
-// three agents with no `AI_PROVIDER` set would get a composer that cannot answer.
+// Agent, so a provider is all it needs. `declares: 'agents'` was refused for
+// this switch: an app that declares three agents with no `AI_PROVIDER` set
+// would get a composer that cannot answer.
 
 /**
  * The greeting, and the page's ONE visible `h1`.
  *
- * Visible rather than `sr-only`, which is the round-7 departure from every other
- * console page: on a landing page the heading is the greeting, and a greeting
- * nobody can see is not one. Every other surface keeps its title in the
- * breadcrumb and its `h1` hidden.
+ * Visible: on a landing page the heading is the greeting, and a greeting
+ * nobody can see is not one.
  *
  * It NAMES THE OPERATOR, and the string is where that happens — this component
  * is unchanged. `admin.welcome.heading` reads `Welcome[, $session.name]`, an
@@ -104,8 +92,7 @@ const greeting: PageComponent = {
 } as PageComponent
 
 /**
- * The composer: the shipped `ai-chat`, centred, in the place the search takes
- * when there is no AI.
+ * The assistant: the shipped `ai-chat`, in a card beside the attention list.
  *
  * Its options sit beside `type`, where the renderer reads them first
  * (`readChatOption` in `render/registry/ai-chat-component.tsx`); `props` holds
@@ -120,13 +107,16 @@ const greeting: PageComponent = {
  * app's data as the signed-in operator, never writing.
  */
 const composer: PageComponent = {
-  type: 'container',
-  element: 'div',
-  // A model to answer, AND a caller allowed to act on what it suggests: a
-  // read-only operator is offered search instead, below.
+  type: 'card',
+  // A model to answer, AND a caller allowed to act on what it suggests. A
+  // read-only operator has the palette in the sidebar; the card is not drawn
+  // for them rather than offered as a search box twice. Below `md` it is left
+  // out too: on a phone the page is the list of what needs attention.
   visibility: { runtime: 'ai', capability: 'edit-operations' },
+  title: '$t:admin.welcome.ask.title',
+  description: '$t:admin.welcome.ask.description',
   props: {
-    className: 'flex w-full max-w-2xl flex-col gap-4',
+    className: 'hidden min-w-0 @5xl/main:flex-1 md:flex',
     'data-testid': 'welcome-composer',
   },
   children: [
@@ -137,9 +127,11 @@ const composer: PageComponent = {
       // The ⌘K palette's « Ask about this app » row lands here with the typed
       // words in `?q=`: the composer takes them as a draft, focused and unsent.
       draftParam: 'q',
-      chatHeight: 220,
+      chatHeight: 264,
       showHistory: false,
       props: {
+        // The card is the frame: the panel drops its own border and ground.
+        className: 'rounded-none border-0 bg-transparent',
         // Three prompts, drawn under the composer by the suggestion strip, which
         // resolves `suggestions` through the translation table. Keyed, so a
         // French console offers French prompts: a click sends the prompt as the
@@ -148,140 +140,64 @@ const composer: PageComponent = {
         suggestions: [
           '$t:admin.welcome.suggest.failed',
           '$t:admin.welcome.suggest.unset',
-          '$t:admin.welcome.suggest.submissions',
+          // Answerable on every app: what it declares is in the config the
+          // System Agent reads. A prompt about submissions on an app with no
+          // form would be the console suggesting a question it cannot answer.
+          '$t:admin.welcome.suggest.declares',
         ],
       },
     },
   ],
 } as PageComponent
 
-/**
- * The search hero: what stands in the composer's place when AI cannot run.
- *
- * `variant: 'secondary'` is load-bearing and not cosmetic — the same lesson the
- * sidebar's trigger records. A `button` with no variant gets `default`, the
- * PRIMARY tone, and a className carrying a border and a text colour but no
- * ground leaves the recipe's near-black fill showing through: a black slab with
- * subtle-grey placeholder text on it.
- *
- * The hook is `data-command-palette-trigger`, never the accessible name:
- * `CommandPaletteCapture` delegates from `document` on `closest(…)`, so the
- * control works before the palette island hydrates and after the label is
- * translated.
- *
- * ─── IT NAMES ITSELF APART FROM THE SIDEBAR'S TRIGGER ──────────────────────
- *
- * This is the ONE surface carrying two palette triggers: this one and the
- * sidebar's, which is on every page. They both read `$t:admin.shell.search`
- * until round 7's Welcome landed, and then a reader listing this page's buttons
- * heard "Search" twice with nothing to choose between them — the plainest form
- * of the same-name defect, two controls doing one thing under one label.
- *
- * So the hero gets its own key. The sidebar keeps the bare verb because it is
- * the standing affordance on every other surface and has no rival there; the
- * hero says what it searches, in the words of its own caption two lines down.
- * Not `sr-only` text or a `title`: `aria-label` is the slot that RESOLVES a
- * `$t:` token on a plain element (the measured table in `i18n/console.ts`), so
- * it is the only one that keeps the name translatable.
- */
-const searchHero = (visibility: Readonly<Record<string, unknown>>, note: string): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    visibility,
-    props: {
-      className: 'flex w-full max-w-2xl flex-col items-center gap-2',
-      'data-testid': 'welcome-search-hero',
-    },
-    children: [
-      {
-        type: 'button',
-        variant: 'outline',
-        props: {
-          type: 'button',
-          'aria-label': '$t:admin.welcome.searchHero',
-          'data-command-palette-trigger': 'true',
-          'data-testid': 'welcome-search-trigger',
-          className:
-            'h-10 w-full justify-start gap-2 bg-muted/50 px-3 text-sm font-normal text-muted-foreground shadow-none',
-        },
-        children: [
-          { type: 'icon', props: { name: 'search', size: 16, className: 'shrink-0' } },
-          {
-            type: 'text',
-            element: 'span',
-            props: { className: 'flex-1 text-left' },
-            content: '$t:admin.shell.searchPlaceholder',
-          },
-          { type: 'kbd', keys: ['⌘', 'K'] },
-        ],
-      },
-      {
-        type: 'text',
-        element: 'span',
-        props: { className: 'text-xs text-muted-foreground' },
-        content: note,
-      },
-    ],
-  }) as PageComponent
-
-const hero: PageComponent = {
+/** The page's header: the greeting over one sentence saying what the page is for. */
+const header: PageComponent = {
   type: 'container',
-  element: 'section',
-  props: {
-    className: 'flex flex-col items-center gap-6 px-4 pt-6 pb-2 lg:px-6',
-    'aria-label': '$t:admin.welcome.heroRegion',
-  },
+  element: 'header',
+  props: { className: 'flex flex-col gap-1 px-4 lg:px-6' },
   children: [
     greeting,
-    composer,
-    searchHero({ unlessRuntime: 'ai' }, '$t:admin.welcome.noAi'),
-    // The same search for the read-only operator on an instance that HAS a
-    // model: the composer is withheld from them, and the hero must not go
-    // blank. `visibility` ANDs its keys, so "no model OR read-only" is two
-    // copies under disjoint gates, and exactly one of the three reaches the page.
-    searchHero(
-      { runtime: 'ai', unlessCapability: 'edit-operations' },
-      '$t:admin.welcome.readOnlySearch'
-    ),
+    {
+      type: 'text',
+      element: 'p',
+      props: { className: 'text-sm text-muted-foreground' },
+      content: '$t:admin.welcome.intro',
+    },
   ],
 } as PageComponent
 
-// ─────────────────────────────────────────────────────────── the pulse strip
+// ─────────────────────────────────────────────────────────── needs attention
 
 /**
- * One cell of the strip: a count, what it counts, the detail behind it, and the
- * console that answers it.
+ * One row of the attention list: what is wrong, the detail behind it, and the
+ * one action that answers it.
  *
- * `warn` decides whether a non-zero count is painted red. Three of the six
- * cells name something BROKEN (a failed run, an unset required variable, a
- * connection to reconnect — expired, unrenewable or never authorised); the
- * other three (invitations, submissions, a deliberately
- * paused automation) are states of ordinary operation and stay neutral. The
- * figure is a `kpi` with `thresholds` from 1, so the colour follows the value.
+ * `warn` decides the row's icon. Three rows name something BROKEN (a failed
+ * run, an unset required variable, a connection to reconnect — expired,
+ * unrenewable or never authorised) and carry the destructive icon; the other
+ * three (invitations, submissions, organisation findings) are states of
+ * ordinary operation and stay neutral.
  */
-interface PulseCell {
+interface AttentionRow {
   /** The `data-testid` stem and the i18n key suffix. */
   readonly key: string
   /** The `AdminAttentionResponse` count field. */
   readonly count: string
   /** The sibling detail field. Empty string when the count is zero. */
   readonly detail: string
-  /** Mount-relative destination that answers this cell. */
+  /** Mount-relative destination that answers this row. */
   readonly href: string
   /** Whether a non-zero count is damage rather than news. */
   readonly warn: boolean
-  /** Whether the link names the count itself ("3 findings →"). */
-  readonly countInLink?: boolean
   /**
-   * The feature the destination page requires, when it requires one. A cell
+   * The feature the destination page requires, when it requires one. A row
    * pointing at a page the host does not serve would lead into a 404, so it is
    * not drawn at all — the same declaration that prunes the sidebar row.
    */
   readonly declares?: 'automations' | 'connections' | 'forms'
 }
 
-const PULSE_CELLS: readonly PulseCell[] = [
+const ATTENTION_ROWS: readonly AttentionRow[] = [
   {
     key: 'failedRuns',
     count: 'failedRuns',
@@ -324,163 +240,336 @@ const PULSE_CELLS: readonly PulseCell[] = [
     key: 'findingsCount',
     count: 'findingsCount',
     detail: 'findingsDetail',
-    href: '/organisation',
+    // The Map, the one lens that lists the findings.
+    href: '/organisation?tab=map',
     warn: false,
-    countInLink: true,
   },
 ]
 
-/** A component drawn only when the host declares `feature`, or always when none is named. */
-const withDeclares = (
-  feature: string | undefined,
-  component: PageComponent,
-  record?: Readonly<Record<string, unknown>>
-): PageComponent =>
-  feature === undefined && record === undefined
-    ? component
-    : ({
-        ...(component as Record<string, unknown>),
-        visibility: {
-          ...(feature === undefined ? {} : { declares: feature }),
-          ...(record === undefined ? {} : { record }),
-        },
-      } as PageComponent)
+/**
+ * shadcn's outline button at `sm`, drawn on a `link`: the destination is a
+ * literal `href` a reader can open in a new tab, which a `button` with a
+ * navigate action does not carry. The ink is spelled out because a bare
+ * anchor paints the app's primary.
+ */
+const OUTLINE_LINK_SM =
+  'inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-border bg-background px-2.5 text-[0.8rem] font-medium text-foreground no-underline shadow-xs hover:bg-muted'
 
-/** One attention card: the figure from the attention read, its detail, the way to fix it. */
-const pulseCard = (cell: PulseCell): PageComponent =>
-  withDeclares(
-    cell.declares,
-    sectionCard({
-      testId: `welcome-pulse-${cell.key}`,
-      label: `$t:admin.welcome.pulse.${cell.key}`,
-      endpoint: ATTENTION_ENDPOINT,
-      valuePath: cell.count,
-      attention: cell.warn,
-      footer: [
+/** A component drawn only when the host declares `feature` and the record matches. */
+const gated = (
+  component: PageComponent,
+  visibility: Readonly<Record<string, unknown>>
+): PageComponent => ({ ...(component as Record<string, unknown>), visibility }) as PageComponent
+
+/** One attention row; drawn only while its count is above zero. */
+const attentionRow = (row: AttentionRow): PageComponent =>
+  gated(
+    {
+      type: 'container',
+      element: 'div',
+      props: {
+        role: 'listitem',
+        className: 'flex items-start gap-3 px-(--card-spacing) py-3',
+        'data-testid': `welcome-pulse-${row.key}`,
+      },
+      children: [
         {
-          // shadcn's section-card footer: a column, the detail over the way to fix it.
+          type: 'icon',
+          props: {
+            name: row.warn ? 'circle-alert' : 'circle-dot',
+            size: 16,
+            className: `mt-0.5 shrink-0 ${row.warn ? 'text-destructive' : 'text-muted-foreground'}`,
+            'aria-hidden': 'true',
+          },
+        },
+        {
           type: 'container',
           element: 'div',
-          props: { className: 'flex flex-col items-start gap-1.5 text-sm' },
+          props: { className: 'flex min-w-0 flex-1 flex-col gap-0.5' },
           children: [
+            {
+              type: 'container',
+              element: 'div',
+              props: { className: 'flex items-baseline gap-2 text-sm font-medium' },
+              children: [
+                { type: 'text', element: 'span', content: `$t:admin.welcome.pulse.${row.key}` },
+                {
+                  type: 'text',
+                  element: 'span',
+                  props: {
+                    className: `tabular-nums ${row.warn ? 'text-destructive' : 'text-muted-foreground'}`,
+                    'data-role': 'attention-count',
+                  },
+                  content: `$record.${row.count}`,
+                },
+              ],
+            },
             {
               type: 'text',
               element: 'p',
-              props: { className: 'text-muted-foreground empty:hidden!' },
-              content: `$record.${cell.detail}`,
-            },
-            {
-              type: 'link',
               props: {
-                href: cell.href,
-                className:
-                  'text-muted-foreground underline-offset-4 hover:text-foreground hover:underline',
+                className: 'truncate text-sm text-muted-foreground empty:hidden!',
+                'data-role': 'attention-detail',
               },
-              // The findings link names its count ("3 findings →"): a figure
-              // inside a translated sentence does not substitute, so the count
-              // is its own node before the translated words.
-              ...(cell.countInLink === true
-                ? {
-                    children: [
-                      { type: 'text', element: 'span', content: `$record.${cell.count}` },
-                      { type: 'text', element: 'span', content: ' ' },
-                      {
-                        type: 'text',
-                        element: 'span',
-                        content: `$t:admin.welcome.pulse.${cell.key}.where`,
-                      },
-                    ],
-                  }
-                : { content: `$t:admin.welcome.pulse.${cell.key}.where` }),
+              content: `$record.${row.detail}`,
             },
           ],
         },
-      ] as readonly PageComponent[],
-    }),
-    // Only an item that is not at zero is drawn: a list of zeros buries the
-    // one figure that moved. The page record is the attention read itself.
-    { field: cell.count, gt: 0 }
+        {
+          type: 'link',
+          props: { href: row.href, className: OUTLINE_LINK_SM },
+          content: `$t:admin.welcome.pulse.${row.key}.action`,
+        },
+      ],
+    } as PageComponent,
+    {
+      ...(row.declares === undefined ? {} : { declares: row.declares }),
+      // Only an item that is not at zero is drawn: a list of zeros buries the
+      // one figure that moved. The page record is the attention read itself.
+      record: { field: row.count, gt: 0 },
+    }
   )
 
-/** A section heading over a card grid, on the content column's gutter. */
-const sectionHeading = (content: string): PageComponent =>
-  ({
-    type: 'text',
-    element: 'h2',
-    props: { className: 'px-4 text-sm font-medium text-muted-foreground lg:px-6' },
-    content,
-  }) as PageComponent
-
 /**
- * The quiet instance: one sentence instead of a row of zeros.
+ * The quiet instance: one row saying so instead of an empty list.
  *
  * `attentionItems` is the attention read's own count of the items above zero,
- * so this and the cards above are mutually exclusive by construction — exactly
+ * so this and the rows above are mutually exclusive by construction — exactly
  * one of "nothing to do" and "here is what to do" reaches the page.
  */
 const allClear: PageComponent = {
   type: 'container',
   element: 'div',
   visibility: { record: { field: 'attentionItems', eq: 0 } },
-  props: {
-    className: `${CARD_SURFACE} mx-4 flex flex-col gap-1 p-4 lg:mx-6`,
-    'data-testid': 'welcome-all-clear',
-  },
+  props: { className: 'flex flex-col gap-0.5', 'data-testid': 'welcome-all-clear' },
   children: [
     {
       type: 'text',
       element: 'p',
-      props: { className: 'text-foreground text-sm font-medium' },
+      props: { className: 'text-sm font-medium text-foreground' },
       content: '$t:admin.welcome.pulse.allClear',
     },
     {
       type: 'text',
       element: 'p',
-      props: { className: 'text-muted-foreground text-sm' },
+      props: { className: 'text-sm text-muted-foreground' },
       content: '$t:admin.welcome.pulse.allClear.body',
     },
   ],
 } as PageComponent
 
-const pulse: PageComponent = {
-  type: 'container',
-  element: 'section',
-  props: { className: 'flex flex-col gap-3', 'aria-label': '$t:admin.welcome.pulse.region' },
+/**
+ * The attention list: a card whose title counts what is drawn, one row per
+ * figure above zero, each with its own action. The rows sit flush against the
+ * card's edges with a hairline between them, as in shadcn's list cards.
+ */
+const attentionCard: PageComponent = {
+  type: 'card',
+  title: '$t:admin.welcome.pulse.heading',
+  description: '$t:admin.welcome.pulse.since',
+  action: {
+    type: 'badge',
+    badgeVariant: 'secondary',
+    visibility: { record: { field: 'attentionItems', gt: 0 } },
+    props: { className: 'tabular-nums', 'data-testid': 'welcome-attention-count' },
+    content: '$record.attentionItems',
+  },
+  props: { className: 'h-full', 'data-testid': 'welcome-attention' },
   children: [
-    sectionHeading('$t:admin.welcome.pulse.heading'),
     allClear,
-    sectionCards(PULSE_CELLS.map(pulseCard), { 'data-testid': 'welcome-pulse' }),
+    {
+      type: 'container',
+      element: 'div',
+      props: {
+        role: 'list',
+        className: '-mx-(--card-spacing) -mb-(--card-spacing) divide-y border-t empty:hidden',
+        'data-testid': 'welcome-pulse',
+      },
+      children: ATTENTION_ROWS.map(attentionRow),
+    },
   ],
 } as PageComponent
 
+/** The attention card as a named region, the width it takes beside the assistant. */
+const attention: PageComponent = {
+  type: 'container',
+  element: 'section',
+  props: {
+    className: 'min-w-0 @5xl/main:flex-[1.6]',
+    'aria-label': '$t:admin.welcome.pulse.region',
+  },
+  children: [attentionCard],
+} as PageComponent
+
+/** The first row: what needs attention, and the assistant beside it. */
+const firstRow: PageComponent = {
+  type: 'container',
+  element: 'div',
+  props: { className: 'flex flex-col items-stretch gap-4 px-4 @5xl/main:flex-row lg:px-6' },
+  children: [attention, composer],
+} as PageComponent
+
+// ─────────────────────────────────────────────────────────── the figures
+
 /**
- * The second section: what the configuration declares, one section card per
- * kind of object, each with the breakdown the reader asks next as its footer.
+ * Four headline figures, read from ONE overview read (the four cards share a
+ * query, since the system-value hook keys it on the endpoint). The line under
+ * each is the attention record's own breakdown, server text, where it has one.
  */
-interface CountTile {
+const figureCard = (config: {
+  readonly key: string
+  readonly valuePath: string
+  readonly kpiFormat?: Readonly<Record<string, unknown>>
+  readonly sub?: readonly string[]
+  readonly declares?: string
+}): PageComponent =>
+  gated(
+    sectionCard({
+      testId: `welcome-figure-${config.key}`,
+      label: `$t:admin.welcome.figures.${config.key}`,
+      endpoint: OVERVIEW_ENDPOINT,
+      valuePath: config.valuePath,
+      ...(config.kpiFormat === undefined ? {} : { kpiFormat: config.kpiFormat }),
+      footer:
+        config.sub === undefined
+          ? []
+          : ([sentence('text-sm text-muted-foreground', config.sub)] as readonly PageComponent[]),
+    }),
+    config.declares === undefined ? {} : { declares: config.declares }
+  )
+
+const figures: PageComponent = sectionCards(
+  [
+    figureCard({
+      key: 'runs',
+      valuePath: 'runs.recent',
+      sub: ['$record.failedRuns', ' ', '$t:admin.welcome.figures.runs.sub'],
+      declares: 'automations',
+    }),
+    figureCard({
+      key: 'submissions',
+      valuePath: 'submissions.total',
+      sub: ['$record.recentSubmissions', ' ', '$t:admin.welcome.figures.submissions.sub'],
+      declares: 'forms',
+    }),
+    figureCard({
+      key: 'accounts',
+      valuePath: 'users.total',
+      sub: ['$t:admin.welcome.sub.banned', ' ', '$record.usersBanned'],
+    }),
+    figureCard({
+      key: 'storage',
+      valuePath: 'storage.totalBytes',
+      kpiFormat: { type: 'bytes' },
+      sub: [
+        '$record.bucketsLocal',
+        ' ',
+        '$t:admin.welcome.sub.local',
+        ' · ',
+        '$record.bucketsS3',
+        ' s3',
+      ],
+      declares: 'buckets',
+    }),
+  ],
+  {
+    'data-testid': 'welcome-figures',
+    'aria-label': '$t:admin.welcome.figures.region',
+    // dashboard-01's grid with one change: TWO columns from the smallest
+    // width, where the block starts at one. A figure is a word and a number,
+    // and four of them one per row pushed a phone's declarations a screen down.
+    className: 'grid grid-cols-2 gap-4 px-4 @5xl/main:grid-cols-4 lg:px-6',
+  }
+)
+
+/**
+ * The runs of the last seven days, one bar per day, under the figures. The
+ * automation overview read publishes its buckets at the top level (`points`),
+ * the one key a chart can bind. Drawn where the app declares an automation,
+ * as the runs figure is.
+ */
+const runsChart: PageComponent = gated(
+  {
+    // The section carries the name: the chart island keeps its own host
+    // attributes, so a label passed to it does not land on the drawn element.
+    type: 'container',
+    element: 'section',
+    props: {
+      className: 'px-4 lg:px-6',
+      'data-testid': 'welcome-runs-chart',
+      'aria-label': '$t:admin.welcome.runsChart.region',
+    },
+    children: [
+      {
+        type: 'chart',
+        dataSource: {
+          system: {
+            endpoint: AUTOMATIONS_OVERVIEW_ENDPOINT,
+            rowsKey: 'points',
+            query: { period: '7d' },
+          },
+        },
+        chartType: 'bar',
+        xAxis: { field: 'timestamp', format: 'date' },
+        yAxis: { field: 'runs', gridLines: true },
+        series: [
+          { field: 'runs', label: '$t:admin.welcome.runsChart.runs' },
+          { field: 'failures', label: '$t:admin.welcome.runsChart.failures' },
+        ],
+      },
+    ],
+  } as PageComponent,
+  { declares: 'automations' }
+)
+
+// ───────────────────────────────────────────────────── what the app declares
+
+/**
+ * The declarations list: one row per kind of object the configuration
+ * declares, the console page that answers it on the left, the count and its
+ * breakdown on the right.
+ *
+ * The ORDER is the console's own, data before people before audience: what is
+ * stored, what runs on it, what comes in, who talks to it, where files sit,
+ * then the accounts, the public pages, the links and the roles.
+ *
+ * The head counts are `kpi` figures because they live on four reads the page
+ * record does not carry (`/api/admin/config/reflection`, `/api/admin/links`,
+ * `/api/admin/overview`, `/api/admin/roles`); the breakdowns are the attention
+ * record's server text.
+ */
+/*
+ * A count beside a NOUN leads with the noun ("Banned: 1", "Bannis : 1"): the
+ * console's copy has no plural forms, and a number before a noun is wrong in
+ * one language or the other for some count. A count beside a word that does
+ * not agree with it ("2 paused", "2 en pause") keeps the number first.
+ */
+interface DeclaredRow {
   readonly key: string
   readonly label: string
   readonly endpoint: string
   readonly valuePath: string
   readonly sub?: readonly string[]
-  /** The feature the tile counts, when the app may not declare it at all. */
+  /** The feature the row counts, when the app may not declare it at all. */
   readonly declares?: 'tables' | 'automations' | 'agents' | 'buckets' | 'forms' | 'links'
+  /** Mount-relative page that answers the count. */
+  readonly href: string
+  /**
+   * The capability that page requires, when the row itself is drawn without
+   * one: the row keeps its words but they do not lead into a 404.
+   */
+  readonly hrefDeclares?: 'pages' | 'data'
 }
 
-const COUNT_TILES: readonly CountTile[] = [
-  {
-    key: 'pages',
-    label: '$t:admin.common.pages',
-    endpoint: CONFIG_REFLECTION_ENDPOINT,
-    valuePath: 'pageCount',
-  },
+const DECLARED_ROWS: readonly DeclaredRow[] = [
   {
     key: 'tables',
     label: '$t:admin.common.tables',
     endpoint: CONFIG_REFLECTION_ENDPOINT,
     valuePath: 'tableCount',
-    sub: ['$record.tableFields', ' ', '$t:admin.welcome.sub.fields'],
+    sub: ['$t:admin.welcome.sub.fields', ' ', '$record.tableFields'],
     declares: 'tables',
+    href: '/records',
   },
   {
     key: 'automations',
@@ -497,32 +586,7 @@ const COUNT_TILES: readonly CountTile[] = [
       '$t:admin.welcome.sub.disabled',
     ],
     declares: 'automations',
-  },
-  {
-    key: 'agents',
-    label: '$t:admin.common.agents',
-    endpoint: CONFIG_REFLECTION_ENDPOINT,
-    valuePath: 'agentCount',
-    sub: ['$record.agentsSystem', ' ', '$t:admin.welcome.sub.builtIn'],
-    declares: 'agents',
-  },
-  {
-    key: 'buckets',
-    label: '$t:admin.common.buckets',
-    endpoint: CONFIG_REFLECTION_ENDPOINT,
-    valuePath: 'bucketCount',
-    sub: [
-      '$record.bucketsSystem',
-      ' ',
-      '$t:admin.welcome.sub.builtIn',
-      ' · ',
-      '$record.bucketsS3',
-      ' s3 · ',
-      '$record.bucketsLocal',
-      ' ',
-      '$t:admin.welcome.sub.local',
-    ],
-    declares: 'buckets',
+    href: '/runs',
   },
   {
     key: 'forms',
@@ -530,6 +594,56 @@ const COUNT_TILES: readonly CountTile[] = [
     endpoint: CONFIG_REFLECTION_ENDPOINT,
     valuePath: 'formCount',
     declares: 'forms',
+    href: '/submissions',
+  },
+  {
+    // The figure is what the app DECLARES; the built-in System Agent every
+    // app carries is added beside it ("+ 1 built-in") rather than folded in,
+    // so the headline and the line beside it can never read as two answers.
+    key: 'agents',
+    label: '$t:admin.common.agents',
+    endpoint: CONFIG_REFLECTION_ENDPOINT,
+    valuePath: 'agentCount',
+    sub: ['+ ', '$record.agentsSystem', ' ', '$t:admin.welcome.sub.builtIn'],
+    declares: 'agents',
+    href: '/conversations',
+  },
+  {
+    // Declared buckets first, split by store, so the two figures add up to
+    // the headline; the built-in System bucket follows as an addition.
+    key: 'buckets',
+    label: '$t:admin.common.buckets',
+    endpoint: CONFIG_REFLECTION_ENDPOINT,
+    valuePath: 'bucketCount',
+    sub: [
+      '$record.bucketsLocal',
+      ' ',
+      '$t:admin.welcome.sub.local',
+      ' · ',
+      '$record.bucketsS3',
+      ' s3 · + ',
+      '$record.bucketsSystem',
+      ' ',
+      '$t:admin.welcome.sub.builtIn',
+    ],
+    declares: 'buckets',
+    href: '/files',
+  },
+  {
+    key: 'users',
+    label: '$t:admin.common.users',
+    endpoint: OVERVIEW_ENDPOINT,
+    valuePath: 'users.total',
+    sub: ['$t:admin.welcome.sub.banned', ' ', '$record.usersBanned'],
+    href: '/users',
+  },
+  {
+    key: 'pages',
+    label: '$t:admin.common.pages',
+    endpoint: CONFIG_REFLECTION_ENDPOINT,
+    valuePath: 'pageCount',
+    href: '/analytics',
+    hrefDeclares: 'pages',
   },
   {
     key: 'links',
@@ -546,49 +660,121 @@ const COUNT_TILES: readonly CountTile[] = [
       '$t:admin.welcome.sub.db',
     ],
     declares: 'links',
-  },
-  {
-    key: 'users',
-    label: '$t:admin.common.users',
-    endpoint: OVERVIEW_ENDPOINT,
-    valuePath: 'users.total',
-    sub: ['$record.usersBanned', ' ', '$t:admin.welcome.sub.banned'],
+    href: '/links',
   },
   {
     key: 'roles',
     label: '$t:admin.common.roles',
     endpoint: ADMIN_ROLES_ENDPOINT,
     valuePath: 'total',
-    sub: ['$record.teams', ' ', '$t:admin.welcome.sub.teams'],
+    sub: ['$t:admin.welcome.sub.teams', ' ', '$record.teams'],
+    href: '/organisation',
+    hrefDeclares: 'data',
   },
 ]
 
-const countCard = (tile: CountTile): PageComponent =>
-  withDeclares(
-    tile.declares,
-    sectionCard({
-      testId: `welcome-tile-${tile.key}`,
-      label: tile.label,
-      endpoint: tile.endpoint,
-      valuePath: tile.valuePath,
-      ...(tile.sub === undefined
-        ? {}
-        : {
-            footer: [
-              sentence('text-sm text-muted-foreground', tile.sub),
-            ] as readonly PageComponent[],
-          }),
-    })
-  )
+/** The row's page name: a link where the page is served, plain words where it is not. */
+const declaredName = (row: DeclaredRow): readonly PageComponent[] => {
+  const words = `$t:admin.welcome.counts.${row.key}.where`
+  const link = {
+    type: 'link',
+    props: {
+      href: row.href,
+      className: 'font-medium text-foreground underline-offset-4 hover:underline',
+    },
+    content: words,
+  } as PageComponent
+  if (row.hrefDeclares === undefined) return [link]
+  return [
+    gated(link, { declares: row.hrefDeclares }),
+    gated(
+      {
+        type: 'text',
+        element: 'span',
+        props: { className: 'font-medium text-foreground' },
+        content: words,
+      } as PageComponent,
+      { unlessDeclares: row.hrefDeclares }
+    ),
+  ]
+}
 
-const counts: PageComponent = {
+/**
+ * The head count, drawn by a `kpi` reduced to its figure: the island's card
+ * chrome is flattened (its two size containers too, which would otherwise
+ * measure the figure at zero width inside a row), its label kept for assistive technology only (the
+ * visible noun is the text beside it), and its value set at the row's size.
+ */
+const declaredCount = (row: DeclaredRow): PageComponent =>
+  ({
+    type: 'kpi',
+    label: row.label,
+    dataSource: { system: { endpoint: row.endpoint, valuePath: row.valuePath } },
+    kpiFormat: { type: 'number' },
+    props: {
+      className:
+        'shrink-0 gap-0 [container-type:normal] [&_[data-slot=card-header]]:[container-type:normal] border-0 bg-transparent py-0 shadow-none ring-0 [--card-spacing:0px]! [&_[data-role=kpi-label]]:sr-only [&_[data-role=kpi-value]]:text-sm [&_[data-role=kpi-value]]:font-medium [&_[data-role=kpi-value]]:text-foreground',
+    },
+  }) as PageComponent
+
+const declaredRow = (row: DeclaredRow): PageComponent => {
+  const component = {
+    type: 'container',
+    element: 'div',
+    props: {
+      role: 'listitem',
+      className: 'flex min-h-10 items-center gap-3 px-(--card-spacing) py-2 text-sm',
+      'data-testid': `welcome-tile-${row.key}`,
+    },
+    children: [
+      ...declaredName(row),
+      {
+        type: 'container',
+        element: 'div',
+        props: {
+          className: 'ml-auto flex min-w-0 items-baseline gap-2 text-muted-foreground',
+        },
+        children: [
+          ...(row.sub === undefined
+            ? []
+            : [
+                sentence('hidden truncate text-sm text-muted-foreground sm:block', [
+                  ...row.sub,
+                  ' ·',
+                ]),
+              ]),
+          { type: 'text', element: 'span', content: row.label },
+          declaredCount(row),
+        ],
+      },
+    ],
+  } as PageComponent
+  return row.declares === undefined ? component : gated(component, { declares: row.declares })
+}
+
+const declaredCard: PageComponent = {
+  type: 'card',
+  title: '$t:admin.welcome.counts.heading',
+  description: '$t:admin.welcome.counts.description',
+  children: [
+    {
+      type: 'container',
+      element: 'div',
+      props: {
+        role: 'list',
+        className: '-mx-(--card-spacing) -mb-(--card-spacing) divide-y border-t',
+        'data-testid': 'welcome-counts',
+      },
+      children: DECLARED_ROWS.map(declaredRow),
+    },
+  ],
+} as PageComponent
+
+const declared: PageComponent = {
   type: 'container',
   element: 'section',
-  props: { className: 'flex flex-col gap-3', 'aria-label': '$t:admin.welcome.counts.region' },
-  children: [
-    sectionHeading('$t:admin.welcome.counts.heading'),
-    sectionCards(COUNT_TILES.map(countCard), { 'data-testid': 'welcome-counts' }),
-  ],
+  props: { className: 'px-4 lg:px-6', 'aria-label': '$t:admin.welcome.counts.region' },
+  children: [declaredCard],
 } as PageComponent
 
 export default consolePage({
@@ -601,5 +787,5 @@ export default consolePage({
     dataSource: { system: { endpoint: ATTENTION_ENDPOINT } },
   },
   shell: { flush: true },
-  body: [dashboardContent([hero, pulse, counts])],
+  body: [dashboardContent([header, firstRow, figures, runsChart, declared])],
 }) satisfies PageConfig

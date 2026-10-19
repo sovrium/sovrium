@@ -103,7 +103,10 @@ export function CommentMeta({ comment }: { readonly comment: CommentRecord }): R
   // then authenticated user's name, then the "Anonymous" floor (see
   // resolveCommentAuthorName). The `.comments-author` class is the public hook
   // the public-comments specs scope their assertions to.
-  const authorName = resolveCommentAuthorName(comment, 'Anonymous')
+  const authorName = resolveCommentAuthorName(
+    comment,
+    useCommentString('comments.anonymous', 'Anonymous')
+  )
   const created = new Date(comment.createdAt)
   return (
     <header
@@ -139,11 +142,12 @@ function EditForm({
 }): ReactElement {
   const composer = useMentionComposer(decodeForEdit(comment, useMentionString('unknownUser')))
   const saving = useCommentString('form.saving', 'Saving…')
+  const save = useCommentString('comments.save', 'Save')
   const { value } = composer
   return (
     <MentionTextarea
       composer={composer}
-      label="Edit comment"
+      label={useCommentString('comments.editLabel', 'Edit comment')}
     >
       <button
         type="button"
@@ -152,7 +156,7 @@ function EditForm({
         disabled={isSaving || value.trim().length === 0}
         className={PRIMARY_BUTTON}
       >
-        {isSaving ? saving : 'Save'}
+        {isSaving ? saving : save}
       </button>
       <button
         type="button"
@@ -160,7 +164,7 @@ function EditForm({
         onClick={onCancel}
         className={SECONDARY_BUTTON}
       >
-        Cancel
+        {useCommentString('comments.cancel', 'Cancel')}
       </button>
     </MentionTextarea>
   )
@@ -178,13 +182,19 @@ function DeleteConfirm({
   readonly isDeleting: boolean
 }): ReactElement {
   const deleting = useCommentString('form.deleting', 'Deleting…')
+  const question = useCommentString(
+    'comments.deleteQuestion',
+    'Are you sure you want to delete this comment by {author}?'
+  )
+  const cancel = useCommentString('comments.cancel', 'Cancel')
+  const confirm = useCommentString('comments.confirm', 'Confirm')
   return (
     <div
       role="alertdialog"
-      aria-label="Delete comment"
+      aria-label={useCommentString('comments.deleteLabel', 'Delete comment')}
       className="bg-muted grid gap-2 rounded-md p-2 text-sm"
     >
-      <p>Are you sure you want to delete this comment by {authorName}?</p>
+      <p>{question.split('{author}').join(authorName)}</p>
       <div className="flex gap-2">
         <button
           type="button"
@@ -193,7 +203,7 @@ function DeleteConfirm({
           disabled={isDeleting}
           className={DESTRUCTIVE_BUTTON}
         >
-          {isDeleting ? deleting : 'Confirm'}
+          {isDeleting ? deleting : confirm}
         </button>
         <button
           type="button"
@@ -201,7 +211,7 @@ function DeleteConfirm({
           onClick={onCancel}
           className={SECONDARY_BUTTON}
         >
-          Cancel
+          {cancel}
         </button>
       </div>
     </div>

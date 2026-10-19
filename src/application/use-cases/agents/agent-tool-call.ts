@@ -35,6 +35,7 @@ import { AgentApprovalStore } from '@/application/ports/services/agent-approval-
 import { AgentGuard } from '@/application/ports/services/agent-guard'
 import { MirrorApprovalCreate } from '@/application/use-cases/agents/approval'
 import { recordAiActivity } from '@/application/use-cases/ai/record-ai-activity'
+import { agentActionFailureText } from '@/domain/models/app/agents/agent-action-failure-service'
 import {
   agentToolRefusal,
   isCallerDeniedAgentAction,
@@ -48,6 +49,7 @@ import {
   toolCallTable,
 } from '@/domain/models/app/agents/agent-turn-service'
 import { buildApprovalRecord } from '@/domain/models/app/agents/approval-record-service'
+import { logWarning } from '@/infrastructure/logging/logger'
 import { bestEffort, runOtherTool } from './surface-tool-call'
 import type { AiActivityLogRepository } from '@/application/ports/repositories/ai/ai-activity-log-repository'
 import type { ApprovalRepository } from '@/application/ports/repositories/ai/approval-repository'
@@ -61,11 +63,18 @@ import type { ChatToolCall } from '@/application/ports/services/ai-service'
 import type { McpClient } from '@/application/ports/services/mcp-client'
 import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
+import type { ActionFailureFacts } from '@/domain/models/app/agents/agent-action-failure-service'
 
 /** What running one agent action produced. */
 export type AgentActionResult =
   | { readonly ok: true; readonly output: Readonly<Record<string, unknown>> }
-  | { readonly ok: false; readonly error: string }
+  | ({
+      readonly ok: false
+      /** The operator's sentence: never handed to the model as is. */
+      readonly error: string
+      /** Set when the engine declined the action before running it, naming no value. */
+      readonly explanation?: string | undefined
+    } & ActionFailureFacts)
 
 /** Runs one agent action — through an automation run, or directly. */
 export type AgentActionRunner<R> = (
@@ -137,12 +146,20 @@ export type AgentToolRequirements =
   // the external MCP tools an agent names (`mcp-agent-tools.ts`)
   | McpClient
 
-/** The text a model reads for a refused call. */
+/** A call on a table the agent cannot reach. */
+const TABLE_NOT_ALLOWED = 'this table is not in the agent’s allowlist'
+
+/**
+ * The text a model reads for a refused call. A call the person the agent
+ * answers may not make herself reads exactly like a call on a table the agent
+ * cannot reach: the text, which the person reads too, never tells her that a
+ * table she may not see exists (the records API's 404 rule).
+ */
 const REFUSAL_TEXT: Readonly<Record<NonNullable<AgentToolResult['refusal']>, string>> = {
   'action-not-allowed': 'this action is not in the agent’s allowlist',
-  'table-not-allowed': 'this table is not in the agent’s allowlist',
+  'table-not-allowed': TABLE_NOT_ALLOWED,
   'role-denied': 'the agent’s role may not do this on this table',
-  'caller-denied': 'the person the agent is answering may not do this herself',
+  'caller-denied': TABLE_NOT_ALLOWED,
   'rate-limited': 'the agent has exceeded its action rate limit; try again later',
   queued: 'the agent has used its actions for this minute; try again later',
 }
@@ -238,8 +255,11 @@ const holdForApproval = (
 
 /**
  * What the model is handed for an executed action. A created record is read
- * back so the model sees the record as stored — its id and every value it
- * holds — not an acknowledgement.
+ * back so the model sees the record as stored — its id and every value its
+ * reader may read — not an acknowledgement. When the read-back finds nothing
+ * (a row-level rule hides the new row from her), the model is handed the id
+ * alone: the values the call wrote are never echoed, since a field may be one
+ * she may write but not read.
  */
 const executedContent = <R>(
   call: ChatToolCall,
@@ -252,14 +272,39 @@ const executedContent = <R>(
     return Effect.succeed(JSON.stringify(output))
   }
   return Effect.map(runAction('record.read', { table, id: String(id) }), (read) =>
-    JSON.stringify(read.ok ? read.output : { record: { id, ...readFields(call.arguments) } })
+    JSON.stringify(read.ok ? read.output : { record: { id } })
   )
 }
 
-const readFields = (args: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> => {
-  const fields = args['fields'] ?? args['data']
-  return typeof fields === 'object' && fields !== null ? (fields as Record<string, unknown>) : {}
-}
+/**
+ * What the model is handed for an action that ran and did not succeed: one
+ * client-safe sentence naming the action, its table and at most the column
+ * refused, or how a request it sent failed (`agentActionFailureText`). The action's own reason — on a record
+ * write, the database's sentence, which can quote the value — is logged for
+ * the operator first and goes no further: on a chat turn the person reading
+ * receives exactly what the model is handed.
+ */
+const failedContent = (
+  agent: Agent,
+  call: ChatToolCall,
+  table: string | undefined,
+  result: Extract<AgentActionResult, { readonly ok: false }>
+): Effect.Effect<string> =>
+  Effect.sync(() => {
+    logWarning('[agent-runtime] agent action did not complete', {
+      agent: agent.name,
+      action: call.name,
+      ...(table !== undefined && { table }),
+      reason: result.error,
+    })
+    return agentActionFailureText({
+      action: call.name,
+      table,
+      refusedWrite: result.refusedWrite,
+      requestFailure: result.requestFailure,
+      explanation: result.explanation,
+    })
+  })
 
 /** Steps 5–6 for an agent action: run it uninterruptibly, then log it. */
 export const runAgentAction = <R>(
@@ -274,7 +319,7 @@ export const runAgentAction = <R>(
     )
     const content = result.ok
       ? yield* executedContent(call, result.output, context.tools.runAction)
-      : `Error: ${result.error}`
+      : yield* failedContent(agent, call, table, result)
     yield* bestEffort(
       recordAiActivity({
         actorType: 'agent',

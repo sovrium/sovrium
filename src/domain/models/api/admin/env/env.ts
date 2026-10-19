@@ -102,7 +102,8 @@ export type EnvValueSource = typeof envValueSourceSchema.Type
 /**
  * What this variable's DECLARED default is, as a single three-state fact.
  *
- *   - `none`      — `app.env[].default` is not declared at all
+ *   - `none`      — `app.env[].default` is not declared at all, or is the
+ *                   empty string, which supplies nothing to fall back on
  *   - `withheld`  — a default is declared, and the author did not release it
  *   - `disclosed` — a default is declared and marked `secret: false`, so
  *                   `defaultValue` carries the literal
@@ -129,7 +130,8 @@ export type EnvValueSource = typeof envValueSourceSchema.Type
  * which is the invariant an admin config env spec pins.
  */
 export const envDefaultStateSchema = Schema.Literals(['none', 'withheld', 'disclosed']).annotate({
-  description: 'Whether a default is declared, and whether its literal is released to the reader',
+  description:
+    'Whether a default is declared, and whether its literal is released to the reader. A declared empty string is `none`: it supplies no fallback.',
 })
 
 /** @public */
@@ -182,7 +184,7 @@ export const envVarStatusSchema = Schema.Struct({
   }),
   hasDefault: Schema.Boolean.annotate({
     description:
-      'Whether app.env[].default is declared. Answers "is there a fallback at all?" for every variable, including those whose default value is withheld.',
+      'Whether app.env[].default declares a fallback. Answers "is there a fallback at all?" for every variable, including those whose default value is withheld. A declared empty string (`default: \'\'`) supplies nothing to fall back on and reports false.',
   }),
   defaultState: envDefaultStateSchema,
   defaultValue: optionalField(
@@ -226,6 +228,18 @@ export const envConfigResponseSchema = Schema.Struct({
     description:
       'Every variable declared in app.env[], in declaration order. Empty array when the app declares no env block.',
   }),
+  // The required variables this instance resolved no value for, in
+  // declaration order — the one fact the page states ABOVE its list, as an
+  // alert. A config page cannot filter `variables` by two fields at once
+  // (`required` and `isSet`), so the read names them. OPTIONAL: a reader that
+  // ignores it loses nothing `variables` does not already carry.
+  requiredUnset: optionalField(
+    Schema.Array(Schema.String).annotate({
+      description:
+        'The keys of every required variable this instance resolved no value for, in declaration order. Empty when every required variable is set. Names keys only, never a value.',
+      examples: [['PENNYLANE_WEBHOOK_SECRET']],
+    })
+  ),
   generatedAt: looseIsoDateTime({
     description:
       'ISO 8601 UTC timestamp of when the resolution status was read. Per-request: unlike the config surface, is-set status can change between reads without a restart.',

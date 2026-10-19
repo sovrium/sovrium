@@ -242,6 +242,9 @@ export const FORM_RUNTIME_CONDITIONS_SCRIPT = `
   if (conditions.length > 0) {
     form.addEventListener('input', applyConditions)
     form.addEventListener('change', applyConditions)
+    // A Select or a date picker mounted over its skeleton: its input is new,
+    // so the rules are applied to it again (a hidden field's is disabled).
+    form.addEventListener('sovrium:control-ready', applyConditions)
     applyConditions()
   }
 ${FORM_RUNTIME_CALCULATIONS_SCRIPT}`

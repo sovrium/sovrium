@@ -28,28 +28,62 @@ import type { ReactElement, ReactNode } from 'react'
  * is a group label: not a menu item, passed over by the keyboard.
  */
 
-/** The value of a radio row: its label, else its position. */
-const valueOf = (item: MenuItem, index: number): string => item.label ?? String(index)
+/**
+ * The value of a radio row: the theme a `theme` row sets, else its label, else
+ * its position.
+ */
+const valueOf = (item: MenuItem, index: number): string =>
+  item.action?.type === 'theme' ? (item.action.value ?? 'system') : (item.label ?? String(index))
 
-/** One `radioGroup` run as a Base UI radio group. */
+/**
+ * The reader's current theme, read when the menu opens: what is stored under
+ * `localStorage.theme` — the key the `theme-toggle` writes and the head script
+ * reads — else `system`.
+ */
+const readStoredTheme = (): string => {
+  try {
+    const stored = window.localStorage.getItem('theme')
+    return stored === 'dark' || stored === 'light' ? stored : 'system'
+  } catch {
+    return 'system'
+  }
+}
+
+type RadioRows = readonly { readonly item: MenuItem; readonly index: number }[]
+
+/**
+ * Where the group starts: the reader's current theme for a run of `theme` rows,
+ * else the row whose `toggle` is `checked`.
+ */
+const initialValueOf = (rows: RadioRows): string | undefined => {
+  if (rows.every(({ item }) => item.action?.type === 'theme')) return readStoredTheme()
+  const checked = rows.find(({ item }) => item.toggle === 'checked')
+  return checked === undefined ? undefined : valueOf(checked.item, checked.index)
+}
+
+/**
+ * One `radioGroup` run as a Base UI radio group.
+ *
+ * A `theme` row carries `data-theme-set`: choosing it is applied by the page's
+ * one delegated theme runtime, the same that flips a `theme-toggle`, so the two
+ * controls cannot come to store or apply a choice differently.
+ */
 export function RadioMenuGroup({
   rows,
   surface,
 }: {
-  readonly rows: readonly { readonly item: MenuItem; readonly index: number }[]
+  readonly rows: RadioRows
   readonly surface: MenuSurface
 }): ReactElement {
   const kind = useMenuKind()
-  const checked = rows.find(({ item }) => item.toggle === 'checked')
   return (
-    <Menu.RadioGroup
-      defaultValue={checked === undefined ? undefined : valueOf(checked.item, checked.index)}
-    >
+    <Menu.RadioGroup defaultValue={initialValueOf(rows)}>
       {rows.map(({ item, index }) => (
         <Menu.RadioItem
           key={`radio-${String(index)}`}
           value={valueOf(item, index)}
           closeOnClick={false}
+          {...(item.action?.type === 'theme' ? { 'data-theme-set': valueOf(item, index) } : {})}
           data-slot={`${kind}-radio-item`}
           disabled={item.disabled}
           className={`${computeMenuItemClasses({ variant: 'default', surface })} pr-8`}

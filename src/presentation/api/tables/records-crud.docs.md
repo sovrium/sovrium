@@ -24,13 +24,17 @@ A caller granted `create` on a table whose `read` refuses them — a public form
 
 A record's `id` is a string in every response — create, list, read, update, restore and batch — whatever the table's primary key column holds. A string stays exact beyond the 2^53 a JSON number can carry, so compare ids as strings. A relationship value is the related record's id as a string — `"1"`, or `["1", "2"]` for many-to-many — and either spelling is accepted on input and in filters.
 
-| Status | Meaning                                                  |
-| ------ | -------------------------------------------------------- |
-| `201`  | Created                                                  |
-| `400`  | A required field is missing, or a value fails its type   |
-| `401`  | No session                                               |
-| `404`  | The table does not exist, or the caller may not reach it |
-| `409`  | A unique constraint already holds that value             |
+| Status | Meaning                                                                       |
+| ------ | ----------------------------------------------------------------------------- |
+| `201`  | Created                                                                       |
+| `400`  | A required field is missing, or a value fails its type                        |
+| `401`  | No session                                                                    |
+| `404`  | The table does not exist, or the caller may not reach it                      |
+| `409`  | A unique constraint already holds that value, on a record the caller may read |
+
+### A unique value held by a record you may not read
+
+A `unique` value is unique across the whole table, records you cannot see included. When the record holding the value is one you may not read — a row-level rule hides it from you, or the unique field's own `read` refuses you — a create or an update carrying that value answers the `404` a write out of your reach answers, with the same body, names no field, and writes nothing. The `409` is answered only when you may read the record that holds the value; an admin reads every record, so she always gets it. A create's `409` names the field holding the taken value, in `field` and in `errors: [{ field, message }]`, the shape a refused value takes, so a form can mark that field.
 
 ### Linking to a row you may not read
 

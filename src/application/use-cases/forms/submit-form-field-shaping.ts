@@ -160,6 +160,10 @@ export const applyFieldDefaults = (
       const isHidden = (field as { readonly hidden?: boolean }).hidden === true
       const submitterSupplied = Object.hasOwn(acc, identifier) && acc[identifier] !== ''
       if (!isHidden && submitterSupplied) return acc
+      // A hidden field's lookup is resolved before this overlay
+      // (`submit-form-lookup-defaults.ts`); a visible field's starts the form
+      // on its row, and what the submitter sends is what is kept.
+      if (typeof field.defaultValue === 'object') return acc
       const resolved = resolveDefaultValue(field.defaultValue, query)
       if (resolved === undefined) return acc
       return { ...acc, [identifier]: resolved }

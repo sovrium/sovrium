@@ -27,16 +27,27 @@ export const AuthTriggerSchema = Schema.Struct({
   /** How much of a run this trigger starts is kept once it ends (defaults to `full`) */
   history: Schema.optional(TriggerHistorySchema),
   events: Schema.Array(
-    Schema.Literals(['signUp', 'signIn', 'signOut', 'passwordReset', 'emailVerified'])
+    Schema.Literals([
+      'signUp',
+      'signIn',
+      'signOut',
+      'passwordReset',
+      'emailVerified',
+      'invitationAccepted',
+    ])
   ).pipe(
-    Schema.annotate({ description: 'Authentication events that trigger this automation' }),
+    Schema.annotate({
+      description:
+        "Authentication events that trigger this automation. 'invitationAccepted' fires once when an invited person sets their password through their invitation link; that acceptance also fires 'emailVerified' when it verifies the address, then 'signIn' when it signs them in.",
+    }),
     Schema.check(Schema.isMinLength(1))
   ),
 }).pipe(
   Schema.annotate({
     identifier: 'AuthTrigger',
     title: 'Auth Trigger',
-    description: 'Trigger automation on authentication events (sign-up, sign-in, etc.)',
+    description:
+      'Trigger automation on authentication events (sign-up, sign-in, invitation accepted, etc.)',
   })
 )
 

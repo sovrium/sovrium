@@ -36,6 +36,8 @@ export interface PersistedRun {
   readonly triggeredByUserId: string | null
   /** A person started the run by hand, so its record actions write as `triggeredByUserId`. */
   readonly startedByHand: boolean
+  /** Its hand-starter was a visitor who was not signed in: its record actions act as a visitor. */
+  readonly startedAsGuest: boolean
   /** The name of the trigger entry that started the run, or `null` for a run recorded before names. */
   readonly triggerName: string | null
   /** The run that handed this one its trigger data (`RunRelay`, raw), or `null`. */
@@ -44,6 +46,8 @@ export interface PersistedRun {
   readonly valuesErasedAt: string | null
   /** While the run waits on a long delay (`waiting-delay`): when it resumes (ISO 8601), else `null`. */
   readonly resumeAt: string | null
+  /** While the run is paused: the files it stored and read (`StoredRunLedgers`, raw), else `null`. */
+  readonly filesLedger: unknown
 }
 
 /**
@@ -67,6 +71,8 @@ export interface PersistedStep {
   readonly reads: unknown
   /** The paths or items a path or loop step ran, with their steps (raw), or `null`. */
   readonly nested: unknown
+  /** The error a reader who does not read every run is shown, when it differs; else `null`. */
+  readonly clientError: string | null
 }
 
 /**
@@ -92,10 +98,14 @@ export interface CreateRunInput {
    * Kept with the run so a resume after an approval writes as the same person.
    */
   readonly startedByHand?: boolean
+  /** The hand-starter was a visitor who was not signed in (`PersistedRun.startedAsGuest`). */
+  readonly startedAsGuest?: boolean
   /** The name of the trigger entry that started the run (`PersistedRun.triggerName`). */
   readonly triggerName?: string
   /** The run that handed this one its trigger data (`RunRelay`). Omitted for any other run. */
   readonly relay?: unknown
+  /** When the run was queued; absent, the column's default stamps it. */
+  readonly createdAt?: Date
   readonly startedAt?: Date
   readonly completedAt?: Date
   readonly durationMs?: number
@@ -132,6 +142,8 @@ export interface CreateStepInput {
   readonly reads?: unknown
   /** The paths or items a path or loop step ran, with their steps. */
   readonly nested?: unknown
+  /** The error a reader who does not read every run is shown, when it differs from `error`. */
+  readonly clientError?: string
 }
 
 /**
@@ -244,6 +256,8 @@ export class AutomationRunRepository extends Context.Service<
       readonly refsFromRuns?: readonly string[]
       /** A run parking on a long wait: when it resumes and where. Absent, both are cleared. */
       readonly park?: { readonly resumeAt: Date; readonly cursor: unknown }
+      /** A run pausing: the files it stored and read so far. Absent, the column is cleared. */
+      readonly filesLedger?: unknown
     }) => Effect.Effect<PersistedRun | undefined, AutomationRunDatabaseError>
     /**
      * Drop what a run of a `history: 'minimal'` trigger keeps no longer once it

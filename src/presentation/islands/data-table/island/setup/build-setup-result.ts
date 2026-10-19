@@ -62,6 +62,8 @@ export function buildIslandSetupResult(input: SetupResultInput) {
      * always, for a system source, which has no aggregate endpoint).
      */
     summaryAggregations: query.data?.aggregations,
+    /** The endpoint's own sentence for the whole result, printed in the pager. */
+    resultSummary: query.data?.resultSummary,
     /**
      * Whole-view record count per group value. Undefined until the first grouped
      * response lands (and always for a system source, which has no records API
@@ -73,7 +75,10 @@ export function buildIslandSetupResult(input: SetupResultInput) {
      * for each group. Present only when the grid both groups and summarises.
      */
     groupAggregations: query.groupAggregations,
-    isLoading: query.isLoading,
+    // PENDING, not merely fetching: a read that failed and is waiting to be
+    // retried has no answer yet either, and the grid must not say "no rows"
+    // (or "No results") about rows nobody has read.
+    isLoading: query.isPending,
     isError: query.isError,
     error: query.error,
     // The last read failure the operator has not yet acted on. Distinct from

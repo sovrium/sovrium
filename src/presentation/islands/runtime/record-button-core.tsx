@@ -17,7 +17,11 @@
  * still draws and runs the same button.
  */
 
-import { useCallback, useState } from 'react'
+import { useCallback, useId, useState } from 'react'
+import {
+  disabledControlAttributes,
+  renderDisabledControl,
+} from '@/presentation/design/disabled-reason'
 import { pendingControlProps } from '@/presentation/design/pending-state'
 import { renderPendingContent } from '@/presentation/design/spinner-mark'
 import { followAddress } from './follow-address'
@@ -35,6 +39,8 @@ export interface RecordButtonConfig {
   readonly url?: string
   readonly automation?: string
   readonly visibleWhen?: Readonly<Record<string, unknown>>
+  /** Why the button is disabled on a record its `disabledWhen` holds for; may read `$record.*`. */
+  readonly disabledReason?: string
 }
 
 export interface RecordButtonCoreProps {
@@ -52,6 +58,12 @@ export interface RecordButtonCoreProps {
   readonly strings?: ButtonStrings
   /** The button's classes, idle and pending; the defaults below when absent. */
   readonly classFor?: (pending: boolean) => string
+  /**
+   * The button is disabled on this record — the server's verdict, read from
+   * the record's `_disabled` — with the reason it gives, already filled from
+   * the record. Drawn `aria-disabled`, focusable, and a press starts nothing.
+   */
+  readonly disabledOnRecord?: { readonly reason: string | undefined }
 }
 
 export const RECORD_BUTTON_CLASS =
@@ -70,13 +82,24 @@ const invokeUrl = (table: string, recordId: string, fieldName: string): string =
 const pendingWord = (pendingLabel: string | undefined, strings: ButtonStrings): string =>
   pendingLabel ?? strings?.['action.running'] ?? 'Running…'
 
+/** The attributes of a button the record disables; none when it is usable. */
+const recordDisabledAttributes = (
+  disabledOnRecord: RecordButtonCoreProps['disabledOnRecord'],
+  reasonId: string
+): Readonly<Record<string, string>> =>
+  disabledOnRecord === undefined
+    ? {}
+    : disabledControlAttributes(disabledOnRecord.reason ? reasonId : undefined)
+
 export function RecordButtonCore(props: RecordButtonCoreProps): React.ReactNode {
   const { config, fieldName, table, recordId, onInvoked, classFor, strings } = props
+  const { disabledOnRecord } = props
   const [pending, setPending] = useState(false)
+  const reasonId = useId()
 
   const canInvoke = config.action === 'automation' && Boolean(table) && Boolean(recordId)
 
-  const onClick = useCallback(() => {
+  const run = useCallback(() => {
     if (config.action === 'url') {
       if (config.url) followAddress(config.url)
       return
@@ -97,22 +120,29 @@ export function RecordButtonCore(props: RecordButtonCoreProps): React.ReactNode 
         setPending(false)
       })
   }, [config.action, config.url, table, recordId, fieldName, onInvoked, pending, strings])
+  // A button the record disables stays focusable and starts nothing.
+  const onClick = disabledOnRecord === undefined ? run : undefined
 
   const disabled = config.action === 'automation' && !canInvoke
   const className =
     classFor?.(pending) ?? (pending ? RECORD_BUTTON_PENDING_CLASS : RECORD_BUTTON_CLASS)
 
-  return (
+  const button = (
     <button
       type="button"
       className={className}
       data-button-field={fieldName}
       data-button-action={config.action}
+      data-control-id={`field:${fieldName}`}
       disabled={disabled}
+      {...recordDisabledAttributes(disabledOnRecord, reasonId)}
       {...pendingControlProps(pending)}
       onClick={onClick}
     >
       {pending ? renderPendingContent(pendingWord(props.pendingLabel, strings)) : config.label}
     </button>
   )
+  return disabledOnRecord === undefined
+    ? button
+    : renderDisabledControl(button, reasonId, disabledOnRecord.reason)
 }

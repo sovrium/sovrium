@@ -7,13 +7,15 @@
 
 import { Data, Effect } from 'effect'
 import { pushLoopScope } from './loop-scope'
-import { changedItemRefusal, EMPTY_TALLY, resumedLoopState, type LoopTally } from './loop-tally'
 import {
-  haltedOutcome,
-  runNestedSequence,
-  type SequenceResume,
-  type SequenceRun,
-} from './nested-sequence'
+  changedItemRefusal,
+  EMPTY_TALLY,
+  failedItemResult,
+  loopOutcome,
+  resumedLoopState,
+  type LoopTally,
+} from './loop-tally'
+import { runNestedSequence, type SequenceResume, type SequenceRun } from './nested-sequence'
 import { laterResponse } from './response-precedence'
 import {
   asArray,
@@ -23,7 +25,7 @@ import {
   finalNestedActionProps,
   resolveOwnProp,
 } from './run-context-resolution'
-import { actionAttributes, itemLoopOutcome } from './shared'
+import { actionAttributes } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
 import type { RenderedActionProps } from '../run/render-action-props'
 import type { ExecutedStep } from '../run/types'
@@ -98,7 +100,11 @@ const fail = (message: string): ActionOutcome =>
 /** What happened to one loop item. */
 type IterationOutcome = (
   | { readonly kind: 'ok'; readonly output: unknown }
-  | { readonly kind: 'failed'; readonly error: string }
+  | {
+      readonly kind: 'failed'
+      readonly error: string
+      readonly refusedWrite?: ActionOutcome['refusedWrite']
+    }
   | { readonly kind: 'halted'; readonly output: unknown; readonly halt: ActionOutcome }
 ) & { readonly steps: readonly ExecutedStep[]; readonly tolerated: number }
 
@@ -124,7 +130,7 @@ type IterationOutcome = (
 const foldIteration = (
   tally: LoopTally,
   outcome: IterationOutcome,
-  continueOnItemError: boolean
+  rule: { readonly continueOnItemError: boolean; readonly startedByHand: boolean }
 ): LoopTally => {
   const iteration = { index: tally.iterations.length, steps: outcome.steps }
   const tolerated = tally.tolerated + outcome.tolerated
@@ -140,63 +146,18 @@ const foldIteration = (
       halt: outcome.halt,
     }
   }
+  const first = tally.firstError === undefined
   return {
     ...ran,
-    results: [...tally.results, { error: outcome.error }],
+    results: [
+      ...tally.results,
+      failedItemResult(outcome.error, outcome.refusedWrite, rule.startedByHand),
+    ],
     failed: tally.failed + 1,
     firstError: tally.firstError ?? outcome.error,
-    stopped: !continueOnItemError,
+    firstRefusedWrite: first ? outcome.refusedWrite : tally.firstRefusedWrite,
+    stopped: !rule.continueOnItemError,
   }
-}
-
-/**
- * Turn the tally into the step outcome. A loop with failures fails the STEP
- * (and so the run) unless the author opted into `continueOnItemError`; the
- * per-item results ride along either way so run-history records what did land.
- *
- * The RULE lives in `itemLoopOutcome` (`./shared`), shared with the four
- * `record/batch*` operators — this is the `LoopTally`-shaped adapter onto it,
- * and the only thing it adds is the loop's own output vocabulary
- * (`results`/`iterations`/`failed`) and fallback message. Note that the fold
- * ABOVE stays separate on purpose (see `foldIteration`); only the outcome rule
- * is shared, because only the outcome rule was duplicated.
- */
-const loopOutcome = (tally: LoopTally, continueOnItemError: boolean): ActionOutcome => {
-  const output = { results: tally.results, iterations: tally.results.length, failed: tally.failed }
-  const nestedSteps = { iterations: tally.iterations }
-  // An item skipped under `continueOnItemError` is a tolerated failure: the
-  // run goes on past it, and ends `completed-with-errors` rather than `completed`.
-  const skipped = continueOnItemError ? tally.failed : 0
-  const count = tally.tolerated + skipped
-  const tolerated = count > 0 ? { toleratedFailures: count } : {}
-  // A park: the loop's row waits with what it has so far, the run with it.
-  if (tally.halt?.park !== undefined) {
-    return { status: 'success', output, nestedSteps, park: tally.halt.park }
-  }
-  const halted =
-    tally.halt === undefined
-      ? undefined
-      : haltedOutcome(tally.halt, {
-          output,
-          nestedSteps,
-          ...tolerated,
-          ...(tally.responseOverride === undefined
-            ? {}
-            : { responseOverride: tally.responseOverride }),
-        })
-  return (
-    halted ?? {
-      ...itemLoopOutcome({
-        failed: tally.failed,
-        firstError: tally.firstError,
-        output,
-        continueOnItemError,
-        fallbackError: 'loop.each: an item failed',
-      }),
-      nestedSteps,
-      ...tolerated,
-    }
-  )
 }
 
 /** How a nested action's props are filled in for one item, from the item's run context. */
@@ -240,7 +201,8 @@ const runIteration = async (input: IterationInput): Promise<IterationOutcome> =>
   if (run.halt === undefined) return { kind: 'ok', output: run.last, steps, tolerated }
   if (run.halt.status === 'failure' && run.halt.cancelRun === undefined) {
     const error = run.halt.error ?? 'loop.each: an item failed'
-    return { kind: 'failed', error, steps, tolerated }
+    const { refusedWrite } = run.halt
+    return { kind: 'failed', error, steps, tolerated, ...(refusedWrite ? { refusedWrite } : {}) }
   }
   const halt = { ...run.halt, ...pickOverride(run) }
   return { kind: 'halted', output: run.last, halt, steps, tolerated }
@@ -272,6 +234,8 @@ interface IterationsInput {
   readonly runNested: NonNullable<ActionRunContext['runNestedStep']>
   readonly fill: FillProps
   readonly continueOnItemError: boolean
+  /** Someone started the run by hand: a refused item reads to her as any refused write. */
+  readonly startedByHand: boolean
   /** The loop's step name, which `{{loops.<name>.*}}` reads its scope by. */
   readonly name: string
   readonly from?: {
@@ -300,6 +264,7 @@ const withItemFrame = (outcome: IterationOutcome, index: number, items: readonly
  *  failing item surface deterministically. */
 const runAllIterations = (input: IterationsInput): Promise<LoopTally> => {
   const { items, limit, actions, runContext, runNested, fill, continueOnItemError, name } = input
+  const { startedByHand } = input
   const first = input.from?.item ?? 0
   const indices = Array.from({ length: Math.max(0, limit - first) }, (_v, i) => first + i)
   return indices.reduce<Promise<LoopTally>>(
@@ -313,7 +278,7 @@ const runAllIterations = (input: IterationsInput): Promise<LoopTally> => {
         resume === undefined ? iteration : { ...iteration, resume }
       )
       const outcome = withItemFrame(ran, i, items)
-      const next = foldIteration(tally, outcome, continueOnItemError)
+      const next = foldIteration(tally, outcome, { continueOnItemError, startedByHand })
       return outcome.kind === 'halted'
         ? {
             ...next,
@@ -340,7 +305,7 @@ const resumeFrom = (
   return refusal ?? resumedLoopState(runContext.resume)
 }
 
-export const handleLoopEach: ActionHandler = (action, _app, _automation, runContext) =>
+export const handleLoopEach: ActionHandler = (action, _app, automation, runContext) =>
   Effect.gen(function* () {
     if (runContext === undefined || runContext.runNestedStep === undefined) {
       return ok({ results: [], iterations: 0 })
@@ -374,6 +339,7 @@ export const handleLoopEach: ActionHandler = (action, _app, _automation, runCont
           runNested,
           fill,
           continueOnItemError,
+          startedByHand: automation?.startedByHand === true,
           name: String(action['name'] ?? ''),
           ...(from === undefined ? {} : { from }),
         }),

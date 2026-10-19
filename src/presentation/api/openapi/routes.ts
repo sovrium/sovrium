@@ -9,7 +9,6 @@ import { Scalar } from '@scalar/hono-api-reference'
 import { type Hono } from 'hono'
 import { logError } from '@/infrastructure/logging/logger'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
-import { getOpenAPIDocument } from '@/presentation/api/openapi/document'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import {
   resolveCallerTier,
@@ -117,7 +116,13 @@ export function setupOpenApiRoutes(
     .use('/api/openapi.json', adminGuard)
     .use('/api/auth/openapi.json', adminGuard)
     .use('/api/scalar', adminGuard)
-    .get('/api/openapi.json', (c) => {
+    .get('/api/openapi.json', async (c) => {
+      // Loaded on the first request, not at start. Importing the document
+      // module evaluates every route group's descriptor, and each descriptor
+      // converts its Effect Schemas to JSON Schema at module evaluation — about
+      // a tenth of a cold start, for a document most processes never serve.
+      // The specifier stays a literal so the compiled binary still bundles it.
+      const { getOpenAPIDocument } = await import('@/presentation/api/openapi/document')
       const openApiDoc = getOpenAPIDocument(app)
       // The advertised server is resolved PER REQUEST and applied on a shallow
       // copy — never written into the document itself. `getOpenAPIDocument` is

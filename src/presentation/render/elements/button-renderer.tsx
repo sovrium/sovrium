@@ -6,31 +6,43 @@
  */
 
 import { type ReactElement } from 'react'
+import { toSafeAssetUrl } from '@/domain/kernel/url/asset-url-safety'
 import { renderSpinnerMark } from '@/presentation/design/spinner-mark'
 import { openImportTable } from '@/presentation/render/resolve/open-import-gate'
 import { omitInternalMarkers } from '../props/internal-marker-props'
 import {
-  buildAuthDataAttributes,
   buildAutomationDataAttributes,
   buildClickDataAttributes,
   buildFetchDataAttributes,
-  buildFillDataAttributes,
   buildToastDataAttributes,
   buildRecordContext,
-  isAuthAction,
   isAutomationAction,
   isCrudDeleteAction,
   isFetchAction,
-  isFillAction,
   isToastAction,
   resolveInputDataRecordVars,
   type AutomationAction,
 } from './button-action-builders'
+import { buildAuthDataAttributes, isAuthAction } from './button-auth-action'
+import { buildEditSelectAttributes } from './button-edit-select'
 import { buildNavigateClick, isNavigateAction } from './button-navigate-action'
+import {
+  buildFillDataAttributes,
+  buildSeekDataAttributes,
+  isFillAction,
+  isSeekAction,
+} from './button-page-action-builders'
+import {
+  buttonPressAttributes,
+  buttonRecordControlOf,
+  renderRecordDisabledButton,
+  type ButtonRecordControl,
+} from './button-record-control'
 import { renderCrudDeleteButton } from './crud-form/crud-delete-button-renderer'
 import { renderOpenImportButton } from './open-import-button'
 import type { ElementProps } from './html-element-renderer'
 import type { RouteParams } from '@/domain/kernel/matching/route-matcher'
+import type { Languages } from '@/domain/models/app/languages'
 
 /**
  * Only the client runtime dispatches an action button, and that runtime is a
@@ -97,6 +109,10 @@ type RenderButtonOptions = {
   readonly action?: unknown
   readonly routeParams?: RouteParams
   readonly loading?: boolean
+  /** The page language, which an `openImport` button's dialog words follow. */
+  readonly lang?: { readonly currentLang?: string; readonly languages?: Languages }
+  /** The button's own config node, which carries its record control (`button-record-control.tsx`). */
+  readonly component?: Readonly<Record<string, unknown>>
 }
 
 /**
@@ -108,26 +124,26 @@ function renderAutomationButton(opts: {
   readonly children: readonly React.ReactNode[]
   readonly action: AutomationAction
   readonly routeParams: RouteParams | undefined
+  readonly control: ButtonRecordControl | undefined
 }): ReactElement {
-  const { props, content, children, action, routeParams } = opts
+  const { props, content, children, action, routeParams, control } = opts
   const boundRecord = (props as { _record?: Readonly<Record<string, unknown>> })._record
   const recordContext = buildRecordContext(boundRecord, routeParams)
   const resolvedInputData = action.inputData
     ? resolveInputDataRecordVars(action.inputData, recordContext)
     : undefined
-  return renderActionButton(
-    props,
-    content,
-    children,
-    buildAutomationDataAttributes(action, resolvedInputData, recordContext)
-  )
+  return renderActionButton(props, content, children, {
+    ...buildAutomationDataAttributes(action, resolvedInputData, recordContext),
+    ...(control === undefined ? {} : buttonPressAttributes(control)),
+  })
 }
 
 /**
  * The data attributes of an action the client runtime runs from the button
- * alone — auth (logout), fetch, toast and fill — or `undefined` for any other.
- * A fill's `value` is resolved here against the record the button is drawn for
- * (the row of a list template, or the page's bound record and route).
+ * alone — auth (logout), fetch, toast, fill and seek — or `undefined` for any
+ * other. A fill's `value`, and a seek's `target` and `time`, are resolved here
+ * against the record the button is drawn for (the row of a list template, or
+ * the page's bound record and route).
  */
 function clientActionAttributes(
   action: unknown,
@@ -137,9 +153,12 @@ function clientActionAttributes(
   if (isAuthAction(action)) return buildAuthDataAttributes(action)
   if (isFetchAction(action)) return buildFetchDataAttributes(action)
   if (isToastAction(action)) return buildToastDataAttributes(action)
-  if (!isFillAction(action)) return undefined
+  if (!isFillAction(action) && !isSeekAction(action)) return undefined
   const boundRecord = (props as { _record?: Readonly<Record<string, unknown>> })._record
-  return buildFillDataAttributes(action, buildRecordContext(boundRecord, routeParams))
+  const record = buildRecordContext(boundRecord, routeParams)
+  return isFillAction(action)
+    ? buildFillDataAttributes(action, record)
+    : buildSeekDataAttributes(action, record)
 }
 
 /**
@@ -219,6 +238,8 @@ function renderPlainButton({
 
   const buttonContent = content || (children.length > 0 ? children : undefined) || label
 
+  if ('href' in buttonProps) return renderButtonLink(buttonProps, buttonContent)
+
   if (loading) {
     return renderLoadingButton(buttonProps, buttonContent)
   }
@@ -227,16 +248,57 @@ function renderPlainButton({
 }
 
 /**
+ * A button with `props.href` is a link drawn as a button: an `<a>` keeping the
+ * button's part attributes and recipe, its `target` and `rel`. The address may
+ * come from a record, so it is drawn only when `toSafeAssetUrl` admits it — a
+ * path on this site or an `http(s)` address; anything else (`javascript:`
+ * included) leaves the anchor with no address at all. A new-tab link the
+ * author gave no `rel` opens with `noopener noreferrer`, so the destination
+ * gets no handle on the app's tab.
+ */
+function renderButtonLink(
+  buttonProps: Record<string, unknown>,
+  buttonContent: React.ReactNode
+): ReactElement {
+  const { href, type: _type, disabled: _disabled, ...linkProps } = buttonProps
+  const safeHref = toSafeAssetUrl(href)
+  const defaultRel = linkProps['target'] === '_blank' && linkProps['rel'] === undefined
+  return (
+    <a
+      {...linkProps}
+      {...(defaultRel && { rel: 'noopener noreferrer' })}
+      {...(safeHref !== undefined && { href: safeHref })}
+    >
+      {buttonContent}
+    </a>
+  )
+}
+
+/**
  * Renders button element with click interactions
  */
 export function renderButton(options: RenderButtonOptions): ReactElement {
+  const { props, content, children } = options
+  // Disabled on its record by the server's verdict: drawn with no action at all.
+  const control = buttonRecordControlOf(options.component, props, options.lang)
+  if (control?.disabled !== true) return renderUsableButton(options, control)
+  const label = (props.label ?? props['data-label']) as string | undefined
+  const buttonContent = content || (children.length > 0 ? children : undefined) || label
+  return renderRecordDisabledButton(props, buttonContent, control)
+}
+
+/** A button its record does not disable, by what its action is. */
+function renderUsableButton(
+  options: RenderButtonOptions,
+  control: ButtonRecordControl | undefined
+): ReactElement {
   const { props, content, children, action, routeParams } = options
   if (isCrudDeleteAction(action)) {
     return renderCrudDeleteButton({ props, content, action, routeParams })
   }
 
   if (isAutomationAction(action)) {
-    return renderAutomationButton({ props, content, children, action, routeParams })
+    return renderAutomationButton({ props, content, children, action, routeParams, control })
   }
 
   // A navigate button is a plain button the always-shipped click enhancer moves
@@ -254,11 +316,14 @@ export function renderButton(options: RenderButtonOptions): ReactElement {
   }
 
   const importTable = openImportTable({ action })
-  if (importTable !== undefined) return renderOpenImportButton(importTable, props, content)
+  if (importTable !== undefined)
+    return renderOpenImportButton(importTable, props, content, options.lang)
 
   const clientAttrs = clientActionAttributes(action, props, routeParams)
   if (clientAttrs !== undefined) {
-    return renderActionButton(props, content, children, clientAttrs)
+    // A picker opens before the action runs: the client reads it off the button.
+    const picker = buildEditSelectAttributes(action, options.component, options.lang)
+    return renderActionButton(props, content, children, { ...clientAttrs, ...picker })
   }
 
   return renderPlainButton(options)

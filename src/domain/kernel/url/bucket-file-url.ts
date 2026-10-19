@@ -40,7 +40,7 @@ const SIGNED_URL = /\/api\/buckets\/([^/?#]+)\/signed\?([^#]*)/i
  * is data a caller shaped — so a segment that does not decode is kept as
  * written rather than turning a lookup into a defect.
  */
-const decodeSegment = (segment: string): string => {
+export const decodeSegment = (segment: string): string => {
   try {
     return decodeURIComponent(segment)
   } catch {

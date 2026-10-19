@@ -48,6 +48,16 @@ export const computeFieldTitleClasses = (): string =>
 export const computeFieldLabelClasses = (): string =>
   'group/field-label peer/field-label flex w-fit items-center gap-2 text-sm leading-snug font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 group-data-[disabled=true]/field:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50'
 
+/**
+ * A vertical `Field` holding a `FieldLabel` over its input, resolved to the
+ * classes they draw there and exported on their own: the always-loaded confirm
+ * runtime draws one, and pays for these strings rather than the orientation
+ * table and the label's disabled-state hooks it never meets.
+ */
+export const FIELD_STACK_PLAIN = 'flex w-full flex-col gap-2'
+export const FIELD_LABEL_PLAIN =
+  'flex w-fit items-center gap-2 text-sm leading-snug font-medium select-none'
+
 /** shadcn/ui `FieldDescription`. */
 export const computeFieldDescriptionClasses = (): string =>
   'text-left text-sm leading-normal font-normal text-muted-foreground group-has-data-horizontal/field:text-balance last:mt-0 nth-last-2:-mt-1 [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary'
@@ -66,3 +76,10 @@ export const computeFieldSetClasses = (): string =>
 /** shadcn/ui `FieldLegend`: the `legend` variant, `data-variant=label` for the smaller one. */
 export const computeFieldLegendClasses = (): string =>
   'mb-1.5 text-base font-medium data-[variant=label]:text-sm'
+
+/**
+ * The heading a section's legend wraps its title in. It takes the legend's own
+ * type rather than the browser's default level-2 size, which drew a form's
+ * section titles larger than the page heading above them (WCAG 1.3.1).
+ */
+export const computeFieldLegendHeadingClasses = (): string => '[font:inherit]'

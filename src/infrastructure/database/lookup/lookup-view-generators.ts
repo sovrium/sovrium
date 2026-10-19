@@ -28,6 +28,7 @@ import {
   getUpdateBaseFields,
   getInsertValueExpressions,
   getInsertIdExpression,
+  getInsertCreatedAtColumn,
   generateInsertTrigger,
   generateUpdateTrigger,
   generateDeleteTrigger,
@@ -598,16 +599,15 @@ export const generateLookupViewTriggers = (table: Table): readonly string[] => {
   // narrow list — an omitted `deleted_at` takes the base column's own NULL
   // default, so there is nothing for the insert path to carry.
   const updateBaseFields = getUpdateBaseFields(table)
-  // DEFAULT-bearing base columns are emitted as COALESCE(NEW.col,
-  // <default>) so an omitted column (e.g. a `created-at` field) takes its base
-  // default rather than a NULL that fails a NOT NULL constraint.
-  const insertValues = getInsertValueExpressions(table)
+  // DEFAULT-bearing columns, the automatic created_at too, are COALESCE(NEW.col, <default>).
+  const createdAt = getInsertCreatedAtColumn(table)
+  const insertValues = [...getInsertValueExpressions(table), ...createdAt.values]
 
   // The INSERT trigger PRESERVES an explicitly-provided `id` (kept out of
   // getBaseFields — the UPDATE/DELETE triggers must never rewrite it — so it is
   // prepended only here). See getInsertIdExpression for the per-dialect,
   // per-primary-key-type semantics.
-  const insertFields = ['id', ...baseFields]
+  const insertFields = ['id', ...baseFields, ...createdAt.fields]
   const insertFieldValues = [getInsertIdExpression(table, baseTableName), ...insertValues]
 
   if (isSqliteRuntime()) {

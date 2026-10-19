@@ -22,9 +22,13 @@ import { stripUuidPrefix } from '../../attachments/attachment-fields'
 import { buildSystemSession } from '../build-guest-session'
 import { isRecord, type Raw } from './document-run'
 import { fileRefRefusal, type FileRefItem } from './file-ref-origin'
-import { FILE_SOURCE_MAX_BYTES, resolveSource } from './file-support'
+import { FILE_SOURCE_MAX_BYTES, isSelfContainedSource, resolveSource } from './file-support'
+import { fetchedUrlStanding } from './own-file-url'
 import { CALLER_REFUSAL, runReadAccess } from './record-caller-gate'
 import { safeFilename } from './safe-filename'
+import { starterFileGate } from './starter-file-gate'
+import { noteStepFileInput, type RecordInputOrigin } from './step-file-inputs'
+import type { RunWrittenFiles } from './run-written-files'
 import type { ActionRunContext, AutomationContext } from './shared'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
@@ -51,6 +55,8 @@ export class FileRefError extends Data.TaggedError('FileRefError')<{
   readonly message: string
   /** Set when the file is refused for weighing more than the read allowed: how it is named. */
   readonly oversized?: string
+  /** Set when a run started by hand may not read the file: the step answers the refusal alone. */
+  readonly callerRefused?: true
 }> {}
 
 /** The bytes a reference names, with the name and type a consumer hands on. */
@@ -78,14 +84,22 @@ const tooLarge = (label: string, maxBytes: number): Effect.Effect<never, FileRef
     })
   )
 
-/** Read a stored object, naming it when it cannot be read. */
+/** How a stored object is read: its cap, the run's ledger, and the record it came out of, if any. */
+interface StoredReader {
+  readonly maxBytes: number
+  readonly written: RunWrittenFiles | undefined
+  readonly record?: RecordInputOrigin
+}
+
+/** Read a stored object (named when it cannot be read), noted as an input of the step. */
 const readStored = (
   key: string,
   bucket: BucketBinding,
   label: string,
-  maxBytes: number
+  reader: StoredReader
 ): Effect.Effect<ResolvedFile, FileRefError, StorageService> =>
   Effect.gen(function* () {
+    const { maxBytes } = reader
     const storage = yield* StorageService
     // The catalogued size refuses an oversized file before a byte is buffered;
     // no catalog row falls through to the download, which the cap re-checks.
@@ -98,23 +112,29 @@ const readStored = (
       .pipe(Effect.mapError(() => new FileRefError({ message: `${label} could not be read` })))
     if (bytes.length > maxBytes) return yield* tooLarge(label, maxBytes)
     const contentType = meta._tag === 'Success' ? meta.success.contentType : inferMimeFromKey(key)
+    yield* noteStepFileInput({
+      label,
+      carriesRunBytes: reader.written?.keyHasRunBytes(key) === true,
+      ...(reader.record === undefined ? {} : { record: reader.record }),
+    })
     return { bytes, filename: baseName(key), contentType }
   })
 
 /** `{ step }`: the file the named previous step produced (`key`, and `bucket` when it has one). */
 const readStepFile = (
   step: string,
-  runContext: ActionRunContext | undefined,
+  scope: FileRefScope,
   maxBytes: number
 ): Effect.Effect<ResolvedFile, FileRefError, StorageService> => {
-  const output = runContext?.previousSteps[step]
+  const output = scope.runContext?.previousSteps[step]
   const file = isRecord(output?.['result']) ? output['result'] : output
   const key = file?.['key']
   if (typeof key !== 'string' || key === '') {
     return refused(`step "${step}" produced no file (no previous step of that name has a key)`)
   }
   const bucket = typeof file?.['bucket'] === 'string' ? file['bucket'] : UNATTRIBUTED_BUCKET
-  return readStored(key, bucket, `the file of step "${step}" (${key})`, maxBytes).pipe(
+  const label = `the file of step "${step}" (${key})`
+  return readStored(key, bucket, label, { maxBytes, written: scope.automation.writtenFiles }).pipe(
     Effect.map((read) => ({
       ...read,
       ...(typeof file?.['filename'] === 'string'
@@ -125,11 +145,12 @@ const readStepFile = (
   )
 }
 
-/** `{ asset }`: a declared private asset, read at start. */
-const readAsset = (path: string): Effect.Effect<ResolvedFile, FileRefError> =>
+/** `{ asset }`: a declared asset, read at start; the run's own bytes when its path is `literal`. */
+const readAsset = (path: string, literal: boolean): Effect.Effect<ResolvedFile, FileRefError> =>
   Effect.gen(function* () {
     const asset = (yield* AssetStore).get(path)
     if (asset === undefined) return yield* refused(`asset "${path}" is not declared in assets`)
+    yield* noteStepFileInput({ label: `asset "${path}"`, carriesRunBytes: literal })
     return { bytes: asset.bytes, filename: baseName(path), contentType: asset.contentType }
   })
 
@@ -192,7 +213,7 @@ const readableRow = (
     if (access.kind === 'refused') return null
     const row = yield* (yield* TableRepository).getRecord(buildSystemSession(), table, id)
     if (row === null || access.kind === 'system') return row
-    return access.scope.admits(row) && access.scope.readsColumn(field) ? row : null
+    return access.scope.admits(row) && access.scope.readsColumn(field, row) ? row : null
   })
 
 /**
@@ -224,18 +245,33 @@ const readRecordFile = (
       key,
       resolveFieldBucket(app, table, field) ?? SYSTEM_BUCKET_NAME,
       label,
-      maxBytes
+      { maxBytes, written: scope.automation.writtenFiles, record: { table, recordId: id, field } }
     )
   })
 
-/** `{ url }`: fetched through the guarded egress (private addresses refused unless allowed). */
-const readUrl = (url: string): Effect.Effect<ResolvedFile, FileRefError, StorageService> =>
-  resolveSource(url).pipe(
+/**
+ * `{ url }`: fetched through the guarded egress (private addresses refused
+ * unless allowed), or a `data:` URI. Any other text is not a URL: it is refused
+ * as one that cannot be fetched, never read from storage as a key, which only
+ * the key forms do behind the run's gate.
+ */
+const readUrl = (
+  url: string,
+  written: RunWrittenFiles | undefined
+): Effect.Effect<ResolvedFile, FileRefError, StorageService> => {
+  if (!isSelfContainedSource(url)) return refused(`URL ${url} could not be fetched`)
+  return resolveSource(url).pipe(
     Effect.mapError(
       (blocked) =>
         new FileRefError({
           message: `URL ${url} was refused by the outbound guard (${blocked.reason})`,
         })
+    ),
+    // Judged where the bytes were finally served from, too: a redirect to a stored file counts.
+    Effect.tap((source) =>
+      Effect.flatMap(fetchedUrlStanding(written, url, source.fetchedFrom), (carriesRunBytes) =>
+        noteStepFileInput({ label: `URL ${url}`, carriesRunBytes })
+      )
     ),
     Effect.flatMap((source) =>
       source.bytes.length === 0
@@ -247,6 +283,7 @@ const readUrl = (url: string): Effect.Effect<ResolvedFile, FileRefError, Storage
           })
     )
   )
+}
 
 /**
  * `{ key, bucket }`, or `{ key }` from a resolved list item — which may be a
@@ -255,7 +292,7 @@ const readUrl = (url: string): Effect.Effect<ResolvedFile, FileRefError, Storage
  */
 const readKeyed = (
   ref: Raw,
-  maxBytes: number
+  reader: StoredReader
 ): Effect.Effect<ResolvedFile, FileRefError, StorageService> => {
   const { key, bucket, filename } = ref
   if (typeof key !== 'string' || key === '') return refused('a file reference names no file')
@@ -263,7 +300,7 @@ const readKeyed = (
     key,
     typeof bucket === 'string' ? bucket : UNATTRIBUTED_BUCKET,
     `file "${key}"`,
-    maxBytes
+    reader
   )
   return typeof filename === 'string' && filename !== ''
     ? Effect.map(read, (file) => ({ ...file, filename: safeFilename(filename) }))
@@ -280,20 +317,52 @@ export interface FileRefScope {
   readonly runContext: ActionRunContext | undefined
 }
 
+/** The stored key a reference names by key — a bare key, or `{ key, bucket }` — if any. */
+const namedKey = (ref: unknown): string | undefined => {
+  if (typeof ref === 'string') return ref === '' ? undefined : ref
+  if (!isRecord(ref) || ['step', 'asset', 'url'].some((form) => typeof ref[form] === 'string')) {
+    return undefined
+  }
+  return isRecord(ref['record']) || typeof ref['key'] !== 'string' ? undefined : ref['key']
+}
+
+/** A file named by key, read only when the run's gate lets its starter reach it. */
+const gatedByKey = (
+  key: string,
+  scope: FileRefScope,
+  read: Effect.Effect<ResolvedFile, FileRefError, FileRefRequirements>
+): Effect.Effect<ResolvedFile, FileRefError, FileRefRequirements> =>
+  Effect.flatMap(starterFileGate(scope.app, scope.automation)(key), (refusal) =>
+    refusal === undefined
+      ? read
+      : Effect.fail(new FileRefError({ message: refusal, callerRefused: true }))
+  )
+
 /** One file reference, read (see {@link resolveFileRef}). */
 const readFileRef = (
-  ref: unknown,
+  item: FileRefItem,
   scope: FileRefScope,
   maxBytes: number
 ): Effect.Effect<ResolvedFile, FileRefError, FileRefRequirements> => {
-  if (typeof ref === 'string' && ref !== '') {
-    return readStored(ref, UNATTRIBUTED_BUCKET, `file "${ref}"`, maxBytes)
+  const { ref } = item
+  const key = namedKey(ref)
+  const reader = { maxBytes, written: scope.automation.writtenFiles }
+  if (key !== undefined) {
+    const read =
+      typeof ref === 'string'
+        ? readStored(key, UNATTRIBUTED_BUCKET, `file "${key}"`, reader)
+        : readKeyed(ref as Raw, reader)
+    return gatedByKey(key, scope, read)
   }
   if (!isRecord(ref)) return refused('a file reference must be a key or an object')
-  if (typeof ref['step'] === 'string') return readStepFile(ref['step'], scope.runContext, maxBytes)
-  if (typeof ref['asset'] === 'string') return readAsset(ref['asset'])
+  if (typeof ref['step'] === 'string') return readStepFile(ref['step'], scope, maxBytes)
+  // An asset path the configuration wrote out, as `file-ref-origin.ts` reads the authored props.
+  const literal = item.origin === 'config' && scope.runContext !== undefined
+  if (typeof ref['asset'] === 'string') return readAsset(ref['asset'], literal)
   if (isRecord(ref['record'])) return readRecordFile(ref['record'], scope, maxBytes)
-  return typeof ref['url'] === 'string' ? readUrl(ref['url']) : readKeyed(ref, maxBytes)
+  return typeof ref['url'] === 'string'
+    ? readUrl(ref['url'], reader.written)
+    : readKeyed(ref, reader)
 }
 
 /** How a reference is named in a size refusal. */
@@ -316,7 +385,7 @@ export const resolveFileRef = (
   maxBytes: number = FILE_SOURCE_MAX_BYTES
 ): Effect.Effect<ResolvedFile, FileRefError, FileRefRequirements> => {
   const refusal = fileRefRefusal(item, scope)
-  return (refusal === undefined ? readFileRef(item.ref, scope, maxBytes) : refused(refusal)).pipe(
+  return (refusal === undefined ? readFileRef(item, scope, maxBytes) : refused(refusal)).pipe(
     // A stored read refuses by its catalogued size first; this re-checks every form.
     Effect.filterOrElse(
       (file) => file.bytes.length <= maxBytes,

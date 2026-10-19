@@ -112,7 +112,7 @@ function NoKeys(): ReactElement {
   return (
     <div
       data-slot="empty"
-      className={`${computeEmptyStateContainerClasses()} border`}
+      className={computeEmptyStateContainerClasses()}
     >
       <div
         data-slot="empty-header"

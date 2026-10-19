@@ -55,6 +55,8 @@ export interface AdminSearchResult {
   readonly title: string
   readonly href: string
   readonly updatedAt: string
+  /** When the entity happened; absent for a result read from config. */
+  readonly occurredAt?: string
 }
 
 /** One per-type result group. */

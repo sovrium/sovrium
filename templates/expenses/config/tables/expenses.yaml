@@ -121,12 +121,6 @@ fields:
     type: formula
     formula: "CASE WHEN status = 'Pending' THEN 0 ELSE 1 END"
     resultType: number
-  # The receipt's file name, as the claim drawer shows it. A drawer does not
-  # render an attachment yet, so the name is kept beside it: written by the
-  # seed, and by the approval automation for a claim filed in the app.
-  - id: 15
-    name: receipt_name
-    type: single-line-text
 
 views:
   # Finance's queue — the claims still to decide or to pay: what waits first,

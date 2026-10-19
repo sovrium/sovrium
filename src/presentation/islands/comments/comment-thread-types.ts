@@ -76,6 +76,12 @@ export interface CommentThreadIslandProps {
   readonly currentUserIsAdmin?: boolean
   readonly currentUserName?: string
   /**
+   * The reader is signed in though the page names no user — a mounted
+   * operator console, which renders without a session. She may write to the
+   * thread; the comments API decides as her cookie says.
+   */
+  readonly signedIn?: boolean
+  /**
    * When `true` (table.comments.threading === true), top-level comments
    * gain a "Reply" affordance and replies render nested below their
    * parent. Single-level only — replies themselves never expose Reply.

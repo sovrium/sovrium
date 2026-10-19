@@ -10,8 +10,8 @@
  * neither `recordFields` nor `related`: the record's controls in one
  * list in field order, under tabs (Details, then Activity, Comments and Access
  * where its reader is offered them), "Linked from" under the fields, the
- * header's Copy link and More actions, and a sticky footer with the last
- * change, Cancel and Save.
+ * header's Copy link and More actions, and — under Details, the one tab that
+ * edits — a sticky footer with the last change, Cancel and Save.
  *
  * Opened with no record it is a new record's form: no tabs to read, no menu,
  * a line saying what the `*` marks mean, and Save creates.
@@ -135,7 +135,7 @@ function tabsOf(props: GenericBodyProps, recordId: string): readonly SheetTab[] 
     </>
   )
   return [
-    { slug: 'details', label: generic.words['details'] ?? 'Details', panel: details },
+    { slug: 'details', label: generic.words['details'] ?? 'Details', panel: details, edits: true },
     ...readTabs(props, recordId),
   ]
 }
@@ -147,6 +147,19 @@ export function GenericSheetBody(props: GenericBodyProps): ReactElement {
   const { generic, recordId, creating, content } = props
   const { words } = generic
   const opened = !creating && recordId !== undefined
+  const footer = (
+    <SheetFooter
+      record={creating ? NO_RECORD : content.record}
+      stamps={generic.stamps}
+      signedIn={generic.tabs.activity}
+      words={words}
+      canEdit={content.canEdit}
+      loading={content.loading === true}
+      unchanged={content.unchanged}
+      save={props.save}
+      onCancel={props.onClose}
+    />
+  )
   return (
     <>
       {opened && (
@@ -167,20 +180,14 @@ export function GenericSheetBody(props: GenericBodyProps): ReactElement {
         <SheetTabs
           key={recordId}
           tabs={tabsOf(props, recordId)}
+          footer={footer}
         />
       ) : (
-        <DrawerContent {...content} />
+        <>
+          <DrawerContent {...content} />
+          {footer}
+        </>
       )}
-      <SheetFooter
-        record={creating ? NO_RECORD : content.record}
-        stamps={generic.stamps}
-        signedIn={generic.tabs.activity}
-        words={words}
-        canEdit={content.canEdit}
-        loading={content.loading === true}
-        save={props.save}
-        onCancel={props.onClose}
-      />
     </>
   )
 }

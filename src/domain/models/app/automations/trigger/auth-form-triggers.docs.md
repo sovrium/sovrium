@@ -26,19 +26,30 @@ automations:
 
 <!-- sovrium:options AuthTriggerSchema -->
 
-| Event           | Fires when                                                                                                             | Does not fire when                                                                             |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `signUp`        | An account is created, by any enabled strategy                                                                         | —                                                                                              |
-| `signIn`        | A sign-in way opens a session: a password, a followed magic link, single sign-on, a passkey, a completed second factor | The sign-up form opens its own session; the sign-in is refused; a magic link is only requested |
-| `signOut`       | The person signs out                                                                                                   | A session is revoked, the account is banned, or the session expires                            |
-| `passwordReset` | A password reset is completed with a valid link                                                                        | A reset is only requested; the link is invalid or expired                                      |
-| `emailVerified` | The address becomes verified                                                                                           | The account is updated later                                                                   |
+| Event                | Fires when                                                                                                             | Does not fire when                                                                             |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `signUp`             | An account is created, by any enabled strategy                                                                         | —                                                                                              |
+| `signIn`             | A sign-in way opens a session: a password, a followed magic link, single sign-on, a passkey, a completed second factor | The sign-up form opens its own session; the sign-in is refused; a magic link is only requested |
+| `signOut`            | The person signs out                                                                                                   | A session is revoked, the account is banned, or the session expires                            |
+| `passwordReset`      | A password reset is completed with a valid link                                                                        | A reset is only requested; the link is invalid or expired                                      |
+| `emailVerified`      | The address becomes verified                                                                                           | The account is updated later                                                                   |
+| `invitationAccepted` | An invited person sets their password through their invitation link                                                    | The link is invalid, expired, revoked or already used; the invitation is only sent             |
 
 A first sign-in that also creates the account — a first magic link, a first single sign-on — fires both `signUp` and `signIn`.
 
 Every event hands its actions `{{trigger.data.event}}` and `{{trigger.data.user.*}}` (`id`, `email`, `name`, `role`, …). It never hands them a session, a link token or a password: the run history keeps the trigger data, and reading a run must not let anyone sign in as the person it names.
 
 `events` is the trigger's **only** narrowing property. There is no way to restrict an auth trigger to a role, a domain or an OAuth provider in the trigger itself — do that in the first action, with a filter gate.
+
+### Accepting an invitation
+
+Sending an invitation creates the account, so `signUp` fires then, not when the person accepts. Accepting fires up to three events, always in this order:
+
+1. `emailVerified`, when the acceptance verifies an address that was not verified yet — following the link proves the person reads that mailbox;
+2. `invitationAccepted`, once per invitation;
+3. `signIn`, when the acceptance opens their session.
+
+To onboard invited people, listen to `invitationAccepted` alone: `signIn` fires again at every later sign-in. Besides `{{trigger.data.user.*}}`, it hands its actions `{{trigger.data.role}}` (the role the account holds), `{{trigger.data.invitedBy.*}}` (`id`, `email`, `name` of whoever sent the invitation — empty when no sender was recorded) and `{{trigger.data.invitationCreatedAt}}` (when the invitation was sent).
 
 ### `signUp` and `emailVerified` are not interchangeable
 

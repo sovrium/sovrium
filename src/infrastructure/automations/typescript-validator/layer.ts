@@ -8,12 +8,16 @@
 import { readFileSync } from 'node:fs'
 import { basename } from 'node:path'
 import { Effect, Layer } from 'effect'
-import ts from 'typescript'
 import { collectCodeActions } from './collect-code-actions'
 import { TS_LIB_FILES as RAW_TS_LIB_FILES } from './embedded-ts-lib-types.generated'
 import { TSValidationError } from './errors'
 import { TypeScriptValidator } from './service'
 import type { CodeActionEntry } from './collect-code-actions'
+import type ts from 'typescript'
+
+/** The compiler (~9 MB), required by the first validation that has code to check. */
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- deferred load, see above
+const compiler = (): typeof ts => require('typescript') as typeof ts
 
 /**
  * Map of `lib.*.d.ts` basename → embedded path.
@@ -28,18 +32,10 @@ import type { CodeActionEntry } from './collect-code-actions'
 const TS_LIB_FILES = RAW_TS_LIB_FILES as unknown as Readonly<Record<string, string>>
 
 /**
- * Read the embedded contents of every `lib.*.d.ts` into a Map at module
- * init. tsc's `CompilerHost.getSourceFile`/`fileExists`/`readFile` are
- * synchronous so the contents must be available without an async hop.
- *
- * Reads happen ONCE per process (this module is loaded once). Total payload
- * is ~3.9 MB across ~107 files — negligible at startup.
- *
- * The read uses `readFileSync` which transparently handles both real
- * filesystem paths (dev) and Bun's `/$bunfs/` virtual paths (compiled binary).
- *
- * Marked as a let-initialized lazy `Map` rather than evaluated eagerly so
- * tests that don't touch the validator never pay the read cost.
+ * The embedded contents of every `lib.*.d.ts` (~3.9 MB), read once, on first
+ * use, with `readFileSync` (synchronous like tsc's `CompilerHost`; handles both
+ * real paths and Bun's `/$bunfs/`). Like the compiler itself (see
+ * `compiler`), nothing is read at start or for an app without code actions.
  */
 let TS_LIB_CONTENTS_CACHE: Map<string, string> | undefined
 
@@ -109,7 +105,7 @@ const getTsLibContents = (): ReadonlyMap<string, string> => {
 // any of it. Each of those names would type-check cleanly at boot and throw
 // `ReferenceError` at request time — the "declared but ungranted" failure
 // mode, unbounded. `lib` is therefore pinned to `lib.es2020.d.ts` (see
-// COMPILER_OPTIONS) so the ambient surface is exactly ES2020 plus what this
+// `compilerOptions`) so the ambient surface is exactly ES2020 plus what this
 // prelude spells out.
 //
 // The consequence is that adding a global is always a deliberate act:
@@ -147,7 +143,7 @@ const getTsLibContents = (): ReadonlyMap<string, string> => {
 // follow-up; it is out of scope for the change that closed the author-facing
 // surface.
 //
-// Note also that this gate runs `strict: false` (see COMPILER_OPTIONS) while the
+// Note also that this gate runs `strict: false` (see `compilerOptions`) while the
 // emitted tsconfig runs `strict: true` + `noUncheckedIndexedAccess: true`. Those
 // two configurations have never matched, and closing `actions` is what stopped
 // that mismatch from producing the TS18048/TS2722 pair on the documented call.
@@ -380,7 +376,7 @@ interface VirtualFile {
 // declared HERE, above its first use, because both the annotation
 // synthesis and the signature gate need it.
 const isExecuteFunctionDeclaration = (node: ts.Node): node is ts.FunctionDeclaration =>
-  ts.isFunctionDeclaration(node) && node.name !== undefined && node.name.text === 'execute'
+  compiler().isFunctionDeclaration(node) && node.name !== undefined && node.name.text === 'execute'
 
 /**
  * Splice `: CodeContext` onto `execute`'s first parameter when the author
@@ -388,7 +384,7 @@ const isExecuteFunctionDeclaration = (node: ts.Node): node is ts.FunctionDeclara
  * `CodeContext` exactly as if the annotation had been written by hand.
  *
  * This synthesis is what keeps the gate STRONG while the signature check
- * below tolerates an unannotated parameter. `COMPILER_OPTIONS` sets
+ * below tolerates an unannotated parameter. `compilerOptions` sets
  * `strict: false`, so an unannotated parameter is `any` and every
  * `context.<key>` access would compile silently — merely dropping the
  * annotation requirement would disable type-checking entirely while
@@ -418,10 +414,10 @@ const isExecuteFunctionDeclaration = (node: ts.Node): node is ts.FunctionDeclara
  * returned untouched (tsc emits its own error for the latter).
  */
 const synthesizeContextAnnotation = (code: string): string => {
-  const sourceFile = ts.createSourceFile(
+  const sourceFile = compiler().createSourceFile(
     '__annotation-synthesis__.ts',
     code,
-    ts.ScriptTarget.ES2020,
+    compiler().ScriptTarget.ES2020,
     true
   )
   const executeFn = sourceFile.statements.find(isExecuteFunctionDeclaration)
@@ -463,10 +459,10 @@ const buildVirtualFile = (entry: CodeActionEntry): VirtualFile => ({
  * domain-specific error message instead of a raw type-checker diagnostic.
  */
 const validateExecuteSignature = (entry: CodeActionEntry): TSValidationError | undefined => {
-  const sourceFile = ts.createSourceFile(
+  const sourceFile = compiler().createSourceFile(
     `__signature-check__-${entry.automationId}-${String(entry.actionIndex)}.ts`,
     entry.code,
-    ts.ScriptTarget.ES2020,
+    compiler().ScriptTarget.ES2020,
     true
   )
   const executeFn = sourceFile.statements.find(isExecuteFunctionDeclaration)
@@ -517,8 +513,8 @@ const validateExecuteSignature = (entry: CodeActionEntry): TSValidationError | u
 // `ts.CompilerOptions` is a third-party mutable type that the CompilerHost
 // API requires by reference. Treating it as Readonly here would force casts
 // at every call site without real safety improvement.
-const COMPILER_OPTIONS: ts.CompilerOptions = {
-  target: ts.ScriptTarget.ES2020,
+const compilerOptions = (): ts.CompilerOptions => ({
+  target: compiler().ScriptTarget.ES2020,
   // Pinned DELIBERATELY. Without an explicit `lib`, `target: ES2020` makes
   // tsc load `lib.es2020.full.d.ts`, which chains in `lib.dom.d.ts` — so
   // every DOM global (`document`, `window`, `fetch`, `localStorage`,
@@ -533,8 +529,8 @@ const COMPILER_OPTIONS: ts.CompilerOptions = {
   // The corpus embeds every `lib.*.d.ts` TypeScript ships, so the file this
   // names is always resolvable in both source and binary mode.
   lib: ['lib.es2020.d.ts'],
-  module: ts.ModuleKind.ESNext,
-  moduleResolution: ts.ModuleResolutionKind.Bundler,
+  module: compiler().ModuleKind.ESNext,
+  moduleResolution: compiler().ModuleResolutionKind.Bundler,
   strict: false,
   noEmit: true,
   skipLibCheck: true,
@@ -542,7 +538,7 @@ const COMPILER_OPTIONS: ts.CompilerOptions = {
   allowJs: false,
   isolatedModules: false,
   isolatedDeclarations: false,
-}
+})
 
 /**
  * Look up `lib.*.d.ts` content by basename. Returns `undefined` for any
@@ -574,17 +570,17 @@ const lookupTsLibContent = (fileName: string): string | undefined => {
  */
 const buildVirtualHost = (files: ReadonlyArray<VirtualFile>): ts.CompilerHost => {
   const fileMap: ReadonlyMap<string, string> = new Map(files.map((f) => [f.path, f.content]))
-  const realHost = ts.createCompilerHost(COMPILER_OPTIONS, true)
+  const realHost = compiler().createCompilerHost(compilerOptions(), true)
   return {
     ...realHost,
     getSourceFile: (fileName, languageVersion, onError, shouldCreateNewSourceFile) => {
       const virtual = fileMap.get(fileName)
       if (virtual !== undefined) {
-        return ts.createSourceFile(fileName, virtual, languageVersion, true)
+        return compiler().createSourceFile(fileName, virtual, languageVersion, true)
       }
       const libContent = lookupTsLibContent(fileName)
       if (libContent !== undefined) {
-        return ts.createSourceFile(fileName, libContent, languageVersion, true)
+        return compiler().createSourceFile(fileName, libContent, languageVersion, true)
       }
       return realHost.getSourceFile(fileName, languageVersion, onError, shouldCreateNewSourceFile)
     },
@@ -626,7 +622,9 @@ const diagnosticToError = (
     file: match.path,
     line: adjustedLine > 0 ? adjustedLine : lineAndChar.line + 1,
     column: lineAndChar.character + 1,
-    message: explainUnresolvedName(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')),
+    message: explainUnresolvedName(
+      compiler().flattenDiagnosticMessageText(diagnostic.messageText, '\n')
+    ),
   })
 }
 
@@ -659,9 +657,9 @@ export const TypeScriptValidatorLive = Layer.succeed(
         }
         const files = entries.map(buildVirtualFile)
         const host = buildVirtualHost(files)
-        const program = ts.createProgram(
+        const program = compiler().createProgram(
           files.map((f) => f.path),
-          COMPILER_OPTIONS,
+          compilerOptions(),
           host
         )
         const diagnostics = [

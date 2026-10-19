@@ -7,6 +7,7 @@
 
 import { type CSSProperties, type ReactElement } from 'react'
 import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
+import { cn } from '../../design/class-merge'
 import { resolveClasses } from '../../design/resolve-classes'
 import {
   computeSidebarBoxClasses,
@@ -103,6 +104,10 @@ const sidebarContext = (
   designStyles: ComponentDesignResolution | undefined
 ): SidebarI18n => ({ currentLang, languages, parts: designStyles?.parts })
 
+/** The author's classes for the `inner` part: the drawn panel. */
+const innerPartOf = (designStyles: ComponentDesignResolution | undefined): string | undefined =>
+  designStyles?.parts['inner']
+
 /**
  * `sidebar` — a layout box, plus (when declared) the `groups` navigation
  * landmark. The groups render BEFORE any authored children so a sidebar that
@@ -147,7 +152,7 @@ export const renderSidebarComponent: ComponentRenderer = ({
       : []),
     ...(slots['$children'] ?? []),
   ]
-  const surface = renderSurface(slots['header'], body, slots['footer'])
+  const surface = renderSurface(slots['header'], body, slots['footer'], innerPartOf(designStyles))
   const boxProps = hasGroups ? namedBoxProps(unnamedProps, drawerBelow) : elementProps
   const translate = (text: string) => resolveChildTranslation(text, currentLang, languages)
   return Renderers.renderHTMLElement({
@@ -206,18 +211,20 @@ const framed = (
 
 /**
  * The drawn panel: shadcn/ui's inner `data-sidebar="sidebar"` surface, holding
- * the header, the navigation and the author's children, and the footer.
+ * the header, the navigation and the author's children, and the footer. The
+ * author's `inner` part classes land here, after the recipe.
  */
 const renderSurface = (
   header: readonly ReactElement[] | undefined,
   body: readonly ReactElement[],
-  footer: readonly ReactElement[] | undefined
+  footer: readonly ReactElement[] | undefined,
+  innerClasses: string | undefined
 ): ReactElement => (
   <div
     key="sidebar-surface"
     data-sidebar="sidebar"
     data-slot="sidebar-inner"
-    className={computeSidebarSurfaceClasses()}
+    className={cn(computeSidebarSurfaceClasses(), innerClasses)}
   >
     {header === undefined || header.length === 0 ? undefined : (
       <div

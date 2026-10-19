@@ -144,8 +144,8 @@ export interface FormRefExpansionContext {
   readonly scopePath?: string | undefined
 }
 
-/** The attributes that hold control ids, or lists of them, in an embed's markup. */
-const ID_REFERENCE_ATTRIBUTE = /\b(id|for|aria-labelledby|aria-describedby)="([^"]*)"/g
+/** Control ids in an embed's markup: its attributes, and an island's props (`"id":"…"`, escaped). */
+const ID_REFERENCE = /\b(id|for|aria-labelledby|aria-describedby)(="|&quot;:&quot;)([^"&]*)/g
 
 /**
  * The embed's markup with every control id (`field-…`) — and every reference
@@ -155,12 +155,12 @@ const ID_REFERENCE_ATTRIBUTE = /\b(id|for|aria-labelledby|aria-describedby)="([^
 function scopeControlIds(html: string, formName: string, ctx: FormRefExpansionContext): string {
   if (ctx.repeatedForms?.has(formName) !== true) return html
   const scope = `embed-${ctx.scopePath ?? '0'}`
-  return html.replace(ID_REFERENCE_ATTRIBUTE, (_match, attribute: string, value: string) => {
-    const scoped = value
+  return html.replace(ID_REFERENCE, (_m, attribute: string, sep: string, ids: string) => {
+    const scoped = ids
       .split(' ')
       .map((token) => (token.startsWith('field-') ? `${scope}-${token}` : token))
       .join(' ')
-    return `${attribute}="${scoped}"`
+    return `${attribute}${sep}${scoped}`
   })
 }
 
@@ -176,13 +176,12 @@ function findFormForReader(
 
 /**
  * The embedded form's own starting values — its fields' `defaultValue`s under
- * its form-level `prefill` map — resolved through the SAME merge
- * and the SAME request facts the standalone `/forms/:name` page starts from
- * (`resolveFormStartingValues`): the host page's query string, and the signed-in
- * viewer for `$user.*` (absent for an anonymous visitor, so the entry drops
- * exactly as it does on the standalone page). A form therefore starts alike
- * wherever it is shown. The host's inline prefill, which the page author writes
- * for this page, is resolved separately and wins on the keys it names.
+ * its form-level `prefill` map — through the SAME merge and request facts the
+ * standalone `/forms/:name` page starts from (`resolveFormStartingValues`): the
+ * host page's query string, the signed-in viewer for `$user.*` (absent for an
+ * anonymous visitor, so the entry drops as it does there), and the choices
+ * read for it, where a lookup default finds its row. A form therefore starts
+ * alike wherever it is shown; the host's inline prefill is resolved apart.
  */
 function resolveFormLevelPrefill(
   app: App,
@@ -193,6 +192,7 @@ function resolveFormLevelPrefill(
   const prefillCtx: FormPrefillContext = {
     query: ctx.query ?? {},
     ...(user === undefined ? {} : { user }),
+    ...optionSetsFor(form, ctx),
   }
   return resolveFormStartingValues(app, form, prefillCtx)
 }

@@ -5,8 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import nodemailer, { type Transporter } from 'nodemailer'
 import { getEmailConfigFromEffect } from './email-config'
+import type Nodemailer from 'nodemailer'
+import type { Transporter } from 'nodemailer'
 import type Mail from 'nodemailer/lib/mailer'
 import type SMTPTransport from 'nodemailer/lib/smtp-transport'
 
@@ -90,6 +91,11 @@ function resolveSmtpTimeout(envVar: string): number {
 export function createTransporter(
   config: Readonly<EmailConfig>
 ): Transporter<SMTPTransport.SentMessageInfo> {
+  // Required here, by the first transport an SMTP-configured process builds —
+  // never at start, and never in a process without SMTP. Synchronous because
+  // this factory is; the literal specifier keeps it in the compiled binary.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- deferred load, see above
+  const nodemailer = require('nodemailer') as typeof Nodemailer
   return nodemailer.createTransport({
     host: config.host,
     port: config.port,

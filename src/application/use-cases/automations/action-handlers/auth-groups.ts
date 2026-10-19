@@ -31,6 +31,7 @@ import {
   type GroupMembershipOutcome,
 } from '@/application/use-cases/auth/group-membership'
 import { logError } from '@/infrastructure/logging/logger'
+import { unknownAccountOutcome } from './record-caller-gate'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, AutomationContext } from './shared'
 import type { App } from '@/domain/models/app'
@@ -104,10 +105,7 @@ const handleGroupOperator =
         } as const satisfies ActionOutcome
       }
       if (!(yield* accountExists(userId))) {
-        return {
-          status: 'failure',
-          error: `${label}: no user found with id '${userId}'`,
-        } as const satisfies ActionOutcome
+        return unknownAccountOutcome(automation, `${label}: no user found with id '${userId}'`)
       }
       return yield* moveMembership({ label, mode, userId, group, app, automation })
     }).pipe(

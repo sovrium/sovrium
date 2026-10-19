@@ -222,10 +222,24 @@ export const computeTableFillHandleClasses = (): string =>
 // directional (4px on x, 0 on y) and every platform shadow is a downward drop.
 // A pinned column's edge is horizontal by nature, so there is no token that
 // means this.
+//
+// The fill and the edge are worn only while the grid is SCROLLED sideways
+// (`data-scrolled` on the scroll region): at rest nothing slides under the
+// column, so it keeps the row's own tone — its hover, its selection, its
+// `rowColorField` fill — like every other cell.
 const TABLE_FROZEN_CELL = [
   'relative z-[1]',
-  'bg-card',
-  'shadow-[4px_0_8px_-4px_rgb(0_0_0_/_0.14)]',
+  'in-data-[scrolled=true]:bg-card',
+  'in-data-[scrolled=true]:shadow-[4px_0_8px_-4px_rgb(0_0_0_/_0.14)]',
+].join(' ')
+
+// The trailing action column, pinned to the RIGHT edge: the mirror image, worn
+// only while columns are still clipped past that edge (`data-overflow-end`).
+// Its row menu is the way into a row, and a menu scrolled off-screen is a row
+// nobody can open.
+const TABLE_TRAILING_PIN_CELL = [
+  'in-data-[overflow-end=true]:bg-card',
+  'in-data-[overflow-end=true]:shadow-[-4px_0_8px_-4px_rgb(0_0_0_/_0.14)]',
 ].join(' ')
 
 /**
@@ -241,6 +255,9 @@ const TABLE_FROZEN_CELL = [
  * scrolling underneath read straight through the pinned values.
  */
 export const computeTableFrozenCellClasses = (): string => TABLE_FROZEN_CELL
+
+/** The surface of the trailing action column pinned to the grid's right edge. */
+export const computeTableTrailingPinCellClasses = (): string => TABLE_TRAILING_PIN_CELL
 
 // ──────────────────────────────────────────────────────────────────────────────
 // ROW NUMBER — the `showRowNumbers` ordinal

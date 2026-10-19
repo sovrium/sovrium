@@ -33,6 +33,8 @@ interface ResolutionContext {
   readonly session: SessionInfo | undefined
   /** The language the PAGE is served in — the one a `$t:` label resolves to. */
   readonly lang: string
+  /** The route params this page binds a table to (`table` for `$param.table`). */
+  readonly tableParams?: ReadonlySet<string>
 }
 
 /**
@@ -85,27 +87,23 @@ export function resolveRouteBoundTables(
   if (!components || components.length === 0) return page
 
   const declared = new Set((app.tables ?? []).map((table) => table.name))
-  const bound = collectRouteBoundNames(components, request.routeParams)
+  const params = collectRouteBoundParams(components)
+  const bound = params.map((param) => request.routeParams[param] ?? '')
   if (bound.some((name) => !declared.has(name))) return 'not-found'
   if (bound.length === 0 && !hasDerivedColumns(components)) return page
 
-  const resolved = mapNodes(components, { ...request, app })
+  const resolved = mapNodes(components, { ...request, app, tableParams: new Set(params) })
   return { ...page, components: resolved as Page['components'] }
 }
 
-/** Every table name a ROUTE reference resolves to, anywhere in the tree. */
-function collectRouteBoundNames(
-  nodes: readonly unknown[],
-  routeParams: Readonly<Record<string, string>>
-): readonly string[] {
+/** Every route param a table binding names (`table` for `$param.table`), anywhere in the tree. */
+function collectRouteBoundParams(nodes: readonly unknown[]): readonly string[] {
   return nodes.flatMap((node) => {
     if (typeof node !== 'object' || node === null) return []
     const ref = normalizeRouteParamRef(declaredTableBinding(node as Record<string, unknown>))
-    const own = ref === undefined ? [] : [routeParams[ref.name] ?? '']
+    const own = ref === undefined ? [] : [ref.name]
     const { children } = node as { readonly children?: unknown }
-    return Array.isArray(children)
-      ? [...own, ...collectRouteBoundNames(children, routeParams)]
-      : own
+    return Array.isArray(children) ? [...own, ...collectRouteBoundParams(children)] : own
   })
 }
 
@@ -137,7 +135,7 @@ function mapNodes(nodes: readonly unknown[], ctx: ResolutionContext): readonly u
 /** Resolve one node's bindings, then recurse into its children. */
 function mapNode(node: unknown, ctx: ResolutionContext): unknown {
   if (typeof node !== 'object' || node === null) return node
-  const resolved = resolveGridBindings(node as Record<string, unknown>, ctx)
+  const resolved = resolveGridBindings(namedCrumb(node as Record<string, unknown>, ctx), ctx)
 
   const { children } = resolved as { readonly children?: unknown }
   if (!Array.isArray(children) || children.length === 0) return resolved
@@ -192,14 +190,40 @@ function namedByLabel(
   const accessibleName = props?.['aria-label']
   const reference = `$param.${param}`
   if (typeof accessibleName !== 'string' || !accessibleName.includes(reference)) return node
-  const table = (ctx.app.tables ?? []).find((declared) => declared.name === tableName)
-  const label =
-    table === undefined
-      ? tableName
-      : tableLabelPlural(table, (text) =>
-          resolveTranslationPattern(text, ctx.lang, ctx.app.languages)
-        )
+  const label = pluralLabelOf(tableName, ctx)
   return { ...node, props: { ...props, 'aria-label': accessibleName.replaceAll(reference, label) } }
+}
+
+/**
+ * A derived breadcrumb's current crumb names the bound table as a person reads
+ * it too: in its `currentLabel`, a reference to a param this page binds a table
+ * to reads that table's plural label, by the rule above. Any other reference is
+ * left for the generic `$param` pass, which writes the segment as it stands.
+ */
+function namedCrumb(
+  node: Record<string, unknown>,
+  ctx: ResolutionContext
+): Record<string, unknown> {
+  const { currentLabel } = node
+  if (node['type'] !== 'breadcrumb' || typeof currentLabel !== 'string') return node
+  const named = [...(ctx.tableParams ?? [])].reduce((text, param) => {
+    const tableName = ctx.routeParams[param]
+    const reference = `$param.${param}`
+    return tableName === undefined || !text.includes(reference)
+      ? text
+      : text.replaceAll(reference, pluralLabelOf(tableName, ctx))
+  }, currentLabel)
+  return named === currentLabel ? node : { ...node, currentLabel: named }
+}
+
+/** The bound table's plural label in the page language; its name when it declares none. */
+function pluralLabelOf(tableName: string, ctx: ResolutionContext): string {
+  const table = (ctx.app.tables ?? []).find((declared) => declared.name === tableName)
+  return table === undefined
+    ? tableName
+    : tableLabelPlural(table, (text) =>
+        resolveTranslationPattern(text, ctx.lang, ctx.app.languages)
+      )
 }
 
 /**

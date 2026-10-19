@@ -5,21 +5,20 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { TouchSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { KanbanKeyboardSensor } from './kanban-keyboard-sensor'
+import { KanbanMouseSensor } from './kanban-mouse-sensor'
 
 /**
  * Configure dnd-kit sensors for the kanban board.
  *
- * MouseSensor with a tiny distance threshold so a click (mousedown →
- * mouseup at the same point, no movement) doesn't activate a drag.
- * Without this, `useSortable` applies a transform on mousedown that
- * shifts the card under the cursor — Playwright's `click()` then
- * detects the moving target and times out. Playwright's `dragTo()`
- * generates a single mousemove from source to target (default
- * `steps: 1`), and the source-to-target distance is always >> 5px in
- * these tests, so the drag still activates.
+ * The mouse sensor activates only once the pointer has travelled 5px, so a
+ * click — press and release on the same point — stays a click and reaches the
+ * card's `onClick` (dnd-kit swallows the click that ends a drag). It is
+ * {@link KanbanMouseSensor} rather than dnd-kit's own, so the move that crosses
+ * the threshold also moves the drag: a pointer that jumps straight to the
+ * target column in one move still drops there.
  *
  * The keyboard sensor is {@link KanbanKeyboardSensor} rather than dnd-kit's own:
  * upstream attaches its key listener in a `setTimeout`, and the first arrow key
@@ -28,7 +27,7 @@ import { KanbanKeyboardSensor } from './kanban-keyboard-sensor'
  */
 export function useKanbanSensors() {
   return useSensors(
-    useSensor(MouseSensor),
+    useSensor(KanbanMouseSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 100, tolerance: 5 } }),
     useSensor(KanbanKeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )

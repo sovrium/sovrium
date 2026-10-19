@@ -23,7 +23,10 @@
  */
 
 import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
-import { resolveInterpreterStringOverrides } from '@/domain/models/app/languages/translation-resolver'
+import {
+  resolveInterpreterStringOverrides,
+  resolveTranslationPattern,
+} from '@/domain/models/app/languages/translation-resolver'
 import { computeRecordFieldValueClasses } from '@/presentation/design/display-default-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { applyProsePartClasses } from '@/presentation/render/markdown/prose-part-classes'
@@ -314,10 +317,17 @@ function renderStoredValue(
 function renderButtonField(
   chrome: RecordFieldChrome,
   mount: unknown,
-  uiStrings: Readonly<Record<string, string>> | undefined
+  uiStrings: Readonly<Record<string, string>> | undefined,
+  translate: (text: string) => string
 ): ReactElement | null | undefined {
   if (mount === undefined) return undefined
   if (mount === null) return null
+  // A disabled button's reason, its `$t:` key in the page language.
+  const disabled = (mount as { readonly disabledOnRecord?: { readonly reason?: string } })
+    .disabledOnRecord
+  const reason = disabled?.reason
+  const shown =
+    reason === undefined ? mount : { ...mount, disabledOnRecord: { reason: translate(reason) } }
   return (
     <div
       id={chrome.id}
@@ -326,7 +336,7 @@ function renderButtonField(
       data-component="record-field"
       data-component-type="record-field"
       data-island="record-field-button"
-      data-island-props={JSON.stringify({ ...(mount as object), uiStrings })}
+      data-island-props={JSON.stringify({ ...shown, uiStrings })}
     />
   )
 }
@@ -352,7 +362,8 @@ export const recordFieldComponent: ComponentRenderer = (config): ReactElement | 
   const button = renderButtonField(
     chrome,
     props['_recordButton'],
-    resolveInterpreterStringOverrides(['action.'], currentLang, languages)
+    resolveInterpreterStringOverrides(['action.'], currentLang, languages),
+    (text) => resolveTranslationPattern(text, currentLang ?? '', languages)
   )
   if (button !== undefined) return button
 

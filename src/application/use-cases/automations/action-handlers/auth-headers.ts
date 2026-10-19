@@ -11,10 +11,14 @@ import { logError } from '@/infrastructure/logging/logger'
 import { buildEnvLookup, resolveEnvInValue } from '../resolve-env-vars'
 import { resolveAppScopedToken, resolveUserScopedToken } from './connection-token-lookup'
 import { connectionScope } from './connection-token-refresh'
-import { buildStaticAuthHeader, type ConnectionDef } from './static-auth-header'
+import {
+  buildStaticAuthHeader,
+  unconfiguredConnectionReason,
+  type ConnectionDef,
+} from './static-auth-header'
 import { resolveTokenExchangeHeader } from './token-exchange-token'
 import type { ConnectionServices, RefreshOutcome } from './connection-token-refresh'
-import type { AutomationContext } from './shared'
+import type { ActionOutcome, AutomationContext, UnconfiguredConnection } from './shared'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -117,6 +121,11 @@ export interface InjectedHeaders {
   readonly headers: Record<string, string>
   readonly error?: string
   /**
+   * The connection's credential reads from a `$env.` variable that is not set.
+   * Distinct from `error`: the caller skips the run instead of failing it.
+   */
+  readonly unconfigured?: UnconfiguredConnection
+  /**
    * OAuth2 only: the extra fields the provider returned with the stored token
    * and the connection keeps (`props.tokenFields`), e.g. Salesforce's
    * `instance_url`. Read by `connection/call` to resolve a `$token.FIELD` base URL.
@@ -208,6 +217,30 @@ export const resolveConnectionHeaders = (
     // the wire verbatim.
     const envLookup = buildEnvLookup(app.env, process.env)
     const built = buildStaticAuthHeader(conn, envLookup)
+    if ('unconfigured' in built) return { headers: baseHeaders, unconfigured: built.unconfigured }
     if ('error' in built) return { headers: baseHeaders, error: built.error }
     return { headers: { ...baseHeaders, [built.header]: built.value } }
   }).pipe(Effect.withSpan('automations.resolve-connection-headers'))
+
+/**
+ * The outcome a connection-bound action answers when its headers could not be
+ * built, or `undefined` when the request may go out.
+ *
+ * An unconfigured connection halts the run as SKIPPED (`status: 'filtered'`
+ * with `unconfigured` set — the run loop's skip path), so no request is sent,
+ * nothing is retried and no failure alert fires. Any other refusal is an
+ * ordinary action failure.
+ */
+export const connectionHeaderRefusal = (
+  injected: Pick<InjectedHeaders, 'error' | 'unconfigured'>
+): ActionOutcome | undefined => {
+  if (injected.unconfigured !== undefined) {
+    return {
+      status: 'filtered',
+      error: unconfiguredConnectionReason(injected.unconfigured),
+      unconfigured: injected.unconfigured,
+    }
+  }
+  if (injected.error !== undefined) return { status: 'failure', error: injected.error }
+  return undefined
+}

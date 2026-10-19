@@ -269,9 +269,9 @@ function contentFromSiblingViolations(
               `${label} declares \`children\` on a code block that composes its content from \`contentFrom\` — the renderer falls back to children only when there is no content, so these would never render.`,
             ]
           : []),
-        ...(typeof template === 'string' && !template.includes('$record.')
+        ...(typeof template === 'string' && !/^\$t:|\$record\./.test(template)
           ? [
-              `${label} declares a \`contentFrom.template\` with no \`$record.\` reference — every row would render the same constant, so a four-row endpoint prints one line four times and reads as a one-row result.`,
+              `${label} declares a \`contentFrom.template\` with no \`$record.\` reference (nor a \`$t:\` key, whose translation may hold one) — every row would render the same constant, so a four-row endpoint prints one line four times and reads as a one-row result.`,
             ]
           : []),
       ]

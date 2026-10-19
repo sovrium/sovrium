@@ -88,6 +88,13 @@ export interface FetchResult {
    * — which those handlers' query allow-lists drop.
    */
   readonly nextCursor?: string
+  /**
+   * The endpoint's own sentence for the whole result, read from the response's
+   * `resultSummary` (`35 runs · 3 failed`, in the operator's language). A grid's
+   * pager prints it in place of its numeric range, by key presence like
+   * `appliedQuery`: the endpoint knows what its rows are called, the grid does not.
+   */
+  readonly resultSummary?: string
 }
 
 /**
@@ -119,6 +126,14 @@ export interface SystemQueryInput {
    * server never read.
    */
   readonly cursor?: string
+  /**
+   * The grid numbers no pages: it declares no `pagination`, so its first
+   * request names no `?page=`. An endpoint that pages both ways
+   * (`…/automations/runs`) reads a `page` as a numbered request and answers it
+   * with no continuation, so a grid that only ever asks for the first page has
+   * to leave it out to be handed the `nextCursor` its Load more follows.
+   */
+  readonly unnumbered?: boolean
 }
 
 export interface SystemFetchQuery extends SystemQueryInput {
@@ -160,6 +175,7 @@ export function buildSystemQueryString({
   sortParam,
   globalFilter,
   cursor,
+  unnumbered,
 }: SystemQueryInput): string {
   const params = new URLSearchParams()
   // Static query params merged into every request (e.g. { status: 'failed' }).
@@ -173,8 +189,8 @@ export function buildSystemQueryString({
     else params.set(key, value)
   })
   // Read-side params (endpoint-side / forwarded): position, sort, search.
-  if (cursor === undefined) params.set('page', String(pagination.pageIndex + 1))
-  else params.set('cursor', cursor)
+  if (cursor !== undefined) params.set('cursor', cursor)
+  else if (unnumbered !== true) params.set('page', String(pagination.pageIndex + 1))
   if (pagination.pageSize && !params.has('limit')) {
     params.set('limit', String(pagination.pageSize))
   }
@@ -258,7 +274,14 @@ export function parseSystemEnvelope(
   const total = typeof totalRaw === 'number' ? totalRaw : records.length
   // PRESENCE, not truthiness — see `readAppliedQuery`, which both fetch paths
   // share so the three-state read cannot be spelled two ways.
-  return { records, total, ...readAppliedQuery(json), ...readNextCursor(json) }
+  const summary = json['resultSummary']
+  return {
+    records,
+    total,
+    ...readAppliedQuery(json),
+    ...readNextCursor(json),
+    ...(typeof summary === 'string' && summary !== '' && { resultSummary: summary }),
+  }
 }
 
 /**
@@ -274,6 +297,7 @@ export async function fetchSystemEndpoint({
   sortParam,
   globalFilter,
   cursor,
+  unnumbered,
 }: SystemFetchQuery): Promise<FetchResult> {
   const suffix = buildSystemQueryString({
     system,
@@ -282,6 +306,7 @@ export async function fetchSystemEndpoint({
     sortParam,
     globalFilter,
     ...(cursor !== undefined && { cursor }),
+    ...(unnumbered === true && { unnumbered }),
   })
   const url = `${system.endpoint}${suffix ? `?${suffix}` : ''}`
   // Grids reading one envelope for different arrays share the request in flight.
@@ -289,11 +314,11 @@ export async function fetchSystemEndpoint({
 
   if (!res.ok) {
     // The MESSAGE is what an operator reads in the grid's alert, so it carries the
-    // status and nothing else. The raw envelope goes in `cause`, where a developer
-    // can still reach it from the console — it used to be concatenated into the
-    // message, which put a JSON blob on screen under a doubled 'Failed to…' prefix.
+    // status and nothing else. `cause` carries the status the grid's notice and
+    // retry rule branch on (a 404 is not retried and offers no Retry), beside the
+    // raw envelope, which only a developer reads, from the console.
     throw new Error(`The server refused this request (${res.status}).`, {
-      cause: await readErrorBody(res),
+      cause: { status: res.status, body: await readErrorBody(res) },
     })
   }
 
@@ -351,7 +376,11 @@ export async function fetchSystemDetailEndpoint(
   const res = await fetch(url, { credentials: 'include' })
 
   if (!res.ok) {
-    throw new Error(`Failed to fetch system record: ${res.status} ${await readErrorBody(res)}`)
+    // The status rides on `cause`, where the retry rule reads it: a refused read
+    // is an answer, and asking again cannot change it.
+    throw new Error(`Failed to fetch system record: ${res.status} ${await readErrorBody(res)}`, {
+      cause: { status: res.status },
+    })
   }
 
   const json = (await res.json()) as Record<string, unknown>

@@ -18,6 +18,7 @@
  * technology.
  */
 
+import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import { satisfiesFieldCondition } from '@/domain/models/app/tables/condition-operators'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import {
@@ -74,12 +75,33 @@ function passesVisibilityGate(props: RecordButtonProps): boolean {
   )
 }
 
+/**
+ * Whether the server disabled this button on the record (its id in the
+ * record's `_disabled`), with its reason filled from the record — a field the
+ * reader may not read is not in the record, and reads as empty.
+ */
+function disabledOnRecordOf(
+  props: RecordButtonProps
+): { readonly reason: string | undefined } | undefined {
+  const disabled = props.record?.['_disabled']
+  if (!Array.isArray(disabled) || !disabled.includes(`field:${props.fieldName}`)) return undefined
+  const { disabledReason } = props.config
+  return {
+    reason:
+      disabledReason === undefined || props.record === undefined
+        ? undefined
+        : substituteRecordVars(disabledReason, props.record),
+  }
+}
+
 export function RecordButton(props: RecordButtonProps): React.ReactNode {
   if (!passesVisibilityGate(props)) return undefined
   const { className, record: _record, ...core } = props
+  const disabledOnRecord = disabledOnRecordOf(props)
   return (
     <RecordButtonCore
       {...core}
+      {...(disabledOnRecord === undefined ? {} : { disabledOnRecord })}
       classFor={(pending) =>
         resolveClasses(pending ? RECORD_BUTTON_PENDING_CLASS : RECORD_BUTTON_CLASS, className)
       }

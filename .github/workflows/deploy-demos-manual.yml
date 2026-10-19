@@ -2,9 +2,11 @@ name: Deploy demo fleet
 
 # Deploys the template demos to Sovrium Cloud THROUGH THE PRODUCT ONLY: every
 # demo is shipped with the released binary's own `sovrium deploy`, exactly as a
-# customer ships an app. Nothing here opens an SSH session — the engine an app
-# runs comes from its bundle, and the fleet's node installs and switches it per
-# app (operations.md, "Deploying the demos from CI"). Two ways in, one body:
+# customer ships an app: the engine is a Sovrium Cloud CUSTOMER here. Nothing
+# here opens an SSH session — the engine an app runs comes from its bundle, and
+# the fleet's node installs and switches it per app (the Cloud operator's side:
+# `sovrium/cloud` infra/fleet/operations.md, "Deploying the demos from CI").
+# Two ways in, one body:
 #
 #   - workflow_call     — release.yml's `deploy-demos` job, after the template
 #                         mirrors are verified, with the release tag;
@@ -106,7 +108,7 @@ jobs:
     # would race competing revisions of the same demo, and neither batch plan
     # would see the other's failures.
     concurrency:
-      group: demo-fleet-deploy
+      group: demo-deploy
       cancel-in-progress: false
     timeout-minutes: 120
     steps:
@@ -138,7 +140,7 @@ jobs:
           SOVRIUM_CLOUD_API_KEY: ${{ secrets.SOVRIUM_CLOUD_API_KEY }}
         run: |
           if [ -z "${SOVRIUM_CLOUD_API_KEY}" ]; then
-            echo "::error::SOVRIUM_CLOUD_API_KEY secret is not set — the demos are deployed with 'sovrium deploy' as the cloud's admin account, and this job has no key to sign in with. It is minted on cloud.sovrium.com for the account that owns the demo apps (operations.md, 'Deploying the demos from CI')."
+            echo "::error::SOVRIUM_CLOUD_API_KEY secret is not set — the demos are deployed with 'sovrium deploy' as the cloud's admin account, and this job has no key to sign in with. It is minted on cloud.sovrium.com for the account that owns the demo apps (sovrium/cloud infra/fleet/operations.md, 'Deploying the demos from CI')."
             exit 1
           fi
 
@@ -210,7 +212,7 @@ jobs:
           set -euo pipefail
           HEADER="${RUNNER_TEMP}/cloud-key.header"
           NODES="${RUNNER_TEMP}/cloud-nodes.json"
-          RUNBOOK="fleet not on the per-app engine yet: run the production window runbook (docs/development/cloud-fleet/operations.md)"
+          RUNBOOK="fleet not on the per-app engine yet: the Cloud operator must run the production window runbook first (sovrium/cloud infra/fleet/operations.md); open an issue on sovrium/cloud"
           STATUS=$(curl -sS -m 30 -H @"${HEADER}" -o "${NODES}" -w '%{http_code}' "${CLOUD_HOST}/api/tables/nodes/records?limit=100" || echo 000)
           if [ "${STATUS}" != "200" ]; then
             echo "::error::could not read the nodes table on ${CLOUD_HOST} (HTTP ${STATUS}) — the key's account needs read access to 'nodes'. ${RUNBOOK}"

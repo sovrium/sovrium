@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+export * from './bundle-manifest'
+export * from './component-kit-manifest'
 export * from './component-types'
 export * from './design-system'
 export * from './facets'

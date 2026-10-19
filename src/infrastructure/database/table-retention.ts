@@ -13,6 +13,11 @@ import {
   type TableRetentionPlan,
 } from '@/domain/models/app/tables/retention-service'
 import { db } from '@/infrastructure/database'
+import {
+  RetentionSweepFailure,
+  inReadWriteTransaction,
+  isReadOnlyRefusal,
+} from '@/infrastructure/database/read-write-sweep'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { tableIdentifier } from '@/infrastructure/database/table-queries/statement/validation'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
@@ -28,8 +33,12 @@ import type { App } from '@/domain/models/app'
  * until nothing past the window is left, so a backlog empties in one sweep
  * without one giant statement. Quiet by construction: a raw `DELETE`, outside
  * every record write program, so no record automation, table webhook or
- * activity-log entry follows. One log line per table says how many rows went
- * and how many a `restrict` relationship kept.
+ * activity-log entry follows. One log line per table, every sweep, says how
+ * many rows went and how many a `restrict` relationship kept. Each delete runs
+ * in a transaction opened READ WRITE (`read-write-sweep.ts`), so the sweep
+ * keeps freeing space on a managed PostgreSQL that has gone read-only for lack
+ * of disk; a delete the server still refuses for that reason is raised as a
+ * sweep failure rather than counted as rows a link kept.
  *
  * Values are bound parameters and identifiers `sql.identifier` (S3). The
  * comparison is per dialect: on SQLite a datetime is TEXT, read through
@@ -109,14 +118,16 @@ const nextBatch = async (
   return rows.map((row) => row['id'])
 }
 
-/** Delete these rows; answers how many went. */
+/** Delete these rows, in one READ WRITE transaction; answers how many went. */
 const deleteRows = async (tableName: string, ids: readonly unknown[]): Promise<number> => {
-  const deleted = await executeRaw(
-    db,
-    sql`DELETE FROM ${tableIdentifier(tableName)} WHERE ${sql.identifier('id')} IN (${sql.join(
-      ids.map((id) => sql`${id}`),
-      sql`, `
-    )}) RETURNING ${sql.identifier('id')}`
+  const deleted = await inReadWriteTransaction((tx) =>
+    executeRaw(
+      tx,
+      sql`DELETE FROM ${tableIdentifier(tableName)} WHERE ${sql.identifier('id')} IN (${sql.join(
+        ids.map((id) => sql`${id}`),
+        sql`, `
+      )}) RETURNING ${sql.identifier('id')}`
+    )
   )
   return deleted.length
 }
@@ -132,7 +143,12 @@ const deleteBatch = async (
 ): Promise<{ readonly deleted: number; readonly kept: number }> => {
   try {
     return { deleted: await deleteRows(tableName, ids), kept: 0 }
-  } catch {
+  } catch (error) {
+    // A read-only refusal is not a constraint: retrying row by row would count
+    // every row as kept and hide the one failure this sweep must report.
+    if (isReadOnlyRefusal(error)) {
+      throw new RetentionSweepFailure({ table: tableName, attempted: ids.length, cause: error })
+    }
     const outcomes = await Promise.all(
       ids.map(async (id) => {
         try {
@@ -179,11 +195,9 @@ const sweepTable = async (
   }
   const swept = await loop(undefined, { deleted: 0, kept: 0 })
   const kept = swept.kept + (held === undefined ? 0 : await countHeld(plan, expired, held))
-  if (swept.deleted > 0 || kept > 0) {
-    logInfo(
-      `[table-retention] ${plan.tableName}: deleted ${String(swept.deleted)} row(s) older than ${cutoff.instant.toISOString()}${kept > 0 ? `, kept ${String(kept)} still linked` : ''}`
-    )
-  }
+  logInfo(
+    `[table-retention] ${plan.tableName}: deleted ${String(swept.deleted)} row(s) older than ${cutoff.instant.toISOString()}${kept > 0 ? `, kept ${String(kept)} still linked` : ''}`
+  )
   return { deleted: swept.deleted, kept }
 }
 

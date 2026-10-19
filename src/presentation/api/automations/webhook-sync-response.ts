@@ -100,13 +100,17 @@ const answersAMachine = (trigger: WebhookTrigger, apiKeyOnly: boolean): boolean 
   return type === 'session' && trigger.auth?.requiredRole !== undefined && apiKeyOnly
 }
 
+/**
+ * Whether the trigger's `revealWriteOnly` is in force for this caller. Such a
+ * run reads as the system even behind a `session` webhook, so the fields it
+ * names are read at all — a run acting as a person reads no write-only value.
+ */
+export const revealsToMachine = (trigger: WebhookTrigger, apiKeyOnly: boolean): boolean =>
+  trigger.revealWriteOnly !== undefined && answersAMachine(trigger, apiKeyOnly)
+
 /** The `revealWriteOnly` list in force for this caller, or `undefined` when none is. */
-const revealInForce = (input: BuildResponseInput): readonly string[] | undefined => {
-  const reveal = input.trigger.revealWriteOnly
-  return reveal !== undefined && answersAMachine(input.trigger, input.apiKeyOnly)
-    ? reveal
-    : undefined
-}
+const revealInForce = (input: BuildResponseInput): readonly string[] | undefined =>
+  revealsToMachine(input.trigger, input.apiKeyOnly) ? input.trigger.revealWriteOnly : undefined
 
 /**
  * The write-only values the run's answer must not carry: its own reads and its

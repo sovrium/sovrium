@@ -48,6 +48,7 @@ import type {
 } from '@/domain/models/app/tables/aggregate-percentile-service'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { DatabaseError, DrizzleTransaction } from '@/infrastructure/database'
+import type { SQL } from 'drizzle-orm'
 
 /**
  * List all records from a table
@@ -65,6 +66,35 @@ import type { DatabaseError, DrizzleTransaction } from '@/infrastructure/databas
  * @param config.columns - Optional projection; omit for `SELECT *`
  * @returns Effect resolving to array of records
  */
+/**
+ * How a list is ordered. An unsorted word search (`?q=` on a `fullTextSearch`
+ * field) comes back most relevant first; an explicit sort replaces relevance,
+ * and folds the case of the text fields it names.
+ */
+const listOrdering = (config: {
+  readonly tableName: string
+  readonly filter?: { readonly and?: readonly FilterNode[] }
+  readonly sort?: string
+  readonly app?: OrderByAppView
+  readonly primaryKey?: OrderByPrimaryKey
+  readonly caseFoldedSortFields?: readonly string[]
+}): { readonly prefix: Readonly<SQL>; readonly orderBy: Readonly<SQL> } => {
+  const { sort, primaryKey } = config
+  const relevance =
+    sort === undefined
+      ? wordSearchRelevance(config.filter, defaultOrderKeys(primaryKey))
+      : undefined
+  return {
+    prefix: relevance?.prefix ?? sql``,
+    orderBy:
+      relevance?.orderBy ??
+      buildOrderByClause(sort, config.app, config.tableName, {
+        primaryKey,
+        caseFolded: config.caseFoldedSortFields,
+      }),
+  }
+}
+
 export function listRecords(config: {
   readonly session: Readonly<Session>
   readonly tableName: string
@@ -85,9 +115,10 @@ export function listRecords(config: {
    * its own columns has no `id` column to order by. See `buildOrderByClause`.
    */
   readonly primaryKey?: OrderByPrimaryKey
+  /** The text columns a sort compares ignoring case. */
+  readonly caseFoldedSortFields?: readonly string[]
 }): Effect.Effect<readonly Record<string, unknown>[], DatabaseError> {
-  const { tableName, filter, includeDeleted, sort, limit, offset, columns, app, primaryKey } =
-    config
+  const { tableName, filter, includeDeleted, limit, offset, columns } = config
   const { lookupMasks } = config
   const onFailure = wrapDatabaseError(`Failed to list records from ${tableName}`)
   return traceDbQuery(
@@ -101,14 +132,7 @@ export function listRecords(config: {
 
           // Build query clauses
           const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
-          // An unsorted word search (`?q=` on a `fullTextSearch` field) comes
-          // back most relevant first; an explicit sort replaces relevance.
-          const relevance =
-            sort === undefined
-              ? wordSearchRelevance(filter, defaultOrderKeys(primaryKey))
-              : undefined
-          const orderByClause =
-            relevance?.orderBy ?? buildOrderByClause(sort, app, tableName, primaryKey)
+          const ordering = listOrdering(config)
           // Empty when the caller passes neither `limit` nor `offset`, which is
           // every pre-pagination call site — the statement below is unchanged
           // for them, down to the byte.
@@ -124,7 +148,7 @@ export function listRecords(config: {
             try: () =>
               typedExecute(
                 tx,
-                sql`${relevance?.prefix ?? sql``}SELECT ${selectList} FROM ${relation}${whereClause}${orderByClause}${pageClause}`
+                sql`${ordering.prefix}SELECT ${selectList} FROM ${relation}${whereClause}${ordering.orderBy}${pageClause}`
               ),
             catch: onFailure,
           })

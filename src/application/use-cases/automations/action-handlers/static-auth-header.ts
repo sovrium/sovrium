@@ -5,8 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { envReferencesIn } from '@/domain/models/app/env-reference-service'
 import { resolveEnvInString } from '../resolve-env-vars'
-import { stringProp } from './shared'
+import { stringProp, type UnconfiguredConnection } from './shared'
 
 /**
  * Static (non-OAuth2) connection auth headers.
@@ -25,6 +26,38 @@ export interface ConnectionDef {
   readonly props: Record<string, unknown>
 }
 
+/** The answer to "can this connection authenticate a request?". */
+export type StaticAuthHeader =
+  | { readonly header: string; readonly value: string }
+  | { readonly unconfigured: UnconfiguredConnection }
+  | { readonly error: string }
+
+/**
+ * The first `$env.` variable `raw` references that resolves to nothing — not
+ * declared, or declared with neither a value in the environment nor a default.
+ * `undefined` when every reference is set, or when `raw` references none (a
+ * literal credential is never "unconfigured").
+ */
+export const unsetEnvReference = (
+  raw: string,
+  envLookup: Readonly<Record<string, string>>
+): string | undefined => envReferencesIn(raw).find((name) => (envLookup[name] ?? '') === '')
+
+/** The skip reason a run records for an unconfigured connection. */
+export const unconfiguredConnectionReason = ({
+  connection,
+  variable,
+}: UnconfiguredConnection): string =>
+  `connection '${connection}' is not configured: ${variable} is not set`
+
+/** The secret-bearing props each static auth type reads its credential from. */
+const credentialPropsOf = (type: string): readonly string[] => {
+  if (type === 'apiKey') return ['key']
+  if (type === 'bearer') return ['token']
+  if (type === 'basic') return ['username', 'password']
+  return []
+}
+
 /**
  * Build the static auth header (apiKey/basic/bearer) from a connection's
  * in-memory props.
@@ -40,11 +73,30 @@ export interface ConnectionDef {
  * identifier props (`prefix`, `header`) are plain config and pass through
  * untouched — mirroring `resolveEnvRef` in
  * `src/infrastructure/webhooks/auth-headers.ts`.
+ *
+ * A credential prop referencing a variable that resolves to nothing answers
+ * the `unconfigured` arm instead of an error: only an env-sourced credential
+ * qualifies, so a literal value that is empty or refused stays a failure.
  */
 export const buildStaticAuthHeader = (
   conn: ConnectionDef,
   envLookup: Readonly<Record<string, string>>
-): { readonly header: string; readonly value: string } | { readonly error: string } => {
+): StaticAuthHeader => {
+  // A credential sourced from a variable that is not set is checked FIRST, so
+  // it is reported as unconfigured rather than as an empty credential.
+  const unset = credentialPropsOf(conn.type)
+    .map((key) => unsetEnvReference(stringProp(conn.props, key), envLookup))
+    .find((variable) => variable !== undefined)
+  return unset === undefined
+    ? buildCredentialHeader(conn, envLookup)
+    : { unconfigured: { connection: conn.name, variable: unset } }
+}
+
+/** The header a static connection's credential builds, or why it cannot. */
+const buildCredentialHeader = (
+  conn: ConnectionDef,
+  envLookup: Readonly<Record<string, string>>
+): StaticAuthHeader => {
   const { props } = conn
   const secretProp = (key: string): string => resolveEnvInString(stringProp(props, key), envLookup)
   if (conn.type === 'apiKey') {

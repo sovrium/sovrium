@@ -61,7 +61,7 @@
 
 import { getCookie } from 'hono/cookie'
 import {
-  buildComponentFrameApp,
+  buildComponentFrame,
   componentFramePath,
 } from '@/application/use-cases/admin/design-system-component-frame'
 import { COMPONENT_FRAME_BASE, toMountPath } from '@/domain/models/app/admin/mount-hrefs'
@@ -71,6 +71,7 @@ import {
   resolvePreferredLanguage,
 } from '@/domain/models/app/languages/language-detection'
 import { grantedCallerCapabilities } from '@/domain/models/app/pages/component-session-visibility-service'
+import { callerFieldReaderOf } from '@/domain/models/app/tables/field-read-filter-service'
 import { logError } from '@/infrastructure/logging/logger'
 import {
   extractSurfaceContent,
@@ -83,7 +84,7 @@ import {
   systemRowsFetcher,
 } from '../../../infrastructure/egress/system-rows-fetcher'
 import { isPublicMountPath } from './mounted-app-public-paths'
-import { resolveMountedRedirect } from './mounted-app-redirect'
+import { resolveMountedRedirect, signedInDestination } from './mounted-app-redirect'
 import type { HonoAppConfig } from '../../../application/ports/contracts/hono-app-config'
 import type { EmbeddedAppMount } from '@/application/ports/contracts/embedded-app-mount'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'
@@ -170,7 +171,7 @@ const resolveAccess = async (
   const { hasAccess, session } = await resolveCallerPosture(config, c)
   const { path } = c.req
   if (hasAccess && mount.signedInRedirectPaths.has(path)) {
-    return c.redirect(mount.basePath, 302)
+    return c.redirect(signedInDestination(mount, c.req.query('next')), 302)
   }
   if (!hasAccess && !isPublicMountPath(mount, path)) {
     return c.html(await config.renderNotFoundPage(config.app), 404)
@@ -262,12 +263,18 @@ const grantedCapabilitiesOf = (posture: GrantedAccess, app: App): readonly Calle
 const renderMountedSurface = async (input: MountedRenderInput): Promise<Response> => {
   const { mount, deps, config, c, scopedApp, posture } = input
   const mountPath = toMountPath(mount.basePath, c.req.path)
+  // The operator's language against the MOUNTED app's `languages.supported`: account, then
+  // this browser's cookie. Derived here: a mounted page renders session-less.
+  const preferredLanguage =
+    resolvePreferredLanguage(scopedApp.languages, posture.session?.language) ??
+    resolvePreferredLanguage(scopedApp.languages, getCookie(c, LANGUAGE_PREFERENCE_COOKIE))
   const surface = await deps.synthesiseMountSurface({
     mount,
     operatorApp: config.app,
     scopedApp,
     mountPath,
     ...(posture.session ? { session: posture.session } : {}),
+    language: preferredLanguage,
   })
   // No `?scheme` / `?viewport` / `?expand` / `?category` channel here: every
   // console page declares its own `page.query`, so each arrives through the
@@ -276,12 +283,6 @@ const renderMountedSurface = async (input: MountedRenderInput): Promise<Response
   // `none` means the path has no synthesized surface (a static preset page such
   // as the sign-in card) — render the mount's own config as authored.
   const surfaceApp = surface.kind === 'app' ? surface.app : scopedApp
-  // The operator's language against the MOUNTED app's `languages.supported`:
-  // account first, then this browser's cookie (the page routes' rank). Derived
-  // here, not threaded into `renderPage`: a mounted page renders session-less.
-  const preferredLanguage =
-    resolvePreferredLanguage(surfaceApp.languages, posture.session?.language) ??
-    resolvePreferredLanguage(surfaceApp.languages, getCookie(c, LANGUAGE_PREFERENCE_COOKIE))
   const renderOptions = {
     requestQuery: c.req.query(),
     requestOrigin: resolveRequestBaseUrl(c),
@@ -318,11 +319,10 @@ const renderMountedSurface = async (input: MountedRenderInput): Promise<Response
     // detail endpoint is NAMED by its record, so it must be read before the
     // document ships — as the caller, and 404ing when there is none.
     fetchSystemRecord: systemRecordFetcher(c),
-    // P10: the caller's POWERS — not their session. Without this the two
-    // capability gates are inert on every mounted page, and inert in the
-    // direction that withholds an affordance from the administrator it was
-    // authored for. See `grantedCapabilitiesOf`.
+    // P10: the caller's POWERS, and her role and groups for her record sheet's
+    // field access — never her session. See `grantedCapabilitiesOf`.
     callerCapabilities: grantedCapabilitiesOf(posture, config.app),
+    callerFieldReader: callerFieldReaderOf(posture.session),
   }
   const result: PageRenderResult = await config.renderPage(surfaceApp, mountPath, renderOptions)
   if (typeof result === 'string') {
@@ -411,15 +411,15 @@ const handleComponentFrame =
 
     const name = c.req.param('name') ?? ''
     const path = componentFramePath(name)
-    const frameApp = buildComponentFrameApp(config.app, name, path)
-    // A name this app does not declare gets the SAME answer the component page
-    // itself gives one — `-133`'s property, one document further in.
-    if (frameApp === undefined) return c.html(await config.renderNotFoundPage(config.app), 404)
+    const frame = buildComponentFrame(config.app, name, path)
+    // An undeclared name gets the 404 the component page itself answers.
+    if (frame === undefined) return c.html(await config.renderNotFoundPage(config.app), 404)
 
     try {
-      const rendered = await config.renderPage(frameApp, path, {
-        requestQuery: c.req.query(),
+      const rendered = await config.renderPage(frame.app, frame.renderPath, {
+        requestQuery: { ...c.req.query(), ...frame.requestQuery },
         requestOrigin: resolveRequestBaseUrl(c),
+        specimen: true, // sample readers only: nothing of the instance is read
       })
       if (typeof rendered !== 'string') {
         return c.html(await config.renderNotFoundPage(config.app), 404)

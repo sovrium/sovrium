@@ -7,7 +7,9 @@
 
 import { useCallback, useState } from 'react'
 import { dispatch } from '../../runtime/event-bus'
+import { ImportWordsContext } from './import-words'
 import { ImportCsvDialog } from '.'
+import type { FieldLabelCandidates } from './parser'
 import type { ImportResult } from './types'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 
@@ -18,10 +20,17 @@ interface OpenImportIslandProps {
   readonly label: string
   /** The author's button attributes: id, test id, classes, accessible name. */
   readonly buttonProps?: Record<string, unknown>
+  /** The dialog's words in the page language (`csvImport.*`), where they differ from English. */
+  readonly uiStrings?: Readonly<Record<string, string>>
   /** The fields a CSV column may be mapped onto. */
   readonly tableFields?: readonly string[]
   readonly fieldMeta?: FieldMetaMap
+  /** Each field's label in every language the app declares, by field name. */
+  readonly fieldLabels?: FieldLabelCandidates
 }
+
+/** An English page's words: none, so every step keeps its English. */
+const NO_WORDS: Readonly<Record<string, string>> = {}
 
 /**
  * A button that opens the CSV import dialog for one table — the `openImport`
@@ -37,6 +46,8 @@ export default function OpenImportIsland({
   buttonProps,
   tableFields,
   fieldMeta,
+  fieldLabels,
+  uiStrings = NO_WORDS,
 }: OpenImportIslandProps) {
   const [open, setOpen] = useState(false)
   const onImported = useCallback(
@@ -60,14 +71,17 @@ export default function OpenImportIsland({
       >
         {label}
       </button>
-      <ImportCsvDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        tableName={table}
-        {...(tableFields !== undefined && { tableFields })}
-        {...(fieldMeta !== undefined && { fieldMeta })}
-        onImported={onImported}
-      />
+      <ImportWordsContext.Provider value={uiStrings}>
+        <ImportCsvDialog
+          open={open}
+          onClose={() => setOpen(false)}
+          tableName={table}
+          {...(tableFields !== undefined && { tableFields })}
+          {...(fieldMeta !== undefined && { fieldMeta })}
+          {...(fieldLabels !== undefined && { fieldLabels })}
+          onImported={onImported}
+        />
+      </ImportWordsContext.Provider>
     </>
   )
 }

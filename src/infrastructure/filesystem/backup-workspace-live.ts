@@ -18,10 +18,11 @@ import {
   writeFile,
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join, relative, sep } from 'node:path'
+import { dirname, join } from 'node:path'
 import { Database } from 'bun:sqlite'
 import { Effect, Layer } from 'effect'
 import { BackupIoError, BackupWorkspace } from '@/application/ports/services/backup-workspace'
+import { listFilesBelow } from '@/infrastructure/filesystem/list-files-below'
 import { isProcessRunning, lockFilePathIn } from '@/infrastructure/server/lock-file'
 
 const isMissing = (cause: unknown): boolean =>
@@ -40,18 +41,12 @@ const readIfExists = async (path: string): Promise<Uint8Array | undefined> => {
   }
 }
 
-const listFilesBelow = async (directory: string): Promise<readonly string[]> => {
-  const entries = await readdir(directory, { recursive: true, withFileTypes: true }).catch(
-    (cause: unknown) => {
-      if (isMissing(cause)) return []
-      throw cause
-    }
-  )
-  return entries
-    .filter((entry) => entry.isFile())
-    .map((entry) => relative(directory, join(entry.parentPath, entry.name)).split(sep).join('/'))
-    .toSorted()
-}
+/** Every file below `directory`, never through a symlink; none when the folder is missing. */
+const listFilesOrNone = (directory: string): Promise<readonly string[]> =>
+  listFilesBelow(directory).catch((cause: unknown) => {
+    if (isMissing(cause)) return []
+    throw cause
+  })
 
 /**
  * `VACUUM INTO` a scratch file and read it back. SQLite's own copy: consistent
@@ -209,7 +204,7 @@ export const BackupWorkspaceLive = Layer.succeed(BackupWorkspace, {
   loadConfigGraph: (configPath: string) =>
     attempt(`read the config ${configPath}`, () => loadGraph(configPath)),
   readFileIfExists: (path: string) => attempt(`read ${path}`, () => readIfExists(path)),
-  listFiles: (directory: string) => attempt(`list ${directory}`, () => listFilesBelow(directory)),
+  listFiles: (directory: string) => attempt(`list ${directory}`, () => listFilesOrNone(directory)),
   isDirectoryOccupied: (directory: string) =>
     attempt(`list ${directory}`, () =>
       readdir(directory).then(

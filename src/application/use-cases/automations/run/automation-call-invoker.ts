@@ -63,6 +63,8 @@ export interface AutomationCallRunners {
     }
     readonly handlers: StepContext['handlers']
     readonly userId: string | undefined
+    readonly startedByHand?: boolean
+    readonly startedAsGuest?: boolean
     readonly callDepth: number
     readonly recordEventDepth: number
     readonly visitedAutomations: ReadonlySet<string>
@@ -76,8 +78,7 @@ export interface AutomationCallRunners {
  * What a called run inherits about write-only values: blind to them when the
  * chain began with a person's gesture — a hand-started run reads as that
  * person, and so does every run it calls, however deep — and the chain's one
- * ledger of the values its called runs read. Only this: a called run still
- * writes, and reads rows, as the system.
+ * ledger of the values its called runs read.
  */
 const inheritedWriteOnly = (ctx: StepContext): WriteOnlyInheritance => ({
   blind: ctx.automation.startedByHand === true || ctx.automation.writeOnly?.blind === true,
@@ -183,6 +184,11 @@ const buildSubAutomationRun = (
       triggerData: { input: inputData, caller: ctx.automation.name, depth: newDepth },
       handlers: ctx.handlers,
       userId: ctx.automation.userId,
+      // A chain a person started by hand acts as that person at every depth, in
+      // both modes: its filters, reads and writes are held to their rules. A
+      // chain nobody started stays the system's.
+      ...(ctx.automation.startedByHand === true ? { startedByHand: true } : {}),
+      ...(ctx.automation.startedAsGuest === true ? { startedAsGuest: true } : {}),
       callDepth: newDepth,
       // A called automation is part of the same chain of writes as its caller.
       recordEventDepth: ctx.recordEventDepth,
@@ -194,6 +200,16 @@ const buildSubAutomationRun = (
       writeOnly: inheritedWriteOnly(ctx),
     })
   })
+
+/**
+ * The failure a call rejects with: the callee's own error, carrying the error
+ * a reader who does not read every run is shown instead when the callee has
+ * one (`RunAutomationResult.clientError`), so the call step reads as it does.
+ */
+const calledRunFailure = (message: string, result: RunAutomationResult): Readonly<Error> =>
+  result.clientError === undefined
+    ? new Error(message)
+    : Object.assign(new Error(message), { clientError: result.clientError })
 
 /**
  * Build the `automation:call` runtime callback threaded into every step's
@@ -246,7 +262,7 @@ export const buildAutomationInvoker =
         if (isTerminalFailureStatus(result.status)) {
           const ending = toApiStatus(result.status).replace('-', ' ')
           // eslint-disable-next-line functional/no-throw-statements -- inside .then; throw-as-rejection is the unicorn-preferred form
-          throw new Error(result.error ?? `called automation '${name}' ${ending}`)
+          throw calledRunFailure(result.error ?? `called automation '${name}' ${ending}`, result)
         }
         return { result: result.returnData ?? {} }
       })

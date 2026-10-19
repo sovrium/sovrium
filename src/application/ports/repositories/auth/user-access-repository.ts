@@ -61,6 +61,24 @@ export interface UserAccessRecordGrant {
   readonly recordId: string
 }
 
+/** A revocation: the record leaves the grant held under `role`, or every grant when omitted. */
+export interface UserAccessRecordRevocation extends UserAccessRecordGrant {
+  readonly role?: string
+}
+
+/** A grant minted through the access-grant routes, and whether it was created or joined. */
+export interface UserAccessMinted {
+  readonly row: UserAccessRow
+  /** `true` when no grant existed for the account, table and role; `false` when one was joined. */
+  readonly created: boolean
+}
+
+/** Where a scope table's records are read from to check that ids name records. */
+export interface RecordKeySource {
+  readonly tableName: string
+  readonly primaryKey: string
+}
+
 /**
  * Which grants a listing returns: every one, or those matching each criterion
  * given — an account's (by id, or by email address matched without regard to
@@ -113,14 +131,26 @@ export class UserAccessRepository extends Context.Service<
   UserAccessRepository,
   {
     /**
-     * Insert a new user_access row, populating `created_by` with the
-     * supplied actor. Returns the persisted row so the route handler can
-     * echo back the canonical record envelope.
+     * Mint a grant naming `input.recordIds`, keeping ONE grant per account,
+     * table and role: when the account already holds a grant over the table
+     * under that role, the records it does not name yet are appended to it (in
+     * the order given) instead of a second grant being stored. Atomic, as
+     * {@link grantRecord}: two mints arriving at once never store two grants.
      */
-    readonly insert: (
+    readonly mintGrant: (
       input: Readonly<UserAccessInsertInput>,
       createdBy: string
-    ) => Effect.Effect<UserAccessRow, UserAccessDatabaseError>
+    ) => Effect.Effect<UserAccessMinted, UserAccessDatabaseError>
+
+    /**
+     * The ids among `ids` that name a record of the source table outside the
+     * trash, in ONE query, compared as text. An empty `ids` answers an empty
+     * list without touching the store.
+     */
+    readonly findRecordIds: (
+      source: Readonly<RecordKeySource>,
+      ids: readonly string[]
+    ) => Effect.Effect<readonly string[], UserAccessDatabaseError>
 
     /**
      * List user_access rows ordered by `created_at ASC`, narrowed by each
@@ -155,7 +185,15 @@ export class UserAccessRepository extends Context.Service<
       id: string
     ) => Effect.Effect<Option.Option<UserAccessRow>, UserAccessDatabaseError>
 
-    /** Apply `change` to the grant with this id; the changed grant, or none when no grant has it. */
+    /**
+     * Apply `change` to the grant with this id, ATOMICALLY with the account's
+     * other writes over the table; none when no grant has the id. A change of
+     * `role` onto a role the account already holds a grant under over the same
+     * table folds this grant into that one: the held grant keeps its id and its
+     * records' order, gains this grant's records (as the change leaves them)
+     * not yet named, and this grant is deleted. The answer is the grant that
+     * remains.
+     */
     readonly update: (
       id: string,
       change: Readonly<UserAccessChange>
@@ -175,13 +213,13 @@ export class UserAccessRepository extends Context.Service<
     ) => Effect.Effect<boolean, UserAccessDatabaseError>
 
     /**
-     * Take one record out of EVERY grant the account holds over the table,
-     * erasing a grant left naming no record — atomically, as
-     * {@link grantRecord}. `true` when access moved, `false` when no grant
-     * named the record.
+     * Take one record out of EVERY grant the account holds over the table — or,
+     * given `role`, out of the grant held under that role only — erasing a
+     * grant left naming no record, atomically, as {@link grantRecord}. `true`
+     * when access moved, `false` when no such grant named the record.
      */
     readonly revokeRecord: (
-      grant: Readonly<UserAccessRecordGrant>
+      grant: Readonly<UserAccessRecordRevocation>
     ) => Effect.Effect<boolean, UserAccessDatabaseError>
 
     /**

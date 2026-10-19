@@ -104,6 +104,12 @@ export class CommentRepository extends Context.Service<
        * when omitted (column default).
        */
       readonly status?: 'approved' | 'pending' | 'rejected'
+      /**
+       * Who writes it. `'session'` (the default): the session's user, or the
+       * guest identity above. `'system'`: the app itself — the row carries no
+       * author account and no guest identity (an automation's comment).
+       */
+      readonly actor?: 'session' | 'system'
     }) => Effect.Effect<
       {
         readonly id: string
@@ -126,12 +132,14 @@ export class CommentRepository extends Context.Service<
      * derivation — returns prior authors so the caller can exclude the new
      * comment's author from the resulting list.
      *
-     * `tableId` is REQUIRED: record ids are per-table sequences, so a thread
-     * is identified by `(table, record)`, never by the record alone.
+     * `tableKeys` is REQUIRED: record ids are per-table sequences, so a thread
+     * is identified by `(table, record)`, never by the record alone. It names
+     * every key of the ONE table (`commentTableKeysOf`): a comment keeps the
+     * spelling — id or name — it was posted through.
      */
     readonly listAuthorsForRecord: (config: {
       readonly session: Readonly<UserSession>
-      readonly tableId: string
+      readonly tableKeys: readonly string[]
       readonly recordId: string
     }) => Effect.Effect<readonly string[], DatabaseError>
 
@@ -143,13 +151,13 @@ export class CommentRepository extends Context.Service<
      * `to`. The caller drops the new comment's author by user id before
      * surfacing the emails.
      *
-     * `tableId` is REQUIRED and is a privacy boundary, not a filter: record
+     * `tableKeys` is REQUIRED and is a privacy boundary, not a filter: record
      * ids are per-table sequences, so a record-only lookup returns the email
      * addresses of every same-numbered record's commenters across the app.
      */
     readonly listAuthorEmailsForRecord: (config: {
       readonly session: Readonly<UserSession>
-      readonly tableId: string
+      readonly tableKeys: readonly string[]
       readonly recordId: string
     }) => Effect.Effect<
       readonly { readonly userId: string; readonly email: string }[],
@@ -227,13 +235,14 @@ export class CommentRepository extends Context.Service<
     }) => Effect.Effect<void, DatabaseError>
 
     /**
-     * List a record's comments. `tableId` is REQUIRED — a record id alone is
-     * not an identity (per-table sequences), so an unscoped list returns
-     * every same-numbered record's comments app-wide.
+     * List a record's comments. `tableKeys` is REQUIRED — a record id alone
+     * is not an identity (per-table sequences), so an unscoped list returns
+     * every same-numbered record's comments app-wide. It names every key of
+     * the one table, as `listAuthorsForRecord` does.
      */
     readonly list: (config: {
       readonly session: Readonly<UserSession>
-      readonly tableId: string
+      readonly tableKeys: readonly string[]
       readonly recordId: string
       readonly limit?: number
       readonly offset?: number
@@ -248,7 +257,7 @@ export class CommentRepository extends Context.Service<
 
     readonly getCount: (config: {
       readonly session: Readonly<UserSession>
-      readonly tableId: string
+      readonly tableKeys: readonly string[]
       readonly recordId: string
       /**
        * Moderation visibility, mirrors `list` so the pagination total

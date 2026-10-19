@@ -29,7 +29,8 @@
  */
 
 import { Duration, Effect, Stream } from 'effect'
-import { AiError, LanguageModel } from 'effect/ai'
+import * as AiError from 'effect/ai/AiError'
+import * as LanguageModel from 'effect/ai/LanguageModel'
 import {
   AiProviderError,
   AiTimeoutError,
@@ -49,7 +50,8 @@ import {
 } from '@/infrastructure/egress/bounded-http-client'
 import { callOptions, toPrompt } from './language-model-prompt'
 import { createThinkTagSplitter, splitThinkTags, type SplitPiece } from './think-tag-splitter'
-import type { Response, Tool } from 'effect/ai'
+import type * as Response from 'effect/ai/Response'
+import type * as Tool from 'effect/ai/Tool'
 
 /**
  * How one provider scopes a call's settings — model, sampling, output budget,

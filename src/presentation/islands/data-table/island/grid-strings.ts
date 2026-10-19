@@ -41,3 +41,13 @@ export function useGridString(
   const template = useContext(GridStringsContext)[key] ?? english
   return values === undefined ? template : fillPlaceholders(template, values)
 }
+
+/** `1 record`, `2 records`: how many rows the grid counts, in the right number. */
+export function useResultCount(count: number): string {
+  const one = count === 1
+  return useGridString(
+    one ? 'sharedFilter.resultCountOne' : 'sharedFilter.resultCount',
+    one ? '{count} record' : '{count} records',
+    { count }
+  )
+}

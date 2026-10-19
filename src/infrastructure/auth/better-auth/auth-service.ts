@@ -22,9 +22,9 @@ export { AuthError }
  *
  * The import is `import type` DELIBERATELY, and it is what makes this module
  * loadable without the `better-auth` package. `./auth` pulls `betterAuth`, the
- * drizzle adapter and every plugin — 356 ms of a 730 ms cold boot — so a value
- * import here would defeat the whole point of splitting the tag out of
- * `./layer`. Keep it type-only.
+ * drizzle adapter and the always-on plugins, so a value import here would
+ * defeat the whole point of splitting the tag out of `./layer`. Keep it
+ * type-only.
  */
 type AuthInstance = ReturnType<typeof createAuthInstance>
 

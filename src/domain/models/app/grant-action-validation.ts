@@ -74,7 +74,7 @@ const literalOf = (props: Readonly<Record<string, unknown>>, prop: string): stri
 /** The reasons one step's literal table and role are refused. */
 const refusalsOf = (found: GrantStep, context: UserAccessValidationContext): readonly string[] => {
   const table = literalOf(found.props, 'table')
-  const role = found.operator === 'revokeAccess' ? undefined : literalOf(found.props, 'role')
+  const role = literalOf(found.props, 'role')
   const tableError =
     table === undefined
       ? undefined

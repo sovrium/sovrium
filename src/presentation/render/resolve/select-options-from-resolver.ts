@@ -31,7 +31,8 @@ import type { OptionItem } from '@/domain/models/app/pages/components/shared-sch
  * `table` may be `$param.<segment>`: the page address names the table. An
  * address naming no declared table answers 404, as a route-bound grid does —
  * "no such table" must not render as an empty facet, which reads as "a table
- * with no states".
+ * with no states". A name the address did not supply is only ever unknown in
+ * a document built without the app's tables, and offers no options there.
  *
  * The reader's read rules apply: a reader who may not read the field is offered
  * none of its options, and the control keeps only its unset row.
@@ -47,6 +48,10 @@ export interface SelectOptionsFromContext {
 /** The table name an address segment supplies, or the literal name. */
 const tableNameOf = (table: string, routeParams: Readonly<Record<string, string>>) =>
   table.startsWith('$param.') ? routeParams[table.slice('$param.'.length)] : table
+
+/** Whether a binding's table name came from the page address. */
+const namedByAddress = (table: string, routeParams: Readonly<Record<string, string>>) =>
+  table.startsWith('$param.') || Object.values(routeParams).includes(table)
 
 /** One declared option, as the control offers it. */
 const toOption = (option: unknown): OptionItem | undefined => {
@@ -101,9 +106,12 @@ function bindingOptions(
   if (typeof binding.table !== 'string' || typeof binding.field !== 'string') return []
   const name = tableNameOf(binding.table, ctx.routeParams)
   const table = (ctx.app.tables ?? []).find((candidate) => candidate.name === name)
-  // A literal unknown name is refused at boot, so one met here came from the
-  // address — substituted before this pass, or named by `$param.` still.
-  if (table === undefined) return NOT_FOUND
+  // A name the ADDRESS supplied — still `$param.`, or already substituted to a
+  // route value — naming no table is the page's 404. Any other unknown name met
+  // here belongs to a document rendered from an app carrying no `tables` at all
+  // (a console viewport frame, which by construction holds no data): the
+  // control is offered nothing, as a reader allowed no option would be.
+  if (table === undefined) return namedByAddress(binding.table, ctx.routeParams) ? NOT_FOUND : []
   const field = table.fields.find((candidate) => candidate.name === binding.field)
   if (field === undefined || !CHOICE_FIELD_TYPES.has(field.type)) return []
   if (!mayRead(table as TableLike, field.name, ctx)) return []

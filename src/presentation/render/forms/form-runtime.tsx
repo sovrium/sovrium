@@ -343,11 +343,8 @@ ${FORM_RUNTIME_FIELD_ERRORS_SCRIPT}${FORM_RUNTIME_EDIT_LINK_SCRIPT}${FORM_RUNTIM
   }
 
   function applyReset(response, force) {
-    // Use the source array directly with indexOf — earlier revisions built
-    // a lookup object via reduce(), but a field literally named
-    // "__proto__" or "hasOwnProperty" would have collided with
-    // Object.prototype keys. indexOf on a small array is also faster in
-    // practice for the typical preserveFields list (1-3 entries).
+    // indexOf on the source array, not a lookup object: a field named
+    // "__proto__" or "hasOwnProperty" would collide with Object.prototype.
     var preserve = onSuccess.preserveFields || []
     var inputs = namedInputs()
     inputs.forEach(function (input) {
@@ -363,6 +360,8 @@ ${FORM_RUNTIME_FIELD_ERRORS_SCRIPT}${FORM_RUNTIME_EDIT_LINK_SCRIPT}${FORM_RUNTIM
     // above is not enough — the flow itself has to rewind to step 1, and the
     // server-side draft has to stop prefilling later steps with the answers
     // just submitted. \`showStep\` does both; \`preserve\` is what survives.
+    // The design system's controls (a Select, a date picker) read back what was written.
+    form.dispatchEvent(new Event('sovrium:values-reset'))
     applyConditions()
     paintRatings()
     if (isMultiStep) showStep(0, preserve)

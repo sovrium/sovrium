@@ -16,6 +16,7 @@ import {
 import { CrudFieldShell } from './crud-field-shell'
 import { attachmentFilenames } from './crud-form-attachment-names'
 import { renderButtonSkeleton } from './crud-form-button-skeleton'
+import { renderDateSkeleton, renderSelectSkeleton } from './crud-form-choice-skeletons'
 import {
   inputTypeOf,
   inputValueOf,
@@ -95,36 +96,6 @@ function renderRichTextSkeleton(field: SkeletonFieldDef): ReactElement {
         type="hidden"
         name={field.name}
       />
-    </CrudFieldShell>
-  )
-}
-
-function renderSelectSkeleton(field: SkeletonFieldDef): ReactElement {
-  const options = field.options ?? []
-  // A schema-declared `default` preselects its option, so the value the user
-  // sees before hydration is the value the form will actually write.
-  const defaultValue = field.defaultValue !== undefined ? String(field.defaultValue) : ''
-  return (
-    <CrudFieldShell
-      key={field.name}
-      field={field}
-    >
-      <select
-        name={field.name}
-        defaultValue={defaultValue}
-        {...(field.disabled && { disabled: true })}
-        {...fieldDescribedBy(field)}
-      >
-        <option value="">Select...</option>
-        {options.map((opt) => (
-          <option
-            key={opt.value}
-            value={opt.value}
-          >
-            {opt.label}
-          </option>
-        ))}
-      </select>
     </CrudFieldShell>
   )
 }
@@ -250,13 +221,13 @@ const SKELETON_RENDERERS: Record<FieldWidget, (field: SkeletonFieldDef) => React
   text: renderDefaultSkeleton,
   email: renderDefaultSkeleton,
   url: renderDefaultSkeleton,
-  // The remaining widgets have no bespoke skeleton: the placeholder is a plain
-  // input either way — typed as the island's control is (`number`, `date`,
-  // `datetime-local`) — and the island swaps in the real control on hydration.
+  // The remaining widgets have no bespoke skeleton but the date picker's: the
+  // placeholder is a plain input either way — typed as the island's control is
+  // (`number`, `datetime-local`) — and the island swaps in the real control.
   // Listed one per line rather than collapsed into a shared default, so adding
   // a widget still forces a decision here instead of inheriting someone else's.
   number: renderDefaultSkeleton,
-  date: renderDefaultSkeleton,
+  date: (field) => renderDateSkeleton(field, String(field.defaultValue ?? '')),
   datetime: renderDefaultSkeleton,
   'multi-select': renderDefaultSkeleton,
   'record-picker': renderDefaultSkeleton,
@@ -359,5 +330,6 @@ export function renderUpdateSkeletonField(
     return renderUpdateFileSkeleton(field, false, record[field.name])
   if (field.type === 'multiple-attachments')
     return renderUpdateFileSkeleton(field, true, record[field.name])
+  if (fieldWidgetOf(field.type) === 'date') return renderDateSkeleton(field, currentValue)
   return renderUpdateInputSkeleton(field, currentValue)
 }

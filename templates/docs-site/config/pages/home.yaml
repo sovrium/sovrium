@@ -45,7 +45,7 @@ components:
               className: font-mono text-xs uppercase tracking-wider text-foreground-subtle
             content: Docs · built from markdown
   # Below the text: the two ways in, the first one filled, and the command
-  # that starts the site, its bar in the code theme's own `#0d0d0d` ground.
+  # that starts the site.
   - type: container
     props:
       className: mx-auto flex w-full max-w-[880px] flex-col items-start gap-5 pt-5 max-lg:px-6 max-md:px-3
@@ -69,8 +69,7 @@ components:
           language: bash
         classes:
           parts:
-            frame: w-full max-w-[640px] border-[#0d0d0d]
-            caption: '!border-white/10 !bg-[#0d0d0d] !text-[#8b949e]'
+            frame: w-full max-w-[640px]
         content: |-
           sovrium init my-docs --template docs-site
           cd my-docs && sovrium start app.yaml

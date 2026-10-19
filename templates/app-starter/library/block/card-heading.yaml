@@ -1,5 +1,5 @@
 # sovrium-library: block/card-heading@0.37.0
-# sovrium-library-params: archiveHref=%2Fclients%2Fatelier-nord%2Farchive&editHref=%2Fclients%2Fatelier-nord%2Fedit&shareHref=%2Fclients%2Fatelier-nord%2Fshare&subtitle=Client%20since%20March%202024&title=Atelier%20Nord
+# sovrium-library-params: archiveHref=%2Fkit%2Fclients%2F1&editHref=%2Fkit%2Fclients%2F1&shareHref=%2Fkit%2Fclients%2F1&subtitle=Client%20since%20March%202024&title=Maison%20Lefort
 name: card-heading
 type: container
 props:
@@ -28,7 +28,7 @@ children:
                     element: h3
                     props:
                       className: text-md font-semibold text-foreground
-                    content: Atelier Nord
+                    content: Maison Lefort
                   - type: text
                     element: span
                     props:
@@ -41,18 +41,18 @@ children:
                 icon: pencil
                 action:
                   type: navigate
-                  path: /clients/atelier-nord/edit
+                  path: /kit/clients/1
               - label: Share
                 icon: share-2
                 action:
                   type: navigate
-                  path: /clients/atelier-nord/share
+                  path: /kit/clients/1
               - separator: true
               - label: Archive
                 icon: archive
                 action:
                   type: navigate
-                  path: /clients/atelier-nord/archive
+                  path: /kit/clients/1
       - type: container
         props:
           className: p-5

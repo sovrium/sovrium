@@ -126,6 +126,7 @@ function buildBodyProps(props: DataTableViewProps, derived: ViewDerived): GridBo
     phoneLayout: props.phoneLayout,
     table: props.table,
     totalRecords: props.totalRecords,
+    unanswered: props.isLoading || props.unanswered === true,
     paginationConfig: props.paginationConfig,
     cursorPaged: props.cursorPaged === true,
     hasMore: props.hasMore === true,

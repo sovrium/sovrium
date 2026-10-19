@@ -81,13 +81,15 @@ const collectDatabasePhases = (
 
 /**
  * The CSS line of the startup report. "loaded from file" is the pre-compiled
- * fast path; "compiled" is the default; and a compile that had to set a stale
+ * fast path; "compiled" is the default ("from cache" when an earlier boot's
+ * compile of the same inputs was reused); and a compile that had to set a stale
  * pre-compiled file aside says so, because the operator who ran `sovrium
  * build` expects the first and needs to know why they got the second.
  */
 const cssStartupLabel = (result: CompiledCSS, sizeKB: number): string => {
   if (result.precompiled) return `CSS loaded from file (${sizeKB} KB)`
   if (result.staleIgnored) return `CSS compiled (${sizeKB} KB, stale pre-compiled file ignored)`
+  if (result.reused) return `CSS compiled (${sizeKB} KB) from cache`
   return `CSS compiled (${sizeKB} KB)`
 }
 

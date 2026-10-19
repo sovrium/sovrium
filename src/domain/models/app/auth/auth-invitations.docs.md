@@ -39,6 +39,8 @@ The accept page sends nothing until its script has run: its Accept button waits 
 
 Tokens expire after `invitationTokenExpiry` — 72 hours by default — and are **single-use**, consumed on the first successful accept. A replay is refused rather than silently re-onboarding somebody.
 
+Accepting verifies the invitee's address — following the link proves they read that mailbox — and starts the app's `auth` automations listening to `emailVerified` (when the address was not verified yet) and `invitationAccepted`, before the `signIn` of the session it opens. See [Auth & Form Triggers](/en/docs/trigger-auth-form).
+
 Closing public self-registration does **not** block invitations. That is precisely when you need this flow: admin-driven user creation stays available whenever authentication is configured.
 
 ## Delegating the grant
@@ -93,4 +95,4 @@ The default is validated against the built-ins plus your declared roles, so a ty
 
 An admin-equivalent inviter creates the account and grants no tenant scope: wiring the user to the data they may reach is a separate step, so you can invite first and assign later, or the reverse.
 
-A delegated inviter is the exception. The invitee inherits that inviter's own scope rows, because a tenant-scoped person onboarding a colleague into a tenant they do not themselves share would be the surprising outcome.
+A delegated inviter is the exception. The invitee inherits that inviter's own reach — one grant per scope table, under the invited role, naming every record the inviter reaches there — because a tenant-scoped person onboarding a colleague into a tenant they do not themselves share would be the surprising outcome.

@@ -34,6 +34,7 @@ import { signalCancellation } from '@/application/use-cases/automations/run/sche
 import {
   findReadableRun,
   loadRunAccess,
+  startedByHandBy,
   type ReadableRun,
   type RunAccess,
 } from '@/application/use-cases/automations/run-access'
@@ -103,7 +104,7 @@ export const gateActionableRun = async (
 
 /** The caller's id when she started `run` by hand, `undefined` otherwise. */
 const handStarterOf = (run: ReadableRun['run'], userId: string | undefined): string | undefined =>
-  userId !== undefined && run.startedByHand && run.triggeredByUserId === userId ? userId : undefined
+  startedByHandBy(run, userId) ? userId : undefined
 
 /**
  * The trigger data a replay body carries, when it carries one — or the refusal

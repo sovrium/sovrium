@@ -8,6 +8,7 @@
 import { useMemo } from 'react'
 import { useRealtimeReconciliation } from '../../../hooks/use-realtime-reconciliation'
 import { useCursorFeedView } from '../../../hooks/use-system-cursor-pages'
+import { narrowByPublishedConditions } from '../../filtering/published-conditions'
 import { useContinuationOverlap } from '../../pagination/use-continuation-overlap'
 import { createRowActionHandler } from '../../row-actions/row-action-handler'
 import { buildColumns } from '../columns'
@@ -43,7 +44,12 @@ export function effectiveSelection(params: {
  * A binding's `limit` caps both the rows and the total the pager counts: the
  * server pages in whole page sizes, so the last page under the cap is cut here.
  */
-export function useGridRecords(ctx: SetupContext, layout: EffectiveLayout, records: RecordsQuery) {
+export function useGridRecords(
+  ctx: SetupContext,
+  layout: EffectiveLayout,
+  records: RecordsQuery,
+  published: Readonly<Record<string, string>>
+) {
   const page = useContinuationOverlap(
     records.cursorPages,
     records.query.data,
@@ -55,15 +61,18 @@ export function useGridRecords(ctx: SetupContext, layout: EffectiveLayout, recor
   const { pageIndex, pageSize } = layout.tableState.pagination
   // A feed holds every page it has loaded, so its cap counts from its first row.
   const offset = records.loadMore || cursorFeed.cursorPaged ? 0 : pageIndex * pageSize
-  const rows = useMemo(
-    () => cappedRows(cursorFeed.records, limit, offset),
-    [cursorFeed.records, limit, offset]
-  )
-
   // A load-more or infinite grid holds an accumulation, but its server still
   // counts the whole view: that count is the total its status announces.
   const total = records.loadMore ? (page?.total ?? cursorFeed.total) : cursorFeed.total
-  return { cursorFeed, rows, totalRecords: cappedTotal(total, limit) }
+  // A system source does not read the conditions a page control publishes; when
+  // the grid holds every row of it, they are applied here instead.
+  const narrowsHere = resolveClientSorted(ctx.isSystemSource, cursorFeed.records.length, total)
+  const rows = useMemo(() => {
+    const capped = cappedRows(cursorFeed.records, limit, offset)
+    return narrowsHere ? narrowByPublishedConditions(capped, published) : capped
+  }, [cursorFeed.records, limit, offset, narrowsHere, published])
+  const totalRecords = narrowsHere ? rows.length : cappedTotal(total, limit)
+  return { cursorFeed, rows, totalRecords }
 }
 
 /**

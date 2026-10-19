@@ -8,6 +8,7 @@
 import {
   appendToastDismissControl,
   appendToastMessage,
+  appendToastRetry,
   keepToastsClearOfFocus,
   markToastPoliteness,
   resolveToastDismissLabel,
@@ -37,6 +38,8 @@ type ToastOptions = {
   duration?: number
   actionLabel?: string
   actionUrl?: string
+  /** A Retry: an `actionLabel` with no `actionUrl` runs this again (see `appendToastRetry`). */
+  retry?: () => void
   /** A loading toast this one takes the place of: one toast that turns into its outcome. */
   replacing?: Element
 }
@@ -90,6 +93,8 @@ export function showToast(message: string, options: ToastOptions = {}): Element 
 
   if (options.actionLabel && options.actionUrl) {
     toast.appendChild(createActionButton(toast, options.actionLabel, options.actionUrl))
+  } else if (options.actionLabel && options.retry) {
+    appendToastRetry(toast, { label: options.actionLabel, run: options.retry })
   }
 
   // Dismissal is the shared policy, never a local rule: an explicit `duration`
@@ -101,7 +106,7 @@ export function showToast(message: string, options: ToastOptions = {}): Element 
   const dismissAfter = resolveToastDuration({
     duration: options.duration,
     variant: options.variant,
-    hasAction: Boolean(options.actionLabel && options.actionUrl),
+    hasAction: Boolean(options.actionLabel && (options.actionUrl || options.retry)),
   })
 
   // A toast that never expires gets the control that removes it — and the toast

@@ -25,8 +25,10 @@ import { TableRepository } from '@/application/ports/repositories/tables/table-r
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { rowPassesRule } from '@/domain/models/app/tables/row-level-write-decision-service'
+import { admitsRow } from '@/domain/models/app/tables/row-read-admission-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
 import { loadCurrentUserContext, rowRuleScopeOf } from './permissions/row-level-enforcement'
+import { readerRowsOf } from './row-read-admission'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
@@ -112,7 +114,10 @@ export const readableRows = (
 
 /**
  * The keys among `keys` that `reader` may read in `relatedTable`, or
- * `undefined` when the table imposes no read rule on this reader.
+ * `undefined` when the table imposes no read rule on this reader — its
+ * row-level read rule, and the rows she may read a field of
+ * (`readerRowsOf`): on a scope table whose fields her role cannot read, the
+ * rows a grant admits.
  */
 export const readableKeys = (
   app: App,
@@ -124,10 +129,13 @@ export const readableKeys = (
   DatabaseError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
-  readableRows(app, relatedTable, keys, reader).pipe(
-    Effect.map((rows) => (rows === undefined ? undefined : new Set(rows.keys()))),
-    Effect.withSpan('tables.readable-linked-keys')
-  )
+  Effect.gen(function* () {
+    const rows = yield* readableRows(app, relatedTable, keys, reader)
+    const { admission } = yield* readerRowsOf(app, relatedTable.name, reader)
+    const byRule = rows === undefined ? undefined : [...rows.keys()]
+    if (admission.kind === 'every-row') return byRule === undefined ? undefined : new Set(byRule)
+    return new Set((byRule ?? keys).filter((key) => admitsRow(admission, key)))
+  }).pipe(Effect.withSpan('tables.readable-linked-keys'))
 
 /**
  * `linkMap` with every link the reader may not read removed. Fields whose

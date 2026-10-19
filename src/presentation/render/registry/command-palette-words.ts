@@ -8,9 +8,10 @@
 /**
  * The ⌘K palette's own words, resolved on the server in the page language and
  * stamped into what the island reads: the create dialog's labels, the
- * keyboard-hint footer, and a search palette's table names.
+ * keyboard-hint footer, and a search palette's table names and kind words.
  */
 
+import { adminSearchEntityTypes } from '@/domain/models/api/admin/search/search'
 import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import type { ComponentDispatchConfig } from './component-dispatch-config'
 
@@ -97,4 +98,61 @@ export const tableLabelsOf = (
   return typeof stamped === 'object' && stamped !== null
     ? (stamped as Readonly<Record<string, string>>)
     : {}
+}
+
+/**
+ * A search palette's kind words in the page language: the group heading
+ * (`commandPalette.kind.<kind>`) and the row badge (`commandPalette.kindOne.<kind>`)
+ * for every kind the console search returns. The index stores a kind as its
+ * key, so it is named here, per request, in the reader's language. A heading
+ * the config writes under `search.kindLabels` wins over the built-in one.
+ */
+export const searchKindWords = (
+  config: ComponentDispatchConfig,
+  authored: Readonly<Record<string, string>> | undefined
+): {
+  readonly kindLabels: Readonly<Record<string, string>>
+  readonly kindBadges: Readonly<Record<string, string>>
+} => {
+  const resolve = (key: string) =>
+    resolveInterpreterString(key, config.currentLang ?? config.languages?.default, config.languages)
+  const wordsFor = (prefix: string) =>
+    Object.fromEntries(
+      adminSearchEntityTypes.map((kind) => [kind, resolve(`commandPalette.${prefix}.${kind}`)])
+    )
+  return {
+    kindLabels: { ...wordsFor('kind'), ...authored },
+    kindBadges: wordsFor('kindOne'),
+  }
+}
+
+/** The pages a search palette matches, stamped by the page pass (`props._navPages`). */
+export const navPagesOf = (
+  component: ComponentDispatchConfig['component']
+): ReadonlyArray<{ readonly name: string; readonly path: string; readonly title: string }> => {
+  const stamped = (component as { readonly props?: Record<string, unknown> } | undefined)?.props?.[
+    '_navPages'
+  ]
+  return Array.isArray(stamped)
+    ? (stamped as ReadonlyArray<{
+        readonly name: string
+        readonly path: string
+        readonly title: string
+      }>)
+    : []
+}
+
+/** The built-in words a search palette's Pages and Quick actions groups speak. */
+const SEARCH_ACTION_WORDS = ['pages', 'quickActions', 'toggleDarkMode', 'darkModeOn', 'lightModeOn']
+
+export const searchActionWords = (
+  config: ComponentDispatchConfig
+): Readonly<Record<string, string>> => {
+  const strings = paletteStrings(config)
+  return Object.fromEntries(
+    SEARCH_ACTION_WORDS.flatMap((word) => {
+      const value = strings[word]
+      return value === undefined ? [] : [[word, value]]
+    })
+  )
 }

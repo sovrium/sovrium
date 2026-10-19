@@ -5,12 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { lt } from 'drizzle-orm'
+import { count, lt } from 'drizzle-orm'
 import { activityLogRetentionCutoff } from '@/domain/models/app/admin/activity-log-retention'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { activityLogs as activityLogsPg } from '@/infrastructure/database/drizzle/schema/activity-log'
 import { activityLogs as activityLogsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/activity-log'
+import {
+  RetentionSweepFailure,
+  inReadWriteTransaction,
+} from '@/infrastructure/database/read-write-sweep'
 import { logInfo } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 
@@ -54,22 +58,29 @@ const activityLogs = resolveDialectSchema(activityLogsPg, activityLogsSqlite)
  * string to an integer on SQLite and silently match nothing, which is the
  * failure mode this executor exists to end.
  *
+ * The delete runs in a transaction opened READ WRITE (`read-write-sweep.ts`):
+ * a managed PostgreSQL out of disk defaults every transaction to read-only,
+ * and this sweep is one of the few things that can free its space. The rows
+ * due are counted first so a refusal can say how many it meant to delete, and
+ * the outcome is logged every time, zero included, so the journal shows the
+ * sweep ran.
+ *
  * @param now - the reference instant, injected so the sweep is testable.
  * @returns the number of rows deleted.
  */
 export async function purgeExpiredActivityLogs(now: Date = new Date()): Promise<number> {
   const cutoff = activityLogRetentionCutoff(now, resolveOperatorTimezone())
-  const deleted = await db
-    .delete(activityLogs)
-    .where(lt(activityLogs.createdAt, cutoff))
-    .returning({
-      id: activityLogs.id,
-    })
+  const expired = lt(activityLogs.createdAt, cutoff)
+  const [due] = await db.select({ n: count() }).from(activityLogs).where(expired)
+  const attempted = Number(due?.n ?? 0)
+  const deleted = await inReadWriteTransaction((tx) =>
+    tx.delete(activityLogs).where(expired).returning({ id: activityLogs.id })
+  ).catch((cause: unknown) => {
+    throw new RetentionSweepFailure({ table: 'system.activity_logs', attempted, cause })
+  })
 
-  if (deleted.length > 0) {
-    logInfo(
-      `[activity-log-retention] Deleted ${deleted.length} activity-log row(s) older than ${cutoff.toISOString()}`
-    )
-  }
+  logInfo(
+    `[activity-log-retention] Deleted ${String(deleted.length)} activity-log row(s) older than ${cutoff.toISOString()}`
+  )
   return deleted.length
 }

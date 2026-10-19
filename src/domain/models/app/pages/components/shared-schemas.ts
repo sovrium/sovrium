@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { ActionSchema } from './action'
+import { ThemeActionSchema } from './action-client'
 import { ButtonVariantSchema } from './button-variant'
 
 // ---------------------------------------------------------------------------
@@ -42,6 +43,24 @@ export const optStr = (description: string) =>
  */
 export const optBool = (description: string) =>
   Schema.optional(Schema.Boolean.annotate({ description }))
+
+// ---------------------------------------------------------------------------
+// Value labels (a grid column and a record-sheet entry)
+// ---------------------------------------------------------------------------
+
+/**
+ * Display-label map for known stored values: stored value (key) -> the words a
+ * reader reads (value).
+ *
+ * ONE shape for the two surfaces that show the same value side by side — a
+ * grid column (`columns[].valueLabels`) and a record-sheet entry
+ * (`recordFields[].valueLabels`) — so the grid and the sheet opened on its row
+ * cannot say a status two ways. Render-only at both sites: the record, a save
+ * and every API answer keep the stored value. Each site annotates it with its
+ * own words; the node itself carries no identifier, so that does not fork a
+ * definition.
+ */
+export const ValueLabelsSchema = Schema.Record(Schema.String, Schema.String)
 
 // ---------------------------------------------------------------------------
 // Size schema (reused by button, switch, progress, toggle, slider)
@@ -115,6 +134,18 @@ export const OptionItemSchema = Schema.Struct({
 // ---------------------------------------------------------------------------
 
 /**
+ * What a menu item does when chosen: any component action, or a `theme` action,
+ * which only a menu item accepts because only a menu can draw the current
+ * choice beside it.
+ */
+const MenuItemActionSchema = Schema.Union([ActionSchema, ThemeActionSchema]).annotate({
+  identifier: 'MenuItemAction',
+  title: 'Menu Item Action',
+  description:
+    'Action triggered when the item is chosen: any component action, or a theme action (light, dark or system), which a menu draws as a radio row checked on the current choice',
+})
+
+/**
  * Menu item for contextual menus and menubars
  *
  * Supports nested sub-menus via recursive `children`, separator dividers,
@@ -153,7 +184,7 @@ export const MenuItemSchema = Schema.Struct({
     })
   ),
   /** Action triggered when the item is clicked */
-  action: Schema.optional(ActionSchema),
+  action: Schema.optional(MenuItemActionSchema),
   /** Keyboard shortcut hint text */
   shortcut: Schema.optional(
     Schema.String.annotate({

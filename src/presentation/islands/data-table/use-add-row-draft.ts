@@ -5,9 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useCallback, useState } from 'react'
-import { coerceFieldValues, isComputedFieldType } from '../runtime/field-value-coercion'
+import { useCallback, useContext, useState } from 'react'
+import { fillPlaceholders } from '@/domain/kernel/format/placeholder-format'
+import {
+  type CoercionWords,
+  coerceFieldValues,
+  coercionWordsFrom,
+  isComputedFieldType,
+} from '../runtime/field-value-coercion'
 import { postRecord } from './island/create-record-data'
+import { GridStringsContext, type GridStrings } from './island/grid-strings'
 import type { SelectOptionLike } from '@/domain/models/app/tables/select-option'
 
 /**
@@ -52,25 +59,31 @@ const isBlank = (value: unknown): boolean =>
  * The first reason a draft cannot be posted, or `undefined` when it can.
  *
  * Required columns are checked HERE, before any request goes out, so the
- * refusal names the column in the words the rest of the suite already uses
- * (`<Label> is required`) and the draft stays exactly as typed — a refusal
- * that also erased the draft would punish the reader twice for one mistake.
+ * refusal names the column in the form's own words (`form.requiredNamed`,
+ * `<Label> is required` in English) and the draft stays exactly as typed — a
+ * refusal that also erased the draft would punish the reader twice for one
+ * mistake.
  */
 function firstRefusal(
   columns: readonly AddRowColumn[],
-  values: Readonly<Record<string, unknown>>
+  values: Readonly<Record<string, unknown>>,
+  strings: GridStrings
 ): string | undefined {
   const missing = columns.find(
     (column) =>
       isWritableAddRowColumn(column) && column.required && isBlank(values[column.field ?? ''])
   )
-  return missing === undefined ? undefined : `${missing.label} is required`
+  if (missing === undefined) return undefined
+  return fillPlaceholders(strings['form.requiredNamed'] ?? '{label} is required', {
+    label: missing.label,
+  })
 }
 
 /** The typed field map a draft posts: coerced by the shared rule, blanks left off. */
 function buildFields(
   columns: readonly AddRowColumn[],
-  values: Readonly<Record<string, unknown>>
+  values: Readonly<Record<string, unknown>>,
+  words: CoercionWords
 ): { readonly fields: Record<string, unknown>; readonly refused?: string } {
   const writable = columns.filter(isWritableAddRowColumn)
   const types = new Map(writable.map((column) => [column.field ?? '', column.type ?? '']))
@@ -79,7 +92,7 @@ function buildFields(
   const present = Object.fromEntries(
     Object.entries(values).filter(([field, value]) => types.has(field) && !isBlank(value))
   )
-  const { accepted, refused } = coerceFieldValues(present, types, labelOf)
+  const { accepted, refused } = coerceFieldValues(present, types, labelOf, words)
   const [first] = refused
   return {
     fields: Object.fromEntries(Object.entries(accepted).filter(([, value]) => value !== null)),
@@ -104,6 +117,7 @@ export function useAddRowDraft(params: {
 }) {
   const { tableName, columns, prefill, onCreated } = params
   const [state, setState] = useState<AddRowDraftState>(RESTING)
+  const strings = useContext(GridStringsContext)
 
   const open = useCallback((): void => setState({ ...RESTING, open: true }), [])
   const discard = useCallback((): void => setState(RESTING), [])
@@ -125,9 +139,9 @@ export function useAddRowDraft(params: {
     setState((current) => {
       if (!current.open || current.saving) return current
       const values = { ...prefill, ...current.values }
-      const refusal = firstRefusal(columns, values)
+      const refusal = firstRefusal(columns, values, strings)
       if (refusal !== undefined) return { ...current, error: refusal }
-      const { fields, refused } = buildFields(columns, values)
+      const { fields, refused } = buildFields(columns, values, coercionWordsFrom(strings))
       if (refused !== undefined) return { ...current, error: refused }
       void postRecord(tableName, fields).then((outcome) => {
         if (outcome.ok) {
@@ -143,7 +157,7 @@ export function useAddRowDraft(params: {
       })
       return { ...current, saving: true, error: undefined }
     })
-  }, [columns, prefill, tableName, onCreated])
+  }, [columns, prefill, tableName, onCreated, strings])
 
   return { state, open, discard, setValue, openEditor, closeEditor, commit }
 }

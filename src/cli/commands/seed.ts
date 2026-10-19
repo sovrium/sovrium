@@ -43,6 +43,7 @@ import { Option, Schema } from 'effect'
 import { buildSeedPlan } from '@/application/use-cases/seed/seed-plan'
 import { getFlagPathValue } from '@/cli/runtime/flag-vocabulary'
 import { seedRunRequestSchema } from '@/domain/models/api/automations/cloud/seed-run'
+import { parseSovriumDevClock } from '@/domain/models/process-env/dev-clock'
 import {
   SEED_MODES,
   parseSeedMode,
@@ -143,6 +144,18 @@ const requireRunAt = (flag: string | undefined): Readonly<Date> => {
     pinRunAtToDay(raw, clock) ??
     refuse(`Error: ${source} "${raw}" is not a calendar day. Expected YYYY-MM-DD, e.g. 2026-09-24.`)
   )
+}
+
+/**
+ * The pinned development clock an undated seeded row is created at, refused in
+ * production and when malformed exactly as a server refuses it at boot.
+ */
+const requireDevClock = (): Readonly<Date> | undefined => {
+  try {
+    return parseSovriumDevClock(Bun.env)
+  } catch (error) {
+    return refuse(`Error: ${error instanceof Error ? error.message : String(error)}`)
+  }
 }
 
 /** Settle every account question for the run, refusing before anything is written. */
@@ -338,6 +351,7 @@ export const handleSeedCommand = async (given: SeedCommandOptions): Promise<void
   const { options, reportPath, kept, print } = await localRun(given, argv)
   const mode = requireMode(options.mode)
   const runAt = requireRunAt(options.today)
+  const createdAt = requireDevClock()
   const configFile = options.configFile ?? (await discoverConfigFile())
   const { app, authoredTableIds } = await requireApp(configFile)
   const seedDir = await requireSeedDir(options.seedDir, configFile)
@@ -353,6 +367,7 @@ export const handleSeedCommand = async (given: SeedCommandOptions): Promise<void
     mode,
     requestedTables: options.tables,
     runAt,
+    createdAt,
   })
   if (!planned.ok) return refuse(`Error: seed data was refused:\n${indent(planned.errors)}`)
 

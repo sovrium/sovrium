@@ -11,27 +11,25 @@
  */
 
 import { Effect } from 'effect'
+import { StorageService, type BucketBinding } from '@/application/ports/services/storage-service'
 import {
-  StorageService,
-  UNATTRIBUTED_BUCKET,
-  type BucketBinding,
-} from '@/application/ports/services/storage-service'
+  signedLinkDisplay,
+  verifiedDownloadBinding,
+} from '@/application/use-cases/buckets/signed-download-binding'
 import { resolveSignBucket } from '@/application/use-cases/buckets/signed-url-minting'
-import { resolveStorageSigningSecret } from '@/application/use-cases/storage/signing-secret'
-import { inferMimeFromKey, isInlineSafeImageKey } from '@/domain/kernel/identity/mime-types'
+import {
+  inferMimeFromKey,
+  isFramablePreviewKey,
+  isInlineSafeImageKey,
+} from '@/domain/kernel/identity/mime-types'
 import { isChatAttachmentKey } from '@/domain/kernel/identity/storage-key'
 import { buildContentDisposition } from '@/domain/kernel/url/content-disposition'
-import { verifySignedUrl } from '@/domain/models/app/buckets/signed-url-service'
 import { provideDomain } from '@/infrastructure/logging/request-effect'
 import { storageErrorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { isNotFoundError } from '@/presentation/api/runtime/error-sanitizer'
 import type { App } from '@/domain/models/app'
-import type { SignedUrlClaims } from '@/domain/models/app/buckets/signed-url-service'
+import type { SignedUrlDisplay } from '@/domain/models/app/buckets/signed-url-service'
 import type { Context } from 'hono'
-
-/** Whether `token` is the one minted for these claims (constant-time). */
-const tokenVerifies = (claims: SignedUrlClaims, token: string): boolean =>
-  verifySignedUrl(resolveStorageSigningSecret(process.env), claims, token)
 
 /**
  * Download a stored object via the configured `StorageService`.
@@ -82,16 +80,48 @@ function stripUuidPrefix(key: string): string {
  */
 function buildSignedContentDisposition(path: string): string {
   const disposition = isInlineSafeImageKey(path) ? 'inline' : 'attachment'
-  const segments = stripUuidPrefix(path).split('/')
-  const filename = segments.at(-1) ?? path
-  return buildContentDisposition(filename, disposition)
+  return buildContentDisposition(fileNameOf(path), disposition)
+}
+
+/** The name a served object is saved or shown under: its key's last segment, unprefixed. */
+function fileNameOf(path: string): string {
+  return stripUuidPrefix(path).split('/').at(-1) ?? path
+}
+
+/**
+ * The headers a served object answers with.
+ *
+ * Every download keeps the blocking CSP — even if a browser renders the bytes,
+ * no embedded script / network / style can execute (Finding #2) — and the
+ * platform's refusal to be framed. The one exception is the address a
+ * `file-preview` frames: signed with the `inline` display claim AND naming a
+ * framable type (a PDF), it is served `inline` and may be framed by this
+ * origin's own pages, under the same `default-src 'none'`. A link signed for
+ * download, or an inline link to any other type, is never framable.
+ */
+function servedHeaders(path: string, display: SignedUrlDisplay | undefined): HeadersInit {
+  const base = { 'Content-Type': inferMimeFromKey(path), 'X-Content-Type-Options': 'nosniff' }
+  if (display === 'inline' && isFramablePreviewKey(path)) {
+    return {
+      ...base,
+      'Content-Disposition': buildContentDisposition(fileNameOf(path), 'inline'),
+      'Content-Security-Policy': "default-src 'none'; frame-ancestors 'self'",
+      'X-Frame-Options': 'SAMEORIGIN',
+    }
+  }
+  return {
+    ...base,
+    'Content-Disposition': buildSignedContentDisposition(path),
+    'Content-Security-Policy': "default-src 'none'",
+  }
 }
 
 /** Download `path` via the StorageService and stream it back to the client. */
 async function streamSignedDownload(
   c: Context,
   path: string,
-  bucket: BucketBinding
+  bucket: BucketBinding,
+  display: SignedUrlDisplay | undefined
 ): Promise<Response> {
   // A chat attachment is served by the chat's own route only, as if absent here.
   if (isChatAttachmentKey(path)) return notFound(c, 'File not found')
@@ -103,18 +133,9 @@ async function streamSignedDownload(
       ? notFound(c, 'File not found')
       : c.json(storageErrorBody('Download failed', 'STORAGE_ERROR'), 500)
   }
-  const body = Uint8Array.from(result.success)
-  return new Response(body, {
+  return new Response(Uint8Array.from(result.success), {
     status: 200,
-    headers: {
-      'Content-Type': inferMimeFromKey(path),
-      'Content-Disposition': buildSignedContentDisposition(path),
-      // Blocking CSP — even if a browser renders the bytes, no embedded
-      // script / network / style can execute. Mirrors the main download path
-      // (`buckets.ts` buildTransformResponse). Finding #2 remediation.
-      'Content-Security-Policy': "default-src 'none'",
-      'X-Content-Type-Options': 'nosniff',
-    },
+    headers: servedHeaders(path, display),
   })
 }
 
@@ -146,6 +167,7 @@ export function createHandleSignedServe(app: App) {
       return c.json(storageErrorBody('Operation mismatch', 'FORBIDDEN'), 403)
     }
 
+    const display = signedLinkDisplay(query)
     const binding = verifiedDownloadBinding(query, { bucket: bucketName, path, expires }, token)
     if (binding === undefined) {
       return c.json(storageErrorBody('Invalid signature', 'FORBIDDEN'), 403)
@@ -154,27 +176,6 @@ export function createHandleSignedServe(app: App) {
       return c.json(storageErrorBody('Signed URL expired', 'FORBIDDEN'), 403)
     }
 
-    return streamSignedDownload(c, path, binding)
+    return streamSignedDownload(c, path, binding, display)
   }
-}
-
-/**
- * The bucket a verified download link reads its object through, or `undefined`
- * when the token does not verify. A link an automation step minted carries the
- * `automation` scope and reaches its object as the automation's `file` actions
- * do, bucket-less; the scope is bound into the token, so no link signed for a
- * bucket can claim it.
- */
-function verifiedDownloadBinding(
-  query: Readonly<Record<string, string>>,
-  claims: { readonly bucket: string; readonly path: string; readonly expires: number },
-  token: string
-): BucketBinding | undefined {
-  const download = { ...claims, operation: 'download' as const }
-  if (query['scope'] === 'automation') {
-    return tokenVerifies({ ...download, scope: 'automation' }, token)
-      ? UNATTRIBUTED_BUCKET
-      : undefined
-  }
-  return tokenVerifies(download, token) ? claims.bucket : undefined
 }

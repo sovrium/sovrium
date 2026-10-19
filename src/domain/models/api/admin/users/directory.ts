@@ -192,6 +192,10 @@ export const adminDirectoryUserSchema = Schema.Struct({
     description:
       'Account role (`auth.user.role`). The column is nullable in storage; the handler coalesces a null/empty role to the app default role, so this is always a non-empty string. The vocabulary is the APP’s configured roles, not the operator tier.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
+  roleLabel: Schema.String.annotate({
+    description:
+      'What the console shows for the account role, resolved in this order: the `label` the app declares for the role in `auth.roles` (a `$t:` key is translated into the operator\'s console language: the account language, then the language preference, then English); otherwise, for the roles every app carries, the console\'s own words (in English "Admin", "Member", "Viewer", and "Admin (read-only)" for `admin-viewer`); otherwise the name made readable, its first letter capitalised and its hyphens as spaces (`accounting-read` reads "Accounting read"). Always present. The Role column shows it. Filtering, sorting (`sort=role` orders by the role name, not by these words) and Change role keep using `role`.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
   banned: Schema.Boolean.annotate({
     description:
       'Whether the account is banned (`auth.user.banned`). Drives the Statut pill: `false` → actif, `true` → banni.',
@@ -200,6 +204,12 @@ export const adminDirectoryUserSchema = Schema.Struct({
     Schema.Array(Schema.String).annotate({
       description:
         'The groups the account belongs to, by name, sorted. Empty for an account in no group, and for every account of an app that declares no group. It is what the console\'s Groups editor opens preset to. ABSENT when the memberships could not be read: an absent list is unknown, never "no group", so the editor offers no save that could clear them.',
+    })
+  ),
+  groupLabels: Schema.optionalKey(
+    Schema.Array(Schema.String).annotate({
+      description:
+        'What the console shows for each of `groups`, in the same order: the `label` the app declares for the group in `auth.groups` (a `$t:` key is translated into the operator\'s console language: the account language, then the language preference, then English); otherwise the name made readable, its first letter capitalised and its hyphens as spaces (`equipe-a` reads "Equipe a"). Present exactly when `groups` is, and as long. The Groups column shows these chips; the Groups editor keeps using `groups`.',
     })
   ),
 }).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'AdminDirectoryUser' })

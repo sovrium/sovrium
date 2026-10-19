@@ -55,6 +55,9 @@ export const FORM_RUNTIME_FIELD_ERRORS_SCRIPT = `
   function labelOf(input) {
     var label = input.id ? form.querySelector('label[for="' + input.id + '"]') : null
     if (!label) label = input.closest('label')
+    // A Select's or a date picker's value input has no id: its field's label names it.
+    var wrapper = input.closest('.form-field')
+    if (!label && wrapper) label = wrapper.querySelector('label')
     if (!label) return input.name || 'Field'
     var copy = label.cloneNode(true)
     copy.querySelectorAll('[aria-hidden="true"]').forEach(removeIfPresent)

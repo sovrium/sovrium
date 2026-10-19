@@ -31,7 +31,7 @@ import { Effect } from 'effect'
 import { LinkRepository } from '@/application/ports/repositories/links/link-repository'
 import { buildCatalog, dbEntry, configEntry, primaryDestination } from './catalog'
 import { configSlugs, declaredLink } from './config-slugs'
-import { countRecentLinkClicks, resolveEntryState } from './link-state'
+import { clicksWindowOf, countRecentLinkClicks, resolveEntryState } from './link-state'
 import type { CatalogEntry, CatalogState } from './catalog'
 import type { AnalyticsRepository } from '@/application/ports/repositories/analytics/analytics-repository'
 import type {
@@ -49,6 +49,9 @@ export interface LinkCatalogQuery {
   readonly source: LinkSource | undefined
   readonly state: CatalogState | undefined
   readonly includeArchived: boolean
+  /** Bounds of the window `clicks` counts over; the last 30 days when both are absent. */
+  readonly from?: Date | undefined
+  readonly to?: Date | undefined
 }
 
 /** A catalog entry with its resolved operational state. */
@@ -57,7 +60,7 @@ export interface StatedLinkEntry {
   readonly state: CatalogState
 }
 
-/** A stated entry with its clicks over the last 30 days. */
+/** A stated entry with its clicks over the window asked for (the last 30 days by default). */
 export interface CountedLinkEntry extends StatedLinkEntry {
   readonly clicks: number
 }
@@ -143,7 +146,7 @@ export const listLinkCatalog = (input: {
     const clicks = yield* countRecentLinkClicks(
       app.name,
       page.items.map((row) => row.entry.slug),
-      now
+      clicksWindowOf(now, query)
     )
     return {
       ...page,
@@ -197,6 +200,6 @@ export const readLinkEntry = (input: {
     const entry = yield* resolveLinkEntry(app, slug)
     if (entry === undefined) return undefined
     const state = yield* resolveEntryState(app.name, entry, now)
-    const clicks = yield* countRecentLinkClicks(app.name, [entry.slug], now)
+    const clicks = yield* countRecentLinkClicks(app.name, [entry.slug], clicksWindowOf(now))
     return { entry, state, clicks: clicks.get(entry.slug) ?? 0 }
   }).pipe(Effect.withSpan('links.read-entry'))

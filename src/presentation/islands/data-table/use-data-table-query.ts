@@ -8,7 +8,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { resolveRefetchInterval } from '../hooks/use-realtime-subscription'
-import { retryUnlessRateLimited } from '../runtime/read-failure'
+import { retryFaultsOnly } from '../runtime/read-failure'
 import { buildFilterParam, buildDataSourceSortParam, runDataTableFetch } from './data-table-fetch'
 import { groupPathKey } from './group-order'
 import type { DataTableFetchResult, GroupCount, ResolvedQuery } from './data-table-fetch'
@@ -66,6 +66,8 @@ interface UseDataTableQueryParams {
    * Inert for the DB-table path, which pages by number.
    */
   readonly cursor?: string
+  /** A system grid declaring no `pagination`: its request names no `?page=`. */
+  readonly unnumbered?: boolean
   readonly pagination: PaginationState
   readonly sorting: SortingState
   readonly globalFilter: string
@@ -129,6 +131,11 @@ interface UseDataTableQueryParams {
    * `'poll'`). Defaults to 30000 (30s) when polling and unspecified.
    */
   readonly pollIntervalMs?: number
+  /**
+   * `false` holds the read: the grid is waiting on the view it opens on, and a
+   * table-wide read now would be one it throws away. Defaults to reading.
+   */
+  readonly enabled?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -237,6 +244,7 @@ function resolveQuery(params: UseDataTableQueryParams): ResolvedQuery {
     sourceId: params.sourceId,
     sharedFilterParams: params.sharedFilterParams,
     ...(cursor !== undefined && { cursor }),
+    ...(params.unnumbered === true && { unnumbered: true }),
     pagination: params.pagination,
     sortParam: userSortParam ?? buildDataSourceSortParam(dataSourceSort),
     globalFilter: params.globalFilter,
@@ -261,6 +269,7 @@ export function useDataTableQuery(params: UseDataTableQueryParams) {
 
   const result = useQuery({
     queryKey,
+    enabled: params.enabled !== false,
     refetchInterval,
     // Sorting, paging and searching all re-key this query, and a new key has no
     // cached entry — so without this the rows the operator was reading are
@@ -271,7 +280,7 @@ export function useDataTableQuery(params: UseDataTableQueryParams) {
     // still on screen when the failure lands, which is what lets the grid keep
     // showing data instead of an error in place of itself.
     placeholderData: keepPreviousData,
-    retry: retryUnlessRateLimited,
+    retry: retryFaultsOnly,
     queryFn: (): Promise<DataTableFetchResult> => runDataTableFetch(resolved),
   })
 

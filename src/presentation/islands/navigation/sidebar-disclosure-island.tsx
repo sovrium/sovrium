@@ -5,19 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { computeSidebarSubEntryClasses } from '@/presentation/design/sidebar-default-classes'
 import {
   computeSidebarMenuSkeletonClasses,
   computeSidebarMenuSkeletonTextClasses,
 } from '@/presentation/design/sidebar-shell-classes'
-import { AuthoredChildren } from './sidebar-disclosure-authored'
-import {
-  TOGGLE_CLASS,
-  STATE_CLASS,
-  SUB_ITEM,
-  SUB_LIST,
-  subButtonAttributes,
-} from './sidebar-disclosure-classes'
+import { AuthoredChild, AuthoredChildren } from './sidebar-disclosure-authored'
+import { TOGGLE_CLASS, STATE_CLASS, SUB_ITEM, SUB_LIST } from './sidebar-disclosure-classes'
 import { Chevron, ToggleRow } from './sidebar-disclosure-parts'
 import { useSidebarDisclosure, type FetchState } from './use-sidebar-disclosure'
 import type { DisclosureSource, SidebarDisclosureIslandProps } from './sidebar-disclosure-props'
@@ -130,20 +123,13 @@ function FetchedChildren({
             key={entry.href}
             {...SUB_ITEM}
           >
-            {/* Authored bag first, so the renderer-owned attributes written
-                after it cannot be displaced — the ordering both other entry
-                renderers use. */}
-            <a
-              {...(entry.props ?? {})}
-              href={entry.href}
-              className={computeSidebarSubEntryClasses(current)}
-              {...subButtonAttributes(current)}
-              {...(rail !== true || entry.props?.['title'] !== undefined
-                ? {}
-                : { title: entry.label })}
-            >
-              <span>{entry.label}</span>
-            </a>
+            {/* The authored row's own link: a fetched entry is a leaf with no
+                icon and no badge, so it draws exactly what that row draws. */}
+            <AuthoredChild
+              item={entry}
+              isCurrent={current}
+              rail={rail}
+            />
           </li>
         )
       })}

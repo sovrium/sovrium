@@ -32,6 +32,7 @@ import { SOVRIUM_EXTENSION_KEY } from '@/domain/models/api/admin/design-system'
 import { stringifyTokenValue } from './design-system-token-rows'
 import type { FlatTokenRow } from '@/domain/models/api/admin/design-system/component-types'
 import type { DiscardedDeclaration } from '@/domain/models/api/admin/design-system/facets'
+import type { DarkPaint, DarkPaintSource } from '@/domain/models/app/design/dark-palette-service'
 
 /**
  * The colour-only half of a token row: its hex, its gamut, and its contrast with
@@ -77,6 +78,105 @@ interface ColourProjection {
   readonly darkGamut?: 'srgb' | 'wide'
   readonly darkContrastAgainst?: string
   readonly darkContrastRatio?: number
+  readonly ink?: string
+  readonly darkInk?: string
+}
+
+/**
+ * The ground a colour is measured on: its leaf name and its value in one scheme.
+ *
+ * Each `*-foreground` sits on its own surface (`primary-foreground` on
+ * `primary`), every other colour on `background` — see `colorGroundOf`.
+ * Measuring every ink against `background` graded `primary-foreground` white on
+ * white, "1:1 fails AA", on a palette whose button text is perfectly legible.
+ */
+export interface ContrastGround {
+  readonly name: string
+  readonly value: string
+}
+
+/** A colour function with an alpha below one: `oklch(1 0 0 / 10%)`, `rgb(0 0 0 / 0.4)`. */
+const TRANSLUCENT = /\/\s*(?:0?\.\d+|\d{1,2}(?:\.\d+)?%)\s*\)$/
+
+/** The gamut verdict of one value, on `hex`'s terms. */
+const gamutOf = (value: string, hex: string | undefined): 'srgb' | 'wide' | undefined => {
+  // A colour that RESOLVES but that sRGB cannot hold answers `wide`; one that
+  // does not resolve at all answers neither, so an absent `hex` beside a
+  // `gamut` means "out of gamut" and an absent `hex` with no `gamut` means "not
+  // a colour we could read". Those are different facts.
+  const resolvable = measureContrast(value, value) !== undefined
+  return hex !== undefined ? 'srgb' : resolvable ? 'wide' : undefined
+}
+
+/**
+ * The measurement of a colour on its ground, or nothing when the ground is the
+ * colour itself (a colour measured against itself is 1:1 and documents
+ * nothing) or either side does not resolve.
+ */
+const measureOn = (
+  row: FlatTokenRow,
+  value: string,
+  ground: ContrastGround | undefined
+):
+  | { readonly against: string; readonly ratio: number; readonly level: 'AAA' | 'AA' | 'fail' }
+  | undefined => {
+  if (ground === undefined || row.path === `color.${ground.name}`) return undefined
+  // A translucent colour has no contrast of its own: what shows is a blend with
+  // whatever is under it, and measuring the opaque colour would print a ratio
+  // for a pair that is never on screen (shadcn's dark `border` is 10 % white).
+  if (TRANSLUCENT.test(value)) return undefined
+  const measured = measureContrast(value, ground.value)
+  return measured === undefined ? undefined : { against: ground.name, ...measured }
+}
+
+/** The alpha a translucent colour function declares: `/ 10%` → 0.1, `/ 0.4` → 0.4. */
+const alphaOf = (value: string): number => {
+  const match = /\/\s*([\d.]+)(%?)\s*\)$/.exec(value)
+  const figure = Number(match?.[1] ?? '1')
+  return match?.[2] === '%' ? figure / 100 : figure
+}
+
+/** The byte a `#RRGGBB` spells at offset `at` (1, 3 or 5). */
+const byteAt = (hex: string, at: number): number => parseInt(hex.slice(at, at + 2), 16)
+
+/** The printed hex: `#RRGGBB`, plus the alpha byte (`#RRGGBBAA`) when the colour is translucent. */
+const printedHex = (value: string): string | undefined => {
+  const hex = srgbHex(value)
+  if (hex === undefined || !TRANSLUCENT.test(value)) return hex
+  const alpha = Math.round(alphaOf(value) * 255)
+  return `${hex}${alpha.toString(16).padStart(2, '0').toUpperCase()}`
+}
+
+/**
+ * What a colour LOOKS like on its ground: a translucent colour laid over the
+ * ground's colour, channel by channel in sRGB as a browser composites it, and
+ * an opaque one (or one whose sides do not resolve) as itself. White at 10 %
+ * over a near-black background shows near-black, and is inked for that.
+ */
+const compositeOver = (value: string, ground: ContrastGround | undefined): string => {
+  if (ground === undefined || !TRANSLUCENT.test(value)) return value
+  const [top, under] = [srgbHex(value), srgbHex(ground.value)]
+  if (top === undefined || under === undefined) return value
+  const alpha = alphaOf(value)
+  return `#${[1, 3, 5]
+    .map((at) => Math.round(byteAt(top, at) * alpha + byteAt(under, at) * (1 - alpha)))
+    .map((channel) => channel.toString(16).padStart(2, '0'))
+    .join('')}`
+}
+
+/** The two inks a label drawn ON a swatch can take. */
+const INKS = ['#0A0A0A', '#FFFFFF'] as const
+
+/**
+ * The ink a label is legible in when it is drawn on `value` itself — near-black
+ * or white, whichever contrasts more with the colour as it shows on `ground`. A swatch carries its name and values on
+ * its own colour, so the ink follows the colour rather than the page.
+ */
+const inkOn = (value: string, ground: ContrastGround | undefined): string | undefined => {
+  const shown = compositeOver(value, ground)
+  const [dark, light] = INKS.map((ink) => measureContrast(ink, shown)?.ratio)
+  if (dark === undefined || light === undefined) return undefined
+  return dark >= light ? INKS[0] : INKS[1]
 }
 
 /**
@@ -86,26 +186,23 @@ interface ColourProjection {
  * a single function doing both crossed the complexity cap — which was the
  * honest signal that they are two measurements rather than one with a flag.
  */
-const lightHalf = (row: FlatTokenRow, ground: string | undefined): Partial<ColourProjection> => {
-  const hex = srgbHex(row.value)
-  // A colour that RESOLVES but that sRGB cannot hold answers `wide`; one that
-  // does not resolve at all answers neither, so an absent `hex` beside a
-  // `gamut` means "out of gamut" and an absent `hex` with no `gamut` means "not
-  // a colour we could read". Those are different facts.
-  const resolvable = measureContrast(row.value, row.value) !== undefined
-  const gamut = hex !== undefined ? 'srgb' : resolvable ? 'wide' : undefined
-  const measured =
-    ground === undefined || row.path === 'color.background'
-      ? undefined
-      : measureContrast(row.value, ground)
+const lightHalf = (
+  row: FlatTokenRow,
+  ground: ContrastGround | undefined
+): Partial<ColourProjection> => {
+  const hex = printedHex(row.value)
+  const gamut = gamutOf(row.value, hex)
+  const measured = measureOn(row, row.value, ground)
 
+  const ink = inkOn(row.value, ground)
   return {
     ...(hex === undefined ? {} : { hex }),
     ...(gamut === undefined ? {} : { gamut }),
+    ...(ink === undefined ? {} : { ink }),
     ...(measured === undefined
       ? {}
       : {
-          contrastAgainst: 'background',
+          contrastAgainst: measured.against,
           contrastRatio: measured.ratio,
           contrastLevel: measured.level,
         }),
@@ -113,7 +210,8 @@ const lightHalf = (row: FlatTokenRow, ground: string | undefined): Partial<Colou
 }
 
 /**
- * The DARK half: the same shape over `row.dark` and the dark ground.
+ * The DARK half: the same shape over what the row paints in dark and the dark
+ * ground.
  *
  * Always answers a `darkContrastLevel`, which is the one asymmetry with the
  * light half and the reason this is not that function with a parameter — see
@@ -121,39 +219,43 @@ const lightHalf = (row: FlatTokenRow, ground: string | undefined): Partial<Colou
  */
 const darkHalf = (
   row: FlatTokenRow,
-  darkGround: string | undefined
+  darkValue: string | undefined,
+  darkGround: ContrastGround | undefined
 ): Pick<ColourProjection, 'darkContrastLevel'> & Partial<ColourProjection> => {
-  const { dark } = row
-  // Nothing to project: the app declared no dark counterpart for this token,
-  // which is the common case and answers `unmeasured` rather than an absence —
-  // see the module header for why that field is required.
-  if (dark === undefined) return { darkContrastLevel: 'unmeasured' }
+  // Nothing to project: no dark value is known for this token, which answers
+  // `unmeasured` rather than an absence — see the module header for why that
+  // field is required.
+  if (darkValue === undefined) return { darkContrastLevel: 'unmeasured' }
 
-  const darkHex = srgbHex(dark)
-  const resolvable = measureContrast(dark, dark) !== undefined
-  const darkGamut = darkHex !== undefined ? 'srgb' : resolvable ? 'wide' : undefined
-  const measured =
-    darkGround === undefined || row.path === 'color.background'
-      ? undefined
-      : measureContrast(dark, darkGround)
+  const darkHex = printedHex(darkValue)
+  const darkGamut = gamutOf(darkValue, darkHex)
+  const measured = measureOn(row, darkValue, darkGround)
 
+  const darkInk = inkOn(darkValue, darkGround)
   return {
     ...(darkHex === undefined ? {} : { darkHex }),
     ...(darkGamut === undefined ? {} : { darkGamut }),
+    ...(darkInk === undefined ? {} : { darkInk }),
     ...(measured === undefined
       ? { darkContrastLevel: 'unmeasured' as const }
       : {
-          darkContrastAgainst: 'background',
+          darkContrastAgainst: measured.against,
           darkContrastRatio: measured.ratio,
           darkContrastLevel: measured.level,
         }),
   }
 }
 
+/**
+ * @param row - the token row.
+ * @param grounds - what this row is measured on, in each scheme.
+ * @param darkValue - what the row paints in dark: the declared counterpart, the
+ *   light value of a light-only declaration, or the platform dark default.
+ */
 export const colourProjection = (
   row: FlatTokenRow,
-  ground: string | undefined,
-  darkGround?: string
+  grounds: { readonly light?: ContrastGround; readonly dark?: ContrastGround },
+  darkValue?: string
 ): ColourProjection => {
   // `darkContrastLevel` is REQUIRED on every row, including the non-colour ones
   // that leave here immediately: it is a GATE, and a gate absent from half the
@@ -161,7 +263,7 @@ export const colourProjection = (
   // to test the absence with. `unmeasured` is the honest answer for a spacing
   // token, and it is an answer rather than a silence.
   if (!row.path.startsWith('color.')) return { darkContrastLevel: 'unmeasured' }
-  return { ...lightHalf(row, ground), ...darkHalf(row, darkGround) }
+  return { ...lightHalf(row, grounds.light), ...darkHalf(row, darkValue, grounds.dark) }
 }
 
 /**
@@ -258,4 +360,36 @@ export const discardedDeclarations = (
       typeof declared === 'string' ? [{ kind: 'unmappable' as const, path, declared }] : []
     ),
   ]
+}
+
+/** A token row's own name, without its group. */
+export const leafOf = (row: FlatTokenRow): string => row.path.split('.').at(-1) ?? row.path
+
+/**
+ * What a colour row paints in the DARK scheme, and who chose it — read off the
+ * shared dark cascade (`resolveDarkPaints`), the rule the stylesheet's dark
+ * block and the exported dark document are written from, so the console never
+ * prints a dark value the app does not paint.
+ *
+ * - `declared` — the operator wrote a `design.darkColors` counterpart;
+ * - `light` — the operator declared a BRAND colour for light only (or an
+ *   extension colour nothing re-points), and it keeps that value in dark. A
+ *   light-only NEUTRAL — `background`, `card`, `foreground` — is not kept: the
+ *   stylesheet sends it to the platform's dark default, and so does this;
+ * - `platform` — the platform supplies it: shadcn's dark default for the token,
+ *   or the light text of a kept brand surface.
+ *
+ * A page printing "Platform value — not measured here" under every swatch of an
+ * app with no dark palette left the reader with no value at all; the fallback
+ * is a known literal, so it is printed and measured like any other.
+ *
+ * @param paints - the app's dark cascade, keyed by token leaf.
+ */
+export const darkPaintOf = (
+  row: FlatTokenRow,
+  paints: Readonly<Record<string, DarkPaint>>
+): { readonly darkValue: string; readonly darkSource: DarkPaintSource } | undefined => {
+  if (!row.path.startsWith('color.')) return undefined
+  const paint = paints[leafOf(row)]
+  return paint === undefined ? undefined : { darkValue: paint.value, darkSource: paint.source }
 }

@@ -16,7 +16,7 @@ You publish an app that must be accessible: a public body in France has to meet 
 
 **Data components.** A grouped table puts its expanded state on the group's toggle button, a progress cell is named after its column, a search box with suggestions is a combobox, and a markdown article gets a document title from its own heading.
 
-**Contrast.** On the default theme, text reaches 4.5:1 against the surfaces it sits on, and the border of a form field reaches 3:1 against the page, in light and dark mode. The default colours come from the design system the engine ships; where two of its defaults fall short of those thresholds — muted text and field borders — the engine raises them, and that adjustment is the only place its default theme departs from the design system.
+**Contrast.** On the default theme, text reaches 4.5:1 against the surfaces it sits on, and the border of a form field reaches 3:1 against the page, in light and dark mode. The default colours come from the design system the engine ships; where three of its defaults fall short of those thresholds — muted text, field borders and, in light mode, the destructive red — the engine raises them, and that adjustment is the only place its default theme departs from the design system.
 
 ## What stays yours
 

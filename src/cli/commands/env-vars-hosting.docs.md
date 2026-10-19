@@ -31,6 +31,12 @@ The interface comes from `SOVRIUM_BIND_HOST`. `HOSTNAME` used to carry it, and s
 
 For socket-activated hosting, `SOVRIUM_LISTEN_UNIX` serves HTTP on a Unix socket instead of a port. The socket is created with mode `0660`, the lock file and the status file record `socketPath` in place of `port`, `sovrium stop` and `restart` work as usual, and a clean stop removes the socket file. A socket file left behind by a crashed instance is removed at the next start. Setting it together with `PORT` refuses to start, since there is only ever one listener. Links the server mints for itself have no host to name over a socket, so set `BASE_URL` to the public address the proxy serves.
 
+## A database that is not there yet
+
+When the database is unreachable at boot — PostgreSQL stopped, restarting or in crash recovery — the server does not exit. It binds its port and answers `503` on every route while it retries the connection, after one second and then at doubling intervals up to every 30 seconds: `/api/health` and `/api/health?probe=db` report `{ "status": "degraded", "checks": { "db": "error" } }`, API routes return the `SERVICE_UNAVAILABLE` error envelope, pages a short unavailable page, all with a `Retry-After` header. Nothing is migrated and no automation runs until the database answers; then the boot completes in place and the same process turns healthy, with no restart and on the same port.
+
+The `listening on` line prints as soon as the port is held, suffixed `(degraded: database unreachable)`. A unit's readiness probe should therefore accept `503` as "started" — an `ExecStartPost` loop that only passes on `200` would fail the unit and restart it into the same state. A refused configuration or an unsupported `DATABASE_URL` still exits `1`: only an unreachable database degrades.
+
 ## Exiting when idle
 
 `SOVRIUM_IDLE_EXIT_SECONDS` lets an instance give its memory back when nobody is using it. Once that many seconds pass with no request in flight or recently finished, no automation running, and no scheduled automation or agent due within the window, the server stops exactly as it does on `SIGTERM` and exits `0`. A socket-activation proxy in front of it then starts it again on the next connection, which takes a few seconds. The engine's own maintenance schedules do not keep an instance awake; they catch up at the next start. An automation waiting on a delay is not running, and resumes then too. The value is a whole number of at least `30`; anything else refuses to start.

@@ -24,6 +24,7 @@
  * and reusable across the error reporter and the performance middleware.
  */
 
+import { redactSecretPath } from '@/domain/kernel/url/secret-path-redaction'
 import { elidedLabel, resolveCauseChain } from './error-chain'
 import type {
   SentryEvent,
@@ -262,10 +263,9 @@ export const buildEventFromError = (
       ? {
           request: {
             method: request.method,
-            // Query VALUES are stripped here, at the single serialization
-            // boundary, so every current AND future URL-carrying telemetry
-            // payload inherits the redaction rather than re-deriving it.
-            url: redactUrlQueryValues(request.url),
+            // Query VALUES and credential path segments (a calendar feed token) are
+            // stripped at this one boundary every telemetry URL passes through.
+            url: redactSecretPath(redactUrlQueryValues(request.url)),
             headers: scrubHeaders(request.headers),
           },
         }

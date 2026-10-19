@@ -10,7 +10,7 @@ import { COPY_READY_MARK, TOC_SPY_READY_MARK } from '@/presentation/design/runti
 /**
  * Client-side enhancement payloads for the markdown article (the pages layout markdown pages requirements, P4). These are inline `<style>`/`<script>` string
  * literals injected via `dangerouslySetInnerHTML` — the "no island runtime"
- * pattern for the docs article: a prose-styling patch, the TOC scroll-spy, and
+ * pattern for the docs article: its touches over Typeset, the TOC scroll-spy, and
  * the header Copy-as-Markdown control.
  *
  * There is no per-code-block copy script here (one walking every `pre.shiki`
@@ -26,72 +26,46 @@ import { COPY_READY_MARK, TOC_SPY_READY_MARK } from '@/presentation/design/runti
  */
 
 /**
- * Minimal SSR-only patch over `@tailwindcss/typography` for the five things
- * `prose` cannot style correctly for this markdown pipeline. This is NOT the
- * old full `.docs-article` workaround (that styled every element — headings,
- * paragraphs, lists, tables, links — which `prose prose-invert` now handles).
- * It is scoped under `.prose` so it never leaks into chrome, and patches only:
+ * The docs layout's own touches over Typeset, scoped under `.typeset` so they
+ * never leak into chrome. Typeset (`infrastructure/css/theme/typeset-styles.ts`)
+ * sets the prose itself; this unlayered sheet keeps only what the docs zone
+ * adds to it:
  *
- *   1. Inline code: prose wraps `<code>` in literal backtick glyphs via
- *      `code::before`/`::after { content: "\`" }`. Strip them and give inline
- *      code the warmth chip the docs brand uses (prose's default invert chip
- *      is a flat neutral that reads as plain text here).
- *   2. Shiki code blocks: markdown fences are highlighted by Shiki as
- *      `pre.shiki` with token colors on inner spans; prose's own `pre`
- *      background/padding fights that (it overrode the pre to a light fill).
- *      `not-prose`-style reset on `pre.shiki` hands the block back to Shiki on
- *      Sovrium's dark surface.
- *   3. Callouts: `:::callout` renders as `.md-callout`/`[data-component=alert]`,
- *      which prose does not recognise — restore the warmth-bordered panel, and
- *      re-assert each declared kind's left accent (`data-type`) over it, since
- *      this unlayered sheet outranks the per-kind utilities the callout carries.
- *   4. Body text: the design-system base layer sets `p { color: var(--color-
- *      foreground) }` directly on `<p>` (dark, light-mode foreground), which
- *      beats prose's *inherited* `--tw-prose-body` color → invisible paragraphs
- *      on the dark docs surface. Re-assert the prose body color on `p`/`li` with
- *      class-level specificity so prose-invert wins.
- *   5. Docs-article-header breadcrumb: the header renders as the FIRST child
- *      inside the `.prose` article, so prose's `ol { padding-inline-start }` (a
- *      ≈19.5px list indent) leaks onto the breadcrumb `<ol>` and pushes the
- *      "Home" crumb ≈24px to the RIGHT of the article body text. Zero the ol's
- *      margin + padding so the breadcrumb's left edge lines up with the article
- *      body (its `list-none` already suppresses the markers). The body colour
- *      re-asserted on `li` in (4) is handed back too: a crumb takes the trail's
- *      tone and the current crumb the foreground role, whatever prose paints.
+ *   1. Links in the docs brand's warmth tone, where the theme declares one.
+ *   2. Callouts: `:::callout` renders as `.md-callout`/`[data-component=alert]`,
+ *      a `<div>` Typeset does not style. Draw the warmth-bordered panel, open
+ *      the flow's space above it like any other block, and re-assert each
+ *      declared kind's left accent (`data-type`) over it, since this unlayered
+ *      sheet outranks the per-kind utilities the callout carries.
+ *   3. Headings clear the sticky docs header when a TOC link scrolls to them.
  *
- *   6. An element the author styled by part (`markdown.classes`) carries
- *      `data-part`, and the rules above that would outrank its classes skip it.
+ * An element the author styled by part (`markdown.classes`) carries
+ * `data-part`, and the rules that would outrank its classes skip it.
+ *
+ * Code blocks are deliberately absent: a fence is a `data-slot` component that
+ * Typeset leaves to its own frame, whose padding its highlighted-line bleed is
+ * measured against. The breadcrumb header sits outside the Typeset container,
+ * so it needs no list reset either.
  *
  * Raw author selectors do not need to live in `BUILTIN_CSS_CANDIDATES` (only
  * Tailwind utility class names are candidate-gated), so this scoped sheet is
  * safe to inject directly without a `bun run build:css-assets` regeneration.
  */
 const DOCS_PROSE_PATCH = `
-.prose :where(p,li):not([data-part]){color:var(--tw-prose-body);}
-.prose :where(a):not(:where([data-component] *)):not([data-part]){color:var(--color-warmth, var(--color-foreground));text-decoration:underline;text-underline-offset:2px;}
-.prose :where(a):not(:where([data-component] *)):not([data-part]):hover{color:var(--color-warmth-border, var(--color-border-strong));}
-.prose :where(:not(pre)>code)::before,.prose :where(:not(pre)>code)::after{content:none;}
-.prose :where(:not(pre)>code):not([data-part]){color:var(--color-warmth, var(--color-foreground));background:#f5f0eb;border:1px solid #e5ded5;border-radius:.375rem;padding:.1rem .4rem;font-weight:500;}
-.dark .prose :where(:not(pre)>code):not([data-part]){background:#171717;border-color:#262626;}
-.prose pre.shiki{background:#0d0d0d;color:#e1e4e8;border:1px solid #262626;border-radius:.75rem;padding:1rem 1.25rem;overflow-x:auto;}
-.prose pre.shiki code{background:none;border:0;padding:0;color:inherit;font-weight:400;}
-.prose .md-callout:not([data-part]),.prose [data-component="alert"]:not([data-part]){border:1px solid #e5ded5;border-left:3px solid var(--color-warmth-border, var(--color-border-strong));background:#f5f0eb;border-radius:0 .5rem .5rem 0;padding:.85rem 1rem;margin:0 0 1.5rem;color:#3f3a34;}
-.dark .prose .md-callout:not([data-part]),.dark .prose [data-component="alert"]:not([data-part]){border-color:#262626;background:#171717;color:#d4d4d4;}
-.prose [data-component="alert"][data-type="note"]{border-left-color:var(--color-foreground-subtle);}
-.prose [data-component="alert"][data-type="tip"]{border-left-color:var(--color-success-solid);}
-.prose [data-component="alert"][data-type="warning"]{border-left-color:var(--color-warning-solid);}
-.prose [data-component="alert"][data-type="danger"]{border-left-color:var(--color-destructive);}
-.prose .md-callout p,.prose [data-component="alert"] p{color:inherit;}
-.prose .md-callout :first-child,.prose [data-component="alert"] :first-child{margin-top:0;}
-.prose .md-callout :last-child,.prose [data-component="alert"] :last-child{margin-bottom:0;}
-.prose :where(h1,h2,h3,h4,h5,h6){scroll-margin-top:5rem;}
-.prose [data-component="docs-article-header"] ol,.prose [data-component="docs-article-header"] li{margin:0;padding:0;}
-.prose [data-component="docs-article-header"] li{color:inherit;}
-.prose [data-component="docs-article-header"] li[aria-current="page"]{color:var(--color-foreground);}
+.typeset :where(a):not(:where([data-slot] *,[data-component] *)):not([data-part]){color:var(--color-warmth, inherit);text-underline-offset:2px;}
+.typeset :where(a):not(:where([data-slot] *,[data-component] *)):not([data-part]):hover{color:var(--color-warmth-border, inherit);}
+.typeset .md-callout:not([data-part]),.typeset [data-component="alert"]:not([data-part]){border:1px solid #e5ded5;border-left:3px solid var(--color-warmth-border, var(--color-border-strong));background:#f5f0eb;border-radius:0 .5rem .5rem 0;padding:.85rem 1rem;margin:var(--typeset-flow) 0 0;color:#3f3a34;}
+.dark .typeset .md-callout:not([data-part]),.dark .typeset [data-component="alert"]:not([data-part]){border-color:#262626;background:#171717;color:#d4d4d4;}
+.typeset [data-component="alert"][data-type="note"]{border-left-color:var(--color-foreground-subtle);}
+.typeset [data-component="alert"][data-type="tip"]{border-left-color:var(--color-success-solid);}
+.typeset [data-component="alert"][data-type="warning"]{border-left-color:var(--color-warning-solid);}
+.typeset [data-component="alert"][data-type="danger"]{border-left-color:var(--color-destructive);}
+.typeset .md-callout :first-child,.typeset [data-component="alert"] :first-child{margin-top:0;}
+.typeset :where(h1,h2,h3,h4,h5,h6){scroll-margin-top:5rem;}
 `
 
 /**
- * Hoisted `dangerouslySetInnerHTML` payload for the scoped prose patch
+ * Hoisted `dangerouslySetInnerHTML` payload for the scoped docs patch
  * (react-perf/jsx-no-new-object-as-prop: the prop object must not be allocated
  * in render scope). Allocating it once at module scope keeps the lint rule
  * satisfied without per-element `eslint-disable`s; the TOC scroll-spy hoists

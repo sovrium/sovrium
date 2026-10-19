@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { fetchCoalesced } from './coalesced-read'
 import { buildSystemQueryUrl } from './system-query-url'
 
 /**
@@ -58,12 +59,16 @@ export const systemEnvelopeQueryKey = (
   system: SystemEnvelopeSource | undefined
 ): readonly unknown[] => ['system-envelope', system?.endpoint, system?.query]
 
-/** Read the envelope, credentialed: system reads are session-gated. */
+/**
+ * Read the envelope, credentialed: system reads are session-gated. Coalesced
+ * with any identical read in flight — a sidebar badge counting from the same
+ * envelope as a tile is the same request.
+ */
 export async function fetchSystemEnvelope(
   system: SystemEnvelopeSource | undefined
 ): Promise<SystemEnvelopeResult> {
   if (!system?.endpoint) return { kind: 'denied', status: 0, body: '' }
-  const res = await fetch(buildSystemQueryUrl(system), { credentials: 'include' })
+  const res = await fetchCoalesced(buildSystemQueryUrl(system))
   if (REFUSED_STATUSES.has(res.status))
     return { kind: 'denied', status: res.status, body: await res.text() }
   if (!res.ok) throw new SystemEnvelopeReadError(res.status, await res.text())

@@ -57,9 +57,6 @@ export default {
       'foreground-subtle': '#8a9099',
       border: '#282c32',
     },
-    codeBlock: {
-      theme: 'github-dark',
-    },
     radius: {
       sm: '0.25rem',
       md: '0.5rem',
@@ -170,13 +167,11 @@ export default {
                       type: 'code',
                       props: {
                         language: 'yaml',
-                        className: '!bg-[#0d1117] !px-3.5 !py-3 !text-[13px] !leading-[1.65]',
+                        className: '!px-3.5 !py-3 !text-[13px] !leading-[1.65]',
                       },
                       classes: {
                         parts: {
-                          frame: 'border-[#30363d]',
-                          caption:
-                            'h-[34px] border-[#30363d] bg-[#0d1117] px-3 py-0 text-[12px] !text-[#9da7b3]',
+                          caption: 'h-[34px] px-3 py-0 text-[12px]',
                         },
                       },
                       filename: 'app.yaml',

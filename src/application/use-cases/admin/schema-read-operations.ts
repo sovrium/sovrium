@@ -7,8 +7,7 @@
 
 /**
  * The schema admin reads, as registry entries: the component-type catalogue,
- * one type's fields and options, the field-type catalogue, and the class
- * provenance of one part of one type.
+ * one type's fields and options, and the field-type catalogue.
  *
  * Each entry is the whole of one read: the admin route, the MCP admin tool and
  * the OpenAPI operation are all derived from it. A type the catalogue does not
@@ -17,11 +16,10 @@
  * the same not-found again.
  *
  * Audit: the catalogue writes the design read event naming the caller; the
- * four others write none, exactly as their routes always have.
+ * three others write none, exactly as their routes always have.
  */
 
 import { Effect, Schema } from 'effect'
-import { AdminReadHost } from '@/application/ports/services/admin-read-host'
 import {
   answerWithSchema,
   decodeAdminReadQuery,
@@ -44,8 +42,6 @@ import {
   componentTypeListResponseSchema,
   componentTypeOptionsQuerySchema,
   componentTypeOptionsResponseSchema,
-  provenanceQuerySchema,
-  provenanceResponseSchema,
 } from '@/domain/models/api/admin/design-system/component-types'
 import { fieldTypeListResponseSchema } from '@/domain/models/api/admin/design-system/field-types'
 
@@ -245,55 +241,10 @@ const fieldTypesList = defineAdminRead<undefined>({
     }),
 })
 
-const provenance = defineAdminRead<typeof provenanceQuerySchema.Type>({
-  id: 'design-system.provenance',
-  method: 'get',
-  path: '/api/admin/design-system/provenance',
-  pathParams: [],
-  queryParams: ['type', 'part'],
-  tool: {
-    suffix: 'design_system_provenance',
-    description:
-      'Where the classes of one part of one component type come from, layer by layer, as GET /api/admin/design-system/provenance answers it (admin-only, read-only).',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        type: TYPE_ARGUMENT,
-        part: { type: 'string', description: 'The part to resolve (default root).' },
-      },
-      required: ['type'],
-    },
-  },
-  openapi: {
-    summary: 'Report why a class is on one part of one component',
-    description:
-      'Resolves one part of one engine type against `design.components` and returns both ' +
-      'the merged class list the renderer applies and the same resolution layer by layer, ' +
-      'in precedence order. Admin only.',
-    operationIdBase: 'getAdminClassProvenance',
-    querySchema: provenanceQuerySchema,
-    responseSchema: provenanceResponseSchema,
-    responseDescription: 'The resolved class provenance',
-  },
-  subject: 'the class provenance chain',
-  decode: (raw) => decodeAdminReadQuery(provenanceQuerySchema, raw),
-  read: (app, { type, part }) =>
-    Effect.gen(function* () {
-      const host = yield* AdminReadHost
-      const report = host.classProvenance({
-        ...(app.design === undefined ? {} : { design: app.design }),
-        type,
-        part,
-      })
-      return answerWithSchema(provenanceResponseSchema, { type, ...report })
-    }),
-})
-
 /** The schema admin reads, in the order the registry lists them. */
 export const SCHEMA_READ_OPERATIONS: ReadonlyArray<AdminReadOperation> = [
   componentTypesList,
   componentTypeOptionsRead,
   componentTypeRead,
   fieldTypesList,
-  provenance,
 ]

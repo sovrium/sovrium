@@ -35,10 +35,10 @@
 // Without `auth.apiKeys` the plugin is not mounted and every endpoint this page
 // calls answers 404, so the PAGE must 404 too rather than render controls whose
 // own backend is absent. That used to be an `if` in the surface builder; it is
-// now `requires`, which is strictly stronger: an unmet page is DROPPED at boot,
-// so it 404s AND appears in no sitemap, no palette page list and no derived
-// navigation — the state of a page nobody wrote, rather than a URL the app
-// advertises and then refuses.
+// now `requires`, which is strictly stronger: an unmet page is DROPPED from the
+// console the first time the console is opened, so it 404s AND appears in no
+// sitemap, no palette page list and no derived navigation — the state of a page
+// nobody wrote, rather than a URL the app advertises and then refuses.
 
 import { ACCOUNT_COLUMN, CARD_CLASS } from '../components/card'
 import { consolePage } from '../components/data-page'
@@ -51,7 +51,7 @@ export default consolePage({
   page: {
     requires: ['auth.apiKeys'],
   },
-  shell: { breadcrumb: { 'api-keys': '$t:admin.crumb.apiKeys' } },
+  shell: { breadcrumb: { 'api-keys': '$t:admin.crumb.apiKeys' }, document: true },
   body: [
     {
       type: 'container',
@@ -64,9 +64,10 @@ export default consolePage({
           props: { className: 'flex flex-col gap-2' },
           children: [
             {
+              // The page's one `h1`, drawn like every console page's title.
               type: 'text',
-              element: 'h2',
-              props: { className: 'text-foreground text-3xl font-semibold' },
+              element: 'h1',
+              props: { className: 'text-foreground text-2xl font-semibold tracking-tight' },
               content: '$t:admin.apiKeys.heading',
             },
             {
@@ -74,6 +75,15 @@ export default consolePage({
               element: 'p',
               props: { className: 'text-foreground-subtle text-md' },
               content: '$t:admin.locked.audit.apiKeys.scopeNotice',
+            },
+            // Said to every role, a viewer included: a key is self-service on
+            // the caller's own account, so the read-only tier creates and
+            // revokes its own keys, and a key never reads more than its owner.
+            {
+              type: 'text',
+              element: 'p',
+              props: { className: 'text-foreground text-md', 'data-testid': 'api-keys-read-scope' },
+              content: '$t:admin.apiKeys.readScope',
             },
           ],
         },

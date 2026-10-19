@@ -21,22 +21,19 @@
  * `data-source-rows.ts`, which calls into this module once per row.
  */
 
+import { mapStringsDeep } from '@/domain/kernel/config-parsing/map-strings-deep'
 import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
-import { mapStringsDeep } from '@/domain/models/app/languages/translation-resolver'
 import {
   substituteRecordVars,
   substituteScopedVars,
   withRecordText,
   withScopesText,
 } from '@/domain/models/app/pages/substitute-record-vars'
-import { fillRecordIntoTypedField } from '@/presentation/render/elements/button-navigate-action'
 import { walkComponentSlots, type ComponentListEntry } from './component-slot-walk'
+import { withControlRecord } from './record-control-binding'
 import { recordDisplayOf } from './record-display-labels'
-import {
-  fillProseField,
-  substituteRecordInProps,
-  withDescriptionFieldValues,
-} from './record-template-substitution'
+import { substituteRecordInProps, withDescriptionFieldValues } from './record-template-substitution'
+import { substituteRecordInTypedFields } from './record-typed-fields'
 import { filterChildrenForRecord } from './record-visibility'
 import type { RowSubstitutionDepth } from './data-source-rows'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -267,28 +264,27 @@ export function substituteRecordInComponent(
         )
   return {
     ...component,
-    // Every OTHER string leaf — a component's own TYPED fields.
-    //
-    // Every leaf, not a list of keys: enumerating keys silently stops covering
-    // each new one (a `swatch.token` once reached the browser as `$record.…`).
-    // The four keys below carry semantics and are handled explicitly; this
-    // reuses `$param`'s walker rather than a second one that could disagree.
+    // Every OTHER string leaf — a component's own TYPED fields — every leaf, not
+    // a list of keys that would silently stop covering each new one. The four
+    // keys below carry semantics; this reuses `$param`'s walker.
     ...substituteRecordInTypedFields(component, record),
-    props: withPlainTextPin(
-      component.props ? substituteRecordInProps(component.props, record) : component.props,
-      resolvedContent.forcePlainText
+    props: withControlRecord(
+      component,
+      withPlainTextPin(
+        component.props ? substituteRecordInProps(component.props, record) : component.props,
+        resolvedContent.forcePlainText
+      ),
+      record
     ),
     content: resolvedContent.content,
     ...(describedItems !== undefined && { items: describedItems }),
     dataSource: component.dataSource
       ? substituteRecordInDataSource(component.dataSource, record)
       : component.dataSource,
-    // A STRING CHILD needs no escaping and must not get any. Children are
-    // rendered by `renderChildren` (ui/sections/component-renderer.tsx) as React
-    // children, which escape on output and never reach a
-    // `dangerouslySetInnerHTML` sink — only `content` is sniffed. Escaping here
-    // too would double-escape: `<` would become `&lt;`, which React then emits
-    // as `&amp;lt;`, so the visitor sees the literal characters `&lt;`.
+    // A STRING CHILD needs no escaping and must not get any: children render as
+    // React children, which escape on output and never reach a
+    // `dangerouslySetInnerHTML` sink. Escaping here too would double-escape, so
+    // the visitor would see the literal characters `&lt;`.
     // `visibility.record` is evaluated HERE, one level at a time, so the gate
     // reaches any depth of a row template rather than only its outermost
     // children. A failing child is DROPPED — omitted from the HTML, never
@@ -305,38 +301,6 @@ export function substituteRecordInComponent(
     ...walkComponentSlots(component, walk),
     children: walk(component.children ?? []),
   }
-}
-
-/**
- * The keys {@link substituteRecordInComponent} handles itself, whose semantics
- * (escaping, the plain-text pin, filters, `visibility.record`) a blind
- * string replace would destroy.
- */
-const RECORD_SUBSTITUTION_OWN_KEYS = ['props', 'content', 'dataSource', 'children'] as const
-
-/**
- * Substitute `$record.*` into a component's own TYPED fields — every string
- * leaf outside the four keys handled explicitly.
- *
- * Returns a PARTIAL: only the keys that actually carried a reference, so a
- * component with none is spread with nothing and stays referentially identical
- * in every field.
- */
-function substituteRecordInTypedFields(
-  component: Component,
-  record: Record<string, unknown>
-): Partial<Component> {
-  const substitute = (value: string): string =>
-    value.includes('$record.') ? substituteRecordVars(value, record) : value
-
-  return Object.fromEntries(
-    Object.entries(component)
-      .filter(([key]) => !(RECORD_SUBSTITUTION_OWN_KEYS as readonly string[]).includes(key))
-      .map(([key, value]) => [
-        key,
-        fillProseField(key, value, record) ?? fillRecordIntoTypedField(key, value, substitute),
-      ])
-  ) as Partial<Component>
 }
 
 /**

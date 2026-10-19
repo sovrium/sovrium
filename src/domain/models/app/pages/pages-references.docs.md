@@ -144,7 +144,7 @@ pages:
 
 ## Session-bound text
 
-`$session.<field>` resolves the **signed-in caller's own** session field — `email`, `name`, `role` or `id` — inside a component's `content`. It is the browser-side counterpart to `$currentUser`, and where it resolves is the whole difference: `$currentUser` is substituted server-side per request, `$session` after the page has been served. That is what lets a session-bound greeting sit on a statically cached page without the cache ever carrying one reader's identity to the next.
+`$session.<field>` resolves the **signed-in caller's own** session field — `email`, `name`, `role`, `roleLabel` or `id` — inside a component's `content`. `roleLabel` is the role as the app calls it, in the caller's language: the role's declared `label` (a `$t:` key is translated), else the built-in words for a role every app carries (`Viewer`), else the role name made readable. It is the browser-side counterpart to `$currentUser`, and where it resolves is the whole difference: `$currentUser` is substituted server-side per request, `$session` after the page has been served. That is what lets a session-bound greeting sit on a statically cached page without the cache ever carrying one reader's identity to the next.
 
 A token that resolves to nothing — an anonymous caller, or a field the account does not carry — becomes the empty string.
 

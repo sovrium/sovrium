@@ -12,35 +12,20 @@ import {
   computeMenuPopupClasses,
   computeMenuSeparatorClasses,
 } from '../../overlays/menu-default-classes'
+import {
+  choicesOf,
+  currentValuesOf,
+  isUnreadList,
+  pickedInOptionOrder,
+  type EditSelectChoice,
+} from '../../runtime/edit-select-choices'
 import { actionTypeAttr } from './action-type-attr'
 import { refocusMenuTrigger } from './trigger-focus'
 import type { RowActionEntryProps } from './row-action-menu-item'
-import type { TableRecord } from '../../runtime/types'
 import type { ActionColumnItem } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 type EditSelect = NonNullable<ActionColumnItem['editSelect']>
-type EditOption = { readonly value: string; readonly label: string }
-
-/** Each option's stored value and the label it reads as. */
-const optionsOf = (editSelect: EditSelect): readonly EditOption[] =>
-  (editSelect.options ?? []).map((option) => ({
-    value: option.value,
-    label: option.label ?? option.value,
-  }))
-
-/**
- * A list editor on a row that does not carry its list: the server could not
- * read the value, and saving from it would replace values nobody could see.
- */
-const isUnreadList = (editSelect: EditSelect, record: TableRecord): boolean =>
-  editSelect.multiple === true && !Array.isArray(record[editSelect.field])
-
-/** The row's current values of the edited field, as strings. */
-const currentOf = (editSelect: EditSelect, record: TableRecord): readonly string[] => {
-  const stored = record[editSelect.field]
-  if (Array.isArray(stored)) return stored.map(String)
-  return stored === undefined || stored === null ? [] : [String(stored)]
-}
+type EditOption = EditSelectChoice
 
 /** The check a chosen option shows, lucide's `check`. */
 const CHECK = (
@@ -125,7 +110,7 @@ function CheckboxOptions({
       <div className={computeMenuSeparatorClasses()} />
       <Menu.Item
         className={computeMenuItemClasses()}
-        onClick={() => onCommit(options.map((o) => o.value).filter((v) => ticked.includes(v)))}
+        onClick={() => onCommit(pickedInOptionOrder(options, ticked))}
       >
         {saveLabel}
       </Menu.Item>
@@ -145,7 +130,7 @@ function CheckboxOptions({
 export function RowEditSubmenu(props: RowActionEntryProps): ReactElement {
   const { action, record, onActionClick, labels, origin, focusKey } = props
   const editSelect = action.editSelect as EditSelect
-  const options = optionsOf(editSelect)
+  const options = choicesOf(editSelect)
   const commit = (value: string | readonly string[]) => {
     void Promise.resolve(
       onActionClick(action, { ...record, [editSelect.field]: value }, origin())
@@ -156,7 +141,7 @@ export function RowEditSubmenu(props: RowActionEntryProps): ReactElement {
       <Menu.SubmenuTrigger
         data-slot="dropdown-menu-sub-trigger"
         data-action-type={actionTypeAttr(action)}
-        disabled={isUnreadList(editSelect, record) || options.length === 0}
+        disabled={isUnreadList(editSelect, record[editSelect.field]) || options.length === 0}
         className={computeMenuItemClasses()}
       >
         {action.label}
@@ -176,14 +161,14 @@ export function RowEditSubmenu(props: RowActionEntryProps): ReactElement {
             {editSelect.multiple === true ? (
               <CheckboxOptions
                 options={options}
-                initial={currentOf(editSelect, record)}
+                initial={currentValuesOf(record[editSelect.field])}
                 saveLabel={editSelect.saveLabel ?? labels.save}
                 onCommit={commit}
               />
             ) : (
               <RadioOptions
                 options={options}
-                value={currentOf(editSelect, record)[0] ?? ''}
+                value={currentValuesOf(record[editSelect.field])[0] ?? ''}
                 onCommit={commit}
               />
             )}

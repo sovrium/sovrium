@@ -10,6 +10,16 @@
  * serves, as one row per token with whether the operator declared it.
  */
 
+import {
+  resolveDarkPaints,
+  resolveDarkPalette,
+} from '@/domain/models/app/design/dark-palette-service'
+import { derivedForegrounds } from '@/domain/models/app/design/foreground-ink-service'
+import {
+  INHERITED_COLOR_TOKENS,
+  canonicalColorName,
+} from '@/domain/models/app/design/inherited-tokens'
+import type { DesignSystemMode } from '@/domain/models/api/admin/design-system'
 import type { FlatTokenRow } from '@/domain/models/api/admin/design-system/component-types'
 import type { App } from '@/domain/models/app'
 
@@ -28,6 +38,22 @@ export const keysOf = (record: unknown): ReadonlySet<string> =>
     : new Set<string>()
 
 /**
+ * The colour names the operator chose in DARK: every name the dark cascade
+ * paints from the app's own config — a `design.darkColors` value, or a light
+ * colour of theirs kept in dark — and none it paints from a platform default.
+ *
+ * Reading the light keys instead would call a dark `primary` the operator's
+ * because they declared a LIGHT primary, even when the platform repaints it in
+ * dark, and would call a `darkColors`-only name inherited.
+ */
+const declaredDarkNamesOf = (design: App['design']): ReadonlySet<string> =>
+  new Set(
+    Object.entries(
+      resolveDarkPaints(Object.keys(INHERITED_COLOR_TOKENS), design?.colors, design?.darkColors)
+    ).flatMap(([name, paint]) => (paint.source === 'platform' ? [] : [name]))
+  )
+
+/**
  * The token groups the DTCG document publishes, paired with the config record
  * that DECLARES them.
  *
@@ -41,14 +67,24 @@ export const keysOf = (record: unknown): ReadonlySet<string> =>
  * which needs no special case: every emitted step is a declared key, so every
  * row comes out `overridden`, which is exactly true.
  */
-const declaredNamesOf = (app: App): Readonly<Record<string, ReadonlySet<string>>> => {
+const declaredNamesOf = (
+  app: App,
+  mode: DesignSystemMode
+): Readonly<Record<string, ReadonlySet<string>>> => {
   const { design } = app
   // Destructured rather than read through eight optional chains: each `?.` is a
   // branch, and one `?? {}` says the same thing once.
   const { colors, spacing, radius, breakpoints, typeScale, motion } = design ?? {}
 
   return {
-    color: keysOf(colors),
+    // Under the names the colour group publishes them as (`card`, not
+    // `background-raised`), so a declared alias is reported as declared. The
+    // dark group is read through the dark cascade instead, because what the
+    // operator chose there is not the keys of `design.colors`.
+    color:
+      mode === 'dark'
+        ? declaredDarkNamesOf(design)
+        : new Set([...keysOf(colors)].map((key) => canonicalColorName(key))),
     spacing: keysOf(spacing),
     radius: keysOf(radius),
     breakpoint: keysOf(breakpoints),
@@ -174,15 +210,18 @@ const isToken = (value: unknown): value is TokenNode =>
  * they are document METADATA rather than tokens, and a row for `$description`
  * would put the document's own sentence in the palette table.
  *
- * @param document - The DTCG document `buildDesignSystem(app)` produced.
+ * @param document - The DTCG document `buildDesignSystem(app, mode)` produced.
  * @param app - The same app, read for which names the operator declared.
+ * @param mode - The colour mode the document describes, so the colour rows'
+ *   `inherited` / `overridden` answer for the palette the document carries.
  * @returns One row per token, in document order.
  */
 export const flattenDesignTokens = (
   document: Readonly<Record<string, unknown>>,
-  app: App
+  app: App,
+  mode: DesignSystemMode = 'light'
 ): readonly FlatTokenRow[] => {
-  const declared = declaredNamesOf(app)
+  const declared = declaredNamesOf(app, mode)
 
   return Object.entries(document).flatMap(([group, members]) => {
     if (group.startsWith('$') || typeof members !== 'object' || members === null) return []
@@ -204,3 +243,64 @@ export const flattenDesignTokens = (
     })
   })
 }
+
+/** `design.colors` keyed by the names the engine emits them as. */
+const canonicalColors = (
+  colors: Readonly<Record<string, string>> | undefined
+): Readonly<Record<string, string>> =>
+  Object.fromEntries(
+    Object.entries(colors ?? {}).map(([key, value]) => [canonicalColorName(key), value] as const)
+  )
+
+/** A colour role's declared usage, whichever spelling of the token the author keyed it by. */
+const roleUsage = (
+  roles: NonNullable<App['design']>['colorRoles'],
+  name: string
+): string | undefined =>
+  Object.entries(roles ?? {}).find(([key]) => canonicalColorName(key) === name)?.[1]?.usage
+
+/**
+ * The colour group's entries and descriptions: every inherited shadcn token,
+ * then the `-foreground` ink the engine derives for a declared surface whose
+ * foreground is not declared (`derivedForegrounds`, the value the stylesheet
+ * paints, so a swatch prints and measures that ink rather than the default it
+ * replaced), then the author's colours laid over both under the names the
+ * engine emits them as (`canonicalColorName`), so an author's
+ * `background-raised` is published as `card` and the palette never lists one
+ * variable under two names. A declared foreground always wins.
+ */
+export const canonicalColorGroup = (
+  design: App['design'],
+  roles: NonNullable<App['design']>['colorRoles']
+): {
+  readonly entries: Readonly<Record<string, string>>
+  readonly describe: (name: string) => string | undefined
+} => ({
+  entries: {
+    ...INHERITED_COLOR_TOKENS,
+    ...derivedForegrounds(design?.colors),
+    ...canonicalColors(design?.colors),
+  },
+  describe: (name) => roleUsage(roles, name),
+})
+
+/**
+ * The colour group of the DARK document: the same names the light group
+ * publishes, each valued as the dark scheme paints it (`resolveDarkPalette` —
+ * the rule the stylesheet's dark block is written from), plus any dark-only
+ * colour the app declares.
+ */
+export const canonicalDarkColorGroup = (
+  design: App['design'],
+  roles: NonNullable<App['design']>['colorRoles']
+): {
+  readonly entries: Readonly<Record<string, string>>
+  readonly describe: (name: string) => string | undefined
+} => ({
+  entries: resolveDarkPalette(
+    Object.keys(INHERITED_COLOR_TOKENS),
+    design?.colors,
+    design?.darkColors
+  ),
+  describe: (name) => roleUsage(roles, name),
+})

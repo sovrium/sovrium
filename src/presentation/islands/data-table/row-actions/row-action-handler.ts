@@ -14,6 +14,7 @@ import { toastWriteRefusal } from '../../runtime/write-refusal'
 import { runAccountRowAction, type AccountRowAction } from './account-row-actions'
 import { runAutomationRowAction, type AutomationRowAction } from './automation-row-action'
 import { removeRowThenRefreshOnce } from './deleted-row-refresh'
+import { rowPressReference } from './row-action-control'
 import type { RowActionHandler } from './row-action-types'
 import type { FetchAction } from '@/domain/models/app/pages/components/action'
 import type { QueryClient } from '@tanstack/react-query'
@@ -175,10 +176,11 @@ async function runCrudRowAction(
  * `undefined` for any other action.
  */
 function runSelfReportingRowAction(
-  action: { readonly type: string },
+  action: { readonly type: string; readonly press?: unknown },
   record: Record<string, unknown>,
   origin: Element | undefined
 ): Promise<boolean> | undefined {
+  // `action` may carry `press`, the record reference the server judges it on.
   if (action.type === 'auth') {
     return runAccountRowAction(action as AccountRowAction, record, renderToast)
   }
@@ -233,8 +235,10 @@ export function createRowActionHandler({
 
     // An item-level account method or an automation press: one request, then
     // the grid re-reads what the server now holds.
+    // A conditioned row action names its row, so the server judges the press on it.
+    const reference = rowPressReference(action, record, tableName)
     const reported = runSelfReportingRowAction(
-      action.action,
+      reference === undefined ? action.action : { ...action.action, press: reference },
       record as Record<string, unknown>,
       origin
     )

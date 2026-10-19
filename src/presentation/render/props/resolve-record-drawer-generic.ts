@@ -27,6 +27,7 @@
  * draws.
  */
 
+import { labelForPhrase } from '@/domain/kernel/format/phrase-label'
 import { fillPlaceholders } from '@/domain/kernel/format/placeholder-format'
 import { toGroupReference } from '@/domain/models/app/auth/groups/group-reference'
 import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
@@ -155,16 +156,16 @@ function wordsOf(locale: DrawerFieldLocale): Readonly<Record<string, string>> {
   )
 }
 
-/** The Comments tab's thread props, when the table declares comments and the reader is signed in. */
+/** The Comments tab's thread props, when the table declares comments and the reader is signed in — a console caller included. */
 function commentsTab(table: Table, input: GenericSheetInput) {
-  if (table.comments === undefined || input.session === undefined) return undefined
+  if (table.comments === undefined || !isSignedIn(input)) return undefined
   const { currentLang, languages } = input.locale
   const placeholder = resolveInterpreterString('comments.placeholder', currentLang, languages)
   const fields = resolveCommentsFields(undefined, { table: table.name }, {}, placeholder)
   const { recordId: _unbound, ...props } = buildCommentThreadIslandProps({
     fields: { ...fields, sort: 'oldest' },
     elementProps: {},
-    session: input.session,
+    ...(input.session === undefined ? {} : { session: input.session }),
     threading: resolveTableCommentsConfig(table.name, input.tables).threading,
     uiStrings: resolveInterpreterStringOverrides(
       ['comments.', 'form.saving', 'form.deleting'],
@@ -172,7 +173,8 @@ function commentsTab(table: Table, input: GenericSheetInput) {
       languages
     ),
   })
-  return props
+  // A mounted console renders with no session, and its every caller is signed in.
+  return input.session === undefined ? { ...props, signedIn: true } : props
 }
 
 /** The fields the footer's last change reads: the first updated-at, and updated-by, field. */
@@ -236,10 +238,10 @@ function newRecordLabel(table: Table, locale: GenericSheetInput['locale']): stri
   const { currentLang, languages } = locale
   if (table.label === undefined)
     return resolveInterpreterString('datatable.newRecord', currentLang, languages)
-  return fillPlaceholders(
-    resolveInterpreterString('recordDrawer.newRecord', currentLang, languages),
-    { label: tableLabel(table, translatorOf(locale)) }
-  )
+  const template = resolveInterpreterString('recordDrawer.newRecord', currentLang, languages)
+  // Sentence case: "New quote", the label lowered inside the phrase.
+  const label = labelForPhrase(template, '{label}', tableLabel(table, translatorOf(locale)))
+  return fillPlaceholders(template, { label })
 }
 
 /**

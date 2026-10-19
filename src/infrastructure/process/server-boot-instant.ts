@@ -27,6 +27,8 @@
  * Sovrium runs one server per process.
  */
 
+import { devTimelineInstant, readSovriumDevClock } from '@/domain/models/process-env/dev-clock'
+
 let bootInstantMs: number = Date.now()
 
 /** Record that a server is starting now, and return the instant recorded. */
@@ -37,3 +39,19 @@ export const publishServerBootInstant = (): Readonly<Date> => {
 
 /** The instant the running server started (module load until a server has). */
 export const readServerBootInstant = (): Readonly<Date> => new Date(bootInstantMs)
+
+/**
+ * `at` on the development timeline: on a host pinned with `SOVRIUM_DEV_CLOCK`,
+ * the pinned instant plus the real time elapsed since this server started;
+ * otherwise `at` itself, so production is unchanged. What an automation run, a
+ * conversation and a message are stamped with (`devTimelineInstant`).
+ */
+export const onDevTimeline = (at: Readonly<Date> = new Date()): Date =>
+  new Date(devTimelineInstant(at, readSovriumDevClock(), new Date(bootInstantMs)).getTime())
+
+/**
+ * A row's `createdAt` on a pinned host — `{}` otherwise, so the column's own
+ * default keeps stamping it exactly as it always has.
+ */
+export const devTimelineCreatedAt = (): { readonly createdAt?: Date } =>
+  readSovriumDevClock() === undefined ? {} : { createdAt: onDevTimeline() }

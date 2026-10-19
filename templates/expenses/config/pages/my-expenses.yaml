@@ -166,8 +166,11 @@ components:
                   pageSize: 25
                 emptyMessage: No expenses yet. Add what you paid for the company with its receipt; once finance approves it, you are repaid in the next monthly transfer.
           # One claim, from `/?record=<id>` or a click on its row: the amount,
-          # the receipt, and where the decision stands. The reason line has
-          # `visibleWhen`, so it appears on a rejected claim and on no other.
+          # the receipt, and where the decision stands. The receipt is the
+          # attachment itself, drawn as a link that opens the file. The reason
+          # and the repaid day each carry `visibleWhen`: the reason shows on a
+          # rejected claim only, and the day only once the claim is repaid, so
+          # a claim never shows a line with nothing on it.
           - type: sheet
             id: my-claim
             drawerSide: right
@@ -183,10 +186,13 @@ components:
               - { name: category, type: single-select, label: Category }
               - { name: expense_date, type: date, label: Date }
               - { name: status, type: status, label: Decision }
-              - { name: receipt_name, type: single-line-text, label: Receipt }
+              - { name: receipt, type: single-attachment, label: Receipt }
               - { name: kind, type: single-select, label: Backed by }
               - name: decision_reason
                 type: long-text
                 label: Why it was rejected
                 visibleWhen: { field: status, eq: Rejected }
-              - { name: reimbursed_at, type: date, label: Repaid on }
+              - name: reimbursed_at
+                type: date
+                label: Repaid on
+                visibleWhen: { field: status, eq: Reimbursed }

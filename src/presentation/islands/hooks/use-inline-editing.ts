@@ -170,6 +170,12 @@ export interface FieldMeta {
    * Normalise through `optionValue` / `optionLabel` at every render site.
    */
   readonly options?: readonly SelectOptionLike[]
+  /**
+   * Each option's label in every language the app declares, by option value —
+   * stamped for the CSV import alone, so a spreadsheet value spelling an option
+   * by its label in any of those languages finds that option.
+   */
+  readonly optionLabels?: Readonly<Record<string, readonly string[]>>
   readonly required?: boolean
   /** Declared display properties — see {@link FieldDisplayMeta}. */
   readonly display?: FieldDisplayMeta

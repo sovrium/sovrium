@@ -191,9 +191,21 @@ function useRecordingSession(
   return { activeRef, open, stop, begin }
 }
 
+/** Why capture could not start, in the page language: no recorder, or the microphone refused. */
+export interface VoiceRefusals {
+  readonly micUnsupported: string
+  readonly micRefused: string
+}
+
+const ENGLISH_REFUSALS: VoiceRefusals = {
+  micUnsupported: 'This browser cannot record from a microphone.',
+  micRefused: 'Microphone access was refused.',
+}
+
 export function useVoiceRecorder(
   maxDurationMs: number,
-  onRecorded: (file: File) => void
+  onRecorded: (file: File) => void,
+  refusals: VoiceRefusals = ENGLISH_REFUSALS
 ): VoiceRecorder {
   const [phase, setPhase] = useState<RecorderPhase>('idle')
   const [elapsedMs, setElapsedMs] = useState(0)
@@ -206,7 +218,7 @@ export function useVoiceRecorder(
     const media = typeof navigator === 'undefined' ? undefined : navigator.mediaDevices
     setError(undefined)
     if (type === undefined || media === undefined) {
-      setError('This browser cannot record from a microphone.')
+      setError(refusals.micUnsupported)
       return
     }
     const session = open()
@@ -215,10 +227,10 @@ export function useVoiceRecorder(
       (stream) => begin(session, stream, type),
       () => {
         setPhase('idle')
-        setError('Microphone access was refused.')
+        setError(refusals.micRefused)
       }
     )
-  }, [activeRef, open, begin])
+  }, [activeRef, open, begin, refusals])
 
   useRecordingTicker({
     recording: phase === 'recording',

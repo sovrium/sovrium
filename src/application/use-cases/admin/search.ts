@@ -46,6 +46,7 @@ import {
   type AdminSearchResult,
 } from '@/domain/models/api/admin/search/search'
 import { DESIGN_SYSTEM_NAV_CHILDREN } from '@/domain/models/app/admin/admin-data-nav'
+import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { isCapabilityMet } from '@/domain/models/app/pages/page-requires'
 import { declaresWriteOnly } from '@/domain/models/app/tables/write-only-field-service'
 import type { App } from '@/domain/models/app'
@@ -100,6 +101,29 @@ const PRODUCED_KINDS: readonly AdminSearchEntityType[] = adminSearchEntityTypes.
  * removed from the config, a design-system page no longer served) is deleted.
  */
 const CONFIG_KINDS: readonly AdminSearchEntityType[] = ['connection', 'design-console']
+
+/**
+ * The kinds whose index row is dated by the moment its entity happened — a
+ * submission received, a run started, a file uploaded, a conversation last
+ * written, an account created — and so carry `occurredAt`. A config-derived
+ * row happened nowhere, and a record row is dated by the rebuild.
+ */
+const SOURCE_TIMED_KINDS: ReadonlySet<AdminSearchEntityType> = new Set([
+  'submission',
+  'run',
+  'user',
+  'file',
+  'conversation',
+])
+
+/** Each form's title for people, by name, in the app's default language. */
+const formTitles = (app: App): Readonly<Record<string, string>> =>
+  Object.fromEntries(
+    (app.forms ?? []).map((form) => [
+      form.name,
+      resolveTranslationPattern(form.title, app.languages?.default ?? 'en', app.languages),
+    ])
+  )
 
 /** Max results returned per type group (most-recent first). */
 const PER_GROUP_CAP = 25
@@ -228,13 +252,17 @@ const toIso = (raw: Readonly<Date> | string | number): string => {
 }
 
 /** Project one raw index hit to the S4 allow-list result. */
-const toResult = (hit: Readonly<AdminSearchIndexHit>): ResultEntry => ({
-  type: hit.type,
-  entityId: hit.entityId,
-  title: hit.title,
-  href: hit.href,
-  updatedAt: toIso(hit.updatedAt),
-})
+const toResult = (hit: Readonly<AdminSearchIndexHit>): ResultEntry => {
+  const updatedAt = toIso(hit.updatedAt)
+  return {
+    type: hit.type,
+    entityId: hit.entityId,
+    title: hit.title,
+    href: hit.href,
+    updatedAt,
+    ...(SOURCE_TIMED_KINDS.has(hit.type) ? { occurredAt: updatedAt } : {}),
+  }
+}
 
 /** Build the results for one entity kind (most-recent first, capped). */
 const groupFor = (
@@ -278,6 +306,7 @@ export const SearchAdminGlobal = (
       yield* repo.rebuildIndex({
         tables: tableDescriptors(app),
         extraRows: [...connectionRows(app), ...designSystemRows(app)],
+        formTitles: formTitles(app),
         producedKinds: PRODUCED_KINDS,
         configKinds: CONFIG_KINDS,
       })

@@ -49,17 +49,42 @@ export interface ApiCondition {
 const conditionValue = (operator: string, value: string): string | readonly string[] =>
   operator === 'in' || operator === 'between' ? value.split(',') : value
 
-/** The condition a bag entry spells, or `undefined` for a param or a withdrawn condition. */
-const conditionOf = (key: string, value: string): ApiCondition | undefined => {
+/**
+ * The condition a bag entry spells in the PAGE vocabulary (`eq`, `in`, …), or
+ * `undefined` for a param, a withdrawn condition or an operator the page
+ * vocabulary does not hold.
+ */
+const pageConditionOf = (key: string, value: string): ApiCondition | undefined => {
   if (!key.startsWith(CONDITION_KEY_PREFIX) || value === '') return undefined
   const separator = key.indexOf(':')
   const operator = key.slice(CONDITION_KEY_PREFIX.length, separator)
   const field = key.slice(separator + 1)
-  const apiOperator = separator > 0 && field !== '' ? toRecordsApiOperator(operator) : undefined
-  return apiOperator === undefined
-    ? undefined
-    : { field, operator: apiOperator, value: conditionValue(operator, value) }
+  const known = separator > 0 && field !== '' && toRecordsApiOperator(operator) !== undefined
+  return known ? { field, operator, value: conditionValue(operator, value) } : undefined
 }
+
+/** The condition a bag entry spells, or `undefined` for a param or a withdrawn condition. */
+const conditionOf = (key: string, value: string): ApiCondition | undefined => {
+  const condition = pageConditionOf(key, value)
+  const apiOperator = condition && toRecordsApiOperator(condition.operator)
+  return condition === undefined || apiOperator === undefined
+    ? undefined
+    : { ...condition, operator: apiOperator }
+}
+
+/**
+ * The conditions a channel bag carries, in the page vocabulary the publisher
+ * wrote — what a subscriber that narrows its OWN rows reads, rather than the
+ * records API's spelling a request carries. Withdrawn and malformed keys yield
+ * nothing, as in {@link conditionsInBag}.
+ */
+export const pageConditionsInBag = (
+  bag: Readonly<Record<string, string>>
+): readonly ApiCondition[] =>
+  Object.entries(bag).flatMap(([key, value]) => {
+    const condition = pageConditionOf(key, value)
+    return condition === undefined ? [] : [condition]
+  })
 
 /**
  * Split a channel bag into the conditions its publishers contribute and the

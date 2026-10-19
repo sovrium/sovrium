@@ -23,6 +23,7 @@
  */
 
 import { fieldWidgetOf } from '@/presentation/design/field-type-behavior'
+import { RequiredMark } from '../parts/crud-form/field-label'
 import { renderField } from '../parts/crud-form/fields'
 import type { TypedFieldProps } from './record-drawer-typed-input'
 import type { FieldDef } from '../parts/crud-form/field-def'
@@ -52,6 +53,7 @@ const toFieldDef = (props: TypedFieldProps): FieldDef => ({
   displayLabel: props.label,
   ...(props.disabled ? { disabled: true } : {}),
   ...(props.field.required === true ? { required: true } : {}),
+  ...(props.field.requiredMark === true ? { requiredMark: true } : {}),
   ...columnSettings(props.field),
 })
 
@@ -72,7 +74,10 @@ export function FormControl(props: TypedFieldProps): ReactElement {
         key={disabled ? 'pending' : 'loaded'}
         className="text-md flex flex-col gap-1"
       >
-        <span className="text-muted-foreground">{label}</span>
+        <span className="text-muted-foreground">
+          {label}
+          <RequiredMark marked={field.requiredMark} />
+        </span>
         {control}
         {children}
       </label>

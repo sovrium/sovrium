@@ -174,17 +174,6 @@ export const STATIC_IMPORTS = `@import 'tailwindcss';
        a class names one. (Utility names are not spelled in this comment: the
        candidate scan reads comments, and naming one here would emit it.) */
     @import 'shadcn/tailwind.css';
-    /* Tailwind v4 registers JS plugins via the @plugin directive in the CSS
-       input (no tailwind.config.js in Sovrium's programmatic compiler). The
-       typography plugin mints the \`prose\` family (\`prose\`, \`prose-invert\`,
-       \`prose-slate\`, \`prose-sm\`, …) used by markdown article layouts
-       (markdown-article.tsx) and the rich-text editor island. Without it those
-       classes are INERT. Placed after the \`@import 'tailwindcss'\` so the
-       plugin's utilities register against the core theme. Flows through the
-       native PostCSS path here; the native-free binary path resolves the
-       \`prose\` utilities from the candidate set + embedded plugin (see
-       generated-css-assets regeneration). */
-    @plugin "@tailwindcss/typography";
     /*---break---
      */
     @source inline("${LAYOUT_UTILITY_SAFELIST}");

@@ -152,6 +152,12 @@ The first call that needs a token posts `body` to `tokenUrl` — as JSON, or as 
   props: { url: 'https://api.example.com/me', connection: github-api }
 ```
 
+### A connection whose credential is not set
+
+An API key, basic or bearer connection whose credential comes from `$env.VAR` can be declared before it is switched on. While that variable is not set on the instance — neither in the environment nor as a `default` — the connection does not fail the automations that use it: each run that needs it is recorded **skipped**, with a reason naming the connection and the variable to set (`connection 'team-chat' is not configured: CHAT_TOKEN is not set`). No request is sent, the run is not retried, no operator alert is emailed and no `automation-failure` handler runs; a webhook trigger answers as it does for any other skipped run.
+
+Only a missing variable qualifies. A credential written in the config, or a variable that is set but refused by the service, is still a failure: it is retried under the automation's retry policy and alerted like any other.
+
 ## Operations
 
 A connection can also declare the endpoints of its service as `operations` and call them by name from any automation step. They have their own article: **Connection Operations**.

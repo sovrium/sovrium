@@ -61,6 +61,7 @@ const toStep = (row: Readonly<typeof automationRunSteps.$inferSelect>): Persiste
   logs: row.logs,
   reads: row.reads,
   nested: row.nested,
+  clientError: row.clientError,
 })
 
 /** The optional-column overlay for a run insert, out of `create` for its complexity. */
@@ -68,12 +69,21 @@ const runInsertOptionals = (input: Readonly<CreateRunInput>) => ({
   ...(input.triggerData !== undefined ? { triggerData: input.triggerData as object } : {}),
   ...(input.triggeredByUserId !== undefined ? { triggeredByUserId: input.triggeredByUserId } : {}),
   ...(input.startedByHand === true ? { startedByHand: true } : {}),
+  startedAsGuest: input.startedAsGuest === true,
   ...(input.triggerName !== undefined ? { triggerName: input.triggerName } : {}),
   ...(input.relay !== undefined ? { relay: input.relay as object } : {}),
   ...(input.startedAt !== undefined ? { startedAt: input.startedAt } : {}),
   ...(input.completedAt !== undefined ? { completedAt: input.completedAt } : {}),
   ...(input.durationMs !== undefined ? { durationMs: input.durationMs } : {}),
   ...(input.error !== undefined ? { error: input.error } : {}),
+})
+
+/** A step's recorded extras — what it logged, read and ran, and its client error — when set. */
+const stepRecordColumns = (step: CreateStepInput) => ({
+  ...(step.logs !== undefined ? { logs: step.logs as object } : {}),
+  ...(step.reads !== undefined ? { reads: step.reads as object } : {}),
+  ...(step.nested !== undefined ? { nested: step.nested as object } : {}),
+  ...(step.clientError !== undefined ? { clientError: step.clientError } : {}),
 })
 
 const stepValues = (runId: string, steps: readonly CreateStepInput[]) =>
@@ -88,9 +98,7 @@ const stepValues = (runId: string, steps: readonly CreateStepInput[]) =>
     ...(step.completedAt !== undefined ? { completedAt: step.completedAt } : {}),
     ...(step.durationMs !== undefined ? { durationMs: step.durationMs } : {}),
     ...(step.error !== undefined ? { error: step.error } : {}),
-    ...(step.logs !== undefined ? { logs: step.logs as object } : {}),
-    ...(step.reads !== undefined ? { reads: step.reads as object } : {}),
-    ...(step.nested !== undefined ? { nested: step.nested as object } : {}),
+    ...stepRecordColumns(step),
   }))
 
 /**
@@ -144,6 +152,8 @@ const finalisedColumns = (
   // Parking sets when and where the run resumes; any other finalisation clears both.
   resumeAt: input.park?.resumeAt ?? null,
   resumeCursor: input.park?.cursor ?? null,
+  // A pausing run stores what it wrote and read; any other finalisation clears it.
+  filesLedger: input.filesLedger ?? null,
   ...(input.completedAt !== undefined ? { completedAt: input.completedAt } : {}),
   ...(input.durationMs !== undefined ? { durationMs: input.durationMs } : {}),
   ...(input.error !== undefined ? { error: input.error } : {}),
@@ -199,6 +209,7 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
           automationId: input.automationId,
           status: input.status,
           ...runInsertOptionals(input),
+          ...(input.createdAt !== undefined ? { createdAt: input.createdAt } : {}),
         })
         .returning()
       if (!runRow) {

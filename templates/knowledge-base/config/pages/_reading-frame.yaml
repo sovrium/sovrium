@@ -41,9 +41,9 @@ classes:
     toc: lg:block lg:max-h-[calc(100dvh-6rem)] lg:self-stretch lg:border-l lg:border-border lg:px-4 lg:py-8
     heading1: '!mb-3 !text-[30px] tracking-tight'
     heading2: '!mt-7 !mb-3 !text-xl'
-    paragraph: '!my-3 !text-[15px] !leading-[1.7] text-[var(--tw-prose-body)]'
+    paragraph: '!my-3 !text-[15px] !leading-[1.7]'
     list: '!my-3'
-    listItem: '!my-1 !text-[15px] !leading-[1.7] text-[var(--tw-prose-body)]'
+    listItem: '!my-1 !text-[15px] !leading-[1.7]'
     link: '!text-primary-subtle-foreground underline underline-offset-2'
     callout: >-
       mt-0 mb-6 rounded-r-lg border border-l-[3px] border-[#e5ded5]

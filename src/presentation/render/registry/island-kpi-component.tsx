@@ -110,6 +110,7 @@ export const islandKpiComponent: ComponentRenderer = ({ elementProps, designStyl
   // The ONE element naming the KPI; the mounted card writes `data-kpi-state` onto it.
   return (
     <div
+      id={elementProps.id as string | undefined}
       data-island="kpi"
       data-island-props={propsJson}
       {...namedHost('kpi')}

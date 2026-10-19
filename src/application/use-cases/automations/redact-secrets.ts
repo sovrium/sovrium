@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { mapStringsDeep } from '@/domain/kernel/config-parsing/map-strings-deep'
 import { buildEnvLookup, ENV_REFERENCE_PATTERN } from './resolve-env-vars'
-import { mapStringsDeep } from './value-walker'
 import type { EnvVar } from '@/domain/models/app/env'
 
 /**

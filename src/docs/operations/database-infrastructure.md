@@ -33,6 +33,10 @@ The selected dialect drives the database client, the migration set, the authenti
 
 SQLite mode supports the core subset. Advanced PostgreSQL-only features — notably vector-backed semantic search — return a typed `501` with `requires-postgres` rather than crash. Scale up to PostgreSQL to unlock them; no config changes are required.
 
+### When the disk is full
+
+A managed PostgreSQL that runs out of disk is not stopped: the provider keeps it reachable and defaults every transaction to read-only, so an ordinary write fails with `cannot execute INSERT in a read-only transaction` while reads go on. Sovrium's scheduled sweeps — activity-log retention, table `retention`, the run-history sweep, the form-draft sweep and the webhook outbox purge — open their transaction read-write, which is the one write such a server allows, so they keep freeing space in that state. Each logs what it deleted every time it runs, zero included, and a sweep the server still refuses is logged with the table, the rows that were due and the refusal, then runs again at its next tick. The sweeps only delete what their windows already allow; growing the volume stays the operator's call.
+
 ## Embedded data directory
 
 All local state lives under a single, relocatable data directory.

@@ -18,6 +18,7 @@ import { executeRawTyped } from '@/infrastructure/database/sql/dialect-execute'
 import { systemTableRef } from '@/infrastructure/database/sql/dialect-sql'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { devTimelineCreatedAt, onDevTimeline } from '@/infrastructure/process/server-boot-instant'
 import { FormSubmissionAccessQueries } from './form-submission-access-repository-live'
 import type { TopLevelFormSubmissionRow } from '@/application/ports/repositories/forms/form-submission-repository'
 import type { formSubmissions } from '@/infrastructure/database/drizzle/schema/form-submissions'
@@ -61,7 +62,18 @@ interface TopLevelInsertInput {
   readonly accessTokenHash?: string
 }
 
+/**
+ * A submission's `submittedAt` on a host pinned with `SOVRIUM_DEV_CLOCK` — the
+ * instant on its development timeline — and `{}` otherwise, so the column's own
+ * default stamps it as it always has.
+ */
+const devTimelineSubmittedAt = (): { readonly submittedAt?: Date } => {
+  const { createdAt } = devTimelineCreatedAt()
+  return createdAt === undefined ? {} : { submittedAt: createdAt }
+}
+
 const buildTopLevelInsertValues = (input: Readonly<TopLevelInsertInput>) => ({
+  ...devTimelineSubmittedAt(),
   formName: input.formName,
   formId: input.formId,
   status: input.status,
@@ -143,8 +155,20 @@ const buildStatusListFragment = (statuses: readonly string[]) =>
  */
 const sqliteGeneratedColumns = () => ({
   columns: sql.raw(', id, submitted_at'),
-  values: sql`, ${crypto.randomUUID()}, ${Date.now()}`,
+  // `onDevTimeline()` is now itself unless the host is pinned (`SOVRIUM_DEV_CLOCK`).
+  values: sql`, ${crypto.randomUUID()}, ${onDevTimeline().getTime()}`,
 })
+
+/** On PostgreSQL, `submitted_at` is supplied only on a pinned host; else `now()` stamps it. */
+const postgresGeneratedColumns = () => {
+  const { submittedAt } = devTimelineSubmittedAt()
+  return submittedAt === undefined
+    ? { columns: sql.raw(''), values: sql.raw('') }
+    : {
+        columns: sql.raw(', submitted_at'),
+        values: sql`, ${submittedAt.toISOString()}::timestamptz`,
+      }
+}
 
 /**
  * The cap-guarded `INSERT ... SELECT ... WHERE (count) < cap` statement.
@@ -156,9 +180,7 @@ const sqliteGeneratedColumns = () => ({
  */
 const reserveInsertSql = (input: ReserveInput) => {
   const ledger = systemTableRef('form_submissions')
-  const generated = isSqliteRuntime()
-    ? sqliteGeneratedColumns()
-    : { columns: sql.raw(''), values: sql.raw('') }
+  const generated = isSqliteRuntime() ? sqliteGeneratedColumns() : postgresGeneratedColumns()
   const statusList = buildStatusListFragment(input.countStatuses)
   // Optional text columns bind as SQL NULL via `sql.raw('NULL')` (avoids
   // passing a JS `null` literal, which the project's lint rules forbid).
@@ -249,6 +271,7 @@ export const FormSubmissionRepositoryLive = Layer.succeed(FormSubmissionReposito
           shareToken,
           tableName,
           submittedData,
+          ...devTimelineSubmittedAt(),
           ...(guestEmail !== undefined ? { guestEmail } : {}),
           ...(ipAddress !== undefined ? { ipAddress } : {}),
         })
@@ -258,7 +281,8 @@ export const FormSubmissionRepositoryLive = Layer.succeed(FormSubmissionReposito
 
   countRecentByIp: ({ ipAddress, windowSeconds }) =>
     wrap(async () => {
-      const cutoff = new Date(Date.now() - windowSeconds * 1000)
+      // On the same timeline the submissions are stamped on (`SOVRIUM_DEV_CLOCK`).
+      const cutoff = onDevTimeline(new Date(Date.now() - windowSeconds * 1000))
       const submissions = formSubmissionsTable()
       const [row] = await db
         .select({ size: count() })

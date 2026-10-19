@@ -32,6 +32,8 @@ import {
   getUserGroups,
   tableEffectiveRoles,
 } from '@/application/use-cases/tables/user-groups'
+import { GUEST_USER_ID, isGuestSession } from '@/domain/models/app/auth/guest-session'
+import { SIGNED_OUT_VISITOR_ROLE } from '@/domain/models/app/auth/permission-evaluation'
 import {
   hasCreatePermissionForRoles,
   hasDeletePermissionForRoles,
@@ -40,6 +42,7 @@ import {
 } from '@/domain/models/app/auth/permission-evaluator-service'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { toGrantingRole } from '@/domain/models/app/auth/roles/granting-role-service'
+import { createOpensToEveryone } from '@/domain/models/app/auth/visitor-create-grant-service'
 import { forbiddenWriteFields } from '@/domain/models/app/tables/field-write-permission-service'
 import {
   createAllowed,
@@ -118,13 +121,55 @@ export const loadCallerIdentity = (
     return { role, groups, accessRoles, effectiveRoles, ctx }
   }).pipe(Effect.withSpan('tables.load-caller-identity'))
 
-/** The table-level grant for the operation, behind the grant to read the table at all. */
+/**
+ * A visitor who is not signed in, as the records API judges her: the visitor
+ * placeholder role, no group, no assignment, and the row-level context of
+ * someone the rules cannot name.
+ */
+const loadVisitorIdentity = (
+  app: App,
+  table: Table
+): Effect.Effect<CallerIdentity, never, Requirements> =>
+  Effect.gen(function* () {
+    const role = SIGNED_OUT_VISITOR_ROLE
+    const ctx = yield* loadCurrentUserContext(
+      { userId: GUEST_USER_ID, role, isUnrestricted: false },
+      table.rowLevelPermissions,
+      rowRuleScopeOf(table, app.tables)
+    )
+    return { role, groups: [], accessRoles: [], effectiveRoles: [role], ctx }
+  }).pipe(Effect.withSpan('tables.load-visitor-identity'))
+
+/**
+ * Who a session is, for the read and write decisions: a visitor who is not
+ * signed in for the guest sentinel, else the named caller
+ * ({@link loadCallerIdentity}).
+ */
+export const loadSessionIdentity = (
+  app: App,
+  userId: string,
+  table: Table
+): Effect.Effect<CallerIdentity | undefined, never, Requirements> =>
+  (isGuestSession(userId)
+    ? loadVisitorIdentity(app, table)
+    : loadCallerIdentity(app, userId, table)
+  ).pipe(Effect.withSpan('tables.load-session-identity'))
+
+/**
+ * The table-level grant for the operation, behind the grant to read the table
+ * at all. A visitor who is not signed in creates only in a table whose create
+ * is open to everyone, and never updates or deletes — the records API's rule.
+ */
 const passesTableGrant = (
   app: App,
   table: Table,
   op: CallerWriteRequest['op'],
-  roles: readonly string[]
+  identity: CallerIdentity
 ): boolean => {
+  const roles = identity.effectiveRoles
+  if (identity.role === SIGNED_OUT_VISITOR_ROLE) {
+    return op === 'create' && createOpensToEveryone(table, app.tables ?? [])
+  }
   if (op === 'create') return hasCreatePermissionForRoles(table, roles, app)
   if (!hasReadPermissionForRoles(table, roles, app)) return false
   return op === 'update'
@@ -201,11 +246,10 @@ export const authorizeCallerWrites = (
     const refuseAll = requests.map(() => false)
     const table = app.tables?.find((t) => t.name === tableName)
     if (table === undefined) return refuseAll
-    const identity = yield* loadCallerIdentity(app, session.userId, table)
+    const identity = yield* loadSessionIdentity(app, session.userId, table)
     if (identity === undefined) return refuseAll
     return yield* Effect.forEach(requests, (request) =>
-      request.tableName === tableName &&
-      passesTableGrant(app, table, request.op, identity.effectiveRoles)
+      request.tableName === tableName && passesTableGrant(app, table, request.op, identity)
         ? passesRowAndFieldRules({ app, table, request, identity, session })
         : Effect.succeed(false)
     )

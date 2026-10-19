@@ -22,11 +22,11 @@ The composer sends nothing until the page's script has run: its Send button wait
 
 ### What the panel is made of
 
-The panel is drawn from the conversation types rather than markup of its own, so it looks and behaves like any other thread on the page. The transcript is a `message-scroller`: it scrolls inside the panel and keeps the latest turn in view. Each turn is a `message`, the reader's at the end of the line in the primary colour and the assistant's at the start in the muted one. Until a reply starts, a live `marker` says one is coming. The reply then streams into its bubble as it is written, drawn from its Markdown — bold, lists, links, code — which the server renders and sanitizes; the reader's own turn is shown exactly as typed. Above the answer, the model's reasoning is a collapsed "Reasoning" `marker`, and each tool the agent calls is a `marker` line naming it, which says in words when the call was denied or failed. With `showHistory`, a separator `marker` reading "Earlier conversation" closes the replayed turns. Picked files are `attachment` chips, removable until the message is sent.
+The panel is drawn from the conversation types rather than markup of its own, so it looks and behaves like any other thread on the page. The transcript is a `message-scroller`: it scrolls inside the panel and keeps the latest turn in view. Each turn is a `message`, the reader's at the end of the line in the primary colour and the assistant's at the start in the muted one. Until a reply starts, a live `marker` says one is coming. The reply then streams into its bubble as it is written, drawn from its Markdown — bold, lists, links, code — which the server renders and sanitizes; the reader's own turn is shown exactly as typed. The answer is set as a message rather than an article: its paragraphs, lists and code blocks stand one line apart, at the bubble's text size and a slightly open leading, on a phone as on a wide screen, while the reader's own turn keeps the bubble's plain setting. Above the answer, the agent at work is drawn as a trace: the model's reasoning is a collapsed "Reasoning" line that opens onto what it thought, and each tool the agent calls is a line naming it, which says in words while the call runs (its name shimmers, unless the reader asks for reduced motion) and when it was denied or failed, a failed call drawn in the destructive colour. With `showHistory`, a separator `marker` reading "Earlier conversation" closes the replayed turns. Picked files are `attachment` chips, removable until the message is sent.
 
 The composer is an `input-group` around a text area. Enter sends the message, and Shift+Enter starts a new line.
 
-While a reply streams, Stop takes the place of Send. Stopping keeps what had arrived and closes the answer with a "Stopped" `marker`. When the agent calls an action its approval rule holds for a person, the tool line waits with Approve and Deny buttons; approving runs the call and the answer goes on, denying writes nothing and the agent replies to the refusal. A call already decided elsewhere, in another tab for instance, closes with a line saying it no longer waits for a decision, and a question answered elsewhere closes the same way; neither shows an error. A decision that fails on the way leaves the call waiting, and Retry sends that decision again. After Stop or a decision, the keyboard focus returns to the message box.
+While a reply streams, Stop takes the place of Send. Stopping keeps what had arrived and closes the answer with a "Stopped" `marker`. When the agent calls an action its approval rule holds for a person, the tool line waits for her approval, with Approve and Deny inside it; approving runs the call and the answer goes on, denying writes nothing and the agent replies to the refusal. A call already decided elsewhere, in another tab for instance, closes with a line saying it no longer waits for a decision, and a question answered elsewhere closes the same way; neither shows an error. A decision that fails on the way leaves the call waiting, and Retry sends that decision again. After Stop or a decision, the keyboard focus returns to the message box.
 
 ### Conversations, edits and sources
 
@@ -40,7 +40,17 @@ Set `conversations: true` to add a **Conversations** button above the transcript
   conversations: true
 ```
 
-When the agent answers from its `knowledge`, each number its answer cites (`[1]`) is a link to the source, and the sources it cites are listed under the answer as chips, titled by the document's label with the passage the agent read.
+When the agent answers from its `knowledge`, each number its answer cites (`[1]`) is a link to the source, and the sources it cites are listed under the answer as chips, titled by the document's label with the passage the agent read. Resting the pointer on a number, or reaching it with the keyboard, opens a hover card with the source's label and that passage, so the reader can check a claim without leaving the answer; moving away or pressing Escape closes it, and the focus stays on the number.
+
+### Token count
+
+Set `showUsage: true` to end each answer with the number of tokens its turn used, as the AI provider reported it, summed over every model call the turn made: "1,242 tokens". The number is written in the page's language. Resting the pointer on the count, or reaching it with the keyboard, opens a hover card that splits it into the tokens the turn read and the tokens it wrote ("1,180 input", "62 output"). The count is never a percentage of the model's context window, which the provider does not report. An answer whose provider reports no usage shows nothing, and the count is not kept with the conversation: an answer shown again later carries none. Rename the three lines in `languages.translations` as `sovrium.aiChat.usageTotal`, `sovrium.aiChat.usageInput` and `sovrium.aiChat.usageOutput`, keeping `{count}` where the number goes.
+
+```yaml
+- type: ai-chat
+  agent: bookkeeper
+  showUsage: true
+```
 
 ### Attachments
 

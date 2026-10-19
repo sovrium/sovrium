@@ -93,7 +93,17 @@ function resolveSource(
  * `!envVar.secret` test would invert precisely that case.
  */
 function disclosesDefault(envVar: EnvVar): boolean {
-  return envVar.secret === false && envVar.default !== undefined
+  return envVar.secret === false && declaresDefault(envVar)
+}
+
+/**
+ * Whether the variable has a default worth the name. `default: ''` resolves to
+ * the same nothing as no default at all (see {@link resolveSource}), so it is
+ * reported as none: "has a default" beside "Not set" was three words for one
+ * missing value.
+ */
+function declaresDefault(envVar: EnvVar): boolean {
+  return envVar.default !== undefined && envVar.default !== ''
 }
 
 /**
@@ -105,7 +115,7 @@ function disclosesDefault(envVar: EnvVar): boolean {
  * `defaultValue` is, and `none` if and only if `hasDefault` is false.
  */
 function defaultStateOf(envVar: EnvVar): EnvDefaultState {
-  if (envVar.default === undefined) return 'none'
+  if (!declaresDefault(envVar)) return 'none'
   return disclosesDefault(envVar) ? 'disclosed' : 'withheld'
 }
 
@@ -126,7 +136,7 @@ function statusOf(
     required: isEnvVarRequired(envVar),
     // Presence, unconditionally — the diagnostic that must keep working for the
     // withheld majority.
-    hasDefault: envVar.default !== undefined,
+    hasDefault: declaresDefault(envVar),
     // The same two predicates as one gate-able fact, for a reader that cannot
     // compute `hasDefault && defaultValue === undefined` for itself.
     defaultState: defaultStateOf(envVar),

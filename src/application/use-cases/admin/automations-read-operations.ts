@@ -89,6 +89,12 @@ const RUNS_LIST_TOOL_PROPERTIES: Readonly<Record<string, unknown>> = {
     type: 'string',
     description: 'The nextCursor of the previous page. Omit on the first page.',
   },
+  page: {
+    type: 'integer',
+    minimum: 1,
+    description:
+      'Read by page number instead of by cursor (1-based); ignored when cursor is given. The response total counts every matching run.',
+  },
 }
 
 const runsList = defineAdminRead<AdminRunsListInput>({
@@ -100,6 +106,7 @@ const runsList = defineAdminRead<AdminRunsListInput>({
   // is how `?q=` once answered a confident 200 over the wrong rows.
   queryParams: [
     'cursor',
+    'page',
     'limit',
     'status',
     'automationName',
@@ -119,7 +126,7 @@ const runsList = defineAdminRead<AdminRunsListInput>({
   openapi: {
     summary: 'List automation runs',
     description:
-      'Cursor-paginated run history, newest first, each run carrying its `_admin` envelope. ' +
+      'Run history, newest first, by cursor or by page number, each run carrying its `_admin` envelope. ' +
       'Filters AND-combine with each other, with `q` and with the cursor, so a page is a page ' +
       'of matches. A `from` later than `to` is refused 400 before any read. One audit event ' +
       'per call, never one per page. Admin only, and a non-admin caller is answered 404 ' +
@@ -266,8 +273,11 @@ const catalog = defineAdminRead<undefined>({
   subject: 'automations catalog',
   decode: () => ({ _tag: 'Ok', input: undefined }),
   // No admin audit event: the catalog route has never written one.
-  read: (app) =>
-    Effect.map(BuildAutomationsCatalog(app), (body) => ({ _tag: 'Ok', body }) as const),
+  // `pausedLabel` and each trigger's reading are phrased in the operator's console language.
+  read: (app, _input, request) =>
+    Effect.flatMap(resolveOperatorLanguage(request), (language) =>
+      Effect.map(BuildAutomationsCatalog(app, language), (body) => ({ _tag: 'Ok', body }) as const)
+    ),
 })
 
 /** The automations admin reads, in the order the registry lists them. */

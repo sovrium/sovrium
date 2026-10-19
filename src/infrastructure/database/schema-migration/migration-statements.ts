@@ -23,6 +23,7 @@ import {
   findNullabilityChanges,
   findDefaultValueChanges,
   buildColumnStatements,
+  type ColumnDrop,
   type ExistingColumnInfo,
 } from './column-detection'
 import { detectAmbiguousFieldRenames, detectFieldRenames } from './rename-detection'
@@ -524,7 +525,8 @@ const planColumnChanges = (params: {
 }
 
 /**
- * Generate ALTER TABLE statements for schema migrations
+ * Generate ALTER TABLE statements for schema migrations, and each `DROP COLUMN`
+ * among them as its {@link ColumnDrop} (for a caller that may withhold one).
  *
  * @param physicalTableName - the relation the statements ALTER. Defaults to the
  *   config name; a view-backed table passes `<name>_base`, because its config
@@ -542,20 +544,16 @@ export const generateAlterTableStatements = (options: {
   readonly tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined>
   readonly hasAuthConfig?: boolean
   readonly physicalTableName?: string
-}): readonly string[] => {
+}): { readonly statements: readonly string[]; readonly drops: readonly ColumnDrop[] } => {
   const { table, existingColumns, previousSchema, tablePrimaryKeyTypes, hasAuthConfig } = options
   const physicalTableName = options.physicalTableName ?? table.name
   const { shouldProtectIdColumn, primaryKeyFields } = computeIdProtection(table)
 
-  // A table needing full recreation yields no incremental ALTERs. The migrate
-  // path decides recreate-vs-alter up front via `needsTableRecreation` and only
-  // reaches here on the alter path; keep this guard so a direct caller still
-  // gets [] rather than statements against a column about to be recreated.
+  // A table needing full recreation yields no ALTERs (the migrate path decides
+  // that up front; this guard keeps a direct caller off a column being recreated).
   if (needsIdColumnRecreation(existingColumns, shouldProtectIdColumn, table.primaryKey?.type))
-    return []
-
+    return { statements: [], drops: [] }
   validateFieldRenameAmbiguity(table, previousSchema)
-
   const { renameStatements, renamedNewNames, columnsToAdd, columnsToDrop } = planColumnChanges({
     table,
     existingColumns,
@@ -563,10 +561,8 @@ export const generateAlterTableStatements = (options: {
     physicalTableName,
     previousSchema,
   })
-
   validateDestructiveOps(table, columnsToDrop)
-
-  const { dropStatements, addStatements } = buildColumnStatements({
+  const { drops, dropStatements, addStatements } = buildColumnStatements({
     tableName: physicalTableName,
     columnsToDrop,
     columnsToAdd,
@@ -587,11 +583,12 @@ export const generateAlterTableStatements = (options: {
   })
 
   // ORDER: rename → drop → add → special fields → type changes → defaults → nullability
-  return [
+  const statements = [
     ...renameStatements,
     ...dropStatements,
     ...addStatements,
     ...generateSpecialFieldStatements(table, existingColumns, physicalTableName),
     ...columnReshapeStatements,
   ]
+  return { statements, drops }
 }

@@ -11,6 +11,7 @@
  * spellings a write would land on.
  */
 
+import { inArray } from 'drizzle-orm'
 import { Effect, Option, Semaphore } from 'effect'
 import {
   StorageError,
@@ -19,7 +20,16 @@ import {
   storageObjectNotFound,
 } from '@/application/ports/services/storage-service'
 import { storageKeyCollisionForm } from '@/domain/kernel/identity/storage-key'
-import { bucketBindingMatches, bucketBindingPermitsWrite, readFileMetadata } from './bytea-adapter'
+import { db } from '@/infrastructure/database'
+import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  bucketBindingMatches,
+  bucketBindingPermitsWrite,
+  catalogRowValues,
+  readFileMetadata,
+  type CatalogWrite,
+} from './bytea-adapter'
+import { isClaimed } from './catalog-claim'
 import { findOtherStoredSpelling } from './key-spelling-catalog'
 import type {
   BucketBinding,
@@ -49,7 +59,17 @@ export const assertBucketBinding = (
   // An unattributed caller asserts nothing about ownership, so there is nothing
   // to check — and it must not require a catalog row either: automation actions
   // address keys that may have been written to the object store out of band.
-  if (bucket === UNATTRIBUTED_BUCKET) return Effect.void
+  // A key a replacing write has claimed but not stored yet is still absent.
+  if (bucket === UNATTRIBUTED_BUCKET) {
+    return Effect.tryPromise({
+      try: () => isClaimed(key),
+      catch: (e: unknown) => makeError(e),
+    }).pipe(
+      Effect.flatMap((claimed) =>
+        claimed ? Effect.fail(makeError(storageObjectNotFound(key))) : Effect.void
+      )
+    )
+  }
   return Effect.tryPromise({
     try: () => readFileMetadata(key),
     catch: (e: unknown) => makeError(e),
@@ -61,36 +81,6 @@ export const assertBucketBinding = (
     )
   )
 }
-
-/**
- * Refuse a write that would move an existing object into the caller's bucket.
- *
- * This runs BEFORE the bytes are handed to the object store, and that ordering
- * is the whole point. S3 and local write the blob first and the catalog row
- * second, so a refusal raised only by the catalog upsert would arrive after the
- * victim's bytes had already been replaced — the object would survive with the
- * right owner and the wrong content, which is precisely the silent data loss
- * this gate exists to prevent. `byteaUpload` needs no pre-check because its
- * metadata upsert is upstream of its content upsert in the same call.
- *
- * The guarded upsert inside {@link writeFileMetadata} is still load-bearing: it
- * is what closes the window between this read and that write, and it is the
- * seam every provider funnels through.
- */
-export const assertBucketWritable = (
-  key: string,
-  bucket: BucketBinding
-): Effect.Effect<void, StorageError> =>
-  Effect.tryPromise({
-    try: () => readFileMetadata(key),
-    catch: (e: unknown) => makeError(e),
-  }).pipe(
-    Effect.flatMap((meta) =>
-      bucketBindingPermitsWrite(bucket, meta?.bucket)
-        ? Effect.void
-        : Effect.fail(makeError(storageObjectNotFound(key)))
-    )
-  )
 
 /** File metadata lookup shared by every provider — reads `system.file_storage_metadata`. */
 export const getMetadataFromCatalog: StorageService['Service']['getMetadata'] = (key, bucket) =>
@@ -147,6 +137,39 @@ export const assertNoOtherSpelling = (
       )
     })
   )
+
+/**
+ * {@link writeFileMetadata} for a create-only write: the row is inserted and
+ * never upserted, so `taken` comes back, and nothing changes, when a row is
+ * already recorded at the key — whoever's, in whatever bucket.
+ */
+export const insertFileMetadataOnly = async (file: CatalogWrite): Promise<'written' | 'taken'> => {
+  const files = fileStorageMetadataTable()
+  const inserted = await db
+    .insert(files)
+    .values(catalogRowValues(file))
+    .onConflictDoNothing({ target: files.key })
+    .returning({ key: files.key })
+  return inserted.length === 0 ? 'taken' : 'written'
+}
+
+/** The provider's `catalogBuckets`: one read of the catalog rows of `keys`. */
+export const catalogBucketsOf = (
+  keys: readonly string[]
+): Effect.Effect<ReadonlyMap<string, string | undefined>, StorageError> =>
+  keys.length === 0
+    ? Effect.succeed(new Map())
+    : Effect.tryPromise({
+        try: async () => {
+          const files = fileStorageMetadataTable()
+          const rows = await db
+            .select({ key: files.key, bucket: files.bucket })
+            .from(files)
+            .where(inArray(files.key, [...keys]))
+          return new Map(rows.map((row) => [row.key, row.bucket ?? undefined] as const))
+        },
+        catch: (e: unknown) => makeError(e),
+      })
 
 /** One lock per comparison form a write is in flight for, with how many writes hold or wait on it. */
 const spellingLocks = new Map<string, { readonly lock: Semaphore.Semaphore; holders: number }>()

@@ -84,7 +84,8 @@ import type { Design } from '@/domain/models/app/design'
  * documents rather than wears; `zones` is a route map the console's own routes
  * do not answer to. That exclusion is the console design-cascade rule's call and is preserved verbatim
  * across the flattening — this change moved keys, it did not re-open which ones
- * cascade.
+ * cascade. `codeBlock` is deprecated and ignored everywhere, so it has nothing
+ * to cascade.
  */
 export const CASCADING_DESIGN_KEYS = [
   'colorScheme',
@@ -100,7 +101,6 @@ export const CASCADING_DESIGN_KEYS = [
   'breakpoints',
   'density',
   'baseline',
-  'codeBlock',
   'components',
 ] as const satisfies readonly (keyof Design)[]
 

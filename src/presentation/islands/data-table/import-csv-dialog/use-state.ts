@@ -13,6 +13,7 @@ import type {
   DuplicateStrategy,
   ImportResult,
   ImportWizardStep,
+  ValueMappings,
 } from './types'
 
 interface FileReadCallbacks {
@@ -42,8 +43,8 @@ function readCsvFile(file: File, callbacks: FileReadCallbacks): void {
 /**
  * Local state machine for the import wizard.
  *
- * Owns: file content + preview, current step, editable column mappings,
- * import result, in-flight flag, duplicate strategy + unique-field choice,
+ * Owns: file content + preview + name, current step, editable column mappings
+ * and the option each foreign choice value goes to, import result, in-flight flag, duplicate strategy + unique-field choice,
  * and the hovered-column index used to position the sample-values tooltip.
  *
  * Returned as a flat bag so the dialog can pass individual fields directly
@@ -52,6 +53,8 @@ function readCsvFile(file: File, callbacks: FileReadCallbacks): void {
 export function useImportCsvDialogState() {
   const [preview, setPreview] = useState<CsvPreview | undefined>(undefined)
   const [rawContent, setRawContent] = useState<string | undefined>(undefined)
+  const [fileName, setFileName] = useState<string | undefined>(undefined)
+  const [valueMappings, setValueMappings] = useState<ValueMappings>({})
   const [noDataError, setNoDataError] = useState(false)
   const [step, setStep] = useState<ImportWizardStep>('upload')
   const [editableMappings, setEditableMappings] = useState<readonly ColumnMapping[]>([])
@@ -63,6 +66,11 @@ export function useImportCsvDialogState() {
 
   const updateMapping = useCallback((index: number, tableField: string | undefined) => {
     setEditableMappings((prev) => prev.map((m, i) => (i === index ? { ...m, tableField } : m)))
+    setValueMappings((prev) => ({ ...prev, [index]: {} }))
+  }, [])
+
+  const updateValueMapping = useCallback((column: number, value: string, option: string) => {
+    setValueMappings((prev) => ({ ...prev, [column]: { ...prev[column], [value]: option } }))
   }, [])
 
   const onFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -72,6 +80,8 @@ export function useImportCsvDialogState() {
       onParsed: (parsed, content) => {
         setPreview(parsed)
         setRawContent(content)
+        setFileName(file.name)
+        setValueMappings({})
         setNoDataError(false)
         setStep('preview')
       },
@@ -90,6 +100,9 @@ export function useImportCsvDialogState() {
   return {
     preview,
     rawContent,
+    fileName,
+    valueMappings,
+    updateValueMapping,
     noDataError,
     step,
     setStep,

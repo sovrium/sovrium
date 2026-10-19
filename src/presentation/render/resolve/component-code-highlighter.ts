@@ -14,9 +14,8 @@
  * (`markdown-page-resolver.composeMarkdownHtml`): the sync renderer emits a
  * self-contained placeholder — `<pre … data-code-block="<base64 source>"
  * data-code-lang="<grammar>">…</pre>` (the visible `<code>` stays as an escaped
- * fallback) — and this post-render pass, running in the async page-render phase
- * where `app.design.codeBlock.theme` is available, replaces each placeholder with
- * Shiki class-based markup.
+ * fallback) — and this post-render pass, running in the async page-render phase,
+ * replaces each placeholder with Shiki class-based markup.
  *
  * Boundary responsibilities (mirrors the markdown split):
  *  - `infrastructure/markdown/shiki-highlighter.highlightCodeToHtml` produces the
@@ -93,16 +92,10 @@ const injectPassThroughAttrs = (fragment: string, attrs: string): string =>
 /**
  * Replace every `code`-component placeholder in a rendered page's HTML with
  * Shiki-highlighted, sanitised markup. Returns the input verbatim when the page
- * has no such placeholders. `theme` is `app.design.codeBlock.theme` (an unset
- * value defaults to `github-dark` inside the highlighter), and `darkTheme` is
- * the optional counterpart for the dark colour scheme — absent, one palette
- * governs both.
+ * has no such placeholders. Every block is drawn with shadcn/ui's default
+ * light/dark pair.
  */
-export const highlightComponentCodeBlocks = async (
-  html: string,
-  theme: string | undefined,
-  darkTheme?: string
-): Promise<string> => {
+export const highlightComponentCodeBlocks = async (html: string): Promise<string> => {
   const matches = [...html.matchAll(PLACEHOLDER_RE)]
   if (matches.length === 0) return html
 
@@ -110,7 +103,7 @@ export const highlightComponentCodeBlocks = async (
     matches.map(async (match): Promise<string> => {
       const code = decodeBase64(match[1] ?? '')
       const lang = LANG_RE.exec(match[0])?.[1] ?? ''
-      const highlighted = await highlightCodeToHtml(lang, code, theme, darkTheme)
+      const highlighted = await highlightCodeToHtml(lang, code)
       // Re-emit the placeholder's trusted `data-testid`/`id` onto the Shiki
       // `<pre>` — the async splice otherwise discards them (the sanitiser drops
       // `data-testid`; Shiki's fresh `<pre>` never carried the author anchors).

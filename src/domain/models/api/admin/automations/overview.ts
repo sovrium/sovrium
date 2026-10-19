@@ -75,7 +75,7 @@ const seriesPointSchema = Schema.Struct({
 /**
  * Response shape of `GET /api/admin/automations/overview`.
  *
- * Three top-level fields:
+ * Three top-level fields, plus `points`:
  *
  * - `totals` — aggregate counters for the period. `runs_24h` and
  *   `failures_24h` are always 24-hour aggregates regardless of the requested
@@ -91,6 +91,10 @@ const seriesPointSchema = Schema.Struct({
  *   Empty buckets are present with `runs = 0` and `failures = 0` — the
  *   response is dense, not sparse, so chart libraries do not have to fill
  *   gaps.
+ *
+ * - `points` — `series.points` again, at the top level. A page's chart binds
+ *   its rows with one flat key (`rowsKey`) and cannot reach a nested array, so
+ *   the buckets are published where it can read them.
  *
  * - The response intentionally omits per-automation breakdowns and percentile
  *   latencies; both are out-of-scope for Phase 0 (covered by sibling stories
@@ -121,6 +125,10 @@ export const automationsOverviewResponseSchema = Schema.Struct({
         'Dense, ascending-by-timestamp series of buckets covering the requested period. Empty buckets are present with zero counts.',
     }),
   }).annotate({ description: 'Bucketed time series for chart rendering.' }),
+  points: Schema.Array(seriesPointSchema).annotate({
+    description:
+      'The same buckets as `series.points`, in the same order, at the top level of the response — the shape a chart binding reads, since it looks a series up by one flat key.',
+  }),
 }).annotate({ identifier: 'AutomationsOverviewResponse' })
 
 /** @public */

@@ -19,6 +19,7 @@ import {
   type RawRecord,
   type Values,
 } from './record-drawer-record-read'
+import { holdsLoadedValues } from './record-drawer-values'
 import { useCreateTrigger } from './use-record-drawer-create'
 import { useDeepLinkOpen, useOpenDrawerEvent } from './use-record-drawer-open'
 import type { ValueEntry } from './record-drawer-values'
@@ -101,6 +102,8 @@ export function useRecordDrawer(binding: RecordDrawerBinding) {
     record: read.record,
     values,
     setValues,
+    // Nothing to save: an opened record whose controls still hold what it loaded.
+    unchanged: !creating && holdsLoadedValues(values, read.baseline),
     loading: read.loading,
     notFound: read.notFound,
   }
@@ -118,19 +121,25 @@ export function useRecordDrawer(binding: RecordDrawerBinding) {
  * server) the record carries its formatted text in the page's language, which the
  * slot and a confirm prompt print — the text a record page prints for the same
  * value. Every address site keeps reading the stored value.
+ *
+ * `readFailed` is true when a system detail read failed, so the sheet can say
+ * the record could not be read instead of drawing its fields empty.
  */
 export function useDrawerRecord(
   system: SystemDetailSource | undefined,
   recordId: string | undefined,
   tableRecord: RawRecord,
   recordText?: RecordTextFields
-): RawRecord {
+): { readonly record: RawRecord; readonly readFailed: boolean } {
   const systemQuery = useRecordQuery('record-drawer', system ? { system } : undefined, recordId)
   const record = system ? (systemQuery.data ?? EMPTY_RECORD) : tableRecord
-  return useMemo(
+  const formatted = useMemo(
     () => withRecordTextFields(record, recordText, resolvePageLocale()) as RawRecord,
     [record, recordText]
   )
+  // A system detail read that failed — refused, or the server down — leaves no
+  // record to draw: the sheet says so rather than drawing every field empty.
+  return { record: formatted, readFailed: system !== undefined && systemQuery.isError }
 }
 
 /**

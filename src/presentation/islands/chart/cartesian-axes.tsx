@@ -11,8 +11,11 @@
  * The value axis spans the domain and labels the ticks {@link ValueAxis}
  * decided, rather than the ones recharts would pick. Its ticks, the category
  * ticks, the grid rules (`data-chart-gridline`) and the axis titles
- * (`data-chart-axis-title`) are drawn here so each carries its hook; the two
- * baselines keep the border role an author's `design.colors.border` repaints.
+ * (`data-chart-axis-title`) are drawn here so each carries its hook.
+ *
+ * No axis draws a baseline (shadcn's chart anatomy: `axisLine={false}`): the
+ * ticks name the scale, and the horizontal grid rules — in the border role an
+ * author's `design.colors.border` repaints — are the only lines behind the data.
  */
 
 import { CartesianGrid, XAxis, YAxis } from 'recharts'
@@ -20,7 +23,6 @@ import {
   CHART_AXIS_LABEL_FILL,
   CHART_AXIS_LABEL_FONT_SIZE,
   CHART_AXIS_LABEL_FONT_WEIGHT,
-  CHART_AXIS_STROKE,
   CHART_AXIS_TICK_FILL,
 } from '@/presentation/design/chart-default-classes'
 import type { ValueAxis } from './value-axis'
@@ -136,9 +138,6 @@ function axisTitle(axis: 'x' | 'y', text: string): (props: AxisViewBox) => React
   }
 }
 
-/** The two axis baselines, in the border role. */
-const AXIS_LINE = { stroke: CHART_AXIS_STROKE } as const
-
 /** The horizontal grid, drawn only when an axis declares `gridLines`. */
 export function gridElement(): ReactElement {
   return (
@@ -149,16 +148,26 @@ export function gridElement(): ReactElement {
   )
 }
 
-/** The category axis: every category labelled, titled by `xAxis.label` when declared. */
+/** Above this many categories, labelling every one runs the labels into each other. */
+const DENSE_CATEGORIES = 12
+
+/**
+ * The category axis, titled by `xAxis.label` when declared: every category
+ * labelled, unless there are more than {@link DENSE_CATEGORIES} — a month of
+ * days — where the first and last stay labelled and recharts drops the labels
+ * between that would overlap.
+ */
 export function categoryAxisElement(
   labelOf: (key: string) => string,
-  title: string | undefined
+  title: string | undefined,
+  categoryCount = 0
 ): ReactElement {
   return (
     <XAxis
       dataKey="key"
-      interval={0}
-      axisLine={AXIS_LINE}
+      interval={categoryCount > DENSE_CATEGORIES ? 'preserveStartEnd' : 0}
+      minTickGap={12}
+      axisLine={false}
       tickLine={false}
       tickSize={0}
       tickMargin={8}
@@ -184,7 +193,7 @@ export function valueAxisElement(
       allowDataOverflow
       interval={0}
       width={72}
-      axisLine={AXIS_LINE}
+      axisLine={false}
       tickLine={false}
       tickSize={0}
       tickMargin={6}

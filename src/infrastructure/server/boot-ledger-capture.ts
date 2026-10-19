@@ -65,6 +65,7 @@ import {
   type Snapshot,
 } from '@/application/use-cases/admin/boot-ledger-diff'
 import { redactSecretsForApp } from '@/application/use-cases/automations/redact-secrets'
+import { serverNow } from '@/domain/models/process-env/dev-clock'
 import { readAppliedMigrations } from '@/infrastructure/database/drizzle/applied-migrations'
 import {
   resolveMigrationsFolder,
@@ -219,7 +220,9 @@ interface LedgerRowInput {
 const buildLedgerRow = (input: LedgerRowInput): NewBootLedgerEntry => {
   const { app, previous, redactedSnapshot, engineMigrations } = input
   const diff = diffSnapshots(previous?.snapshot, redactedSnapshot)
-  const bootedAt = new Date()
+  // The instant the server answers "now" at: the pinned `SOVRIUM_DEV_CLOCK` on a
+  // development server, so the ledger agrees with every other date it shows.
+  const bootedAt = new Date(serverNow().getTime())
 
   const derivedDdl = deriveConfigDdl({
     previousTables: priorTables(previous?.snapshot),

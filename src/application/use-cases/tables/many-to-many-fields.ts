@@ -79,3 +79,66 @@ export const getManyToManyFieldSpecs = (
     hasReciprocal: relatedTablePointsBack(tables, field.relatedTable, tableName),
   }))
 }
+
+/** A `one-to-many` field and the column of the related table that points back. */
+export interface OneToManyFieldSpec {
+  readonly fieldName: string
+  readonly relatedTable: string
+  readonly reciprocalField: string
+}
+
+type OneToManyField = {
+  readonly name: string
+  readonly relatedTable: string
+  readonly reciprocalField?: unknown
+}
+
+const isOneToManyField = (field: SchemaField): field is OneToManyField & SchemaField =>
+  field.type === 'relationship' &&
+  field.relationType === 'one-to-many' &&
+  typeof field.relatedTable === 'string' &&
+  typeof field.name === 'string'
+
+/**
+ * The related table's column that holds the link: the declared
+ * `reciprocalField`, else the ONE to-one relationship of the related table that
+ * points back at the source. Two candidates, or none, resolve nothing — a guess
+ * would list another relation's rows under this one.
+ */
+const backReferenceOf = (
+  tables: App['tables'],
+  field: OneToManyField,
+  sourceTable: string
+): string | undefined => {
+  if (typeof field.reciprocalField === 'string' && field.reciprocalField !== '') {
+    return field.reciprocalField
+  }
+  const candidates = (tables?.find((t) => t.name === field.relatedTable)?.fields ?? []).filter(
+    (other) =>
+      other.type === 'relationship' &&
+      'relatedTable' in other &&
+      other.relatedTable === sourceTable &&
+      (!('relationType' in other) ||
+        other.relationType === undefined ||
+        other.relationType === 'many-to-one')
+  )
+  return candidates.length === 1 ? candidates[0]?.name : undefined
+}
+
+/**
+ * The one-to-many field specs for a table — the records of another table that
+ * point at each of its records (empty when it declares none).
+ */
+export const getOneToManyFieldSpecs = (
+  tables: App['tables'],
+  tableName: string
+): readonly OneToManyFieldSpec[] => {
+  const table = tables?.find((t) => t.name === tableName)
+  if (!table) return []
+  return (table.fields as readonly SchemaField[]).filter(isOneToManyField).flatMap((field) => {
+    const reciprocalField = backReferenceOf(tables, field, tableName)
+    return reciprocalField === undefined
+      ? []
+      : [{ fieldName: field.name, relatedTable: field.relatedTable, reciprocalField }]
+  })
+}

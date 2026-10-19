@@ -115,6 +115,10 @@ const SELF_DISPLAYING_TYPES: ReadonlySet<string> = new Set([
   'separator',
   // `item` lays its slots out as a flex row of its own.
   'item',
+  // `button`, when it is icon-only: an `icon` and no text is contentless here,
+  // and the inline `inline-block` beat the recipe's `inline-flex items-center
+  // justify-center`, so the icon sat against the box's left edge on every app.
+  'button',
 ])
 
 /**

@@ -19,7 +19,7 @@
  */
 
 // Type exports
-export type { ExistingColumnInfo } from './column-detection'
+export type { ColumnDrop, ExistingColumnInfo } from './column-detection'
 export { type TransactionLike as BunSQLTransaction } from '../sql/sql-execution'
 
 // Constants

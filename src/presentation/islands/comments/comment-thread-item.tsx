@@ -75,6 +75,8 @@ function CommentActions({
   readonly onSetMode: (mode: ItemMode) => void
 }): ReactElement | undefined {
   const replyLabel = useCommentString('comments.reply', 'Reply')
+  const editLabel = useCommentString('comments.edit', 'Edit')
+  const deleteLabel = useCommentString('comments.delete', 'Delete')
   if (!canEdit && !canDelete && !canReply) return undefined
   return (
     <div className={computeCommentActionsClasses()}>
@@ -84,7 +86,7 @@ function CommentActions({
           onClick={() => onSetMode('editing')}
           className={computeCommentActionClasses()}
         >
-          Edit
+          {editLabel}
         </button>
       )}
       {canDelete && (
@@ -93,7 +95,7 @@ function CommentActions({
           onClick={() => onSetMode('confirming-delete')}
           className={computeCommentActionClasses()}
         >
-          Delete
+          {deleteLabel}
         </button>
       )}
       {canReply && (
@@ -120,13 +122,15 @@ function ReplyCount({
   readonly isReplyItem: boolean
   readonly replyCount: number | undefined
 }): ReactElement | undefined {
+  const one = useCommentString('comments.oneReply', '1 reply')
+  const many = useCommentString('comments.replies', '{count} replies')
   if (isReplyItem || replyCount === undefined || replyCount <= 0) return undefined
   return (
     <p
       data-reply-count={String(replyCount)}
       className={computeCommentTimestampClasses()}
     >
-      {replyCount === 1 ? '1 reply' : `${replyCount} replies`}
+      {replyCount === 1 ? one : many.split('{count}').join(String(replyCount))}
     </p>
   )
 }

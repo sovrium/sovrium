@@ -151,10 +151,8 @@ const handleGetConversation = async (c: Context): Promise<Response> => {
   if (branch === undefined || branch.length === 0) {
     return notFound(c, 'Conversation not found.')
   }
-  const body: ConversationDetailResponse = {
-    sessionId,
-    messages: [...toWireMessages(tree, branch, uploads)],
-  }
+  const messages = await runRequestEffect(c, toWireMessages(tree, branch, uploads))
+  const body: ConversationDetailResponse = { sessionId, messages: [...messages] }
   return c.json(body, 200)
 }
 

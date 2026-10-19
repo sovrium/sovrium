@@ -19,6 +19,7 @@
  */
 
 import { Duration, Effect } from 'effect'
+import { logWarning } from '@/infrastructure/logging/logger'
 import { actionKey, missingActionHandler, type ActionOutcome } from '../action-handlers'
 import { buildStepsResultView, resolveOwnProp } from '../action-handlers/run-context-resolution'
 import { authoredReferenceRoots, fillAuthoredReferences } from '../authored-references'
@@ -132,6 +133,24 @@ const withExpandedTemplateVars = <C extends ActionRunContext>(
 }
 
 /**
+ * A hand-started write the database refused for a value another record holds
+ * is logged here, before its starter is shown the refusal any refused write
+ * gets (`step-record.ts`); its own failure stays in the run history.
+ */
+const logTakenValueRefusal = (
+  outcome: ActionOutcome,
+  input: Parameters<typeof dispatchWithRetry>[0]
+): Effect.Effect<void> =>
+  outcome.refusedWrite?.unique === true && input.automation.startedByHand === true
+    ? Effect.sync(() =>
+        logWarning('[automations] a hand-started write was refused for a taken value', {
+          automation: input.automation.name,
+          step: String(input.action['name'] ?? ''),
+        })
+      )
+    : Effect.void
+
+/**
  * Dispatch one action with its retry policy, timed on the monotonic clock from
  * dispatch to settle: every retry attempt and every wait between attempts is
  * part of what the step cost the run (`steps.<name>.durationMs`).
@@ -141,7 +160,8 @@ const timedDispatch = (input: Parameters<typeof dispatchWithRetry>[0]) =>
     Effect.map(([elapsed, outcome]) => ({
       outcome,
       durationMs: Math.round(Duration.toMillis(elapsed)),
-    }))
+    })),
+    Effect.tap(({ outcome }) => logTakenValueRefusal(outcome, input))
   )
 
 /**

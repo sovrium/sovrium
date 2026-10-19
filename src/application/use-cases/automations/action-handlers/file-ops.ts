@@ -11,11 +11,13 @@ import {
   StorageService,
   UNATTRIBUTED_BUCKET,
 } from '@/application/ports/services/storage-service'
+import { storageKeyCollisionForm } from '@/domain/kernel/identity/storage-key'
 import { logError } from '@/infrastructure/logging/logger'
 import { signDownloadLink, signUploadLink } from './file-sign-upload'
 import { mimeByExt, uploadArtifactTo } from './file-support'
+import { forgetRemovedKey, recordOwnCopy } from './run-written-files'
 import { actionAttributes, stringProp } from './shared'
-import type { ActionHandler, ActionOutcome } from './shared'
+import type { ActionHandler, ActionOutcome, AutomationContext } from './shared'
 import type { BucketBinding, StorageError } from '@/application/ports/services/storage-service'
 
 type Storage = Effect.Success<typeof StorageService>
@@ -42,7 +44,10 @@ const softError = (message: string): ActionOutcome => ({
 })
 
 /** Optional positive integer prop — `undefined` when absent or non-numeric. */
-const optionalNumber = (p: Readonly<Record<string, unknown>>, key: string): number | undefined => {
+export const optionalNumber = (
+  p: Readonly<Record<string, unknown>>,
+  key: string
+): number | undefined => {
   const raw = p[key]
   if (typeof raw === 'number' && Number.isFinite(raw)) return raw
   if (typeof raw === 'string' && raw.trim() !== '') {
@@ -56,7 +61,16 @@ const optionalNumber = (p: Readonly<Record<string, unknown>>, key: string): numb
 // list
 // ---------------------------------------------------------------------------
 
-export const handleFileList: ActionHandler = (action) =>
+/**
+ * List the keys under the action's `prefix`, keep those `admit` lets through,
+ * then apply `limit` to what is left: a limit counts the keys listed, never
+ * the keys left out. The `file/list` step (`gatedFileList`) admits every key
+ * in a run nobody started, and what its starter may reach in one started by hand.
+ */
+export const listFilesUnder = <R>(
+  action: Readonly<Record<string, unknown>>,
+  admit: (keys: readonly string[]) => Effect.Effect<readonly string[], never, R>
+): Effect.Effect<ActionOutcome, never, StorageService | R> =>
   Effect.gen(function* () {
     const p = props(action)
     const prefix = stringProp(p, 'prefix')
@@ -66,12 +80,15 @@ export const handleFileList: ActionHandler = (action) =>
     const listed = yield* Effect.result(storage.list(prefix))
     if (listed._tag === 'Failure') return softError(`failed to list files under ${prefix}`)
 
-    const keys = limit !== undefined ? listed.success.slice(0, limit) : listed.success
+    const admitted = yield* admit(listed.success)
+    const keys = limit !== undefined ? admitted.slice(0, limit) : admitted
     return {
       status: 'success',
       output: { files: keys.map((key) => ({ key })) },
     } as const
-  }).pipe(Effect.withSpan('automations.handle-file-list', { attributes: actionAttributes(action) }))
+  }).pipe(
+    Effect.withSpan('automations.file-list-admitted', { attributes: actionAttributes(action) })
+  )
 
 // ---------------------------------------------------------------------------
 // getMetadata
@@ -151,7 +168,10 @@ const copyBytes = (
   storage: Storage,
   sourceKey: string,
   destinationKey: string
-): Effect.Effect<number | ActionOutcome, never> =>
+): Effect.Effect<
+  { readonly size: number; readonly bucket: BucketBinding } | ActionOutcome,
+  never
+> =>
   Effect.gen(function* () {
     const downloaded = yield* Effect.result(storage.download(sourceKey, UNATTRIBUTED_BUCKET))
     if (downloaded._tag === 'Failure') return softError(`file not found: ${sourceKey}`)
@@ -160,11 +180,41 @@ const copyBytes = (
     const file = { bytes: downloaded.success, contentType: mime }
     const wrote = yield* uploadArtifactTo(storage, destinationKey, file, bucket)
     if (!wrote) return softError(`failed to write ${destinationKey}`)
-    return downloaded.success.length
+    return { size: downloaded.success.length, bucket }
   })
 
+/**
+ * Whether `destinationKey` names the very object `sourceKey` does, as the
+ * storage host compares keys: equal after Unicode NFC, or a second spelling the
+ * host folds onto the stored source (letter case, where it folds it). A store
+ * that cannot answer the spelling read is logged and judged on NFC alone.
+ */
+const sameStoredObject = (storage: Storage, sourceKey: string, destinationKey: string) => {
+  const exact = { caseInsensitive: false }
+  if (
+    storageKeyCollisionForm(sourceKey, exact) === storageKeyCollisionForm(destinationKey, exact)
+  ) {
+    return Effect.succeed(true)
+  }
+  return storage.findOtherSpelling(destinationKey).pipe(
+    Effect.map((other) => Option.isSome(other) && other.value.key === sourceKey),
+    Effect.tapCause((cause) =>
+      Effect.sync(() => logError('[automations] a move could not compare its two keys', cause))
+    ),
+    // effect-swallow: the copy below then reads and writes through the same store, which refuses a second spelling itself; logged just above.
+    Effect.orElseSucceed(() => false)
+  )
+}
+
+/**
+ * Copy (or move) one stored file onto another key. In a run started by hand
+ * the gates (`gated-file-operator.ts`) have already refused a destination this run
+ * did not write; the file written here is recorded as the run's own, in the
+ * bucket it lands in, so a later step of the same run may use or replace it.
+ */
 const copyOrMove = (
   action: Readonly<Record<string, unknown>>,
+  automation: AutomationContext,
   deleteSource: boolean
 ): Effect.Effect<ActionOutcome, never, StorageService> =>
   Effect.gen(function* () {
@@ -178,30 +228,42 @@ const copyOrMove = (
     }
 
     const storage = yield* StorageService
+    // A move onto its own key would copy the file onto itself, then remove it.
+    if (deleteSource && (yield* sameStoredObject(storage, sourceKey, destinationKey))) {
+      return softError('file.move destinationKey must differ from sourceKey')
+    }
     const copied = yield* copyBytes(storage, sourceKey, destinationKey)
-    if (typeof copied !== 'number') return copied
+    if ('status' in copied) return copied
+    const { bucket } = copied
+    yield* Effect.sync(() =>
+      recordOwnCopy(automation.writtenFiles, { bucket, sourceKey, destinationKey })
+    )
 
     if (deleteSource) {
       const removed = yield* Effect.result(storage.delete(sourceKey, UNATTRIBUTED_BUCKET))
       if (removed._tag === 'Failure') return softError(`failed to remove source ${sourceKey}`)
+      // The run moved its file away: the key it left is no longer its own.
+      yield* Effect.sync(() => forgetRemovedKey(automation, sourceKey))
     }
 
-    const base = { key: destinationKey, destinationKey, sourceKey, size: copied }
+    const base = { key: destinationKey, destinationKey, sourceKey, size: copied.size }
     return {
       status: 'success',
       output: deleteSource ? { ...base, moved: true } : { ...base, copied: true },
     } as const
   })
 
-export const handleFileCopy: ActionHandler = (action) => copyOrMove(action, false)
+export const handleFileCopy: ActionHandler = (action, _app, automation) =>
+  copyOrMove(action, automation, false)
 
-export const handleFileMove: ActionHandler = (action) => copyOrMove(action, true)
+export const handleFileMove: ActionHandler = (action, _app, automation) =>
+  copyOrMove(action, automation, true)
 
 // ---------------------------------------------------------------------------
 // delete
 // ---------------------------------------------------------------------------
 
-export const handleFileDelete: ActionHandler = (action) =>
+export const handleFileDelete: ActionHandler = (action, _app, automation) =>
   Effect.gen(function* () {
     const key = stringProp(props(action), 'key')
     if (!key) return { status: 'failure', error: 'file.delete requires a key' } as const
@@ -211,6 +273,8 @@ export const handleFileDelete: ActionHandler = (action) =>
     if (removed._tag === 'Failure') {
       return { status: 'failure', error: `file not found: ${key}` } as const
     }
+    // A key the run deleted is no longer its own; a delete that failed forgets nothing.
+    yield* Effect.sync(() => forgetRemovedKey(automation, key))
     return { status: 'success', output: { deleted: true, key } } as const
   }).pipe(
     Effect.withSpan('automations.handle-file-delete', { attributes: actionAttributes(action) })

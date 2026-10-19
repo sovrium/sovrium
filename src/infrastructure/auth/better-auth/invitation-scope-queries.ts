@@ -22,14 +22,49 @@
  * only Effect boundary in an otherwise promise-shaped use-case.
  */
 
-import { eq } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { userAccess as userAccessPg } from '@/infrastructure/database/drizzle/schema/user-access'
 import { userAccess as userAccessSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/user-access'
+import {
+  lockGrantsOf,
+  type GrantTransaction,
+} from '@/infrastructure/database/user-access-grant-lock'
 import { logError } from '@/infrastructure/logging/logger'
 
 const userAccess = resolveDialectSchema(userAccessPg, userAccessSqlite)
+
+/**
+ * Write the invitee's inherited grant over one scope table under its grant
+ * lock, unless the invitee already holds one there; whether it was written.
+ */
+const inheritOne = async (
+  tx: GrantTransaction,
+  grant: {
+    readonly inviterId: string
+    readonly inviteeId: string
+    readonly role: string
+    readonly tableSlug: string
+    readonly recordIds: readonly string[]
+  }
+): Promise<boolean> => {
+  await lockGrantsOf(tx, { userId: grant.inviteeId, tableSlug: grant.tableSlug })
+  const [held] = await tx
+    .select({ id: userAccess.id })
+    .from(userAccess)
+    .where(and(eq(userAccess.userId, grant.inviteeId), eq(userAccess.tableSlug, grant.tableSlug)))
+    .limit(1)
+  if (held !== undefined) return false
+  await tx.insert(userAccess).values({
+    userId: grant.inviteeId,
+    tableSlug: grant.tableSlug,
+    recordIds: [...grant.recordIds],
+    role: grant.role,
+    createdBy: grant.inviterId,
+  })
+  return true
+}
 
 /**
  * Copy the inviter's scope assignments onto the invited user, so the invitee
@@ -37,16 +72,21 @@ const userAccess = resolveDialectSchema(userAccessPg, userAccessSqlite)
  *
  * Three properties are load-bearing:
  *
- * - **The inviter's grants are the ceiling.** Every row is a verbatim copy of a
- *   row the inviter already holds, so an inviter can never place someone in a
- *   scope they cannot themselves reach. The grant confers no ability to widen.
+ * - **The inviter's grants are the ceiling.** The invitee receives ONE grant per
+ *   scope table, naming the union of the records the inviter's grants over it
+ *   name, in the order those grants were made — never a record the inviter
+ *   cannot reach. An inviter holding grants under two roles over one table gives
+ *   one grant, not two: the invitee holds one role, so two rows would be two
+ *   grants under the same role. The grant confers no ability to widen.
  * - **The ROLE recorded is the INVITEE's, not the inviter's.** The row says "this
  *   user may reach these records, as this role"; copying the inviter's role would
  *   silently promote the invitee inside the scope.
  * - **Additive and idempotent.** A scope table the invitee already has a row for
  *   is skipped rather than overwritten, so re-issuing an invitation to a pending
  *   user cannot duplicate grants, and an assignment an operator set by hand is
- *   never clobbered.
+ *   never clobbered. Each table is checked and written under the invitee's grant
+ *   lock over it, the one every other grant write takes, so a mint arriving at
+ *   the same moment cannot leave a second grant beside the inherited one.
  *
  * Failures are logged and swallowed, returning 0. This is deliberate and it fails
  * CLOSED: an app that declares no `auth.scopeTables` has no `user_access` table
@@ -66,27 +106,24 @@ export const inheritScopeAssignments = async (params: {
       .select()
       .from(userAccess)
       .where(eq(userAccess.userId, params.inviterId))
+      .orderBy(asc(userAccess.createdAt))
     if (inviterGrants.length === 0) return 0
 
-    const inviteeGrants = await db
-      .select({ tableSlug: userAccess.tableSlug })
-      .from(userAccess)
-      .where(eq(userAccess.userId, params.inviteeId))
-    const alreadyScoped = new Set(inviteeGrants.map((row) => row.tableSlug))
-
-    const values = inviterGrants
-      .filter((grant) => !alreadyScoped.has(grant.tableSlug))
-      .map((grant) => ({
-        userId: params.inviteeId,
-        tableSlug: grant.tableSlug,
-        recordIds: [...grant.recordIds],
-        role: params.role,
-        createdBy: params.inviterId,
-      }))
-    if (values.length === 0) return 0
-
-    await db.insert(userAccess).values(values)
-    return values.length
+    const reachByTable = inviterGrants.reduce(
+      (reach, grant) =>
+        new Map(reach).set(grant.tableSlug, [
+          ...new Set([...(reach.get(grant.tableSlug) ?? []), ...grant.recordIds]),
+        ]),
+      new Map<string, readonly string[]>()
+    )
+    return await db.transaction(async (tx) => {
+      // One table after the other: a transaction's statements run in sequence.
+      let written = 0
+      for (const [tableSlug, recordIds] of reachByTable) {
+        if (await inheritOne(tx, { ...params, tableSlug, recordIds })) written += 1
+      }
+      return written
+    })
   } catch (error) {
     logError('[admin-invitation] Failed to inherit inviter scope assignments', error, {
       inviterId: params.inviterId,

@@ -98,13 +98,3 @@ export const INHERITED_BREAKPOINT_TOKENS: Readonly<Record<string, string>> = {
   xl: '80rem',
   '2xl': '96rem',
 }
-
-export const ROLE_COLOR_PROPERTY: Readonly<Record<string, string>> = {
-  ring: 'focus-ring',
-  'primary-foreground': 'primary-fg',
-  'primary-subtle-foreground': 'primary-subtle-fg',
-  success: 'success-solid',
-  warning: 'warning-solid',
-  error: 'error-solid',
-  info: 'info-solid',
-}

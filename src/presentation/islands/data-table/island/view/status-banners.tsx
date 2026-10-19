@@ -7,6 +7,7 @@
 
 import { SaveStatusIndicator } from '../../save-status-indicator'
 import { ConflictToast } from '../conflict-toast'
+import { useGridString } from '../grid-strings'
 import { WARNING_STRIP_CLASS } from '../warning-strip'
 import type { StatusBannersProps } from '../view-props'
 
@@ -35,6 +36,10 @@ function RealtimeConnectionBanner({
 }: {
   readonly status: StatusBannersProps['connectionStatus']
 }) {
+  const notice = useGridString(
+    'datatable.liveDisconnected',
+    'Live updates are disconnected — reconnecting. This view may not show the latest changes.'
+  )
   if (status !== 'reconnecting' && status !== 'disconnected') return undefined
   return (
     <div
@@ -42,7 +47,7 @@ function RealtimeConnectionBanner({
       data-realtime-banner={status}
       className={WARNING_STRIP_CLASS}
     >
-      Live updates are disconnected — reconnecting. This view may not show the latest changes.
+      {notice}
     </div>
   )
 }

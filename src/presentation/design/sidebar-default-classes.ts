@@ -70,15 +70,17 @@ const SIDEBAR_BOX_CLASS = 'bg-sidebar text-sidebar-foreground'
  * its own, because each group pads itself, and the part that scrolls when the
  * groups outgrow the panel.
  *
- * While more lies below, its last 1.5 rem fades out, so groups that run on
+ * While more lies below, its last 3 rem fades out, so groups that run on
  * below the pinned footer read as continuing rather than as cut by it; the
- * matching bottom padding lets the last row scroll clear of the fade. The fade
+ * matching bottom padding lets the last row scroll clear of the fade. 3 rem is
+ * more than one row pitch (32–36 px): a shorter fade can land in the gap
+ * between two rows, fade nothing, and read as a hard edge. The fade
  * is the `sv-scroll-fade-end` keyframes driven by the region's OWN scroll
  * (`component-layer-generators.ts`): a region with nothing to scroll has an
  * inactive timeline and draws no fade, and the fade lifts at the bottom.
  */
 const SIDEBAR_NAV_LAYOUT =
-  'flex min-h-0 flex-1 flex-col gap-0 overflow-auto pb-6 [animation-name:sv-scroll-fade-end] [animation-fill-mode:both] [animation-timing-function:linear] [animation-timeline:scroll(self)] group-data-[collapsible=icon]/sidebar:overflow-hidden'
+  'flex min-h-0 flex-1 flex-col gap-0 overflow-auto pb-12 [animation-name:sv-scroll-fade-end] [animation-fill-mode:both] [animation-timing-function:linear] [animation-timeline:scroll(self)] group-data-[collapsible=icon]/sidebar:overflow-hidden'
 
 /**
  * A declared landmark's `nav` around its groups: a plain column that never
@@ -87,8 +89,15 @@ const SIDEBAR_NAV_LAYOUT =
  */
 const SIDEBAR_LANDMARK_LAYOUT = 'flex w-full min-w-0 shrink-0 flex-col'
 
-/** One group (`sidebar-group`). */
-const SIDEBAR_GROUP_LAYOUT = 'relative flex w-full min-w-0 flex-col p-2'
+/**
+ * One group (`sidebar-group`). A collapsible group draws no top padding, open
+ * or shut, so its label stays on the same line when the disclosure toggles; a
+ * shut one drops its bottom padding too, so it is one 32px row, and an open
+ * one keeps the 8px under its entries. A rail, which forces every region open,
+ * puts the padding back.
+ */
+const SIDEBAR_GROUP_LAYOUT =
+  'relative flex w-full min-w-0 flex-col p-2 has-[>[data-slot=collapsible]]:pt-0 has-[>[data-slot=collapsible][data-state=closed]]:pb-0'
 
 /** A group's heading (`sidebar-group-label`): small, medium, the foreground at 70 %. */
 const SIDEBAR_GROUP_LABEL_CLASS =
@@ -206,27 +215,27 @@ interface RailClasses {
 const RAIL_CLASSES: Record<SidebarRailBreakpoint, RailClasses> = {
   sm: {
     box: 'max-sm:w-14',
-    nav: 'max-sm:[&_a]:justify-center max-sm:[&_a>span]:sr-only max-sm:[&_button]:justify-center max-sm:[&_button>span]:sr-only max-sm:[&_[data-sidebar-collapsible-content]]:block!',
+    nav: 'max-sm:[&_a]:justify-center max-sm:[&_a>span]:sr-only max-sm:[&_button]:justify-center max-sm:[&_button>span]:sr-only max-sm:[&_[data-sidebar-collapsible-content]]:block! max-sm:[&_[data-slot=sidebar-group]]:py-2!',
     heading: 'max-sm:sr-only',
   },
   md: {
     box: 'max-md:w-14',
-    nav: 'max-md:[&_a]:justify-center max-md:[&_a>span]:sr-only max-md:[&_button]:justify-center max-md:[&_button>span]:sr-only max-md:[&_[data-sidebar-collapsible-content]]:block!',
+    nav: 'max-md:[&_a]:justify-center max-md:[&_a>span]:sr-only max-md:[&_button]:justify-center max-md:[&_button>span]:sr-only max-md:[&_[data-sidebar-collapsible-content]]:block! max-md:[&_[data-slot=sidebar-group]]:py-2!',
     heading: 'max-md:sr-only',
   },
   lg: {
     box: 'max-lg:w-14',
-    nav: 'max-lg:[&_a]:justify-center max-lg:[&_a>span]:sr-only max-lg:[&_button]:justify-center max-lg:[&_button>span]:sr-only max-lg:[&_[data-sidebar-collapsible-content]]:block!',
+    nav: 'max-lg:[&_a]:justify-center max-lg:[&_a>span]:sr-only max-lg:[&_button]:justify-center max-lg:[&_button>span]:sr-only max-lg:[&_[data-sidebar-collapsible-content]]:block! max-lg:[&_[data-slot=sidebar-group]]:py-2!',
     heading: 'max-lg:sr-only',
   },
   xl: {
     box: 'max-xl:w-14',
-    nav: 'max-xl:[&_a]:justify-center max-xl:[&_a>span]:sr-only max-xl:[&_button]:justify-center max-xl:[&_button>span]:sr-only max-xl:[&_[data-sidebar-collapsible-content]]:block!',
+    nav: 'max-xl:[&_a]:justify-center max-xl:[&_a>span]:sr-only max-xl:[&_button]:justify-center max-xl:[&_button>span]:sr-only max-xl:[&_[data-sidebar-collapsible-content]]:block! max-xl:[&_[data-slot=sidebar-group]]:py-2!',
     heading: 'max-xl:sr-only',
   },
   '2xl': {
     box: 'max-2xl:w-14',
-    nav: 'max-2xl:[&_a]:justify-center max-2xl:[&_a>span]:sr-only max-2xl:[&_button]:justify-center max-2xl:[&_button>span]:sr-only max-2xl:[&_[data-sidebar-collapsible-content]]:block!',
+    nav: 'max-2xl:[&_a]:justify-center max-2xl:[&_a>span]:sr-only max-2xl:[&_button]:justify-center max-2xl:[&_button>span]:sr-only max-2xl:[&_[data-sidebar-collapsible-content]]:block! max-2xl:[&_[data-slot=sidebar-group]]:py-2!',
     heading: 'max-2xl:sr-only',
   },
 }
@@ -256,52 +265,52 @@ const RAIL_CLASSES: Record<SidebarRailBreakpoint, RailClasses> = {
 const RAIL_BESIDE_DRAWER_CLASSES: Readonly<Record<string, RailClasses>> = {
   'sm-md': {
     box: 'sm:max-md:w-14',
-    nav: 'sm:max-md:[&_a]:justify-center sm:max-md:[&_a>span]:sr-only sm:max-md:[&_button]:justify-center sm:max-md:[&_button>span]:sr-only sm:max-md:[&_[data-sidebar-collapsible-content]]:block!',
+    nav: 'sm:max-md:[&_a]:justify-center sm:max-md:[&_a>span]:sr-only sm:max-md:[&_button]:justify-center sm:max-md:[&_button>span]:sr-only sm:max-md:[&_[data-sidebar-collapsible-content]]:block! sm:max-md:[&_[data-slot=sidebar-group]]:py-2!',
     heading: 'sm:max-md:sr-only',
   },
   'sm-lg': {
     box: 'sm:max-lg:w-14',
-    nav: 'sm:max-lg:[&_a]:justify-center sm:max-lg:[&_a>span]:sr-only sm:max-lg:[&_button]:justify-center sm:max-lg:[&_button>span]:sr-only sm:max-lg:[&_[data-sidebar-collapsible-content]]:block!',
+    nav: 'sm:max-lg:[&_a]:justify-center sm:max-lg:[&_a>span]:sr-only sm:max-lg:[&_button]:justify-center sm:max-lg:[&_button>span]:sr-only sm:max-lg:[&_[data-sidebar-collapsible-content]]:block! sm:max-lg:[&_[data-slot=sidebar-group]]:py-2!',
     heading: 'sm:max-lg:sr-only',
   },
   'sm-xl': {
     box: 'sm:max-xl:w-14',
-    nav: 'sm:max-xl:[&_a]:justify-center sm:max-xl:[&_a>span]:sr-only sm:max-xl:[&_button]:justify-center sm:max-xl:[&_button>span]:sr-only sm:max-xl:[&_[data-sidebar-collapsible-content]]:block!',
+    nav: 'sm:max-xl:[&_a]:justify-center sm:max-xl:[&_a>span]:sr-only sm:max-xl:[&_button]:justify-center sm:max-xl:[&_button>span]:sr-only sm:max-xl:[&_[data-sidebar-collapsible-content]]:block! sm:max-xl:[&_[data-slot=sidebar-group]]:py-2!',
     heading: 'sm:max-xl:sr-only',
   },
   'sm-2xl': {
     box: 'sm:max-2xl:w-14',
-    nav: 'sm:max-2xl:[&_a]:justify-center sm:max-2xl:[&_a>span]:sr-only sm:max-2xl:[&_button]:justify-center sm:max-2xl:[&_button>span]:sr-only sm:max-2xl:[&_[data-sidebar-collapsible-content]]:block!',
+    nav: 'sm:max-2xl:[&_a]:justify-center sm:max-2xl:[&_a>span]:sr-only sm:max-2xl:[&_button]:justify-center sm:max-2xl:[&_button>span]:sr-only sm:max-2xl:[&_[data-sidebar-collapsible-content]]:block! sm:max-2xl:[&_[data-slot=sidebar-group]]:py-2!',
     heading: 'sm:max-2xl:sr-only',
   },
   'md-lg': {
     box: 'md:max-lg:w-14',
-    nav: 'md:max-lg:[&_a]:justify-center md:max-lg:[&_a>span]:sr-only md:max-lg:[&_button]:justify-center md:max-lg:[&_button>span]:sr-only md:max-lg:[&_[data-sidebar-collapsible-content]]:block!',
+    nav: 'md:max-lg:[&_a]:justify-center md:max-lg:[&_a>span]:sr-only md:max-lg:[&_button]:justify-center md:max-lg:[&_button>span]:sr-only md:max-lg:[&_[data-sidebar-collapsible-content]]:block! md:max-lg:[&_[data-slot=sidebar-group]]:py-2!',
     heading: 'md:max-lg:sr-only',
   },
   'md-xl': {
     box: 'md:max-xl:w-14',
-    nav: 'md:max-xl:[&_a]:justify-center md:max-xl:[&_a>span]:sr-only md:max-xl:[&_button]:justify-center md:max-xl:[&_button>span]:sr-only md:max-xl:[&_[data-sidebar-collapsible-content]]:block!',
+    nav: 'md:max-xl:[&_a]:justify-center md:max-xl:[&_a>span]:sr-only md:max-xl:[&_button]:justify-center md:max-xl:[&_button>span]:sr-only md:max-xl:[&_[data-sidebar-collapsible-content]]:block! md:max-xl:[&_[data-slot=sidebar-group]]:py-2!',
     heading: 'md:max-xl:sr-only',
   },
   'md-2xl': {
     box: 'md:max-2xl:w-14',
-    nav: 'md:max-2xl:[&_a]:justify-center md:max-2xl:[&_a>span]:sr-only md:max-2xl:[&_button]:justify-center md:max-2xl:[&_button>span]:sr-only md:max-2xl:[&_[data-sidebar-collapsible-content]]:block!',
+    nav: 'md:max-2xl:[&_a]:justify-center md:max-2xl:[&_a>span]:sr-only md:max-2xl:[&_button]:justify-center md:max-2xl:[&_button>span]:sr-only md:max-2xl:[&_[data-sidebar-collapsible-content]]:block! md:max-2xl:[&_[data-slot=sidebar-group]]:py-2!',
     heading: 'md:max-2xl:sr-only',
   },
   'lg-xl': {
     box: 'lg:max-xl:w-14',
-    nav: 'lg:max-xl:[&_a]:justify-center lg:max-xl:[&_a>span]:sr-only lg:max-xl:[&_button]:justify-center lg:max-xl:[&_button>span]:sr-only lg:max-xl:[&_[data-sidebar-collapsible-content]]:block!',
+    nav: 'lg:max-xl:[&_a]:justify-center lg:max-xl:[&_a>span]:sr-only lg:max-xl:[&_button]:justify-center lg:max-xl:[&_button>span]:sr-only lg:max-xl:[&_[data-sidebar-collapsible-content]]:block! lg:max-xl:[&_[data-slot=sidebar-group]]:py-2!',
     heading: 'lg:max-xl:sr-only',
   },
   'lg-2xl': {
     box: 'lg:max-2xl:w-14',
-    nav: 'lg:max-2xl:[&_a]:justify-center lg:max-2xl:[&_a>span]:sr-only lg:max-2xl:[&_button]:justify-center lg:max-2xl:[&_button>span]:sr-only lg:max-2xl:[&_[data-sidebar-collapsible-content]]:block!',
+    nav: 'lg:max-2xl:[&_a]:justify-center lg:max-2xl:[&_a>span]:sr-only lg:max-2xl:[&_button]:justify-center lg:max-2xl:[&_button>span]:sr-only lg:max-2xl:[&_[data-sidebar-collapsible-content]]:block! lg:max-2xl:[&_[data-slot=sidebar-group]]:py-2!',
     heading: 'lg:max-2xl:sr-only',
   },
   'xl-2xl': {
     box: 'xl:max-2xl:w-14',
-    nav: 'xl:max-2xl:[&_a]:justify-center xl:max-2xl:[&_a>span]:sr-only xl:max-2xl:[&_button]:justify-center xl:max-2xl:[&_button>span]:sr-only xl:max-2xl:[&_[data-sidebar-collapsible-content]]:block!',
+    nav: 'xl:max-2xl:[&_a]:justify-center xl:max-2xl:[&_a>span]:sr-only xl:max-2xl:[&_button]:justify-center xl:max-2xl:[&_button>span]:sr-only xl:max-2xl:[&_[data-sidebar-collapsible-content]]:block! xl:max-2xl:[&_[data-slot=sidebar-group]]:py-2!',
     heading: 'xl:max-2xl:sr-only',
   },
 }

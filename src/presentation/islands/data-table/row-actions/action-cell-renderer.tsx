@@ -12,13 +12,10 @@ import { isInlineAccountAction } from './account-action-kind'
 import { ActionButton } from './action-button'
 import { RowActionsMenu } from './row-actions-menu'
 import { claimRowFocus } from './trigger-focus'
-import type { ActionControlLabels, RowActionHandler, RowActionsDisplay } from './row-action-types'
 import type { TableRecord } from '../../runtime/types'
 import type { DataTableCellContext } from '../island/table-features'
-import type {
-  ActionColumn,
-  ActionColumnItem,
-} from '@/domain/models/app/pages/components/component-types/data/table/schema'
+import type { ActionColumnItem } from '@/domain/models/app/pages/components/component-types/data/table/schema'
+import type { ReactElement } from 'react'
 
 /**
  * The grid's row-action cell: the actions a row shows, and the edit-mode
@@ -55,68 +52,65 @@ function rowNameOf(row: DataTableCellContext['row']): string | number {
 }
 
 /**
- * Builds the per-row cell renderer for an action column. Each action button is
- * first gated by its optional `visibleWhen` predicate (see {@link isActionVisible}),
- * so a button renders only on rows whose named field value satisfies the
- * condition; actions without a predicate render on every row. Each rendered
- * action delegates to {@link ActionButton} (`display: inline`), or the shown
- * actions collapse into one {@link RowActionsMenu} (`display: menu`); either
- * way a `confirm` action asks first in a modal alert dialog.
+ * The cell of an action column. Each action button is first gated by its
+ * optional `visibleWhen` predicate (see {@link isActionVisible}), so a button
+ * renders only on rows whose named field value satisfies the condition;
+ * actions without a predicate render on every row. Each rendered action
+ * delegates to {@link ActionButton} (`display: inline`), or the shown actions
+ * collapse into one {@link RowActionsMenu} (`display: menu`); either way a
+ * `confirm` action asks first in a modal alert dialog.
  *
- * The renderer is a fresh CLOSURE on every island render, and `flexRender` makes
- * a closure an element type — so every cell this builds is destroyed and rebuilt
- * whenever the grid re-reads itself. That is why an armed confirm is addressed
- * by `confirmKey` and held above the rows: the key is the row identity React
- * already reconciles by, paired with the same ordinal as the child `key`, so a
- * rebuilt cell asks for its gate back under exactly the name it stored it under.
+ * ONE function for every action column, reading its column from the meta:
+ * `flexRender` makes whatever it is handed an element TYPE, so a closure built
+ * per island render would destroy and rebuild every action cell whenever the
+ * grid re-reads itself, closing a row's open `…` menu under the reader the
+ * moment a refetch lands. An armed confirm
+ * is still addressed by `confirmKey` and held above the rows, which keeps it
+ * across a cell the grid does unmount (a row leaving the page).
  */
-export function buildActionCellRenderer(
-  col: ActionColumn,
-  onActionClick: RowActionHandler | undefined,
-  labels: ActionControlLabels,
-  display: RowActionsDisplay = 'inline'
-) {
-  return ({ row }: DataTableCellContext) => {
-    const rowId = rowIdOf(row)
-    // The ordinal is the action's place in the column, not among the shown
-    // ones, so a key names the same action whichever of its neighbours hide.
-    const shown = col.actions
-      .map((action, index) => ({ action, key: `${rowId}::action-${String(index)}` }))
-      .filter(({ action }) => isActionVisible(action, row.original))
-    const shownKeys = shown.map(({ key }) => key)
-    // In a menu, an account control (a role or a passkey picker) still sits in
-    // the row: it IS a control, not a command a menu item could stand for.
-    const menu =
-      display === 'menu' && onActionClick !== undefined
-        ? shown.filter(({ action }) => !isInlineAccountAction(action))
-        : []
-    const inline = menu.length > 0 ? shown.filter((entry) => !menu.includes(entry)) : shown
-    return (
-      <div
-        ref={(node) => claimRowFocus(rowId, shownKeys, node)}
-        className={computeTableActionRowClasses()}
-      >
-        {inline.map(({ action, key }) => (
-          <ActionButton
-            key={key}
-            confirmKey={key}
-            action={action}
-            record={row.original}
-            onActionClick={onActionClick}
-            labels={labels}
-          />
-        ))}
-        {menu.length > 0 && onActionClick && (
-          <RowActionsMenu
-            shown={menu}
-            record={row.original}
-            onActionClick={onActionClick}
-            labels={labels}
-            columnLabel={col.label}
-            rowName={rowNameOf(row)}
-          />
-        )}
-      </div>
-    )
-  }
+export function RowActionCell({ row, column }: DataTableCellContext): ReactElement | null {
+  const config = column.columnDef.meta?.rowActions
+  if (config === undefined) return null
+  const { col, onActionClick, labels, display } = config
+  const rowId = rowIdOf(row)
+  // The ordinal is the action's place in the column, not among the shown
+  // ones, so a key names the same action whichever of its neighbours hide.
+  const shown = col.actions
+    .map((action, index) => ({ action, key: `${rowId}::action-${String(index)}` }))
+    .filter(({ action }) => isActionVisible(action, row.original))
+  const shownKeys = shown.map(({ key }) => key)
+  // In a menu, an account control (a role or a passkey picker) still sits in
+  // the row: it IS a control, not a command a menu item could stand for.
+  const menu =
+    display === 'menu' && onActionClick !== undefined
+      ? shown.filter(({ action }) => !isInlineAccountAction(action))
+      : []
+  const inline = menu.length > 0 ? shown.filter((entry) => !menu.includes(entry)) : shown
+  return (
+    <div
+      ref={(node) => claimRowFocus(rowId, shownKeys, node)}
+      className={computeTableActionRowClasses()}
+    >
+      {inline.map(({ action, key }) => (
+        <ActionButton
+          key={key}
+          confirmKey={key}
+          action={action}
+          record={row.original}
+          onActionClick={onActionClick}
+          labels={labels}
+        />
+      ))}
+      {menu.length > 0 && onActionClick && (
+        <RowActionsMenu
+          shown={menu}
+          record={row.original}
+          onActionClick={onActionClick}
+          labels={labels}
+          columnLabel={col.label}
+          rowName={rowNameOf(row)}
+        />
+      )}
+    </div>
+  )
 }

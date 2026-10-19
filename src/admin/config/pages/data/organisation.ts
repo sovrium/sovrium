@@ -407,7 +407,6 @@ const findingsSection = (): PageComponent =>
     },
     children: [
       text('p', 'text-foreground-subtle text-sm', '$t:admin.organisation.findings.blurb'),
-      degradedNotice(),
       findingsList(),
       noFindings(),
     ],
@@ -458,18 +457,20 @@ export default consolePage({
     // keeps its own reading measure.
     fullWidth(
       tabbedBody('$t:admin.organisation.tabs.region', TABS, [
-        // The findings are a LAYER of every lens rather than a lens of
-        // their own: the conclusions sit above whichever drawing the reader
-        // opened, so crossing a finding with the grid or the chain never
-        // costs a tab switch. A `?tab=findings` written before this clamps
-        // to the first lens, whose layer is what that address showed.
+        // The findings list sits on the Map, the lens that draws every
+        // finding in place, and nowhere else. Above every lens it pushed the
+        // Matrix below the fold on each visit, repeating three paragraphs a
+        // reader had already read. The other lenses still mark what a
+        // finding passes through, and the top bar's fact counts the findings
+        // on every lens, read from the graph's `findingsCount`.
         //
-        // The count of findings is the top bar's fact, read from the
-        // graph's `findingsCount`.
-        tabPanel([findingsSection(), matrixSection()]),
-        tabPanel([findingsSection(), mapSection()]),
-        tabPanel([findingsSection(), reachSection()]),
-        tabPanel([findingsSection(), processesSection()]),
+        // The degraded notice heads EVERY lens: each one is drawn from the
+        // same graph, so a source that could not be read makes every drawing
+        // partial, not only the Map's.
+        tabPanel([degradedNotice(), matrixSection()]),
+        tabPanel([degradedNotice(), findingsSection(), mapSection()]),
+        tabPanel([degradedNotice(), reachSection()]),
+        tabPanel([degradedNotice(), processesSection()]),
       ])
     ),
   ],

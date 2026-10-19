@@ -11,6 +11,7 @@ import type {
   ChatMessage,
   ChatToolLine,
   ChatToolState,
+  ChatUsage,
 } from './types'
 
 /**
@@ -22,26 +23,33 @@ import type {
  *  - `content { text, html? }` — a delta of the answer; now and then `html`,
  *    the whole answer so far rendered from Markdown and sanitized server-side;
  *  - `reasoning { text }` — a delta of the model's reasoning;
- *  - `tool_call { id, name }`, then `tool_result { id, name, outcome, approvalId? }`;
+ *  - `tool_call { id, name, input }`, then
+ *    `tool_result { id, name, outcome, approvalId?, output }` — the previews the
+ *    reader may read of what the call was given and what it returned, each with
+ *    a `…Truncated` flag when it was cut;
  *  - `elicit { elicitationId, message, requestedSchema }` — a question the
  *    agent asks the reader, the turn then waiting on her answer;
- *  - `done { stopReason, html?, messageId, questionId, citations? }` — `end`,
- *    `stopped`, `awaiting_input`, …, with the final rendering, the ids the
- *    exchange is saved under and the sources the answer cites; then `[DONE]`.
+ *  - `done { stopReason, html?, messageId, questionId, citations?, usage? }` —
+ *    `end`, `stopped`, `awaiting_input`, …, with the final rendering, the ids
+ *    the exchange is saved under, the sources the answer cites and the tokens
+ *    the turn used; then `[DONE]`.
  */
 
 /** One event of the chat stream, as the window reads it. */
 export type ChatStreamEvent =
   | { readonly type: 'content'; readonly text: string; readonly html?: string }
   | { readonly type: 'reasoning'; readonly text: string }
-  | { readonly type: 'tool_call'; readonly id: string; readonly name: string }
-  | {
+  | ({ readonly type: 'tool_call'; readonly id: string; readonly name: string } & Pick<
+      ChatToolLine,
+      'input' | 'inputTruncated'
+    >)
+  | ({
       readonly type: 'tool_result'
       readonly id: string
       readonly name: string
       readonly outcome: string
       readonly approvalId?: string
-    }
+    } & Pick<ChatToolLine, 'output' | 'outputTruncated'>)
   | {
       readonly type: 'done'
       readonly stopReason: string
@@ -50,6 +58,7 @@ export type ChatStreamEvent =
       readonly messageId?: string | undefined
       readonly questionId?: string | undefined
       readonly citations?: readonly ChatCitation[]
+      readonly usage?: ChatUsage
     }
   | {
       readonly type: 'elicit'
@@ -82,13 +91,34 @@ const htmlOf = (payload: Readonly<Record<string, unknown>>): { readonly html?: s
   return html === undefined ? {} : { html }
 }
 
+/** `{ input, inputTruncated }` (or the output's) when the payload carries that preview. */
+const previewOf = (
+  payload: Readonly<Record<string, unknown>>,
+  key: 'input' | 'output'
+): Readonly<Record<string, string | boolean>> => {
+  const text = optStr(payload[key])
+  if (text === undefined) return {}
+  return payload[`${key}Truncated`] === true
+    ? { [key]: text, [`${key}Truncated`]: true }
+    : { [key]: text }
+}
+
+/** The turn's token usage, when the payload reports it; the meter draws only a positive total. */
+const usageOf = (value: unknown): { readonly usage?: ChatUsage } =>
+  typeof value === 'object' && value !== null ? { usage: value as ChatUsage } : {}
+
 /** Each event the window reads, from its payload. */
 const EVENT_READERS: Readonly<
   Record<string, (payload: Readonly<Record<string, unknown>>) => ChatStreamEvent>
 > = {
   content: (p) => ({ type: 'content', text: str(p['text']), ...htmlOf(p) }),
   reasoning: (p) => ({ type: 'reasoning', text: str(p['text']) }),
-  tool_call: (p) => ({ type: 'tool_call', id: str(p['id']), name: str(p['name']) }),
+  tool_call: (p) => ({
+    type: 'tool_call',
+    id: str(p['id']),
+    name: str(p['name']),
+    ...previewOf(p, 'input'),
+  }),
   tool_result: (p) => {
     const approvalId = optStr(p['approvalId'])
     return {
@@ -97,6 +127,7 @@ const EVENT_READERS: Readonly<
       name: str(p['name']),
       outcome: str(p['outcome']),
       ...(approvalId !== undefined && { approvalId }),
+      ...previewOf(p, 'output'),
     }
   },
   done: (p) => ({
@@ -106,6 +137,7 @@ const EVENT_READERS: Readonly<
     messageId: optStr(p['messageId']),
     questionId: optStr(p['questionId']),
     ...(Array.isArray(p['citations']) && { citations: p['citations'] as ChatCitation[] }),
+    ...usageOf(p['usage']),
   }),
   elicit: (p) => ({
     type: 'elicit',
@@ -212,33 +244,55 @@ const withCall = (
     ? message
     : {
         ...message,
-        tools: putTool(message.tools, { id: event.id, name: event.name, state: 'running' }),
+        tools: putTool(message.tools, {
+          id: event.id,
+          name: event.name,
+          state: 'running',
+          ...(event.input !== undefined && { input: event.input }),
+          ...(event.inputTruncated === true && { inputTruncated: true }),
+        }),
       }
 
 /** A tool's line once its result arrived. */
 const withResult = (
   message: ChatMessage,
   event: Extract<ChatStreamEvent, { readonly type: 'tool_result' }>
-): ChatMessage => ({
-  ...message,
-  tools: putTool(message.tools, {
-    id: event.id,
-    name: event.name,
-    state: STATE_BY_OUTCOME[event.outcome] ?? 'failed',
-    ...(event.approvalId !== undefined && { approvalId: event.approvalId }),
-  }),
-})
+): ChatMessage => {
+  const called = message.tools?.find((tool) => tool.id === event.id)
+  return {
+    ...message,
+    tools: putTool(message.tools, {
+      id: event.id,
+      name: event.name,
+      state: STATE_BY_OUTCOME[event.outcome] ?? 'failed',
+      ...(event.approvalId !== undefined && { approvalId: event.approvalId }),
+      ...(called?.input !== undefined && { input: called.input }),
+      ...(called?.inputTruncated === true && { inputTruncated: true }),
+      ...(event.output !== undefined && { output: event.output }),
+      ...(event.outputTruncated === true && { outputTruncated: true }),
+    }),
+  }
+}
 
-/** The answer once it ended: its final rendering, and the sources it cites. */
+/**
+ * The answer once it ended: its final rendering, the sources it cites and the
+ * tokens it used. A
+ * line still running is a call a stop cut off before its result: the server
+ * finishes a call it started, so the line settles.
+ */
 const withDone = (
   message: ChatMessage,
   event: Extract<ChatStreamEvent, { readonly type: 'done' }>
 ): ChatMessage => ({
   ...message,
+  tools: message.tools?.map((tool) =>
+    tool.state === 'running' ? { ...tool, state: 'done' } : tool
+  ),
   streaming: false,
   stopReason: event.stopReason,
   ...(event.html !== undefined && { html: event.html, htmlCovers: message.content.length }),
   ...(event.citations !== undefined && { citations: event.citations }),
+  ...(event.usage !== undefined && { usage: event.usage }),
 })
 
 /** The assistant's turn once one more event of its stream has arrived. */

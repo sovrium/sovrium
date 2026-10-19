@@ -22,6 +22,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { extractImageFile, insertImageAtCursor, uploadImageToBucket } from './image-helpers'
 import { applySlashToken, resolveSlashToken } from './slash-command'
+import type { RichTextWords } from './actions'
 import type { SlashMenuController } from './slash-menu'
 import type { Editor } from '@tiptap/react'
 import type { Dispatch, RefObject, SetStateAction } from 'react'
@@ -30,6 +31,8 @@ interface UseSlashMenuArgs {
   readonly editor: Editor | null
   readonly toolbar: readonly string[]
   readonly onImageButtonClick: () => void
+  /** The field's words in the page language: a typed query matches the labels shown. */
+  readonly words?: RichTextWords
 }
 
 /** What the reader has typed after the slash, and whether the menu is up. */
@@ -92,11 +95,13 @@ function useSlashEnterKey({
   editor,
   stateRef,
   toolbar,
+  words,
   answerWith,
 }: {
   readonly editor: Editor | null
   readonly stateRef: RefObject<SlashQueryState>
   readonly toolbar: readonly string[]
+  readonly words: RichTextWords
   readonly answerWith: (token: string | undefined) => void
 }): void {
   useEffect(() => {
@@ -106,11 +111,11 @@ function useSlashEnterKey({
       if (e.key !== 'Enter' || !stateRef.current.visible) return
       e.preventDefault()
       e.stopPropagation()
-      answerWith(resolveSlashToken(stateRef.current.query, toolbar))
+      answerWith(resolveSlashToken(stateRef.current.query, toolbar, words))
     }
     dom.addEventListener('keydown', onKeyDown, true)
     return () => dom.removeEventListener('keydown', onKeyDown, true)
-  }, [editor, stateRef, toolbar, answerWith])
+  }, [editor, stateRef, toolbar, words, answerWith])
 }
 
 /**
@@ -142,6 +147,7 @@ export function useSlashMenu({
   editor,
   toolbar,
   onImageButtonClick,
+  words,
 }: UseSlashMenuArgs): SlashMenuController {
   const [state, setState] = useState<SlashQueryState>(CLOSED)
   // A ref so the keydown handler reads up-to-date values without re-binding.
@@ -166,7 +172,7 @@ export function useSlashMenu({
 
   const selectItem = useCallback((token: string) => answerWith(token), [answerWith])
 
-  useSlashEnterKey({ editor, stateRef, toolbar, answerWith })
+  useSlashEnterKey({ editor, stateRef, toolbar, words, answerWith })
 
   return useMemo(
     () => ({ visible: state.visible, query: state.query, selectItem }),

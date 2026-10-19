@@ -7,6 +7,7 @@
 
 import { tableEffectiveRoles } from '@/application/use-cases/tables/user-groups'
 import { hasReadPermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
+import { commentTableKeysOf } from '@/domain/models/app/tables/comment-address-service'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { checkRecordReadGate } from './record-read-gate'
@@ -86,6 +87,6 @@ export async function resolveGatedComment(
   return {
     table,
     commentId: c.req.param('commentId')!,
-    address: { recordId, tableKeys: [String(table.id), table.name] },
+    address: { recordId, tableKeys: commentTableKeysOf(table) },
   }
 }

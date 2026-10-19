@@ -11,6 +11,7 @@ import { writeGeneratedFile } from './document-output'
 import { documentRenderSetup, type DocumentRenderSetup } from './document-render-setup'
 import { documentDataOf, outputPropOf, runDocumentAction, type Raw } from './document-run'
 import { readTemplateSource, type TemplateText } from './document-template'
+import { starterFileGate } from './starter-file-gate'
 import type { AutomationContext, ActionRunContext } from './shared'
 import type { TemplateRenderer } from '@/application/ports/services/template-engine'
 import type { App } from '@/domain/models/app'
@@ -54,12 +55,17 @@ export const fillWorkbookTemplate = Effect.fn('automations.fill-workbook-templat
   return { bytes: filled.bytes, contentType: filled.contentType }
 })
 
-const fillWorkbook = (props: Raw, app: App, runContext: ActionRunContext | undefined) =>
+const fillWorkbook = (
+  props: Raw,
+  app: App,
+  automation: AutomationContext,
+  runContext: ActionRunContext | undefined
+) =>
   Effect.gen(function* () {
     if (runContext === undefined) {
       return yield* new XlsxFillFailed({ message: 'no template engine to render the template' })
     }
-    const template = yield* readTemplateSource(props['template'])
+    const template = yield* readTemplateSource(props['template'], starterFileGate(app, automation))
     const setup = yield* documentRenderSetup(app, props['locale'], 'text')
     return yield* fillWorkbookTemplate(
       template,
@@ -78,7 +84,7 @@ export const generateXlsxFromTemplate = (
 ) =>
   runDocumentAction(
     'document.generateXlsx',
-    Effect.flatMap(fillWorkbook(props, app, runContext), (file) =>
+    Effect.flatMap(fillWorkbook(props, app, automation, runContext), (file) =>
       writeGeneratedFile({
         output: { filename: 'export.xlsx', ...outputPropOf(props) },
         file,

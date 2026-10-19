@@ -31,6 +31,7 @@ import { AiService } from '@/application/ports/services/ai-service'
 import { dispatchAgentAction } from '@/application/use-cases/agents/agent-action-dispatch'
 import { runAgentTurnToEnd, type AgentTurnSpec } from '@/application/use-cases/agents/agent-runtime'
 import { buildAgentActionTools } from '@/domain/models/app/agents/agent-turn-service'
+import { storedToolCalls } from '@/domain/models/app/agents/stored-tool-call-service'
 import { logError } from '@/infrastructure/logging/logger'
 import {
   provideDomain,
@@ -292,6 +293,8 @@ const finishWithReply = async (
     readonly reply: string
     readonly actions: ReturnType<typeof toolTurnActions>
     readonly citations?: ReturnType<typeof turnCitations>
+    /** What the turn ran, one line per call — never its arguments or result. */
+    readonly toolCalls?: ReturnType<typeof storedToolCalls>
   }
 ): Promise<Response> => {
   appendConversationTurn(input.sessionId, input.message, answer.reply)
@@ -301,6 +304,7 @@ const finishWithReply = async (
     userMessage: input.message,
     assistantReply: answer.reply,
     userParts: input.parts?.stored,
+    ...(answer.toolCalls !== undefined && { assistantToolCalls: answer.toolCalls }),
     ...(agentAttribution(input.agent) !== undefined && {
       agentName: agentAttribution(input.agent),
     }),
@@ -349,6 +353,7 @@ export const runChatTurn = async (c: Context, asked: ChatTurnInput): Promise<Res
       reply: answer,
       actions: toolTurnActions(toolResults),
       citations: turnCitations(answer, passages),
+      toolCalls: storedToolCalls(toolResults),
     })
   }
   if (input.agent !== undefined) {

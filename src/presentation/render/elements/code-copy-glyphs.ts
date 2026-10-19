@@ -91,7 +91,7 @@ const escapeAttr = (value: string): string =>
  * `CodeCopyStatus` in `code-copy-controls.tsx`.
  */
 export const renderCodeCopyButtonHtml = (copyLabel: string, copiedLabel: string): string =>
-  `<button type="button" data-slot="button" data-variant="ghost" data-size="icon-xs" aria-label="${escapeAttr(copyLabel)}" title="${escapeAttr(
+  `<button type="button" data-slot="code-block-copy-button" data-variant="ghost" data-size="icon-xs" aria-label="${escapeAttr(copyLabel)}" title="${escapeAttr(
     copyLabel
   )}" data-copy-code="true" data-copied-label="${escapeAttr(
     copiedLabel

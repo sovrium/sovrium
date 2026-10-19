@@ -241,6 +241,14 @@ export const SELECT_CHEVRON_DATA_URI =
  * carried by each compact control's class recipe, not by its call sites, and
  * its selector adds a class to the base one, so it outranks the standard inset
  * (right-to-left twin included) without an `!important`.
+ *
+ * Inside a form field, the design system's `Select` trigger starts its value
+ * where the text inputs beside it start theirs (the element rule's `px-3`),
+ * so a form's typed answers and its chosen options read as one column. Its
+ * own recipe insets by shadcn/ui's `pl-2.5`, a utility, so the rule lives here
+ * and outranks it by specificity. Outside a form field — the record drawer,
+ * whose inputs are drawn on shadcn's `Input` at the same `px-2.5` — the
+ * recipe's inset stands.
  */
 function buildSelectRules(): string {
   return `
@@ -260,7 +268,8 @@ function buildSelectRules(): string {
       }
       select.select-compact:not([multiple]):not([size]):dir(rtl) { background-position: left 0.375rem center; }
       select:has(option[value=""]:checked) { @apply text-foreground-subtle; }
-      select:has(option[value=""]:checked) option:not([value=""]) { @apply text-foreground; }`
+      select:has(option[value=""]:checked) option:not([value=""]) { @apply text-foreground; }
+      .form-field [data-slot='select-trigger'] { padding-inline-start: 0.75rem; }`
 }
 
 /**
@@ -333,7 +342,7 @@ ${generateElementRules()}
  * Named `sv-` because keyframe names are global, not layered.
  */
 export const SCROLL_FADE_KEYFRAMES = `@keyframes sv-scroll-fade-end {
-      0%, 98% { mask-image: linear-gradient(to bottom, #000 calc(100% - 1.5rem), transparent); }
+      0%, 98% { mask-image: linear-gradient(to bottom, #000 calc(100% - 3rem), transparent); }
       100% { mask-image: none; }
     }`
 

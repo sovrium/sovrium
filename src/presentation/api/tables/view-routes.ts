@@ -13,6 +13,7 @@ import { runEffect } from '@/presentation/api/runtime'
 import { conditionalRead } from '@/presentation/api/runtime/conditional-read'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { effectValidator } from '@/presentation/api/runtime/effect-validator'
+import { refuseTableWithNoReaderRow } from './readable-table-gate'
 import { resolveTableReadCaller } from './table-read-caller'
 import { handleListViewRecords } from './view-records-handler'
 import type { App } from '@/domain/models/app'
@@ -21,7 +22,7 @@ import type { Hono } from 'hono'
 export function chainViewRoutesMethods<T extends Hono>(honoApp: T, resolveApp: () => App) {
   return (
     honoApp
-      .get('/api/tables/:tableId/views', async (c) => {
+      .get('/api/tables/:tableId/views', refuseTableWithNoReaderRow(resolveApp), async (c) => {
         // Session, tableId, and userRole are guaranteed by middleware chain
         const { session, tableName, tableId, userRole, userGroups } = getTableContext(c)
         const app = resolveApp()

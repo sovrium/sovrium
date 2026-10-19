@@ -20,6 +20,11 @@ import { buildIslands } from '@/infrastructure/server/route-setup/island-assets'
 import { renderErrorPage, renderNotFoundPage } from '@/presentation/render/page/render-error-pages'
 import { renderPage } from '@/presentation/render/page/render-page'
 import { renderRssFeed } from '@/presentation/render/page/render-rss-feed'
+import {
+  SPECIMEN_SESSION,
+  specimenSampleDb,
+  specimenSystemRows,
+} from '@/presentation/render/resolve/specimen-sample-db'
 import type { DataSourceDb } from '@/presentation/render/resolve/data-source-contracts'
 
 /**
@@ -75,6 +80,39 @@ function createDataSourceDbAdapter(
  * )
  * ```
  */
+/** What a route hands a render: everything it knows of the request and its caller. */
+type RenderRequestContext = Parameters<PageRenderer['Service']['renderPage']>[2]
+
+/**
+ * A render's request context, its caller's own readers taken out and folded
+ * onto `db`. The route's table reader travels on `db`, beside the other readers
+ * the data-source pass is handed, so it reaches every grid that pass stamps
+ * without a parameter threaded through each page stage — and so does the
+ * mounted console caller's field reader, which her record sheet reads.
+ */
+const splitCallerReaders = (db: DataSourceDb, requestContext: RenderRequestContext) => {
+  const {
+    readTableAsCaller,
+    callerFieldReader,
+    readRecordLabels,
+    loadRowRuleContext,
+    readReaderRows,
+    signFileUrl,
+    specimen,
+    ...context
+  } = requestContext ?? {}
+  const callerDb: DataSourceDb = {
+    ...db,
+    ...(readTableAsCaller !== undefined && { readTableAsCaller }),
+    ...(callerFieldReader !== undefined && { callerFieldReader }),
+    ...(readRecordLabels !== undefined && { readRecordLabels }),
+    ...(loadRowRuleContext !== undefined && { loadRowRuleContext }),
+    ...(readReaderRows !== undefined && { readReaderRows }),
+    ...(signFileUrl !== undefined && { signFileUrl }),
+  }
+  return { specimen, context, callerDb }
+}
+
 export const PageRendererLive = Layer.effect(
   PageRenderer,
   Effect.gen(function* () {
@@ -102,23 +140,22 @@ export const PageRendererLive = Layer.effect(
 
     return {
       renderPage: (app, path, requestContext) => {
-        // The route's table reader travels on `db`, beside the other readers
-        // the data-source pass is handed, so it reaches every grid that pass
-        // stamps without a parameter threaded through each page stage.
-        const { readTableAsCaller, readRecordLabels, loadRowRuleContext, signFileUrl, ...context } =
-          requestContext ?? {}
-        return renderPage(app, path, {
-          ...context,
-          db: {
-            ...db,
-            ...(readTableAsCaller !== undefined && { readTableAsCaller }),
-            ...(readRecordLabels !== undefined && { readRecordLabels }),
-            ...(loadRowRuleContext !== undefined && { loadRowRuleContext }),
-            ...(signFileUrl !== undefined && { signFileUrl }),
-          },
-          islandBuilder,
-          engineVersion,
-        })
+        const { specimen, context, callerDb } = splitCallerReaders(db, requestContext)
+        // A specimen reads nothing of the instance: sample readers only, none of
+        // the caller's own readers, and the sample person as its viewer.
+        if (specimen === true) {
+          return renderPage(app, path, {
+            ...context,
+            session: SPECIMEN_SESSION,
+            db: specimenSampleDb(app),
+            fetchSystemRows: specimenSystemRows,
+            islandBuilder,
+            engineVersion,
+            // Nor anything the hosting environment adds around a page: no demo notice.
+            demoNotice: false,
+          })
+        }
+        return renderPage(app, path, { ...context, db: callerDb, islandBuilder, engineVersion })
       },
       renderNotFound: renderNotFoundPage,
       renderError: renderErrorPage,

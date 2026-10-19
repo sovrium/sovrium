@@ -91,17 +91,29 @@ export const computeSidebarSubEntryClasses = (isCurrent = false): string =>
  * carries `display: contents`, so the button and the list it renders become
  * direct items of this grid rather than of a wrapper the layout would have to
  * work around.
+ *
+ * ─── ONE ROW TO THE EYE, AS shadcn's `SidebarMenuAction` IS ────────────────
+ *
+ * The link spans BOTH columns of the first line and keeps 32px clear on its
+ * right; the toggle sits over that end, inside the link's box. So the row's
+ * hover fill runs its full width whichever of the two the pointer is on — the
+ * row paints its link when the toggle is hovered, and the toggle takes the
+ * hover ink when the link is — and the reader sees one row, not a link with a
+ * second button bolted beside it. They stay two controls with two focus rings:
+ * one goes to the page, the other opens the list.
  */
 const SIDEBAR_DISCLOSURE_ROW_LAYOUT =
-  'grid grid-cols-[1fr_auto] items-center gap-0.5 group-data-[collapsible=icon]/sidebar:block'
+  'group/disclosure-row grid grid-cols-[1fr_auto] items-center group-data-[collapsible=icon]/sidebar:block [&>a]:col-span-2 [&>a]:col-start-1 [&>a]:row-start-1 [&>a]:pr-8 [&:has(>*>button:hover)>a]:bg-sidebar-accent [&:has(>*>button:hover)>a]:text-sidebar-accent-foreground'
 
 /**
  * The chevron button beside an expandable row that has a page of its own
- * (`sidebar-menu-action`): base-nova's action, in its own grid column with a
- * 24 px target (see the departures in `sidebar-default-classes.ts`).
+ * (`sidebar-menu-action`): base-nova's action with a 24 px target, laid over
+ * the right end of its link's box (see the row above), so it draws no fill of
+ * its own — the row's fill is the hover — and takes the hover ink with the
+ * link.
  */
 const SIDEBAR_DISCLOSURE_TOGGLE_CLASS =
-  'flex size-6 shrink-0 items-center justify-center rounded-md p-0 text-sidebar-foreground ring-sidebar-ring outline-hidden transition-transform hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 group-data-[collapsible=icon]/sidebar:hidden [&>svg]:size-4 [&>svg]:shrink-0'
+  'col-start-2 row-start-1 mr-1 flex size-6 shrink-0 items-center justify-center rounded-md p-0 text-sidebar-foreground/70 ring-sidebar-ring outline-hidden transition-transform hover:text-sidebar-accent-foreground focus-visible:ring-2 group-has-[>a:hover]/disclosure-row:text-sidebar-accent-foreground group-data-[collapsible=icon]/sidebar:hidden [&>svg]:size-4 [&>svg]:shrink-0'
 
 /**
  * The WHOLE row as one toggle — an entry that declares no destination.

@@ -30,14 +30,18 @@
  *
  * The automation's own `manual` trigger gate still applies on top — its
  * `requiredRole` is enforced inside `runManualAutomation` and its refusals
- * collapse to 404 here for the same reason.
+ * collapse to 404 here for the same reason. Past it, the press is judged on
+ * the record: a `visibleWhen` that does not hold answers 404, as an absent
+ * button does, and a `disabledWhen` that holds answers 409 with the reason.
  */
 
 import { Effect } from 'effect'
 import { EmitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
+import { runErrorAsSeenBy } from '@/application/use-cases/automations/run-admin-only-output'
 import { runManualAutomation } from '@/application/use-cases/automations/run-manual-automation'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
 import {
   provideDomain,
   runDomainPromise,
@@ -45,6 +49,7 @@ import {
 } from '@/infrastructure/logging/request-effect'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
+import { pressDisabledResponse } from '@/presentation/api/runtime/press-disabled-response'
 import {
   enforceFormMutationGate,
   passesUnguardedTableGate,
@@ -124,6 +129,7 @@ async function enforceButtonWriteGate(input: {
  * problem — surfaces as 500.
  */
 function buttonRunErrorResponse(c: Context, error: RunAutomationError): Response {
+  if (error._tag === 'AutomationPressDisabled') return pressDisabledResponse(c, error.message)
   if (error._tag === 'AutomationRegistrySeedError') {
     return c.json({ success: false, message: 'Failed to run the automation' }, 500)
   }
@@ -139,11 +145,18 @@ const PUBLIC_RUN_STATUS: Readonly<Record<string, string>> = {
   'waiting-approval': 'waiting-approval',
 }
 
-const buttonResultBody = (result: RunAutomationResult) => ({
+/**
+ * The press's answer. Its `error` is the run's own as the presser reads it, as
+ * a manual trigger answers it (`runErrorAsSeenBy`): whole to an
+ * admin-equivalent; to anyone else, a write the database refused for a value
+ * another record holds reads as any refused write does, and an admin-only
+ * line is painted over.
+ */
+const buttonResultBody = (result: RunAutomationResult, error: string | undefined) => ({
   success: true,
   id: result.runId,
   status: PUBLIC_RUN_STATUS[result.status] ?? 'failed',
-  ...(result.error === undefined ? {} : { error: result.error }),
+  ...(error === undefined ? {} : { error }),
 })
 
 /**
@@ -204,12 +217,20 @@ export async function handleInvokeRecordButton(c: Context, app: App) {
     // `{{trigger.data.input.recordId}}`.
     triggerData: { input: { table: tableName, recordId, field: fieldName } },
     userId: session.userId,
+    // Past the dispatch, write and role gates: the button's `visibleWhen`
+    // (hidden answers 404) and `disabledWhen` (409), judged on this record.
+    press: { table: tableName, recordId, control: `field:${fieldName}` },
   })
   const result = await runRequestEffect(c, Effect.result(provideDomain(c, program)))
 
   if (result._tag === 'Failure') return buttonRunErrorResponse(c, result.failure)
 
-  const body = buttonResultBody(result.success)
+  const error = runErrorAsSeenBy(app, {
+    automationName,
+    readsWhole: isAdminEquivalent(userRole, app),
+    result: result.success,
+  })
+  const body = buttonResultBody(result.success, error)
   await recordButtonInvocation({
     c,
     userId: session.userId,

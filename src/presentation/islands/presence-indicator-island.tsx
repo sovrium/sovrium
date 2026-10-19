@@ -31,6 +31,8 @@ interface PresenceUser {
 interface PresenceIndicatorIslandProps {
   /** Page path this presence indicator is scoped to. */
   readonly pagePath?: string
+  /** Its name in the page language, when it differs from English. */
+  readonly label?: string
   readonly 'data-testid'?: string
 }
 
@@ -212,6 +214,7 @@ function usePresenceUsers(pagePath: string | undefined): readonly PresenceUser[]
  */
 export default function PresenceIndicatorIsland({
   pagePath,
+  label = 'Users viewing this page',
   'data-testid': testId = 'presence-indicator',
 }: PresenceIndicatorIslandProps): ReactElement {
   const visibleUsers = usePresenceUsers(pagePath)
@@ -220,7 +223,7 @@ export default function PresenceIndicatorIsland({
       data-testid={testId}
       data-slot="presence-indicator"
       data-presence-count={visibleUsers.length}
-      aria-label="Users viewing this page"
+      aria-label={label}
       className="flex items-center gap-2"
     >
       <div

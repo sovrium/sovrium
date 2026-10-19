@@ -68,9 +68,7 @@ import type { SystemRowsFetcher } from '@/presentation/render/resolve/first-obje
  * argument in a function whose complexity budget is spent on real decisions.
  */
 export function definedOnly<T extends Record<string, unknown>>(bag: T): Partial<T> {
-  return Object.fromEntries(
-    Object.entries(bag).filter(([, value]) => value !== undefined)
-  ) as Partial<T>
+  return Object.fromEntries(Object.entries(bag).filter(([, v]) => v !== undefined)) as Partial<T>
 }
 
 /**
@@ -318,6 +316,7 @@ async function filterComponents(
     detectedLanguage: input.detectedLanguage,
     requestQuery: input.requestQuery,
     urlLanguage: input.urlLanguage,
+    callerFieldReader: db.callerFieldReader,
     ...definedOnly({ hostApp: input.hostApp, callerCapabilities: input.callerCapabilities }),
   }
   // The choices are read over the GATED tree: a form inside an overlay this
@@ -420,7 +419,7 @@ export async function resolveAndFilterPage(
   // through the SAME `expandDataSourceChildren` the DB list path uses — one
   // `$record.*` substitution for both row sources, BEFORE `resolvePageDataSources`,
   // which would answer a spent `{ system }` binding with "table undefined not found".
-  const withSystemRows = await expandSystemRowTemplates(withSelectOptions, input.fetchSystemRows)
+  const withSystemRows = await expandSystemRowTemplates(withSelectOptions, input, db)
 
   const rowScoped = await applyRowScopedPasses(
     withSystemRows,

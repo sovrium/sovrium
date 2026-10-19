@@ -17,6 +17,7 @@
  */
 
 import { isHeavyTemplate, templateSnippet } from '@/domain/models/app/design/template-snippet'
+import { componentSampleProps } from '@/domain/models/app/pages/component-sample-service'
 import {
   CATALOG_COMPONENT_CATEGORIES,
   catalogedTypesOf,
@@ -181,5 +182,26 @@ export const usageFacet = (app: App, subject: UsageSubject, name?: string): Usag
     row.routes.map((route) => ({ subject: row.subject, name: row.name, route }))
   )
 
-  return { items: rows, total: rows.length, routeRows, ...kindCounts(rows) }
+  // The `$` variables each template reads, flattened to rows for the same
+  // reason `routeRows` is: a component page's props table binds rows, and a
+  // nested array is unbindable. Only a `component` read has templates to read.
+  const propRows =
+    subject === 'component'
+      ? rows.flatMap((row) =>
+          componentSampleProps(app, row.name).map(({ name: prop, type, sample }) => ({
+            name: row.name,
+            prop,
+            type,
+            sample,
+          }))
+        )
+      : undefined
+
+  return {
+    items: rows,
+    total: rows.length,
+    routeRows,
+    ...(propRows === undefined ? {} : { propRows }),
+    ...kindCounts(rows),
+  }
 }

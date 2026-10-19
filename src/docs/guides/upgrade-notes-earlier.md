@@ -34,7 +34,7 @@ Every config that validated on 0.32 and uses none of the operators or delays abo
 - **A wait longer than one minute parks its run instead of being cut short.** A `delay/wait`, or a `delay/webhook` `timeout`, longer than a minute now runs for its full length: the run reads `waiting-delay` and resumes within about a minute after its time, and a webhook that triggered it is answered at once with the run's id and that status rather than with what the later steps produced. See [Approval & Delay Actions](/en/docs/automation-approval-delay).
 - **A required checkbox on a form must be ticked.** Every checkbox column a form binds now stores `true` or `false`, and a box left out of the post is stored as `false`. A checkbox marked required is treated as a consent: submitting it unticked is refused with 400 naming the box, and nothing is stored. Drop `required` from any checkbox that is not a consent.
 - **A page's `access.redirectTo` sends only a visitor who has not signed in.** A signed-in person who lacks the required role is answered 404, as for a page that does not exist, rather than redirected. A page that relied on the redirect to send signed-in members elsewhere now needs a link to that place instead.
-- **A port chosen on purpose is refused when it is busy.** With `PORT` set, `SOVRIUM_STRICT_PORT=1`, or under a systemd unit, `sovrium start` exits with status 1, naming the port and, when the system can tell, the process holding it, instead of quietly moving to another port the proxy in front never learns about. Stop the old server before you start the new one, as in the commands above.
+- **A port chosen on purpose is refused when it is busy.** With `PORT` set, `SOVRIUM_STRICT_PORT=1`, or under a systemd unit, `sovrium start` exits with status 1, naming the port and, when the system can tell, the process holding it, instead of quietly moving to another port the proxy in front never learns about. Stop the old server before you start the new one, as the commands under **Upgrade** in [Upgrade and roll back](/en/docs/upgrade-rollback#upgrade) do.
 - **Every write of a record fires the table's webhooks and record automations.** Records written by forms, the assistant, CSV imports, upserts, batch calls and automation steps now fire them, once per record, as a write through the records API always did. Review the record automations and webhooks that should not run when a file is imported, or set `import: { fireEvents: false }` on the table to make its imports silent. A webhook's payload is now the whole record whoever wrote it, narrowed only by the webhook's `includeFields` or `excludeFields`. Restoring a record from the trash fires a new `restore` event, which only a webhook or record trigger listing it receives. `sovrium seed` still fires nothing.
 
 ### A `user` field read by `record/list` or `record/read` is the person
@@ -48,6 +48,35 @@ On 0.32 a `user` field on a record a `record/list` or `record/read` step returne
 | The whole output, handed to a `code` step's `inputData` or answered by a `webhook/response` | `"<account id>"` | `{ "id", "name", "email" }`         |
 
 A template that renders the field keeps rendering the id. Before you restart, look for a `code` step or a webhook answer that treats a listed record's user field as a string, and read its `id`.
+
+## Upgrading from 0.31 to 0.32
+
+No config key is added, renamed or removed, and every config that validated on 0.31 still validates. Three behaviours change at runtime: the text an automation builds from data it did not write is encoded for the place it lands, an action template an AI client calls over MCP places its arguments by the same rules, and the commands that print a document end quietly when their reader stops reading.
+
+### Values from requests and records are encoded where an automation places them
+
+What changes is the text an automation builds from data it did not write — a webhook body, a form submission, a record:
+
+| Where the value lands                           | On 0.31                              | On 0.32                                                                               |
+| ----------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------- |
+| `email/send` `to`, `cc`, `bcc`, `replyTo`       | Sent as written, separators included | Exactly one address per value or list item, else the step fails and nothing is sent   |
+| `email/send` `from`                             | Any template                         | Written in the config or `$env.`; a value from run data fails the step                |
+| `email/send` `body`                             | Inserted as markup                   | Shown as text; rich text through `{{{safeHtml value}}}`                               |
+| An `http/*` or `webhook/send` `url`             | Inserted as it is                    | One path segment or one query value; a multi-segment path through `{{urlPath value}}` |
+| A string body sent as JSON                      | Inserted as it is                    | Escaped as the content of a JSON string                                               |
+| A `webhook/response` or `trigger.response` body | `<`, `>`, `&` sent as is             | Written as `\u003c`, `\u003e`, `\u0026` — the same value to a JSON parser             |
+
+The same rendering applies to actions nested in a path or a loop, and to named action templates called from a code action. A value that cannot be placed fails the step before its action runs, so nothing is sent.
+
+Before you restart, look for automations that place markup from data in an email body on purpose (wrap the value in `safeHtml`) or a nested path in a URL (use `urlPath`, a `query` object, or a URL that is a single template).
+
+### An action template called over MCP places its arguments the same way
+
+An action template an AI client calls as a tool through the MCP server is now filled in the way a step of a run is: an argument in a URL is encoded as one path segment or one query value, in a body written as JSON text as one JSON string, and in an email body as text, and an address field takes exactly one recipient. An argument that cannot be placed safely makes the call an invalid-params tool error that names the prop, before any run starts, so nothing is sent. A client that passed several addresses in one address argument now gets that error instead of a run. See [Auth, RBAC and Rate Limiting](/en/docs/mcp-security).
+
+### Document commands end quietly when the reader closes the pipe
+
+`sovrium changelog`, `sovrium docs`, `sovrium schema` and `sovrium library`, piped into a reader that stops early such as `head`, used to print an `EPIPE: broken pipe` failure, or a stack trace for `schema`, and exit with status 1. They now exit 0 and write nothing to stderr, as does `sovrium licenses`, new in 0.32. Any other failure to write to standard output, and a failing `--output` file write, still fails. A script that treated that exit status 1 as an error no longer sees one.
 
 ## Upgrading from 0.30 to 0.31
 
@@ -153,21 +182,6 @@ pages:
 ```
 
 **A submission made through a `formRef` embed no longer lands in the Submissions inbox.** On 0.30 every submission wrote a row to the built-in submission ledger, wherever it was made. On 0.31 a submission made through a `formRef` embed on an app page writes its table row and runs its automation, but writes no ledger row unless the form declares `submitTo.storeSubmission: true`. The form's own route still stores by default, and `storeSubmission: false` stores on neither. A form with `availability.maxSubmissions` keeps writing its row on every surface, because the cap is counted in the ledger. Where no row is written, `$submission.id` is empty in the success message and redirect. Add `storeSubmission: true` to any embedded form whose submissions you triage in the inbox. The OpenAPI document no longer lists `GET /forms/{formSlug}/embed`. That route had served nothing since the iframe embed was removed; a form is placed on a page with `formRef`.
-
-### Values from requests and records are encoded where an automation places them
-
-No config key changes and every config that validated on 0.30 still validates. What changes is the text an automation builds from data it did not write — a webhook body, a form submission, a record:
-
-| Where the value lands                           | On 0.30                              | On 0.31                                                                               |
-| ----------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------- |
-| `email/send` `to`, `cc`, `bcc`, `replyTo`       | Sent as written, separators included | Exactly one address per value or list item, else the step fails and nothing is sent   |
-| `email/send` `from`                             | Any template                         | Written in the config or `$env.`; a value from run data fails the step                |
-| `email/send` `body`                             | Inserted as markup                   | Shown as text; rich text through `{{{safeHtml value}}}`                               |
-| An `http/*` or `webhook/send` `url`             | Inserted as it is                    | One path segment or one query value; a multi-segment path through `{{urlPath value}}` |
-| A string body sent as JSON                      | Inserted as it is                    | Escaped as the content of a JSON string                                               |
-| A `webhook/response` or `trigger.response` body | `<`, `>`, `&` sent as is             | Written as `\u003c`, `\u003e`, `\u0026` — the same value to a JSON parser             |
-
-Before you restart, look for automations that place markup from data in an email body on purpose (wrap the value in `safeHtml`) or a nested path in a URL (use `urlPath`, a `query` object, or a URL that is a single template).
 
 ### A component's translation and prop keys are reported by name
 

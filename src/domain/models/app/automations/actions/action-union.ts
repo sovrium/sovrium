@@ -12,7 +12,9 @@ import { ApprovalActionSchema } from './approval'
 import { AuthActionSchema } from './auth'
 import { AutomationActionSchema } from './automation'
 import { BrowserActionSchema } from './browser'
+import { CalendarActionSchema } from './calendar'
 import { CodeActionSchema } from './code'
+import { CommentActionSchema } from './comment'
 import { ConnectionActionSchema } from './connection'
 import { CryptoActionSchema } from './crypto'
 import { DataActionSchema } from './data'
@@ -361,6 +363,13 @@ export type Action =
         readonly userId: string
         readonly table: string
         readonly recordId: string
+        /**
+         * Only the grant the account holds under this role loses the record; its
+         * grants under other roles keep it. Every role when omitted. A role
+         * auth.roles does not declare is refused by sovrium validate when written
+         * literally, and fails the step when it arrives through a template.
+         */
+        readonly role?: string
       }>)
   | (ActionBase & {
       readonly type: 'auth'
@@ -434,6 +443,38 @@ export type Action =
       readonly operator: 'delete'
     } & Props<{
         readonly slug: string
+      }>)
+  // ── comment (3 operator variants) ──
+  // `recordId`, `commentId`, `content` and each mention are templates, so all
+  // are plain strings here; `runAs` absent and `'system'` mean the same thing.
+  | (ActionBase & {
+      readonly type: 'comment'
+      readonly operator: 'create'
+    } & Props<{
+        readonly table: string
+        readonly recordId: string
+        readonly content: string
+        readonly parentCommentId?: string
+        readonly mentions?: readonly string[]
+        readonly runAs?: 'system' | 'triggering-user'
+      }>)
+  | (ActionBase & {
+      readonly type: 'comment'
+      readonly operator: 'list'
+    } & Props<{
+        readonly table: string
+        readonly recordId: string
+        readonly limit?: number
+        readonly runAs?: 'system' | 'triggering-user'
+      }>)
+  | (ActionBase & {
+      readonly type: 'comment'
+      readonly operator: 'delete'
+    } & Props<{
+        readonly table: string
+        readonly recordId: string
+        readonly commentId: string
+        readonly runAs?: 'system' | 'triggering-user'
       }>)
   // ── webhook (2 operator variants) ──
   | (ActionBase & {
@@ -652,7 +693,7 @@ export type Action =
         readonly matchField: string
         readonly continueOnItemError?: boolean
       }>)
-  // ── file (14 operator variants) ──
+  // ── file (15 operator variants) ──
   // Phase 1 — Storage Operations
   | (ActionBase & {
       readonly type: 'file'
@@ -802,6 +843,14 @@ export type Action =
         readonly header?: boolean
         readonly range?: string
         readonly skipRows?: number
+      }>)
+  // Phase 4 — Media: a remux, so no codec choice — the container follows the source.
+  | (ActionBase & {
+      readonly type: 'file'
+      readonly operator: 'extractAudio'
+    } & Props<{
+        readonly source: string
+        readonly destination?: string
       }>)
   // ── document (5 operator variants) ──
   | (ActionBase & {
@@ -1173,6 +1222,24 @@ export type Action =
         readonly keyId?: string
         readonly algorithm: 'ed25519'
       }>)
+  // ── calendar (1 operator variant) ──
+  | (ActionBase & {
+      readonly type: 'calendar'
+      readonly operator: 'importIcs'
+    } & Props<{
+        readonly url: string
+        readonly table: string
+        readonly matchField: string
+        readonly map?: {
+          readonly summary?: string
+          readonly description?: string
+          readonly location?: string
+          readonly start?: string
+          readonly end?: string
+          readonly url?: string
+          readonly status?: string
+        }
+      }>)
   // ── date (8 operator variants) ──
   | (ActionBase & {
       readonly type: 'date'
@@ -1385,6 +1452,7 @@ export const ActionSchema: Schema.Codec<Action, unknown> = Schema.Union([
   AuthActionSchema,
   AnalyticsActionSchema,
   LinkActionSchema,
+  CommentActionSchema,
   WebhookActionSchema,
   DelayActionSchema,
   AutomationActionSchema,
@@ -1399,6 +1467,7 @@ export const ActionSchema: Schema.Codec<Action, unknown> = Schema.Union([
   StateActionSchema,
   DigestActionSchema,
   CryptoActionSchema,
+  CalendarActionSchema,
   DateActionSchema,
   FlowActionSchema,
   SovriumActionSchema,

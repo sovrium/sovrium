@@ -78,6 +78,8 @@ Upload's `400` and `413` validations — filename, size, MIME type — run **bef
 
 **`all` on a signing permission admits anonymous callers.** The signing endpoints evaluate the permission before they require a session, so with `sign: all` (or `signUpload: all`) anyone, signed in or not, can mint a signed URL for the bucket, and the URL then works with no session. Any other value refuses an anonymous caller with `401`. To serve files with no session at all, the plainer switch is still a public bucket or a public path prefix; reach for `sign: all` only when minting URLs for the public is genuinely the intent.
 
+A run someone starts by hand reads a bucket as that person: a bucket whose `download` leaves them out is refused to the run unless the run wrote the file.
+
 ## The `system` bucket inherits your strictest role list
 
 An app that declares buckets still answers on `/api/buckets/system/...`, and storage keys are flat: an object written through one bucket can be named to another. So the built-in bucket adopts, per file operation, the **intersection** of every role array the declared buckets give that operation. A key your declared buckets reserve to `admin` cannot be reached by naming `system` instead.

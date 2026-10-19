@@ -15,6 +15,7 @@ import { canonicalAcceptAttribute } from '@/domain/models/app/forms/form-file-up
 import { computeFormFieldClasses } from '@/presentation/design/form-layout-classes'
 import { AudioRecorderControls } from './form-audio-recorder'
 import { ariaRequired, FIELD_LABEL_CLASS, fieldWrapperAttributes } from './form-field-chrome'
+import { SelectInput } from './form-field-elements-design'
 import { RequiredMark } from './form-field-elements-typed'
 import { HelpText } from './form-help-text'
 import type { ResolvedFormField } from './form-field-elements'
@@ -23,9 +24,9 @@ import type { ResolvedFormField } from './form-field-elements'
  * SSR picker for `user`-typed columns ([internal ref] / the forms specs).
  *
  * Emits a `<div data-field-type="user" data-field-name="..."
- * data-allow-multiple="true|false">` wrapping a native `<select>` whose
- * options are the app's accounts, named by their label and valued by the
- * account id — read on the server for a signed-in visitor, none for anyone
+ * data-allow-multiple="true|false">` wrapping the choice of the app's
+ * accounts — the Select for one account, a native multiple `<select>` for a
+ * set — each named by its label and valued by the account id — read on the server for a signed-in visitor, none for anyone
  * else. The wrapper's `data-field-type="user"` marker is the contract the
  * spec asserts.
  */
@@ -37,12 +38,27 @@ export const UserInput = ({
   readonly defaultValue: string | undefined
 }) => {
   const multiple = field.allowMultiple === true
+  const className = `form-field form-field-user ${computeFormFieldClasses()}`
+  const markers = {
+    'data-field-type': 'user',
+    'data-field-name': field.name,
+    'data-allow-multiple': multiple ? 'true' : 'false',
+  }
+  // One account is the design system's Select; a set of accounts keeps the
+  // browser's multiple select.
+  if (!multiple) {
+    return (
+      <SelectInput
+        field={{ ...field, placeholder: field.placeholder || 'Select a user...' }}
+        defaultValue={defaultValue}
+        wrapper={{ className, attributes: markers }}
+      />
+    )
+  }
   return (
     <div
-      className={`form-field form-field-user ${computeFormFieldClasses()}`}
-      data-field-type="user"
-      data-field-name={field.name}
-      data-allow-multiple={multiple ? 'true' : 'false'}
+      className={className}
+      {...markers}
       {...fieldWrapperAttributes(field)}
     >
       <label
@@ -59,10 +75,9 @@ export const UserInput = ({
         required={field.required}
         {...ariaRequired(field.required)}
         disabled={field.conditionHidden}
-        multiple={multiple}
-        defaultValue={defaultValue ?? (multiple ? undefined : '')}
+        multiple
+        defaultValue={defaultValue}
       >
-        {!multiple && <option value="">{field.placeholder || 'Select a user...'}</option>}
         {(field.options ?? []).map((option) => (
           <option
             key={option.value}

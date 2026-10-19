@@ -53,6 +53,28 @@ Validation refuses a duplicate name, a collision with a built-in role, and a col
 
 Give a role a `description` to say what it is for. `GET /api/admin/roles` returns it verbatim beside the role's name, so a console role picker can explain a role before an operator grants it. A role declared without one, and every built-in and admin-tier name, returns `description: null`.
 
+### What the console calls a role
+
+Give a role a `label` to choose the words the operator console shows for it: the users directory, the invite dialog, the Change role picker and the account page. The `name` stays what every permission, every write and every stored account uses, so a label can change at any time without moving anybody's access.
+
+```yaml
+auth:
+  roles:
+    - name: accounting-read
+      label: Accounting (read only)
+      level: 15
+    - name: viewer
+      label: $t:roles.viewer
+```
+
+The console shows a role by the first of:
+
+1. its declared `label`. A `$t:` key is read from `languages.translations` in the operator's console language;
+2. for a role every app carries, the console's own words: "Admin", "Member", "Viewer", and "Admin (read-only)" for the read-only console tier `admin-viewer`;
+3. its name made readable, hyphens as spaces and the first letter capitalised: `accounting-read` reads "Accounting read".
+
+A built-in role may be listed with nothing but a `label`, as above for `viewer`, to rename it in the console. Its level and its rights stay the engine's: a built-in listed with a `level`, a `dashboardTier` or `canInvite` is still refused. `GET /api/admin/roles` returns each role's `label` beside its `name`, and every account in `GET /api/admin/users` carries its `roleLabel` beside its `role`.
+
 ## The default role
 
 `defaultRole` is what a newly registered user receives. It defaults to `member`, and must name a built-in role or one defined in `roles` — naming an undefined role fails validation at startup rather than assigning something arbitrary. That holds whether or not `roles` is present: with no roles declared, only `admin`, `member` and `viewer` are accepted. `operator`, `admin-editor` and `admin-viewer` are never accepted as a default.

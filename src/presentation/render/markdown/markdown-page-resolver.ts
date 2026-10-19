@@ -175,13 +175,7 @@ const composeMarkdownHtml = async (
   rendered: ReturnType<typeof renderMarkdownToHtml>,
   app: App | undefined
 ): Promise<string> => {
-  const codeBlockTheme = app?.design?.codeBlock?.theme
-  const highlightedHtml = await highlightCodeBlocks(
-    rendered.html,
-    rendered.codeBlocks,
-    codeBlockTheme,
-    app?.design?.codeBlock?.darkTheme
-  )
+  const highlightedHtml = await highlightCodeBlocks(rendered.html, rendered.codeBlocks)
   const sanitizedHtml = sanitizeRichTextHTML(highlightedHtml)
   const withDirectives = spliceMarkdownDirectives(sanitizedHtml, rendered.directives, app?.design)
   return spliceMarkdownCodeFrames(withDirectives, rendered.codeBlocks)

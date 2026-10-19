@@ -5,7 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { coerceFieldValue, type CoercedFieldValue } from '../../runtime/field-value-coercion'
+import {
+  coerceFieldValue,
+  type CoercedFieldValue,
+  type CoercionWords,
+} from '../../runtime/field-value-coercion'
 import { matchHeaderToField } from '../import-csv-dialog/parser'
 import { SKIP_VALUE } from './skip-value'
 import type { ParsedTsv } from './parse-tsv'
@@ -29,19 +33,21 @@ export function buildInitialMappings(
  * with the type-incompatible field left blank rather than failing the whole
  * batch. Accepted values are sent TYPED — a numeric column receives a number,
  * never the digits as a string — which is the same rule the fill handle and
- * the create flow write through.
+ * the create flow write through. `words` word the rule's refusals in the page
+ * language.
  */
 export function buildRecords(
   parsed: ParsedTsv,
   mappings: readonly string[],
-  fieldMeta?: FieldMetaMap
+  fieldMeta?: FieldMetaMap,
+  words?: CoercionWords
 ): readonly { fields: Record<string, CoercedFieldValue> }[] {
   return parsed.rows.map((row) => {
     const fields = mappings.reduce<Record<string, CoercedFieldValue>>(
       (acc, target, columnIndex) => {
         if (target === SKIP_VALUE) return acc
         const value = row[columnIndex] ?? ''
-        const coerced = coerceFieldValue(value, fieldMeta?.[target]?.type, target)
+        const coerced = coerceFieldValue(value, fieldMeta?.[target]?.type, target, words)
         if (!coerced.ok) return acc
         // A blank pasted into a typed column is left off the row rather than
         // written as NULL: paste creates records, and an absent field takes

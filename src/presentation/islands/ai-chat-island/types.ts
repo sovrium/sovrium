@@ -58,6 +58,8 @@ export interface AiChatIslandProps {
    * component. Absent means no microphone button.
    */
   readonly voiceInput?: ChatVoiceInput
+  /** When true, each answer ends with the number of tokens its turn used. */
+  readonly showUsage?: boolean
   /**
    * The engine-written words of the panel, already resolved to the page's
    * language server-side. The renderer always sends them, so the island ships
@@ -87,8 +89,13 @@ export interface ChatLabels {
   /** The control that stops a reply while it streams, and the marker it leaves. */
   readonly stop: string
   readonly stopped: string
-  /** The collapsed marker holding the model's reasoning. */
+  /** The collapsed line holding the model's reasoning. */
   readonly reasoning: string
+  /** The titles of a tool card's two blocks: what the call was given, and what it returned. */
+  readonly input: string
+  readonly output: string
+  /** The footer of a tool card's block whose preview was cut. */
+  readonly truncated: string
   /** The decisions on a held call, and the words after a tool's name, by its state. */
   readonly approve: string
   readonly deny: string
@@ -109,6 +116,10 @@ export interface ChatLabels {
   readonly responding: string
   /** The name of the strip of suggested questions. */
   readonly suggestions: string
+  /** The token count under an answer, and its split; `{count}` is the formatted number. */
+  readonly usageTotal: string
+  readonly usageInput: string
+  readonly usageOutput: string
 }
 
 /** The composer's words, and push-to-talk's. */
@@ -121,6 +132,9 @@ export interface ComposerLabels {
   readonly talk: string
   readonly listening: string
   readonly voiceError: string
+  readonly holdToTalk: string
+  readonly micUnsupported: string
+  readonly micRefused: string
 }
 
 /** A single chat message displayed in the message log. */
@@ -154,6 +168,15 @@ export interface ChatMessage {
   readonly siblings?: readonly string[]
   /** The knowledge passages the answer cites, drawn under its bubble. */
   readonly citations?: readonly ChatCitation[]
+  /** The tokens the turn used, as the provider reported them; live turns only. */
+  readonly usage?: ChatUsage
+}
+
+/** The tokens one turn used, summed over its model calls. */
+export interface ChatUsage {
+  readonly inputTokens: number
+  readonly outputTokens: number
+  readonly totalTokens: number
 }
 
 /** One knowledge passage an answer cites, by the number the answer marks it with. */
@@ -253,6 +276,12 @@ export interface ChatToolLine {
   readonly state: ChatToolState
   /** Set while the call waits for the reader to approve or deny it. */
   readonly approvalId?: string
+  /** What the call was given, as the reader may read it, and whether the preview was cut. */
+  readonly input?: string
+  readonly inputTruncated?: boolean
+  /** What the call returned, as the reader may read it, and whether the preview was cut. */
+  readonly output?: string
+  readonly outputTruncated?: boolean
 }
 
 /**

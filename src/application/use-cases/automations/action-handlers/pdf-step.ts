@@ -59,7 +59,11 @@ export const fileRefProp = (props: Raw, name: string, scope: PdfScope): FileRefI
 /** Read the file a reference names, the error naming it as `label`. */
 export const readFile = (item: FileRefItem, label: string, scope: PdfScope) =>
   resolveFileRef(item, scope).pipe(
-    Effect.mapError((error) => new PdfStepError({ message: `${label}: ${error.message}` })),
+    Effect.mapError((error) =>
+      error.callerRefused === true
+        ? error
+        : new PdfStepError({ message: `${label}: ${error.message}` })
+    ),
     Effect.withSpan('automations.pdf-read-file')
   )
 

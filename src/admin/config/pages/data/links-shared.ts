@@ -212,6 +212,8 @@ export const trendChart = (query: Readonly<Record<string, string>>): PageCompone
     dataSource: { system: { endpoint: ANALYTICS_OVERVIEW_ENDPOINT, rowsKey: 'timeSeries', query } },
     chartType: 'area',
     xAxis: { field: 'period', format: 'date' },
+    // Horizontal rules only, no axis baselines: shadcn's chart anatomy.
+    yAxis: { field: 'pageViews', gridLines: true },
     series: [
       { field: 'pageViews', label: '$t:admin.analytics.clicks' },
       { field: 'uniqueVisitors', label: '$t:admin.analytics.uniqueVisitors' },

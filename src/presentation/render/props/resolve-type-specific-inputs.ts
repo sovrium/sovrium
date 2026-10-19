@@ -121,7 +121,10 @@ export function resolveButtonFieldMeta(
     readonly url?: string
     readonly automation?: string
     readonly visibleWhen?: Readonly<Record<string, unknown>>
+    readonly disabledReason?: string
   }
+  // The `disabledWhen` itself stays on the server: the grid draws the verdict
+  // the record read carries (`_disabled`), and only the reason is shown.
   return {
     button: {
       label: button.label,
@@ -129,6 +132,7 @@ export function resolveButtonFieldMeta(
       ...(button.url === undefined ? {} : { url: button.url }),
       ...(button.automation === undefined ? {} : { automation: button.automation }),
       ...(button.visibleWhen === undefined ? {} : { visibleWhen: button.visibleWhen }),
+      ...(button.disabledReason === undefined ? {} : { disabledReason: button.disabledReason }),
     },
   }
 }

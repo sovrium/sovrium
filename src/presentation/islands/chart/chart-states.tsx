@@ -48,25 +48,20 @@ export function ChartLoading({ strings }: { readonly strings: ChartStrings }): R
   )
 }
 
-export function ChartError({
-  error,
-  strings,
-}: {
-  readonly error: unknown
-  readonly strings: ChartStrings
-}): ReactElement {
+/**
+ * A failed read, said in words a reader can act on. The response is never
+ * printed: its body, status and code name the server's internals, which tell
+ * the reader nothing and an attacker something — they stay in the network
+ * panel, as the data grid's read-error notice keeps them.
+ */
+export function ChartError({ strings }: { readonly strings: ChartStrings }): ReactElement {
   return (
     <div
       className="border-error-border bg-error-bg text-error-fg text-md rounded border p-3"
       data-chart-state="error"
       role="alert"
     >
-      <p>
-        {(strings?.['chart.loadFailed'] ?? 'Failed to load chart records: {error}').replace(
-          '{error}',
-          () => (error instanceof Error ? error.message : String(error))
-        )}
-      </p>
+      <p>{strings?.['chart.loadFailed'] ?? 'Couldn’t load the chart.'}</p>
       <p className="mt-1 opacity-80">
         {strings?.['component.refreshToRetry'] ?? 'Refresh the page to try again.'}
       </p>

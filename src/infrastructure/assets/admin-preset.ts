@@ -14,19 +14,20 @@
  * a decoded {@link App} and applies the two platform stamps that are NOT part
  * of the authored config.
  *
- * ─── WHY A DECODE FAILURE IS A BOOT ERROR ───────────────────────────────────
+ * ─── WHY A DECODE FAILURE THROWS, AND WHY NOT AT START ─────────────────────
  *
  * The predecessor read a YAML file at request time and returned `undefined` on
  * failure, which the route turned into a 404. That made a corrupt console
- * indistinguishable from an unrouted path: the operator saw the same answer
- * they would see if the console had simply been switched off, and the only
- * evidence was one log line on a server they may not be reading.
+ * indistinguishable from an unrouted path. A decode failure therefore throws,
+ * naming itself, because it means the artifact and the schema disagree — a
+ * defect in the release, not a runtime condition to degrade around.
  *
- * The preset is version-locked to the binary and validated at BUILD time, so a
- * decode failure here is not a runtime condition to degrade around — it means
- * the artifact and the schema disagree, which is a defect in the release. It
- * throws, at boot, naming itself. A binary that cannot serve its own console
- * should refuse to start rather than pretend the console was never asked for.
+ * Decoding at start would make every start pay (a sixth of a cold start) to
+ * prove a fact fixed at build time. The proof lives where the fact is made:
+ * the generator decodes the raw preset with this same `AppSchema` call and
+ * refuses to emit a module that fails it, and `Generated Assets Drift` holds
+ * the committed module to that output. The decode here runs on the first
+ * request that opens the console.
  *
  * ─── LAYER ─────────────────────────────────────────────────────────────────
  *
@@ -85,12 +86,16 @@ const pruneRecoveryLinks = (value: unknown): unknown => {
 }
 
 /**
- * Remove the sign-in card's recovery link when outgoing mail is unconfigured.
+ * Remove the recovery request page, and every link to it, when outgoing mail
+ * is unconfigured.
  *
  * A link that opens a form that can never mail anything costs the operator a
  * round trip and their confidence in the console — a dead link is worse than no
  * link. The route layer already omits the recovery PATHS from the public
  * carve-out on a mail-less instance; this is the visible half of the same rule.
+ * Dropping the PAGE is what takes the sign-in form's own "Forgot your
+ * password?" with it: the form draws that link only while the app serves a
+ * page holding the request form.
  *
  * Safe to bake into the memoized preset: `SMTP_HOST` is fixed for the lifetime
  * of the server process, so a pruned console can never leak into a
@@ -98,16 +103,18 @@ const pruneRecoveryLinks = (value: unknown): unknown => {
  */
 export const pruneRecoveryEntryPoints = (app: App): App => {
   if (isEmailConfigured() || app.pages === undefined) return app
-  const pages = app.pages.map((page) =>
-    page.components === undefined
-      ? page
-      : {
-          ...page,
-          components: page.components
-            .filter((component) => !isRecoveryLink(component))
-            .map(pruneRecoveryLinks),
-        }
-  )
+  const pages = app.pages
+    .filter((page) => page.path !== PRESET_FORGOT_PASSWORD_PATH)
+    .map((page) =>
+      page.components === undefined
+        ? page
+        : {
+            ...page,
+            components: page.components
+              .filter((component) => !isRecoveryLink(component))
+              .map(pruneRecoveryLinks),
+          }
+    )
   return { ...app, pages } as App
 }
 
@@ -182,7 +189,8 @@ const presetCache = new Map<string, App>()
  * The decoded admin console preset.
  *
  * @throws if the embedded preset does not decode against the current
- *   `AppSchema` — a release defect, surfaced at boot rather than as a 404.
+ *   `AppSchema` — a release defect the generator refuses to emit, surfaced as
+ *   an error naming itself rather than as a 404.
  */
 export const resolveAdminPresetApp = (): App => {
   const key = `${String(isEmailConfigured())}:${String(isPlatformSsoConfigured())}`
@@ -208,7 +216,7 @@ export const resolveAdminPresetApp = (): App => {
     return app
   } catch (error) {
     throw new Error(
-      'Sovrium failed to start: the embedded admin console preset does not decode against this ' +
+      'The embedded admin console preset does not decode against this ' +
         'release’s AppSchema. This is a defect in the build, not in your configuration. ' +
         `Cause: ${error instanceof Error ? error.message : String(error)}`,
       { cause: error }

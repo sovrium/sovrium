@@ -11,6 +11,8 @@
  * answers. Pure apart from {@link readPaletteConfig} and {@link fetchCommandMatches}.
  */
 
+import { labelForPhrase } from '@/domain/kernel/format/phrase-label'
+
 /**
  * One table the create dialog can add a record to, with its text columns.
  * `label` (one record) and `labelPlural` (the collection) are the person's
@@ -124,7 +126,9 @@ export function groupRecordMatches(
 /** The create dialog's title for a table, in the page language, by its singular label. */
 export function createTitle(config: PaletteConfig, table: string): string {
   const named = config.tables.find((candidate) => candidate.name === table)?.label ?? table
-  return (config.strings['createTitle'] ?? 'New {table} record').split('{table}').join(named)
+  const template = config.strings['createTitle'] ?? 'New {table} record'
+  // Sentence case: "New quote record", the label lowered inside the phrase.
+  return template.split('{table}').join(labelForPhrase(template, '{table}', named))
 }
 
 /**
@@ -142,5 +146,20 @@ export async function fetchCommandMatches(query: string): Promise<readonly Comma
     return arrayOr<CommandMatch>(body).filter((match) => typeof match?.label === 'string')
   } catch {
     return []
+  }
+}
+
+/** The local rows a query matches: its pages, then whether the dark-mode toggle does. */
+export function localMatches(
+  pages: readonly PalettePage[],
+  strings: Readonly<Record<string, string>>,
+  query: string
+): { readonly pages: readonly PalettePage[]; readonly toggle: string | undefined } {
+  const trimmed = query.trim()
+  if (trimmed.length === 0) return { pages: [], toggle: undefined }
+  const toggle = strings['toggleDarkMode'] ?? 'Toggle dark mode'
+  return {
+    pages: pages.filter((page) => actionMatchesQuery(page.title, trimmed)),
+    toggle: actionMatchesQuery(toggle, trimmed) ? toggle : undefined,
   }
 }

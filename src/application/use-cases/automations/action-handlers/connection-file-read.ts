@@ -16,11 +16,14 @@ import {
 } from './file-support'
 import { authoredActionProps, resolveOwnProp } from './run-context-resolution'
 import type { ActionRunContext } from './shared'
+import type { StarterFileGate, StarterGateRequirements } from './starter-file-gate'
 import type { ConnectionOperation } from '@/domain/models/app/connections'
 
 /** The request could not be built, or a file it names could not be read; nothing is sent. */
 export class WrittenBodyFileError extends Data.TaggedError('WrittenBodyFileError')<{
   readonly message: string
+  /** Set when a run started by hand may not read the file: the step answers the refusal alone. */
+  readonly callerRefused?: true
 }> {}
 
 /** A file a connection call sends: its bytes, its original name and its content type. */
@@ -88,10 +91,11 @@ const readSelfContained = (
     }))
   )
 
-/** A stored file, named by its key or by an attachment field's value. */
+/** A stored file, named by its key or by an attachment field's value, if `gate` lets the run read it. */
 const readStored = (
-  value: unknown
-): Effect.Effect<OperationFile, WrittenBodyFileError, StorageService> => {
+  value: unknown,
+  gate: StarterFileGate
+): Effect.Effect<OperationFile, WrittenBodyFileError, StarterGateRequirements> => {
   const located = resolveTranscribeSource(value, undefined)
   if (located === undefined) {
     return Effect.fail(
@@ -99,6 +103,10 @@ const readStored = (
     )
   }
   return Effect.gen(function* () {
+    const refused = yield* gate(located.key)
+    if (refused !== undefined) {
+      return yield* new WrittenBodyFileError({ message: refused, callerRefused: true })
+    }
     const storage = yield* StorageService
     // The catalogued size refuses an oversized file before a byte is buffered.
     // No catalog row (a key written outside the upload routes) is the ordinary
@@ -130,15 +138,17 @@ const readStored = (
  * behind the outbound guard, a storage key or an attachment field's value
  * (`{ key, url }`, the `storeMetadata` object, the first of a list) downloaded.
  * A file that is not stored, a URL the guard refuses or a file past the cap
- * fails the call by name rather than sending an empty part.
+ * fails the call by name rather than sending an empty part; in a run started by
+ * hand, a stored file `gate` refuses fails it with the refusal alone.
  */
 export const readOperationFile = (
   value: unknown,
-  fallbackName: string
-): Effect.Effect<OperationFile, WrittenBodyFileError, StorageService> =>
+  fallbackName: string,
+  gate: StarterFileGate
+): Effect.Effect<OperationFile, WrittenBodyFileError, StarterGateRequirements> =>
   (typeof value === 'string' && isSelfContainedSource(value.trim())
     ? readSelfContained(value.trim(), fallbackName)
-    : readStored(value)
+    : readStored(value, gate)
   ).pipe(
     Effect.flatMap((file) => withinCap(file, describe(value))),
     Effect.withSpan('automations.connection-file-read')

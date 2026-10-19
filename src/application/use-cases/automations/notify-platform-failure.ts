@@ -60,8 +60,10 @@ import type { App } from '@/domain/models/app'
 /**
  * How the run ended. A timed-out run is told as such, not as a generic failure;
  * an interrupted run is one the server stopped under, closed at the next boot.
+ * `exhausted` is a failure after a retry policy spent every attempt it allowed,
+ * and is the only kind whose alert mentions retries.
  */
-export type PlatformFailureKind = 'failed' | 'timed-out' | 'interrupted'
+export type PlatformFailureKind = 'failed' | 'exhausted' | 'timed-out' | 'interrupted'
 
 interface NotifyPlatformFailureInput {
   readonly app: App
@@ -75,8 +77,8 @@ interface NotifyPlatformFailureInput {
 }
 
 /** The title and first sentence of the alert, per way the run ended. */
-const describeFailure = (
-  input: NotifyPlatformFailureInput
+export const describeFailure = (
+  input: Pick<NotifyPlatformFailureInput, 'automationName' | 'kind'>
 ): { readonly title: string; readonly intro: string; readonly at: string } => {
   const name = input.automationName
   if (input.kind === 'timed-out') {
@@ -95,7 +97,10 @@ const describeFailure = (
   }
   return {
     title: `Automation failed: ${name}`,
-    intro: `The automation "${name}" failed after using all of its retries.`,
+    intro:
+      input.kind === 'exhausted'
+        ? `The automation "${name}" failed after using all of its retries.`
+        : `The automation "${name}" failed.`,
     at: 'Failed at',
   }
 }

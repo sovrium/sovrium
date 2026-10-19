@@ -102,7 +102,7 @@ records:
       created_at: '2023-03-14T12:00:00Z'
 ```
 
-It is written when the row is inserted, in every mode. It is never changed afterwards: when `upsert` matches an existing row, a `created_at` in the file is ignored, because a row is created once. `updated_at`, `deleted_at` and the author columns stay the engine's own.
+It is written when the row is inserted, in every mode. It is never changed afterwards: when `upsert` matches an existing row, a `created_at` in the file is ignored, because a row is created once. `updated_at`, `deleted_at` and the author columns stay the engine's own. A row the file gives no `created_at` is created at the moment it is seeded, or, when `SOVRIUM_DEV_CLOCK` pins the development clock, at the pinned instant, so a data set drawn for that day reads as created on it.
 
 ## Accounts and who wrote the rows
 

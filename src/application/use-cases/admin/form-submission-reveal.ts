@@ -23,16 +23,27 @@
 
 import { Effect } from 'effect'
 import {
+  submissionLabelOf,
+  submissionsResultSummary,
+} from '@/application/use-cases/admin/form-labels'
+import {
   BuildSubmissionDetail,
   BuildSubmissionsList,
   type SubmissionsListInput,
 } from '@/application/use-cases/admin/forms-overview'
+import { resolveOperatorLanguage } from '@/application/use-cases/admin/operator-language'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import { bodyCaptureDisabledErrorSchema } from '@/domain/models/api/admin/forms'
 import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
+import { readableName } from '@/domain/models/app/auth/readable-name-service'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
-import type { AdminReadOutcome } from '@/application/use-cases/admin/admin-read-operation'
+import { groupSubmissionAnswers } from '@/domain/models/app/forms/form-submission-answers-service'
+import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
+import type {
+  AdminReadOutcome,
+  AdminReadRequest,
+} from '@/application/use-cases/admin/admin-read-operation'
 import type { App } from '@/domain/models/app'
 
 export interface SubmissionRequest {
@@ -63,15 +74,35 @@ export const canRevealSubmissionBodies = Effect.fn('admin.forms.can-reveal-bodie
   return isAdminEquivalent(yield* getUserRole(actorUserId), app)
 })
 
-/** One submission, its body revealed only through the reveal gate. */
+/**
+ * A revealed submission with its answers read through its form — each under
+ * its question's label, in the form's sections — beside the raw `body`, which
+ * stays what an export or an integration reads. Unrevealed, it is unchanged.
+ */
+const withAnswers = <T extends { readonly body?: Readonly<Record<string, unknown>> }>(
+  app: App,
+  formName: string,
+  submission: T
+): T => {
+  const form = app.forms?.find((candidate) => candidate.name === formName)
+  if (submission.body === undefined || form === undefined) return submission
+  const lang = app.languages?.default ?? 'en'
+  const answers = groupSubmissionAnswers(form, submission.body, {
+    translate: (text) => resolveTranslationPattern(text, lang, app.languages),
+    readableName,
+  })
+  return { ...submission, answers }
+}
+
+/** One submission, its body revealed only through the reveal gate, and named for people. */
 export const readSubmission = (
   app: App,
   { formName, submissionId, reveal }: SubmissionRequest,
-  actorUserId: string
+  caller: AdminReadRequest
 ) =>
   Effect.gen(function* () {
     // Judged on the ACCOUNT role, not the audit actor's coerced tier.
-    const accountRole = yield* getUserRole(actorUserId)
+    const accountRole = yield* getUserRole(caller.actorUserId)
     const outcome = yield* BuildSubmissionDetail({
       formName,
       submissionId,
@@ -87,14 +118,17 @@ export const readSubmission = (
           body: decodeOrThrow(bodyCaptureDisabledErrorSchema)({ error: BODY_CAPTURE_DISABLED }),
           reason: BODY_CAPTURE_DISABLED,
         } satisfies AdminReadOutcome
-      case 'Ok':
+      case 'Ok': {
+        const language = yield* resolveOperatorLanguage(caller)
+        const label = submissionLabelOf(app, outcome.body, language)
         return {
           _tag: 'Ok',
-          body: outcome.body,
+          body: { ...withAnswers(app, formName, outcome.body), label },
           alsoAudit: outcome.bodyRevealed
             ? [{ action: AUDIT_ACTIONS.FORM_SUBMISSION_BODY_REVEALED, severity: 'critical' }]
             : [],
         } satisfies AdminReadOutcome
+      }
       case 'NotFound':
       case 'ValidationFailed':
         return outcome
@@ -105,15 +139,26 @@ export const readSubmission = (
     })
   )
 
-/** One page of a form's submissions, each with its body when the gate passes. */
-export const readSubmissionsList = (app: App, input: SubmissionsListInput, actorUserId: string) =>
+/**
+ * One page of a form's submissions, each with its body when the gate passes,
+ * and every match counted in one phrase.
+ */
+export const readSubmissionsList = (
+  app: App,
+  input: SubmissionsListInput,
+  caller: AdminReadRequest
+) =>
   Effect.gen(function* () {
-    const revealBodies = input.reveal && (yield* canRevealSubmissionBodies(app, actorUserId))
+    const revealBodies = input.reveal && (yield* canRevealSubmissionBodies(app, caller.actorUserId))
     const outcome = yield* BuildSubmissionsList(input, revealBodies)
     if (outcome._tag !== 'Ok') return outcome
+    const language = yield* resolveOperatorLanguage(caller)
     return {
       _tag: 'Ok',
-      body: outcome.body,
+      body: {
+        ...outcome.body,
+        resultSummary: submissionsResultSummary(outcome.body.total, language),
+      },
       alsoAudit: revealBodies
         ? [{ action: AUDIT_ACTIONS.FORM_SUBMISSION_BODIES_REVEALED, severity: 'critical' }]
         : [],

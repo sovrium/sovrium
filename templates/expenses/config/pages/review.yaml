@@ -41,8 +41,11 @@ components:
             props:
               className: flex flex-col gap-3 px-5 pb-5 pt-4
             children:
-              # Four figures, each summed from every claim on every visit.
-              # Rejected money is never counted as spend.
+              # Four figures, each summed from every claim. Rejected money is
+              # never counted as spend. `refreshMode: realtime` keeps them, and
+              # the two charts below, following the claims: approve or reject
+              # one anywhere on this page and the totals move at once, with no
+              # reload.
               - type: grid
                 props:
                   className: grid grid-cols-2 gap-3 lg:grid-cols-4
@@ -52,6 +55,7 @@ components:
                     label: Waiting on you
                     dataSource:
                       table: expenses
+                      refreshMode: realtime
                       filter:
                         - { field: status, operator: eq, value: Pending }
                     kpiAggregate: { function: sum, field: amount }
@@ -61,6 +65,7 @@ components:
                     label: Approved, to repay
                     dataSource:
                       table: expenses
+                      refreshMode: realtime
                       filter:
                         - { field: status, operator: eq, value: Approved }
                     kpiAggregate: { function: sum, field: amount }
@@ -70,6 +75,7 @@ components:
                     label: Spent this quarter
                     dataSource:
                       table: expenses
+                      refreshMode: realtime
                       filter:
                         - { field: status, operator: in, value: [Pending, Approved, Reimbursed] }
                     kpiAggregate: { function: sum, field: amount }
@@ -79,17 +85,17 @@ components:
                     label: Rejected
                     dataSource:
                       table: expenses
+                      refreshMode: realtime
                       filter:
                         - { field: status, operator: eq, value: Rejected }
                     kpiAggregate: { function: sum, field: amount }
                     kpiFormat: { type: currency, options: { currency: EUR } }
-              # Two equal columns, and no height on either chart: a chart
-              # takes its height from its width, so two charts of the same
-              # width line up, and each section is as tall as what it draws —
-              # nothing spills over the claims below.
+              # Two equal columns. The row stretches both sections to the
+              # taller one and each chart frame grows to fill its section, so
+              # the two cards end on the same line whatever each one draws.
               - type: container
                 props:
-                  className: grid grid-cols-1 items-start gap-3 lg:grid-cols-2
+                  className: grid grid-cols-1 gap-3 lg:grid-cols-2
                 children:
                   # Largest first, rejected claims left out. Each slice takes
                   # its category's colour, five hues that are neither the
@@ -112,11 +118,14 @@ components:
                         content: Largest first · rejected claims left out
                       - type: chart
                         chartType: donut
+                        props:
+                          className: flex-1
                         # The slice labels collide on the small slices; the
                         # legend beside the ring names every category.
                         dataLabels: false
                         dataSource:
                           table: expenses
+                          refreshMode: realtime
                           filter:
                             - {
                                 field: status,
@@ -148,8 +157,11 @@ components:
                         content: Claims by the date they were spent
                       - type: chart
                         chartType: bar
+                        props:
+                          className: flex-1
                         dataSource:
                           table: expenses
+                          refreshMode: realtime
                           filter:
                             - {
                                 field: status,
@@ -167,33 +179,49 @@ components:
                         yAxis:
                           field: amount
                           format: currency
-              # The claims, and the filter that narrows them right above, so
-              # it reads as part of the list and not of the charts.
+              # The claims, and the toolbar that narrows them right above:
+              # one row, named as the list's controls, so search and filters
+              # read as part of the list and not of the charts. Each control
+              # publishes on the channel the grid below subscribes to.
               - type: text
                 element: h2
                 props:
                   className: pt-3 font-mono text-[11px] font-medium uppercase tracking-wider text-foreground-subtle
                 content: Claims
-              - type: filter-bar
-                publishes:
-                  bindTo: review-filter
-                fields:
-                  - { name: description, label: Search claims, kind: text }
-                  - name: status
-                    label: Status
-                    kind: select
-                    options:
-                      - { value: Pending, label: Pending }
-                      - { value: Approved, label: Approved }
-                  - name: category
-                    label: Category
-                    kind: select
-                    options:
-                      - { value: Software, label: Software }
-                      - { value: Travel, label: Travel }
-                      - { value: Meals, label: Meals }
-                      - { value: Equipment, label: Equipment }
-                      - { value: Other, label: Other }
+              - type: container
+                element: div
+                props:
+                  role: toolbar
+                  aria-label: Claim controls
+                  className: flex flex-wrap items-center gap-2
+                children:
+                  - type: search-input
+                    placeholder: Search claims
+                    props:
+                      aria-label: Search claims
+                      className: 'h-8 w-full sm:w-[150px] lg:w-[250px]'
+                    publishes:
+                      bindTo: review-filter
+                      param: q
+                  - type: filter-bar
+                    publishes:
+                      bindTo: review-filter
+                    fields:
+                      - name: status
+                        label: Status
+                        kind: select
+                        options:
+                          - { value: Pending, label: Pending }
+                          - { value: Approved, label: Approved }
+                      - name: category
+                        label: Category
+                        kind: select
+                        options:
+                          - { value: Software, label: Software }
+                          - { value: Travel, label: Travel }
+                          - { value: Meals, label: Meals }
+                          - { value: Equipment, label: Equipment }
+                          - { value: Other, label: Other }
               # Bound to the `review_queue` view: what waits first, then the
               # approved claims going out in the next transfer. Read-only — a
               # decision is a button, not a cell edit.
@@ -300,7 +328,8 @@ components:
                             refetch: [approval-runs, review-queue]
                 emptyMessage: No approval run waits on you. A claim filed in the app appears here until finance decides.
           # One claim, from `/review?record=<id>` or a click on its row: who
-          # filed it and the receipt beside the amount, with Approve and Reject
+          # filed it and the receipt beside the amount (a link that opens the
+          # file), with Approve and Reject
           # in the footer. Reject opens the same sheet as Reject on the row,
           # which asks why before the claim is marked Rejected.
           # `visibleWhen` reads the open claim: Approve and Reject show only
@@ -321,7 +350,7 @@ components:
               - { name: description, type: single-line-text, label: Description }
               - { name: filer, type: user, label: Filed by }
               - { name: amount, type: currency, label: Amount }
-              - { name: receipt_name, type: single-line-text, label: Receipt }
+              - { name: receipt, type: single-attachment, label: Receipt }
               - { name: category, type: single-select, label: Category }
               - { name: expense_date, type: date, label: Date }
               - { name: policy, type: single-select, label: Policy }

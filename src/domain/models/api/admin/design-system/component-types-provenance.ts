@@ -7,7 +7,6 @@
 
 import { Schema } from 'effect'
 import { optionalField } from '@/domain/models/api/combinators/optional-field'
-import { withDefault } from '@/domain/models/api/combinators/schema-defaults'
 
 // ---------------------------------------------------------------------------
 // Class provenance
@@ -74,68 +73,7 @@ export const classProvenanceEntrySchema = Schema.Struct({
   identifier: 'ClassProvenanceEntry',
 })
 
-/**
- * The query a provenance read carries.
- *
- * `part` defaults to `root` because every engine type has one and none of them
- * has any other part universally — asking for provenance without naming a part
- * is asking about the element itself, which is what `root` means.
- */
-export const provenanceQuerySchema = Schema.Struct({
-  type: Schema.String.pipe(
-    Schema.check(Schema.isMinLength(1)),
-    Schema.annotate({
-      description: 'The engine component type to resolve',
-      examples: ['button'],
-    })
-  ),
-  part: Schema.String.pipe(
-    withDefault('root'),
-    Schema.annotate({
-      description: 'Which part of the component to resolve. Defaults to the element itself.',
-      examples: ['root', 'label'],
-    })
-  ),
-}).annotate({
-  strictKeys: true,
-  title: 'sovrium:strict-keys',
-  identifier: 'ProvenanceQuery',
-})
-
-/**
- * Why a class is — or is not — on one part of one engine component.
- *
- * `classes` is the merged, de-conflicted result the renderer actually applies;
- * `chain` is the same resolution reported layer by layer. Both are published
- * because neither answers the other's question: the merged string cannot say
- * where a class came from, and the chain cannot say which of two conflicting
- * declarations survived the merge.
- *
- * A layer contributing nothing is OMITTED from the chain rather than reported
- * as an empty string, so the chain's length is itself readable: one entry means
- * the recipe is untouched, three means the operator styled a type that carries
- * a floor.
- */
-export const provenanceResponseSchema = Schema.Struct({
-  type: Schema.String.annotate({ description: 'The engine component type that was resolved' }),
-  part: Schema.String.annotate({ description: 'The part that was resolved' }),
-  classes: Schema.String.annotate({
-    description: 'The merged, de-conflicted class list the renderer applies to this part',
-  }),
-  chain: Schema.Array(classProvenanceEntrySchema).annotate({
-    description: 'One entry per CONTRIBUTING layer, in precedence order. Empty layers are omitted.',
-  }),
-}).annotate({
-  strictKeys: true,
-  title: 'sovrium:strict-keys',
-  identifier: 'ProvenanceResponse',
-})
-
 /** @public */
 export type ClassProvenanceLayer = typeof classProvenanceLayerSchema.Type
 /** @public */
 export type ClassProvenanceEntry = typeof classProvenanceEntrySchema.Type
-/** @public */
-export type ProvenanceQuery = typeof provenanceQuerySchema.Type
-/** @public */
-export type ProvenanceResponse = typeof provenanceResponseSchema.Type

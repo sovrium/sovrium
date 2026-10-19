@@ -29,6 +29,10 @@ import {
   defineAdminRead,
   type AdminReadOperation,
 } from '@/application/use-cases/admin/admin-read-operation'
+import {
+  consoleLabels,
+  resolveOperatorLanguage,
+} from '@/application/use-cases/admin/operator-language'
 import { adminRolesResponseSchema } from '@/domain/models/api/admin/users/roles'
 import {
   ADMIN_TIER_ROLE_NAMES,
@@ -76,11 +80,17 @@ const rolesList = defineAdminRead<undefined>({
   subject: 'roles list',
   decode: () => ({ _tag: 'Ok', input: undefined }),
   // No admin audit event: the roles route has never written one.
-  read: (app) =>
-    Effect.sync(() => {
+  // Each label is phrased in the operator's console language.
+  read: (app, _input, request) =>
+    Effect.gen(function* () {
+      const labels = consoleLabels(app, yield* resolveOperatorLanguage(request))
       const names = [...assignableRoleNames(app)].toSorted((a, b) => a.localeCompare(b))
       return answerWithSchema(adminRolesResponseSchema, {
-        roles: names.map((name) => ({ name, description: roleDescription(app, name) })),
+        roles: names.map((name) => ({
+          name,
+          label: labels.role(name),
+          description: roleDescription(app, name),
+        })),
         total: names.length,
       })
     }),

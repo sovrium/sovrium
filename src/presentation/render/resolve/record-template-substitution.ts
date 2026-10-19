@@ -5,14 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { mapStringsDeep } from '@/domain/models/app/languages/translation-resolver'
+import { mapStringsDeep } from '@/domain/kernel/config-parsing/map-strings-deep'
 import {
   printableRecordFields,
   withRecordText,
 } from '@/domain/models/app/pages/substitute-record-vars'
 import { toInertTemplateValue } from '@/presentation/design/session-template'
 import { substituteRecordVars } from '@/presentation/render/resolve/data-source-contracts'
-import { recordDisplayOf } from './record-display-labels'
+import { editSelectRecordPatch } from './edit-select-record'
+import { RECORD_DISPLAY_KEY, recordDisplayOf } from './record-display-labels'
 
 /**
  * `$record.*` template substitution for the non-prop/content/children surfaces of
@@ -22,8 +23,9 @@ import { recordDisplayOf } from './record-display-labels'
  */
 
 /**
- * Map every string value of a flat key→value map through a `$record.*`
- * substitution, leaving non-string values untouched.
+ * Map every string value of a key→value map through a `$record.*`
+ * substitution, at every depth — a value inside a nested object or a list is
+ * filled as a top-level one is — leaving non-string leaves untouched.
  *
  * The substitution function stays INJECTED even though both callers reach the
  * same implementation — the page renderer re-exports
@@ -43,7 +45,7 @@ export function substituteRecordInInputData(
   return Object.fromEntries(
     Object.entries(inputData).map(([key, value]) => [
       key,
-      typeof value === 'string' ? substitute(value, record) : value,
+      mapStringsDeep(value, (text) => substitute(text, record)),
     ])
   )
 }
@@ -242,6 +244,8 @@ export function buildRecordTemplatePatch(
   currentLabel?: string
   breadcrumbItems?: unknown
   items?: unknown
+  /** A button picker's filled action and its record's value (`edit-select-record.ts`). */
+  readonly [key: string]: unknown
 } {
   const items = withDescriptionFieldValues(component, record, tableName)
   const action = substituteRecordInAction(component.action, record)
@@ -255,21 +259,47 @@ export function buildRecordTemplatePatch(
     ...(confirm !== undefined && { confirm }),
     ...(typeof confirmText === 'string' && { confirmText: fillConfirmText(confirmText, record) }),
     ...(typeof currentLabel === 'string' && {
-      currentLabel: substituteRecordVars(currentLabel, withRecordText(record)),
+      currentLabel: substituteRecordVars(currentLabel, withCrumbText(record)),
     }),
     ...(breadcrumbItems !== undefined && { breadcrumbItems }),
     ...(items !== undefined && { items }),
+    ...editSelectRecordPatch(component, record),
+  }
+}
+
+/**
+ * A record projected for a breadcrumb's words: {@link withRecordText}, and
+ * every field the record carries a display label for — a relationship's linked
+ * record by its display field, a `user` field's person by name — prints that
+ * label, as the description list beside it does; `<field>.raw` keeps the
+ * stored value.
+ */
+function withCrumbText(
+  record: Readonly<Record<string, unknown>>
+): Readonly<Record<string, unknown>> {
+  const prose = withRecordText(record)
+  const block = record[RECORD_DISPLAY_KEY]
+  if (block === null || typeof block !== 'object') return prose
+  const labelled = Object.keys(block).flatMap((field) => {
+    const label = recordDisplayOf(record, field)
+    return label === undefined ? [] : [[field, label] as const]
+  })
+  return {
+    ...prose,
+    ...Object.fromEntries(labelled.map(([field]) => [`${field}.raw`, record[field]])),
+    ...Object.fromEntries(labelled),
   }
 }
 
 /**
  * An enumerated breadcrumb's crumbs filled from the record: each `label` is
- * prose and prints a value formatted, as a derived trail's `currentLabel` does;
- * an `href` keeps the stored value. `undefined` when there are no crumbs.
+ * prose and prints a value formatted — a linked record by its display field —
+ * as a derived trail's `currentLabel` does; an `href` keeps the stored value.
+ * `undefined` when there are no crumbs.
  */
 function substituteRecordInCrumbs(crumbs: unknown, record: Record<string, unknown>): unknown {
   if (!Array.isArray(crumbs)) return undefined
-  const prose = withRecordText(record)
+  const prose = withCrumbText(record)
   return crumbs.map((crumb: unknown) => {
     if (crumb === null || typeof crumb !== 'object') return crumb
     const { label } = crumb as { readonly label?: unknown }
@@ -278,6 +308,12 @@ function substituteRecordInCrumbs(crumbs: unknown, record: Record<string, unknow
       ...(typeof label === 'string' && { label: substituteRecordVars(label, prose) }),
     }
   })
+}
+
+/** The printed text a page record carries for `field`, when it carries one. */
+const textOf = (prose: Readonly<Record<string, unknown>>, field: string): string | undefined => {
+  const value = prose[field]
+  return typeof value === 'string' && prose[`${field}.raw`] !== undefined ? value : undefined
 }
 
 /**
@@ -302,7 +338,11 @@ export function withDescriptionFieldValues(
       ...(typeof detail === 'string' && { detail: substituteRecordVars(detail, prose) }),
       ...(typeof field === 'string' && {
         _recordValue: record[field] ?? null,
-        _recordDisplay: recordDisplayOf(record, field),
+        // A system record has no table to type its fields by: what it reads as
+        // (its date-time, its list) is the text the page record carries.
+        _recordDisplay:
+          recordDisplayOf(record, field) ??
+          (tableName === undefined ? textOf(prose, field) : undefined),
         ...(tableName !== undefined ? { _recordTable: tableName } : {}),
       }),
     }
@@ -322,7 +362,7 @@ export function fillProseField(
   if (key === 'confirm') return substituteRecordInConfirm(value, record)
   if (key === 'confirmText' && typeof value === 'string') return fillConfirmText(value, record)
   if (key === 'currentLabel' && typeof value === 'string') {
-    return substituteRecordVars(value, withRecordText(record))
+    return substituteRecordVars(value, withCrumbText(record))
   }
   return undefined
 }

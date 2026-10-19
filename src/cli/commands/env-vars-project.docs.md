@@ -88,3 +88,14 @@ Runtime artefacts live under one directory so a fresh project root stays clean.
 `SOVRIUM_DATA_DIR` only moves the _fallback_ location. Each artefact keeps its own dedicated override, and that override always wins. The database URL is in **Env Vars: Core**; the storage directory is in **Env Vars: Services**.
 
 A **relative** value is resolved against the project directory rather than against the working directory, so one `SOVRIUM_DATA_DIR=.sovrium` means a different folder under each project a supervisor opens — otherwise two apps opened from one shell would share a database. An absolute value is taken as given, and with no `SOVRIUM_PROJECT_DIR` set the project directory _is_ the working directory, so nothing that resolves today resolves differently.
+
+## The stylesheet compile cache
+
+When there is no pre-compiled stylesheet for the app — no `sovrium build`, or one built for another design — the server compiles its stylesheet at startup. That compile is kept on disk and reused by the next start, as long as nothing it depends on has changed: the engine version, the app's `design`, and the classes its pages use. A restart with an unchanged config then skips the compile, and the startup report reads `CSS compiled (N KB) from cache`.
+
+| Variable                     | Default                            | Description                                                                                                                                                 |
+| ---------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SOVRIUM_TAILWIND_CACHE_DIR` | `$XDG_CACHE_HOME/sovrium/tailwind` | Directory holding the cached stylesheets. Without `XDG_CACHE_HOME` it is `~/.cache/sovrium/tailwind`, or `%LOCALAPPDATA%\sovrium\cache\tailwind` on Windows |
+| `SOVRIUM_TAILWIND_CACHE`     | on                                 | Set to `off` to compile the stylesheet on every start and never read or write the cache                                                                     |
+
+Each entry carries its own length and checksum; a damaged entry is ignored, recompiled and replaced. An unwritable directory never stops the server — it compiles as if the cache were off. Entries are grouped per engine build, and a build's group is deleted once nothing has been written to it for 30 days, so upgrades do not accumulate stylesheets. The cache never leaves the machine and holds only compiled CSS, so deleting the directory at any time is safe.

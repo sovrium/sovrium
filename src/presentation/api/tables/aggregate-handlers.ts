@@ -6,11 +6,16 @@
  */
 
 import { createAggregateRecordsProgram } from '@/application/use-cases/tables/aggregate-records-program'
+import { readerRowsOf, type ReaderRows } from '@/application/use-cases/tables/row-read-admission'
 import { aggregateRecordsResponseSchema } from '@/domain/models/api/tables/aggregate'
+import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { describeUnknownPercentile } from '@/domain/models/app/tables/aggregate-percentile-service'
 import { minMaxKindOf } from '@/domain/models/app/tables/min-max-order-service'
+import { fieldReadOnEveryAdmittedRow } from '@/domain/models/app/tables/row-read-admission-service'
 import { provideTableLive } from '@/infrastructure/layers/table-layer'
+import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { runEffect } from '@/presentation/api/runtime'
+import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { validateAggregateParam, validateGroupByParam } from './field-permission-validation'
 import { parseFilter } from './list-records-filter'
@@ -19,6 +24,7 @@ import { parseAggregateParam, unknownPercentileIn } from './param-parsers'
 import { resolveGuardForTable } from './row-level-guard'
 import { buildListFilter, checkListReadGate, mergeFilters } from './row-level-read-helpers'
 import type { FilterStructure } from './row-level-read-helpers'
+import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { GroupInterval } from '@/application/ports/repositories/tables/table-repository'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
@@ -110,6 +116,9 @@ interface ReadAccess {
   readonly tableName: string
   readonly userRole: string
   readonly userGroups: readonly string[]
+  /** The rows the reader may list, and the grants that admit them. */
+  readonly rows: ReaderRows
+  readonly signedOut: boolean
 }
 
 /**
@@ -139,8 +148,12 @@ const readQuestion = (c: Context, access: ReadAccess): ReadAggregateQuestion => 
   }
   const aggregate = parseAggregateParam(c.req.query('aggregate'))
   const groupBy = readGroupBy(c)
+  // A figure runs over a field the reader's grants show her on every row she lists.
+  const reader = { role: userRole, groups: userGroups, signedOut: access.signedOut }
+  const grantedField = (field: string): boolean =>
+    fieldReadOnEveryAdmittedRow({ app, tableName, reader }, access.rows, field)
   const fieldError =
-    validateAggregateParam(aggregate, { ...access, c }) ??
+    validateAggregateParam(aggregate, { ...access, c, grantedField }) ??
     validateGroupByParam(groupBy, { ...access, c })
   if (fieldError) return fieldError
   const interval = readInterval(c, { app, tableName, groupBy })
@@ -173,6 +186,25 @@ const emptyAnswer = (question: { readonly groupBy?: string; readonly ratio?: Rat
   ...(question.groupBy ? { groups: [] } : {}),
 })
 
+/**
+ * The question, asked of exactly the rows the reader's list returns her: a
+ * reader who may list none of them is answered as for a missing table.
+ */
+const readReaderQuestion = async (
+  c: Context,
+  access: Omit<ReadAccess, 'rows' | 'signedOut'> & { readonly session: UserSession }
+): Promise<
+  Response | (Exclude<ReadAggregateQuestion, Response> & { readonly rows: ReaderRows })
+> => {
+  const { app, tableName, session, userRole, userGroups } = access
+  const reader = { session, role: userRole, groups: userGroups }
+  const rows = await runDomainPromise(c, readerRowsOf(app, tableName, reader))
+  if (rows.admission.kind === 'no-row') return notFound(c)
+  const signedOut = isGuestSession(session.userId)
+  const question = readQuestion(c, { app, tableName, userRole, userGroups, rows, signedOut })
+  return question instanceof Response ? question : { ...question, rows }
+}
+
 export async function handleAggregateRecords(c: Context, app: App) {
   const { session, tableName, userRole, userGroups } = getTableContext(c)
   const table = app.tables?.find((t) => t.name === tableName)
@@ -181,8 +213,9 @@ export async function handleAggregateRecords(c: Context, app: App) {
   const gateError = checkListReadGate({ c, app, table, userRole, userGroups, guard })
   if (gateError) return gateError
 
-  const question = readQuestion(c, { app, tableName, userRole, userGroups })
+  const question = await readReaderQuestion(c, { app, tableName, session, userRole, userGroups })
   if (question instanceof Response) return question
+  const { rows } = question
   const { aggregate, groupBy, interval, ratio } = question
 
   // `?q=` narrows the figures exactly as it narrows the list's rows, and a
@@ -206,6 +239,7 @@ export async function handleAggregateRecords(c: Context, app: App) {
         app,
         userRole,
         userGroups,
+        readerRows: rows,
         filter: finalFilter,
         includeDeleted: c.req.query('includeDeleted') === 'true',
         ...(aggregate ? { aggregate } : {}),

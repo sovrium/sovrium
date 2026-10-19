@@ -127,7 +127,7 @@ const credentialStateInput = (
   successToast: props.successToast,
   errorToast: props.errorToast,
   hasSuccessPage: props.successPage !== undefined,
-  pendingSignIn: props.uiStrings?.['twoFactor.pendingSignIn'],
+  words: props.uiStrings,
   twoFactorPath: props.twoFactorPath,
 })
 

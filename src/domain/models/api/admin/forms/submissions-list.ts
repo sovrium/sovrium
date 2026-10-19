@@ -235,6 +235,13 @@ export const formsSubmissionsListResponseSchema = Schema.Struct({
       'Whether the items on this page carry their submitted `body`: true only when `?reveal=true` was asked, the instance sets `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true` and the caller has an admin role.',
   }),
   appliedQuery: appliedQuerySchema,
+  resultSummary: optionalField(
+    Schema.String.annotate({
+      description:
+        'The matching submissions as one phrase in the operator’s console language, composed on the server from `total`: `11 submissions` in English, `11 réponses` in French, the singular for one (`1 submission`). A data-table bound to this endpoint prints it in its bottom bar in place of its own count of the rows it holds.',
+      examples: ['11 submissions'],
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
 }).annotate({ identifier: 'FormsSubmissionsListResponse' })
 
 /** @public */

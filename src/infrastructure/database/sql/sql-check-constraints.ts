@@ -319,7 +319,7 @@ export const generateColorConstraints = (fields: readonly Fields[number][]): rea
  *   - MCP `_create` / `_update` tools — the records API's own create chain and
  *     `checkRecordUpdateValues`, through `presentation/api/mcp/write-tool-rules.ts`
  *   - automation `record/create|update|upsert` and `record/batch*` —
- *     `findMultiSelectViolationMessage` in
+ *     `findOptionViolationMessage` in
  *     `application/use-cases/automations/action-handlers/shared.ts`
  *
  * That enumeration is the claim to maintain. A NEW write path is unguarded

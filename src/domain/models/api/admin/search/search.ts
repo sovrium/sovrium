@@ -24,8 +24,8 @@
  * SQLite path does NOT degrade like the public record search).
  *
  * ── S4 hard allow-list (why every field here is secret-free). ──────────────
- * Each result is the projection of ONE index row down to a four-scalar
- * allow-list — `{ type, entityId, title, href, updatedAt }`. The raw index row
+ * Each result is the projection of ONE index row down to a scalar
+ * allow-list — `{ type, entityId, title, href, updatedAt, occurredAt? }`. The raw index row
  * is NEVER spread into the response, and the schema is `.strict()`, so a stray
  * key fails the parse. Critically:
  *   - a `connection` result's `title` is the connection NAME/label ONLY —
@@ -116,16 +116,30 @@ export const adminSearchResultSchema = Schema.Struct({
   }),
   title: Schema.String.annotate({
     description:
-      'Secret-free primary label shown as the result line. Connection = NAME/label only; file = file NAME only; user = e-mail/display label; record = first text column. NEVER a token/credential (S4).',
+      "Secret-free primary label shown as the result line, read by a person: submission = the form's declared title (else its name made readable); run = the automation's name; file = the display name, without the storage key's UUID prefix; connection = NAME/label only; user = e-mail/display label; record = first text column. NEVER a token/credential (S4).",
   }),
   href: Schema.String.annotate({
     description:
-      'The deep-link the UI navigates to when this result is selected (e.g. /_admin/records/{name}?record={id}, /_admin/connections).',
+      'The deep-link the UI navigates to when this result is selected — the entity itself where the console has an address for it (/_admin/records/{table}?record={id}, /_admin/submissions/{form}?record={id}, /_admin/runs/{id}), else its list (/_admin/connections).',
   }),
   updatedAt: looseIsoDateTime({
     description:
       'ISO 8601 last-touch time of the source entity, used to order results (most recent first) within a type group.',
   }),
+  // ─── WHY A SECOND TIME FIELD RATHER THAN A TRUER `updatedAt` ────────────
+  //
+  // `updatedAt` is also the index's own freshness marker: the lazy rebuild
+  // reads `MAX(updated_at)` to decide whether the index is stale. Writing the
+  // entity's time there would let a run from last month make a fresh index
+  // look a month old. So the moment the palette prints under a title is its
+  // own optional field, and a kind with no such moment (a connection, a
+  // design-system page — both read from config) simply omits it.
+  occurredAt: optionalField(
+    looseIsoDateTime({
+      description:
+        'ISO 8601 moment the source entity happened, printed under the title in the page language: a submission when it was received, a run when it started, a file when it was uploaded, a conversation when it was last updated, a user when the account was created, a record when it was created. Absent for kinds read from config (connection, design-console).',
+    })
+  ),
 }).annotate({
   strictKeys: true,
   title: 'sovrium:strict-keys',

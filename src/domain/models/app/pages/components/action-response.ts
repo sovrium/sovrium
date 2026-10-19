@@ -126,7 +126,7 @@ export const ActionResponseTypeSchema = Schema.Literals([
  *     variant: success
  * ```
  */
-export const ActionResponseSchema = Schema.Struct({
+const actionResponseFields = {
   /** Behavior type — defaults to `navigate` when `navigate` is set */
   type: Schema.optional(ActionResponseTypeSchema),
   /** Path to navigate to after action */
@@ -222,7 +222,21 @@ export const ActionResponseSchema = Schema.Struct({
       examples: [true, false],
     })
   ),
-}).pipe(
+} as const
+
+/**
+ * `onSuccess: { type: successPage, close: true }` — the success page is drawn
+ * where the form was, so closing its overlay would hide it unread.
+ */
+const refuseCloseBesideSuccessPage = (response: {
+  readonly close?: boolean | undefined
+  readonly type?: string | undefined
+}): string | true =>
+  response.close === true && response.type === 'successPage'
+    ? "onSuccess declares both 'close: true' and type 'successPage' — the success page is drawn where the form was, so closing its dialog would hide it before anyone read it. Keep one: type 'successPage' to show the page in the dialog, or 'close' with a toast to close it and confirm on the page below."
+    : true
+
+export const ActionResponseSchema = Schema.Struct(actionResponseFields).pipe(
   Schema.annotate({
     title: 'Action Response',
     description:
@@ -230,17 +244,99 @@ export const ActionResponseSchema = Schema.Struct({
   }),
   // Piped AFTER the annotation: a trailing annotate on a checked node lands on
   // the check, and the struct's title/description would vanish from app.json.
-  Schema.check(
-    Schema.makeFilter((response) =>
-      response.close === true && response.type === 'successPage'
-        ? "onSuccess declares both 'close: true' and type 'successPage' — the success page is drawn where the form was, so closing its dialog would hide it before anyone read it. Keep one: type 'successPage' to show the page in the dialog, or 'close' with a toast to close it and confirm on the page below."
-        : true
-    )
-  )
+  Schema.check(Schema.makeFilter(refuseCloseBesideSuccessPage))
+)
+
+/**
+ * The components an automation button re-reads once its run succeeds, by
+ * `props.id` — a grid, a list, a board or a server-rendered bound container on
+ * the same page. The same re-read a `fetch` action's `onSuccess.refetch` asks
+ * for, so a list the automation changed (grants added, rows archived) shows the
+ * change in place instead of after a reload by hand.
+ */
+const AutomationSuccessRefetchSchema = Schema.Union([
+  Schema.String,
+  Schema.Array(Schema.String).pipe(Schema.check(Schema.isMinLength(1))),
+]).annotate({
+  title: 'Automation Success Refetch',
+  description:
+    'props.id (or a list of them) of the components on this page to re-read once the run succeeds — a table, a list, a board, or a container bound to a data source. They re-read after the start is accepted, or after the run has ended with await: true; set await: true when the list shows what the run writes, or the re-read can come before the writes.',
+  examples: ['tasks-grid', ['grants-grid', 'members-grid']],
+})
+
+/**
+ * Reload the page once the run succeeds, so the server recomposes it — for an
+ * automation that changes something read when the page was drawn (the chrome,
+ * a value outside any re-readable region). The blunt counterpart of `refetch`.
+ */
+const AutomationSuccessReloadSchema = Schema.Boolean.annotate({
+  title: 'Automation Success Reload',
+  description:
+    'When true, the page reloads once the run succeeds, so everything on it is read again — for a run that changes something no single component re-reads. Refused beside refetch, which the reload already covers, and beside close and navigate, since the reload replaces the page they act on. The toast is not shown: the reload replaces the page it would appear on.',
+  examples: [true],
+})
+
+/**
+ * `reload` replaces the page, so the effects that act on this page or leave it
+ * cannot sit beside it: `refetch` (subsumed), `close` (nothing left to close)
+ * and `navigate` (two ways of leaving).
+ */
+const refuseBesideReload = (response: {
+  readonly reload?: boolean | undefined
+  readonly refetch?: unknown
+  readonly close?: boolean | undefined
+  readonly navigate?: string | undefined
+}): string | true => {
+  if (response.reload !== true) return true
+  if (response.refetch !== undefined) {
+    return "onSuccess declares both 'reload' and 'refetch' — the reload re-reads the whole page, so the narrower re-read is already covered. Keep one: 'reload' when something outside any list changed, or 'refetch' to re-read the named components only."
+  }
+  if (response.close !== undefined) {
+    return "onSuccess declares both 'reload' and 'close' — the reload replaces the page the dialog is drawn on, so there is nothing left to close. Keep one: 'reload' to redraw the page, or 'close' to close the dialog and stay on the page."
+  }
+  if (response.navigate !== undefined) {
+    return "onSuccess declares both 'reload' and 'navigate' — both leave the page as it is drawn, and only one can happen. Keep one: 'navigate' to go to another page, or 'reload' to redraw this one."
+  }
+  return true
+}
+
+/**
+ * The `onSuccess` of an automation action: every key of {@link ActionResponseSchema},
+ * plus the two same-page refreshes a `fetch` action already offers — `refetch`
+ * re-reads named components, `reload` redraws the page. An automation's own
+ * `onError` (and every other action's response slot) keeps the narrower shape:
+ * a failed run changed nothing to re-read.
+ *
+ * @example
+ * ```yaml
+ * action:
+ *   type: automation
+ *   name: grant-project-access
+ *   inputData: { memberId: $record.id }
+ *   await: true
+ *   onSuccess:
+ *     toast: { message: Access granted }
+ *     refetch: grants-grid
+ * ```
+ */
+export const AutomationSuccessResponseSchema = Schema.Struct({
+  ...actionResponseFields,
+  refetch: Schema.optional(AutomationSuccessRefetchSchema),
+  reload: Schema.optional(AutomationSuccessReloadSchema),
+}).pipe(
+  Schema.annotate({
+    title: 'Automation Success Response',
+    description:
+      'What an automation action does once its run succeeds: the effects every action response offers — a toast, closing the overlay, moving to another page — plus refetch, which re-reads named components on this page, and reload, which redraws it.',
+  }),
+  Schema.check(Schema.makeFilter(refuseCloseBesideSuccessPage)),
+  Schema.check(Schema.makeFilter(refuseBesideReload))
 )
 
 /** @public */
 export type ActionResponse = Schema.Schema.Type<typeof ActionResponseSchema>
+/** @public */
+export type AutomationSuccessResponse = Schema.Schema.Type<typeof AutomationSuccessResponseSchema>
 /** @public */
 export type ActionResponseType = Schema.Schema.Type<typeof ActionResponseTypeSchema>
 /** @public */

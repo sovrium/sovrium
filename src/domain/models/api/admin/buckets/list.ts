@@ -129,6 +129,13 @@ export const bucketSchema = Schema.Struct({
  */
 export const bucketAdminItemSchema = Schema.Struct({
   ...bucketSchema.fields,
+  label: optionalField(
+    Schema.String.annotate({
+      description:
+        "The bucket's name as a person reads it: its `name` made readable — hyphens and underscores as spaces, the first letter capitalised (`quote-documents` reads `Quote documents`). A bucket declares no label of its own. Display text only; links and the file routes use `name`.",
+      examples: ['Quote documents'],
+    })
+  ),
   _admin: Schema.Struct({
     ...adminEnvelopeSchema.fields,
     metadata: Schema.Struct({
@@ -149,7 +156,7 @@ export const bucketAdminItemSchema = Schema.Struct({
     description: 'Canonical `_admin` envelope for the bucket list.',
   }),
 }).annotate({
-  title: 'sovrium:extends=Bucket|own=_admin,fileCount,totalBytes',
+  title: 'sovrium:extends=Bucket|own=label,_admin,fileCount,totalBytes',
   identifier: 'BucketAdminItem',
 })
 

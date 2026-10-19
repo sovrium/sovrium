@@ -31,7 +31,7 @@ import type { Page as PageConfig } from '@/domain/models/app'
 type PageComponent = NonNullable<PageConfig['components']>[number]
 
 /** The page column. Wider than a reading measure, narrower than the viewport. */
-export const COLUMN = 'flex w-full max-w-4xl flex-col'
+export const COLUMN = 'flex w-full flex-col'
 
 /**
  * One settings row: `label | body`, hairline-ruled, stacking under `sm`.

@@ -62,6 +62,22 @@ export const GroupSchema = Schema.Struct({
    */
   name: GroupNameSchema,
 
+  /**
+   * What the console calls the group (optional). The name stays the identity
+   * permissions (`group:<name>`) and the membership write use.
+   */
+  label: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        title: 'Group Label',
+        description:
+          'What the console calls this group, in place of its name: the users directory and the Change groups picker show it. The name stays what permissions (`group:<name>`) and the membership write use. Without a label the console shows the name made readable, `equipe-a` reading "Equipe a". A `$t:` key is translated in the operator\'s console language.',
+        examples: ['Finance', 'Équipe A'],
+      }),
+      Schema.check(Schema.isMinLength(1))
+    )
+  ),
+
   /** Human-readable description of the group's purpose (optional). */
   description: Schema.optional(
     Schema.String.pipe(
@@ -97,6 +113,7 @@ export const GroupSchema = Schema.Struct({
       { name: 'marketing' },
       { name: 'finance', description: 'Finance team with access to financial data' },
       { name: 'project-alpha', description: 'Cross-functional team', maxMembers: 50 },
+      { name: 'equipe-a', label: 'Équipe A' },
     ],
   })
 )

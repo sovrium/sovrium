@@ -28,6 +28,7 @@ import {
   type ActionRunContext,
   type AutomationContext,
 } from './shared'
+import { starterFileGate } from './starter-file-gate'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -192,7 +193,7 @@ const generate = (
   runContext: ActionRunContext | undefined
 ) =>
   Effect.gen(function* () {
-    const template = yield* readTemplateSource(props['template'])
+    const template = yield* readTemplateSource(props['template'], starterFileGate(app, automation))
     const data = documentDataOf(props, runContext)
     const context = templateContext(template, data, runContext)
     const og = props['preset'] === 'og'

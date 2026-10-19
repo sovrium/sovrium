@@ -10,8 +10,8 @@
  *
  * Four rules, all pure and all decidable from the request metadata alone:
  * the filename must not name somewhere else, an explicit key must not either,
- * the bytes must fit the smallest configured cap, and the MIME type must be one
- * the bucket declares. Every one of them is answered BEFORE the permission
+ * the bytes must fit the smallest configured cap, and the MIME type — the
+ * file's, and the one an explicit key names — must be one the bucket declares. Every one of them is answered BEFORE the permission
  * gate, deliberately: an oversized or malformed upload is refused whether or not
  * the caller has a session, so a 413 stays reachable without one.
  *
@@ -21,6 +21,7 @@
  * it to.
  */
 
+import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
 import {
   isCanonicalStorageKey,
   isChatAttachmentKey,
@@ -170,6 +171,37 @@ export const isMimeTypeAllowed = (bucket: Readonly<Bucket>, mimeType: string): b
   )
 }
 
+/** The refusal of a type the bucket does not declare — a file's, or the one its path names. */
+const typeRefusal = (bucket: Readonly<Bucket>, type: string): UploadRejection => ({
+  reason: 'mime-type-not-allowed',
+  message: `File type '${type}' is not allowed. Allowed types: ${(bucket.allowedMimeTypes ?? []).join(', ')}`,
+})
+
+/**
+ * Reject an explicit key whose extension names a type the bucket does not
+ * declare. A stored object is served by the type its key names, so a path is
+ * held to `allowedMimeTypes` as the file is: `quotes/DV-1.pdf` names a PDF, and
+ * a key with no extension, or one the engine does not know, names
+ * `application/octet-stream`. A bucket that declares no list takes any key.
+ */
+export const checkUploadPathType = (
+  bucket: Readonly<Bucket>,
+  path: string
+): UploadRejection | undefined => {
+  const named = inferMimeFromKey(path)
+  return isMimeTypeAllowed(bucket, named) ? undefined : typeRefusal(bucket, named)
+}
+
+/**
+ * Every rule an explicit key is held to in a given bucket: its spelling and
+ * reserved prefixes ({@link checkUploadPath}), then the type it names
+ * ({@link checkUploadPathType}).
+ */
+export const checkBucketUploadPath = (
+  bucket: Readonly<Bucket>,
+  path: string
+): UploadRejection | undefined => checkUploadPath(path) ?? checkUploadPathType(bucket, path)
+
 /**
  * The effective size cap and which tier produced it.
  *
@@ -212,10 +244,7 @@ export const checkUploadFile = (
   }
 
   if (!isMimeTypeAllowed(bucket, file.type)) {
-    return {
-      reason: 'mime-type-not-allowed',
-      message: `File type '${file.type}' is not allowed. Allowed types: ${(bucket.allowedMimeTypes ?? []).join(', ')}`,
-    }
+    return typeRefusal(bucket, file.type)
   }
 
   return undefined

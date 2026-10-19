@@ -12,7 +12,13 @@ import {
 import { readAiRefinementStatus } from '../runtime/ai-refinement-status'
 import { columnPlacementClass } from './column-align'
 import { presentationAttributes, type CellPresentation } from './column-presentation'
-import { FROZEN_CELL_CLASS, frozenCellStyle, type FrozenOffsets } from './frozen-columns'
+import {
+  FROZEN_CELL_CLASS,
+  frozenCellStyle,
+  TRAILING_PIN_CELL_CLASS,
+  trailingPinStyle,
+  type FrozenOffsets,
+} from './frozen-columns'
 import { rowIdOf } from './row-identity'
 import type { CellMeta, DataRowContext } from './data-row-types'
 import type { AiFieldRefinementStatus } from '../runtime/ai-refinement-status'
@@ -39,6 +45,7 @@ function frozenPinStyle(
   meta: CellMeta,
   frozenOffsets: FrozenOffsets | undefined
 ): CSSProperties | undefined {
+  if (meta?.trailing === true) return trailingPinStyle(false)
   if (meta?.frozen !== true) return undefined
   return frozenCellStyle(frozenOffsets?.[meta.field ?? ''] ?? 0)
 }
@@ -155,6 +162,14 @@ function selectionMarkers(
   }
 }
 
+/** The surface a pinned body cell wears: the left pin's, or the trailing one's. */
+const pinClass = (meta: CellMeta, pinStyle: CSSProperties | undefined): string =>
+  pinStyle === undefined
+    ? ''
+    : meta?.trailing === true
+      ? TRAILING_PIN_CELL_CLASS
+      : FROZEN_CELL_CLASS
+
 /** One `<td>`'s attributes beyond its content: role, class, pin, field, cursor marks. */
 export function dataCellAttributes(params: {
   readonly ctx: DataRowContext
@@ -170,7 +185,7 @@ export function dataCellAttributes(params: {
   const positionClass = positioned && !pinStyle ? 'relative' : ''
   return {
     ...(ctx.gridRole && { role: 'gridcell' }),
-    className: `${ctx.cellClass} ${ctx.borderClass} whitespace-nowrap ${columnPlacementClass(meta)} ${presentation.className} ${positionClass} ${pinStyle ? FROZEN_CELL_CLASS : ''} ${cellMarkerClass(cursorAttrs, isCursor)}`,
+    className: `${ctx.cellClass} ${ctx.borderClass} whitespace-nowrap ${columnPlacementClass(meta)} ${presentation.className} ${positionClass} ${pinClass(meta, pinStyle)} ${cellMarkerClass(cursorAttrs, isCursor)}`,
     ...presentationAttributes(presentation, pinStyle),
     ...(meta?.field && { 'data-field': meta.field }),
     ...cursorAttrs,

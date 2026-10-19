@@ -213,3 +213,36 @@ export const withRecordTextFields = (
   const kept = typeof carried === 'object' && carried !== null ? carried : {}
   return { ...record, [RECORD_TEXT_KEY]: { ...kept, ...text } }
 }
+
+/** An ISO 8601 instant, as an endpoint publishes one: `YYYY-MM-DDThh:mm:ss.sssZ`. */
+const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:?\d{2})$/
+
+/** An ISO 8601 calendar date with no time: `YYYY-MM-DD`. */
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * How the dates of a record WITHOUT a table read in a sentence: every top-level
+ * value spelled as an ISO instant reads as a date and time in `timeZone`, and
+ * every ISO calendar date as a date.
+ *
+ * A system endpoint publishes facts, and a date is published as ISO so a caller
+ * can sort and parse it. A page printing that string verbatim put
+ * a raw ISO stamp in front of an operator; a table-backed record has
+ * its field types to read, a system record has only the shape of its values,
+ * and an ISO stamp is unambiguous about what it is. A calendar date is read in
+ * UTC, which is where its midnight was written, so no zone moves its day.
+ */
+export const isoDateTextFieldsOf = (
+  record: Readonly<Record<string, unknown>>,
+  timeZone: string
+): RecordTextFields =>
+  Object.fromEntries(
+    Object.entries(record).flatMap(
+      ([name, value]): readonly (readonly [string, RecordTextField])[] => {
+        if (typeof value !== 'string') return []
+        if (ISO_INSTANT.test(value)) return [[name, { format: 'datetime', timeZone }]]
+        if (ISO_DATE.test(value)) return [[name, { format: 'long-date', timeZone: 'UTC' }]]
+        return []
+      }
+    )
+  )

@@ -3,7 +3,7 @@ name: settings-team
 type: container
 element: section
 props:
-  className: flex w-full max-w-220 flex-col gap-10 px-4 py-6 sm:px-8 sm:py-8
+  className: flex w-full max-w-220 min-w-0 flex-col gap-10 px-4 py-6 sm:px-8 sm:py-8
 children:
   - type: flex
     props:

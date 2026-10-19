@@ -166,3 +166,51 @@ export const SELECT_OPTION_SOURCE_DEFAULT_LIMIT = 100
 
 /** @public */
 export type SelectOptionSource = Schema.Schema.Type<typeof SelectOptionSourceSchema>
+
+/**
+ * A default that names a related record by what it IS, not by its id.
+ *
+ * A relationship column stores the related row's id, and ids are minted by the
+ * database: they differ between environments and change on every re-seed. A
+ * form that should start on "the product named Temps" therefore had to either
+ * hard-code an id or leave the field empty. `lookup` names the row by a stable
+ * attribute instead and is resolved on the server each time the form is
+ * served: the first matching row (lowest id) is preselected, and no match
+ * leaves the field empty.
+ *
+ * @example
+ * ```yaml
+ * - kind: table-field
+ *   column: product
+ *   defaultValue:
+ *     lookup:
+ *       table: products
+ *       where: { field: name, operator: eq, value: Temps }
+ * ```
+ */
+export const RecordLookupDefaultSchema = Schema.Struct({
+  lookup: Schema.Struct({
+    /** The related table — must be the one the relationship column points at. */
+    table: Schema.String.pipe(
+      Schema.annotate({
+        description: "Table to find the row in: the relationship column's related table",
+        examples: ['products'],
+      }),
+      Schema.check(Schema.isMinLength(1))
+    ),
+    /** The one condition the row must meet. */
+    where: DataFilterSchema.annotate({
+      description:
+        'Condition the row must meet, e.g. `{ field: name, operator: eq, value: Temps }`. The first matching row (lowest id) is preselected; no match leaves the field empty.',
+    }),
+  }).annotate({
+    description: 'Finds the related row to start on by a stable attribute instead of its id',
+  }),
+}).annotate({
+  identifier: 'RecordLookupDefault',
+  title: 'Record Lookup Default',
+  description:
+    'Preselects a related record by a stable attribute — the row of `lookup.table` meeting `lookup.where` — resolved on the server each time the form is served. For a relationship column only.',
+})
+
+export type RecordLookupDefault = Schema.Schema.Type<typeof RecordLookupDefaultSchema>

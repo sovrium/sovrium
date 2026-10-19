@@ -19,6 +19,7 @@ import {
   computeTableActionButtonClasses,
   computeTableToastClasses,
 } from '@/presentation/design/table-default-classes'
+import { useGridString } from './grid-strings'
 import type { DetectedConflict } from '../../hooks/use-realtime-reconciliation'
 import type { ReactElement } from 'react'
 
@@ -27,12 +28,11 @@ interface ConflictToastProps {
   readonly onDismiss: () => void
 }
 
-/**
- * Direct database writes (and SSE change events that do not attribute a
- * writer) have no identifiable author — the toast falls back to a generic
- * label so the message still reads naturally.
- */
-const OVERWRITING_USER = 'another user'
+/** The sentence, one field then several; `{fields}` drawn strong, `{writer}` who won. */
+const ONE_FIELD =
+  'Your pending change to field {fields} was overwritten by {writer}. The latest server value is now shown.'
+const SEVERAL_FIELDS =
+  'Your pending change to fields {fields} was overwritten by {writer}. The latest server value is now shown.'
 
 /** Join field names into a readable, comma-separated clause. */
 function formatFields(fields: readonly string[]): string {
@@ -41,7 +41,17 @@ function formatFields(fields: readonly string[]): string {
 
 export function ConflictToast({ conflict, onDismiss }: ConflictToastProps): ReactElement {
   const fieldList = formatFields(conflict.overwrittenFields)
-  const fieldNoun = conflict.overwrittenFields.length === 1 ? 'field' : 'fields'
+  const one = useGridString('datatable.conflict', ONE_FIELD)
+  const several = useGridString('datatable.conflictFields', SEVERAL_FIELDS)
+  // Direct database writes (and SSE change events that do not attribute a
+  // writer) have no identifiable author — a generic label keeps it readable.
+  const writer = useGridString('datatable.anotherUser', 'another user')
+  const dismissName = useGridString('datatable.dismissConflict', 'Dismiss conflict notification')
+  const dismiss = useGridString('datatable.dismiss', 'Dismiss')
+  const [before = '', after = ''] = (conflict.overwrittenFields.length === 1 ? one : several)
+    .split('{writer}')
+    .join(writer)
+    .split('{fields}')
 
   return (
     <div
@@ -56,16 +66,17 @@ export function ConflictToast({ conflict, onDismiss }: ConflictToastProps): Reac
       className={`${computeTableToastClasses({ tone: 'error' })} m-2`}
     >
       <span>
-        Your pending change to {fieldNoun} <strong>{fieldList}</strong> was overwritten by{' '}
-        {OVERWRITING_USER}. The latest server value is now shown.
+        {before}
+        <strong>{fieldList}</strong>
+        {after}
       </span>
       <button
         type="button"
         onClick={onDismiss}
-        aria-label="Dismiss conflict notification"
+        aria-label={dismissName}
         className={computeTableActionButtonClasses()}
       >
-        Dismiss
+        {dismiss}
       </button>
     </div>
   )

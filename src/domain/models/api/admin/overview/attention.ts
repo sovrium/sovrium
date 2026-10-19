@@ -219,7 +219,7 @@ export const adminAttentionResponseSchema = Schema.Struct({
     'Automation runs that ended in failure since `since`. `0` when no run has failed since boot.'
   ),
   failedRunsDetail: attentionDetail(
-    'The failing automations with their counts, e.g. "deal-won-invoice ×2 · quote-to-pdf ×2". Empty when `failedRuns` is 0.'
+    'The failing automations with their counts, each named as the Runs page names it — its declared `label`, else its name made readable — e.g. "Deal won invoice ×2 · Quote to PDF ×2". Empty when `failedRuns` is 0.'
   ),
 
   // ---- Pulse cell 2: unset required variables (STATE) ------------------
@@ -251,7 +251,7 @@ export const adminAttentionResponseSchema = Schema.Struct({
     'Form submissions received since `since`. `0` when none has arrived since boot — NOT the lifetime figure, which is `GET /api/admin/overview`.`submissions.total`.'
   ),
   recentSubmissionsDetail: attentionDetail(
-    'The receiving forms with their counts, e.g. "quote-request · 6 today". Empty when `recentSubmissions` is 0.'
+    'The receiving forms with their counts, each named as the Submissions page names it — its `title`, else its name made readable — e.g. "Quote request ×11 · Contact us ×1". Empty when `recentSubmissions` is 0.'
   ),
 
   // ---- Pulse cell 6 AND the Automations tile sub-line (STATE) ----------
@@ -259,7 +259,7 @@ export const adminAttentionResponseSchema = Schema.Struct({
     'Automations whose state is `paused`. Serves BOTH the sixth pulse cell and the Automations tile sub-line — one key so the two can never disagree. `0` when none is paused.'
   ),
   automationsPausedDetail: attentionDetail(
-    'The paused automations and since when, e.g. "lead-enrich · since 9 Sep 16:20". Empty when `automationsPaused` is 0.'
+    'The paused automations and since when, each named as the Runs page names it — its declared `label`, else its name made readable — e.g. "Lead enrich · since 9 Sep 16:20". Empty when `automationsPaused` is 0.'
   ),
 
   // ---- Attention item: structural findings (STATE) ---------------------

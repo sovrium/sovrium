@@ -9,15 +9,14 @@ import { Effect } from 'effect'
 import { triggerFormSubmissionAutomations } from '@/application/use-cases/automations/trigger-form-submission'
 import { emitFormSubmissionAnalyticsEvent } from '@/application/use-cases/forms/emit-form-analytics-event'
 import { applySubmissionAccessLinks } from '@/application/use-cases/forms/submit-form-access-links'
-import {
-  constraintRefusalForField,
-  uniqueRefusalForField,
-} from '@/application/use-cases/forms/submit-form-constraint-errors'
+import { constraintRefusalForField } from '@/application/use-cases/forms/submit-form-constraint-errors'
 import { FormFieldFormatError } from '@/application/use-cases/forms/submit-form-format-validation'
 import { findUnpinnedHiddenField } from '@/application/use-cases/forms/submit-form-hidden-pins'
 import { checkHoneypot } from '@/application/use-cases/forms/submit-form-honeypot'
+import { withHiddenLookupDefaults } from '@/application/use-cases/forms/submit-form-lookup-defaults'
 import { findUnofferedLinkField } from '@/application/use-cases/forms/submit-form-offered-links'
 import { checkRateLimit } from '@/application/use-cases/forms/submit-form-rate-limit'
+import { takenValueRefusal } from '@/application/use-cases/forms/submit-form-taken-value'
 import { splitSubmissionSurface } from '@/domain/models/app/forms/submission-ledger-service'
 import {
   buildLinkedRecord,
@@ -127,12 +126,14 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
 
     // An embedded form marks its surface on the query; the rest is the form's.
     const { surface, query: formQuery } = splitSubmissionSurface(query ?? {})
-    const mapped = yield* processSubmissionBody(app, form, body, formQuery)
+    // A hidden field's lookup default is the row it finds now, for this submitter.
+    const filled = yield* withHiddenLookupDefaults(app, form, config.visitor)
+    const mapped = yield* processSubmissionBody(app, filled, body, formQuery)
 
     // A link must name a row the form offers, and a hidden link or account only
     // what the server would have put in it for this submitter — both answered
     // like a missing row.
-    const links = { app, form, mapped, visitor: config.visitor, submitterUserId }
+    const links = { app, form: filled, mapped, visitor: config.visitor, submitterUserId }
     yield* findUnofferedLinkField(links).pipe(Effect.flatMap(refuseAsMissingRow))
     yield* findUnpinnedHiddenField(links).pipe(Effect.flatMap(refuseAsMissingRow))
 
@@ -156,7 +157,17 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
         // A value refused by a unique, CHECK or NOT NULL rule is reported
         // against the field it came from, so the page can draw it there.
         UniqueConstraintViolationError: (unique) =>
-          Effect.fail(uniqueRefusalForField(unique) ?? unique),
+          Effect.flatMap(
+            takenValueRefusal({
+              app,
+              form,
+              mapped,
+              unique,
+              submitterUserId,
+              visitor: config.visitor,
+            }),
+            Effect.fail
+          ),
         DatabaseError: (failure) => Effect.fail(constraintRefusalForField(failure) ?? failure),
       })
     )

@@ -11,7 +11,6 @@ import {
   batchDeleteWithSideEffects,
   batchRestoreWithSideEffects,
   batchUpdateWithSideEffects,
-  upsertWithSideEffects,
 } from '@/application/use-cases/tables/record-batch-orchestration'
 import { recordWriteRequester } from '@/application/use-cases/tables/record-create-orchestration'
 import { buildEffectiveRoles } from '@/application/use-cases/tables/user-groups'
@@ -20,13 +19,11 @@ import {
   batchUpdateRecordsRequestSchema,
   batchDeleteRecordsRequestSchema,
   batchRestoreRecordsRequestSchema,
-  upsertRecordsRequestSchema,
 } from '@/domain/models/api/tables/records'
 import {
   batchCreateRecordsResponseSchema,
   batchUpdateRecordsResponseSchema,
   batchDeleteRecordsResponseSchema,
-  upsertRecordsResponseSchema,
 } from '@/domain/models/api/tables/tables'
 import {
   hasUpdatePermissionForRoles,
@@ -53,7 +50,7 @@ import {
   refuseNonKeyBatchDelete,
   refuseNonKeyBatchRestore,
 } from './batch-record-ids'
-import { guardBatchCreate, guardUpsert } from './batch-write-guards'
+import { guardBatchCreate } from './batch-write-guards'
 import { handleBatchRestoreError } from './error-helpers'
 import { handleImportRecords } from './record-import-handlers'
 import { getLinkReader } from './relationship-rules'
@@ -65,7 +62,9 @@ import {
   restoreRoleGateAdmits,
 } from './row-level-guard'
 import { callerReadsTable } from './table-read-gate'
-import { validateReadonlyFields, applyReadFiltering, stripUnwritableFields } from './upsert-helpers'
+import { maskUnreadableUniqueConflict, restoredWrite, updatedWrite } from './unique-conflict-mask'
+import { validateReadonlyFields, stripUnwritableFields } from './upsert-helpers'
+import { handleUpsert } from './upsert-route'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
@@ -146,7 +145,8 @@ async function handleBatchRestore(c: Context, app: App) {
   )
 
   if (programResult._tag === 'Failure') {
-    return handleBatchRestoreError(c, programResult.failure)
+    const refusal = handleBatchRestoreError(c, programResult.failure)
+    return maskUnreadableUniqueConflict(c, app, restoredWrite(c, ids), refusal)
   }
 
   return c.json(programResult.success, 200)
@@ -244,7 +244,14 @@ async function handleBatchCreate(c: Context, app: App) {
     Effect.map(batchCreateAnswer(readsTable, { app, tableName, userRole, userGroups }))
   )
 
-  return runEffect(c, provideDomain(c, filteredProgram), batchCreateRecordsResponseSchema, 201)
+  const response = await runEffect(
+    c,
+    provideDomain(c, filteredProgram),
+    batchCreateRecordsResponseSchema,
+    201
+  )
+  const written = result.data.records.map((record) => record.fields)
+  return maskUnreadableUniqueConflict(c, app, { written }, response)
 }
 
 /**
@@ -290,12 +297,7 @@ async function handleBatchUpdate(c: Context, app: App) {
   // at least one writable field survives.
   const strippedRecords = stripUnwritableFields(app, tableName, writer, records)
   const strippedValidation = validateStrippedRecordsNotEmpty({
-    strippedRecords,
-    originalRecords: records,
-    app,
-    tableName,
-    userRole,
-    c,
+    ...{ strippedRecords, originalRecords: records, app, tableName, userRole, c },
   })
   if (strippedValidation) return strippedValidation
 
@@ -315,7 +317,12 @@ async function handleBatchUpdate(c: Context, app: App) {
     )
   )
 
-  return runEffect(c, provideDomain(c, filteredProgram), batchUpdateRecordsResponseSchema)
+  const response = await runEffect(
+    c,
+    provideDomain(c, filteredProgram),
+    batchUpdateRecordsResponseSchema
+  )
+  return maskUnreadableUniqueConflict(c, app, updatedWrite(recordsData), response)
 }
 
 /**
@@ -379,50 +386,6 @@ async function handleBatchDelete(c: Context, app: App) {
     ids: result.data.ids,
   })
   return runEffect(c, provideDomain(c, program), batchDeleteRecordsResponseSchema)
-}
-
-/**
- * Handle upsert endpoint
- */
-async function handleUpsert(c: Context, app: App) {
-  const { session, tableName, userRole, userGroups } = getTableContext(c)
-
-  // A viewer the table names in neither its create nor its update grant is
-  // refused BEFORE validation; `validateUpsertRequest` decides the rest.
-  const viewerCheck = checkViewerPermission(c, app, ['create', 'update'])
-  if (viewerCheck) return viewerCheck
-
-  const result = await validateRequest(c, upsertRecordsRequestSchema)
-  if (!result.success) return result.response
-
-  const validation = await guardUpsert(c, app, result.data.records, result.data.fieldsToMergeOn)
-  if (!validation.success) return validation.response
-
-  // Extract flat field objects for database layer
-  const flatRecordsData = validation.strippedRecords.map((record) => record.fields)
-
-  // Execute upsert, with a record event per row inserted or matched
-  const program = upsertWithSideEffects({
-    ...{ session, tableName, processEnv: process.env },
-    requester: recordWriteRequester(session.userId, userRole),
-    recordsData: flatRecordsData,
-    fieldsToMergeOn: result.data.fieldsToMergeOn,
-    hiddenIds: validation.hiddenIds,
-    returnRecords: result.data.returnRecords,
-    app,
-    linkReader: getLinkReader(c),
-  })
-
-  // Apply field-level read filtering to response
-  const filteredProgram = applyReadFiltering({
-    program,
-    app,
-    tableName,
-    userRole,
-    userGroups,
-  })
-
-  return runEffect(c, provideDomain(c, filteredProgram), upsertRecordsResponseSchema)
 }
 
 export function chainBatchRoutesMethods<T extends Hono>(honoApp: T, resolveApp: () => App) {

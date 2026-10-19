@@ -118,7 +118,8 @@ export function resolvePendingLabel(
 /**
  * The engine words the runtime writes itself — a missing field's reason, a
  * refused submission, the edit link, the in-flight word, the Stop button of a
- * recorder and the refusal of a picked file (`form.file*`) — in the page
+ * recorder, the refusal of a picked file (`form.file*`) and the refusals the
+ * server names by slug (`forms.*`) — in the page
  * language, present only where they differ from the English it is written in.
  */
 const RUNTIME_STRING_PREFIXES = [
@@ -131,6 +132,7 @@ const RUNTIME_STRING_PREFIXES = [
   'form.unsavedChange',
   'form.noUnsavedChanges',
   'form.submitted',
+  'forms.',
 ] as const
 
 /** The runtime's own words for the page language (its `strings` map). */

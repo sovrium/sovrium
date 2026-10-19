@@ -32,3 +32,20 @@ export function belongsToAddress(
     address.tableKeys.includes(String(comment.tableId))
   )
 }
+
+/**
+ * Every key a table's comments may be stored under: the URL segment a post
+ * named — the table's id or its name — and both of those spellings.
+ *
+ * A comment keeps the spelling it was posted through, so a thread read by one
+ * spelling alone misses the comments posted through the other. A table name
+ * starts with a letter and an id is a number, so the keys of two tables never
+ * meet.
+ */
+export function commentTableKeysOf(
+  table: { readonly id?: number | string | undefined; readonly name: string },
+  ...segments: readonly string[]
+): readonly string[] {
+  const id = table.id === undefined ? [] : [String(table.id)]
+  return [...new Set([...segments, ...id, table.name])]
+}

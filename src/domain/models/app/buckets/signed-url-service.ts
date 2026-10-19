@@ -33,9 +33,19 @@ export interface SignedUrlUploadConstraints {
 export type SignedUrlScope = 'automation'
 
 /**
+ * How a download link is meant to be shown. `inline` is the address a
+ * `file-preview` frames: the route serves a previewable type (a PDF) for the
+ * page's own frame rather than as an attachment. It is a CLAIM, bound into the
+ * token like `scope`, so a holder of an ordinary download link cannot turn it
+ * into a framable one by adding a query parameter.
+ */
+export type SignedUrlDisplay = 'inline'
+
+/**
  * Everything a signed-URL token is bound to. Changing any of these values
  * changes the token, so a holder cannot widen a URL by editing its query.
- * `constraints` only counts for an upload, and `scope` only for a download.
+ * `constraints` only counts for an upload, and `scope` and `display` only for
+ * a download.
  */
 export interface SignedUrlClaims {
   readonly bucket: string
@@ -44,6 +54,7 @@ export interface SignedUrlClaims {
   readonly expires: number
   readonly constraints?: SignedUrlUploadConstraints
   readonly scope?: SignedUrlScope
+  readonly display?: SignedUrlDisplay
 }
 
 /**
@@ -60,6 +71,7 @@ export interface SignedUrlClaims {
 export const signedUrlPayload = (claims: SignedUrlClaims): string => {
   const constraints = claims.operation === 'upload' ? claims.constraints : undefined
   const scope = claims.operation === 'download' ? claims.scope : undefined
+  const display = claims.operation === 'download' ? claims.display : undefined
   return JSON.stringify([
     claims.bucket,
     claims.path,
@@ -75,6 +87,9 @@ export const signedUrlPayload = (claims: SignedUrlClaims): string => {
     // A scoped download appends its scope the same way: an unscoped download
     // keeps its former payload, and the operation keeps the two appendices apart.
     ...(scope === undefined ? [] : [scope]),
+    // A display claim is appended as a tagged pair, so it can never be read as
+    // a scope (or the reverse) whichever of the two a token carries.
+    ...(display === undefined ? [] : [['display', display]]),
   ])
 }
 

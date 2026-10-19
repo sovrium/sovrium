@@ -29,6 +29,7 @@ import {
   passesUnguardedTableGate,
   resolveGuardForTable,
 } from './row-level-guard'
+import { maskUnreadableUniqueConflict, restoredWrite } from './unique-conflict-mask'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -254,7 +255,8 @@ export async function handleRestoreRecord(c: Context, app: App) {
   )
 
   if (result._tag === 'Failure') {
-    return handleRestoreRecordError(c, result.failure)
+    const refusal = handleRestoreRecordError(c, result.failure)
+    return maskUnreadableUniqueConflict(c, app, restoredWrite(c, [recordId]), refusal)
   }
 
   if (!result.success.success) {

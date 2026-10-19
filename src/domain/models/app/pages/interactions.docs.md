@@ -54,7 +54,7 @@ All hover effects apply together, on one coordinated transition. A `duration` of
 
 ## Actions and response handlers
 
-An `action` says what a button or form does — `crud`, `auth`, `navigate`, `fetch`, `automation` or `fill` — and `onSuccess` / `onError` say what happens next.
+An `action` says what a button or form does — `crud`, `auth`, `navigate`, `fetch`, `automation`, `fill` or `seek` (which moves a media player, see the media components) — and `onSuccess` / `onError` say what happens next.
 
 A `crud` action needs `operation` (`create`, `update`, `delete`) **and** `table`. `confirm` gates it behind a dialog, with `confirmMessage` supplying the wording. A delete button is offered to a signed-in reader whom the table's `permissions.delete` lets delete — by role, by group, or as an admin — and is absent for anyone else, as an edit form is for a reader who may not update; a table that declares no `delete` rule restricts nobody. A delete button with no `content` reads the page language's word for delete.
 
@@ -114,7 +114,7 @@ An `action` of `type: fetch` calls a URL directly, and its `onSuccess` can do mo
 
 Inside `status.message`, `$response.<field>` resolves against the JSON body the call returned, addressed by dot path. It is one of two places a page can show a value the server produced; the other is the success toast of a page form posting to an `endpoint`, whose `message` reads the body the same way (`Invitation sent to $response.user.email`). Everywhere else on the action, references travel the other way: `$record.<field>` carries values _into_ the request, and into the `onSuccess` and `onError` toasts of a row action, so `message: $record.name paused` names the row that was pressed rather than leaving the reader to guess which one.
 
-In the request `body`, a value written as exactly `$record.<field>` over a field holding a list — a multi-select, several attachments — is sent as that list, a JSON array; inside a longer string, the same reference is written as text, its items joined by commas.
+In the request `body`, `$record.<field>` is filled at every depth: a top-level value, a value inside a nested object and an item of a list alike. A value written as exactly `$record.<field>` over a field holding a list — a multi-select, several attachments — is sent as that list, a JSON array; inside a longer string, the same reference is written as text, its items joined by commas.
 
 Three rules worth knowing before you write one:
 
@@ -122,11 +122,11 @@ Three rules worth knowing before you write one:
 - **A path the body does not carry resolves to the empty string**, never to the literal token — for the same reason form success copy resolves an absent `$record.<column>` to nothing: a token left on screen reads as a value.
 - **The value is written as text.** A field containing `<b>x</b>` shows those characters rather than emboldening anything.
 
-A `mode: download` action runs the same handler but reads a file rather than a JSON body, so every `$response.` reference there resolves empty. A download the server refuses, or one that never reaches it, shows `onError`.
+A `mode: download` action runs the same handler but reads a file rather than a JSON body, so every `$response.` reference there resolves empty. A download the server refuses, or one that never reaches it, shows `onError`. A failure can be said the same way: `onError.status` writes its `message` into the element named by `target` and makes it an alert, instead of raising the error toast, and the alert stays until the action is run again. `retryLabel` draws a button inside it that runs the same action once more, without asking its confirmation a second time; without `retryLabel` the alert holds no button. A later success clears it, and `onSuccess.status` may write into the same element. An `onError` declaring both a toast `message` and `status` is refused when the config is read.
 
 ### Refreshing a list after the action
 
-`onSuccess.refetch` names one or more sibling components by their `props.id` and makes them re-read their data, so a list reflects a write without a reload. It works for both kinds of bound component: one that renders in the browser re-queries in place, and a server-rendered one has its rows re-read and redrawn. Pass a list of ids to refresh several at once.
+`onSuccess.refetch` names one or more sibling components by their `props.id` and makes them re-read their data, so a list reflects a write without a reload. It works for both kinds of bound component: one that renders in the browser (a `table`, a `kpi`, a `chart`, a `kanban` or a `list`) re-queries in place, and a server-rendered one has its rows re-read and redrawn. Only the components it names re-read: another one bound to the same table keeps what it shows. Pass a list of ids to refresh several at once. An automation action's `onSuccess` also takes `refetch` (component ids to re-read) and `reload`. Set `await: true` when the re-read must show what the run wrote.
 
 One case is left alone deliberately: a server-rendered region whose own rows contain an interactive component is skipped rather than redrawn, because replacing it would discard the running component inside it. Bind that case to a `table` instead, which refreshes itself.
 
@@ -142,7 +142,7 @@ One case is left alone deliberately: a server-rendered region whose own rows con
 
 ### Opening an address in a new tab
 
-`openInNewTab: true` on a navigate action — a row click, or a `fetch` action in `mode: navigate` — opens the address in a new tab that gets no handle on the page, and an address that is not a same-origin path or an `http(s)` URL is not followed.
+`openInNewTab: true` on a navigate action — a row click, or a `fetch` action in `mode: navigate` — opens the address in a new tab that gets no handle on the page, and an address that is not a same-origin path or an `http(s)` URL is not followed. With `openInNewTab: true`, a navigate button opens a web address taken from the record, with no handle on the app. In the same tab, only a host written in the `path` itself is followed.
 
 The address is built from the row (`$record.<field>`), and a row holds whatever was imported, so every navigation checks it first — a new tab or not. On a `fetch` action the key is refused at config load in any mode other than `navigate`, since a request opens no page.
 

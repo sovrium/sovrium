@@ -49,6 +49,8 @@ GET /api/tables/tasks/records?sort=priority:desc,name:asc
 
 A segment sorts ascending unless its direction is exactly `desc`. A single-select field sorts by its declared option order rather than alphabetically, so `low` / `medium` / `high` orders the way it was authored instead of the way it spells.
 
+A text field — single-line text, long text, rich text, an email, a URL or a phone number — sorts by the alphabet whatever the capitals: `atelier nord` comes before `Brasserie Martin`, on SQLite and PostgreSQL alike. Accents are compared as stored.
+
 A record with no value in the sorted field comes last, ascending and descending.
 
 A caller may sort by exactly the fields they may read — a field read grant, one naming a group they belong to, or the built-in role defaults when the table declares no field rules — and by the system fields. A sort on a field the caller may not read is answered with the same `404` as a filter on it, never with rows ordered by the hidden value — and so is a sort on a field the table does not have, so the two cannot be told apart.

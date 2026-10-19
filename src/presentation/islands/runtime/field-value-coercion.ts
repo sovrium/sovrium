@@ -88,27 +88,55 @@ export function isBooleanFieldType(type: string | undefined): boolean {
   return type !== undefined && BOOLEAN_TYPES.has(type)
 }
 
-const ok = (value: CoercedFieldValue): CoercionResult => ({ ok: true, value })
-const refuse = (reason: string): CoercionResult => ({ ok: false, reason })
+/**
+ * How a refusal is worded, `{label}` standing for the column's name: English
+ * unless the surface was handed the page language's words.
+ */
+export interface CoercionWords {
+  readonly takesNumber: string
+  readonly takesYesNo: string
+}
 
-function coerceNumeric(raw: unknown, label: string): CoercionResult {
+const ENGLISH_WORDS: CoercionWords = {
+  takesNumber: '{label} takes a number',
+  takesYesNo: '{label} takes yes or no',
+}
+
+/**
+ * The refusal words out of a surface's page-language strings
+ * (`datatable.takesNumber`, `datatable.takesYesNo`), each falling back to the
+ * English this module is written in — so a surface handed none words its
+ * refusals exactly as before.
+ */
+export const coercionWordsFrom = (strings: Readonly<Record<string, string>>): CoercionWords => ({
+  takesNumber: strings['datatable.takesNumber'] ?? ENGLISH_WORDS.takesNumber,
+  takesYesNo: strings['datatable.takesYesNo'] ?? ENGLISH_WORDS.takesYesNo,
+})
+
+const ok = (value: CoercedFieldValue): CoercionResult => ({ ok: true, value })
+const refuse = (template: string, label: string): CoercionResult => ({
+  ok: false,
+  reason: template.split('{label}').join(label),
+})
+
+function coerceNumeric(raw: unknown, label: string, words: CoercionWords): CoercionResult {
   if (typeof raw === 'number') return Number.isFinite(raw) ? ok(raw) : ok(null)
   if (typeof raw === 'boolean') return ok(raw ? 1 : 0)
-  if (typeof raw !== 'string') return refuse(`${label} takes a number`)
+  if (typeof raw !== 'string') return refuse(words.takesNumber, label)
   const trimmed = raw.trim()
   if (trimmed === '') return ok(null)
   const parsed = Number(trimmed)
-  return Number.isFinite(parsed) ? ok(parsed) : refuse(`${label} takes a number`)
+  return Number.isFinite(parsed) ? ok(parsed) : refuse(words.takesNumber, label)
 }
 
-function coerceBoolean(raw: unknown, label: string): CoercionResult {
+function coerceBoolean(raw: unknown, label: string, words: CoercionWords): CoercionResult {
   if (typeof raw === 'boolean') return ok(raw)
   if (typeof raw === 'number') return ok(raw !== 0)
-  if (typeof raw !== 'string') return refuse(`${label} takes yes or no`)
+  if (typeof raw !== 'string') return refuse(words.takesYesNo, label)
   const word = raw.trim().toLowerCase()
   if (TRUE_WORDS.has(word)) return ok(true)
   if (FALSE_WORDS.has(word)) return ok(false)
-  return refuse(`${label} takes yes or no`)
+  return refuse(words.takesYesNo, label)
 }
 
 /**
@@ -136,16 +164,17 @@ function coerceVerbatim(raw: unknown): CoercionResult {
  *
  * `label` is the column's display name — the word the refusal message
  * starts with, because "Amount takes a number" is something a reader can act
- * on and "invalid value" is not.
+ * on and "invalid value" is not. `words` word the refusal in the page language.
  */
 export function coerceFieldValue(
   raw: unknown,
   fieldType: string | undefined,
-  label: string
+  label: string,
+  words: CoercionWords = ENGLISH_WORDS
 ): CoercionResult {
   if (raw === undefined || raw === null) return ok(null)
-  if (isNumericFieldType(fieldType)) return coerceNumeric(raw, label)
-  if (isBooleanFieldType(fieldType)) return coerceBoolean(raw, label)
+  if (isNumericFieldType(fieldType)) return coerceNumeric(raw, label, words)
+  if (isBooleanFieldType(fieldType)) return coerceBoolean(raw, label, words)
   return coerceVerbatim(raw)
 }
 
@@ -160,14 +189,15 @@ export function coerceFieldValue(
 export function coerceFieldValues(
   values: Readonly<Record<string, unknown>>,
   fieldTypes: ReadonlyMap<string, string>,
-  labelOf: (field: string) => string = (field) => field
+  labelOf: (field: string) => string = (field) => field,
+  words?: CoercionWords
 ): {
   readonly accepted: Readonly<Record<string, CoercedFieldValue>>
   readonly refused: readonly { readonly field: string; readonly reason: string }[]
 } {
   const outcomes = Object.entries(values).map(([field, raw]) => ({
     field,
-    result: coerceFieldValue(raw, fieldTypes.get(field), labelOf(field)),
+    result: coerceFieldValue(raw, fieldTypes.get(field), labelOf(field), words),
   }))
   const accepted = Object.fromEntries(
     outcomes.flatMap(({ field, result }) => (result.ok ? [[field, result.value] as const] : []))

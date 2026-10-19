@@ -5,9 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { CSV_IMPORT_UI_STRINGS } from './interpreter-ui-strings-csv-import'
+
 /**
  * The interpreter strings of the controls that carry their own words: the
- * passkey, SSO and account-link forms, a hosted form's drop zone, user picker
+ * sign-in form's recovery link, the passkey, SSO and account-link forms, a hosted form's drop zone, user picker
  * and save bar, a record form's upload and delete states, the map, a kanban
  * column, the ⌘K palette, the date pickers, a typed confirmation, the split
  * pane, the record picker, the searchable select, the sidebar's empty list and
@@ -17,6 +19,29 @@
  * an author renames any key under `sovrium.<key>`.
  */
 export const CONTROL_UI_STRINGS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  // ---- A data grid's failed read: the table it names, and a read answered 404 ----
+  /** A failed read of a grid bound to a table, naming it; `{table}` is its plural label. */
+  'datatable.loadFailedIn': {
+    en: 'Couldn’t load {table}.',
+    fr: 'Impossible de charger {table}.',
+  },
+  /** A read answered 404 — the reader may not read the table, or it is gone; `{table}` is its plural label. */
+  'datatable.notFoundIn': {
+    en: '{table} isn’t available.',
+    fr: '{table} : non disponible.',
+  },
+  /** A read answered 404 on a grid bound to no table. */
+  'datatable.notFound': {
+    en: 'These records aren’t available.',
+    fr: 'Ces enregistrements ne sont pas disponibles.',
+  },
+  // ---- A press refused because its control is disabled on the record, with no reason of its own ----
+  'action.disabled': {
+    en: 'This action is not available for this record.',
+    fr: 'Cette action n’est pas disponible pour cet enregistrement.',
+  },
+  // ---- A sign-in form's link to the password-reset request page, in its Password label row ----
+  'auth.forgotPassword': { en: 'Forgot your password?', fr: 'Mot de passe oublié ?' },
   // ---- Passkey, SSO and account-link forms: what each one reports ----
   'passkey.added': { en: 'Passkey added', fr: 'Clé d’accès ajoutée' },
   'passkey.addFailed': {
@@ -199,4 +224,5 @@ export const CONTROL_UI_STRINGS: Readonly<Record<string, Readonly<Record<string,
   'chartName.donut': { en: 'Donut chart', fr: 'Graphique en anneau' },
   'chartName.radar': { en: 'Radar chart', fr: 'Graphique radar' },
   'chartName.radial': { en: 'Radial chart', fr: 'Graphique radial' },
+  ...CSV_IMPORT_UI_STRINGS,
 }

@@ -16,7 +16,10 @@
  * `admin-bucket-files-data` module's defensive-parse + discriminated-state shape.
  */
 
+import { formatDayRelativeTime } from '@/domain/kernel/format/day-relative-time'
+import { usableLocale } from '@/domain/kernel/format/usable-locale'
 import { resolvePageLocale } from '../../runtime/page-locale'
+import { resolvePageTimezone } from '../../runtime/page-timezone'
 import { conversationCaptions } from './admin-agent-conversations-captions'
 
 /** One conversation in the list column (mirrors `agentConversationListItemSchema`). */
@@ -26,6 +29,8 @@ export interface ConversationRow {
   readonly agentName: string
   readonly title: string
   readonly sessionId: string
+  /** The person who held the conversation, by display name. */
+  readonly userName: string
   readonly messageCount: number
   readonly lastActivityAt: string
   readonly createdAt: string
@@ -47,7 +52,8 @@ export interface ThreadMessage {
 export interface ConversationHeader {
   readonly id: string
   readonly title: string
-  readonly sessionId: string
+  /** The person who held the conversation, by display name. */
+  readonly userName: string
   readonly createdAt: string
   readonly lastActivityAt: string
 }
@@ -99,6 +105,7 @@ function toRow(item: Partial<ConversationRow>, agentName: string): ReadonlyArray
           ? item.title
           : conversationCaptions().untitled,
       sessionId: typeof item.sessionId === 'string' ? item.sessionId : '',
+      userName: typeof item.userName === 'string' ? item.userName : '',
       messageCount: typeof item.messageCount === 'number' ? item.messageCount : 0,
       lastActivityAt: typeof item.lastActivityAt === 'string' ? item.lastActivityAt : '',
       createdAt: typeof item.createdAt === 'string' ? item.createdAt : '',
@@ -150,7 +157,9 @@ export async function loadConversations(
   try {
     // What the page's controls publish (a Person facet's `userId`, a composed
     // search box's `q`) rides along first; the in-pane search box wins `q`.
-    const params = new URLSearchParams({ ...shared, limit: '200' })
+    // A cleared control publishes `''`, which the read would refuse (`period=`).
+    const published = Object.entries(shared).filter(([, value]) => value !== '')
+    const params = new URLSearchParams({ ...Object.fromEntries(published), limit: '200' })
     // Only when non-empty: a bare `?q=` is "no search" server-side anyway, but
     // omitting it keeps the request honest about what was asked.
     if (search.trim().length > 0) params.set('q', search.trim())
@@ -203,7 +212,7 @@ function toHeader(header: Partial<ConversationHeader> | undefined): Conversation
       typeof header.title === 'string' && header.title.length > 0
         ? header.title
         : conversationCaptions().untitled,
-    sessionId: typeof header.sessionId === 'string' ? header.sessionId : '',
+    userName: typeof header.userName === 'string' ? header.userName : '',
     createdAt: typeof header.createdAt === 'string' ? header.createdAt : '',
     lastActivityAt: typeof header.lastActivityAt === 'string' ? header.lastActivityAt : '',
   }
@@ -230,17 +239,16 @@ export async function loadConversation(
   }
 }
 
-/** Format an ISO timestamp as a short date + time for a message ("14 Jun, 09:32"). */
+/**
+ * A message's or a thread's moment as the run history reads one — `Today 09:32`,
+ * `14 Jun, 09:32`, the year only for another year, a 24-hour clock — on the
+ * operator's wall clock, never the reader's browser zone.
+ */
 export function formatDateTime(iso: string): string {
   if (!iso) return '—'
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleString(resolvePageLocale(), {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatDayRelativeTime(date, usableLocale(resolvePageLocale()), resolvePageTimezone())
 }
 
 /** The display label for a message role, used as the speaker tag in the thread. */

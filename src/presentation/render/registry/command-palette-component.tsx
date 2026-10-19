@@ -22,8 +22,16 @@ import {
 } from '@/presentation/design/command-default-classes'
 import { authoredGroupsOf, renderAuthoredGroups } from './command-groups-host'
 import {
+  specimenActionMatches,
+  specimenQuickActions,
+  type QuickAction,
+} from './command-palette-specimen-actions'
+import {
   paletteHints,
+  navPagesOf,
   paletteStrings,
+  searchActionWords,
+  searchKindWords,
   tableLabelsOf,
   type PaletteHints,
 } from './command-palette-words'
@@ -71,9 +79,7 @@ interface PaletteSearch {
  * `props.adminSearch` flag rather than through an authored `search` block.
  * Mapping the flag onto the SAME shape an authored palette uses is what keeps
  * one code path: when the console becomes config, the flag disappears and the
- * block is authored instead, with no renderer change at all. The group headings
- * are deliberately absent — the island falls back to its own kind labels, which
- * is the behaviour the console already shipped.
+ * block is authored instead, with no renderer change at all.
  */
 const ADMIN_SEARCH: PaletteSearch = { endpoint: '/api/admin/search' }
 
@@ -90,6 +96,9 @@ function renderSearchPalette(
     readonly hints: PaletteHints
     readonly tableLabels: Readonly<Record<string, string>>
     readonly groups: ReturnType<typeof authoredGroupsOf>
+    readonly kinds: ReturnType<typeof searchKindWords>
+    readonly pages: readonly PalettePage[]
+    readonly strings: Readonly<Record<string, string>>
   }
 ): ReactElement {
   const configJson = serializeJsonForScript({ search })
@@ -98,8 +107,10 @@ function renderSearchPalette(
     hints: words.hints,
     tableLabels: words.tableLabels,
     ...(words.groups === undefined ? {} : { groups: words.groups }),
+    pages: words.pages,
+    strings: words.strings,
     ...(search.placeholder !== undefined ? { placeholder: search.placeholder } : {}),
-    ...(search.kindLabels !== undefined ? { kindLabels: search.kindLabels } : {}),
+    ...words.kinds,
   })
   return (
     <>
@@ -118,44 +129,6 @@ function renderSearchPalette(
       </div>
     </>
   )
-}
-
-/** One quick action, as the island's `quickActions()` builds it. */
-interface QuickAction {
-  readonly label: string
-  readonly action: string
-}
-
-/**
- * The quick-action catalogue, derived from the SAME config the live palette
- * reads: one "create" per table, one "go to" per navigable page, and the
- * unconditional dark-mode toggle. A transcription of `quickActions()` in
- * `islands/command/command-actions-data.ts`: a render module may not import an
- * island, and the alternative, rows invented here, would document this file
- * instead of the palette.
- */
-const specimenQuickActions = (
-  tables: ReadonlyArray<{ readonly name: string; readonly labelPlural: string }>,
-  pages: ReadonlyArray<PalettePage>
-): readonly QuickAction[] => [
-  ...tables.map((table) => ({
-    label: `Create new record in ${table.labelPlural}`,
-    action: `create-record:${table.name}`,
-  })),
-  ...pages.map((page) => ({
-    label: `Go to ${page.title.length > 0 ? page.title : page.name}`,
-    action: 'navigate',
-  })),
-  { label: 'Toggle dark mode', action: 'toggle-dark-mode' },
-]
-
-/** Every whitespace-separated token appears in the label: `actionMatchesQuery`, transcribed. */
-const specimenActionMatches = (label: string, query: string): boolean => {
-  const haystack = label.toLowerCase()
-  return query
-    .toLowerCase()
-    .split(/\s+/)
-    .every((token) => token.length === 0 || haystack.includes(token))
 }
 
 /** The specimen's "Quick actions" group, in cmdk's own markup. */
@@ -360,6 +333,9 @@ export const commandPaletteComponent: ComponentRenderer = (
       hints: paletteHints(config),
       tableLabels: tableLabelsOf(config.component),
       groups: authoredGroupsOf(config),
+      kinds: searchKindWords(config, search.kindLabels),
+      pages: navPagesOf(config.component),
+      strings: searchActionWords(config),
     })
   }
 

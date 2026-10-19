@@ -6,7 +6,7 @@
  */
 
 import { resolveRecordColor } from '@/domain/kernel/color/record-color'
-import { cardPathClick, openCardDrawer } from '../runtime/card-click'
+import { cardPathClick, openCardDrawer, seekFromCard } from '../runtime/card-click'
 import { resolveImageSource, substitute } from './card-template'
 import type { TableRecord } from '../runtime/types'
 import type { OptionChipColors } from '@/domain/kernel/color/option-chip-color'
@@ -16,9 +16,10 @@ import type { KanbanCard } from '@/domain/models/app/pages/components/component-
  * What activating a card does, or `undefined` when the card declares no click
  * — or declares a navigate path that does not stay on this site.
  *
- * The two verbs a grid row takes: `navigate` follows the path with the card's
+ * The three verbs a grid row takes: `navigate` follows the path with the card's
  * `$record.*` values (a `$param.*` token was already filled from the page
- * address at render), and `openSheet` opens the named drawer on the card's
+ * address at render), `seek` moves a player on the page to the moment the
+ * card names, and `openSheet` opens the named drawer on the card's
  * record — the drawer then names the record in the address (`?record=<id>`),
  * as it does for a grid row click. `table` is the board's bound table, which
  * the drawer needs to bind the record to its own table's forms alone.
@@ -32,6 +33,9 @@ export function resolveCardActivation(
   if ('action' in onClick) {
     const { component } = onClick
     return () => openCardDrawer(component, record, table)
+  }
+  if (onClick.type === 'seek') {
+    return () => seekFromCard(onClick, (template) => substitute(template, record))
   }
   return cardPathClick(substitute(onClick.path, record))
 }

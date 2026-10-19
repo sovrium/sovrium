@@ -7,12 +7,16 @@
 
 import { DndContext, type DragEndEvent, type UniqueIdentifier } from '@dnd-kit/core'
 import { useId } from 'react'
-import { computeKanbanBoardClasses } from '@/presentation/design/kanban-default-classes'
+import {
+  computeKanbanBoardClasses,
+  computeKanbanScrollEdgeClasses,
+} from '@/presentation/design/kanban-default-classes'
 import { kanbanCollisionDetection } from './collision-detection'
 import { kanbanColumnPlacement } from './column-sizing'
 import { KanbanColumn } from './kanban-column'
 import { KanbanSwimlaneGrid } from './kanban-swimlane-grid'
 import { SettledDropTarget } from './settled-drop-target'
+import { useBoardScrollEdge } from './use-board-scroll-edge'
 import { useFoldedValues } from './use-folded-values'
 import { useKanbanSensors } from './use-kanban-sensors'
 import { useSettledDrop } from './use-settled-drop'
@@ -77,20 +81,33 @@ function KanbanColumnRow({
 }): ReactElement {
   const [folded, toggle] = useFoldedValues(collapsedColumns)
   const foldable = collapsedColumns !== undefined
+  const edge = useBoardScrollEdge()
   return (
-    <div className={computeKanbanBoardClasses()}>
-      {columns.map((column) => (
-        <KanbanColumn
-          key={column.value}
-          column={column}
-          emptyMessage={emptyColumnMessage}
-          card={card}
-          expanded={foldable ? !folded.has(column.value) : undefined}
-          onToggle={foldable ? toggle : undefined}
-          idPrefix={idPrefix}
-          placement={kanbanColumnPlacement(groupBy, column.value)}
-        />
-      ))}
+    <div className="relative">
+      <div
+        ref={edge.boardRef}
+        onScroll={edge.onScroll}
+        className={computeKanbanBoardClasses()}
+      >
+        {columns.map((column) => (
+          <KanbanColumn
+            key={column.value}
+            column={column}
+            emptyMessage={emptyColumnMessage}
+            card={card}
+            expanded={foldable ? !folded.has(column.value) : undefined}
+            onToggle={foldable ? toggle : undefined}
+            idPrefix={idPrefix}
+            placement={kanbanColumnPlacement(groupBy, column.value)}
+          />
+        ))}
+      </div>
+      <div
+        aria-hidden="true"
+        data-scroll-edge="end"
+        hidden={!edge.clipped}
+        className={computeKanbanScrollEdgeClasses()}
+      />
     </div>
   )
 }

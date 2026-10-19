@@ -237,7 +237,7 @@ export const designTokenRowSchema = Schema.Struct({
   hex: optionalField(
     Schema.String.annotate({
       description:
-        'The row’s colour as six-digit sRGB hex, upper-case. ABSENT for a non-colour row, and absent for a colour sRGB cannot hold — a clamped hex presented as an equal is worse than none.',
+        'The row’s colour as sRGB hex, upper-case: six digits for an opaque colour, eight for a translucent one, the last two its alpha (`#FFFFFF1A` for white at 10 %). ABSENT for a non-colour row, and absent for a colour sRGB cannot hold — a clamped hex presented as an equal is worse than none.',
       examples: ['#FAFAFA'],
     })
   ),
@@ -287,10 +287,37 @@ export const designTokenRowSchema = Schema.Struct({
   // The ground moves too: a dark swatch is measured against the DARK
   // background, not the light one, so this is a second measurement rather than
   // the same number relabelled.
+  ink: optionalField(
+    Schema.String.annotate({
+      description:
+        'The ink a label drawn ON this colour is legible in, near-black `#0A0A0A` or white `#FFFFFF`, whichever contrasts more with `value` as it shows: a translucent colour is first laid over the scheme’s `background`, so white at 10 % over a white page counts as the near-white it looks like. ABSENT on a non-colour row and on a colour that does not resolve.',
+      examples: ['#FFFFFF'],
+    })
+  ),
+  darkInk: optionalField(
+    Schema.String.annotate({
+      description:
+        'The same choice made against `darkValue`, for the dark scheme — a translucent `darkValue` laid over the dark `background` first, so the dark `border` (white at 10 %) takes the white ink its near-black appearance needs.',
+      examples: ['#0A0A0A'],
+    })
+  ),
+  darkValue: optionalField(
+    Schema.String.annotate({
+      description:
+        'What a COLOUR row paints in the dark scheme, as CSS spells it: the declared `design.darkColors` counterpart, else the light value of a BRAND colour (primary, secondary, accent, ring, a chart colour) declared for light only, or of a colour the platform has no dark default for, else the platform (shadcn) default: the light text for the text drawn on a kept brand colour, the dark default the token falls back to otherwise — which a neutral such as `background`, `foreground` or `card` takes even when declared for light only. `darkSource` says which. ABSENT on a non-colour row.',
+      examples: ['oklch(0.145 0 0)'],
+    })
+  ),
+  darkSource: optionalField(
+    Schema.Literals(['declared', 'light', 'platform']).annotate({
+      description:
+        'Who chose `darkValue`: `declared` — the app wrote a dark counterpart; `light` — the app declared this colour for light only and it keeps that value in dark (a brand colour, or one the platform has no dark default for); `platform` — a platform default: the dark one for a colour nobody declared and for a neutral declared for light only, the light text for the text drawn on a kept brand colour. ABSENT on a non-colour row.',
+    })
+  ),
   darkHex: optionalField(
     Schema.String.annotate({
       description:
-        'The row’s DARK counterpart as six-digit sRGB hex, upper-case. ABSENT when the operator declared no dark counterpart for this token, and absent for a colour sRGB cannot hold — on `hex`’s terms exactly.',
+        '`darkValue` as sRGB hex, upper-case: six digits when opaque, eight when translucent, the last two its alpha (`#FFFFFF1A`). ABSENT on a non-colour row, and absent for a colour sRGB cannot hold — on `hex`’s terms exactly.',
       examples: ['#101010'],
     })
   ),
@@ -335,7 +362,7 @@ export const designTokenRowSchema = Schema.Struct({
   // total.
   darkContrastLevel: Schema.Literals(['AAA', 'AA', 'fail', 'unmeasured']).annotate({
     description:
-      'The WCAG grade of the DARK counterpart, or `unmeasured` when there is none to grade — no dark counterpart declared, a colour that did not resolve, or a row that is not a colour. REQUIRED on every row: it is the gate a page reads to hide a dark badge, and `visibility.record` has no presence operator to test an absence with.',
+      'The WCAG grade of `darkValue`, or `unmeasured` when there is none to grade — a colour that did not resolve, the ground itself, or a row that is not a colour. REQUIRED on every row: it is the gate a page reads to hide a dark badge, and `visibility.record` has no presence operator to test an absence with.',
   }),
   // ─── THE TWO TYPOGRAPHY-ONLY FIELDS ──────────────────────────────────────
   //

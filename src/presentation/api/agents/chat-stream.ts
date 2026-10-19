@@ -8,9 +8,7 @@
 /**
  * Streaming AI chat helpers — `POST /api/ai/chat/stream`.
  *
- * Drives `[internal ref]` (the AI chat streaming requirement — Streaming
- * AI Responses). Split out of `ai-chat.ts` to keep that file under the
- * `max-lines` cap; the buffered `/api/ai/chat` route stays there.
+ * Split out of `ai-chat.ts`, where the buffered `/api/ai/chat` route stays.
  *
  * Responsibilities:
  *  - Run the turn on the agent runtime and forward its events as TYPED SSE
@@ -28,7 +26,8 @@
  *  - Forward chunks in real time via `runEffectSse`, the source stream's
  *    `Scope` kept alive across pre-flight and drain.
  *  - Persist the exchange once the stream reached its `done` (`onTerminate`),
- *    below the message the turn followed, under the ids `done` told.
+ *    below the message the turn followed, under the ids `done` told, with one
+ *    line per tool call the turn ran.
  *
  * `AI_CHAT_STREAM_TIMEOUT` deadlines TIME-TO-FIRST-CHUNK (the pre-flight
  * wait), not the whole exchange.
@@ -42,6 +41,7 @@ import {
   type AgentTurnSpec,
 } from '@/application/use-cases/agents/agent-runtime'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { storedToolCalls } from '@/domain/models/app/agents/stored-tool-call-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { provideDomain } from '@/infrastructure/logging/request-effect'
 import { persistChatTurnDurably } from '@/presentation/api/agents/chat-durable-memory'
@@ -52,11 +52,13 @@ import {
   reachesTheWire,
   registerStop,
   stoppedDone,
+  turnMeta,
   type HeldChatTurn,
   type WireEvent,
 } from '@/presentation/api/agents/chat-stream-events'
 import { errorBody } from '@/presentation/api/runtime/auth-helpers'
 import { runEffectSse, type SseTerminationReason } from '@/presentation/api/runtime/effect-sse'
+import type { AgentToolResult } from '@/application/use-cases/agents/agent-tool-call'
 import type { StepRequirements } from '@/application/use-cases/automations/run/types'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
 import type { Context } from 'hono'
@@ -66,9 +68,8 @@ import type { Context } from 'hono'
  *
  * `AI_CHAT_STREAM_TIMEOUT` is the ms budget for the PRE-FLIGHT phase — the
  * window during which the provider must land its first chunk. A breach
- * surfaces as HTTP 504. Unset / empty /
- * non-numeric → no deadline. Zero and negatives collapse to `undefined`
- * so "no timeout" reads uniformly with the unset case.
+ * surfaces as HTTP 504. Unset, empty, non-numeric, zero or negative: no
+ * deadline, so "no timeout" reads uniformly with the unset case.
  */
 const resolveStreamTimeoutMs = (
   env: Readonly<Record<string, string | undefined>> = process.env
@@ -223,13 +224,6 @@ const stoppableTurn = (
     )
   )
 
-/** What `done` tells: the ids the exchange is saved under, and the passages it may cite. */
-const turnMeta = (input: StreamTurnInput) => ({
-  sessionId: input.sessionId,
-  ids: { question: crypto.randomUUID(), answer: crypto.randomUUID() },
-  passages: input.passages ?? [],
-})
-
 export const buildStreamResponse = async (
   c: Context,
   input: StreamTurnInput
@@ -291,7 +285,9 @@ export const buildStreamResponse = async (
   const instrumented = Stream.tap(rest, accumulator.tap)
   const prepended = Stream.concat(Stream.succeed(head), instrumented)
 
-  return runEffectSse(c, prepended, createTurnEncoder(meta), {
+  // Encoding renders the answer, which highlights its code asynchronously, so it
+  // is mapped onto the stream as an Effect, one event at a time, in order.
+  return runEffectSse(c, Stream.mapEffect(prepended, createTurnEncoder(meta)), (chunk) => chunk, {
     onTerminate: buildOnTerminate(
       scope,
       { ...input, ids: meta.ids },
@@ -306,6 +302,7 @@ interface TurnSnapshot {
   readonly sawDone: boolean
   /** A call was held for approval, or a question asked: the turn is not over, and nothing is saved yet. */
   readonly paused: boolean
+  readonly toolResults: ReadonlyArray<AgentToolResult>
 }
 
 /** The turn a pause keeps, so the person's answer can go on with it. */
@@ -336,7 +333,9 @@ const buildPersistAccumulator = (
   let assembled = ''
   let sawDone = false
   let paused = false
+  let toolResults: ReadonlyArray<AgentToolResult> = []
   const observe = (event: WireEvent): void => {
+    if (event.type === 'tool_result') toolResults = [...toolResults, event]
     if (event.type === 'content') {
       assembled += event.delta
     } else if (event.type === 'done') {
@@ -352,7 +351,7 @@ const buildPersistAccumulator = (
   observe(head)
   return {
     tap: (event) => Effect.sync(() => observe(event)),
-    snapshot: () => ({ assembled, sawDone, paused }),
+    snapshot: () => ({ assembled, sawDone, paused, toolResults }),
   }
 }
 
@@ -378,7 +377,7 @@ const buildOnTerminate = (
     })
 
     if (reason !== 'completed') return
-    const { assembled, sawDone, paused } = state.snapshot()
+    const { assembled, sawDone, paused, toolResults } = state.snapshot()
     // A paused turn is saved once its person decided, with the answer that followed.
     if (!sawDone || paused) return
     // Await persistence so the HTTP response stays "open" until the row is
@@ -390,6 +389,7 @@ const buildOnTerminate = (
       assistantReply: assembled,
       userParts: input.userParts,
       ...(input.agentName !== undefined && { agentName: input.agentName }),
+      ...(toolResults.length > 0 && { assistantToolCalls: storedToolCalls(toolResults) }),
       parentId: input.parentId,
       ids: input.ids,
     }).catch((err) => {

@@ -13,10 +13,11 @@ import { columnPresentationMeta, columnSortable } from './column-presentation'
 import {
   DEFAULT_SAVE_LABEL,
   DEFAULT_CANCEL_LABEL,
-  buildActionCellRenderer,
+  RowActionCell,
 } from './row-actions/action-cell-renderer'
+import { mergeActionColumns } from './row-actions/merge-action-columns'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
-import type { DataTableColumnDef } from './island/table-features'
+import type { DataTableColumnDef, DataTableColumnMeta } from './island/table-features'
 import type {
   ActionControlLabels,
   RowActionHandler,
@@ -29,6 +30,13 @@ import type { DataTableColumn } from '@/domain/models/app/pages/components/compo
  * `<html lang>` ← `meta.lang`) drives locale-aware column formats (`relative-time`);
  * the rest mirror the prior positional parameters.
  */
+/**
+ * The action cluster's meta: its cells are buttons, and the LAST column — the
+ * usual place for it — is pinned to the grid's right edge.
+ */
+const actionColumnMeta = (last: boolean): DataTableColumnMeta =>
+  last ? { actions: true, trailing: true } : { actions: true }
+
 export interface MapColumnsOptions {
   readonly locale: string
   readonly onActionClick?: RowActionHandler
@@ -64,7 +72,9 @@ export function mapColumnsToColumnDefs(
     cancel: options.cancelLabel ?? DEFAULT_CANCEL_LABEL,
   }
   // Filter out columns with visible: false
-  const visibleColumns = columns.filter((col) => !('field' in col && col.visible === false))
+  // In menu display a row has one menu, however many action columns feed it.
+  const shown = options.rowActionsDisplay === 'menu' ? mergeActionColumns(columns) : columns
+  const visibleColumns = shown.filter((col) => !('field' in col && col.visible === false))
   const listFields = listEditedFields(columns)
 
   return visibleColumns.map((col, index) => {
@@ -97,10 +107,18 @@ export function mapColumnsToColumnDefs(
       header: col.label ?? '',
       enableSorting: false,
       enableColumnFilter: false,
-      cell: buildActionCellRenderer(col, onActionClick, actionLabels, options.rowActionsDisplay),
+      cell: RowActionCell,
       // The cluster is a set of buttons, and the row renderer has to know that
       // before it decides whose click a press is.
-      meta: { actions: true },
+      meta: {
+        ...actionColumnMeta(index === visibleColumns.length - 1),
+        rowActions: {
+          col,
+          onActionClick,
+          labels: actionLabels,
+          display: options.rowActionsDisplay,
+        },
+      },
     } satisfies DataTableColumnDef
   })
 }

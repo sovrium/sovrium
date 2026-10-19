@@ -48,3 +48,5 @@ Set it to `false` to return them to the sign-in form instead — worth doing whe
 ## Password reset ships with the strategy
 
 There is nothing to enable. A reset request emails a single-use link rendered from the `resetPassword` template, and an admin can also set a password directly through the admin API.
+
+The way to the request is drawn for you too. When one of your pages holds the form that asks for a reset link (`action: { type: auth, method: resetPassword }`), every email sign-in form (`method: login`, `strategy: email`) draws "Forgot your password?" at the end of its Password label row, above the field, linking to that page — in the page's language. With no such page the row holds the label alone, so the link never leads to a page that is not there. There is no option to set, and no link to author beside the form.

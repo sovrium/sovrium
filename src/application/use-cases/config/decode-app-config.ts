@@ -39,6 +39,7 @@ import { basename, dirname, relative, sep } from 'node:path'
 import { Result, Schema } from 'effect'
 import { validateComputedFieldForeignKeys } from '@/application/use-cases/tables/validate-computed-field-foreign-keys'
 import { reportPrototypePollutingKeys } from '@/domain/kernel/config-parsing/prototype-key-guard'
+import { omitUndefinedKeys } from '@/domain/kernel/config-parsing/undefined-keys'
 import { AppSchema } from '@/domain/models/app'
 import {
   formatMessageReport,
@@ -58,7 +59,6 @@ import { validateDelayLimits } from '@/domain/models/app/automations/actions/del
 import { validateRecordEventLoops } from '@/domain/models/app/automations/record-loop-validation'
 import { reportRetiredActionOperators } from '@/domain/models/app/automations/retired-operator-validation'
 import { validatePreviewOptionPaths } from '@/domain/models/app/design/preview-option-validation'
-import { collectProseSpacingNotices } from '@/domain/models/app/design/prose-spacing-service'
 import { collectSupersededDesignNotices } from '@/domain/models/app/design/superseded-notices'
 import { validateDocumentOutputBuckets } from '@/domain/models/app/document-output-validation'
 import { undeclaredEnvReferenceRefusals } from '@/domain/models/app/env-reference-validation'
@@ -372,17 +372,16 @@ const decodeApp = (errors: 'first' | 'all') =>
  * @param options - `$ref` sources for error attribution
  */
 export const decodeAppConfigObject = (
-  parsed: unknown,
+  input: unknown,
   options: DecodeAppConfigOptions = {}
 ): DecodeAppConfigResult => {
   const { refSources = EMPTY_REF_SOURCES, configFile } = options
-
-  // BEFORE the decode, because the decode is where the evidence disappears: a `__proto__` key at
-  // a `Schema.Record` position (`theme.colors`, `theme.fonts`) is dropped by Effect v4 silently,
-  // so checking afterwards would ask an object the key was already removed from. A removed action
-  // operator and a browser step are refused here too, by name, with any undeclared `$env` the
-  // skipped decode would have named. This is the header's "never silently stripped" clause, for
-  // the one key where the strip has a security reading (`prototype-key-guard.ts`).
+  // A key set to `undefined` is absent, as in YAML/JSON (`undefined-keys.ts`). The guards run
+  // BEFORE the decode, where the evidence goes: Effect v4 silently drops a `__proto__` key at a
+  // `Schema.Record` position (`theme.colors`). A removed action operator and a browser step are
+  // refused here too, by name, with any undeclared `$env` the skipped decode would have named: the
+  // "never silently stripped" clause, for the key with a security reading (`prototype-key-guard.ts`).
+  const parsed = omitUndefinedKeys(input)
   const refusals = [
     ...reportPrototypePollutingKeys(parsed),
     ...reportRetiredActionOperators(parsed),
@@ -440,10 +439,9 @@ export const decodeAppConfigObject = (
     authoredTableIds: authoredTableIds(parsed, decoded.success.tables),
     notices: [
       ...collectSupersededDesignNotices(decoded.success),
-      // These two read `parsed`, not `decoded`: after AppSchema every field has an
+      // This one reads `parsed`, not `decoded`: after AppSchema every field has an
       // id, and only the document as written shows what the author spelled.
       ...collectImplicitFieldIdNotices(parsed),
-      ...collectProseSpacingNotices(parsed),
       ...collectEngineKeyNotices(decoded.success.languages),
     ],
   }

@@ -16,7 +16,9 @@ import { StorageService } from '@/application/ports/services/storage-service'
 import { browserArtifactKey } from '@/domain/models/app/automations/actions/browser/browser-artifact-service'
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { logError } from '@/infrastructure/logging/logger'
+import { observeOwnApp } from './browser-own-app'
 import { uploadArtifactTo } from './file-support'
+import { builtFromStepRunBytes } from './step-file-inputs'
 import type { BrowserProgress, ScreenshotPolicy, ScreenshotRef } from './browser-run-scope'
 import type { RawStep } from './browser-step-values'
 import type { ActionRunContext, AutomationContext } from './shared'
@@ -97,8 +99,11 @@ export const pageShot = (session: BrowserSession): Effect.Effect<Option.Option<U
   )
 
 /**
- * Store a screenshot under the run's prefix, in the artifact bucket. Pictures
- * are numbered in the order they are taken, from `counter`.
+ * Store a screenshot under the run's prefix, in the artifact bucket, as the
+ * run's own file. Pictures are numbered in the order they are taken, from
+ * `counter`. A picture carries run bytes only when every file the step read
+ * does and no page of `session` loaded anything from the app itself so far
+ * (`seenOwnApp`, sticky for the step: `browser-own-app.ts`).
  */
 export const shotStore =
   (input: {
@@ -106,8 +111,9 @@ export const shotStore =
     readonly bucket: string
     readonly automation: AutomationContext
     readonly counter: Ref.Ref<number>
+    readonly seenOwnApp: Ref.Ref<boolean>
   }) =>
-  (bytes: Uint8Array, name: string) =>
+  (bytes: Uint8Array, name: string, session: BrowserSession) =>
     Effect.gen(function* () {
       const storage = yield* StorageService
       const sequence = yield* Ref.getAndUpdate(input.counter, (n) => n + 1)
@@ -118,7 +124,14 @@ export const shotStore =
         { bytes, contentType: 'image/png' },
         { bucket: input.bucket, uploadedById: undefined, generatedBy: input.automation.name }
       )
-      return stored ? ({ key, bucket: input.bucket } satisfies ScreenshotRef) : undefined
+      if (!stored) return undefined
+      // The picture is the run's own: a later step of the same run may move or delete it. Its
+      // bytes are the run's unless the step read a file that is not, or showed the app itself.
+      const written = input.automation.writtenFiles
+      const sawOwnApp = yield* observeOwnApp(input.seenOwnApp, session)
+      const carriesRunBytes = (yield* builtFromStepRunBytes(written)) && !sawOwnApp
+      yield* Effect.sync(() => written?.record(input.bucket, key, { carriesRunBytes }))
+      return { key, bucket: input.bucket } satisfies ScreenshotRef
     }).pipe(Effect.withSpan('automations.browser-store-shot'))
 
 /** The run's limits and options, read from its props. */

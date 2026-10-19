@@ -46,15 +46,15 @@ export const FetchToastResponseSchema = Schema.Struct({
   /** Label of an optional action button rendered inside the toast */
   actionLabel: Schema.optional(
     Schema.String.annotate({
-      description: 'Label of an optional action button rendered inside the toast',
+      description:
+        'Label of an action button drawn inside the toast. With actionUrl, the button posts once to that URL. On an onError toast with no actionUrl, it is a Retry: pressing it dismisses the toast and runs the same action again — the same request, then its own onSuccess or onError — without asking its confirmation a second time.',
       examples: ['Undo', 'Retry'],
     })
   ),
   /** URL invoked (POST) when the toast action button is clicked */
   actionUrl: Schema.optional(
     Schema.String.annotate({
-      description:
-        'URL invoked (POST) when the toast action button is clicked. Required with actionLabel.',
+      description: 'URL the action button posts to, once, when pressed.',
     })
   ),
   /** The loading toast shown while the request is open, which then turns into this toast. */
@@ -125,8 +125,9 @@ const FetchSuccessStatusSchema = Schema.Struct({
 
 /**
  * Sibling data-bound component(s) to re-query after a fetch action succeeds — by
- * `props.id`. The named component(s) re-issue their read (a DB-table `dataSource`
- * OR a `dataSource.system` read endpoint), so a freshly-mutated list reflects the
+ * `props.id`. The named component(s) re-issue their read (a table on a DB-table
+ * `dataSource` OR a `dataSource.system` read endpoint, a kpi, a chart, a kanban, a
+ * list, or a server-rendered bound container), so a freshly-mutated list reflects the
  * change without a full reload (e.g. a pending-erasure table re-fetching after the
  * erase POST). Accepts a single id or an array.
  */
@@ -136,7 +137,7 @@ const FetchSuccessRefetchSchema = Schema.Union([
 ]).annotate({
   title: 'Fetch Success Refetch',
   description:
-    'props.id (or array of ids) of sibling data-bound component(s) to re-query on success. Works for both a DB-table dataSource and a dataSource.system read endpoint.',
+    'props.id (or array of ids) of sibling data-bound component(s) to re-query on success: a table (DB-table or `dataSource.system`), a kpi, a chart, a kanban, a list, or a server-rendered bound container.',
 })
 
 /**
@@ -349,6 +350,99 @@ export const FetchSuccessResponseSchema = Schema.Struct(fetchSuccessResponseFiel
       'Success handler for a fetch action: the toast slot plus optional effects — a persistent inline status region (status), a sibling data-bound refetch (refetch), a full-page reload (reload) that recomposes the page server-side, closing the overlay the control sits in (close), and going to another address (navigate). They run in that order: toast, status and refetch, close, then the page is left. reload is mutually exclusive with status, refetch, close and navigate; navigate is mutually exclusive with status and refetch.',
   }),
   Schema.check(Schema.makeFilter(fetchSuccessExitConflict))
+)
+
+/**
+ * Inline alert written on a fetch action's failure — the failure twin of
+ * {@link FetchSuccessStatusSchema}.
+ *
+ * A toast leaves with the reader's attention; a failure that belongs to one
+ * control (an export that could not be prepared) is better said where the
+ * reader asked for it, and kept there until they act. `target` names a
+ * sibling component's `props.id`; on failure the client writes `message` into
+ * that element and makes it a `role="alert"` region, and raises no toast for
+ * that failure — which is why `status` is refused beside a toast `message` in
+ * the same `onError` (see {@link fetchErrorResponseConflict}).
+ *
+ * `retryLabel` draws a button inside the alert. Pressing it clears the alert
+ * and runs the same action again — the same request, then its own `onSuccess`
+ * or `onError` — without asking its confirmation a second time, which is the
+ * Retry a toast's `actionLabel` already offers. Without it the alert holds no
+ * button: an alert whose action cannot help (a refused permission) offers none.
+ * A later success clears the alert.
+ */
+const FetchErrorStatusSchema = Schema.Struct({
+  /** `props.id` of the sibling element the alert is written into. */
+  target: Schema.String.annotate({
+    description:
+      'props.id of the sibling element the failure message is written into (made a role=alert region). It may be the same element onSuccess.status writes into: the later answer replaces the earlier one.',
+    examples: ['export-status', 'export-error'],
+  }),
+  /** The failure message. Supports `$variable` references and a `$t:` key. */
+  message: Schema.String.annotate({
+    description:
+      'Failure message written into the target as a role=alert region, kept on screen until the action is run again. Supports $variable references and a $t: key.',
+    examples: ['Couldn’t prepare your export. Nothing was sent.', '$t:export.failed'],
+  }),
+  /** Label of the Retry button drawn inside the alert. */
+  retryLabel: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'Label of a button drawn inside the alert. Pressing it clears the alert and runs the same action again — the same request, then its own onSuccess or onError — without asking its confirmation a second time. Without it the alert holds no button. Accepts a $t: key.',
+      examples: ['Retry', '$t:common.retry'],
+    })
+  ),
+}).annotate({
+  title: 'Fetch Error Status',
+  description:
+    'A persistent inline role="alert" region written on failure, used instead of the error toast, with an optional Retry button that runs the same action again.',
+})
+
+/**
+ * The reason an `onError` slot is refused, or `true` when it is not: `status`
+ * beside a toast `message` is two answers to one failure, and a slot with
+ * neither says nothing at all. Without `status`, the toast keeps its contract —
+ * `type: toast` and a `message` — so every config written before `status`
+ * existed decodes unchanged.
+ */
+const fetchErrorResponseConflict = (response: {
+  readonly type?: string | undefined
+  readonly message?: string | undefined
+  readonly status?: unknown
+}): true | string => {
+  if (response.status !== undefined) {
+    return response.message === undefined && response.type === undefined
+      ? true
+      : "onError declares both a toast ('type'/'message') and 'status' — the inline alert replaces the error toast, so the two would answer one failure twice. Keep one: 'status' to say it under the control, or the toast to say it in a notification."
+  }
+  return response.type !== undefined && response.message !== undefined
+    ? true
+    : "onError declares neither a toast nor 'status' — declare 'type: toast' with a 'message', or 'status' with a 'target' and a 'message'."
+}
+
+/**
+ * Failure response for a `fetch` action: the toast slot, or an inline alert.
+ *
+ * Every field of {@link FetchToastResponseSchema}, with `type` and `message`
+ * optional so that `status` can stand alone, plus `status`. The check restores
+ * the toast's contract whenever `status` is absent.
+ *
+ * The check is piped AFTER the annotation, for the reason given on
+ * {@link FetchSuccessResponseSchema}.
+ */
+const FetchErrorResponseSchema = Schema.Struct({
+  ...FetchToastResponseSchema.fields,
+  type: Schema.optional(FetchToastResponseSchema.fields.type),
+  message: Schema.optional(FetchToastResponseSchema.fields.message),
+  /** Persistent inline `role="alert"` region written on failure, instead of the toast. */
+  status: Schema.optional(FetchErrorStatusSchema),
+}).pipe(
+  Schema.annotate({
+    title: 'Fetch Error Response',
+    description:
+      'Failure handler for a fetch action: either the error toast (type: toast with a message, optionally a Retry through actionLabel), or status — a persistent inline role="alert" message written under the control, with an optional retryLabel button that runs the same action again. The two are mutually exclusive.',
+  }),
+  Schema.check(Schema.makeFilter(fetchErrorResponseConflict))
 )
 
 /**
@@ -626,8 +720,12 @@ export const FetchActionSchema = Schema.Struct({
    * `role="status"` region (`status`) and a sibling data-bound `refetch`.
    */
   onSuccess: Schema.optional(FetchSuccessResponseSchema),
-  /** Toast displayed when the fetch resolves with a non-2xx response or rejects */
-  onError: Schema.optional(FetchToastResponseSchema),
+  /**
+   * What the reader is told when the fetch resolves with a non-2xx response or
+   * rejects: the error toast, or an inline `role="alert"` under the control
+   * (`status`), with an optional Retry.
+   */
+  onError: Schema.optional(FetchErrorResponseSchema),
 }).pipe(
   Schema.annotate({
     title: 'Fetch Action',
@@ -655,6 +753,8 @@ export type FetchAction = Schema.Schema.Type<typeof FetchActionSchema>
 export type FetchSuccessResponse = Schema.Schema.Type<typeof FetchSuccessResponseSchema>
 /** @public */
 export type FetchToastResponse = Schema.Schema.Type<typeof FetchToastResponseSchema>
+/** @public */
+export type FetchErrorResponse = Schema.Schema.Type<typeof FetchErrorResponseSchema>
 /** @public */
 export type FetchActionMode = Schema.Schema.Type<typeof FetchActionModeSchema>
 /** @public */

@@ -15,6 +15,8 @@ interface RecordFieldButtonIslandProps {
   readonly recordId: string
   /** The `action.*` words in the page language, where they differ from English. */
   readonly uiStrings?: Readonly<Record<string, string>>
+  /** Set when the server disabled the button on this record, with its reason. */
+  readonly disabledOnRecord?: { readonly reason: string | undefined }
 }
 
 /**
@@ -34,6 +36,7 @@ export default function RecordFieldButtonIsland({
   table,
   recordId,
   uiStrings,
+  disabledOnRecord,
 }: RecordFieldButtonIslandProps): ReactNode {
   return (
     <RecordButtonCore
@@ -42,6 +45,7 @@ export default function RecordFieldButtonIsland({
       table={table}
       recordId={recordId}
       strings={uiStrings}
+      {...(disabledOnRecord === undefined ? {} : { disabledOnRecord })}
     />
   )
 }

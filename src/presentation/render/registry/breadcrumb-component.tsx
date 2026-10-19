@@ -248,11 +248,26 @@ const collapsedCrumb = (content: ReactElement, separator: string): ReactElement 
 )
 
 /**
+ * An enumerated trail's crumbs, ended by its `currentLabel` as the current
+ * crumb (a derived trail has already folded its own into `breadcrumbItems`).
+ * A label still holding an unresolved `$record.` token — no record bound — is
+ * not a name, and draws nothing.
+ */
+const withCurrentCrumb = (
+  items: readonly BreadcrumbItem[],
+  currentLabel: string | undefined
+): readonly BreadcrumbItem[] =>
+  currentLabel === undefined || currentLabel.trim() === '' || currentLabel.includes('$record.')
+    ? items
+    : [...items, { label: currentLabel }]
+
+/**
  * Renders the breadcrumb trail described by the page schema.
  *
  * Schema fields consumed:
  * - `breadcrumbItems[]` — ordered list of segments (label/href/icon)
  * - `separator` — character rendered between items (default '/')
+ * - `currentLabel` — on an enumerated trail, drawn after the items as the current crumb
  *
  * The last item in the list is treated as the current page and rendered as
  * plain text (no link), matching the WAI-ARIA breadcrumb pattern.
@@ -285,9 +300,10 @@ export function renderBreadcrumb({
         separator?: string
         maxItems?: number
         collapse?: 'ellipsis' | 'menu'
+        currentLabel?: string
       }
     | undefined
-  const items = comp?.breadcrumbItems ?? []
+  const items = withCurrentCrumb(comp?.breadcrumbItems ?? [], comp?.currentLabel)
   const separator = comp?.separator ?? '/'
   const { 'data-testid': dataTestId, ...rest } = omitInternalMarkers(elementPropsWithSpacing)
   const className = rest.className as string | undefined

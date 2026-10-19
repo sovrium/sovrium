@@ -67,6 +67,21 @@ const EXTENSION_MIME_MAP: Readonly<Record<string, string>> = /* @__PURE__ */ Obj
     html: 'text/html',
     htm: 'text/html',
     xml: 'application/xml',
+    // Office documents, OpenDocument and the legacy binary formats
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    odt: 'application/vnd.oasis.opendocument.text',
+    ods: 'application/vnd.oasis.opendocument.spreadsheet',
+    odp: 'application/vnd.oasis.opendocument.presentation',
+    doc: 'application/msword',
+    xls: 'application/vnd.ms-excel',
+    ppt: 'application/vnd.ms-powerpoint',
+    // Archives. `.tar.gz` names its outer layer, a gzip stream.
+    zip: 'application/zip',
+    gz: 'application/gzip',
+    tar: 'application/x-tar',
+    '7z': 'application/x-7z-compressed',
     // Web assets (scripts / styles / source maps / manifests)
     js: 'text/javascript',
     mjs: 'text/javascript',
@@ -87,6 +102,9 @@ const EXTENSION_MIME_MAP: Readonly<Record<string, string>> = /* @__PURE__ */ Obj
     // travels with an explicit MIME type (the speech-to-text action also accepts
     // `video/webm` as an audio container). `.weba` is the audio-only spelling.
     webm: 'video/webm',
+    mp4: 'video/mp4',
+    mov: 'video/quicktime',
+    m4v: 'video/x-m4v',
     weba: 'audio/webm',
     mp3: 'audio/mpeg',
     // Audio recordings a speech-to-text engine transcribes.
@@ -161,6 +179,18 @@ export const canonicalMimeType = (reported: string): string => {
 export const isImageKey = (key: string): boolean =>
   Object.hasOwn(IMAGE_EXTENSION_MIME_MAP, extensionOf(key) ?? '')
 
+/** Image containers the raster pipeline cannot decode: a vector, and an icon set. */
+const UNDECODABLE_IMAGE_EXTENSIONS: ReadonlySet<string> = new Set(['svg', 'ico'])
+
+/**
+ * True when the key names a RASTER image the transform pipeline can decode —
+ * every image row except SVG and ICO. A browser's `<img>` request offers WebP
+ * in its `Accept` header for any file, so a transcode chosen from that header
+ * alone must be limited to the files that can be transcoded at all.
+ */
+export const isDecodableImageKey = (key: string): boolean =>
+  isImageKey(key) && !UNDECODABLE_IMAGE_EXTENSIONS.has(extensionOf(key) ?? '')
+
 /**
  * MIME types that are images but carry ACTIVE content a browser will execute
  * when rendered inline (embedded `<script>`, event handlers, external refs).
@@ -180,3 +210,12 @@ export const isInlineSafeImageKey = (key: string): boolean => {
   const mime = inferMimeFromKey(key)
   return mime.startsWith('image/') && !ACTIVE_IMAGE_MIME_TYPES.has(mime)
 }
+
+/**
+ * True when the key names a document a page may FRAME from its own origin — a
+ * PDF, which the browser opens in its own viewer and which runs nothing of the
+ * page's. Only such a key is ever served for a `file-preview` frame; every
+ * other type keeps the download's `attachment` and its refusal to be framed.
+ */
+export const isFramablePreviewKey = (key: string): boolean =>
+  inferMimeFromKey(key) === 'application/pdf'

@@ -259,7 +259,7 @@ export const COMPONENT_TYPE_PURPOSES: Readonly<Record<string, string>> = {
   'file-preview':
     'A stored file shown inline: a PDF in its viewer, an image with zoom, else a download.',
   audio: 'An audio file with play, progress and duration.',
-  code: 'Source text in a monospace block, highlighted by language.',
+  code: 'A Code Block: source text in a monospace frame, highlighted by language, with a copy button.',
   icon: "One glyph from the app's icon set, sized and coloured by the text around it.",
   iframe: 'Another page embedded at a fixed height.',
   image: 'A picture with its alt text, lazy unless it is above the fold.',
@@ -422,7 +422,8 @@ export interface ShadcnParityRow {
   /**
    * The Sovrium literal AFTER the parity programme: today's literal for a `1:1`
    * row, the literal it is renamed to for `renamed`, the literal it will be
-   * minted as for `new`, `null` for the one row that is prose (Direction).
+   * minted as for `new`, `null` for a row with no config type: Direction (prose)
+   * and Trace (internal anatomy the ai-chat island draws with).
    */
   readonly literal: string | null
   /** shadcn's own name for the component, as its docs title it. */
@@ -479,6 +480,7 @@ export const SHADCN_PARITY: readonly ShadcnParityRow[] = [
   parity('Carousel', 'carousel', 'new'),
   parity('Chart', 'chart', '1:1'),
   parity('Checkbox', 'checkbox', '1:1'),
+  parity('Code Block', 'code', 'renamed'),
   parity('Collapsible', 'collapsible', 'new'),
   parity('Combobox', 'combobox', 'new'),
   parity('Command', 'command', 'renamed'),
@@ -527,6 +529,8 @@ export const SHADCN_PARITY: readonly ShadcnParityRow[] = [
   parity('Toggle', 'toggle', '1:1'),
   parity('Toggle Group', 'toggle-group', '1:1'),
   parity('Tooltip', 'tooltip', '1:1'),
+  // eslint-disable-next-line unicorn/no-null -- the census contract: Trace is internal anatomy (the ai-chat island draws its reasoning and tool lines with it), never a config type, so it has no literal
+  parity('Trace', null, 'documented'),
   parity('Typography', 'text', '1:1'),
   parity('Sonner', 'toast', '1:1'),
   parity('Form', 'form', 'stub'),

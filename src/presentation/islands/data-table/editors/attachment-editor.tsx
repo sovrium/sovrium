@@ -11,6 +11,7 @@ import {
   computeTableEditorLabelClasses,
 } from '@/presentation/design/table-default-classes'
 import { readsAsList } from '../../runtime/cell-value-semantics'
+import { useGridString } from '../island/grid-strings'
 import { uploadToBucket, type BucketUpload } from './bucket-upload'
 import { editMetaOf, type CellEditorProps } from './editor-contract'
 import { EditorPopover } from './editor-popover'
@@ -85,7 +86,9 @@ export function AttachmentEditor(
 
   return (
     <EditorPopover
-      label={`Edit ${fieldName ?? 'attachment'}`}
+      label={useGridString('datatable.editField', 'Edit {field}', {
+        field: fieldName ?? 'attachment',
+      })}
       cancel={cancel}
       tabValue={() => committedRef.current}
       {...(tabNext && { tabNext })}

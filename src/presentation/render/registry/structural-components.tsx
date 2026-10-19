@@ -11,6 +11,8 @@ import {
   computeSpinnerGlyphClasses,
 } from '../../design/feedback-default-classes'
 import * as Renderers from '../elements'
+import { closesWithBadge } from '../page/badge-shell-inset'
+import { SovriumBadge } from '../page/sovrium-badge'
 import { omitInternalMarkers } from '../props/internal-marker-props'
 import { bubbleComponents } from './bubble-component'
 import { renderCardAnatomy } from './card-anatomy'
@@ -74,7 +76,14 @@ function containerRepeatMarkers(component: unknown): Record<string, string> | un
 
 export const structuralComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> = {
   ...bubbleComponents,
-  container: ({ elementPropsWithSpacing, content, renderedChildren, interactions, component }) => {
+  container: ({
+    elementPropsWithSpacing,
+    content,
+    renderedChildren,
+    interactions,
+    component,
+    currentLang,
+  }) => {
     const element =
       ((component as Record<string, unknown> | undefined)?.element as
         | 'div'
@@ -94,7 +103,18 @@ export const structuralComponents: Partial<Record<DispatchableComponentType, Com
           ? elementPropsWithSpacing
           : { ...elementPropsWithSpacing, ...repeatMarkers },
       content: content,
-      children: renderedChildren,
+      // The scrolling inset of a window-high shell closes with the footer badge
+      // (`page/badge-shell-inset.ts`), so the line never falls below the shell.
+      children: closesWithBadge(component)
+        ? [
+            ...renderedChildren,
+            <SovriumBadge
+              key="sovrium-badge"
+              lang={currentLang}
+              placement="footer"
+            />,
+          ]
+        : renderedChildren,
       interactions: interactions,
     })
   },

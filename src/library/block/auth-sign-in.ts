@@ -14,7 +14,6 @@ import {
   authPage,
   footerLink,
   ifDeclared,
-  quietLink,
 } from '@/library/manifest/auth-block-kit'
 import { asComponent, param, stringParam, THEME_NOTE } from '@/library/manifest/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
@@ -60,7 +59,7 @@ export const entry = defineLibraryEntry({
   notes: [
     AUTH_PLACE_NOTE,
     AUTH_GATE_NOTE,
-    '"Forgot password?" is drawn only when one of your pages sends the reset link — the `auth-password-reset` block, or any form with `action: { type: auth, method: resetPassword }`. Install that page too, or the link stays off.',
+    'The form draws "Forgot your password?" in its Password label row only when one of your pages sends the reset link — the `auth-password-reset` block, or any form with `action: { type: auth, method: resetPassword }` — and links it to that page. Install that page too, or the link stays off.',
     'A wrong email or password reads as one message that never says whether the account exists. While the form is sending, its fields are inert and the button says so.',
     'An account with two-step on is sent to `twoStepPath` (`/two-step`) for its code once its password is right — install the `auth-two-factor` block on that page. An app without `auth.twoFactor` never sends anyone there.',
     THEME_NOTE,
@@ -68,11 +67,6 @@ export const entry = defineLibraryEntry({
   params: [
     stringParam('iconName', 'The icon drawn as the app mark.', 'box'),
     stringParam('successPath', 'Where a signed-in reader lands.', '/'),
-    stringParam(
-      'resetPath',
-      'The password-reset page, linked when one of your pages sends the reset link.',
-      '/reset-password'
-    ),
     stringParam('signUpPath', 'The sign-up page, linked when sign-up is open.', '/sign-up'),
     stringParam('ssoPath', 'The single sign-on page, linked when a provider is set.', '/sso'),
     stringParam(
@@ -108,9 +102,6 @@ export const entry = defineLibraryEntry({
             onTwoFactor: { navigate: p('twoStepPath') },
           },
         },
-        // Drawn only when the app has a page that sends the reset link, so it
-        // never leads to a page that is not there.
-        ifDeclared('auth.passwordReset', quietLink('Forgot password?', p('resetPath'))),
         otherWaysIn(p, onSuccess),
         ifDeclared('auth.signUp', footerLink('No account yet?', 'Create one', p('signUpPath'))),
       ])

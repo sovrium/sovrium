@@ -8,6 +8,7 @@
 import { Schema, SchemaGetter } from 'effect'
 import { TableIdSchema } from '@/domain/kernel/identity/branded-ids'
 import { AiAccessSchema } from '@/domain/models/app/auth/ai-access'
+import { validateCalendarFeed } from '@/domain/models/app/tables/calendar-feed-validation'
 import { validateNoLookupCycle } from '@/domain/models/app/tables/lookup-cycle-validation'
 import { validateRetention } from '@/domain/models/app/tables/retention-validation'
 import { validateRowRuleChains } from '@/domain/models/app/tables/row-rule-chain-validation'
@@ -37,6 +38,7 @@ import {
   validateWriteOnlyFields,
   validateWriteOnlyReads,
 } from '@/domain/models/app/tables/write-only-validation'
+import { TableCalendarFeedSchema } from './calendar-feed'
 import { CommentsConfigSchema } from './comments'
 import { CheckConstraintsSchema } from './constraints'
 import { FieldsSchema } from './fields'
@@ -152,7 +154,7 @@ const validateTableSchema = (table: TableShape): ValidationError | true => {
   const webhookError = validateWebhooks(table.webhooks, fieldNames)
   if (webhookError) return webhookError
 
-  return validateRetention(table) ?? true
+  return validateRetention(table) ?? validateCalendarFeed(table) ?? true
 }
 
 const TableStruct = Schema.Struct({
@@ -415,6 +417,8 @@ const TableStruct = Schema.Struct({
 
   /** How long the rows of this table are kept — see {@link TableRetentionSchema}. */
   retention: Schema.optional(TableRetentionSchema),
+  /** The rows of this table as a calendar people subscribe to — see {@link TableCalendarFeedSchema}. */
+  calendarFeed: Schema.optional(TableCalendarFeedSchema),
 
   /**
    * Whether writes to this table are recorded in the activity log.

@@ -53,6 +53,15 @@ export const parseRelay = (value: unknown): RunRelay | undefined => {
 }
 
 /**
+ * True when the persisted relay names the run that started this one — a run a
+ * call or a failure handler started. A replay fed from outside names none.
+ */
+export const relayNamesRun = (value: unknown): boolean => {
+  const relay = parseRelay(value)
+  return relay !== undefined && 'run' in relay
+}
+
+/**
  * True when a run of this trigger type is started by another run, which
  * hands it its trigger data: a call or a failure handler.
  */

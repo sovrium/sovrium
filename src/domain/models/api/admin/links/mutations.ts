@@ -28,6 +28,7 @@
  */
 
 import { Schema } from 'effect'
+import { fieldErrorSchema } from '@/domain/models/api/combinators/error'
 import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
 import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
@@ -223,7 +224,9 @@ export const updateLinkRequestSchema = Schema.Struct({
  *
  * `code` is a stable machine-readable discriminant so the console can tell the
  * two refusals apart without parsing prose: `LINK_IS_CONFIG_DECLARED` means "edit
- * the file", `LINK_SLUG_TAKEN` means "pick another name".
+ * the file", `LINK_SLUG_TAKEN` means "pick another name". `errors`, when present,
+ * attributes the refusal to the request field it is about, in the shape every
+ * field refusal takes.
  */
 export const linkMutationConflictSchema = Schema.Struct({
   success: Schema.Literal(false),
@@ -237,6 +240,12 @@ export const linkMutationConflictSchema = Schema.Struct({
   message: Schema.String.annotate({
     description: 'Human-readable explanation naming the offending slug.',
   }),
+  errors: optionalField(
+    Schema.Array(fieldErrorSchema).annotate({
+      description:
+        'The fields of the request the refusal is about, each with a message in the language of the operator who sent it, so a form can show it under the field it names. A taken or reserved slug names `slug`, and so does creating a link on a slug the configuration declares, which reads as taken; editing or deleting a config-declared link names no field.',
+    })
+  ),
 }).annotate({ identifier: 'LinkMutationConflict' })
 
 /**

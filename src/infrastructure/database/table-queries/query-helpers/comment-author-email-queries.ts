@@ -35,21 +35,21 @@ const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqli
  * of {@link listCommentAuthorEmailsForRecord}; lives here rather than in
  * `comment-queries.ts`, which is at its 400-line cap.
  *
- * Scoped to `(tableId, recordId)`: a record id alone is not an identity —
+ * Scoped to `(table, recordId)`: a record id alone is not an identity —
  * record ids are per-table sequences. See `activeCommentsByRecordId`.
  */
 export function listCommentAuthorsForRecord(config: {
   readonly session: Readonly<Session>
-  readonly tableId: string
+  readonly tableKeys: readonly string[]
   readonly recordId: string
 }): Effect.Effect<readonly string[], DatabaseError> {
-  const { tableId, recordId } = config
+  const { tableKeys, recordId } = config
   return Effect.tryPromise({
     try: async () => {
       const rows = await db
         .selectDistinct({ userId: recordComments.userId })
         .from(recordComments)
-        .where(activeCommentsByRecordId(tableId, recordId))
+        .where(activeCommentsByRecordId(tableKeys, recordId))
       return rows
         .map((row) => row.userId)
         .filter((userId): userId is string => typeof userId === 'string' && userId.length > 0)
@@ -67,17 +67,17 @@ export function listCommentAuthorsForRecord(config: {
  * list is filtered to drop the newly-created comment's own author by the
  * trigger so the notification fans out to the OTHER participants only.
  *
- * Scoped to `tableId` as well as `recordId`: record ids are per-table
+ * Scoped to the table's keys as well as `recordId`: record ids are per-table
  * sequences, so keying on the record alone returned the email addresses of
  * every same-numbered record's commenters across the whole app — personal
  * data crossing a table boundary. See {@link activeCommentsByRecordId}.
  */
 export function listCommentAuthorEmailsForRecord(config: {
   readonly session: Readonly<Session>
-  readonly tableId: string
+  readonly tableKeys: readonly string[]
   readonly recordId: string
 }): Effect.Effect<readonly { readonly userId: string; readonly email: string }[], DatabaseError> {
-  const { tableId, recordId } = config
+  const { tableKeys, recordId } = config
   return Effect.tryPromise({
     try: async () => {
       const users = authUsersTable()
@@ -85,7 +85,7 @@ export function listCommentAuthorEmailsForRecord(config: {
         .selectDistinct({ userId: recordComments.userId, email: users.email })
         .from(recordComments)
         .innerJoin(users, eq(recordComments.userId, users.id))
-        .where(activeCommentsByRecordId(tableId, recordId))
+        .where(activeCommentsByRecordId(tableKeys, recordId))
       return rows
         .filter(
           (row): row is { userId: string; email: string } =>

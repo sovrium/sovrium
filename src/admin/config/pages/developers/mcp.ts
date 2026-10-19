@@ -48,7 +48,7 @@
 
 import { CARD_LIST_CLASS, CARD_SURFACE } from '../../components/card'
 import { factsCardFrom } from '../../components/card-blocks'
-import { consolePage, emptyState, tabPanel } from '../../components/data-page'
+import { consolePage } from '../../components/data-page'
 import { INSTANCE_ENDPOINT, MCP_TOOLS_ENDPOINT } from '../../system-sources'
 import type { Page as PageConfig } from '@/domain/models/app'
 
@@ -70,43 +70,13 @@ const card = (children: readonly PageComponent[]): PageComponent => factsCardFro
 // the chrome bar's trail already ends in this page's name, so a second copy of
 // the word printed it twice. `pageHeading` is the shared `sr-only` heading.
 
-/**
- * The two halves of this route, and the `?tab=` value that addresses each.
- *
- * `reference` is what an AI client would reach; `clients` is which ones have.
- * The second has no endpoint yet, so it says so rather than drawing a table of
- * nothing — see {@link clientsPanel}.
- */
-const TABS = [
-  { id: 'reference', label: '$t:admin.common.reference' },
-  { id: 'clients', label: '$t:admin.mcp.tab.clients' },
-] as const
-
-/**
- * The Clients panel — an honest "not available yet", and no invented table.
- *
- * ─── WHY THERE IS NOTHING TO SHOW ──────────────────────────────────────────
- *
- * `oauth_clients`, `oauth_consents` and `oauth_access_tokens` all exist — the
- * OAuth-server plugin is mounted on every auth-enabled app — but NO admin read
- * joins them, so there is no endpoint to bind. A grid over a 404 renders an
- * empty table, which tells an operator "no client has ever connected" when the
- * truth is "nobody asked". Those are different claims and only the second is
- * supportable, so the panel makes it in words.
- *
- * A disabled trigger was the alternative and is worse: a tab you cannot open
- * advertises a capability and then refuses it, with no sentence anywhere saying
- * why. Filed as a platform gap (`GET /api/admin/mcp/clients`); this panel is
- * what the console says until it ships.
- */
-const clientsPanel = (): PageComponent =>
-  tabPanel([
-    emptyState(
-      '$t:admin.mcp.clients.pending.heading',
-      '$t:admin.mcp.clients.pending.body',
-      '$t:admin.mcp.clients.pending.hint'
-    ),
-  ])
+// ─── ONE PAGE, NO SUB-VIEWS ───────────────────────────────────────────────
+//
+// This route once carried a Reference / Clients strip whose Clients half said,
+// in words, that the listing was not built. A tab that only says "not yet" is a
+// door to an empty room: it was cut, and the page is the reference alone. An
+// old `?tab=clients` address still answers with this page. When a read of the
+// registered clients ships, it earns a section here, not a tab.
 
 /**
  * The mount address, at the instance's RESOLVED origin.
@@ -120,8 +90,11 @@ const endpointCard = (): PageComponent =>
   card([
     sectionLabel('$t:admin.mcp.endpoint.heading'),
     text('p', 'text-foreground-subtle text-md', '$t:admin.mcp.endpoint.blurb'),
+    // Captioned as what it holds — the address — rather than the `request.http`
+    // the block would derive from its language: a bare URL is not a request.
     {
       type: 'code',
+      filename: '$t:admin.mcp.endpoint.filename',
       props: { language: 'http', 'data-testid': 'mcp-connect-endpoint' },
       content: '$record.origin/mcp',
     } as PageComponent,
@@ -151,12 +124,12 @@ const registerCard = (): PageComponent =>
       type: 'code',
       props: { language: 'bash', 'data-testid': 'mcp-connect-register' },
       content:
-        '# POST /api/auth/oauth2/register — issue an MCP credential (RFC 7591)\n' +
+        '$t:admin.mcp.credential.comment\n' +
         "curl -X POST '$record.origin/api/auth/oauth2/register' \\\n" +
         "  --header 'Content-Type: application/json' \\\n" +
         '  --cookie "$SOVRIUM_SESSION" \\\n' +
         "  --data '{\n" +
-        '    "client_name": "Sovrium MCP — Claude",\n' +
+        '    "client_name": "$app.name",\n' +
         '    "redirect_uris": ["$record.origin/oauth/callback"],\n' +
         '    "application_type": "$record.oauthApplicationType",\n' +
         '    "grant_types": ["authorization_code", "refresh_token"],\n' +
@@ -171,13 +144,18 @@ const referenceConfigCard = (): PageComponent =>
   card([
     sectionLabel('$t:admin.mcp.config.heading'),
     text('p', 'text-foreground-subtle text-md', '$t:admin.mcp.config.blurb'),
+    // Labelled for what it is — the config an MCP client reads — rather than
+    // after a file this app never writes; the server entry takes the app's own
+    // name, so an operator wiring two Sovrium apps into one client gets two
+    // distinct entries instead of two called the same.
     {
       type: 'code',
+      filename: '$t:admin.mcp.config.filename',
       props: { language: 'json', 'data-testid': 'mcp-reference-config' },
       content:
         '{\n' +
         '  "mcpServers": {\n' +
-        '    "sovrium": {\n' +
+        '    "$app.name": {\n' +
         '      "url": "$record.origin/mcp",\n' +
         '      "transport": "http"\n' +
         '    }\n' +
@@ -302,23 +280,17 @@ export default consolePage({
   path: '/mcp',
   title: '$t:admin.meta.mcp',
   heading: ['$t:admin.mcp.heading', '$t:admin.mcp.blurb'],
+  visibleHeading: true,
   page: {
     dataSource: { system: { endpoint: INSTANCE_ENDPOINT } },
   },
-  shell: { breadcrumb: { mcp: '$t:admin.crumb.mcp' } },
-  tabs: {
-    label: '$t:admin.mcp.tabs.region',
-    specs: TABS,
-    panels: [
-      tabPanel([
-        {
-          type: 'container',
-          element: 'div',
-          props: { className: 'flex max-w-3xl flex-col gap-8' },
-          children: [endpointCard(), registerCard(), referenceConfigCard(), toolsSection()],
-        } as PageComponent,
-      ]),
-      clientsPanel(),
-    ],
-  },
+  shell: { breadcrumb: { mcp: '$t:admin.crumb.mcp' }, document: true },
+  body: [
+    {
+      type: 'container',
+      element: 'div',
+      props: { className: 'flex flex-col gap-8' },
+      children: [endpointCard(), registerCard(), referenceConfigCard(), toolsSection()],
+    } as PageComponent,
+  ],
 }) satisfies PageConfig

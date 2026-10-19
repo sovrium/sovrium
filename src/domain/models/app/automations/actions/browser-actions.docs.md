@@ -129,7 +129,7 @@ With `session`, a run starts from the cookies the last successful run of that se
 
 ## Screenshots and the trace
 
-`artifacts.screenshots` decides when a picture of the page is kept: `failure` (the default, one when the run fails — its error names the file), `steps` (one after every step) or `off`. A `screenshot` step always keeps its own. Pictures go to the system bucket, or the declared bucket `artifacts.bucket` names, and are deleted after `BROWSER_ARTIFACT_RETENTION_DAYS` (30 days by default), counted from the run's start.
+`artifacts.screenshots` decides when a picture of the page is kept: `failure` (the default, one when the run fails — its error names the file), `steps` (one after every step) or `off`. A `screenshot` step always keeps its own. Pictures go to the system bucket, or the declared bucket `artifacts.bucket` names, and are deleted after `BROWSER_ARTIFACT_RETENTION_DAYS` (30 days by default), counted from the run's start. The pictures a run stores are its own: a later step of the same run may move or delete them. A step that writes as nobody — a webhook, a schedule, a record event — may attach a picture to a record only when it shows nothing the app already held: a picture taken once a page of the step has loaded anything from the app itself, or once the step has uploaded a file stored before the run, is refused as for a file that does not exist, after a confirmation as much as before it.
 
 The trace lists every step with its status (`ok`, `skipped` or `failed`), its duration, the address it ended on, what it typed, and any dialog it met. An `extract` with `all` that read fewer elements than matched says how many it left out.
 

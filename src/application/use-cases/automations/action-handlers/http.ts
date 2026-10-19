@@ -9,7 +9,7 @@ import { Effect } from 'effect'
 import { HTTP_REQUEST_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
 import { appendQueryObject } from '@/domain/kernel/url/query-string'
 import { guardedFetch, guardedText } from '@/infrastructure/egress/guarded-fetch'
-import { resolveConnectionHeaders } from './auth-headers'
+import { connectionHeaderRefusal, resolveConnectionHeaders } from './auth-headers'
 import { blockedRequestFailure, httpStatusFailure, requestFailure } from './http-failure'
 import { actionAttributes, numberProp, serializeActionBody, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, BodySerializationError } from './shared'
@@ -71,9 +71,8 @@ export const handleHttpRequest: ActionHandler = (action, app, automation) =>
         ? yield* resolveConnectionHeaders(app, automation, baseHeaders, connectionName)
         : { headers: baseHeaders }
 
-    if (merged.error !== undefined) {
-      return { status: 'failure', error: merged.error } as const
-    }
+    const refusal = connectionHeaderRefusal(merged)
+    if (refusal !== undefined) return refusal
     // `http/request` declares `contentType` but has never defaulted a
     // Content-Type header of its own, so the shorthand is applied only when
     // the config asks for it — an absent `contentType` keeps the historical
@@ -236,9 +235,8 @@ export const handleHttpGet: ActionHandler = (action, app, automation) =>
         ? yield* resolveConnectionHeaders(app, automation, baseHeaders, connectionName)
         : { headers: baseHeaders }
 
-    if (merged.error !== undefined) {
-      return { status: 'failure', error: merged.error } as const
-    }
+    const refusal = connectionHeaderRefusal(merged)
+    if (refusal !== undefined) return refusal
     // effect-promise: total -- `performHttpWithResponseOutput` returns an `ActionOutcome`; a blocked URL, a non-2xx and a thrown `fetch` are all caught inside and returned as `{ status: 'failure' }`.
     return yield* Effect.promise(() =>
       performHttpWithResponseOutput({
@@ -404,9 +402,8 @@ const makeHttpBodyVerbHandler =
           ? yield* resolveConnectionHeaders(app, automation, baseHeaders, connectionName)
           : { headers: baseHeaders }
 
-      if (merged.error !== undefined) {
-        return { status: 'failure', error: merged.error } as const
-      }
+      const refusal = connectionHeaderRefusal(merged)
+      if (refusal !== undefined) return refusal
       const bodyResult = yield* Effect.result(
         buildPostRequestBody(props['body'], merged.headers, shorthandOf(props))
       )
@@ -460,9 +457,8 @@ export const handleHttpDelete: ActionHandler = (action, app, automation) =>
         ? yield* resolveConnectionHeaders(app, automation, baseHeaders, connectionName)
         : { headers: baseHeaders }
 
-    if (merged.error !== undefined) {
-      return { status: 'failure', error: merged.error } as const
-    }
+    const refusal = connectionHeaderRefusal(merged)
+    if (refusal !== undefined) return refusal
     const bodyResult = yield* Effect.result(serializeActionBody(props['body']))
     if (bodyResult._tag === 'Failure') {
       return { status: 'failure', error: bodyResult.failure.message } as const

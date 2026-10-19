@@ -11,12 +11,11 @@ import type { ColumnFormat } from '@/domain/models/app/pages/components/componen
 /**
  * The formats that render as a FIXED-ADVANCE readout.
  *
- * Every numeric and every date format is one, because all of them produce a
- * value a reader scans DOWN a column rather than reads across a line: a price
- * against the price above it, a byte count against a byte count, a timestamp
- * against a timestamp. Proportional digits defeat that — `1,111` is narrower
- * than `9,999` — so the column stops being comparable at a glance and the
- * decimal points wander.
+ * The numeric formats are, because each produces a value a reader scans DOWN a
+ * column rather than reads across a line: a price against the price above it,
+ * a byte count against a byte count. Proportional digits defeat that — `1,111`
+ * is narrower than `9,999` — so the column stops being comparable at a glance
+ * and the decimal points wander.
  *
  * `truncate` is deliberately absent: it shortens PROSE, and prose in a fixed
  * face is harder to read, not easier. So are `yes-no` and `check-cross`, which
@@ -27,13 +26,30 @@ const MONO_DISPLAY_FORMATS = new Set<ColumnFormat>([
   'percentage',
   'compact',
   'bytes',
-  'duration',
+  'time-ms',
+])
+
+/**
+ * The date formats: TABULAR digits in the text face, never the fixed one.
+ *
+ * A date is read as words as much as figures ("Oct 16, 2026, 2:24 PM"), and a
+ * whole column of them in a monospace face reads as code. `tabular-nums` keeps
+ * what the fixed face was there for — digits of one width, so a column of
+ * dates still lines up — without the month names and the separators taking a
+ * code font's width.
+ *
+ * `duration` reads the same way (`1.2 s`, `2 min 5 s`): words around figures,
+ * set beside a Started column of dates, so it takes their face rather than a
+ * code font's.
+ */
+const DATE_DISPLAY_FORMATS = new Set<ColumnFormat>([
   'relative-date',
   'relative-time',
+  'day-relative-time',
   'short-date',
   'long-date',
   'datetime',
-  'time-ms',
+  'duration',
 ])
 
 /**
@@ -50,5 +66,6 @@ const GLYPH_DISPLAY_FORMATS = new Set<ColumnFormat>(['check-cross'])
 /** The class a value drawn in an explicit `format` wears, before its `cellStyle`. */
 export function formatClassOf(format: ColumnFormat): string {
   if (MONO_DISPLAY_FORMATS.has(format)) return `${computeCurrencyDisplayClasses()} font-mono`
+  if (DATE_DISPLAY_FORMATS.has(format)) return computeCurrencyDisplayClasses()
   return GLYPH_DISPLAY_FORMATS.has(format) ? 'inline-block text-md leading-none' : ''
 }

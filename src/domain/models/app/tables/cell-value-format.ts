@@ -37,6 +37,14 @@ import {
   type CurrencyDisplayOptions,
 } from '../../../kernel/format/currency-format'
 import {
+  dateFormatterOf,
+  formatDayRelativeTime,
+  formatZonedDate,
+  MONTH_DAY,
+  toDate,
+  YEAR,
+} from '../../../kernel/format/day-relative-time'
+import {
   formatElapsedDuration,
   type DurationInputUnit,
 } from '../../../kernel/format/duration-format'
@@ -48,53 +56,7 @@ import type { ColumnFormat } from '@/domain/models/app/pages/components/componen
 // Date formatting helpers
 // ---------------------------------------------------------------------------
 
-/** A value read as a date; `undefined` when it names none. */
-function toDate(value: unknown): Readonly<Date> | undefined {
-  const date = value instanceof Date ? value : new Date(String(value))
-  return Number.isNaN(date.getTime()) ? undefined : date
-}
-
-/**
- * One `Intl.DateTimeFormat` per locale and options, built once. Building one is
- * what `toLocaleDateString` does on every call, and it costs far more than the
- * formatting itself: a page printing a date on every row of a list paid it per
- * cell. The keys are bounded by the app's languages, its zones and the few
- * option sets below; past the cap a formatter is simply not kept.
- */
-const DATE_FORMATTERS = new Map<string, Intl.DateTimeFormat>()
-
-const dateFormatterOf = (
-  locale: string,
-  options: Readonly<Intl.DateTimeFormatOptions>
-): Intl.DateTimeFormat => {
-  const key = locale + JSON.stringify(options)
-  const formatter = DATE_FORMATTERS.get(key) ?? new Intl.DateTimeFormat(locale, options)
-  // eslint-disable-next-line functional/no-expression-statements, functional/immutable-data -- the memo write IS the state this cache holds; a formatter is a pure function of its key
-  if (DATE_FORMATTERS.size < 256) DATE_FORMATTERS.set(key, formatter)
-  return formatter
-}
-
-function formatDate(
-  value: unknown,
-  locale: string,
-  options: Readonly<Intl.DateTimeFormatOptions>,
-  timeZone: string | undefined
-): string {
-  const date = toDate(value)
-  if (date === undefined) return String(value)
-  const zoned = timeZone === undefined ? options : { ...options, timeZone }
-  try {
-    return dateFormatterOf(locale, zoned).format(date as Date)
-  } catch {
-    // An unknown zone (a `RangeError`) degrades to the runtime's own zone
-    // rather than taking the whole grid down with it.
-    return dateFormatterOf(locale, options).format(date as Date)
-  }
-}
-
-/** The month and the day; with {@link YEAR}, the three date formats' common ground. */
-const MONTH_DAY = { month: 'short', day: 'numeric' } as const
-const YEAR = { year: 'numeric' } as const
+const formatDate = formatZonedDate
 
 /**
  * A `short-date`: the day and the short month in the page language's order
@@ -120,6 +82,20 @@ const formatShortDate = (
 /** The `datetime` format's options: a short date and a two-digit time. */
 const DATE_TIME = { ...MONTH_DAY, ...YEAR, hour: '2-digit', minute: '2-digit' } as const
 const TIME = { hour: '2-digit', minute: '2-digit' } as const
+
+/**
+ * A value through the `datetime` column format — its short date and two-digit
+ * time in `locale`, at the wall clock of `timeZone`. The grid's `datetime`
+ * column and the read-only drawer over a system source both print through
+ * here, so one instant reads the same in the row and in its detail.
+ */
+export function formatDateTimeColumn(
+  value: unknown,
+  locale: string,
+  timeZone: string | undefined
+): string {
+  return formatDate(value, usableLocale(locale), DATE_TIME, timeZone)
+}
 
 /**
  * The words a `datetime` puts between its date and its time in `locale` — `' at '`
@@ -326,9 +302,10 @@ export function formatCellValue(
     // Signed counterpart to the past-only `relative-date`, in the largest
     // whole unit: "5 min. ago", "in 3 hr.", « dans 5 j ».
     'relative-time': () => formatRelativeTime(value, tag, now ?? new Date()),
+    'day-relative-time': () => formatDayRelativeTime(value, tag, timeZone, now),
     'short-date': () => formatShortDate(value, tag, timeZone, now),
     'long-date': () => formatDate(value, tag, { ...MONTH_DAY, ...YEAR, month: 'long' }, timeZone),
-    datetime: () => formatDate(value, tag, DATE_TIME, timeZone),
+    datetime: () => formatDateTimeColumn(value, tag, timeZone),
     'time-ms': () => formatDate(value, 'en-US', TIME_MS, timeZone),
     'yes-no': () => formatYesNo(value, tag),
     'check-cross': () => (value ? '✓' : '✗'),

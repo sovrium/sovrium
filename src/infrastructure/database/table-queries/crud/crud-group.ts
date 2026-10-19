@@ -83,6 +83,7 @@ export type GroupOrder =
       readonly sort?: string
       readonly app?: OrderByAppView
       readonly primaryKey?: OrderByPrimaryKey
+      readonly caseFoldedSortFields?: readonly string[]
     }
   | { readonly kind: 'by-value' }
 
@@ -210,8 +211,11 @@ const groupSource = (
   if (config.order.kind !== 'first-seen') {
     return sql`(SELECT * FROM ${relation}${whereClause}) AS "__sovrium_grouped"`
   }
-  const { sort, app, primaryKey } = config.order
-  const orderBy = buildOrderByClause(sort, app, config.tableName, primaryKey)
+  const { sort, app, primaryKey, caseFoldedSortFields } = config.order
+  const orderBy = buildOrderByClause(sort, app, config.tableName, {
+    primaryKey,
+    caseFolded: caseFoldedSortFields,
+  })
   // sql-literal: identifier -- ROW_NUMBER is a module constant
   return sql`(SELECT *, ROW_NUMBER() OVER (${orderBy}) AS "${sql.raw(ROW_NUMBER)}" FROM ${relation}${whereClause}) AS "__sovrium_grouped"`
 }

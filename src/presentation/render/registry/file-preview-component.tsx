@@ -138,7 +138,12 @@ function tool(name: Tool, ctx: ToolContext): ReactElement | undefined {
 /** The file itself, as the stage draws it. */
 function body(
   file: PreviewFile,
-  ctx: { readonly url: string; readonly alt: string; readonly fit: string }
+  ctx: {
+    readonly url: string
+    readonly frameUrl: string | undefined
+    readonly alt: string
+    readonly fit: string
+  }
 ): ReactElement {
   if (isImage(file)) {
     return (
@@ -179,9 +184,10 @@ function body(
       />
     )
   }
+  // A PDF frames its INLINE address: the download one refuses to be framed.
   return (
     <iframe
-      src={ctx.url}
+      src={ctx.frameUrl ?? ctx.url}
       title={file.name}
       loading="lazy"
       className="h-full w-full border-0"
@@ -285,7 +291,12 @@ function stage(
         className="overflow-auto rounded-lg border"
         style={{ height: frameHeight(file, ctx.root) }}
       >
-        {body(file, { url, alt, fit: ctx.root.fit ?? 'contain' })}
+        {body(file, {
+          url,
+          frameUrl: file.frameUrl === undefined ? undefined : toSafeAssetUrl(file.frameUrl),
+          alt,
+          fit: ctx.root.fit ?? 'contain',
+        })}
       </div>
       <a
         href={url}

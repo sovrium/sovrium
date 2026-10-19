@@ -38,6 +38,7 @@ import * as Layer from 'effect/Layer'
 import * as Schedule from 'effect/Schedule'
 import { BUN_CHECK_COMMAND } from '../typescript-check-outcome'
 import { timeoutAwakeOrElse } from './awake-deadline'
+import { isGroupAlive, PROCESS_GROUPS_SUPPORTED, signalGroup, trackGroup } from './process-group'
 import type { Subprocess } from 'bun'
 import type * as Scope from 'effect/Scope'
 
@@ -300,55 +301,90 @@ const defaultOptions: Required<CommandOptions> = {
 
 // ─── Process lifecycle ────────────────────────────────────────────────────────
 
-/** Sentinel for "the grace period elapsed", distinguishable from any exit code. */
-const GRACE_ELAPSED = Symbol('grace-elapsed')
+/**
+ * What the terminator signals: the child's whole process GROUP when it was
+ * spawned detached (see `process-group.ts`), else the direct child alone.
+ *
+ * The group is the default because a gate is usually a wrapper over the real
+ * tool, and signalling the wrapper alone is what left `node .../prettier`
+ * running for eight minutes after its step timed out.
+ */
+interface KillTarget {
+  readonly alive: () => boolean
+  readonly signal: (signal: NodeJS.Signals) => boolean
+}
+
+const leaderTarget = (proc: Subprocess): KillTarget => ({
+  // Already reaped: `exited` has resolved, or a signal already landed.
+  alive: () => proc.exitCode === null && proc.signalCode === null,
+  signal: (signal) => {
+    try {
+      proc.kill(signal)
+      return true
+    } catch {
+      // The child raced us to its own exit. Nothing left to signal.
+      return false
+    }
+  },
+})
+
+const groupTarget = (proc: Subprocess): KillTarget => ({
+  // A group outlives its leader: the wrapper may be gone while the tool it
+  // started still runs, which is exactly the leak this exists to close.
+  alive: () => isGroupAlive(proc.pid),
+  signal: (signal) => signalGroup(proc.pid, signal),
+})
+
+/** Poll until the target is gone or the grace elapses; `true` when it is gone. */
+const awaitGone = async (target: KillTarget, graceMs: number): Promise<boolean> => {
+  const deadline = Date.now() + graceMs
+  while (target.alive()) {
+    if (Date.now() >= deadline) return false
+    await Bun.sleep(25)
+  }
+  return true
+}
 
 /**
- * Stop a child that is still running: SIGTERM, a grace period, then SIGKILL.
+ * Stop a child that is still running: SIGTERM, a grace period, then SIGKILL —
+ * to its whole process group when it has one.
  *
  * Run as the RELEASE half of {@link Effect.acquireRelease}, so it fires on
- * every exit path — success (where it is a no-op, the child having already
- * been reaped), failure, timeout, and fiber interrupt. Before this existed, a
- * timed-out gate left its child running for the rest of the session.
+ * every exit path — success, failure, timeout, and fiber interrupt. On success
+ * it is normally one `kill(-pgid, 0)` that finds nothing; a grandchild left
+ * behind by a leader that exited is a leak too, and is reaped the same way.
+ * Before this existed, a timed-out gate left its child running for the rest of
+ * the session; before the group, it left the child's children.
  */
-const terminate = (proc: Subprocess, graceMs: number): Effect.Effect<void> =>
+const terminate = (proc: Subprocess, target: KillTarget, graceMs: number): Effect.Effect<void> =>
   // Every call that could throw is wrapped, and the thunk resolves to void on
   // every branch. A release that can FAIL would mask the very failure it is
   // cleaning up after, so totality is the contract here rather than a
   // convenience.
   // effect-promise: total -- every throwing call is wrapped; resolves to void on every branch
   Effect.promise(async () => {
-    // Already reaped: `exited` has resolved, or a signal already landed.
-    if (proc.exitCode !== null || proc.signalCode !== null) return
-
-    try {
-      proc.kill('SIGTERM')
-    } catch {
-      // The child raced us to its own exit. Nothing left to signal.
-      return
-    }
-
-    const outcome = await Promise.race([
-      proc.exited,
-      Bun.sleep(graceMs).then(() => GRACE_ELAPSED),
-    ]).catch(() => GRACE_ELAPSED)
-
-    if (outcome !== GRACE_ELAPSED) return
-
-    try {
-      proc.kill('SIGKILL')
-    } catch {
-      return
-    }
+    if (!target.alive()) return
+    if (!target.signal('SIGTERM')) return
+    if (await awaitGone(target, graceMs).catch(() => false)) return
+    target.signal('SIGKILL')
     await proc.exited.catch(() => undefined)
   })
 
-/** Acquire a child bound to the enclosing scope; its release terminates it. */
-const acquireChild = (argv: readonly string[], display: string, opts: Required<CommandOptions>) =>
-  Effect.acquireRelease(
+/**
+ * Acquire a child bound to the enclosing scope; its release terminates it.
+ *
+ * A captured child is spawned `detached`, so it leads its own process group
+ * and the release can reach every process it started. An `inherit` child is
+ * not: it shares this process's terminal, and a new session would take the
+ * controlling tty away from a tool that may read it. Such a child receives the
+ * terminal's ^C directly, as before, and its release signals it alone.
+ */
+const acquireChild = (argv: readonly string[], display: string, opts: Required<CommandOptions>) => {
+  const grouped = PROCESS_GROUPS_SUPPORTED && !opts.inherit
+  return Effect.acquireRelease(
     Effect.try({
-      try: () =>
-        opts.inherit
+      try: () => {
+        const proc = opts.inherit
           ? bunSpawn([...argv], {
               cwd: opts.cwd,
               env: opts.env,
@@ -361,11 +397,18 @@ const acquireChild = (argv: readonly string[], display: string, opts: Required<C
               env: opts.env,
               stdout: 'pipe',
               stderr: 'pipe',
-            }),
+              detached: grouped,
+            })
+        return { proc, untrack: grouped ? trackGroup(proc.pid) : () => undefined }
+      },
       catch: (error) => new CommandSpawnError({ command: display, cause: error }),
     }),
-    (proc) => terminate(proc, opts.killGraceMs)
-  )
+    ({ proc, untrack }) =>
+      terminate(proc, grouped ? groupTarget(proc) : leaderTarget(proc), opts.killGraceMs).pipe(
+        Effect.ensuring(Effect.sync(untrack))
+      )
+  ).pipe(Effect.map(({ proc }) => proc))
+}
 
 /**
  * Drain both streams WHILE waiting for the exit.

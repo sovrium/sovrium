@@ -20,6 +20,7 @@ import { encodeQrMatrix, matrixToSvg } from '@/domain/models/app/links/qr-code-s
 import { isRecord, type Raw } from './document-run'
 import { renderTemplateText, type TemplateText } from './document-template'
 import { assetNameRefusal, storedFileRefusal } from './file-ref-origin'
+import { noteStepFileInput } from './step-file-inputs'
 import type { DocumentRenderSetup } from './document-render-setup'
 import type { ActionRunContext } from './shared'
 import type { EmailAttachment } from '@/application/ports/services/email-sender'
@@ -125,9 +126,12 @@ const pictureBytes = (
     const refusal = check?.(source, false)
     if (refusal !== undefined) return yield* refuse(source, refusal)
     const bucket = typeof file['bucket'] === 'string' ? file['bucket'] : UNATTRIBUTED_BUCKET
-    return yield* (yield* StorageService)
+    const bytes = yield* (yield* StorageService)
       .download(key, bucket)
       .pipe(Effect.mapError(() => refuse(source, 'could not be read')))
+    // A stored picture is a file the document is built from: it carries its standing.
+    yield* noteStepFileInput({ label: `image "${key}"`, key })
+    return bytes
   })
 
 /** The box a picture of `natural` size is drawn in: the asked width or height, proportions kept. */

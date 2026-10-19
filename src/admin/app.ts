@@ -53,6 +53,7 @@ import consoleStrings from './config/i18n/console'
 import dataStrings from './config/i18n/data'
 import designSystemStrings from './config/i18n/design-system'
 import developerStrings from './config/i18n/developers'
+import engineVoiceStrings from './config/i18n/engine-voice'
 import frStrings from './config/i18n/fr'
 import surfaceStrings from './config/i18n/surfaces'
 import acceptInvitation from './config/pages/accept-invitation'
@@ -121,6 +122,7 @@ export default {
         ...commonStrings,
         ...surfaceStrings,
         ...designSystemStrings,
+        ...engineVoiceStrings,
       },
       fr: frStrings,
     },
@@ -139,9 +141,10 @@ export default {
   // No `design`. The console renders on the binary's native default — shadcn/ui,
   // base-nova with Geist — and inherits the host app's design like every page
   // that instance serves. Its scheme follows the operator (the engine default
-  // `colorScheme` is `system`) and its code blocks pair a light and a dark
-  // theme (the engine default `codeBlock`), so declaring either here would
-  // restate the default. `app.test.ts` holds the key absent.
+  // `colorScheme` is `system`), and its code blocks follow that scheme with
+  // shadcn/ui's light and dark pair, which no config chooses. Declaring a
+  // `design` here would only restate the default. `app.test.ts` holds the key
+  // absent.
 
   // Every page MOUNT-RELATIVE. The console is served at one fixed base,
   // `/_admin`, and the mount primitive prefixes each path with it at render

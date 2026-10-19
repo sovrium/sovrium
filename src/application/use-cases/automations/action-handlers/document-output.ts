@@ -16,10 +16,15 @@ import { TEMP_STORAGE_PREFIX } from '@/domain/models/app/automations/actions/fil
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
 import { logError } from '@/infrastructure/logging/logger'
-import { attachGeneratedFile, attachReusedFile } from './document-attach'
+import { attachGeneratedFile, attachReusedFile, guardStarterAttach } from './document-attach'
 import { GeneratedFileWriteError } from './document-output-error'
-import { tempKey, uploadArtifactTo } from './file-support'
+import { firstFreeSuffix } from './document-output-suffix'
+import { storeArtifact, tempKey } from './file-support'
+import { CALLER_REFUSAL } from './record-caller-gate'
 import { safeFilename } from './safe-filename'
+import { starterStanding } from './starter-file-gate'
+import { runMayRetakeKey, starterOverwriteVerdict } from './starter-overwrite-gate'
+import { builtFromStepRunBytes } from './step-file-inputs'
 import type { ActionRunContext, AutomationContext } from './shared'
 import type { StepRequirements } from '../run/types'
 import type { App } from '@/domain/models/app'
@@ -77,15 +82,38 @@ type WriteRequirements = StepRequirements
 const refuse = (message: string): Effect.Effect<never, GeneratedFileWriteError> =>
   Effect.fail(new GeneratedFileWriteError({ message }))
 
+/**
+ * A taken key's refusal as the starter of `automation`'s run reads it: the
+ * detail (`detail`) in a run nobody started and for an admin-equivalent
+ * starter, the records API's `Resource not found` for anyone else, naming
+ * neither the bucket that holds the file nor who wrote it.
+ */
+export const takenKeyAnswer = (
+  app: App,
+  automation: AutomationContext,
+  detail: string
+): Effect.Effect<string, never, StepRequirements> =>
+  starterStanding(app, automation).pipe(
+    Effect.map((standing) => (standing.kind === 'open' ? detail : CALLER_REFUSAL)),
+    Effect.withSpan('automations.taken-key-answer')
+  )
+
+/** The starter's refusal, reported as the records API's `Resource not found` and nothing more. */
+const callerRefused = (message: string) =>
+  Effect.fail(new GeneratedFileWriteError({ message, callerRefused: true }))
+
+/** A taken key refused, worded for the starter of `automation`'s run. */
+const refuseTakenKey = (
+  app: App,
+  automation: AutomationContext,
+  detail: string
+): Effect.Effect<never, GeneratedFileWriteError, StepRequirements> =>
+  Effect.flatMap(takenKeyAnswer(app, automation, detail), (message) =>
+    message === CALLER_REFUSAL ? callerRefused(message) : refuse(message)
+  )
+
 /** Whether an authored key stays a plain relative key (no leading `/`, no `.`/`..` segment). */
 export const isPlainKey = isCanonicalStorageKey
-
-/** `name-<n>.ext` for the n-th suffixed copy of a key. */
-export const suffixedKey = (key: string, n: number): string => {
-  const slash = key.lastIndexOf('/')
-  const dot = key.lastIndexOf('.')
-  return dot > slash + 1 ? `${key.slice(0, dot)}-${n}${key.slice(dot)}` : `${key}-${n}`
-}
 
 interface Placement {
   readonly binding: BucketBinding
@@ -203,46 +231,45 @@ export const takenKeyRefusal = (
     Effect.withSpan('automations.taken-key-refusal')
   )
 
+/** A key to write at (create-only: replacing nothing), or the file already there to keep. */
 type KeyDecision =
-  | { readonly kind: 'write'; readonly key: string }
+  | { readonly kind: 'write'; readonly key: string; readonly createOnly: boolean }
   | { readonly kind: 'skip'; readonly existing: Existing }
-
-/** The highest number `suffix` tries before it refuses. */
-const SUFFIX_LIMIT = 1000
-
-/** The first free `name-<n>.ext` after `key`, or a refusal once `name-1000.ext` is taken. */
-const firstFreeSuffix = (
-  key: string,
-  n = 1
-): Effect.Effect<string, GeneratedFileWriteError, StorageService> =>
-  Effect.flatMap(existingAt(suffixedKey(key, n)), (taken) => {
-    if (taken === undefined) return Effect.succeed(suffixedKey(key, n))
-    return n >= SUFFIX_LIMIT
-      ? refuse(
-          `every name from "${suffixedKey(key, 1)}" to "${suffixedKey(key, SUFFIX_LIMIT)}" is taken (ifExists: suffix stops at ${SUFFIX_LIMIT})`
-        )
-      : firstFreeSuffix(key, n + 1)
-  })
 
 /** Apply `ifExists` to the placement's key, on behalf of `automation`. */
 const decideKey = (
   placement: Placement,
   policy: string,
-  automation: string
-): Effect.Effect<KeyDecision, GeneratedFileWriteError, StorageService> =>
+  run: { readonly app: App; readonly automation: AutomationContext }
+): Effect.Effect<KeyDecision, GeneratedFileWriteError, StepRequirements> =>
   Effect.gen(function* () {
     const existing = yield* existingAt(placement.key)
-    if (existing === undefined) return { kind: 'write', key: placement.key } as const
-    if (policy === 'fail') {
-      return yield* refuse(`a file already exists at "${placement.key}" (ifExists: fail)`)
+    if (existing === undefined) {
+      // No catalog row is not "free": a hand-started run writes over no object it did not write.
+      const verdict = yield* starterOverwriteVerdict(run.app, run.automation)(placement.key)
+      if (verdict.kind === 'refused') return yield* callerRefused(verdict.refusal)
+      return { kind: 'write', key: placement.key, createOnly: verdict.kind === 'free' } as const
     }
-    if (policy === 'suffix')
-      return { kind: 'write', key: yield* firstFreeSuffix(placement.key) } as const
-    const refusal = ownershipRefusal(placement.key, existing, placement.binding, automation)
-    if (refusal !== undefined) return yield* refuse(`cannot write the output: ${refusal}`)
+    if (policy === 'fail') {
+      const detail = `a file already exists at "${placement.key}" (ifExists: fail)`
+      return yield* refuseTakenKey(run.app, run.automation, detail)
+    }
+    if (policy === 'suffix') {
+      const key = yield* firstFreeSuffix(placement.key)
+      const judged = (yield* starterStanding(run.app, run.automation)).kind === 'judged'
+      return { kind: 'write', key, createOnly: judged } as const
+    }
+    const { name } = run.automation
+    const ownRun = yield* runMayRetakeKey(run.app, run.automation, placement.binding, placement.key)
+    const refusal =
+      ownershipRefusal(placement.key, existing, placement.binding, name) ??
+      (ownRun ? undefined : `"${placement.key}" holds a file an earlier run generated`)
+    if (refusal !== undefined) {
+      return yield* refuseTakenKey(run.app, run.automation, `cannot write the output: ${refusal}`)
+    }
     return policy === 'skip'
       ? ({ kind: 'skip', existing } as const)
-      : ({ kind: 'write', key: placement.key } as const)
+      : ({ kind: 'write', key: placement.key, createOnly: false } as const)
   })
 
 const resultOf = (
@@ -301,6 +328,34 @@ const attachOrRemove = (input: {
     )
   })
 
+/** Store the file at the decided key as the run's own (create-only when found free: a file stored meanwhile is kept). */
+const storeDecided = (
+  input: { readonly file: GeneratedFile; readonly automation: AutomationContext },
+  placement: Placement,
+  decision: Extract<KeyDecision, { readonly kind: 'write' }>
+) =>
+  Effect.gen(function* () {
+    const storage = yield* StorageService
+    const wrote = yield* storeArtifact(
+      storage,
+      decision.key,
+      { bytes: input.file.bytes, contentType: input.file.contentType },
+      {
+        bucket: placement.binding,
+        uploadedById: undefined,
+        generatedBy: input.automation.name,
+        mode: decision.createOnly ? 'create-only' : 'replace',
+      }
+    )
+    if (wrote === 'taken') return yield* callerRefused(CALLER_REFUSAL)
+    if (wrote === 'failed')
+      return yield* refuse(`the output could not be written at "${decision.key}"`)
+    const { binding } = placement
+    const written = input.automation.writtenFiles // run bytes only if every file read carries them
+    const carriesRunBytes = yield* builtFromStepRunBytes(written)
+    yield* Effect.sync(() => written?.record(binding, decision.key, { carriesRunBytes }))
+  })
+
 /**
  * Write a generated file where its `output` says, and attach it to a record
  * when `attachTo` asks. Returns the step result, usable downstream as a
@@ -318,10 +373,15 @@ export const writeGeneratedFile = (input: {
     const filename =
       typeof output.filename === 'string' && output.filename !== '' ? output.filename : 'file'
     const placement = yield* placementOf(output, app, filename)
+    // A hand-started run's attachment is its starter's write: judged before
+    // the bucket is touched, so a refusal writes, attaches and deletes nothing.
+    if (output.attachTo !== undefined) {
+      yield* guardStarterAttach({ attachTo: output.attachTo, app, automation: input.automation })
+    }
     const policy = typeof output.ifExists === 'string' ? output.ifExists : 'overwrite'
     const decision = placement.explicitKey
-      ? yield* decideKey(placement, policy, input.automation.name)
-      : ({ kind: 'write', key: placement.key } as const)
+      ? yield* decideKey(placement, policy, input)
+      : ({ kind: 'write', key: placement.key, createOnly: false } as const)
     if (decision.kind === 'skip') {
       // The file already there was not written by this step: it is attached only
       // under the attachment-reference rule, and left in place when refused.
@@ -330,18 +390,7 @@ export const writeGeneratedFile = (input: {
       }
       return resultOf(placement.key, placement.binding, filename, decision.existing)
     }
-    const storage = yield* StorageService
-    const wrote = yield* uploadArtifactTo(
-      storage,
-      decision.key,
-      { bytes: file.bytes, contentType: file.contentType },
-      { bucket: placement.binding, uploadedById: undefined, generatedBy: input.automation.name }
-    )
-    if (!wrote) return yield* refuse(`the output could not be written at "${decision.key}"`)
-    if (placement.binding !== UNATTRIBUTED_BUCKET) {
-      const { binding } = placement
-      yield* Effect.sync(() => input.automation.writtenFiles?.record(binding, decision.key))
-    }
+    yield* storeDecided(input, placement, decision)
     const result = resultOf(decision.key, placement.binding, filename, {
       ...file,
       size: file.bytes.length,

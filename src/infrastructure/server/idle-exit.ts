@@ -42,7 +42,7 @@ import {
 } from '@/infrastructure/database/drizzle/schema-sqlite/automation'
 import { logError } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
-import { readServerBootInstant } from '@/infrastructure/process/server-boot-instant'
+import { onDevTimeline, readServerBootInstant } from '@/infrastructure/process/server-boot-instant'
 import type { App } from '@/domain/models/app'
 
 // ─── Request activity ────────────────────────────────────────────────────────
@@ -99,7 +99,7 @@ const countRunningAutomations = async (): Promise<number> => {
     .where(
       and(
         inArray(automationRuns.status, ['queued', 'running']),
-        gte(automationRuns.createdAt, readServerBootInstant()),
+        gte(automationRuns.createdAt, onDevTimeline(readServerBootInstant())),
         notInArray(automationRuns.id, parked)
       )
     )

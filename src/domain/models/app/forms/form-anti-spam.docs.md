@@ -53,7 +53,7 @@ A test form that posts repeatedly from one address is the usual way this surpris
 
 When a session is present the ledger records the submitter's user id, and a bound table's created-by column is populated with it. Without one, the created-by column reads `system`.
 
-There is no configuration for "one submission per person". To enforce that, put a unique constraint on the bound table's column — the database is the only place a uniqueness rule cannot be raced.
+There is no configuration for "one submission per person". To enforce that, put a unique constraint on the bound table's column — the database is the only place a uniqueness rule cannot be raced. A second submission of a value already on file is refused and nothing is stored. Only a submitter who may read the record holding the value is told so under the field; anyone else, a visitor who is not signed in included, reads the form's generic refusal, which names no field. To tell every submitter — "This email is already registered" — set the field's `takenMessage`, knowing it tells anyone who submits the form that the value exists.
 
 ## Analytics opt-out
 

@@ -5,7 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
+import { tableControls } from '@/domain/models/app/pages/record-control-service'
+import { filterFieldsReadableByAny } from '@/domain/models/app/tables/field-read-filter-service'
+import { callersOfRow, type RowGrants } from '@/domain/models/app/tables/row-read-admission-service'
+import { disabledControlsBlock } from './disabled-controls-block'
 import { transformRecords } from './record-transformer'
 import { writeOnlyBlock } from './write-only-presence'
 import type { TransformedRecord, RecordFieldValue, FormattedFieldValue } from './record-transformer'
@@ -164,16 +167,23 @@ export function processRecords(config: {
   readonly format?: 'display'
   readonly timezone?: string
   readonly fields?: string
+  /** The rows a scope grant names, read under each role it gives as well. */
+  readonly grants?: RowGrants
 }): readonly TransformedRecord[] {
   const { records, app, tableName, userRole, userGroups, format, timezone, fields } = config
 
   // Apply field-level read permissions filtering
   const caller = { role: userRole, groups: userGroups }
   const filteredRecords = records.map((record) =>
-    filterReadableFields({ app, tableName, caller, record })
+    filterFieldsReadableByAny({
+      ...{ app, tableName, record },
+      callers: callersOfRow(caller, config.grants, record['id']),
+    })
   )
 
-  // Each record says which of its write-only fields hold a value, judged on the stored row.
+  // Each record says which of its write-only fields hold a value, and which of
+  // its controls are disabled, both judged on the stored row.
+  const controls = tableControls(app, tableName)
   const transformedRecords = transformRecords(filteredRecords, {
     format,
     app,
@@ -182,6 +192,7 @@ export function processRecords(config: {
   }).map((record, index) => ({
     ...record,
     ...writeOnlyBlock({ app, tableName, userRole, userGroups, record: records[index] ?? {} }),
+    ...disabledControlsBlock(controls, records[index] ?? {}),
   })) as TransformedRecord[]
 
   // Apply field selection if specified

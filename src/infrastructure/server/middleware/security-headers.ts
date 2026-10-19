@@ -40,8 +40,8 @@ import type { MiddlewareHandler } from 'hono'
  *
  * Permissions-Policy denies powerful features the platform does not use (an
  * empty array disables the feature for every origin). Emitting it in code means
- * the header does not depend on the host ingress (Caddy) security-header
- * backstop at `[internal ref]` being attached.
+ * the header does not depend on an ingress security-header backstop (a
+ * reverse proxy in front of the binary) being attached.
  *
  *.
  */

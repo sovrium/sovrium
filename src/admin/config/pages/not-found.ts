@@ -9,8 +9,8 @@
 //
 // A signed-in operator who follows a stale link — a section the app no longer
 // declares, a typo, a bookmark from an older release — stays INSIDE the console:
-// the sidebar is still there, the page says what happened, and the one way on
-// is the Overview. The status stays 404.
+// the sidebar is still there, the page says what happened, and the ways on are
+// the Overview and the search. The status stays 404.
 //
 // A caller who is not signed in never sees this page. Every console address
 // answers them the bare 404 any unknown path gets, so the page cannot be used
@@ -33,36 +33,96 @@ export default consolePage({
   },
   body: [
     {
+      // shadcn's Empty: the media, the title and the description centred in a
+      // dashed-free frame, then the ways on. The page is drawn at `/404`
+      // whatever address was asked for, so it cannot echo that address.
       type: 'container',
       element: 'section',
       props: {
         'aria-labelledby': 'admin-not-found-heading',
-        className: 'flex flex-col items-start gap-3 py-16',
+        'data-slot': 'empty',
+        className:
+          'flex min-h-[60svh] w-full min-w-0 flex-1 flex-col items-center justify-center gap-4 rounded-xl p-6 text-center text-balance',
       },
       children: [
         {
-          type: 'text',
-          element: 'h1',
+          type: 'container',
+          element: 'div',
           props: {
-            id: 'admin-not-found-heading',
-            className: 'text-foreground text-2xl font-semibold tracking-tight',
+            'data-slot': 'empty-header',
+            className: 'flex max-w-sm flex-col items-center gap-2',
           },
-          content: '$t:admin.notFound.heading',
+          children: [
+            {
+              type: 'text',
+              element: 'span',
+              props: {
+                'data-slot': 'empty-media',
+                'data-variant': 'icon',
+                'aria-hidden': 'true',
+                className:
+                  'mb-2 flex h-8 min-w-8 shrink-0 items-center justify-center rounded-lg bg-muted px-2 text-sm font-medium tabular-nums text-foreground',
+              },
+              content: '404',
+            },
+            {
+              type: 'text',
+              element: 'h1',
+              props: {
+                id: 'admin-not-found-heading',
+                'data-slot': 'empty-title',
+                className: 'text-lg font-medium tracking-tight text-foreground',
+              },
+              content: '$t:admin.notFound.heading',
+            },
+            {
+              type: 'text',
+              element: 'p',
+              props: {
+                'data-slot': 'empty-description',
+                className: 'text-sm/relaxed text-muted-foreground',
+              },
+              content: '$t:admin.notFound.body',
+            },
+          ],
         },
         {
-          type: 'text',
-          element: 'p',
-          props: { className: 'text-muted-foreground max-w-md text-sm' },
-          content: '$t:admin.notFound.body',
-        },
-        {
-          type: 'link',
+          type: 'container',
+          element: 'div',
           props: {
-            href: '/',
-            className:
-              'border-border bg-background hover:bg-muted mt-2 inline-flex h-8 items-center rounded-md border px-3 text-sm font-medium text-foreground no-underline',
+            'data-slot': 'empty-content',
+            className: 'flex w-full max-w-sm min-w-0 flex-wrap items-center justify-center gap-2',
           },
-          content: '$t:admin.notFound.back',
+          children: [
+            {
+              type: 'link',
+              props: {
+                href: '/',
+                className:
+                  'inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground no-underline hover:bg-primary/80',
+              },
+              content: '$t:admin.notFound.back',
+            },
+            {
+              type: 'button',
+              variant: 'outline',
+              size: 'sm',
+              props: {
+                type: 'button',
+                'data-command-palette-trigger': 'true',
+                'aria-label': '$t:admin.shell.search',
+                className: 'gap-2',
+              },
+              children: [
+                {
+                  type: 'text',
+                  element: 'span',
+                  content: '$t:admin.shell.search',
+                },
+                { type: 'kbd', keys: ['⌘', 'K'] },
+              ],
+            },
+          ],
         },
       ],
     } as PageComponent,

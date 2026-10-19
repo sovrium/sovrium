@@ -19,8 +19,9 @@ type PageComponent = NonNullable<PageConfig['components']>[number]
 
 // ─── THE RUN PAGE — `/runs/:id` ─────────────────────────────
 //
-// One run, read in full: its header, what it was given, each step with what it
-// was handed, what it returned and what it logged, and the Retry gesture.
+// One run, read in full and in order: what started it, each step with what it
+// was handed, what it returned and what it logged, then how it ended — and the
+// Retry gesture.
 //
 // It replaced a record-bound drawer over the grid. A drawer and a page showing
 // the same run would each need the steps, the logs, the status words and Retry,
@@ -46,15 +47,12 @@ type PageComponent = NonNullable<PageConfig['components']>[number]
 // object-valued token stays a literal token rather than printing
 // `[object Object]`. So each of the three sits alone in its own `code` block.
 
-/** The run header's trigger: the entry's name, then its type. */
-const TRIGGER_VALUE = '$record.triggerName ($record.triggerType)'
-
 /** A quiet section heading — the page's `h2` voice. */
 const caption = (content: string): PageComponent =>
   ({
     type: 'text',
     element: 'h2',
-    props: { className: 'text-foreground-subtle text-xs font-medium tracking-wide uppercase' },
+    props: { className: 'text-foreground text-sm font-medium' },
     content,
   }) as PageComponent
 
@@ -103,13 +101,16 @@ const runFacts = (): PageComponent =>
       items: [
         {
           term: '$t:admin.automations.runs.detail.field.automation',
-          detail: '$record.automationName',
+          detail: '$record.automationLabel',
         },
         { term: '$t:admin.automations.runs.detail.field.status', detail: '$record.status' },
-        { term: '$t:admin.automations.runs.detail.field.trigger', detail: TRIGGER_VALUE },
+        { term: '$t:admin.automations.runs.detail.field.trigger', detail: '$record.triggerLabel' },
         { term: '$t:admin.automations.runs.detail.field.started', detail: '$record.startedAt' },
         { term: '$t:admin.automations.runs.detail.field.finished', detail: '$record.completedAt' },
-        { term: '$t:admin.automations.runs.detail.field.duration', detail: '$record.durationMs' },
+        {
+          term: '$t:admin.automations.runs.detail.field.duration',
+          detail: '$record.durationLabel',
+        },
         { term: '$t:admin.automations.runs.detail.field.attempt', detail: '$record.attempt' },
       ],
     } as PageComponent,
@@ -124,6 +125,10 @@ const runFacts = (): PageComponent =>
  * nothing. The gate is a style rule rather than `visibility.record`, because a
  * page's `{ system }` record substitutes but does not gate.
  */
+/** shadcn's outline button at `sm`, drawn on a link with its ink spelled out. */
+const FAILURE_LINK =
+  'inline-flex h-7 items-center rounded-md border border-border bg-background px-2.5 text-[0.8rem] font-medium text-foreground no-underline shadow-xs hover:bg-muted'
+
 const runFailure = (): PageComponent =>
   ({
     type: 'container',
@@ -136,6 +141,32 @@ const runFailure = (): PageComponent =>
         element: 'p',
         props: { className: 'text-error-fg font-mono text-xs break-words whitespace-pre-wrap' },
         content: '$record.error',
+      },
+      {
+        // The next action after a failure: what usually breaks a run, and
+        // where each is fixed, before the retry in the toolbar above.
+        type: 'container',
+        element: 'div',
+        props: { className: 'flex flex-wrap items-center gap-x-3 gap-y-2 pt-1 text-sm' },
+        children: [
+          {
+            type: 'text',
+            element: 'span',
+            props: { className: 'text-muted-foreground' },
+            content: '$t:admin.automations.runs.detail.failure.next',
+          },
+          {
+            type: 'link',
+            visibility: { declares: 'connections' },
+            props: { href: '/connections', className: FAILURE_LINK },
+            content: '$t:admin.automations.runs.detail.failure.connections',
+          },
+          {
+            type: 'link',
+            props: { href: '/env', className: FAILURE_LINK },
+            content: '$t:admin.automations.runs.detail.failure.env',
+          },
+        ],
       },
     ],
   }) as PageComponent
@@ -212,6 +243,40 @@ const stepLog = (): readonly PageComponent[] => [
 ]
 
 /**
+ * What a step returned — or a sentence saying it returned nothing.
+ *
+ * A step that failed, or that has nothing to hand on, stores no output, and
+ * its block then draws as an empty grey box under a "Data out" title, which
+ * reads as a page that failed to load. The output token substitutes to the
+ * empty string, so the block holds one empty line; this wrapper notices that
+ * line (`:only-child` with an `:empty` content) and swaps the block for the
+ * sentence. The step's error, when it failed, is already printed above. Both
+ * classes are spelled whole: the class harvest reads this file as text.
+ */
+const stepOutput = (): PageComponent =>
+  ({
+    type: 'container',
+    element: 'div',
+    props: {
+      className:
+        'group/step-output [&:has([data-slot=code-block-line]:only-child>[data-slot=code-block-line-content]:empty)>figure]:hidden',
+      'data-testid': 'run-step-output',
+    },
+    children: [
+      jsonSection('$t:admin.automations.runs.detail.dataOut', '$step.output'),
+      {
+        type: 'text',
+        element: 'p',
+        props: {
+          className:
+            'text-foreground-subtle hidden text-sm group-has-[[data-slot=code-block-line]:only-child>[data-slot=code-block-line-content]:empty]/step-output:block',
+        },
+        content: '$t:admin.automations.runs.detail.noOutput',
+      },
+    ],
+  }) as PageComponent
+
+/**
  * One station per step: its name and status on one line, its error, what it
  * was handed and what it returned, and what it logged.
  *
@@ -243,8 +308,10 @@ const stepStation = (): PageComponent =>
           {
             type: 'text',
             element: 'span',
-            props: { className: 'text-foreground min-w-0 font-mono text-sm' },
-            content: '$step.name',
+            // The label the action declares, else its name — the wire carries
+            // whichever a person should read.
+            props: { className: 'text-foreground min-w-0 text-sm font-medium' },
+            content: '$step.label',
           },
           // Like the run header's status, the step's word is relabelled in the
           // reader's language on the server (`filtered` under its own key).
@@ -265,10 +332,14 @@ const stepStation = (): PageComponent =>
       {
         type: 'container',
         element: 'div',
-        props: { className: 'grid gap-3 lg:grid-cols-2' },
+        // What the step was handed, THEN what it returned — read in the order
+        // they happened, one above the other. Each is folded to a short
+        // scrolling height: raw data is read when a step needs explaining, not
+        // on the way past it.
+        props: { className: 'flex flex-col gap-3 *:max-h-56 *:overflow-y-auto' },
         children: [
           jsonSection('$t:admin.automations.runs.detail.dataIn', '$step.input'),
-          jsonSection('$t:admin.automations.runs.detail.dataOut', '$step.output'),
+          stepOutput(),
         ],
       },
       ...stepLog(),
@@ -306,6 +377,55 @@ const stepsSection = (): PageComponent =>
         children: [stepStation()],
       },
     ],
+  }) as PageComponent
+
+/**
+ * The first chapter of the run: what started it. The payload is the data the
+ * first step received, labelled for what it is — it was a trailing, unnamed
+ * "Data in" block at the foot of the page.
+ */
+const triggerSection = (): PageComponent =>
+  ({
+    type: 'container',
+    element: 'section',
+    props: {
+      'aria-label': '$t:admin.automations.runs.detail.trigger',
+      className: 'flex flex-col gap-2',
+      'data-testid': 'run-trigger',
+    },
+    children: [
+      caption('$t:admin.automations.runs.detail.trigger'),
+      {
+        type: 'text',
+        element: 'p',
+        props: { className: 'text-foreground-subtle text-sm' },
+        content: '$t:admin.automations.runs.detail.trigger.description',
+      },
+      {
+        type: 'container',
+        element: 'div',
+        props: { className: 'max-h-64 overflow-y-auto' },
+        children: [
+          jsonSection('$t:admin.automations.runs.detail.triggerData', '$record.triggerData'),
+        ],
+      },
+    ],
+  }) as PageComponent
+
+/**
+ * The last chapter: how the run ended — when it failed, why and where the
+ * cause is fixed, first; then its facts.
+ */
+const outcomeSection = (): PageComponent =>
+  ({
+    type: 'container',
+    element: 'section',
+    props: {
+      'aria-label': '$t:admin.automations.runs.detail.outcome',
+      className: 'flex flex-col gap-3',
+      'data-testid': 'run-outcome',
+    },
+    children: [caption('$t:admin.automations.runs.detail.outcome'), runFailure(), runFacts()],
   }) as PageComponent
 
 /**
@@ -400,6 +520,8 @@ export const runPage: PageConfig = consolePage({
   },
   shell: {
     breadcrumb: { runs: '$t:admin.crumb.runs' },
+    breadcrumbCurrent: '$t:admin.crumb.run',
+    document: true,
   },
   body: [
     {
@@ -416,8 +538,9 @@ export const runPage: PageConfig = consolePage({
             {
               type: 'text',
               element: 'h1',
-              props: { className: 'text-foreground font-mono text-lg font-medium' },
-              content: '$record.automationName',
+              // The label the automation declares, else its name.
+              props: { className: 'text-foreground text-lg font-medium' },
+              content: '$record.automationLabel',
             },
             {
               type: 'text',
@@ -427,10 +550,11 @@ export const runPage: PageConfig = consolePage({
             },
           ],
         },
-        runFacts(),
-        jsonSection('$t:admin.automations.runs.detail.dataIn', '$record.triggerData'),
-        runFailure(),
+        // The run as a story, top to bottom: what started it, what each step
+        // was handed and returned, then how it ended and what to do about it.
+        triggerSection(),
         stepsSection(),
+        outcomeSection(),
         configuredInCode(),
       ],
     } as PageComponent,

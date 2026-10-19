@@ -105,7 +105,7 @@ interface ParsedFlags {
   readonly fromUrl: string | undefined
   readonly password: string | undefined
   readonly seedDir: string | undefined
-  readonly seedMode: string | undefined
+  readonly mode: string | undefined
   readonly seedTables: readonly string[]
   readonly seedAs: string | undefined
   readonly seedToday: string | undefined
@@ -160,12 +160,12 @@ const parseLibraryOperationFlags = (
   libraryUpdate: argv.includes('--update'),
 })
 
-/** The flags only `sovrium seed` reads (`--as` is shared with `library add`). */
+/** The `sovrium seed` flags; `--as` is shared with `library add`, `--mode` with `design-system`. */
 const parseSeedFlags = (
   argv: readonly string[]
-): Pick<ParsedFlags, 'seedDir' | 'seedMode' | 'seedTables' | 'seedAs' | 'seedToday'> => ({
+): Pick<ParsedFlags, 'seedDir' | 'mode' | 'seedTables' | 'seedAs' | 'seedToday'> => ({
   seedDir: getFlagValue(argv, '--dir'),
-  seedMode: getFlagValue(argv, '--mode'),
+  mode: getFlagValue(argv, '--mode'),
   seedTables: getFlagValues(argv, '--table'),
   seedAs: getFlagValue(argv, '--as'),
   seedToday: getFlagValue(argv, '--today'),
@@ -246,9 +246,9 @@ const changelogArgsOf = (
 /** The `sovrium seed` flags, carried into the result as parsed. */
 const seedArgsOf = (
   flags: ParsedFlags
-): Pick<ParsedArgs, 'seedDir' | 'seedMode' | 'seedTables' | 'seedAs' | 'seedToday'> => ({
+): Pick<ParsedArgs, 'seedDir' | 'mode' | 'seedTables' | 'seedAs' | 'seedToday'> => ({
   seedDir: flags.seedDir,
-  seedMode: flags.seedMode,
+  mode: flags.mode,
   seedTables: flags.seedTables,
   seedAs: flags.seedAs,
   seedToday: flags.seedToday,

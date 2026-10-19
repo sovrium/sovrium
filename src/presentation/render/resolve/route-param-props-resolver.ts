@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { mapStringsDeep } from '@/domain/models/app/languages/translation-resolver'
+import { mapStringsDeep } from '@/domain/kernel/config-parsing/map-strings-deep'
 import type { Page } from '@/domain/models/app/pages'
 
 /**
@@ -19,6 +19,19 @@ import type { Page } from '@/domain/models/app/pages'
  * (`sovrium/no-dynamic-regexp`).
  */
 const PARAM_REFERENCE = /\$param\.([A-Za-z_][A-Za-z0-9_]*)/g
+
+/**
+ * Replace every `$param.<name>` in one string with its matched segment, leaving
+ * a name the route did not capture VERBATIM. Shared by the page-tree pass below
+ * and the document head (`head-references.ts`).
+ */
+export const substituteRouteParams = (
+  str: string,
+  routeParams: Readonly<Record<string, string>>
+): string =>
+  str.includes('$param.')
+    ? str.replaceAll(PARAM_REFERENCE, (match, name: string) => routeParams[name] ?? match)
+    : str
 
 /**
  * Substitute the matched route segments into every `$param.<name>` reference on
@@ -41,10 +54,13 @@ const PARAM_REFERENCE = /\$param\.([A-Za-z_][A-Za-z0-9_]*)/g
  *
  * ─── WHAT IS DELIBERATELY OUT OF REACH ─────────────────────────────────────
  *
- *  - `page.meta`. The pass walks `components` and `layout` because that is what
- *    `$query` and `$app` walk. Widening one family without the others would
- *    leave three `$`-references with three different reaches, which is worse
- *    than one honest limit.
+ *  - `page.meta`, from THIS pass. Its title and description may name a `$t:`
+ *    key that is translated only when the head is built, per language, so a
+ *    substitution here would miss every translated title. The head resolves
+ *    `$param` (and `$app`) after that translation instead — see
+ *    `head-references.ts`, which reuses {@link substituteRouteParams}. `$query`
+ *    stays out of the head: a title is what a shared link and a search engine
+ *    show, and must not be written by whoever crafts the query string.
  *  - `app.systemSources[]`. A catalogue entry has no host page whose `path`
  *    could declare the segment — the same reason `param` is absent from that
  *    schema.
@@ -70,10 +86,7 @@ export function resolvePageRouteParams(
   page: Page,
   routeParams: Readonly<Record<string, string>>
 ): Page {
-  const substitute = (str: string): string =>
-    str.includes('$param.')
-      ? str.replaceAll(PARAM_REFERENCE, (match, name: string) => routeParams[name] ?? match)
-      : str
+  const substitute = (str: string): string => substituteRouteParams(str, routeParams)
 
   return {
     ...page,

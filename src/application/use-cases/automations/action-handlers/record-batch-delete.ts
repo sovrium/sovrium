@@ -14,13 +14,19 @@
 import { Effect } from 'effect'
 import { buildSyntheticSession } from '../build-guest-session'
 import { asRecord, resolvedProps, type BatchProps, type GateRequirements } from './record-batch'
-import { CALLER_REFUSAL, callerMayWrite, deletesOf, writerActorOf } from './record-caller-gate'
+import {
+  CALLER_REFUSAL,
+  callerMayWrite,
+  deletesOf,
+  runReadAccess,
+  writerActorOf,
+} from './record-caller-gate'
 import { deleteAndAnnounce, recordEventLoopRefusal } from './record-events'
 import { declaredFilterFields, extractIdFromFilter } from './record-filter-shape'
 import { errorMessageOf, resolveIdsByFilter } from './record-filters'
+import { starterTargetIds, type StarterTargets } from './record-starter-targets'
 import { actionAttributes, numberProp, stringProp } from './shared'
-import type { DeclaredFilterFields } from './record-filter-shape'
-import type { ActionHandler, ActionRunContext } from './shared'
+import type { ActionHandler, ActionRunContext, AutomationContext } from './shared'
 import type { DatabaseError, UnknownFilterFieldError } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
 
@@ -36,17 +42,30 @@ import type { App } from '@/domain/models/app'
  * run knows nothing about what it was supposed to remove, and reporting that
  * as `matched: 0` and succeeding is how a broken nightly purge stays invisible
  * for months.
+ *
+ * A hand-started run's filter is resolved as its starter's list resolves it
+ * (`starterTargetIds`): refused on a column they may not read, and reaching
+ * only the rows they may read. An `id equals` filter goes straight to the
+ * caller write gate, and a run nobody started reads the whole table.
  */
-const resolveTargetIds = (
-  tableName: string,
-  filter: unknown,
-  declared: DeclaredFilterFields
-): Effect.Effect<readonly string[], DatabaseError | UnknownFilterFieldError, GateRequirements> => {
-  const fastPath = extractIdFromFilter(filter)
-  return fastPath
-    ? Effect.succeed([fastPath] as const)
-    : resolveIdsByFilter(tableName, filter, declared)
-}
+const resolveTargetIds = (input: {
+  readonly app: App
+  readonly automation: AutomationContext
+  readonly tableName: string
+  readonly filter: unknown
+}): Effect.Effect<StarterTargets, DatabaseError | UnknownFilterFieldError, GateRequirements> =>
+  Effect.gen(function* () {
+    const { app, automation, tableName, filter } = input
+    const fastPath = extractIdFromFilter(filter)
+    if (fastPath) return { refused: false, ids: [fastPath] } as const
+    const access = yield* runReadAccess(app, automation, tableName)
+    if (access.kind === 'refused') return { refused: true } as const
+    if (access.kind === 'scoped') {
+      return yield* starterTargetIds({ app, automation, tableName, filter, access })
+    }
+    const declared = declaredFilterFields(app, tableName)
+    return { refused: false, ids: yield* resolveIdsByFilter(tableName, filter, declared) } as const
+  })
 
 /**
  * An error's message plus the driver's own words underneath it.
@@ -183,17 +202,16 @@ export const handleRecordBatchDelete: ActionHandler = (action, app, automation, 
     }
 
     const { filter } = props
-    const lookup = yield* Effect.result(
-      resolveTargetIds(tableName, filter, declaredFilterFields(app, tableName))
-    )
+    const lookup = yield* Effect.result(resolveTargetIds({ app, automation, tableName, filter }))
     if (lookup._tag === 'Failure') {
       return {
         status: 'failure',
         error: `record.batchDelete could not resolve its filter: ${withDriverDetail(lookup.failure)}`,
       } as const
     }
+    if (lookup.success.refused) return REFUSED_DELETE
 
-    const ids = lookup.success
+    const { ids } = lookup.success
     if (ids.length === 0) {
       // Distinguish "matched nothing" (a normal outcome — nothing to clean up)
       // from "the filter was unusable". An empty or malformed filter must never

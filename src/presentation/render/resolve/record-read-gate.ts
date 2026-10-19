@@ -11,34 +11,27 @@
  *
  * A page reaches a single record three ways — a component bound with its own
  * `mode: single`, a page-level `dataSource: { mode: single }`, and a
- * `collection` slug — and each fetches the row whole, because the fetch runs
- * where no session is known. Everything the page then does with that row
- * (prefilling a form, substituting `$record.*`, serialising island props) puts
- * it in the HTML. So the row must answer, per visitor, the same questions the
- * records API asks of the same visitor:
- *
- *  1. **table read** — may this visitor read the table at all?
- *  2. **row-level read** — does `rowLevelPermissions.read.when` admit this row?
- *  3. **field-level read** — which columns may this visitor read?
+ * `collection` slug — each fetching the row whole, where no session is known.
+ * Whatever the page does with it (a prefill, `$record.*`, island props) puts it
+ * in the HTML, so the row must answer the records API's questions per visitor:
+ * may she read the table (1), does `rowLevelPermissions.read.when` admit the
+ * row (2), which columns may she read (3)?
  *
  * {@link gateRecordForCaller} answers all three: `undefined` when the row is
- * not for this visitor (the caller maps that to its own not-found answer),
- * otherwise the row less the columns the visitor may not read, through the
- * records API's own projection ({@link stripRestrictedColumns}).
+ * not for this visitor, otherwise the row less the columns she may not read,
+ * through the records API's own projection ({@link stripRestrictedColumns}),
+ * carrying the verdict of its record's controls (`_disabled`), judged whole.
  *
  * A `lookup`, `rollup` or `count` column is read from ANOTHER table, so the
  * third gate also leaves out every one of them into a related table or field
- * the visitor may not read, and every formula over one ({@link relatedValuesRefusedTo}) — the records API's answer, and the one a
- * relationship's label already gave — and every lookup through a link to a
- * row the related table's row-level rule hides from her
- * ({@link withRowRuledLookupsHidden}).
+ * the visitor may not read, and every formula over one ({@link relatedValuesRefusedTo}),
+ * and every lookup through a link to a row the related table's row-level rule
+ * hides from her ({@link withRowRuledLookupsHidden}).
  *
- * The row-level predicate is evaluated IN MEMORY against the fetched row
- * rather than appended to the query, because the row is already fetched and a
- * page render has no query builder of its own. {@link callerRecordGateOf}
- * is also what a collection page's `permission-blocked` answer is built from
- * so the two paths cannot disagree about which row
- * a visitor may see.
+ * The row-level predicate is evaluated IN MEMORY against the fetched row: a page
+ * render has no query builder of its own. {@link callerRecordGateOf} is also
+ * what a collection page's `permission-blocked` answer is built from, so the
+ * two paths cannot disagree about which row a visitor may see.
  */
 
 import {
@@ -60,6 +53,8 @@ import {
 } from '@/domain/models/app/tables/read-access-plan-service'
 import { readFilterOf } from '@/domain/models/app/tables/user-list-field-service'
 import { admittedWindow, visitorRowRule } from '@/domain/models/app/tables/visitor-row-rule-service'
+import { readAdmittedRows, withReaderRowAdmission } from './reader-row-admission'
+import { judgedOn, judgedRead, judgedRows, narrowTo } from './record-disabled-controls'
 import {
   rowCheckOf,
   withRowRuledLookupsHidden,
@@ -148,19 +143,21 @@ export function callerRecordGateOf(input: {
   const reader = callerReaderFromSession(session, app)
   const gate = callerTableGate(app, tableName, reader)
   if (gate.kind === 'refused') return { kind: 'refused' }
-  return {
-    kind: 'open',
+  const open = {
     rowCheck: rowCheckOf(gate.rule, reader, { app, tableName, db }),
     project: app.auth
       ? projectOne(projectionOf(app, tableName, reader, { plan: gate.plan, db }))
-      : async (record) => withoutPlanColumns(gate.plan, record),
+      : async (record: RecordRow) => withoutPlanColumns(gate.plan, record),
   }
+  const admitted = withReaderRowAdmission({ ...input, reader }, open)
+  return { kind: 'open', ...admitted, project: judgedOn(app, tableName, admitted.project) }
 }
 
 /**
  * One record, gated for one visitor: `undefined` when the table's read
- * permission refuses the visitor or its row-level rule hides the row, the row
- * less its unreadable columns otherwise. An app with no `auth` block is the
+ * permission refuses the visitor, its row-level rule hides the row or her list
+ * does not admit it (`withReaderRowAdmission`), the row as her list shows it
+ * otherwise. An app with no `auth` block is the
  * full-access model and gets the row back less its write-only columns.
  */
 export async function gateRecordForCaller(input: {
@@ -269,7 +266,7 @@ async function readUncheckedRows(
  * ({@link gateRecordForCaller}):
  *
  *  1. a table the visitor may not read yields no row;
- *  2. a row the table's row-level rule hides is not read, nor counted;
+ *  2. a row its row-level rule hides, or its list does not admit, is not read nor counted;
  *  3. every row arrives less the columns the visitor may not read.
  *
  * A trashed row is not read either, as on the records API ({@link CallerRowsQuery.liveOnly}).
@@ -314,15 +311,15 @@ export async function readRowsForCaller(input: {
     const read = await readGatedRows(tableName, query, { db, withTotal, check })
     return { rows: read.rows.map((row) => withoutPlanColumns(plan, row)), total: read.total }
   }
-  // The read is widened by the key of every lookup the binding lists, so the
-  // lookup can be judged by its linked record; the answer is narrowed back.
-  const read = await readGatedRows(tableName, withLookupKeys(app, tableName, query), {
-    db,
-    withTotal,
-    check,
+  // The rows her list admits, widened by each listed lookup's key, then narrowed back.
+  const ctx = { db, withTotal, check }
+  // Also fetched: what its controls are judged on (handed back: the binding's columns, the id).
+  const { query: judgedQuery, kept } = judgedRead(app, tableName, query)
+  const read = await readAdmittedRows({ app, tableName, session, db, reader }, judgedQuery, {
+    read: (admitted) => readGatedRows(tableName, withLookupKeys(app, tableName, admitted), ctx),
+    project: judgedRows(app, tableName, projectionOf(app, tableName, reader, { plan, db })),
   })
-  const projected = await projectionOf(app, tableName, reader, { plan, db })(read.rows)
-  return { rows: projected.map((row) => narrowTo(row, query.fields)), total: read.total }
+  return { rows: read.rows.map((row) => narrowTo(row, kept)), total: read.total }
 }
 
 /** An app with no `auth`: the full-access model, less the write-only columns no one reads. */
@@ -332,9 +329,12 @@ async function readFullAccessRows(
   query: CallerRowsQuery,
   ctx: { readonly db: DataSourceDb; readonly withTotal: boolean }
 ): Promise<CallerRows> {
-  const read = await readUncheckedRows(table.name, query, ctx)
+  const { query: judged, kept } = judgedRead(app, table.name, query)
+  const read = await readUncheckedRows(table.name, judged, ctx)
   const plan = fullAccessReadPlan(app, table)
-  return { rows: read.rows.map((row) => withoutPlanColumns(plan, row)), total: read.total }
+  const shape = async (rows: readonly RecordRow[]) =>
+    rows.map((row) => narrowTo(withoutPlanColumns(plan, row), kept))
+  return { rows: await judgedRows(app, table.name, shape)(read.rows), total: read.total }
 }
 
 /** The query's page, through the row-level check when one applies. */
@@ -357,12 +357,6 @@ const withLookupKeys = (app: App, tableName: string, query: CallerRowsQuery): Ca
   const keys = lookupKeyColumnsFor(app, tableName, query.fields)
   return keys.length === 0 ? query : { ...query, fields: [...query.fields, ...keys] }
 }
-
-/** Narrow a row to the columns a binding lists; every column when it lists none. */
-const narrowTo = (record: RecordRow, fields: readonly string[] | undefined): RecordRow =>
-  fields === undefined
-    ? record
-    : Object.fromEntries(Object.entries(record).filter(([key]) => fields.includes(key)))
 
 /**
  * ONE live record of a declared table, read for one visitor and gated
@@ -399,5 +393,6 @@ export async function readRecordForCaller(input: {
   })
   if (record === undefined) return undefined
   const gated = await gateRecordForCaller({ ...input, record })
-  return gated === undefined ? undefined : narrowTo(gated, fields)
+  const { kept } = judgedRead(input.app, tableName, { fields }) // keeps the `id` a press names
+  return gated === undefined ? undefined : narrowTo(gated, kept)
 }

@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { mapStringsDeep } from './value-walker'
+import { mapStringsDeep } from '@/domain/kernel/config-parsing/map-strings-deep'
 
 /**
  * The two references an automation author writes OUTSIDE `{{...}}`: an

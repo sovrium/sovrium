@@ -176,7 +176,7 @@ export const TOKENS = {
   densityGap: '7px',
   densityText: '11px',
 
-  // ---------- shadcn/ui variables (base-nova, 4.21.4) ----------
+  // ---------- shadcn/ui variables (base-nova, 4.21.5) ----------
   background: 'oklch(1 0 0)',
   foreground: 'oklch(0.145 0 0)',
   card: 'oklch(1 0 0)',

@@ -79,7 +79,7 @@ export const FormFieldControlSchema = Schema.Literals([
 ]).annotate({
   title: 'Form Field Control',
   description:
-    'Explicit input control for an endpoint-bound form field (text/email/password/number/tel/url/textarea/select/switch/rating). `rating` is accepted but drawn as a plain text box on an endpoint form; a table-bound form draws a `rating` column as a scale. `switch` is an on/off switch that submits a JSON boolean — `true` when on, `false` when off, never omitted — and takes no options. Omitted for table-bound forms (control derived from the column type).',
+    'Explicit input control for an endpoint-bound form field (text/email/password/number/tel/url/textarea/select/switch/rating). `rating` draws a scale of `max` ranks (default 5) and sends the rank picked as a number. `switch` is an on/off switch that submits a JSON boolean — `true` when on, `false` when off, never omitted — and takes no options. Omitted for table-bound forms (control derived from the column type).',
 })
 
 /** The controls a `minLength` / `maxLength` rule means something on: the ones a visitor types text into. */
@@ -117,6 +117,20 @@ export const FormFieldConfigSchema = Schema.Struct({
         description: 'Dropdown options for a control: select field ({ value, label? })',
       }),
       Schema.check(Schema.isMinLength(1))
+    )
+  ),
+  /**
+   * How many ranks a `control: rating` field offers on an endpoint form, from
+   * 1 to 10 (5 when omitted). A table-bound form reads its scale from the
+   * column's own `max` instead.
+   */
+  max: Schema.optional(
+    Schema.Int.pipe(
+      Schema.annotate({
+        description:
+          'Number of ranks a `control: rating` field offers on an endpoint form, from 1 to 10 (default 5). The rank picked is sent as a number. Only for `control: rating`; a table-bound form reads the scale from the column.',
+      }),
+      Schema.check(Schema.isGreaterThanOrEqualTo(1), Schema.isLessThanOrEqualTo(10))
     )
   ),
   /**
@@ -329,6 +343,12 @@ export const FormFieldConfigSchema = Schema.Struct({
         field.control === undefined ||
         LENGTH_RULE_CONTROLS.has(field.control) ||
         'minLength and maxLength apply to a text, email, password or textarea control only'
+    ),
+    Schema.makeFilter(
+      (field: { readonly field: string; readonly control?: string; readonly max?: number }) =>
+        field.max === undefined ||
+        field.control === 'rating' ||
+        `max on field '${field.field}' applies to a rating control only: set control: rating or drop max`
     ),
     Schema.makeFilter(
       (field: { readonly minLength?: number; readonly maxLength?: number }) =>

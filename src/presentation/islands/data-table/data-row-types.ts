@@ -64,6 +64,12 @@ export interface InlineAutoSave {
 export type DataTableRowClickAction =
   | { readonly type: 'navigate'; readonly path: string; readonly openInNewTab?: boolean }
   | { readonly type: 'openSheet'; readonly component: string }
+  | {
+      readonly type: 'seek'
+      readonly target: string
+      readonly time: number | string
+      readonly play?: boolean
+    }
 
 /**
  * Persists ONE cell without first entering edit mode.

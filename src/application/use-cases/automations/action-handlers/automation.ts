@@ -31,6 +31,19 @@ const fail = (error: string): Effect.Effect<ActionOutcome> =>
 const resolveMaxDepth = (raw: unknown): number =>
   typeof raw === 'number' && Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : 10
 
+/**
+ * The failure of a call: the callee's error, and — when the callee's run
+ * showed a reader who does not read every run a refused write in its place —
+ * the same refusal, so the caller's step reads as the callee's run does.
+ */
+const callFailureOf = (cause: unknown): ActionOutcome => {
+  const error = cause instanceof Error ? cause.message : String(cause)
+  const shown = (cause as { readonly clientError?: unknown } | null)?.clientError
+  return typeof shown === 'string'
+    ? { status: 'failure', error, refusedWrite: { unique: true } }
+    : { status: 'failure', error }
+}
+
 export const handleAutomationCall: ActionHandler = (action, _app, _automation, runContext) => {
   const props = (action['props'] ?? {}) as Readonly<Record<string, unknown>>
   const name = String(props['name'] ?? '')
@@ -45,12 +58,12 @@ export const handleAutomationCall: ActionHandler = (action, _app, _automation, r
   const mode = props['mode'] === 'async' ? 'async' : 'sync'
   return Effect.tryPromise({
     try: () => invoke({ name, inputData, mode, maxDepth: resolveMaxDepth(props['maxDepth']) }),
-    catch: (cause) => (cause instanceof Error ? cause.message : String(cause)),
+    catch: callFailureOf,
   }).pipe(
     Effect.map(
       ({ result }) => ({ status: 'success', output: { result } }) as const satisfies ActionOutcome
     ),
-    Effect.catch((error) => fail(error)),
+    Effect.catch((failure) => Effect.succeed(failure)),
     Effect.withSpan('automations.handle-automation-call')
   )
 }

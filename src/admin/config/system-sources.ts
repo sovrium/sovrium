@@ -9,12 +9,13 @@
 //
 // ─── WHY THESE ARE NOT REWRITTEN BY THE MOUNT ──────────────────────────────
 //
-// A page's `href` is mount-relative and gets moved onto the serving mount's base
-// at boot. An `endpoint` is NOT: the JSON API is mounted once for the whole
-// server, outside the console's base, so `/api/admin/overview` is already the
-// full address and must never gain the `/_admin` prefix. `mount-hrefs.ts` skips
-// `endpoint` keys and anything already under `/api/` for exactly this reason —
-// which is why these are absolute and must stay absolute.
+// A page's `href` is mount-relative and gets moved onto the serving mount's
+// base the first time the console is opened. An `endpoint` is NOT: the JSON API
+// is mounted once for the whole server, outside the console's base, so
+// `/api/admin/overview` is already the full address and must never gain the
+// `/_admin` prefix. `mount-hrefs.ts` skips `endpoint` keys and anything already
+// under `/api/` for exactly this reason — which is why these are absolute and
+// must stay absolute.
 //
 // ─── WHY A MODULE RATHER THAN INLINE STRINGS ───────────────────────────────
 //

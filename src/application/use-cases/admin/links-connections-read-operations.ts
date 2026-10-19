@@ -26,7 +26,7 @@
  * it is an action, and it stays a hand-written route.
  */
 
-import { DateTime, Effect, Option, Schema } from 'effect'
+import { Effect, Option, Schema } from 'effect'
 import {
   adminReadPathParams,
   defineAdminRead,
@@ -34,7 +34,7 @@ import {
 } from '@/application/use-cases/admin/admin-read-operation'
 import {
   BuildConnectionDetail,
-  BuildConnectionsList,
+  BuildConnectionsListFor,
 } from '@/application/use-cases/admin/connections'
 import {
   listLinkCatalog,
@@ -53,6 +53,7 @@ import {
   adminLinksListQuerySchema,
   adminLinksListResponseSchema,
 } from '@/domain/models/api/admin/links'
+import { serverNow } from '@/domain/models/process-env/dev-clock'
 import type { AdminReadOperation } from '@/application/use-cases/admin/admin-read-operation'
 
 /**
@@ -61,7 +62,12 @@ import type { AdminReadOperation } from '@/application/use-cases/admin/admin-rea
  */
 const CONNECTION_LIST_RESOURCE_ID = 'connections'
 
-const nowAsDate = Effect.map(DateTime.now, DateTime.toDateUtc)
+/**
+ * "Now" as the server answers it — the pinned development instant when
+ * `SOVRIUM_DEV_CLOCK` is set — so a link's 30-day click figure and the
+ * analytics window the same page resolves (`$window.end`) end at one instant.
+ */
+const nowAsDate = Effect.sync(() => new Date(serverNow().getTime()))
 
 // ─── Links ───────────────────────────────────────────────────────────────────
 
@@ -82,8 +88,13 @@ const decodeLinksQuery = (raw: Readonly<Record<string, unknown>>) =>
         reason: 'malformed',
         message: 'Invalid query parameters',
       }) as const,
-    onSome: (query) =>
-      ({
+    onSome: (query) => {
+      const from = query.from === undefined ? undefined : new Date(query.from)
+      const to = query.to === undefined ? undefined : new Date(query.to)
+      if (from !== undefined && to !== undefined && from.getTime() > to.getTime()) {
+        return { _tag: 'InvalidInput', reason: 'inverted-window' } as const
+      }
+      return {
         _tag: 'Ok',
         input: {
           cursor: query.cursor,
@@ -93,8 +104,11 @@ const decodeLinksQuery = (raw: Readonly<Record<string, unknown>>) =>
           source: query.source,
           state: query.state,
           includeArchived: isTrueFlag(raw['include_archived']),
+          from,
+          to,
         } satisfies LinkCatalogQuery,
-      }) as const,
+      } as const
+    },
   })
 
 const linksList = defineAdminRead<LinkCatalogQuery>({
@@ -102,7 +116,7 @@ const linksList = defineAdminRead<LinkCatalogQuery>({
   method: 'get',
   path: '/api/admin/links',
   pathParams: [],
-  queryParams: ['cursor', 'limit', 'q', 'tag', 'source', 'state', 'include_archived'],
+  queryParams: ['cursor', 'limit', 'q', 'tag', 'source', 'state', 'include_archived', 'from', 'to'],
   tool: {
     suffix: 'links_list',
     description:
@@ -124,6 +138,14 @@ const linksList = defineAdminRead<LinkCatalogQuery>({
         },
         limit: { type: 'integer', minimum: 1, maximum: 200, description: 'Links per page.' },
         cursor: { type: 'string', description: 'The nextCursor of the previous page.' },
+        from: {
+          type: 'string',
+          description: 'ISO 8601 start of the window clicks count over (default: 30 days back).',
+        },
+        to: {
+          type: 'string',
+          description: 'ISO 8601 end of the window clicks count over (default: now).',
+        },
       },
     },
   },
@@ -132,7 +154,9 @@ const linksList = defineAdminRead<LinkCatalogQuery>({
     description:
       'The links catalog: the links `app.links[]` declares and the ones minted at runtime, ' +
       'each in the state its lifecycle gives it. `q` narrows server-side and is echoed back ' +
-      'as `appliedQuery`. Revalidatable with `If-None-Match`. Admin only.',
+      'as `appliedQuery`. `from`/`to` bound the window `clicks` counts over (the last 30 ' +
+      'days by default) and never which links are listed; a `from` later than `to` is ' +
+      'refused 400. Revalidatable with `If-None-Match`. Admin only.',
     operationIdBase: 'listAdminLinks',
     querySchema: adminLinksListQuerySchema,
     responseSchema: adminLinksListResponseSchema,
@@ -222,7 +246,7 @@ const connectionsList = defineAdminRead<undefined>({
   },
   subject: 'connections list',
   decode: () => ({ _tag: 'Ok', input: undefined }),
-  read: () => BuildConnectionsList,
+  read: (app) => BuildConnectionsListFor(app.connections),
   audit: {
     action: AUDIT_ACTIONS.CONNECTION_LIST_QUERIED,
     resourceId: () => CONNECTION_LIST_RESOURCE_ID,
@@ -261,7 +285,7 @@ const connectionRead = defineAdminRead<string>({
     typeof raw['id'] === 'string' && raw['id'].length > 0
       ? { _tag: 'Ok', input: raw['id'] }
       : { _tag: 'NotFound' },
-  read: (_app, id) => BuildConnectionDetail(id),
+  read: (app, id) => BuildConnectionDetail(id, app.connections),
   audit: {
     action: AUDIT_ACTIONS.CONNECTION_DETAIL_QUERIED,
     resourceId: (_app, id) => id,

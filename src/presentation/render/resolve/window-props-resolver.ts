@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { mapStringsDeep } from '@/domain/models/app/languages/translation-resolver'
+import { mapStringsDeep } from '@/domain/kernel/config-parsing/map-strings-deep'
 import type { Page } from '@/domain/models/app/pages'
 import type { ResolvedPageWindow } from '@/domain/models/app/pages/window-props'
 

@@ -59,16 +59,3 @@ export function resolvedTableLabels(
 ): { readonly label: string; readonly labelPlural: string } {
   return { label: tableLabel(table, translate), labelPlural: tableLabelPlural(table, translate) }
 }
-
-/**
- * The table with both labels resolved to plain text, so a consumer that cannot
- * reach the right translations (a table carried into another app's render) reads
- * finished text. A table declaring neither is returned unchanged.
- */
-export function withResolvedTableLabels<T extends TableDisplayNames>(
-  table: T,
-  translate: TableLabelTranslator
-): T {
-  if (table.label === undefined && table.labelPlural === undefined) return table
-  return { ...table, ...resolvedTableLabels(table, translate) }
-}

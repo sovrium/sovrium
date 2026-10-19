@@ -39,9 +39,9 @@ import { ForbiddenError } from '@/domain/errors'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import {
   findViewByKey,
-  intersectViewFields,
   mergeViewFilter,
   viewGroupByParam,
+  viewReadFields,
   viewSortParam,
 } from '@/domain/models/app/tables/views/view-read-service'
 import { createListRecordsProgram } from './list-records-program'
@@ -139,13 +139,16 @@ export function getViewRecordsProgram(
       includeDeleted: false,
       sort: query.sort ?? viewSortParam(view.sorts),
       sortByOptionOrder: true,
-      fields: intersectViewFields(view.fields, query.fields),
+      fields: viewReadFields(view, query.fields),
       limit: query.limit,
       offset: query.offset,
       ...(query.aggregate !== undefined && { aggregate: query.aggregate }),
       ...(groupBy !== undefined && { groupBy }),
       origin: config.origin,
-    })
+    }).pipe(
+      // A reader who may read no row of the table is answered as if it did not exist.
+      Effect.catchTag('NotFoundError', () => Effect.fail(new TableNotFoundError('Table not found')))
+    )
 
     return servedPage(page)
   }).pipe(Effect.withSpan('tables.get-view-records-program'))

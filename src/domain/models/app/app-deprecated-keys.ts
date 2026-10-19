@@ -17,12 +17,19 @@
  * refusal. So a key travels: schema → this table (one release, a warning) →
  * `removed-keys.ts` (a refusal that names the replacement).
  *
- * The table is EMPTY. The two removals of early 2026-10 — the table view
- * switcher and the page form's create path — were executed before the policy
- * took effect and went straight to `removed-keys.ts`; [internal ref] records them as
- * the exception. The composed-controls move of 0.39 is the third exception
- * ([internal ref] D2f): its replacement ships in the same release, so its keys went
- * straight to a refusal too, and the table holds nothing.
+ * The two removals of early 2026-10 — the table view switcher and the page
+ * form's create path — were executed before the policy took effect and went
+ * straight to `removed-keys.ts`; [internal ref] records them as the exception. The
+ * composed-controls move of 0.39 is the third exception ([internal ref] D2f): its
+ * replacement ships in the same release, so its keys went straight to a
+ * refusal too.
+ *
+ * `design.codeBlock` is the first entry, and it is an exception of another
+ * kind: the founder ruled it INERT from the release that first warns, rather
+ * than honoured until it is refused. Code blocks draw shadcn/ui's default
+ * colours — `github-light` in the light scheme, `github-dark` in the dark one —
+ * whatever the key names, so the warning tells an author the key does nothing
+ * and can go. The schema still accepts it for that one release.
  *
  * ## Why a walk over the raw config rather than the reporter
  *
@@ -65,10 +72,19 @@ export interface DeprecationWarning {
 }
 
 /**
- * Every deprecated key. Empty: no key is between its warning release and its
+ * Every deprecated key: the keys between their warning release and their
  * removal.
  */
-export const DEPRECATED_KEYS: readonly DeprecatedKey[] = []
+export const DEPRECATED_KEYS: readonly DeprecatedKey[] = [
+  {
+    node: /^design$/,
+    key: 'codeBlock',
+    replacement:
+      "It is ignored; code blocks use shadcn/ui's default colours. Remove `design.codeBlock`.",
+    deprecatedIn: '0.40',
+    removedIn: '0.41',
+  },
+]
 
 type Segment = string | number
 

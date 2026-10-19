@@ -54,8 +54,8 @@ import { DesignZonesSchema } from './zones'
  * - **Colour** — `colorScheme`, `colors`, `darkColors`, `ramps`, `colorRoles`.
  * - **Foundations** — `typeScale`, `spacing`, `radius`, `elevation`, `motion`,
  *   `breakpoints`.
- * - **Application** — `density`, `badgeForm`, `baseline`, `codeBlock`,
- *   `components`, `zones`.
+ * - **Application** — `density`, `badgeForm`, `baseline`, `codeBlock`
+ *   (deprecated, ignored), `components`, `zones`.
  * - **Charter** — `logo`, `imagery`, `principles`, `voice`.
  *
  * The order above is the narrative order, and it is also the order the design
@@ -197,7 +197,10 @@ export const DesignSchema = Schema.Struct({
     })
   ),
 
-  /** Syntax-highlighting theme for markdown fenced code blocks. */
+  /**
+   * Deprecated since 0.40 and ignored; refused from 0.41. Code blocks use
+   * shadcn/ui's default colours whatever it names.
+   */
   codeBlock: Schema.optional(CodeBlockConfigSchema),
 
   /**
@@ -295,7 +298,6 @@ export const DesignSchema = Schema.Struct({
           byZone: { product: 'compact', marketing: 'roomy' },
         },
         baseline: 'extend',
-        codeBlock: { theme: 'github-dark' },
         components: { button: { parts: { root: 'rounded-none' } } },
         zones: [
           { pattern: '/admin/*', zone: 'product' },

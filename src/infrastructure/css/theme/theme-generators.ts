@@ -5,10 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { escapeCssValue } from '@/domain/kernel/sanitize/css-value-escaping'
 import {
   COLOR_TO_SV_TOKEN,
   DESIGN_COLOR_VARS,
 } from '@/domain/models/app/design/default-design.generated'
+import { derivedForegrounds } from '@/domain/models/app/design/foreground-ink-service'
+import { derivedPrimaryInteraction } from '@/domain/models/app/design/primary-interaction-service'
 import { TYPE_SCALE_STEPS, type TypeScaleSteps } from '@/domain/models/app/design/type-scale'
 import { withoutNoneShadows } from './shadow-token-values'
 import type { DesignBreakpoints } from '@/domain/models/app/design/breakpoints'
@@ -18,25 +21,6 @@ import type { FontsConfig } from '@/domain/models/app/design/fonts'
 import type { DesignMotion } from '@/domain/models/app/design/motion'
 import type { DesignRadius } from '@/domain/models/app/design/radius'
 import type { DesignSpacing } from '@/domain/models/app/design/spacing'
-
-/**
- * Generate Tailwind @theme colors from domain color config
- * Uses hex format directly - Tailwind v4 handles color format conversion
- */
-/**
- * Color tokens that require a `-foreground` companion for text contrast.
- * When a base color is defined (e.g., `secondary`) but its foreground pair
- * (`secondary-foreground`) is not, we auto-generate it with white (#ffffff).
- */
-const COLORS_NEEDING_FOREGROUND = [
-  'primary',
-  'secondary',
-  'destructive',
-  'card',
-  'muted',
-  'accent',
-  'popover',
-] as const
 
 /**
  * The variable declarations an authored colour writes, beside its `--color-*`
@@ -51,12 +35,12 @@ const COLORS_NEEDING_FOREGROUND = [
  * `bg-primary` transparent; the block lands AFTER the default layer, so the
  * authored value wins by source order at equal specificity.
  */
-const authorVarLines = (name: string, value: string, indent: string): readonly string[] => {
+export const authorVarLines = (name: string, value: string, indent: string): readonly string[] => {
   const shadcn = DESIGN_COLOR_VARS[name]
   const sv = COLOR_TO_SV_TOKEN[name]
   return [
-    ...(shadcn === undefined ? [] : [`${indent}--${shadcn}: ${value};`]),
-    ...(sv === undefined ? [] : [`${indent}--sv-${sv}: ${value};`]),
+    ...(shadcn === undefined ? [] : [`${indent}--${shadcn}: ${escapeCssValue(value)};`]),
+    ...(sv === undefined ? [] : [`${indent}--sv-${sv}: ${escapeCssValue(value)};`]),
   ]
 }
 
@@ -66,29 +50,29 @@ const authorVarLines = (name: string, value: string, indent: string): readonly s
  *
  * The `html` type prefix is load-bearing — see that function's own note.
  */
-const DEFAULT_DARK_SELECTOR = "html:is(.dark, [data-theme='dark'])"
+export const DEFAULT_DARK_SELECTOR = "html:is(.dark, [data-theme='dark'])"
 
+/**
+ * Tailwind `@theme` colours from `design.colors`, plus each undeclared
+ * `-foreground` companion — the readable ink `derivedForegrounds` picks, which
+ * {@link generateAuthorSvBridge} writes to the shadcn variable too.
+ */
 export function generateThemeColors(colors?: DesignColors): string {
   if (!colors || Object.keys(colors).length === 0) return ''
 
   const colorEntries = Object.entries(colors).map(([name, value]) => {
-    return `    --color-${name}: ${value};`
+    return `    --color-${name}: ${escapeCssValue(String(value))};`
   })
 
-  // Auto-generate foreground companions for semantic colors missing them
-  const derivedForegrounds = COLORS_NEEDING_FOREGROUND.flatMap((base) => {
-    const foregroundKey = `${base}-foreground`
-    if (colors[base] && !colors[foregroundKey]) {
-      return [`    --color-${foregroundKey}: #ffffff;`]
-    }
-    return []
-  })
+  const derivedInks = Object.entries(derivedForegrounds(colors)).map(
+    ([name, ink]) => `    --color-${name}: ${escapeCssValue(ink)};`
+  )
 
   // Also ensure 'foreground' (the base text color) exists when 'background' is defined
   const baseForeground =
     colors['background'] && !colors['foreground'] ? ['    --color-foreground: #09090b;'] : []
 
-  return [...colorEntries, ...derivedForegrounds, ...baseForeground].join('\n')
+  return [...colorEntries, ...derivedInks, ...baseForeground].join('\n')
 }
 
 /**
@@ -132,7 +116,7 @@ export function generateAuthorSvBridge(colors?: DesignColors, selector = ':root'
   // layer still supplies the darker neutral step when `border` is unset.
   const derivedBorderStrong =
     colors['border'] && !colors['border-strong']
-      ? [`    --sv-border-strong: ${colors['border']};`]
+      ? [`    --sv-border-strong: ${escapeCssValue(String(colors['border']))};`]
       : []
 
   // NOTE: `--chart-1` is deliberately NOT derived from the authored primary.
@@ -149,7 +133,22 @@ export function generateAuthorSvBridge(colors?: DesignColors, selector = ':root'
   // that var (see islands/chart/chart-config.ts). An author who wants a
   // brand hue in the series names it; what this block declines to do is guess
   // one on their behalf from `primary`.
-  const allEntries = [...svBridgeEntries, ...derivedBorderStrong]
+  // Derived companions: the hover and pressed shades of a declared `primary`
+  // (`primary-interaction-service.ts`). Without them a brand primary hovers to
+  // the platform's near-black, a colour from no palette the author chose.
+  const derivedInteraction = Object.entries(derivedPrimaryInteraction(colors)).flatMap(
+    ([name, value]) => authorVarLines(name, value, '    ')
+  )
+  // The same ink the utility channel derived, on the shadcn variable too.
+  const derivedInks = Object.entries(derivedForegrounds(colors)).flatMap(([name, ink]) =>
+    authorVarLines(name, ink, '    ')
+  )
+  const allEntries = [
+    ...svBridgeEntries,
+    ...derivedBorderStrong,
+    ...derivedInteraction,
+    ...derivedInks,
+  ]
   if (allEntries.length === 0) return ''
 
   return `${selector} {\n${allEntries.join('\n')}\n  }`
@@ -208,7 +207,7 @@ export function generateDarkColorOverrides(
   if (!darkColors || Object.keys(darkColors).length === 0) return ''
 
   const colorEntries = Object.entries(darkColors).map(
-    ([name, value]) => `    --color-${name}: ${value};`
+    ([name, value]) => `    --color-${name}: ${escapeCssValue(String(value))};`
   )
 
   const svBridgeEntries = Object.entries(darkColors).flatMap(([name, value]) =>
@@ -220,7 +219,7 @@ export function generateDarkColorOverrides(
   // platform's dark neutral step.
   const derivedBorderStrong =
     darkColors['border'] && !darkColors['border-strong']
-      ? [`    --sv-border-strong: ${darkColors['border']};`]
+      ? [`    --sv-border-strong: ${escapeCssValue(String(darkColors['border']))};`]
       : []
 
   // No chart anchor here either — see the light bridge for why slot 1 is not
@@ -296,21 +295,21 @@ export function generateThemeFonts(fonts?: FontsConfig): string {
       ? `${fontConfig.family}, ${fontConfig.fallback}`
       : fontConfig.family
 
-    const baseEntry = `    --font-${category}: ${fontStack};`
+    const baseEntry = `    --font-${category}: ${escapeCssValue(fontStack)};`
 
     // Build entries array immutably
     const styleEntry =
       fontConfig.style && fontConfig.style !== 'normal'
-        ? `    --font-${category}-style: ${fontConfig.style};`
+        ? `    --font-${category}-style: ${escapeCssValue(fontConfig.style)};`
         : undefined
 
     const transformEntry =
       fontConfig.transform && fontConfig.transform !== 'none'
-        ? `    --font-${category}-transform: ${fontConfig.transform};`
+        ? `    --font-${category}-transform: ${escapeCssValue(fontConfig.transform)};`
         : undefined
 
     const letterSpacingEntry = fontConfig.letterSpacing
-      ? `    --font-${category}-letter-spacing: ${fontConfig.letterSpacing};`
+      ? `    --font-${category}-letter-spacing: ${escapeCssValue(fontConfig.letterSpacing)};`
       : undefined
 
     return [baseEntry, styleEntry, transformEntry, letterSpacingEntry].filter(
@@ -351,7 +350,7 @@ function generateVarBlock(
 
   return Object.entries(config)
     .filter(([key, value]) => options?.filter?.(key, value) ?? true)
-    .map(([key, value]) => `    --${varName(key)}: ${value};`)
+    .map(([key, value]) => `    --${varName(key)}: ${escapeCssValue(value)};`)
     .join('\n')
 }
 
@@ -481,10 +480,12 @@ export function generateThemeTypeScale(steps?: TypeScaleSteps): string {
     if (!declared) return []
 
     const modifier = (suffix: string, value: string | number | undefined): string | undefined =>
-      value === undefined ? undefined : `    --text-${step}--${suffix}: ${value};`
+      value === undefined
+        ? undefined
+        : `    --text-${step}--${suffix}: ${escapeCssValue(String(value))};`
 
     return [
-      `    --text-${step}: ${declared.size};`,
+      `    --text-${step}: ${escapeCssValue(declared.size)};`,
       modifier('line-height', declared.lineHeight),
       modifier('font-weight', declared.weight),
       modifier('letter-spacing', declared.letterSpacing),

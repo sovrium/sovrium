@@ -61,6 +61,7 @@ import { Effect, Layer as LayerModule, ManagedRuntime } from 'effect'
 import { AgentSkills, type AgentSkillsShape } from '@/application/ports/services/agent-skills'
 import { AssetStore, type AssetStoreShape } from '@/application/ports/services/asset-store'
 import { makeMcpClientLayer } from '@/infrastructure/ai/mcp-client/mcp-client-live'
+import { makeDesignKitAssetsLive } from '@/infrastructure/assets/design-kit-assets-live'
 import { AutomationRuntimeLayer } from '@/infrastructure/automations/runtime-layer'
 import { makeAiComputeListenerLayer } from '@/infrastructure/database/ai-compute-listener'
 import { makeAiKnowledgeListenerLayer } from '@/infrastructure/database/ai-knowledge-listener'
@@ -72,7 +73,7 @@ import { ApprovalRepositoryLive } from '@/infrastructure/database/repositories/a
 import { ChatAttachmentRepositoryLive } from '@/infrastructure/database/repositories/ai/chat-attachment-repository-live'
 import { FormSubmissionRepositoryLive } from '@/infrastructure/database/repositories/forms/form-submission-repository-live'
 import { DynamicRecordRepositoryLive } from '@/infrastructure/database/repositories/tables/dynamic-record-repository-live'
-import { createAppLayer } from '@/infrastructure/layers/app-layer'
+import { createAppServicesLayer } from '@/infrastructure/layers/app-services-layer'
 import { logError } from '@/infrastructure/logging/logger'
 import type { App } from '@/domain/models/app'
 import type { Context, Layer } from 'effect'
@@ -82,8 +83,8 @@ import type { Context as HonoContext } from 'hono'
  * Everything the runtime holds: the shared application services, plus the two
  * PostgreSQL `LISTEN`/`NOTIFY` connections whose lifetime is the server's.
  *
- * The listeners are here rather than in `createAppLayer` for one reason —
- * `createAppLayer` takes only `app.auth`, while they need the tables, the agent
+ * The listeners are here rather than in `createAppServicesLayer` for one reason —
+ * `createAppServicesLayer` takes only `app.auth`, while they need the tables, the agent
  * knowledge bindings and the app name. Widening that signature would have
  * reached every one of its callers (`src/index.ts`, the static build, the
  * better-auth laziness probe) for a resource none of them owns. Composing here
@@ -107,7 +108,7 @@ import type { Context as HonoContext } from 'hono'
  * comment-trigger dispatcher — which is what let the last route-folder runners
  * retire.
  *
- * It is a partial superset of `createAppLayer`: `AuthRepository`,
+ * It is a partial superset of `createAppServicesLayer`: `AuthRepository`,
  * `AnalyticsRepository`, the two connection repositories, the automation pause
  * and run repositories, `AiService`, `StorageService` and
  * `ImageTransformService` appear in both. Naming a layer twice builds it once —
@@ -118,14 +119,15 @@ import type { Context as HonoContext } from 'hono'
 const domainLayerFor = (
   app: App | undefined,
   assets: AssetStoreShape | undefined,
-  skills: AgentSkillsShape | undefined
+  skills: AgentSkillsShape | undefined,
+  publicDir: string | undefined
 ) =>
   LayerModule.mergeAll(
     // The private assets this server's boot loaded (an empty store when none).
     LayerModule.succeed(AssetStore, assets ?? AssetStore.defaultValue()),
     // The agent skills this server's boot indexed (none when no agent lists one).
     LayerModule.succeed(AgentSkills, skills ?? AgentSkills.defaultValue()),
-    createAppLayer(app?.auth),
+    createAppServicesLayer(app?.auth),
     AutomationRuntimeLayer,
     // The form-submission extras that are NOT in the automation runtime:
     // the submission ledger, and the analytics/table/data-source services a
@@ -134,7 +136,7 @@ const domainLayerFor = (
     // are left to it.
     FormSubmissionRepositoryLive,
     // The AI route folder's repositories. `AiService` itself already arrives
-    // through `createAppLayer`.
+    // through `createAppServicesLayer`.
     AiMemoryRepositoryLive,
     AiFactsRepositoryLive,
     ChatAttachmentRepositoryLive,
@@ -151,7 +153,11 @@ const domainLayerFor = (
     // one session each, opened in the background at boot and closed with this
     // runtime. Needs the app for one boot refusal — an agent naming a server
     // the environment does not declare.
-    makeMcpClientLayer(app)
+    makeMcpClientLayer(app),
+    // The design-system bundle's files, able to read this server's public
+    // directory (the app's logo). LAST, so it replaces the directory-less
+    // adapter `createAppServicesLayer` names: a later layer's service wins.
+    makeDesignKitAssetsLive(publicDir)
   )
 
 /** The domain layer a server runtime provides, as one type. */
@@ -161,7 +167,7 @@ type DomainLayer = ReturnType<typeof domainLayerFor>
  * Every service the server runtime carries.
  *
  * Derived from {@link domainLayerFor} rather than enumerated, so a layer added
- * to `createAppLayer` is available to routes without a second list drifting
+ * to `createAppServicesLayer` is available to routes without a second list drifting
  * behind it.
  */
 export type DomainServices = Layer.Success<DomainLayer>
@@ -196,8 +202,9 @@ export type DomainContext = Context.Context<DomainServices>
 export const createDomainRuntime = (
   app?: App,
   assets?: AssetStoreShape,
-  skills?: AgentSkillsShape
-): DomainRuntime => ManagedRuntime.make(domainLayerFor(app, assets, skills))
+  skills?: AgentSkillsShape,
+  publicDir?: string
+): DomainRuntime => ManagedRuntime.make(domainLayerFor(app, assets, skills, publicDir))
 
 /**
  * Release a domain runtime's layer scope, absorbing — but never hiding — a

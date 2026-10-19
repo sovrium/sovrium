@@ -13,7 +13,6 @@ import {
   resolveTranslationTokensDeep,
 } from '@/domain/models/app/languages/translation-resolver'
 import { liftActionConfirms } from '@/presentation/render/props/action-confirm-lift'
-import { callerTableOf, updatableFieldsOf } from '@/presentation/render/props/caller-table-inputs'
 import { recordTextFieldsOf } from '@/presentation/render/props/record-value-format'
 import {
   applyDrawerFieldAccess,
@@ -21,6 +20,7 @@ import {
   readDrawerHostFacts,
   type DrawerFieldAccess,
 } from '@/presentation/render/props/resolve-record-drawer-access'
+import { withDropZoneWords } from '@/presentation/render/props/resolve-record-drawer-drop-zone'
 import {
   resolveRecordDrawerFieldProp,
   type DrawerFieldLocale,
@@ -36,8 +36,9 @@ import {
 } from '@/presentation/render/props/resolve-record-drawer-related'
 import { RELATED_CALLER_TABLES_KEY } from '@/presentation/render/resolve/caller-table-stamp'
 import { RECORD_TITLE_KEY } from '@/presentation/render/resolve/drawer-record-title-resolver'
+import { drawerCanEdit } from './record-drawer-edit-right'
+import { withSystemDateTime } from './record-drawer-system-instants'
 import type { ComponentRenderer } from './component-dispatch-config'
-import type { CallerTableView } from '@/application/ports/services/page-renderer'
 import type { Languages } from '@/domain/models/app/languages'
 import type { ReactElement } from 'react'
 
@@ -104,6 +105,7 @@ function drawerControlLabels(
     createFailedLabel: resolve('recordDrawer.relatedCreateFailed'),
     saveFailedLabel: resolve('form.operationFailed'),
     notFoundLabel: resolve('recordDrawer.notFound'),
+    readFailedLabel: resolve('recordDrawer.readFailed'),
     // The words the island draws on its own: a footer question's Cancel, the
     // navigation, the refusal banner's name and a refused footer write's toast.
     builtInLabels: {
@@ -112,6 +114,8 @@ function drawerControlLabels(
       next: resolve('recordDrawer.next'),
       fullPage: resolve('recordDrawer.openFullPage'),
       navigation: resolve('recordDrawer.navigation'),
+      position: resolve('recordDrawer.position'),
+      saveRefused: resolve('recordDrawer.saveRefused'),
       validationError: resolve('recordDrawer.validationError'),
       writeRefusal: {
         'rateLimit.retryIn': resolve('rateLimit.retryIn'),
@@ -127,34 +131,6 @@ const badgeFormOf = (
 ) => (design?.badgeForm === undefined ? {} : { badgeForm: design.badgeForm })
 
 /**
- * Whether the drawer edits: not over a system source (read-only), not turned
- * off by its author, and — Save following the fields the reader may write —
- * only when at least one entry is one she may send.
- */
-const drawerCanEdit = (comp: Readonly<Record<string, unknown>>, entries: unknown): boolean => {
-  const dataSource = comp['dataSource'] as { readonly system?: unknown } | undefined
-  if (dataSource?.system !== undefined || comp['canEdit'] === false) return false
-  return writesAny(entries, callerTableOf(comp as Parameters<typeof callerTableOf>[0]))
-}
-
-/**
- * `true` when at least one drawer entry is an input its reader may send: not
- * read-only, and — when the drawer was stamped with its reader's table
- * (`props._callerTable`) — on a field she may update (`updatableFieldsOf`).
- */
-const writesAny = (entries: unknown, callerTable: CallerTableView | undefined): boolean => {
-  if (!Array.isArray(entries)) return true
-  const updatable = callerTable === undefined ? undefined : new Set(updatableFieldsOf(callerTable))
-  return entries.some((entry) => {
-    const { readOnly, name } = (entry ?? {}) as {
-      readonly readOnly?: unknown
-      readonly name?: unknown
-    }
-    return readOnly !== true && (updatable === undefined || updatable.has(String(name)))
-  })
-}
-
-/**
  * The drawer's field entries with every `$t:` label / description in the page
  * language, as the reader may see them (`access`: a field they may not read is
  * left out, one they may not write is read-only).
@@ -163,7 +139,10 @@ function localizedRecordFields(
   declared: unknown,
   component: Parameters<typeof resolveRecordDrawerFieldProp>[1],
   tables: Parameters<typeof resolveRecordDrawerFieldProp>[2],
-  locale: DrawerFieldLocale & { readonly access: DrawerFieldAccess | undefined }
+  locale: DrawerFieldLocale & {
+    readonly access: DrawerFieldAccess | undefined
+    readonly system: boolean
+  }
 ): unknown {
   const { access } = locale
   const entries = applyDrawerFieldAccess(
@@ -175,7 +154,9 @@ function localizedRecordFields(
     access
   )
   return Array.isArray(entries)
-    ? entries.map((entry) => withRequiredWords(withClearWords(entry, locale), locale))
+    ? entries.map((entry) =>
+        withSystemDateTime(withRequiredWords(withClearWords(entry, locale), locale), locale.system)
+      )
     : entries
 }
 
@@ -212,8 +193,10 @@ function withClearWords(entry: unknown, locale: DrawerFieldLocale): unknown {
   const clearLabel = resolve('form.clear')
   const shown = typeof label === 'string' ? label : String(name)
   const clearName = fillPlaceholders(resolve('recordDrawer.clearRelation'), { label: shown })
+  const showName = fillPlaceholders(resolve('recordDrawer.showOptions'), { label: shown })
   return {
     ...entry,
+    ...(showName === `Show ${shown} options` ? {} : { showOptionsName: showName }),
     ...(clearLabel === 'Clear' ? {} : { clearLabel }),
     ...(clearName === `Clear ${shown}` ? {} : { clearName }),
   }
@@ -231,6 +214,22 @@ function relatedCallerOf(
     openApp: mode === 'open',
     callerTables: rawProps?.[RELATED_CALLER_TABLES_KEY] as RelatedCaller['callerTables'],
   }
+}
+
+/**
+ * The drawer's related sections for its caller, their create form's options
+ * labelled in the page language.
+ */
+function relatedSectionsOf(
+  comp: Readonly<Record<string, unknown>>,
+  args: Pick<
+    Parameters<ComponentRenderer>[0],
+    'tables' | 'rawProps' | 'session' | 'languages' | 'currentLang'
+  >
+) {
+  const caller = relatedCallerOf(args.rawProps, args.session)
+  const locale = { languages: args.languages, currentLang: args.currentLang }
+  return resolveRelatedSections(comp['related'], args.tables, caller, locale)
 }
 
 /**
@@ -313,6 +312,7 @@ export const renderRecordBoundDrawer: ComponentRenderer = ({
   currentLang,
   session,
   design,
+  buckets,
 }) => {
   const comp = (component ?? {}) as Record<string, unknown>
   const role = comp['role'] === 'region' ? 'region' : 'dialog'
@@ -322,12 +322,13 @@ export const renderRecordBoundDrawer: ComponentRenderer = ({
   const dataSource = comp['dataSource'] as
     { readonly table?: string; readonly system?: unknown } | undefined
   const { title, titleFromRecord } = drawerTitle(rawProps, dataSource, currentLang, languages)
-  const recordFields = localizedRecordFields(comp['recordFields'], component, tables, {
-    languages,
-    currentLang,
-    ...badgeFormOf(design),
-    access: readDrawerFieldAccess(rawProps),
-  })
+  const recordFields = withDropZoneWords(
+    localizedRecordFields(comp['recordFields'], component, tables, {
+      ...{ languages, currentLang, ...badgeFormOf(design) },
+      ...{ access: readDrawerFieldAccess(rawProps), system: dataSource?.system !== undefined },
+    }),
+    { buckets, currentLang, languages }
+  )
   const props = {
     id: comp['id'] as string | undefined,
     title,
@@ -356,14 +357,14 @@ export const renderRecordBoundDrawer: ComponentRenderer = ({
     // CAP-8: the related sections, resolved against the related tables' field
     // schema and the caller's permissions here, where the session is known. A
     // section the caller may not read is absent, not emptied.
-    related: resolveRelatedSections(comp['related'], tables, relatedCallerOf(rawProps, session)),
+    related: relatedSectionsOf(comp, { tables, rawProps, session, languages, currentLang }),
     deepLink: deepLinkProp(rawProps),
     // Previous / Next through the opening list, and the record's own page.
     navigation: comp['navigation'],
     // The author's class reaches the surface the reader sees — the host is a
     // hidden marker, and the surface is portaled out of it.
     className: authorClassName(rawProps),
-    canEdit: drawerCanEdit(comp, recordFields),
+    canEdit: drawerCanEdit(comp, recordFields, tables),
     // Interpreter-provided control labels, resolved server-side so author
     // `languages.translations` overrides apply (the island cannot see them).
     ...drawerControlLabels(currentLang, languages),

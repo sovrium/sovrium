@@ -14,4 +14,5 @@ export { readManyToMany, readManyToManyHolders } from './mutation-helpers/many-t
 // Relationship display labels — resolve a stored key to the column the field
 // declared as its `displayField`, leaving the key itself in place.
 export { readRelatedLabels } from './query-helpers/related-label-helpers'
+export { readOneToMany } from './query-helpers/one-to-many-helpers'
 export { isFileNamedByAnyRecord } from './query-helpers/file-reference-helpers'

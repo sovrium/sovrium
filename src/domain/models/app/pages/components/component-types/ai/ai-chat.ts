@@ -141,6 +141,13 @@ export const aiChatFields = {
   ),
   attachments: Schema.optional(AiChatAttachmentsSchema),
   voiceInput: Schema.optional(AiChatVoiceInputSchema),
+  showUsage: Schema.optional(
+    Schema.Boolean.annotate({
+      defaultNote: 'false',
+      description:
+        'Ends each answer with the number of tokens its turn used, as reported by the AI provider; hovering it splits the count into input and output tokens. Nothing is shown for an answer whose provider reports no usage.',
+    })
+  ),
   /**
    * The URL query parameter a link may carry the opening words in.
    *

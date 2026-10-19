@@ -12,6 +12,7 @@ import mediaComponentsBody from '@/domain/models/app/pages/components/component-
 import reusableComponentsBody from '@/domain/models/app/pages/components/component-types/custom/custom.docs.md' with { type: 'file' }
 import layoutComponentsBody from '@/domain/models/app/pages/components/component-types/layout/layout-components.docs.md' with { type: 'file' }
 import sidebarClientNavigationBody from '@/domain/models/app/pages/components/component-types/layout/sidebar-client-navigation.docs.md' with { type: 'file' }
+import sidebarFetchedEntriesBody from '@/domain/models/app/pages/components/component-types/layout/sidebar-fetched-entries.docs.md' with { type: 'file' }
 import sidebarNavigationBody from '@/domain/models/app/pages/components/component-types/layout/sidebar-navigation.docs.md' with { type: 'file' }
 import componentModulesBody from '@/domain/models/app/pages/components/component-types/modules/modules.docs.md' with { type: 'file' }
 import structuralComponentsBody from '@/domain/models/app/pages/components/component-types/structural/structural.docs.md' with { type: 'file' }
@@ -146,12 +147,24 @@ export const section = defineSection({
       ],
     }),
     defineArticle({
+      slug: 'sidebar-fetched-entries',
+      title: 'Fetched Sidebar Entries',
+      description:
+        'How entries a sidebar group fetches mark the current page — activeMatch, and the longest matching href wins — and how childrenSource gives each a second fetched list.',
+      keywords: ['sovrium', 'sidebar', 'navigation', 'fetched entries', 'activeMatch', 'nested'],
+      order: 3213,
+      sidebarLabel: 'Fetched Sidebar Entries',
+      body: sidebarFetchedEntriesBody,
+      documents: [],
+      stories: [],
+    }),
+    defineArticle({
       slug: 'sidebar-client-navigation',
       title: 'Client-side Navigation',
       description:
         'Moving between pages without a reload — clientSideNavigation swaps the content region on a sidebar link click and keeps loaded data on screen, and trackNavigation keeps the current-entry mark true after a swap.',
       keywords: ['sovrium', 'sidebar', 'navigation', 'client-side navigation', 'spa', 'no reload'],
-      order: 3213,
+      order: 3214,
       sidebarLabel: 'Client-side Navigation',
       body: sidebarClientNavigationBody,
       documents: [],
@@ -163,7 +176,7 @@ export const section = defineSection({
       description:
         'The two structural components that carry no content — divider draws a rule, optionally labelled, and spacer reserves vertical whitespace.',
       keywords: ['sovrium', 'divider', 'spacer', 'separator', 'horizontal rule', 'whitespace'],
-      order: 3214,
+      order: 3216,
       sidebarLabel: 'Dividers & Spacers',
       body: structuralComponentsBody,
       documents: [],

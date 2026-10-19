@@ -97,6 +97,7 @@ import frConsole from './fr-console'
 import frData from './fr-data'
 import frDesignSystem from './fr-design-system'
 import frDevelopers from './fr-developers'
+import frEngineVoice from './fr-engine-voice'
 import frSurfaces from './fr-surfaces'
 
 export default {
@@ -107,4 +108,5 @@ export default {
   ...frCommon,
   ...frSurfaces,
   ...frDesignSystem,
+  ...frEngineVoice,
 } as const

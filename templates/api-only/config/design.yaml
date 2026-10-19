@@ -91,11 +91,6 @@ typeScale:
     caption: { size: 0.75rem, lineHeight: 1.4, font: mono }
     overline: { size: 0.6875rem, lineHeight: 1.3, weight: 500, letterSpacing: 0.04em, font: mono }
 
-# One Shiki theme for every block of code, in both schemes: the commands and
-# the calls are the product here, and they read the same by day and by night.
-codeBlock:
-  theme: github-dark
-
 # Standard corners.
 radius:
   sm: 0.25rem

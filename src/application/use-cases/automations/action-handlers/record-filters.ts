@@ -15,6 +15,7 @@ import {
   toQueryFilter,
   type DeclaredFilterFields,
 } from './record-filter-shape'
+import { writeFailureOutcome } from './record-write-failure'
 import type { ActionOutcome } from './shared'
 import type {
   QueryFilter,
@@ -230,15 +231,20 @@ export const resolveIdsByFilter = (
       tableName,
       filter: queryFilter,
     })
-    return records.flatMap((row) => {
-      const { id } = row as Record<string, unknown>
-      // Records can carry a numeric id (DB serial) or a string id (UUID).
-      // `updateRecordProgram` accepts either via `String(id)`.
-      if (typeof id === 'string' && id !== '') return [id]
-      if (typeof id === 'number' && Number.isFinite(id)) return [String(id)]
-      return []
-    })
+    return rowIdsOf(records)
   }).pipe(Effect.withSpan('automations.resolve-ids-by-filter'))
+
+/**
+ * The ids of `rows`. A row can carry a numeric id (DB serial) or a string id
+ * (UUID); `updateRecordProgram` accepts either via `String(id)`.
+ */
+export const rowIdsOf = (rows: readonly Readonly<Record<string, unknown>>[]): readonly string[] =>
+  rows.flatMap((row) => {
+    const { id } = row
+    if (typeof id === 'string' && id !== '') return [id]
+    if (typeof id === 'number' && Number.isFinite(id)) return [String(id)]
+    return []
+  })
 
 /**
  * {@link resolveIdsByFilter} under the LENIENT policy every record action
@@ -342,8 +348,15 @@ export const resolveActionTargetIds = (input: {
 export const errorMessageOf = (value: unknown): string =>
   value instanceof Error ? value.message : String(value)
 
-/** A failure outcome carrying an unknown throwable's message. */
-export const failureFromError = (err: unknown): ActionOutcome => ({
-  status: 'failure',
-  error: errorMessageOf(err),
-})
+/**
+ * A failure outcome carrying an unknown throwable's message. Given the values
+ * a refused write submitted, it also carries the structured refusal the agent
+ * path reads, as a refused create does (`record-write-failure.ts`).
+ */
+export const failureFromError = (
+  err: unknown,
+  fields?: Readonly<Record<string, unknown>>
+): ActionOutcome =>
+  fields === undefined
+    ? { status: 'failure', error: errorMessageOf(err) }
+    : writeFailureOutcome(err, fields, errorMessageOf(err))

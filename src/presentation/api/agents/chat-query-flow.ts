@@ -29,9 +29,11 @@
  */
 
 import { parseQueryIntent } from '@/domain/models/app/agents/ai-chat-query-parser'
+import { fieldReadOnEveryAdmittedRow } from '@/domain/models/app/tables/row-read-admission-service'
 import { runQuery, type QueryTableWithPerms } from './chat-query'
+import { chatReadableColumns, type ChatReader } from './chat-read-scope'
+import { chatReaderRows, isSignedOut } from './chat-reader-rows'
 import { projectAppTables } from './chat-table-projection'
-import type { ChatReader } from './chat-read-scope'
 import type { ChatAction } from '@/domain/models/api/ai/chat'
 import type { App } from '@/domain/models/app'
 import type { ContextPageScope } from '@/domain/models/app/agents/ai-chat-context'
@@ -83,11 +85,40 @@ const toQueryTables = (
   })
 
 /**
+ * The fields of `table` a chat query may name for `reader` — filter on, sort
+ * by, total or average: those she may read (`chatReadableColumns`), and those
+ * a grant shows her on every row the records list admits her
+ * (`fieldReadOnEveryAdmittedRow`). A field she may not read narrows, orders
+ * and sums nothing.
+ */
+const queryableFieldsOf = async (
+  input: QueryTurnInput,
+  table: QueryTableWithPerms
+): Promise<QueryTableWithPerms> => {
+  const { app, reader } = input
+  const readable = new Set(chatReadableColumns(app, table, reader).readableColumns)
+  const rows =
+    reader.answering === undefined
+      ? await chatReaderRows(input.services, app, table.name, reader)
+      : undefined
+  const related = { role: reader.role, groups: reader.groups, signedOut: isSignedOut(reader) }
+  const granted = (field: string): boolean =>
+    app !== undefined &&
+    rows !== undefined &&
+    fieldReadOnEveryAdmittedRow({ app, tableName: table.name, reader: related }, rows, field)
+  return {
+    ...table,
+    fields: table.fields.filter((field) => readable.has(field.name) || granted(field.name)),
+  }
+}
+
+/**
  * Evaluate a chat turn for a read query.
  *
  * Resolution order:
  *  1. Parse the message for a query intent (using the session's prior table as
- *     a fallback for follow-up questions).
+ *     a fallback for follow-up questions), over the fields of its table the
+ *     reader may name ({@link queryableFieldsOf}).
  *  2. No query intent → `kind: 'none'` (plain / mutation turn).
  *  3. Run the query — a `forbidden` outcome maps to HTTP 403, an `answered`
  *     outcome carries the reply text and `type: 'query'` action.
@@ -101,7 +132,15 @@ export const evaluateQueryTurn = async (input: QueryTurnInput): Promise<QueryTur
   // sole table, so "Show all records" on a single-table page resolves
   const fallback =
     lastQueriedTable.get(input.sessionId) ?? (tables.length === 1 ? tables[0]?.name : undefined)
-  const intent = parseQueryIntent(input.message, tables, fallback)
+  const named = parseQueryIntent(input.message, tables, fallback)
+  if (named === undefined) return { kind: 'none' }
+  // The table is named by its name alone; the query is then read off the
+  // fields its reader may name in it, so a field she may not read filters,
+  // orders and sums nothing.
+  const queryable = await Promise.all(
+    tables.map((table) => (table.name === named.table ? queryableFieldsOf(input, table) : table))
+  )
+  const intent = parseQueryIntent(input.message, queryable, fallback)
   if (intent === undefined) return { kind: 'none' }
 
   const outcome = await runQuery({
@@ -109,7 +148,7 @@ export const evaluateQueryTurn = async (input: QueryTurnInput): Promise<QueryTur
     intent,
     app: input.app,
     reader: input.reader,
-    tables,
+    tables: queryable,
   })
   if (outcome.status === 'forbidden') {
     return { kind: 'forbidden', message: outcome.message }

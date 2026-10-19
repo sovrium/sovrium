@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { subscribe } from './event-bus'
+
 /**
  * One request for every identical credentialed GET in flight at the same time.
  *
@@ -17,10 +19,15 @@
  * grid on the same page load.
  *
  * Only a request ALREADY IN FLIGHT is shared: the entry is dropped the moment
- * it settles, so a later read — a poll, a refetch after a write, a page turn —
- * always asks the server again. Nothing here can serve a stale answer. Each
- * caller receives its own `Response`, rebuilt from the one body, so each can
- * read it once as a `fetch` response would allow.
+ * it settles, so a later read — a poll, a page turn — asks the server again.
+ * A re-read after a WRITE must not join a request either: one still in flight
+ * when the write lands was answered from the rows before it, and joining it
+ * hands the re-read that old answer — the uploaded file missing from the grid
+ * that was told to show it. So a sibling's `sovrium:refetch` (fired after its
+ * write succeeded) forgets every read in flight, and so does a grid's own
+ * refresh ({@link forgetReadsInFlight}). Each caller receives its own `Response`,
+ * rebuilt from the one body, so each can read it once as a `fetch` response
+ * would allow.
  */
 
 /** The parts of a response a caller can read, captured once for every caller. */
@@ -54,16 +61,48 @@ const toResponse = (captured: CapturedResponse): Response =>
   })
 
 /**
+ * The address a read is shared under: its path and its query parameters in
+ * sorted order, so two components asking for the same query with their
+ * parameters written in a different order share one request.
+ */
+export const coalescingKey = (url: string): string => {
+  const at = url.indexOf('?')
+  if (at < 0) return url
+  const sorted = [...new URLSearchParams(url.slice(at + 1))].toSorted(([a], [b]) =>
+    a < b ? -1 : a > b ? 1 : 0
+  )
+  return `${url.slice(0, at)}?${new URLSearchParams(sorted).toString()}`
+}
+
+/**
  * `fetch(url, { credentials: 'include' })`, sharing the request with any
- * identical one already in flight. A network failure rejects every caller
- * that shared the request, as it would have rejected each of their own.
+ * identical one already in flight — identical up to the order of its query
+ * parameters; the first caller's address is the one fetched. A network failure
+ * rejects every caller that shared the request, as it would have rejected each
+ * of their own.
  */
 export function fetchCoalesced(url: string): Promise<Response> {
-  const pending =
-    inFlight.get(url) ??
-    capture(url).finally(() => {
-      inFlight.delete(url)
-    })
-  inFlight.set(url, pending)
+  const key = coalescingKey(url)
+  const shared = inFlight.get(key)
+  if (shared !== undefined) return shared.then(toResponse)
+  const pending: Promise<CapturedResponse> = capture(url).finally(() => {
+    // Only this request's own entry: a re-read started after it was forgotten
+    // may hold the key by now, and it is still in flight.
+    if (inFlight.get(key) === pending) inFlight.delete(key)
+  })
+  inFlight.set(key, pending)
   return pending.then(toResponse)
 }
+
+/**
+ * Stop sharing every request now in flight: each caller already waiting keeps
+ * its answer, and the next read of any address asks the server again. Called
+ * before a re-read that a write asked for, whose answer must postdate it.
+ */
+export function forgetReadsInFlight(): void {
+  inFlight.clear()
+}
+
+// Registered when the first reader loads, so it runs before any component's own
+// `sovrium:refetch` listener and the re-read that listener starts asks afresh.
+subscribe('sovrium:refetch', forgetReadsInFlight)

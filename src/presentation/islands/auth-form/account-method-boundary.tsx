@@ -13,10 +13,22 @@
  * arrive the form is drawn as the server drew it — its fields and a disabled
  * button — so nothing moves and nothing can be sent half-wired. Whatever the
  * reader types meanwhile is carried into the loaded form, as the island mounter
- * carries what was typed into the server's skeleton (`initialValues`).
+ * carries what was typed into the server's skeleton (`initialValues`), and the
+ * keyboard stays on the field she was typing in (`useCarriedFocus`).
  */
 
-import { useMemo, useState, type FormEvent, type ReactElement } from 'react'
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type FormEvent,
+  type ReactElement,
+  type RefObject,
+  type SetStateAction,
+} from 'react'
 import { authPendingLabel, authSubmitLabel } from '@/presentation/design/auth-form-types'
 import { computeSubmitButtonClasses } from '@/presentation/design/button-default-classes'
 import { computeFormLayoutClasses } from '@/presentation/design/form-layout-classes'
@@ -41,6 +53,72 @@ export type AccountMethodBoundaryProps = Omit<
   Partial<Pick<AccountMethodFormProps, 'fields' | 'submitLabel' | 'pendingLabel'>>
 
 const NO_FIELDS: AccountMethodFormProps['fields'] = []
+
+/** Note what the reader types into the server-drawn form, by field name. */
+const keepTyped =
+  (setTyped: Dispatch<SetStateAction<Readonly<Record<string, string>>>>) =>
+  (event: FormEvent<HTMLFormElement>): void => {
+    const { target } = event
+    if (target instanceof HTMLInputElement)
+      setTyped((previous) => ({ ...previous, [target.name]: target.value }))
+  }
+
+/** The field that had the keyboard when the loaded form replaced the server-drawn one. */
+interface HeldFocus {
+  readonly host: HTMLElement
+  readonly name: string
+  readonly start: number | null
+  readonly end: number | null
+}
+
+/**
+ * Keep the keyboard on the field the reader is typing in when the loaded form
+ * replaces the server-drawn one.
+ *
+ * The swap removes the field under her caret, and the browser drops the focus
+ * on `<body>`: whatever she types next goes nowhere, and the form is sent
+ * without it. The skeleton's ref cleanup runs inside the commit, BEFORE its
+ * node leaves the document, so it can still see which field is focused; the
+ * layout effect then hands the keyboard to the loaded twin of that field,
+ * caret and selection included, in that same commit — no keystroke can land
+ * in between. A reader who has moved on to something else is not pulled back.
+ */
+function useCarriedFocus(loaded: boolean): (form: HTMLFormElement | null) => (() => void) | void {
+  const held: RefObject<HeldFocus | undefined> = useRef(undefined)
+  useLayoutEffect(() => {
+    const focus = held.current
+    if (!loaded || focus === undefined) return
+    held.current = undefined
+    const current = document.activeElement
+    if (current !== null && current !== document.body) return
+    const control = focus.host.querySelector<HTMLInputElement>(
+      `input[name="${CSS.escape(focus.name)}"]`
+    )
+    if (control === null) return
+    control.focus()
+    if (focus.start === null || focus.end === null) return
+    try {
+      control.setSelectionRange(focus.start, focus.end)
+    } catch {
+      // A field type without a text selection: the focus alone is right.
+    }
+  }, [loaded])
+  return useCallback((form: HTMLFormElement | null) => {
+    if (form === null) return
+    return () => {
+      const active = document.activeElement
+      const host = form.parentElement
+      if (!(active instanceof HTMLInputElement) || active.name === '') return
+      if (!form.contains(active) || host === null) return
+      held.current = {
+        host,
+        name: active.name,
+        start: active.selectionStart,
+        end: active.selectionEnd,
+      }
+    }
+  }, [])
+}
 
 /**
  * `linkAccount` / `unlinkAccount` once loaded; nothing drawn until then — and
@@ -71,6 +149,7 @@ export function AccountLinkBoundary(input: AccountMethodBoundaryProps): ReactEle
  */
 export function AccountMethodBoundary(input: AccountMethodBoundaryProps): ReactElement {
   const Form = useDeferredComponent(loadAccountMethodForm)
+  const holdFocus = useCarriedFocus(Form !== undefined)
   const [typed, setTyped] = useState<Readonly<Record<string, string>>>({})
   const props: AccountMethodFormProps = {
     ...input,
@@ -96,18 +175,13 @@ export function AccountMethodBoundary(input: AccountMethodBoundaryProps): ReactE
         initialValues={initialValues}
       />
     )
-  const keep = (event: FormEvent<HTMLFormElement>): void => {
-    const { target } = event
-    if (!(target instanceof HTMLInputElement)) return
-    const { name, value } = target
-    setTyped((previous) => ({ ...previous, [name]: value }))
-  }
   return (
     <form
+      ref={holdFocus}
       className={computeFormLayoutClasses()}
       id={props.id}
       aria-busy="true"
-      onChange={keep}
+      onChange={keepTyped(setTyped)}
     >
       {props.fields.map((field) => (
         <AuthFieldRow

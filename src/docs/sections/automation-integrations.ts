@@ -9,6 +9,8 @@ import {
   AiActionSchema,
   AnalyticsTrackActionSchema,
   AuthActionSchema,
+  CalendarActionSchema,
+  CommentActionSchema,
   EmailSendActionSchema,
   FileActionSchema,
   HttpActionSchema,
@@ -18,6 +20,8 @@ import {
 } from '@/domain/models/app/automations/actions'
 import automationAiActionsBody from '@/domain/models/app/automations/actions/ai-actions.docs.md' with { type: 'file' }
 import automationAuthActionsBody from '@/domain/models/app/automations/actions/auth-actions.docs.md' with { type: 'file' }
+import automationCalendarActionsBody from '@/domain/models/app/automations/actions/calendar-actions.docs.md' with { type: 'file' }
+import automationCommentActionsBody from '@/domain/models/app/automations/actions/comment-actions.docs.md' with { type: 'file' }
 import { DocumentActionSchema } from '@/domain/models/app/automations/actions/document'
 import automationDocumentActionsBody from '@/domain/models/app/automations/actions/document-actions.docs.md' with { type: 'file' }
 import automationEmailActionsBody from '@/domain/models/app/automations/actions/email-analytics-actions.docs.md' with { type: 'file' }
@@ -105,10 +109,31 @@ export const automationIntegrations = defineSection({
       ],
     }),
     defineArticle({
+      slug: 'automation-calendar-actions',
+      title: 'Calendar Actions',
+      description:
+        'Import the events of an iCalendar feed into a table, matched on each event UID and kept current on a schedule.',
+      keywords: [
+        'sovrium',
+        'automation calendar action',
+        'importIcs',
+        'ics',
+        'icalendar',
+        'webcal',
+        'booking page',
+        'calendar sync',
+      ],
+      order: 5411,
+      sidebarLabel: 'Calendar Actions',
+      body: automationCalendarActionsBody,
+      documents: [CalendarActionSchema],
+      stories: ['US-AUTOMATIONS-ACTIONS-CALENDAR-IMPORT-ICS'],
+    }),
+    defineArticle({
       slug: 'automation-file-actions',
       title: 'File Actions',
       description:
-        'Fourteen operators over storage — moving files, reading their metadata, writing CSV, and the closed spreadsheet subset.',
+        'Fifteen operators over storage — moving files, reading their metadata, writing CSV, and the closed spreadsheet subset.',
       keywords: [
         'sovrium',
         'automation file action',
@@ -118,6 +143,7 @@ export const automationIntegrations = defineSection({
         'generateCsv',
         'parseXlsx',
         'transformImage',
+        'extractAudio',
         'compress',
       ],
       order: 5412,
@@ -129,6 +155,7 @@ export const automationIntegrations = defineSection({
         'US-AUTOMATIONS-ACTIONS-FILE-COPY',
         'US-AUTOMATIONS-ACTIONS-FILE-DELETE',
         'US-AUTOMATIONS-ACTIONS-FILE-DOWNLOAD',
+        'US-AUTOMATIONS-ACTIONS-FILE-EXTRACTAUDIO',
         'US-AUTOMATIONS-ACTIONS-FILE-EXTRACTTEXT',
         'US-AUTOMATIONS-ACTIONS-FILE-GENERATE-CSV',
         'US-AUTOMATIONS-ACTIONS-FILE-GETMETADATA',
@@ -323,6 +350,27 @@ export const automationIntegrations = defineSection({
       body: automationLinkActionsBody,
       documents: [LinkActionSchema],
       stories: ['US-LINKS-AUTOMATION-LINK-ACTION'],
+    }),
+    defineArticle({
+      slug: 'automation-comment-actions',
+      title: 'Comment Actions',
+      description:
+        "Post, read and delete the comments of a record's thread from a workflow — as the app or as the triggering user, through the comments API's own rules.",
+      keywords: [
+        'sovrium',
+        'automation comment action',
+        'comment/create',
+        'comment/list',
+        'comment/delete',
+        'record comments',
+        'runAs',
+        'two-way sync',
+      ],
+      order: 5455,
+      sidebarLabel: 'Comment Actions',
+      body: automationCommentActionsBody,
+      documents: [CommentActionSchema],
+      stories: ['US-AUTOMATIONS-ACTIONS-COMMENT'],
     }),
   ],
 })

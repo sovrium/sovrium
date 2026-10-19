@@ -10,7 +10,10 @@ import {
   computeTableEditorLabelClasses,
   computeTablePanelControlClasses,
 } from '@/presentation/design/table-default-classes'
+import { fieldLabel } from './field-reading'
+import { useImportWord } from './import-words'
 import type { DuplicateStrategy } from './types'
+import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 
 interface DuplicateStepProps {
   readonly duplicateStrategy: DuplicateStrategy
@@ -18,6 +21,7 @@ interface DuplicateStepProps {
   readonly uniqueField: string | undefined
   readonly setUniqueField: (field: string | undefined) => void
   readonly tableFields?: readonly string[]
+  readonly fieldMeta?: FieldMetaMap
 }
 
 function StrategyRadio({
@@ -45,61 +49,83 @@ function StrategyRadio({
   )
 }
 
+/** The field two rows must share to count as duplicates. */
+function UniqueFieldSelect({
+  uniqueField,
+  setUniqueField,
+  tableFields,
+  fieldMeta,
+}: Pick<DuplicateStepProps, 'uniqueField' | 'setUniqueField' | 'tableFields' | 'fieldMeta'>) {
+  const uniqueLabel = useImportWord('csvImport.uniqueField', 'Unique field')
+  const chooseField = useImportWord('csvImport.selectField', 'Select a field…')
+  return (
+    <div className="mt-3 flex items-center gap-2">
+      <label
+        htmlFor="csv-import-unique-field"
+        className={computeTableEditorLabelClasses()}
+      >
+        {uniqueLabel}
+      </label>
+      <select
+        id="csv-import-unique-field"
+        aria-label={uniqueLabel}
+        value={uniqueField ?? ''}
+        onChange={(e) => setUniqueField(e.target.value || undefined)}
+        className={computeTablePanelControlClasses()}
+      >
+        <option value="">{chooseField}</option>
+        {tableFields?.map((field) => (
+          <option
+            key={field}
+            value={field}
+          >
+            {fieldLabel(field, fieldMeta)}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 export function DuplicateStep({
   duplicateStrategy,
   setDuplicateStrategy,
   uniqueField,
   setUniqueField,
   tableFields,
+  fieldMeta,
 }: DuplicateStepProps) {
   const showUniqueField = duplicateStrategy === 'skip' || duplicateStrategy === 'overwrite'
   return (
     <div className="space-y-3">
-      <p className={computeTableDialogBodyClasses()}>How should duplicate records be handled?</p>
+      <p className={computeTableDialogBodyClasses()}>
+        {useImportWord('csvImport.duplicates', 'How should duplicate records be handled?')}
+      </p>
       <StrategyRadio
         value="skip"
         current={duplicateStrategy}
-        label="Skip duplicates"
+        label={useImportWord('csvImport.skipDuplicates', 'Skip duplicates')}
         onChange={setDuplicateStrategy}
       />
       <StrategyRadio
         value="overwrite"
         current={duplicateStrategy}
-        label="Overwrite duplicates"
+        label={useImportWord('csvImport.overwriteDuplicates', 'Overwrite duplicates')}
         onChange={setDuplicateStrategy}
       />
       <StrategyRadio
         value="create"
         current={duplicateStrategy}
-        label="Create new records"
+        label={useImportWord('csvImport.createNew', 'Create new records')}
         onChange={setDuplicateStrategy}
       />
       {showUniqueField && (
-        <div className="mt-3 flex items-center gap-2">
-          <label
-            htmlFor="csv-import-unique-field"
-            className={computeTableEditorLabelClasses()}
-          >
-            Unique field
-          </label>
-          <select
-            id="csv-import-unique-field"
-            aria-label="Unique field"
-            value={uniqueField ?? ''}
-            onChange={(e) => setUniqueField(e.target.value || undefined)}
-            className={computeTablePanelControlClasses()}
-          >
-            <option value="">Select a field…</option>
-            {tableFields?.map((field) => (
-              <option
-                key={field}
-                value={field}
-              >
-                {field}
-              </option>
-            ))}
-          </select>
-        </div>
+        <UniqueFieldSelect
+          uniqueField={uniqueField}
+          setUniqueField={setUniqueField}
+          tableFields={tableFields}
+          fieldMeta={fieldMeta}
+        />
       )}
     </div>
   )

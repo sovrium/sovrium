@@ -125,12 +125,24 @@ const metricWithoutFormat = (
   return rest
 }
 
+/**
+ * The footer fills the card to its bottom edge, its content at the top.
+ *
+ * A grid row stretches its cards to the tallest one, and the footer band
+ * stopped where its own content did, leaving a strip of card ground under it
+ * on every shorter card of the row.
+ */
+const SECTION_CARD_FILL = '*:data-[slot=card-footer]:flex-1 *:data-[slot=card-footer]:items-start'
+
 /** A section card bound to one figure of a system read. */
 export const sectionCard = (binding: SectionCardBinding): PageComponent => {
   const [metric] = sectionCardCopy.children
   return {
     ...sectionCardCopy,
-    props: binding.testId === undefined ? {} : { 'data-testid': binding.testId },
+    props: {
+      className: SECTION_CARD_FILL,
+      ...(binding.testId === undefined ? {} : { 'data-testid': binding.testId }),
+    },
     footer: binding.footer ?? [],
     children: [
       {

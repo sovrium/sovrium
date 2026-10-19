@@ -18,8 +18,11 @@
  * The items are projected through `declaredAgentNames()` — the SAME function the
  * Conversations surface builds its rail from — so the sidebar can never
  * advertise an agent whose page does not open, nor omit one that does. That set
- * always leads with the built-in `system` agent, whose view is the
- * `agent_name IS NULL` conversations (see `domain/models/app/agents/agent-identity`).
+ * lists the agents the app declares first, in declaration order, and closes on
+ * the built-in `system` agent, whose view is the `agent_name IS NULL`
+ * conversations (see `domain/models/app/agents/agent-identity`) — the app before
+ * the engine, so the Conversations page's first-row redirect lands on the app's
+ * own agent whenever it declares one.
  */
 
 import { Schema } from 'effect'
@@ -38,6 +41,10 @@ export const agentAdminItemSchema = Schema.Struct({
     description:
       'Agent name — kebab-case for a declared agent, or the reserved `system` for the built-in System Agent.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
+  label: Schema.String.annotate({
+    description:
+      "The agent's name as the console prints it. An agent declares no label of its own, so a declared agent reads as its name humanised (`quote-assistant` → `Quote assistant`); the built-in agent reads `System` in the operator's console language (`Système` in French). The sidebar row and the breadcrumb read this; the URL keeps `name`.",
+  }).pipe(Schema.check(Schema.isMinLength(1))),
   isSystem: Schema.Boolean.annotate({
     description:
       'True for the built-in `system` agent, whose conversations are those no declared agent claimed (`agent_name IS NULL`). Exactly one item per response carries `true`.',
@@ -45,15 +52,61 @@ export const agentAdminItemSchema = Schema.Struct({
 }).annotate({ identifier: 'AgentAdminItem' })
 
 /**
+ * One agent read in full, for `GET /api/admin/agents/:name` — what the
+ * Conversations page heads its viewer with: the agent's label, how many
+ * conversations it holds, the model that answers it and the tools it may call.
+ *
+ * A name the index does not list answers 404, as the conversations endpoints
+ * do, so the page bound to it is the console's own not-found page.
+ */
+export const agentAdminDetailSchema = Schema.Struct({
+  ...agentAdminItemSchema.fields,
+  model: Schema.NullOr(
+    Schema.String.annotate({
+      description:
+        "The model the agent answers with: the agent's declared `model`, else the host's `AI_MODEL`. `null` when neither names one.",
+    })
+  ),
+  tools: Schema.Array(
+    Schema.String.annotate({ description: 'One action the agent may call, e.g. `record.list`.' })
+  ).annotate({
+    description:
+      "The actions the agent may call (`tools.actions`), in declaration order. The built-in agent's read tools are listed as the engine offers them. Empty when the agent calls none.",
+  }),
+  toolLabels: optionalField(
+    Schema.Array(
+      Schema.String.annotate({
+        description: 'One tool as a person reads it, e.g. `Record list`, `Query clients`.',
+      })
+    ).annotate({
+      description:
+        'The `tools` as a person reads them, one per tool in the same order: each name made readable — dots, hyphens and underscores read as spaces, the first letter capitalised (`record.list` reads `Record list`, `query_clients` reads `Query clients`). Display text only; the tool calls keep the names.',
+      examples: [['Record read', 'Record list']],
+    })
+  ),
+  conversationCount: Schema.Int.annotate({
+    description:
+      'How many conversations this agent holds, every person included: the number the Conversations page heads its list with.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+}).annotate({ identifier: 'AgentAdminDetail' })
+
+/**
  * Response schema for `GET /api/admin/agents`. Cursor-paginated list of
- * {@link agentAdminItemSchema}, declaration order with the System Agent first.
+ * {@link agentAdminItemSchema}: the declared agents in declaration order, then
+ * the System Agent last.
  */
 export const agentsListResponseSchema = cursorPaginationResponseSchema(
   agentAdminItemSchema
-).annotate({ identifier: 'AgentsListResponse' })
+).annotate({
+  identifier: 'AgentsListResponse',
+  description:
+    'Every agent the console can open: the agents the app declares, in declaration order, then the built-in `system` agent last. A page that lands on the first agent therefore lands on the app’s own agent whenever the app declares one, and on `system` when it declares none.',
+})
 
 /** @public */
 export type AgentAdminItem = typeof agentAdminItemSchema.Type
+/** @public */
+export type AgentAdminDetail = typeof agentAdminDetailSchema.Type
 /** @public */
 export type AgentsListResponse = typeof agentsListResponseSchema.Type
 

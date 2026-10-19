@@ -69,10 +69,13 @@ function applyFill(fill: Partial<FillDetail> | undefined): void {
   control.dispatchEvent(new Event('change', { bubbles: true }))
 }
 
-/** The fill a button carries in `data-action-config`, or `undefined` when unreadable. */
-function readButtonFill(button: HTMLButtonElement): Partial<FillDetail> | undefined {
+/**
+ * The action a button carries in `data-action-config` (a fill, a seek), or
+ * `undefined` when unreadable. Read loosely: each caller checks what it uses.
+ */
+export function readActionConfig<T>(button: HTMLButtonElement): Partial<T> | undefined {
   try {
-    return JSON.parse(button.getAttribute('data-action-config') ?? '') as Partial<FillDetail>
+    return JSON.parse(button.getAttribute('data-action-config') ?? '') as Partial<T>
   } catch {
     return undefined
   }
@@ -80,7 +83,7 @@ function readButtonFill(button: HTMLButtonElement): Partial<FillDetail> | undefi
 
 /** Bind the two doors: fill buttons, and the islands' `sovrium:fill` event. */
 export function setupFillHandlers(): void {
-  bindActionButtons('fill', (button) => applyFill(readButtonFill(button)))
+  bindActionButtons('fill', (button) => applyFill(readActionConfig<FillDetail>(button)))
   document.addEventListener('sovrium:fill', (event) =>
     applyFill((event as CustomEvent<FillDetail | undefined>).detail)
   )

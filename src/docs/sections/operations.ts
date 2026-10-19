@@ -67,6 +67,7 @@ export const section = defineSection({
         'US-INFRASTRUCTURE-BINARY-PACKAGING-TIER-007',
         'US-INFRASTRUCTURE-CROSS-DIALECT-CATALOG-HELPERS',
         'US-INFRASTRUCTURE-PAGE-RENDER-CACHE',
+        'US-INFRASTRUCTURE-RETENTION-SWEEPS',
       ],
     }),
     defineArticle({

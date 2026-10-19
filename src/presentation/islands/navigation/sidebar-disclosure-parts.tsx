@@ -46,9 +46,9 @@ export function Chevron({ expanded }: { readonly expanded: boolean }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      viewBox="0 0 16 16"
+      viewBox="0 0 24 24"
     >
-      <path d="M6 4l4 4-4 4" />
+      <path d="m9 18 6-6-6-6" />
     </svg>
   )
 }

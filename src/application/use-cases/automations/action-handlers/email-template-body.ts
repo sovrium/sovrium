@@ -6,13 +6,14 @@
  */
 
 import { Effect } from 'effect'
-import { inlineEmailCss } from '@/domain/kernel/sanitize/email-css-inlining'
+import { EmailCssInliner } from '@/application/ports/services/email-css-inliner'
 import { emailTextFromHtml } from '@/domain/kernel/sanitize/email-text'
 import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
 import { pictureFileCheck, placeMediaInEmail } from './document-media'
 import { documentRenderSetup, type DocumentRenderSetup } from './document-render-setup'
 import { documentDataOf, isRecord, type Raw } from './document-run'
 import { readTemplateSource, renderTemplateText, templateContext } from './document-template'
+import { starterFileGate, type StarterFileGate } from './starter-file-gate'
 import type { ActionRunContext, AutomationContext } from './shared'
 import type { EmailAttachment } from '@/application/ports/services/email-sender'
 import type { App } from '@/domain/models/app'
@@ -45,10 +46,11 @@ const renderPlain = (
   source: unknown,
   data: Raw,
   setup: DocumentRenderSetup,
-  runContext: ActionRunContext | undefined
+  run: { readonly runContext: ActionRunContext | undefined; readonly gate: StarterFileGate }
 ) =>
   Effect.gen(function* () {
-    const template = yield* readTemplateSource(source)
+    const { runContext } = run
+    const template = yield* readTemplateSource(source, run.gate)
     const rendering = yield* renderTemplateText(
       template,
       templateContext(template, data, runContext),
@@ -67,8 +69,9 @@ export const templatedEmail = Effect.fn('automations.email-templated-body')(func
   }
 ) {
   const { app, runContext } = scope
+  const gate = starterFileGate(app, scope.automation)
   const data = documentDataOf(props, runContext)
-  const template = yield* readTemplateSource(props['template'])
+  const template = yield* readTemplateSource(props['template'], gate)
   const setup = yield* documentRenderSetup(app, props['locale'], 'email')
   const rendering = yield* renderTemplateText(
     template,
@@ -79,14 +82,16 @@ export const templatedEmail = Effect.fn('automations.email-templated-body')(func
   const placed = yield* placeMediaInEmail(rendering, pictureFileCheck(template, data, scope))
   const authored = template.trust === 'authored'
   const styled =
-    authored && props['inlineCss'] !== false ? inlineEmailCss(placed.html) : placed.html
+    authored && props['inlineCss'] !== false
+      ? yield* (yield* EmailCssInliner).inline(placed.html)
+      : placed.html
   const html = sanitizeRichTextHTML(styled, { profile: authored ? 'email' : 'rich-text' })
   const text =
     props['text'] === undefined
       ? emailTextFromHtml(html)
-      : yield* renderPlain(props['text'], data, setup, runContext)
+      : yield* renderPlain(props['text'], data, setup, { runContext, gate })
   const subject = isRecord(props['subject'])
-    ? yield* renderPlain(props['subject'], data, setup, runContext)
+    ? yield* renderPlain(props['subject'], data, setup, { runContext, gate })
     : undefined
   return {
     html,

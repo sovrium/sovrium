@@ -14,6 +14,7 @@ import {
   computeFieldDescriptionClasses,
   computeFieldGroupClasses,
   computeFieldLegendClasses,
+  computeFieldLegendHeadingClasses,
   computeFieldSetClasses,
 } from '../../../design/field-default-classes'
 import type { ResolvedFieldDef } from './crud-form-types'
@@ -68,7 +69,7 @@ export function renderSectionedFields(
             data-variant="legend"
             className={computeFieldLegendClasses()}
           >
-            <h2>{section.title}</h2>
+            <h2 className={computeFieldLegendHeadingClasses()}>{section.title}</h2>
           </legend>
           {section.description !== undefined && (
             <p

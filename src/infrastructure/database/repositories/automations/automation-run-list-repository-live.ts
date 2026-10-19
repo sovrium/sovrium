@@ -24,6 +24,7 @@ import {
   automationRuns as automationRunsSqlite,
 } from '@/infrastructure/database/drizzle/schema-sqlite/automation'
 import { castToInt } from '@/infrastructure/database/table-queries/query-helpers/aggregation-helpers'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import type {
   ListRunsOptions,
   PersistedRun,
@@ -59,16 +60,28 @@ export const toRun = (
   error: runRow.error,
   triggeredByUserId: runRow.triggeredByUserId,
   startedByHand: runRow.startedByHand,
+  startedAsGuest: runRow.startedAsGuest,
   triggerName: runRow.triggerName ?? null,
   relay: runRow.relay,
   valuesErasedAt: toIso(runRow.valuesErasedAt),
   resumeAt: toIso(runRow.resumeAt),
+  filesLedger: runRow.filesLedger ?? null,
 })
 
 /**
- * The runs a scoped caller may read: those they started by hand, and the runs
- * a request names them an approver of. In the WHERE clause, so a count over
- * the same filters counts only these.
+ * A run whose relay names no parent run: not one a call or a failure handler
+ * started. A run another run started is not its chain starter's to read as such.
+ */
+const relayNamesNoRun = (): SQL =>
+  isSqliteRuntime()
+    ? sql`json_extract(${automationRuns.relay}, '$.run') IS NULL`
+    : sql`(${automationRuns.relay} ->> 'run') IS NULL`
+
+/**
+ * The runs a scoped caller may read: those they started by hand themselves
+ * (never one another run started on their behalf), and the runs a request
+ * names them an approver of. In the WHERE clause, so a count over the same
+ * filters counts only these.
  */
 export const readableByFilters = (readableBy: RunReaderScope | undefined): ReadonlyArray<SQL> =>
   readableBy === undefined
@@ -77,7 +90,8 @@ export const readableByFilters = (readableBy: RunReaderScope | undefined): Reado
         or(
           and(
             eq(automationRuns.startedByHand, true),
-            eq(automationRuns.triggeredByUserId, readableBy.userId)
+            eq(automationRuns.triggeredByUserId, readableBy.userId),
+            relayNamesNoRun()
           ),
           ...(readableBy.runIds.length === 0
             ? []

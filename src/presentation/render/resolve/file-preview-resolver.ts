@@ -20,7 +20,7 @@
  * so the page shows neither the file nor its address.
  */
 
-import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
+import { inferMimeFromKey, isFramablePreviewKey } from '@/domain/kernel/identity/mime-types'
 import { keyFromUrl } from './row-attachment-addresses'
 import type { DataSourceDb } from './data-source-contracts'
 import type { App } from '@/domain/models/app'
@@ -32,6 +32,13 @@ export interface PreviewFile {
   readonly name: string
   readonly type: string
   readonly url: string
+  /**
+   * The address the preview FRAMES, for a type the browser shows in a frame (a
+   * PDF): the same object signed with the `inline` display claim, which the
+   * signed route serves inline and framable by this origin only. `url` stays
+   * the download, untouched, for the toolbar and the plain link.
+   */
+  readonly frameUrl?: string
 }
 
 interface PreviewRoot {
@@ -93,6 +100,21 @@ function columnBucket(app: App, table: unknown, field: string | undefined): stri
   return column?.bucket
 }
 
+type Signer = NonNullable<DataSourceDb['signFileUrl']>
+
+/** One file signed for the caller, with its frame address when it has one; none when refused. */
+async function signedFile(
+  sign: Signer,
+  target: { readonly bucket: string; readonly key: string; readonly scope: 'record' | 'bucket' },
+  file: { readonly name: string; readonly type: string }
+): Promise<PreviewFile | undefined> {
+  const { bucket, key, scope } = target
+  const url = await sign(bucket, key, scope)
+  if (url === undefined) return undefined
+  const frameUrl = isFramablePreviewKey(key) ? await sign(bucket, key, scope, 'inline') : undefined
+  return { ...file, url, ...(frameUrl === undefined ? {} : { frameUrl }) }
+}
+
 /** The files one preview names, each signed for the caller, or none. */
 async function previewFilesOf(
   root: PreviewRoot,
@@ -101,19 +123,24 @@ async function previewFilesOf(
   const sign = ctx.db.signFileUrl
   if (sign === undefined) return []
   if (root.file !== undefined) {
-    const url = await sign(root.file.bucket, root.file.key, 'bucket')
-    const name = baseName(root.file.key)
-    return url === undefined ? [] : [{ name, type: inferMimeFromKey(root.file.key), url }]
+    const { bucket, key } = root.file
+    const file = await signedFile(
+      sign,
+      { bucket, key, scope: 'bucket' },
+      { name: baseName(key), type: inferMimeFromKey(key) }
+    )
+    return file === undefined ? [] : [file]
   }
   const bucket = columnBucket(ctx.app, root.props?.['_recordTable'], root.field)
   if (bucket === undefined) return []
   const signed = await Promise.all(
-    attachmentsOf(root.props?.['_recordValue']).map(async (attachment) => {
-      const url = await sign(bucket, attachment.key, 'record')
-      return url === undefined
-        ? undefined
-        : { name: attachment.name, type: attachment.type ?? inferMimeFromKey(attachment.key), url }
-    })
+    attachmentsOf(root.props?.['_recordValue']).map((attachment) =>
+      signedFile(
+        sign,
+        { bucket, key: attachment.key, scope: 'record' },
+        { name: attachment.name, type: attachment.type ?? inferMimeFromKey(attachment.key) }
+      )
+    )
   )
   return signed.filter((file): file is PreviewFile => file !== undefined)
 }

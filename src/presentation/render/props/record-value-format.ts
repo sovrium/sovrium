@@ -149,11 +149,23 @@ const cellTextFieldOf = (
 }
 
 /**
- * The format a field reads in by default: its type's, else `currency` for a
- * rollup that is money — one summing, averaging or picking an extreme of a
- * `currency` field, or declaring a code of its own — exactly when the grid and
- * `?format=display` print it as money.
+ * Whether a field with no type default is money: a formula declaring
+ * `format: currency`, or a rollup summing, averaging or picking an extreme of
+ * a `currency` field, or declaring a code of its own — exactly when the grid
+ * and `?format=display` print it as money.
  */
+const isMoneyField = (
+  table: TableDefinition,
+  field: TableField | undefined,
+  fieldName: string,
+  context: Pick<FieldTextContext, 'tables'>
+): boolean => {
+  if (field?.type === 'formula') return declared<string>(field, 'format') === 'currency'
+  if (field?.type !== 'rollup') return false
+  return resolveValueCurrency(table, fieldName, context.tables ?? [])?.currency !== undefined
+}
+
+/** The format a field reads in by default: its type's, else `currency` for money. */
 const defaultFormatOf = (
   table: TableDefinition | undefined,
   field: TableField | undefined,
@@ -161,9 +173,8 @@ const defaultFormatOf = (
   context: Pick<FieldTextContext, 'tables'>
 ): RecordTextField['format'] | undefined => {
   const byType = defaultTextFormatOfFieldType(fieldTypeOf(field, fieldName))
-  if (byType !== undefined || field?.type !== 'rollup' || table === undefined) return byType
-  const money = resolveValueCurrency(table, fieldName, context.tables ?? [])
-  return money?.currency === undefined ? undefined : 'currency'
+  if (byType !== undefined || table === undefined) return byType
+  return isMoneyField(table, field, fieldName, context) ? 'currency' : undefined
 }
 
 /**

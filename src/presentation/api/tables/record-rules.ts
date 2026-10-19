@@ -26,6 +26,7 @@ import {
   validateMultiSelectSelectionLimits,
 } from './multi-select-rules'
 import { validateRelationshipLinkLimits } from './relationship-rules'
+import { validateSingleSelectOptions } from './single-select-rules'
 import type {
   FieldValidationError,
   FieldPermissionError,
@@ -181,9 +182,12 @@ export function validateRecordCreation(
     // Step 8: Validate field formats (URL, etc.)
     yield* validateFieldFormats(slugAppliedData)
 
-    // Step 8b: Reject `multi-select` values that are not declared options
-    // (422). The PostgreSQL member CHECK has no SQLite counterpart, so this
-    // is the only seam where both engines enforce one contract.
+    // Step 8b: Reject `single-select` / `status` and `multi-select` values
+    // that are not declared options (422). The one-of columns carry a member
+    // CHECK on both engines, but reaching it answers a driver 400 naming no
+    // column; the PostgreSQL `multi-select` CHECK has no SQLite counterpart at
+    // all. This is the seam where both engines enforce one contract.
+    yield* validateSingleSelectOptions(slugAppliedData)
     yield* validateMultiSelectOptions(slugAppliedData)
 
     // Step 8c: Reject a `multi-select` selection above `maxSelections` (400).
@@ -238,7 +242,8 @@ export const findReadonlyUpdateField = (
 
 /**
  * Every per-VALUE rule an update enforces, in create-path order: column
- * formats, `multi-select` membership then cardinality, a `relationship`
+ * formats, `single-select` / `status` membership, `multi-select` membership
+ * then cardinality, a `relationship`
  * column's `maxLinked` cap, then attachment-reference confinement.
  *
  * ONE composition for every door an update comes through — the records API's
@@ -264,6 +269,7 @@ export function checkRecordUpdateValues(
 > {
   return Effect.gen(function* () {
     yield* validateFieldFormats(fields)
+    yield* validateSingleSelectOptions(fields)
     yield* validateMultiSelectOptions(fields)
     yield* validateMultiSelectSelectionLimits(fields)
     yield* validateRelationshipLinkLimits(fields)

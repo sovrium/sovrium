@@ -41,11 +41,20 @@
  * Every highlighted fragment passes through the single canonical
  * `sanitizeRichTextHTML` (security rule S2) before extraction, so the token
  * contract (`class` kept on pre/code/span, `style` dropped) is unchanged.
+ *
+ * ## The highlighted text is the text the reader sees
+ *
+ * A `content` opening with a `$t:` key reads that key in the page language
+ * before it is highlighted — the same rule the plain renderer applies through
+ * `resolveI18nContent`. Highlighting the raw value instead would print the key,
+ * and since the copy button reads the highlighted `<code>`, copy it too.
  */
 
 import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
+import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { highlightCodeToHtml } from '@/infrastructure/markdown/shiki-highlighter'
 import type { App } from '@/domain/models/app'
+import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 
@@ -62,6 +71,15 @@ import type { Component } from '@/domain/models/app/pages/components'
 export interface CodeHighlight {
   readonly preClass: string
   readonly innerHtml: string
+}
+
+/**
+ * The language a page's code is read in: a `content` opening with a `$t:` key
+ * resolves that key against it. Absent, the content is highlighted as written.
+ */
+export interface CodeContentLanguage {
+  readonly lang: string
+  readonly languages: Languages | undefined
 }
 
 /** A tree node as seen by the walker: a component, a `$ref`, or a plain string. */
@@ -201,12 +219,15 @@ function extractHighlight(fragment: string): CodeHighlight | undefined {
  */
 async function resolveOne(
   node: TreeNode,
-  theme: string | undefined,
-  darkTheme: string | undefined
+  language: CodeContentLanguage | undefined
 ): Promise<readonly [TreeNode, CodeHighlight | undefined]> {
   const request = highlightRequestFor(node)
   if (request === undefined) return [node, undefined]
-  const highlighted = await highlightCodeToHtml(request.lang, request.code, theme, darkTheme)
+  const code =
+    language === undefined
+      ? request.code
+      : resolveTranslationPattern(request.code, language.lang, language.languages)
+  const highlighted = await highlightCodeToHtml(request.lang, code)
   return [node, extractHighlight(sanitizeRichTextHTML(highlighted))]
 }
 
@@ -217,12 +238,11 @@ async function resolveOne(
  */
 async function resolveCodeHighlights(
   nodes: readonly TreeNode[] | undefined,
-  theme: string | undefined,
-  darkTheme: string | undefined
+  language: CodeContentLanguage | undefined
 ): Promise<readonly TreeNode[] | undefined> {
   if (!hasHighlightableCode(nodes)) return nodes
   const resolved = await Promise.all(
-    collectCodeNodes(nodes).map((node) => resolveOne(node, theme, darkTheme))
+    collectCodeNodes(nodes).map((node) => resolveOne(node, language))
   )
   return attachHighlights(nodes, resolved)
 }
@@ -231,21 +251,16 @@ async function resolveCodeHighlights(
  * Page-level pass — attaches `codeHighlight` to every `code` component on the
  * page (including ones nested inside containers, tab panels, or flex layouts).
  *
- * Runs in the async page-render phase where `app.design.codeBlock.theme` is
- * available, BEFORE `renderToString`, so a `code` component inside a `tabs`
- * panel carries its highlighted markup through the island's
- * `renderToStaticMarkup` serialisation intact.
- *
- * `darkTheme` is the optional counterpart the app named for the dark colour
- * scheme. Absent, one palette governs both schemes and the markup is what it
- * has always been.
+ * Runs in the async page-render phase, BEFORE `renderToString`, so a `code`
+ * component inside a `tabs` panel carries its highlighted markup through the
+ * island's `renderToStaticMarkup` serialisation intact. Every block is drawn
+ * with shadcn/ui's default light/dark pair.
  */
 export async function resolvePageCodeHighlights(
   components: Page['components'],
-  theme: string | undefined,
-  darkTheme?: string
+  language?: CodeContentLanguage
 ): Promise<Page['components']> {
-  const resolved = await resolveCodeHighlights(components, theme, darkTheme)
+  const resolved = await resolveCodeHighlights(components, language)
   return resolved as Page['components']
 }
 
@@ -260,11 +275,10 @@ export async function resolvePageCodeHighlights(
  */
 export async function resolveComponentsCodeHighlights(
   components: App['components'],
-  theme: string | undefined,
-  darkTheme?: string
+  language?: CodeContentLanguage
 ): Promise<App['components']> {
   if (components === undefined) return components
-  const resolved = await resolveCodeHighlights(components as readonly TreeNode[], theme, darkTheme)
+  const resolved = await resolveCodeHighlights(components as readonly TreeNode[], language)
   return resolved as App['components']
 }
 

@@ -38,6 +38,12 @@ import {
   FIELD_WRAPPER_CLASS,
   fieldWrapperAttributes,
 } from './form-field-chrome'
+import {
+  DateInput,
+  isDesignField,
+  MultiChoiceInput,
+  SelectInput,
+} from './form-field-elements-design'
 import { FileInput, UserInput } from './form-field-elements-media'
 import { RatingInput, RequiredMark, SectionHeading } from './form-field-elements-typed'
 import { HelpText } from './form-help-text'
@@ -94,6 +100,9 @@ export interface ResolvedFormField {
   /** For a `section` item: its heading level, `3` inside a multi-step form. */
   readonly sectionLevel?: 2 | 3
   readonly readOnly?: boolean // a `calculation`: read, never typed into
+  readonly multiChoice?: boolean // a standalone `multi-select`: a set, not one choice
+  readonly pickDateLabel?: string // a date's calendar button, in the page language
+  readonly chooseDateLabel?: string // a date's calendar, in the page language
   readonly autocomplete?: string // the browser autofill hint, declared or derived from the type
 }
 
@@ -148,80 +157,6 @@ const TextareaInput = ({
       placeholder={field.placeholder || undefined}
       defaultValue={defaultValue ?? undefined}
     />
-    <HelpText html={field.helpTextHtml} />
-  </div>
-)
-
-/**
- * Single-select input.
- *
- * The leading `<option value="">` is not decoration — it is what lets a select
- * express "no answer". Without it the browser applies its own rule (no empty
- * option, therefore the first one is selected), so a field reads as answered
- * before the visitor has touched the page: someone who came for one option and
- * submitted without opening the dropdown is recorded as having chosen a
- * different one. That is silently WRONG data rather than missing data, and
- * `required` cannot catch it, because something is always selected.
- *
- * Three properties this relies on, all of them load-bearing:
- *
- * - It must LEAD the list and be a direct child of the `<select>`. HTML only
- *   treats an empty option as a "placeholder label option" under exactly those
- *   conditions, and only then does constraint validation report `valueMissing`
- *   on a required select. Move it, wrap it in an `<optgroup>`, or give it a
- *   non-empty value and `required` silently stops biting.
- * - It is rendered ALWAYS, not only when the field is unanswered. That keeps
- *   the rule one sentence long — "the empty option leads the list; it is
- *   selected only when nothing else resolves" — rather than a conditional the
- *   config author has to reason about. A visitor may return to a required
- *   field and blank it, and being stopped there is correct.
- * - `defaultValue` falls back to `''`, NOT `undefined`. `undefined` hands the
- *   choice back to the browser's first-option rule and reinstates the defect.
- *   A resolved prefill or literal default still wins outright, which is what
- *   keeps the prefill contract intact.
- *
- * The label is the field's own `placeholder` — already an AppSchema property
- * on every form field. A select is simply the one input type with nowhere to
- * put it, so without this it would be dropped without a word.
- */
-const SelectInput = ({
-  field,
-  defaultValue,
-}: {
-  readonly field: ResolvedFormField
-  readonly defaultValue: string | undefined
-}) => (
-  <div
-    className={FIELD_WRAPPER_CLASS}
-    {...fieldWrapperAttributes(field)}
-  >
-    <label
-      htmlFor={`field-${field.name}`}
-      className={FIELD_LABEL_CLASS}
-    >
-      {field.label}
-      <RequiredMark required={field.required} />
-    </label>
-    <select
-      id={`field-${field.name}`}
-      data-component-type="select"
-      name={field.name}
-      required={field.required}
-      {...ariaRequired(field.required)}
-      disabled={field.conditionHidden}
-      autoComplete={field.autocomplete}
-      defaultValue={defaultValue ?? ''}
-    >
-      <option value="">{field.placeholder}</option>
-      {(field.options ?? []).map((option) => (
-        <option
-          key={option.value}
-          value={option.value}
-        >
-          {option.label}
-        </option>
-      ))}
-    </select>
     <HelpText html={field.helpTextHtml} />
   </div>
 )
@@ -458,6 +393,13 @@ function dispatchAnswerlessOrScale(field: ResolvedFormField, defaultValue: strin
   return undefined
 }
 
+/** A single choice or a date, drawn by the design system; a set of choices, by the browser. */
+function designOrNative(field: ResolvedFormField, defaultValue: string | undefined) {
+  if (!isDesignField(field)) return <MultiChoiceInput {...{ field, defaultValue }} />
+  if (field.inputElement === 'date') return <DateInput {...{ field, defaultValue }} />
+  return <SelectInput {...{ field, defaultValue }} />
+}
+
 function dispatchFieldInput(field: ResolvedFormField, defaultValue: string | undefined) {
   const f = field
   const dv = defaultValue
@@ -468,13 +410,7 @@ function dispatchFieldInput(field: ResolvedFormField, defaultValue: string | und
         defaultValue={dv}
       />
     )
-  if (f.inputElement === 'select')
-    return (
-      <SelectInput
-        field={f}
-        defaultValue={dv}
-      />
-    )
+  if (f.inputElement === 'select' || f.inputElement === 'date') return designOrNative(f, dv)
   if (f.inputElement === 'radio')
     return (
       <RadioInput

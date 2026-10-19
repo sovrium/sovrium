@@ -13,9 +13,10 @@ import { ActionBaseFields } from '../base'
  * Auth Revoke Access Action (type: auth, operator: revokeAccess)
  *
  * Take one record of a scope table away from an account: the record leaves
- * every grant of that account over that table, and a grant left naming no
- * record is deleted. Idempotent: revoking a record the account does not hold
- * succeeds and changes nothing.
+ * every grant of that account over that table — or, with `role`, only the
+ * grant held under that role — and a grant left naming no record is deleted.
+ * Idempotent: revoking a record the account does not hold succeeds and changes
+ * nothing.
  */
 export const AuthRevokeAccessActionSchema = Schema.Struct({
   ...ActionBaseFields,
@@ -43,8 +44,17 @@ export const AuthRevokeAccessActionSchema = Schema.Struct({
     recordId: TemplateStringSchema.pipe(
       Schema.annotate({ description: 'The id of the record taken away from the account' })
     ),
+    role: Schema.optional(
+      TemplateStringSchema.pipe(
+        Schema.annotate({
+          description:
+            'Only the grant the account holds under this role loses the record; its grants under other roles keep it. Every role when omitted. A role auth.roles does not declare is refused by sovrium validate when written literally, and fails the step when it arrives through a template.',
+        })
+      )
+    ),
   }).annotate({
-    description: 'Which account loses which record of which scope table.',
+    description:
+      'Which account loses which record of which scope table, and optionally under which role.',
   }),
 }).pipe(
   Schema.annotate({

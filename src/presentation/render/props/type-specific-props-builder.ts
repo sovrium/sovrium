@@ -16,6 +16,7 @@ import {
 import {
   dataTableInterpreterStrings,
   tableEmptyMessage,
+  gridReadFailure,
   viewSwitcherProps,
 } from './data-table-interpreter-strings'
 import { buildEmptyStateElementProps } from './empty-state-copy-builder'
@@ -182,6 +183,7 @@ const TYPE_BUILDERS: {
       emptyMessage: component.emptyMessage,
       // An empty grid names its table unless the author wrote its own words.
       tableEmptyMessage: tableEmptyMessage(resolved.dataTableNames, currentLang, languages),
+      tableReadFailure: gridReadFailure(args),
       noMatchMessage: component.noMatchMessage,
       onRowClick: component.onRowClick,
       autoSave: component.autoSave,

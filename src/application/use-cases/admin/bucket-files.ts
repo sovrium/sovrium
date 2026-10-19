@@ -42,7 +42,10 @@ import {
   type BucketFilesSort,
 } from '@/domain/models/api/admin/buckets/files'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { readableName } from '@/domain/models/app/auth/readable-name-service'
 import { isSystemBucketName } from '@/domain/models/app/buckets/bucket-identity'
+import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
+import type { ConsoleLanguage } from '@/application/use-cases/admin/operator-language'
 import type { App } from '@/domain/models/app'
 
 // ─── Pure file-item helper ──────────────────────────────────────────────────
@@ -52,20 +55,52 @@ function createdAtIso(raw: Readonly<Date> | string): string {
   return raw instanceof Date ? raw.toISOString() : new Date(raw).toISOString()
 }
 
+/** Where the system listing reads its provenance names from. */
+interface SystemListing {
+  readonly links: ReadonlyMap<string, AdminRecordAttachmentLink>
+  readonly app: App
+  readonly language: ConsoleLanguage
+}
+
+/**
+ * The table and field of a link as a person reads them, in the operator's
+ * language: the table by its declared plural, else its singular, else its name;
+ * the field by its declared label, else its name.
+ */
+function linkLabels(link: AdminRecordAttachmentLink, { app, language }: SystemListing) {
+  const translate = (text: string) => resolveTranslationPattern(text, language, app.languages)
+  const table = (app.tables ?? []).find((candidate) => candidate.name === link.table)
+  const tableLabel = table?.labelPlural ?? table?.label
+  const fieldLabel = table?.fields.find((candidate) => candidate.name === link.field)?.label
+  return {
+    tableLabel: tableLabel === undefined ? link.table : translate(tableLabel),
+    fieldLabel: fieldLabel === undefined ? link.field : translate(fieldLabel),
+  }
+}
+
 /**
  * Where a row came from, on the built-in `system` bucket's listing only: the
  * bucket that holds it, and — for a file linked to a record — the table, record
- * and field that reference it. Other listings carry none of these.
+ * and field that reference it, each beside the name a person reads it by. Other
+ * listings carry none of these.
  */
 function systemListingProvenance(
   row: AdminBucketFileRow,
-  link: AdminRecordAttachmentLink | undefined
-): Partial<Pick<BucketFileItem, 'bucket' | 'table' | 'recordId' | 'field'>> {
+  system: SystemListing
+): Partial<Omit<BucketFileItem, 'key' | 'filename' | 'size' | 'mimeType' | 'createdAt' | 'file'>> {
+  const link = system.links.get(row.key)
   const bucket = row.bucket ?? link?.bucket
   return {
-    ...(bucket !== undefined ? { bucket } : {}),
+    // The name the bucket list reads the bucket by: a bucket declares no label.
+    ...(bucket !== undefined ? { bucket, bucketLabel: readableName(bucket) } : {}),
     ...(link !== undefined
-      ? { table: link.table, recordId: link.recordId, field: link.field }
+      ? {
+          table: link.table,
+          recordId: link.recordId,
+          recordLabel: link.recordLabel,
+          field: link.field,
+          ...linkLabels(link, system),
+        }
       : {}),
   }
 }
@@ -76,10 +111,21 @@ function systemListingProvenance(
  */
 function buildFileItem(
   row: AdminBucketFileRow,
-  system: ReadonlyMap<string, AdminRecordAttachmentLink> | undefined
+  system: SystemListing | undefined,
+  listed: string
 ): BucketFileItem {
+  const provenance = system !== undefined ? systemListingProvenance(row, system) : {}
+  // Through the bucket that holds the file: the file route refuses a key whose
+  // recorded bucket is not the one it is addressed through.
+  const holder = provenance.bucket ?? listed
+  const path = row.key.split('/').map(encodeURIComponent).join('/')
   return {
-    ...(system !== undefined ? systemListingProvenance(row, system.get(row.key)) : {}),
+    ...provenance,
+    file: {
+      key: row.key,
+      mimeType: row.mimeType,
+      url: `/api/buckets/${encodeURIComponent(holder)}/files/${path}`,
+    },
     key: row.key,
     // The storage adapters set `file_storage_metadata.filename` to the key's
     // basename (the uuid-prefixed value). Strip the `<uuid>-` prefix so the
@@ -214,6 +260,8 @@ export interface BucketFilesInput {
   readonly bucket: string
   /** The app whose attachment columns the `system` listing reads links from. */
   readonly app: App
+  /** The operator's console language, which the `system` listing's names are read in. */
+  readonly language: ConsoleLanguage
   readonly sort: BucketFilesSort
   readonly order: BucketFilesOrder
   readonly type?: string | undefined
@@ -276,12 +324,16 @@ export const BuildBucketFiles = (
 
     // The built-in `system` bucket also lists every file linked to a record,
     // whichever bucket holds it; any other bucket lists only its own objects.
-    const system = isSystemBucketName(input.bucket)
-      ? linksByKey(yield* repo.listRecordAttachmentLinks(input.app))
+    const system: SystemListing | undefined = isSystemBucketName(input.bucket)
+      ? {
+          links: linksByKey(yield* repo.listRecordAttachmentLinks(input.app)),
+          app: input.app,
+          language: input.language,
+        }
       : undefined
     const scope: AdminBucketFilesScope = {
       bucket: input.bucket,
-      ...(system !== undefined ? { alsoKeys: [...system.keys()] } : {}),
+      ...(system !== undefined ? { alsoKeys: [...system.links.keys()] } : {}),
     }
 
     const [rows, totalBytes] = yield* Effect.all([
@@ -290,7 +342,7 @@ export const BuildBucketFiles = (
     ])
 
     const pageRows = rows.slice(0, input.limit)
-    const items = pageRows.map((row) => buildFileItem(row, system))
+    const items = pageRows.map((row) => buildFileItem(row, system, input.bucket))
     const lastRow = pageRows[pageRows.length - 1]
     const lastItem = items[items.length - 1]
     const nextCursor =

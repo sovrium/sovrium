@@ -21,7 +21,6 @@ records:
       kind: Receipt
       policy: Meals policy
       receipt: '@asset:breakfast.jpg'
-      receipt_name: breakfast.jpg
       status: Reimbursed
       filer: '@user:lea.morel@halden.example'
       reimbursed_at: '{{today-55d}}'
@@ -34,7 +33,6 @@ records:
       kind: Receipt
       policy: Equipment policy
       receipt: '@asset:headset.pdf'
-      receipt_name: headset.pdf
       status: Reimbursed
       filer: '@user:jonas.weber@halden.example'
       reimbursed_at: '{{today-24d}}'
@@ -47,7 +45,6 @@ records:
       kind: Invoice
       policy: Software policy
       receipt: '@asset:pm.pdf'
-      receipt_name: pm.pdf
       status: Reimbursed
       filer: '@user:karim.benali@halden.example'
       reimbursed_at: '{{today-24d}}'
@@ -60,7 +57,6 @@ records:
       kind: Receipt
       policy: Other spend
       receipt: '@asset:coffee.jpg'
-      receipt_name: coffee.jpg
       status: Reimbursed
       filer: '@user:jonas.weber@halden.example'
       reimbursed_at: '{{today-24d}}'
@@ -73,7 +69,6 @@ records:
       kind: Receipt
       policy: Travel policy
       receipt: '@asset:rail.pdf'
-      receipt_name: rail.pdf
       status: Reimbursed
       filer: '@user:lea.morel@halden.example'
       reimbursed_at: '{{today-24d}}'
@@ -86,7 +81,6 @@ records:
       kind: Receipt
       policy: Equipment policy
       receipt: '@asset:tablet.pdf'
-      receipt_name: tablet.pdf
       status: Rejected
       filer: '@user:jonas.weber@halden.example'
       decision_reason: Over the €300 equipment limit without a note from a lead.
@@ -99,7 +93,6 @@ records:
       kind: Receipt
       policy: Travel policy
       receipt: '@asset:upgrade.pdf'
-      receipt_name: upgrade.pdf
       status: Rejected
       filer: '@user:lea.morel@halden.example'
       decision_reason: Upgrades are not covered by the travel policy.
@@ -112,7 +105,6 @@ records:
       kind: Receipt
       policy: Other spend
       receipt: '@asset:ticket.pdf'
-      receipt_name: ticket.pdf
       status: Approved
       filer: '@user:karim.benali@halden.example'
   - key: claim-209
@@ -124,7 +116,6 @@ records:
       kind: Receipt
       policy: Equipment policy
       receipt: '@asset:monitor.pdf'
-      receipt_name: monitor.pdf
       status: Approved
       filer: '@user:jonas.weber@halden.example'
   - key: claim-210
@@ -136,7 +127,6 @@ records:
       kind: Invoice
       policy: Software policy
       receipt: '@asset:saas-annual.pdf'
-      receipt_name: saas-annual.pdf
       status: Approved
       filer: '@user:karim.benali@halden.example'
   - key: claim-211
@@ -148,7 +138,6 @@ records:
       kind: Receipt
       policy: Meals policy
       receipt: '@asset:lunch.jpg'
-      receipt_name: lunch.jpg
       status: Approved
       filer: '@user:karim.benali@halden.example'
   - key: claim-212
@@ -160,7 +149,6 @@ records:
       kind: Receipt
       policy: Travel policy
       receipt: '@asset:transfer.jpg'
-      receipt_name: transfer.jpg
       status: Approved
       filer: '@user:lea.morel@halden.example'
   - key: claim-213
@@ -172,7 +160,6 @@ records:
       kind: Receipt
       policy: Equipment policy
       receipt: '@asset:desk.jpg'
-      receipt_name: desk.jpg
       status: Pending
       filer: '@user:jonas.weber@halden.example'
   - key: claim-214
@@ -184,7 +171,6 @@ records:
       kind: Invoice
       policy: Software policy
       receipt: '@asset:invoice-seats.pdf'
-      receipt_name: invoice-seats.pdf
       status: Pending
       filer: '@user:karim.benali@halden.example'
   - key: claim-215
@@ -196,7 +182,6 @@ records:
       kind: Receipt
       policy: Meals policy
       receipt: '@asset:dinner-lyon.jpg'
-      receipt_name: dinner-lyon.jpg
       status: Pending
       filer: '@user:lea.morel@halden.example'
   - key: claim-216
@@ -208,7 +193,6 @@ records:
       kind: Receipt
       policy: Travel policy
       receipt: '@asset:hotel-ber.pdf'
-      receipt_name: hotel-ber.pdf
       status: Pending
       filer: '@user:lea.morel@halden.example'
   - key: claim-217
@@ -220,6 +204,5 @@ records:
       kind: Receipt
       policy: Travel policy
       receipt: '@asset:flights-ber.pdf'
-      receipt_name: flights-ber.pdf
       status: Pending
       filer: '@user:lea.morel@halden.example'

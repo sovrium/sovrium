@@ -13,25 +13,17 @@ children:
           - label: Overview
             href: /
             icon: house
-          - label: Invoices
-            href: /invoices
-            icon: file-text
+          - label: Projects
+            href: /projects
+            icon: folder
             badge: '12'
             activeMatch: prefix
-          - label: Clients
-            href: /clients
-            icon: users
-            activeMatch: prefix
-          - label: Automations
-            href: /automations
-            icon: workflow
-            badge: '3'
+          - label: Worklist
+            href: /worklist
+            icon: list-checks
             activeMatch: prefix
       - label: Reports
         items:
-          - label: Revenue
-            href: /reports/revenue
+          - label: Metrics
+            href: /metrics
             icon: chart-column
-          - label: Delays
-            href: /reports/delays
-            icon: clock

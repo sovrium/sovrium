@@ -10,6 +10,7 @@ import {
   type EgressFailureKind,
 } from '@/infrastructure/egress/egress-failure'
 import type { ActionOutcome } from './shared'
+import type { RequestFailure } from '@/domain/models/app/agents/agent-action-failure-service'
 
 /**
  * How an `http/*` request failed, as the step output says it: `error: { code,
@@ -59,7 +60,12 @@ export const httpStatusFailure = (
   output: Readonly<Record<string, unknown>>
 ): ActionOutcome => {
   const error = classifyHttpError(status, body.slice(0, 200))
-  return { status: 'failure', error, output: { ...output, ...failureOutput('http', error) } }
+  return {
+    status: 'failure',
+    error,
+    output: { ...output, ...failureOutput('http', error) },
+    requestFailure: { kind: 'http', status },
+  }
 }
 
 /**
@@ -71,6 +77,7 @@ export const blockedRequestFailure = (message: string): ActionOutcome => ({
   error: message,
   output: failureOutput('blocked', message),
   retryable: false,
+  requestFailure: { kind: 'blocked' },
 })
 
 /**
@@ -81,10 +88,12 @@ export const blockedRequestFailure = (message: string): ActionOutcome => ({
 export const requestFailure = (rejection: unknown): ActionOutcome => {
   const message = rejection instanceof Error ? rejection.message : String(rejection)
   const code = classifyEgressFailure(rejection)
+  const requestFailure: RequestFailure = { kind: code }
   return {
     status: 'failure',
     error: message,
     output: failureOutput(code, message),
+    requestFailure,
     ...(code === 'tls' ? { retryable: false } : {}),
   }
 }

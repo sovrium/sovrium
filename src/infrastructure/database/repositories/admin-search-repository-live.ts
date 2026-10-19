@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { sql, type SQL } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 import { Effect, Layer } from 'effect'
 import {
   AdminSearchRepository,
@@ -19,6 +19,13 @@ import { db } from '@/infrastructure/database'
 import { makeDbWrap, SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import {
+  readConversations,
+  readFiles,
+  readRuns,
+  readSubmissions,
+  readUsers,
+} from './admin-search-fixed-sources'
 import { adminSearchContentTableRef, pruneAdminIndex, searchAdminIndex } from './admin-search-query'
 import { recordIndexKey } from './admin-search-record-key'
 
@@ -44,20 +51,14 @@ import { recordIndexKey } from './admin-search-record-key'
 /** Wrap a DB promise, adapting failures to AdminSearchDatabaseError. */
 const wrap = makeDbWrap((cause) => new AdminSearchDatabaseError({ cause }))
 
-/**
- * A raw SQL fragment naming a `system`-namespaced table for the active dialect:
- *   - Postgres: `system."<logical>"`
- *   - SQLite:   `system_<logical>`
- * Mirrors the `system_` table-prefix / `pgSchema('system')` divergence.
- */
-const systemTableRef = (logical: string): SQL =>
-  // sql-literal: identifier -- `logical` is one of this module's own system table names
-  isSqliteRuntime() ? sql.raw(`system_${logical}`) : sql.raw(`system."${logical}"`)
-
 /** Coerce an upsert row's `updatedAt` to the column's native form. */
 const updatedAtValue = (date: Date): number | Date => (isSqliteRuntime() ? date.getTime() : date)
 
 // ─── Per-source readers (each resilient: a bad source yields []) ──────────────
+//
+// A title holds the entity's own name and never a word for its KIND: the index
+// is built once and read by operators in every language, so the kind travels as
+// `type` and is named at read time, in the reader's language.
 
 /** Read one operator table's records into index rows (id + first text column label). */
 const readTableRecords = (
@@ -91,162 +92,6 @@ const readTableRecords = (
     )
     .catch(() => [])
 }
-
-/**
- * Read form submissions into index rows — METADATA ONLY.
- *
- * THE SUBMITTED BODY IS PERMANENTLY OUT OF THE FTS DOCUMENT, and the reason is
- * a confidentiality boundary rather than a scoping preference. Revealing a
- * submission body needs `ADMIN_DETAIL_CAPTURE_BODIES_ALLOWED=true` AND
- * `isAdminRole` (`forms-overview.ts` `BuildSubmissionDetail`); with the env var
- * unset — the default — that endpoint 403s for EVERY caller. This index needs
- * neither: `/api/admin/search` sits behind the `/api/admin/*` `requireAdminTier`
- * catch-all, which admits `admin-editor` / `admin-viewer` / `operator` alike.
- *
- * So while the search never RETURNS body text (`toHit` projects
- * `type/entity_id/title/href/updated_at` only), indexing the body made
- * `?q=<substring>` a CONFIRM/DENY ORACLE: a hit iff the substring sits in a
- * withheld body, recoverable one substring at a time by a tier that may list
- * submissions it may not read. Sanitizing the response would not have closed
- * it; only narrowing the haystack does.
- *
- * What stays searchable is what the operator can already see on the list
- * surface: the form NAME (carried as `title`) and the submission ID (carried as
- * `body`, since the FTS document spans `title || ' ' || body` and NOT
- * `entity_id`). The SUBMITTER identity — the other half of the list haystack in
- * is deliberately DEFERRED, not forgotten: it needs a new
- * `auth.user` LEFT JOIN here and would bake an e-mail into a derived store the
- * GDPR account purge does not yet cover. That widening does not belong inside a
- * confidentiality fix; the capability survives via the `user` rows, indexed
- * already.
- *
- * `status` stays out on D3's own reasoning: it is a category match that buries
- * the one row wanted, and it is client-localized.
- */
-const readSubmissions = (): Promise<readonly AdminSearchUpsertRow[]> =>
-  executeRaw(
-    db,
-    sql`SELECT id AS entity_id, form_name
-        FROM ${systemTableRef('form_submissions')}
-        WHERE deleted_at IS NULL AND (status IS NULL OR status <> 'draft') -- a draft was never sent
-        LIMIT 500`
-  )
-    .then((rows) =>
-      rows.map((row): AdminSearchUpsertRow => {
-        const formName = typeof row['form_name'] === 'string' ? row['form_name'] : 'formulaire'
-        const entityId = String(row['entity_id'])
-        return {
-          type: 'submission',
-          entityId,
-          title: `Soumission · ${formName}`,
-          // Metadata only — the id, so an operator holding one can still find
-          // the row. NEVER the submitted payload; see the note above.
-          body: entityId,
-          href: `/_admin/submissions/${formName}`,
-          updatedAt: new Date(),
-        }
-      })
-    )
-    .catch(() => [])
-
-/** Read automation runs into index rows — never a run whose values were erased with an account. */
-const readRuns = (): Promise<readonly AdminSearchUpsertRow[]> =>
-  executeRaw(
-    db,
-    sql`SELECT r.id AS entity_id, d.name AS automation_name, r.status AS status,
-               COALESCE(r.error, '') AS error
-        FROM ${systemTableRef('automation_runs')} AS r
-        LEFT JOIN ${systemTableRef('automation_definitions')} AS d ON d.id = r.automation_id
-        WHERE r.values_erased_at IS NULL
-        LIMIT 500`
-  )
-    .then((rows) =>
-      rows.map((row): AdminSearchUpsertRow => {
-        const name =
-          typeof row['automation_name'] === 'string' ? row['automation_name'] : 'automatisation'
-        const status = typeof row['status'] === 'string' ? row['status'] : ''
-        return {
-          type: 'run',
-          entityId: String(row['entity_id']),
-          title: `Exécution · ${name}`,
-          body: `${status} ${typeof row['error'] === 'string' ? row['error'] : ''}`.trim(),
-          href: '/_admin/runs',
-          updatedAt: new Date(),
-        }
-      })
-    )
-    .catch(() => [])
-
-/** Read users into index rows (email + display name; never a password hash). */
-const readUsers = (): Promise<readonly AdminSearchUpsertRow[]> => {
-  const userTable: SQL = isSqliteRuntime() ? sql.raw('auth_user') : sql.raw('auth."user"')
-  return executeRaw(db, sql`SELECT id AS entity_id, email, name FROM ${userTable} LIMIT 500`)
-    .then((rows) =>
-      rows.map((row): AdminSearchUpsertRow => {
-        const email = typeof row['email'] === 'string' ? row['email'] : ''
-        const name = typeof row['name'] === 'string' ? row['name'] : ''
-        const title = email.length > 0 ? email : name || String(row['entity_id'])
-        return {
-          type: 'user',
-          entityId: String(row['entity_id']),
-          title,
-          body: name,
-          href: '/_admin/users',
-          updatedAt: new Date(),
-        }
-      })
-    )
-    .catch(() => [])
-}
-
-/** Read file metadata into index rows (file name only). */
-const readFiles = (): Promise<readonly AdminSearchUpsertRow[]> =>
-  executeRaw(
-    db,
-    sql`SELECT id AS entity_id, filename, table_name
-        FROM ${systemTableRef('file_storage_metadata')}
-        LIMIT 500`
-  )
-    .then((rows) =>
-      rows.map((row): AdminSearchUpsertRow => {
-        const filename = typeof row['filename'] === 'string' ? row['filename'] : 'fichier'
-        return {
-          type: 'file',
-          entityId: String(row['entity_id']),
-          title: filename,
-          body: '',
-          href: '/_admin/files',
-          updatedAt: new Date(),
-        }
-      })
-    )
-    .catch(() => [])
-
-/** Read agent conversations into index rows (title/agent only). */
-const readConversations = (): Promise<readonly AdminSearchUpsertRow[]> =>
-  executeRaw(
-    db,
-    sql`SELECT id AS entity_id, COALESCE(title, '') AS title, COALESCE(agent_name, '') AS agent_name
-        FROM ${systemTableRef('ai_conversations')}
-        LIMIT 500`
-  )
-    .then((rows) =>
-      rows.map((row): AdminSearchUpsertRow => {
-        const title =
-          typeof row['title'] === 'string' && row['title'].length > 0
-            ? row['title']
-            : `Conversation · ${typeof row['agent_name'] === 'string' ? row['agent_name'] : 'agent'}`
-        return {
-          type: 'conversation',
-          entityId: String(row['entity_id']),
-          title,
-          body: typeof row['agent_name'] === 'string' ? row['agent_name'] : '',
-          href: '/_admin/conversations',
-          updatedAt: new Date(),
-        }
-      })
-    )
-    .catch(() => [])
 
 /** Upsert one index row (idempotent on `(type, entity_id)`). */
 const upsertRow = (row: AdminSearchUpsertRow): Promise<unknown> =>
@@ -312,14 +157,14 @@ const readAllTableRecords = (
  * ERRORS / ORDER: as above — every reader ends in `.catch(() => [])`, and
  * `Effect.all` preserves the tuple positions the caller destructures.
  */
-const readFixedSources = () =>
+const readFixedSources = (formTitles: Readonly<Record<string, string>>, now: Readonly<Date>) =>
   Effect.all(
     [
-      wrap(readSubmissions),
-      wrap(readRuns),
-      wrap(readUsers),
-      wrap(readFiles),
-      wrap(readConversations),
+      wrap(() => readSubmissions(formTitles, now)),
+      wrap(() => readRuns(now)),
+      wrap(() => readUsers(now)),
+      wrap(() => readFiles(now)),
+      wrap(() => readConversations(now)),
     ],
     { concurrency: SHARED_POOL_FANOUT_CONCURRENCY }
   )
@@ -399,10 +244,14 @@ export const AdminSearchRepositoryLive = Layer.succeed(AdminSearchRepository, {
   // Three sequential stages, each a fan-out with a stated ceiling — see the
   // "Bounded rebuild fan-outs" section above. They run one after another, so the
   // rebuild's peak pool usage is the widest single stage, not their sum.
-  rebuildIndex: ({ tables, extraRows, producedKinds, configKinds }) =>
+  rebuildIndex: ({ tables, extraRows, formTitles, producedKinds, configKinds }) =>
     Effect.gen(function* () {
+      const now = new Date()
       const perTable = yield* readAllTableRecords(tables)
-      const [submissions, runs, users, files, conversations] = yield* readFixedSources()
+      const [submissions, runs, users, files, conversations] = yield* readFixedSources(
+        formTitles,
+        now
+      )
       const allRows = [
         ...perTable.flat(),
         ...submissions,

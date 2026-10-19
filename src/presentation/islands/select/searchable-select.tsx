@@ -224,7 +224,7 @@ export function SearchableSelect({
           allowCustomValue={custom.enabled}
           onInputKeyDown={custom.onInputKeyDown}
         />
-        <ComboboxPopupContent />
+        <ComboboxPopupContent emptyLabel={uiStrings?.['select.noResults']} />
       </Combobox.Root>
     </div>
   )

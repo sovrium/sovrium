@@ -27,4 +27,6 @@ export interface RichTextEditorFieldProps {
   readonly displayLabel?: string
   /** Storage bucket name used by the image button + paste handler. */
   readonly imageBucket?: string
+  /** The field's own words in the page language (`richText.*`), where they differ from English. */
+  readonly words?: Readonly<Record<string, string>>
 }

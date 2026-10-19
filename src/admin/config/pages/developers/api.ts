@@ -26,8 +26,10 @@
 //     and highlighted as a single copyable artifact.
 //
 // The endpoint publishes the origin and the table names. The comment lines, the
-// column padding and the curly quotes are this page's, and they stay here where
-// they can be translated — which is the whole ruling.
+// column padding and the quotes are this page's, and they live in the copy
+// catalogue so they follow the reader's language: a translation may carry
+// `$record.*` references, which are filled after it is translated — the row
+// template of the fold included.
 //
 // ─── THE ONE THING THE FOLD CANNOT DO ──────────────────────────────────────
 //
@@ -47,24 +49,11 @@
 // replace; the platform fix is a `contentFrom.append` slot, which is
 // `[internal ref]`'s surface.
 
-import { CARD_CLASS } from '../../components/card'
 import { factsCardFrom } from '../../components/card-blocks'
-import { consolePage, emptyState, tabPanel } from '../../components/data-page'
+import { consolePage } from '../../components/data-page'
 import { lineTabs } from '../../components/tabs-line'
 import { INSTANCE_ENDPOINT } from '../../system-sources'
 import type { Page as PageConfig } from '@/domain/models/app'
-
-/**
- * The two halves of this route, and the `?tab=` value that addresses each.
- *
- * `reference` is what the app's REST surface IS; `keys` is the credential an
- * operator holds to call it. They were one page and one link to a separate
- * account surface; the strip is what makes them two answers to one question.
- */
-const TABS = [
-  { id: 'reference', label: '$t:admin.common.reference' },
-  { id: 'keys', label: '$t:admin.api.tab.keys' },
-] as const
 
 /** One node of a page's component tree, as the config type expresses it. */
 type PageComponent = NonNullable<PageConfig['components']>[number]
@@ -107,14 +96,31 @@ const gatedCode = (
   content: string,
   language: string,
   record: Readonly<Record<string, unknown>>,
-  testid?: string
+  testid?: string,
+  className?: string
 ): PageComponent =>
   ({
     type: 'code',
-    props: { language, ...(testid === undefined ? {} : { 'data-testid': testid }) },
+    props: {
+      language,
+      ...(testid === undefined ? {} : { 'data-testid': testid }),
+      ...(className === undefined ? {} : { className }),
+    },
     content,
     visibility: { record },
   }) as PageComponent
+
+/**
+ * An http request line in one neutral ink.
+ *
+ * The http grammar paints a request line's method as a KEYWORD, and the
+ * highlighting theme's keyword colour is a red, so every `GET` on this page
+ * read as a destructive call. A method is not a warning. Every token of these
+ * lines takes the block's own ink instead: the line is a verb, a path and a
+ * comment, and none of the three needs a colour to be read. The token colours
+ * are unlayered rules, so the class carries `!` to reach past them.
+ */
+const NEUTRAL_HTTP_INK = '[&_[data-slot=code-block-line-content]>span]:text-inherit!'
 
 /** True when the app declares at least one table; false when it declares none. */
 const HAS_TABLES = { field: 'tableCount', gt: 0 } as const
@@ -139,19 +145,11 @@ const NO_TABLES = { field: 'tableCount', eq: 0 } as const
  * surface with no writes in it — so the page points at the surface that owns
  * the write rather than growing a form, which would need an [internal ref] amendment.
  *
- * ─── THE POINTER NOW NAMES A TAB, AND THAT FIXED A LATENT BUG ──────────────
+ * ─── KEYS HAVE ONE HOME ────────────────────────────────────────────────────
  *
- * It was `href: '/_admin/api-keys'` — a MOUNT-PREFIXED literal, in a config
- * whose standing rule is that every intra-app path stays mount-relative. The
- * boot walk moves an `href` beginning with `/` onto whichever base is serving
- * the console, so that value was one prefix away from resolving as
- * `/_admin/_admin/api-keys`. It never showed here because the link is gated on
- * an `apiKeysEnabled` this host does not set, which is the worst way for a
- * broken address to survive: correct-looking, unreachable, untested.
- *
- * `?tab=keys` retires the whole class. It is a QUERY, so no walk touches it; it
- * lands on this same page, so it cannot 404; and it is the surface the operator
- * wanted rather than a second page holding the same island.
+ * The pointer leads to Developers › API keys, the one place a key is created
+ * and revoked. This page once held the same manager under a Keys tab, so a key
+ * lived in two places; the tab is gone and the pointer is the way there.
  */
 const accessCard = (): PageComponent =>
   card([
@@ -166,7 +164,8 @@ const accessCard = (): PageComponent =>
       type: 'link',
       content: '$t:admin.api.keys.link',
       props: {
-        href: '?tab=keys',
+        // Mount-relative: the boot walk moves it onto the console's base.
+        href: '/api-keys',
         className: 'w-fit text-md underline-offset-4 hover:underline',
       },
       visibility: { record: { field: 'apiKeysEnabled', eq: true } },
@@ -189,21 +188,29 @@ const httpExamples = (): PageComponent =>
     children: [
       {
         type: 'code',
-        props: { language: 'http' },
+        props: { language: 'http', className: NEUTRAL_HTTP_INK },
         contentFrom: {
           endpoint: INSTANCE_ENDPOINT,
           rowsKey: 'tables',
           query: { limit: 4 },
-          template: 'GET  /api/tables/$record.name/records      # List “$record.name”',
-          empty: 'GET  /api/tables/{table}/records      # List a table’s records',
+          template: '$t:admin.api.examples.httpList',
+          empty: '$t:admin.api.examples.httpListAny',
         },
       } as PageComponent,
       gatedCode(
-        'POST /api/tables/$record.exampleTable/records      # Create a record',
+        '$t:admin.api.examples.httpCreate',
         'http',
-        HAS_TABLES
+        HAS_TABLES,
+        undefined,
+        NEUTRAL_HTTP_INK
       ),
-      gatedCode('POST /api/tables/{table}/records      # Create a record', 'http', NO_TABLES),
+      gatedCode(
+        '$t:admin.api.examples.httpCreateAny',
+        'http',
+        NO_TABLES,
+        undefined,
+        NEUTRAL_HTTP_INK
+      ),
     ],
   }) as PageComponent
 
@@ -237,7 +244,7 @@ const examplesCard = (): PageComponent => {
     tab('http', 'HTTP', [httpExamples()]),
     tab('curl', 'cURL', [
       gatedCode(
-        '# List “$record.exampleTable” (this browser’s admin session authenticates the call)\n' +
+        '$t:admin.api.examples.curlListComment\n' +
           "curl '$record.origin/api/tables/$record.exampleTable/records' \\\n" +
           "  --header 'Accept: application/json' \\\n" +
           '  --cookie "$SOVRIUM_SESSION"',
@@ -245,7 +252,7 @@ const examplesCard = (): PageComponent => {
         HAS_TABLES
       ),
       gatedCode(
-        '# List a table’s records (this browser’s admin session authenticates the call)\n' +
+        '$t:admin.api.examples.curlListAnyComment\n' +
           "curl '$record.origin/api/tables/{table}/records' \\\n" +
           "  --header 'Accept: application/json' \\\n" +
           '  --cookie "$SOVRIUM_SESSION"',
@@ -255,7 +262,7 @@ const examplesCard = (): PageComponent => {
     ]),
     tab('javascript', 'JavaScript', [
       gatedCode(
-        '// List “$record.exampleTable” from this browser (the session cookie is included)\n' +
+        '$t:admin.api.examples.jsListComment\n' +
           "const res = await fetch('/api/tables/$record.exampleTable/records', {\n" +
           "  headers: { Accept: 'application/json' },\n" +
           "  credentials: 'include',\n" +
@@ -265,7 +272,7 @@ const examplesCard = (): PageComponent => {
         HAS_TABLES
       ),
       gatedCode(
-        '// List a table’s records from this browser (the session cookie is included)\n' +
+        '$t:admin.api.examples.jsListAnyComment\n' +
           "const res = await fetch('/api/tables/{table}/records', {\n" +
           "  headers: { Accept: 'application/json' },\n" +
           "  credentials: 'include',\n" +
@@ -290,8 +297,8 @@ const examplesCard = (): PageComponent => {
 }
 
 /**
- * The "Create user" card — the create-via-API path that replaced the dashboard
- * create form dropped when the Users directory became a table.
+ * The "Create user" card — accounts are created through the admin API (or the
+ * MCP server); the console has no create form.
  *
  * The body is single-quoted after `--data` and the `--cookie` flag sits BEFORE
  * it deliberately: the docs spec lifts the printed body out of the rendered
@@ -306,13 +313,13 @@ const createUserCard = (): PageComponent =>
       type: 'code',
       props: { language: 'bash', 'data-testid': 'api-docs-create-user' },
       content:
-        '# POST /api/auth/admin/create-user — create an account (replaces the removed form)\n' +
+        '$t:admin.api.createUser.comment\n' +
         "curl -X POST '$record.origin/api/auth/admin/create-user' \\\n" +
         "  --header 'Content-Type: application/json' \\\n" +
         '  --cookie "$SOVRIUM_SESSION" \\\n' +
         "  --data '{\n" +
-        '    "email": "personne@exemple.com",\n' +
-        '    "password": "MotDePasseFort123!",\n' +
+        '    "email": "name@example.com",\n' +
+        '    "password": "a-strong-password",\n' +
         '    "role": "member"\n' +
         "  }'",
     } as PageComponent,
@@ -337,78 +344,25 @@ const scalarCard = (): PageComponent =>
     } as PageComponent,
   ])
 
-/**
- * The Keys panel — the self-service API-key manager, or an honest refusal.
- *
- * ─── WHY IT IS GATED AND NOT `requires` ────────────────────────────────────
- *
- * `/api-keys` carries `requires: ['auth.apiKeys']`, which DROPS the page at
- * boot on an instance that declared no keys: the right answer for a whole
- * surface whose every endpoint 404s. It is the wrong answer for a TAB, because
- * `requires` is page-level and would take the Reference half down with it.
- *
- * `visibility.declares` is the same predicate one level down — literally the
- * same closed set and the same table — so the two halves alternate and exactly
- * one reaches the document. The operator still gets a Keys tab, and it says
- * what is true: the capability is not enabled on this instance, and enabling it
- * is a config change rather than something to click.
- *
- * ─── WHY BOTH HALVES SIT INSIDE ONE CONTAINER ──────────────────────────────
- *
- * `panels[i]` ↔ `children[i]` is refused at decode when the counts differ, and
- * a `visibility` gate REMOVES its node. Gating the panel body itself would drop
- * `children[1]` on a keyless instance and put the Reference body under the Keys
- * tab. The container is always present; only what is inside it alternates.
- */
-const keysPanel = (): PageComponent =>
-  tabPanel([
-    {
-      type: 'container',
-      element: 'section',
-      visibility: { declares: 'auth.apiKeys' },
-      props: {
-        className: CARD_CLASS,
-        'aria-label': '$t:admin.apiKeys.region',
-        'data-island': 'api-key-manager',
-        'data-island-props': '{}',
-      },
-      children: [text('p', 'text-foreground-subtle text-md', '$t:admin.apiKeys.loading')],
-    } as PageComponent,
-    {
-      ...(emptyState(
-        '$t:admin.api.keys.disabled.heading',
-        '$t:admin.api.keys.disabled.body',
-        '$t:admin.api.keys.disabled.hint'
-      ) as object),
-      visibility: { unlessDeclares: 'auth.apiKeys' },
-    } as PageComponent,
-  ])
-
 export default consolePage({
   id: 'dashboard-api-docs',
   path: '/api',
   title: '$t:admin.meta.api',
   heading: ['$t:admin.api.heading', '$t:admin.api.blurb'],
+  visibleHeading: true,
   page: {
     // The page's own record. `SystemDetailSourceSchema.param` is optional, so a
     // page with no route segment can bind a facts endpoint as its record — which
     // is what makes `$record.origin` reach every block below.
     dataSource: { system: { endpoint: INSTANCE_ENDPOINT } },
   },
-  shell: { breadcrumb: { api: '$t:admin.crumb.api' } },
-  tabs: {
-    label: '$t:admin.api.tabs.region',
-    specs: TABS,
-    panels: [
-      tabPanel([
-        {
-          type: 'container',
-          element: 'div',
-          props: { className: 'flex max-w-3xl flex-col gap-6' },
-          children: [accessCard(), examplesCard(), createUserCard(), scalarCard()],
-        } as PageComponent,
-      ]),
-      keysPanel(),
-    ],
-  },
+  shell: { breadcrumb: { api: '$t:admin.crumb.api' }, document: true },
+  body: [
+    {
+      type: 'container',
+      element: 'div',
+      props: { className: 'flex flex-col gap-6' },
+      children: [accessCard(), examplesCard(), createUserCard(), scalarCard()],
+    } as PageComponent,
+  ],
 }) satisfies PageConfig

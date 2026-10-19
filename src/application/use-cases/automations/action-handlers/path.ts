@@ -224,6 +224,8 @@ const branchOutcome = (run: BranchRun, selected: readonly string[]): ActionOutco
     haltedOutcome(halt, carried) ?? {
       status: 'failure',
       error: halt.error ?? 'path.branch: an action of the path failed',
+      // The failed step's facts ride up, so the starter reads what it tells her.
+      ...(halt.refusedWrite === undefined ? {} : { refusedWrite: halt.refusedWrite }),
       nestedOutputs: outputs,
       nestedSteps: { paths: run.paths },
       ...toleratedFailures,

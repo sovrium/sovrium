@@ -112,8 +112,22 @@ const INVITE_DIALOG_ID = 'admin-invite-dialog'
 const USERS_COLUMNS = [
   { field: 'email', label: '$t:admin.common.email' },
   { field: 'name', label: '$t:admin.common.name' },
-  { field: 'role', label: '$t:admin.common.role' },
-  { field: 'groups', label: '$t:admin.common.groups' },
+  {
+    // The role as the console calls it (`roleLabel`, beside the `role` every
+    // write takes). Not a sort key: the read orders by the name, which would
+    // not be the order of the words shown, and it refuses `sort=roleLabel`.
+    field: 'roleLabel',
+    label: '$t:admin.common.role',
+    sortable: false,
+  },
+  {
+    // Not a sort key: an account holds a SET of groups, and the directory read
+    // orders by one value per row, so it refuses `sort=groups` with a 400.
+    // Shown by their labels, one per group, in the order of the names.
+    field: 'groupLabels',
+    label: '$t:admin.common.groups',
+    sortable: false,
+  },
   {
     field: 'banned',
     label: '$t:admin.common.status',
@@ -374,7 +388,8 @@ const invitationsGrid = (): PageComponent =>
     },
     columns: [
       { field: 'email', label: '$t:admin.common.email' },
-      { field: 'role', label: '$t:admin.common.role' },
+      // The role as the console calls it (`roleLabel`), as the directory shows it.
+      { field: 'roleLabel', label: '$t:admin.common.role' },
       {
         field: 'status',
         label: '$t:admin.common.status',

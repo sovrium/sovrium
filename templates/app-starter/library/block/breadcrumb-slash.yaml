@@ -9,10 +9,10 @@ children:
     breadcrumbItems:
       - label: workspace
         href: /
-      - label: clients
-        href: /clients
-      - label: atelier-nord
-        href: /clients/atelier-nord
-      - label: inv-0142
+      - label: projects
+        href: /projects
+      - label: spring-rebrand
+        href: /projects/1
+      - label: edit
     props:
       className: font-mono text-sm

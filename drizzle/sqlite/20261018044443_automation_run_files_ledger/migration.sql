@@ -1,0 +1,1 @@
+ALTER TABLE `system_automation_runs` ADD `files_ledger` text;

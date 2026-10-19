@@ -45,7 +45,7 @@ Every page opens with a skip link, the first stop of the keyboard: hidden until 
 
 ## App variables
 
-`$vars.*` are fixed at author time and `$query.*` reads the URL. Neither can say what app is serving the page — so a page wanting its own product name in the chrome had to hardcode it, and every copy went stale on its own. `$app.*` closes that with seven tokens, usable anywhere a string is: content, props, an `href` — including inside a component template, which resolves them for the page it is placed on exactly as a component written inline does.
+`$vars.*` are fixed at author time and `$query.*` reads the URL. Neither can say what app is serving the page — so a page wanting its own product name in the chrome had to hardcode it, and every copy went stale on its own. `$app.*` closes that with seven tokens, usable anywhere a string is: content, props, an `href` — including inside a component template, which resolves them for the page it is placed on exactly as a component written inline does. They resolve in a page's `meta.title` and `meta.description` too, and inside the translation a `$t:` title names, in every language the page is read in — so `title: $app.label — Records` names the app in the browser tab, in the command palette, and after the reader switches language.
 
 | Token                | Value                                                                                                             |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------- |

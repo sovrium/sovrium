@@ -25,6 +25,7 @@ import {
   SELECT_OPTION_SOURCE_DEFAULT_VALUE_FIELD,
   type SelectOptionSource,
 } from '../table-option-source'
+import { lookupDefaultPlans } from './form-lookup-default-service'
 
 /** One resolved choice: the value stored, and the text shown. */
 export interface FormOptionItem {
@@ -149,15 +150,19 @@ const planFormSources = (
 /**
  * Every field of `form` whose choices come from a table. A config-hidden field
  * is skipped: it renders a hidden input carrying its prefill, never a choice
- * list, so reading its table would be a query for nothing.
+ * list, so reading its table would be a query for nothing. Every lookup
+ * default is read too, hidden or not: it is the one choice the field starts on
+ * (`form-lookup-default-service.ts`).
  */
 export const collectFormOptionSources = (
   form: Readonly<FormShape>,
   tables: ReadonlyArray<TableShape>
-): readonly FormOptionSourcePlan[] =>
-  planFormSources(form, tables, (field, column) =>
+): readonly FormOptionSourcePlan[] => [
+  ...planFormSources(form, tables, (field, column) =>
     field.hidden === true ? undefined : fieldOptionSource(field, column)
-  )
+  ),
+  ...lookupDefaultPlans(form),
+]
 
 /** The related table's rows, named and valued by id — a hidden link's fallback. */
 const relatedRowsById = (

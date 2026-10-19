@@ -230,6 +230,18 @@ export const releaseSummarySchema = Schema.Struct({
   schemaChangeCount: Schema.Finite.annotate({
     description: 'How many derived DDL statements this row carries.',
   }),
+  engineLabel: optionalField(
+    Schema.String.annotate({
+      description:
+        'The engine that ran this boot as a reader names it: `Sovrium` and its version (`Sovrium 0.39.1`), the same in every language. Display text only; `engineVersion` stays the figure to compare.',
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
+  engineMigrationsLabel: optionalField(
+    Schema.String.annotate({
+      description:
+        'What the engine did to its own tables at this boot, as one phrase in the operator’s language built from `engineMigrationCount`: `43 engine migrations applied`, `1 engine migration applied` in English, `43 migrations moteur appliquées`, `1 migration moteur appliquée` in French. Absent when the boot applied none, so a cell reads as empty rather than as `0 … applied`. The language is the operator’s own — their account language, else the `sovrium_language` preference — and English otherwise.',
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
 }).annotate({
   identifier: 'AdminReleaseSummary',
   title: 'Release Summary',

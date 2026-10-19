@@ -7,6 +7,7 @@
 
 import { Data, Effect } from 'effect'
 import { CronScheduler } from '@/application/ports/services/cron-scheduler'
+import { describeSweepFailure } from '@/infrastructure/database/read-write-sweep'
 import { purgeExpiredTableRows } from '@/infrastructure/database/table-retention'
 import { logError } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
@@ -65,7 +66,13 @@ export const registerTableRetentionScheduler = (
           }).pipe(
             Effect.tapError((error) =>
               Effect.sync(() => {
-                logError('[table-retention] scheduled retention sweep failed', error.cause)
+                logError(
+                  describeSweepFailure(
+                    '[table-retention] scheduled retention sweep failed',
+                    error.cause
+                  ),
+                  error.cause
+                )
               })
             ),
             Effect.catch(() => Effect.void),

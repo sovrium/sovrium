@@ -7,8 +7,11 @@
 
 import { Effect } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
-import { resolveCreatedCommentMentions } from '@/application/use-cases/tables/comment-mention-programs'
-import { createCommentProgram } from '@/application/use-cases/tables/comment-programs'
+import { triggerCommentEventAutomations } from '@/application/use-cases/automations/trigger-comment-event'
+import {
+  NestedCommentReplyError,
+  postCommentProgram,
+} from '@/application/use-cases/tables/comment-post-programs'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
 import { createCommentRequestSchema } from '@/domain/models/api/tables/comments'
 import { isAuthenticatedSession } from '@/domain/models/app/auth/guest-session'
@@ -22,18 +25,15 @@ import {
   requiresAuthenticationForComment,
   type CommentModerationConfig,
 } from '@/domain/models/app/tables/comment-moderation-policy'
-import { logError } from '@/infrastructure/logging/logger'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
-import { getTableContext, requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
+import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { decodeOrValidationResponse } from '@/presentation/api/runtime/effect-validator'
 import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import { callerRolesOnTable, notFoundResponse } from './comment-handler-shared'
 import { applyRateLimit, classifySpam } from './comment-spam-guards'
-import { buildTriggerDispatchArgs, dispatchCommentPostedTrigger } from './comment-trigger-dispatch'
 import { handleRouteError } from './error-handlers'
 import { isAuthorizationError } from './error-helpers'
 import { checkRecordReadGate } from './record-read-gate'
-import type { CommentMention } from '@/application/use-cases/tables/comment-mention-programs'
 import type { App } from '@/domain/models/app'
 import type { CommentSpamStatus } from '@/domain/models/app/tables/comment-spam-classification'
 import type { Context } from 'hono'
@@ -133,6 +133,11 @@ function validateCreateCommentBody(body: unknown): CreateCommentBody | undefined
  * is what [[persistResolvedComment]] does.
  */
 function handleCommentError(c: Context, error: unknown) {
+  // A parent in this thread that is itself a reply: the answer reveals nothing
+  // the thread does not already show. Checked before anything is stored.
+  if (error instanceof NestedCommentReplyError) {
+    return c.json({ success: false, message: error.message, code: 'NESTED_REPLY_REJECTED' }, 422)
+  }
   if (isAuthorizationError(error)) {
     return notFound(c)
   }
@@ -453,233 +458,43 @@ function classifyComment(input: {
   return { spamStatus, combinedStatus: combineModerationVerdicts(spamStatus, moderationStatus) }
 }
 
-/**
- * Whether a stored comment belongs to the thread being posted to.
- *
- * Comments carry the table key the URL named when they were written — the
- * table's name or its numeric id — so either spelling of THIS table matches.
- */
-function isInThread(
-  parent: Readonly<{ tableId: string; recordId: string }>,
-  thread: Readonly<{ tableKeys: ReadonlySet<string>; recordId: string }>
-): boolean {
-  return thread.tableKeys.has(String(parent.tableId)) && String(parent.recordId) === thread.recordId
-}
-
-/**
- * Reply-parent check (single-level threading, the pages public comments specs).
- *
- * A reply belongs to the thread of its parent. A `parentCommentId` that names
- * no comment, or a comment on ANOTHER record, answers the one 404 — the same
- * body either way, so the endpoint never tells which comment ids exist
- * elsewhere (pending ones included), and no reply is ever stored against a
- * parent outside its thread. A parent in this thread that is itself a reply
- * is refused 422: that answer reveals nothing the thread does not already show.
- */
-async function checkReplyParent(
-  c: Context,
-  table: NonNullable<App['tables']>[number],
-  parentCommentId: string | undefined
-): Promise<Response | undefined> {
-  if (parentCommentId === undefined) return undefined
-  const { session, tableId } = getTableContext(c)
-  const lookup = await runOnRequest(
-    c,
-    Effect.gen(function* () {
-      const repo = yield* CommentRepository
-      return yield* repo.getWithUser({ session, commentId: parentCommentId })
-    })
-  )
-  // A lookup that fails (an id the column type cannot hold, a driver fault) is
-  // logged and answered as a missing parent: the reply is refused either way,
-  // and the refusal must not differ from the not-found one.
-  if (lookup._tag === 'Failure') {
-    logError('[comments] reply-parent lookup failed', lookup.failure, requestLogAttributes(c))
-    return notFound(c)
-  }
-  const parent = lookup.success
-  const thread = {
-    tableKeys: new Set([tableId, String(table.id), table.name]),
-    recordId: c.req.param('recordId')!,
-  }
-  if (parent === undefined || !isInThread(parent, thread)) return notFound(c)
-  if (parent.parentId !== null) {
-    return c.json(
-      {
-        success: false,
-        message:
-          'Cannot reply to a reply — parentCommentId must reference a top-level comment (single-level threading)',
-        code: 'NESTED_REPLY_REJECTED',
-      },
-      422
-    )
-  }
-  return undefined
-}
-
 export async function handleCreateComment(c: Context, app: App) {
   const gate = await checkCreateCommentGate(c, app)
   if (!gate.ok) return gate.response
   const { session, tableId, userRole } = getTableContext(c)
-  const recordId = c.req.param('recordId')!
   const { table, validated, combinedStatus } = gate
 
-  // Reply-parent check — must run BEFORE the moderation short-circuit so a
-  // nested-reply attempt that would otherwise spam-classify still gets the
-  // canonical 422 verdict, and a parent outside this thread its 404.
-  const parentResponse = await checkReplyParent(c, table, validated.parentCommentId)
-  if (parentResponse !== undefined) return parentResponse
-
-  // PG-02 moderation persistence: persist the comment with the resolved
-  // verdict (`'approved'` | `'pending'` | `'rejected'`) so a moderated
-  // comment is a durable row the admin moderation queue
-  // can list, approve, and reject. Every
-  // verdict takes this one path — the response `status` is read back off the
-  // committed row, so a caller never receives an id for a comment that does
-  // not exist. Failures are failures ([[handleCommentError]]).
-  return persistResolvedComment({
-    c,
-    app,
-    table,
-    validated,
-    session,
-    tableId,
-    recordId,
-    userRole,
-    status: combinedStatus,
-  })
-}
-
-/**
- * Fire the Y-6 comment-posted trigger, but ONLY for approved comments.
- * A comment awaiting moderation (pending) or rejected is not yet a visible
- * thread event, so it must not notify thread participants (preserves the
- * prior non-approved short-circuit's no-trigger behavior). Swallows errors —
- * the comment is already committed and the API response must reflect success.
- * The trigger gets the FULL author (with email); the HTTP response only ever
- * carries the no-email display projection (B1 — commenter email off the wire).
- */
-async function maybeFireCommentPostedTrigger(input: {
-  readonly c: Context
-  readonly app: App
-  readonly table: NonNullable<App['tables']>[number]
-  readonly session: ReturnType<typeof getTableContext>['session']
-  readonly tableId: string
-  readonly recordId: string
-  readonly userRole: string
-  readonly status: CombinedModerationStatus
-  readonly result: Effect.Success<ReturnType<typeof createCommentProgram>>
-  /** The mentioned people who can read the record — the only ones the trigger hears of. */
-  readonly mentionIds: readonly string[]
-}): Promise<void> {
-  const { c, app, table, session, tableId, recordId, userRole, status, result } = input
-  if (status !== 'approved') return
-  await dispatchCommentPostedTrigger({
-    ...buildTriggerDispatchArgs({
-      app,
-      tableName: table.name,
-      tableId,
-      recordId,
-      userRole,
-      session,
-      comment: result.comment,
-      author: result.author,
-      mentions: input.mentionIds,
-    }),
-    c,
-  })
-}
-
-async function persistResolvedComment(input: {
-  readonly c: Context
-  readonly app: App
-  readonly table: NonNullable<App['tables']>[number]
-  readonly validated: CreateCommentBody
-  readonly session: ReturnType<typeof getTableContext>['session']
-  readonly tableId: string
-  readonly recordId: string
-  readonly userRole: string
-  /**
-   * Resolved moderation verdict (PG-02). Persisted to the row by the create
-   * program; the create response's `status` is then read back from the
-   * persisted comment, not a synthesized literal.
-   */
-  readonly status: CombinedModerationStatus
-}): Promise<Response> {
-  const { c, table, validated, session, tableId, recordId, status } = input
-
+  // Every verdict — `'approved'`, `'pending'`, `'rejected'` — takes this one
+  // path and is stored, so a moderated comment is a durable row the moderation
+  // queue can act on; the response `status` is read back off the stored row,
+  // so a caller never receives an id for a comment that does not exist.
+  // Failures are failures ([[handleCommentError]]).
   const result = await runOnRequest(
     c,
-    createCommentProgram({
-      session,
+    postCommentProgram({
+      app,
+      table,
       tableId,
-      recordId,
-      tableName: table.name,
+      recordId: c.req.param('recordId')!,
       content: validated.content,
       parentCommentId: validated.parentCommentId,
+      mentions: validated.mentions,
       guestName: validated.guestName,
       guestEmail: validated.guestEmail,
-      status,
+      author: { kind: 'session', session, userRole },
+      status: combinedStatus,
+      // The comment automations run before the post answers, as they always have.
+      announce: (event) =>
+        triggerCommentEventAutomations({ ...event, app, processEnv: process.env }),
     })
   )
-
-  // A failed create is reported as a failure. There is no verdict-dependent
-  // branch here: see [[handleCommentError]] for why fabricating a success for
-  // a non-approved verdict is the exact inversion this path must not have.
   if (result._tag === 'Failure') return handleCommentError(c, result.failure)
 
-  const mentioned = await resolveMentionsOfCreatedComment(input)
-  await maybeFireCommentPostedTrigger({
-    ...input,
-    result: result.success,
-    mentionIds: mentioned.ids,
-  })
-
-  // Emit ONLY the display comment (no-email `user`). `result.right.author`
-  // carries the commenter email for the trigger above and must never be
-  // serialized to the wire (B1). The top-level `status` is read back from
-  // the PERSISTED row (`result.right.comment.status`), not a synthesized
-  // literal — so the response reflects the verdict actually committed.
+  // Emit ONLY the display comment (no-email `user`): the author with an email
+  // feeds the comment trigger and must never reach the wire (B1).
+  const { comment, mentioned } = result.success
   return c.json(
-    {
-      comment: { ...result.success.comment, mentions: mentioned.mentions },
-      status: result.success.comment.status,
-    },
+    { comment: { ...comment, mentions: mentioned.mentions }, status: comment.status },
     201
   )
-}
-
-/**
- * The people the new comment mentions who can read the record: the ids the
- * comment trigger receives, and the names the create response carries.
- *
- * The comment is already committed when this runs, so a failed lookup must not
- * turn a successful post into an error. It fails CLOSED instead — nobody is
- * mentioned — and says so in the log, because a silent empty list would make a
- * `mentionsOnly` automation look as though it had simply not matched.
- */
-async function resolveMentionsOfCreatedComment(input: {
-  readonly c: Context
-  readonly app: App
-  readonly table: NonNullable<App['tables']>[number]
-  readonly session: ReturnType<typeof getTableContext>['session']
-  readonly recordId: string
-  readonly validated: CreateCommentBody
-}): Promise<{ readonly ids: readonly string[]; readonly mentions: readonly CommentMention[] }> {
-  const { c, app, table, session, recordId, validated } = input
-  const resolved = await runOnRequest(
-    c,
-    resolveCreatedCommentMentions(
-      { app, table, recordId, session },
-      validated.content,
-      validated.mentions
-    )
-  )
-  if (resolved._tag === 'Success') return resolved.success
-  logError(
-    '[comments] mention audience lookup failed; the comment mentions nobody',
-    resolved.failure,
-    requestLogAttributes(c)
-  )
-  return { ids: [], mentions: [] }
 }

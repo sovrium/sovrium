@@ -50,6 +50,23 @@ export interface SearchState {
 }
 
 /**
+ * Where the SEARCH mode is: nothing typed, a query in flight, or the answer for
+ * the query typed shown (results, or the no-results line). The list carries it
+ * as `data-search-state`, beside `aria-busy` while searching, because the
+ * searching hint and the no-results line share one `status` element and a
+ * reader of the DOM could not tell a settled "No results" from a pending one.
+ */
+/** The search phase for `query` against the current search state. */
+export const searchPhaseOf = (
+  query: string,
+  search: SearchState
+): 'idle' | 'searching' | 'settled' => {
+  const trimmed = query.trim()
+  if (trimmed.length === 0) return 'idle'
+  return search.loading || search.resolvedQuery !== trimmed ? 'searching' : 'settled'
+}
+
+/**
  * Run the debounced global search for `query`. A blank query resets to the empty
  * prompt without a request; a non-blank query sets `loading`, waits the debounce,
  * fetches, and stores the flattened groups.

@@ -17,6 +17,7 @@ import {
   computeFieldErrorClasses,
   computeFieldGroupClasses,
   computeFieldLegendClasses,
+  computeFieldLegendHeadingClasses,
   computeFieldSetClasses,
 } from '@/presentation/design/field-default-classes'
 import { fieldWidgetOf } from '@/presentation/design/field-type-behavior'
@@ -219,7 +220,7 @@ export function FormFields(props: FormFieldsProps) {
             data-variant="legend"
             className={computeFieldLegendClasses()}
           >
-            <h2>{section.title}</h2>
+            <h2 className={computeFieldLegendHeadingClasses()}>{section.title}</h2>
           </legend>
           {section.description !== undefined && (
             <p

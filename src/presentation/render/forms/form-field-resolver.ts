@@ -113,9 +113,8 @@ const TABLE_FIELD_INPUT_TYPE_MAP: Readonly<Record<string, string>> = {
   // path which already handles `single-select`/`multi-select` natively.
   'single-select': 'select',
   'multi-select': 'select',
-  // A status column is a closed set of `{ value }` options too: drawn like a
-  // single-select, led by the empty option, never as a free text box its
-  // option CHECK would refuse.
+  // A status column is a closed set of `{ value }` options too: drawn like a single-select,
+  // led by the empty option, never as a free text box its option CHECK would refuse.
   status: 'select',
   // [internal ref] / the forms specs: user-typed columns FK to
   // `auth_user.id`. They render as a picker carrying the
@@ -279,6 +278,7 @@ const resolveStandaloneField = (
     required: field.required ?? false,
     hidden: field.hidden ?? false,
     ...(options !== undefined ? { options } : {}),
+    ...(field.inputType === 'multi-select' ? { multiChoice: true } : {}),
     ...(field.accept !== undefined ? { accept: field.accept } : {}),
     ...(field.maxFileSize !== undefined ? { maxFileSize: field.maxFileSize } : {}),
     ...(field.maxFiles !== undefined ? { maxFiles: field.maxFiles } : {}),

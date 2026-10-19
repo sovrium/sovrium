@@ -69,14 +69,17 @@ export interface ParsedArgs {
   /** `--dir <path>` — seed-file directory for `sovrium seed`. */
   readonly seedDir?: string
   /**
-   * `--mode <value>` — the RAW string, deliberately unvalidated here.
+   * `--mode <value>` — the RAW string, deliberately unvalidated here, and
+   * named for no command because two read it.
    *
-   * `sovrium seed` owns the refusal so it can print the accepted set; a parser
-   * that quietly fell back to the default would run `if-empty` when the
-   * operator typed `replace`, and the nightly reset would report success while
-   * refreshing nothing.
+   * Each command owns its own refusal so it can print its accepted set:
+   * `sovrium seed` reads it as its write mode (`if-empty|replace|…`), and
+   * `sovrium design-system` as its colour mode (`light|dark`). A parser that
+   * quietly fell back to a default would run `if-empty` when the operator typed
+   * `replace`, and the nightly reset would report success while refreshing
+   * nothing.
    */
-  readonly seedMode?: string
+  readonly mode?: string
   /**
    * Every `--table <name>` occurrence, in argv order.
    *

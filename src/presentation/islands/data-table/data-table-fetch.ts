@@ -268,6 +268,8 @@ export interface ResolvedQuery {
   readonly loadMore?: boolean
   /** The first row of a load-more grid's next page (`?offset=`). */
   readonly offset?: number
+  /** A system grid that numbers no pages, so it sends no `?page=` (see `SystemQueryInput`). */
+  readonly unnumbered?: boolean
 }
 
 /**
@@ -353,6 +355,7 @@ async function runSystemFetch(
     pagination: q.pagination,
     sortParam: q.sortParam,
     globalFilter: q.globalFilter,
+    ...(q.unnumbered === true && { unnumbered: true }),
   }
   const page = await fetchSystemEndpoint({
     ...request,

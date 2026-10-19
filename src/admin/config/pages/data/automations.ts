@@ -28,10 +28,12 @@
 // runtime binds the `change` listener. No hydration at all. The native control
 // takes its accessible name from the visible caption it wraps, so the caption
 // IS the name the specs address — "Filter by automation", "… trigger", "… status".
+// Drawn as toolbar facets (`toolbar-facet.ts`), the caption is screen-reader only.
 
 import { sectionCard } from '../../components/dashboard-blocks'
-import { consolePage, emptyState, kpiStrip, tabPanel } from '../../components/data-page'
+import { consolePage, emptyState, kpiStrip, tabPanel, toolbarRow } from '../../components/data-page'
 import { dataTable, STATUS_BADGE, toolbarSearch } from '../../components/data-table-blocks'
+import { toolbarFacet } from '../../components/toolbar-facet'
 import {
   AUTOMATION_RUNS_ENDPOINT,
   AUTOMATIONS_ENDPOINT,
@@ -70,18 +72,24 @@ const RUNS_FILTER_CHANNEL = 'automation-runs-filter'
  * `'active' | 'paused' | 'disabled'` enum, and its response schema is strict, so
  * relabelling server-side is impossible by design.
  *
- * `Paused by` / `Paused at` are two columns rather than one concatenated string:
- * during an incident an operator needs both WHO stopped it and WHEN, and
- * separate columns sort and format properly. `pausedBy` is nullable — the pause
- * outlives the account that set it (`ON DELETE SET NULL`), so a deleted operator
- * leaves the pause standing with an empty actor.
+ * `Paused` is ONE column: three sparse columns (reason, by, at) stood empty on
+ * every running row. The endpoint composes the reading (`pausedLabel`), so the
+ * actor of a platform pause, a deleted operator and the operator's clock are
+ * the server's to word.
  *
- * The State column carries no colour. [internal ref] A7 names this exact surface: the
+ * The State column is the console's one status badge (`STATUS_BADGE`), the
+ * same outline-and-dot cell the run history's Status column draws: the word is
+ * the reading, the dot the kind. [internal ref] A7 names this exact surface: the
  * console's own status pills are chrome, because Sovrium invented that
- * vocabulary rather than the app author, and A1 retired `success` / `warning`.
+ * vocabulary rather than the app author, so the dot is a chrome hue, never one
+ * the app declares.
+ *
+ * The Automation column reads the label the platform resolved (the declared
+ * one, else the name made readable); the name stays the row's id, which every
+ * pause and resume addresses.
  */
 const CATALOG_COLUMNS = [
-  { field: 'name', label: '$t:admin.automations.catalog.col.automation' },
+  { field: 'label', label: '$t:admin.automations.catalog.col.automation' },
   // Every entry the automation starts on, by name: `trigger` is the first
   // entry's type alone, which reads « nightly and on demand » as `cron`.
   { field: 'triggers', label: '$t:admin.automations.catalog.col.trigger' },
@@ -93,18 +101,20 @@ const CATALOG_COLUMNS = [
       paused: '$t:admin.automations.catalog.state.paused',
       disabled: '$t:admin.automations.catalog.state.disabled',
     },
+    // Running is the expected state; a pause stops new runs, so it is a caution;
+    // disabled in config is a fact of the file, not an alarm.
+    cellStyle: [
+      { when: { eq: 'active' }, className: STATUS_BADGE.quiet.positive },
+      { when: { eq: 'paused' }, className: STATUS_BADGE.quiet.caution },
+      { when: { eq: 'disabled' }, className: STATUS_BADGE.quiet.neutral },
+    ],
   },
-  // Only a platform pause carries a `reason`; an operator pause leaves it null
-  // and `Paused by` names who. So the column is sparse by design: a mark in it
-  // means nobody chose this pause, which is the one thing an operator must see
-  // before deciding whether Resume is safe.
-  {
-    field: 'reason',
-    label: '$t:admin.automations.catalog.reason',
-    valueLabels: { 'consecutive-failures': '$t:admin.automations.catalog.reason.automatic' },
-  },
-  { field: 'pausedBy', label: '$t:admin.automations.catalog.col.pausedBy' },
-  { field: 'pausedAt', label: '$t:admin.automations.catalog.col.pausedAt', format: 'datetime' },
+  // Who stopped it and when, as one reading the server phrases in the console
+  // language: `Camille Martin · Oct 9, 10:12`, or `System · Oct 13, 16:40` when
+  // the platform paused it after repeated failures — the one thing an operator
+  // must see before deciding whether Resume is safe. A running row reads the
+  // grid's empty dash.
+  { field: 'pausedLabel', label: '$t:admin.automations.catalog.col.paused' },
   {
     type: 'actions',
     label: '',
@@ -144,11 +154,13 @@ const CATALOG_COLUMNS = [
             refetch: CATALOG_GRID_ID,
           },
           // A refused pause is SAID, naming the automation, and the row is left
-          // as it was: still Active, still offering Pause.
+          // as it was: still Active, still offering Pause. Retry (an actionLabel
+          // with no actionUrl) pauses again without asking a second time.
           onError: {
             type: 'toast',
             variant: 'destructive',
             message: '$t:admin.automations.catalog.pause.failed',
+            actionLabel: '$t:admin.automations.catalog.pause.retry',
           },
         },
       },
@@ -196,75 +208,70 @@ const catalogGrid = (): PageComponent =>
   }) as PageComponent
 
 /**
- * One filter control.
+ * The control row: the search box, then the automation, trigger and status
+ * facets, all publishing on {@link RUNS_FILTER_CHANNEL}.
  *
- * `props.className` lands on the `<label>` the native rendering wraps the
- * control in; the caption's own class list is the renderer's, so the two
- * controls cannot drift apart. `w-56` is what keeps them from stretching: the
- * control carries `w-full`, so an unbounded label would let the automation
- * filter's width follow its longest option name.
- */
-const filter = (
-  id: string,
-  label: string,
-  param: string,
-  choices: Readonly<Record<string, unknown>>
-): PageComponent =>
-  ({
-    type: 'native-select',
-    props: { id, label, className: 'w-56' },
-    emptyOption: { label: '$t:admin.automations.runs.filter.all' },
-    publishes: { bindTo: RUNS_FILTER_CHANNEL, param },
-    ...choices,
-  }) as PageComponent
-
-/**
- * The filter bar: the automation, trigger and status pickers, all publishing
- * on {@link RUNS_FILTER_CHANNEL}.
+ * Facets rather than labelled selects (`toolbarFacet`): a caption above every
+ * control grew the row a second line and read as a form to fill in. Each facet
+ * keeps its caption as its accessible name — "Filter by automation", "… trigger",
+ * "… status" — and reads its resting choice ("All automations") instead.
  *
  * The automation and trigger options come from the SAME endpoint the catalog
- * above binds — one projection, three consumers — because the operator's
+ * binds — one projection, three consumers — because the operator's
  * `app.automations` is unreadable from a preset page. The trigger names are the
  * catalog's distinct `triggerNames`, across every automation: the channel
  * carries values, so the choices cannot follow the automation picked.
  *
- * The status list is static and its VALUES are the engine's, not the operator's:
- * a successful run persists as `completed`, so the "Success" choice carries
- * `completed`. The retired island held that mapping in TypeScript
- * (`toQueryStatus`) precisely because its option value was the operator word;
- * declaring the engine value directly deletes the mapping rather than moving it.
+ * The status VALUES are the engine's, not the operator's: a successful run
+ * persists as `completed`, so the "Success" choice carries `completed`.
  *
- * The CAPTIONS are translated like everything else: the select renderer
- * resolves a `$t:` label itself, because the caption is read off the raw
- * `props` that the props translation pass never reaches.
+ * Not a `filter-bar`: it publishes ONE `filter` JSON param, which the runs read
+ * does not parse; these facets publish the three params it does.
  */
 const filterBar = (): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: { className: 'mb-4 flex flex-wrap items-end gap-3' },
-    children: [
-      // The search box first, on the same channel: it publishes `q`, and the
-      // endpoint applies it over every run.
-      toolbarSearch(RUNS_FILTER_CHANNEL, '$t:admin.automations.runs.search'),
-      filter('automation-filter', '$t:admin.automations.runs.filter.automation', 'automationName', {
+  toolbarRow([
+    // The search box first, on the same channel: it publishes `q`, and the
+    // endpoint applies it over every run.
+    toolbarSearch(RUNS_FILTER_CHANNEL, '$t:admin.automations.runs.search'),
+    toolbarFacet({
+      id: 'automation-filter',
+      label: '$t:admin.automations.runs.filter.automation',
+      allLabel: '$t:admin.automations.runs.filter.allAutomations',
+      publishes: { bindTo: RUNS_FILTER_CHANNEL, param: 'automationName' },
+      choices: {
         dataSource: {
           system: { endpoint: AUTOMATIONS_ENDPOINT, rowsKey: 'items', idKey: 'name' },
+          // The option reads the automation's label; its value stays the name
+          // the endpoint filters on.
           valueKey: 'name',
-          labelKey: 'name',
+          labelKey: 'label',
         },
-      }),
-      filter('trigger-filter', '$t:admin.automations.runs.filter.trigger', 'triggerName', {
-        // Its own "All": the shared one agrees with « automatisation » and
-        // « exécution », and French needs the masculine for « déclencheur ».
-        emptyOption: { label: '$t:admin.automations.runs.filter.allTriggers' },
+      },
+    }),
+    toolbarFacet({
+      id: 'trigger-filter',
+      label: '$t:admin.automations.runs.filter.trigger',
+      // Each facet names its own resting choice: with the caption hidden, three
+      // controls reading « All » would not say which filter they are.
+      allLabel: '$t:admin.automations.runs.filter.allTriggers',
+      publishes: { bindTo: RUNS_FILTER_CHANNEL, param: 'triggerName' },
+      choices: {
         dataSource: {
           system: { endpoint: AUTOMATIONS_ENDPOINT, rowsKey: 'triggerNames', idKey: 'name' },
+          // The option reads the trigger as the catalogue and a run read it
+          // ("Quotes · status → Signed"); its value stays the name the
+          // endpoint filters on.
           valueKey: 'name',
-          labelKey: 'name',
+          labelKey: 'label',
         },
-      }),
-      filter('status-filter', '$t:admin.automations.runs.filter.status', 'status', {
+      },
+    }),
+    toolbarFacet({
+      id: 'status-filter',
+      label: '$t:admin.automations.runs.filter.status',
+      allLabel: '$t:admin.automations.runs.filter.allStatuses',
+      publishes: { bindTo: RUNS_FILTER_CHANNEL, param: 'status' },
+      choices: {
         options: [
           { value: 'completed', label: '$t:admin.automations.runs.status.success' },
           { value: 'failed', label: '$t:admin.automations.runs.status.failed' },
@@ -274,9 +281,9 @@ const filterBar = (): PageComponent =>
           { value: 'rejected', label: '$t:admin.automations.runs.status.rejected' },
           { value: 'cancelled', label: '$t:admin.automations.runs.status.cancelled' },
         ],
-      }),
-    ],
-  }) as PageComponent
+      },
+    }),
+  ])
 
 /**
  * The run-history grid.
@@ -302,14 +309,21 @@ const runsGrid = (): PageComponent =>
         idKey: 'id',
         bindTo: RUNS_FILTER_CHANNEL,
         sharedFilter: { params: ['q', 'automationName', 'triggerName', 'status'] },
+        // Every run the filters match, so the pager numbers its pages; the
+        // endpoint's own `resultSummary` stands in for the pager's range.
+        totalKey: 'total',
       },
     },
+    pagination: { pageSize: 25 },
+    // Below `sm` each run is one item: the automation as its title, the trigger
+    // and the status on the line beneath, and a tap opens the run as the row does.
+    phoneLayout: 'rows',
     columns: [
-      { field: 'automationName', label: '$t:admin.automations.runs.col.automation' },
-      // The entry that started the run, by name: two runs of one automation
-      // that read identically otherwise are told apart here, without opening
-      // either. A trigger declared without a name reads as its type.
-      { field: 'triggerName', label: '$t:admin.automations.runs.col.trigger' },
+      // The label the platform resolved (declared, else the name made readable).
+      { field: 'automationLabel', label: '$t:admin.automations.runs.col.automation' },
+      // What started the run, in words the server composed (`Schedule · daily
+      // 06:00`); the trigger filter still takes the trigger's name.
+      { field: 'triggerLabel', label: '$t:admin.automations.runs.col.trigger' },
       {
         field: 'status',
         label: '$t:admin.automations.runs.col.status',
@@ -355,7 +369,14 @@ const runsGrid = (): PageComponent =>
           { when: { eq: 'Skipped' }, className: STATUS_BADGE.quiet.neutral },
         ],
       },
-      { field: 'startedAt', label: '$t:admin.automations.runs.col.started', format: 'datetime' },
+      // Relative to the reader's day: `Today 06:00`, then `Oct 13, 07:30`.
+      {
+        field: 'startedAt',
+        label: '$t:admin.automations.runs.col.started',
+        format: 'day-relative-time',
+      },
+      // The record the run concerns, by the name its sheet heads itself with.
+      { field: 'recordLabel', label: '$t:admin.automations.runs.col.record' },
       {
         field: 'durationMs',
         label: '$t:admin.automations.runs.col.duration',
@@ -390,11 +411,12 @@ const runsGrid = (): PageComponent =>
         ],
       },
     ],
-    // The grid owns the page's scroll on this surface: the KPI strip, the
-    // filter bar and the read-window note keep their natural height above it
+    // The grid owns the page's scroll on this surface: the KPI strip and the
+    // filter bar keep their natural height above it
     // and the rows take whatever is left, so the column header stays pinned
     // and the operator never scrolls a labelled table into an unlabelled one.
     layout: 'fill',
+    onRowClick: { type: 'navigate', path: '/runs/$record.id' },
     emptyMessage: '$t:admin.automations.runs.empty',
     noMatchMessage: '$t:admin.automations.runs.noMatch',
   }) as PageComponent
@@ -464,32 +486,16 @@ const runsKpiStrip = (): PageComponent =>
   ])
 
 /**
- * The History panel: the run figures, the filter bar, the run feed and its
- * read-window statement. A run opens on its own page, not over this panel.
+ * The History panel: the run figures, the filter bar and the run feed, paged
+ * by number over every matching run. A run opens on its own page, not over
+ * this panel.
  *
  * The `px-6` / `p-6` the two sections carried are GONE. They were the gutter of
  * a body stacked under a page title; the console's content column supplies its
  * own 16px now, and a second inset made the grid sit 24px further in than every
  * other grid in the console.
  */
-const historyPanel = (): PageComponent =>
-  tabPanel([
-    runsKpiStrip(),
-    filterBar(),
-    runsGrid(),
-    // The read-window statement, and the load-bearing half is the second
-    // sentence: it names the affordance that DOES reach older runs (search
-    // and the filters both query server-side over every run) and admits
-    // that a narrowed result carries the same 25-row cap. Without it,
-    // removing the pager would just relocate the wrong answer one
-    // interaction later.
-    {
-      type: 'text',
-      element: 'p',
-      props: { className: 'text-foreground-subtle text-md' },
-      content: '$t:admin.automations.runs.scope',
-    } as PageComponent,
-  ])
+const historyPanel = (): PageComponent => tabPanel([runsKpiStrip(), filterBar(), runsGrid()])
 
 /**
  * The Automations panel: the catalogue, with pause and resume on each row.

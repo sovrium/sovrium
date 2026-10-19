@@ -38,19 +38,19 @@ children:
                 content: Overview
               - type: link
                 props:
-                  href: /invoices
+                  href: /projects
                   className: text-md text-muted-foreground hover:text-foreground
-                content: Invoices
+                content: Projects
               - type: link
                 props:
-                  href: /clients
+                  href: /worklist
                   className: text-md text-muted-foreground hover:text-foreground
-                content: Clients
+                content: Worklist
               - type: link
                 props:
-                  href: /reports
+                  href: /metrics
                   className: text-md text-muted-foreground hover:text-foreground
-                content: Reports
+                content: Metrics
           - type: flex
             props:
               className: flex items-center gap-2
@@ -69,11 +69,11 @@ children:
                     action:
                       type: navigate
                       path: /
-                  - label: Invoices
-                    icon: file-text
+                  - label: Projects
+                    icon: folder
                     action:
                       type: navigate
-                      path: /invoices
+                      path: /projects
                   - label: Settings
                     icon: settings
                     action:
@@ -119,19 +119,19 @@ children:
             content: Overview
           - type: link
             props:
-              href: /invoices
+              href: /projects
               className: block border-b border-border py-3 text-lg font-medium text-foreground
-            content: Invoices
+            content: Projects
           - type: link
             props:
-              href: /clients
+              href: /worklist
               className: block border-b border-border py-3 text-lg font-medium text-foreground
-            content: Clients
+            content: Worklist
           - type: link
             props:
-              href: /reports
+              href: /metrics
               className: block border-b border-border py-3 text-lg font-medium text-foreground
-            content: Reports
+            content: Metrics
   - type: container
     props:
       className: border-b border-border px-4 py-7 sm:px-8

@@ -8,6 +8,7 @@
 import { Menu } from '@base-ui/react/menu'
 import { useCallback, type ReactElement, type ReactNode, type RefObject } from 'react'
 import { authClient } from '@/presentation/islands/runtime/auth-client'
+import { modalPortalContainer } from '@/presentation/islands/runtime/modal-portal-container'
 import {
   computeMenuItemClasses,
   computeMenuPopupClasses,
@@ -163,7 +164,7 @@ export function MenuPanel({
   readonly footerContent?: ReactNode
 }): ReactElement {
   return (
-    <Menu.Portal>
+    <Menu.Portal container={modalPortalContainer}>
       <Menu.Positioner
         side={floatingSide}
         align={floatingAlign}

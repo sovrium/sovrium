@@ -7,7 +7,6 @@
 
 import { Cause, Effect } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
-import { DatabaseMigrator } from '@/application/ports/services/database-migrator'
 import { PageRenderer } from '@/application/ports/services/page-renderer'
 import { ServerFactory } from '@/application/ports/services/server-factory'
 import { StorageService } from '@/application/ports/services/storage-service'
@@ -24,15 +23,14 @@ import {
   validateBootEnvironment,
   type BootEnvironmentError,
 } from '@/application/use-cases/server/validate-boot-environment'
-import { countDatabaseListeners } from '@/domain/models/app/app-database-listeners-service'
 import { ENGINE_KEY_NOTICE_TOKENS } from '@/domain/models/app/languages/engine-key-prefix-validation'
 import { prunePagesByRequirements } from '@/domain/models/app/pages/page-requires'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { Logger } from '@/infrastructure/logging/logger'
 import { publishServerBootInstant } from '@/infrastructure/process/server-boot-instant'
 import { getSovriumVersion } from '@/infrastructure/process/version'
 import { activateTelemetry } from '@/infrastructure/telemetry/telemetry-sink'
 import { bootstrapAdminAndToken } from './boot-bootstrap'
+import { migrateOrHoldListener } from './boot-database-hold'
 import { prepareSearchArtifacts } from './boot-search-artifacts'
 import type { StartOptions, StartServerRequirements } from './start-server-options'
 import type { DatabaseMigrationError } from '@/application/ports/services/database-migrator'
@@ -116,21 +114,26 @@ const bootNoticesOf = (notices: readonly string[]): readonly string[] =>
  */
 const runBootSequenceAndBootstrap = (
   validatedApp: App,
+  options: StartOptions,
+  serverFactory: Context.Service.Shape<typeof ServerFactory>,
   logger: Context.Service.Shape<typeof Logger>
-): Effect.Effect<string | undefined, DatabaseMigrationError, StartServerRequirements> =>
+): Effect.Effect<
+  { readonly bootstrapToken: string | undefined; readonly options: StartOptions },
+  DatabaseMigrationError | ServerCreationError,
+  StartServerRequirements
+> =>
   Effect.gen(function* () {
     // The instant every run of THIS server postdates, published before anything
     // can start a run, so the sweep below and its on-demand trigger route read
     // the same boundary.
     const bootedAt = publishServerBootInstant()
-    yield* (yield* DatabaseMigrator).migrate(parseDatabaseDialectConfig(), {
-      listeners: countDatabaseListeners(validatedApp),
-    })
+    const { port } = yield* migrateOrHoldListener(validatedApp, options, serverFactory, logger)
     const bootstrapToken = yield* bootstrapAdminAndToken(validatedApp, logger)
     // After the admin bootstrap, so a first boot's admin is already a recipient
     // of the interrupted-run alerts this may send.
     yield* sweepInterruptedRuns(validatedApp, logger, bootedAt)
-    return bootstrapToken
+    // The address a degraded phase held is the address the real bind takes.
+    return { bootstrapToken, options: port === undefined ? options : { ...options, port } }
   })
 
 /**
@@ -324,7 +327,7 @@ export const startServer = (
     // Run migrations → config-file version seed → admin bootstrap before
     // `serverFactory.create` (which binds the listener). See
     // `runBootSequenceAndBootstrap` for the full ordering rationale.
-    const bootstrapToken = yield* runBootSequenceAndBootstrap(validatedApp, logger)
+    const boot = yield* runBootSequenceAndBootstrap(validatedApp, options, serverFactory, logger)
 
     const databaseStartup = yield* hoistDatabaseStartup(
       serverFactory,
@@ -337,10 +340,10 @@ export const startServer = (
     // `/sovrium-search/*`. It is a property of the server, so it boots here.
     yield* prepareSearchArtifacts(app, validatedApp, options, logger)
 
-    return yield* createServerInstance(validatedApp, options, {
+    return yield* createServerInstance(validatedApp, boot.options, {
       serverFactory,
       pageRenderer,
-      bootstrapToken,
+      bootstrapToken: boot.bootstrapToken,
       databaseStartup,
     })
   }).pipe(Effect.withSpan('server.start-server'))

@@ -43,6 +43,11 @@ export interface DataTableViewProps {
   readonly allColumns: readonly DataTableColumnDef[]
   readonly totalRecords: number
   readonly isLoading: boolean
+  /**
+   * The rows have no answer to count: still being read, or the read failed
+   * before any row arrived. The pager then states no total at all.
+   */
+  readonly unanswered?: boolean
   readonly selectionConfig?: DataTableSelection
   readonly bulkActionsConfig?: readonly DataTableBulkAction[]
   readonly paginationConfig?: DataTablePagination
@@ -218,6 +223,8 @@ export interface GridBodyProps {
   readonly phoneLayout?: 'scroll' | 'rows'
   readonly table: DataTableInstance
   readonly totalRecords: number
+  /** The rows have no answer to count yet — see `DataTableViewProps.unanswered`. */
+  readonly unanswered: boolean
   readonly paginationConfig?: DataTablePagination
   /**
    * The grid is reading a CURSOR feed, which reports no total — so the

@@ -62,7 +62,11 @@ export const recordPickerComponent: ComponentRenderer = ({
 }) => {
   const pickerProps = {
     ...buildRecordPickerProps(rawProps, elementProps, component),
-    uiStrings: resolveInterpreterStringOverrides(['recordPicker.'], currentLang, languages),
+    uiStrings: resolveInterpreterStringOverrides(
+      ['recordPicker.', 'picker.'],
+      currentLang,
+      languages
+    ),
   }
   return (
     <div

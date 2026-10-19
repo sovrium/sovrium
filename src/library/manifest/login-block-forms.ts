@@ -117,14 +117,3 @@ export const magicLinkForm = (submitLabel: string): BlockNode => ({
     },
   },
 })
-
-/** "Forgot your password?", drawn only when one of the app's pages sends the reset link. */
-export const forgotLink = (href: string): BlockNode =>
-  ifDeclared('auth.passwordReset', {
-    type: 'link',
-    props: {
-      href,
-      className: 'self-end text-sm underline-offset-4 hover:underline',
-    },
-    content: 'Forgot your password?',
-  })

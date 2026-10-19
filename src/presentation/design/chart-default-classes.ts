@@ -227,20 +227,8 @@ export const computeChartLayoutClasses = ({
 } = {}): string => (beside ? CHART_LAYOUT_BESIDE : CHART_LAYOUT_STACKED)
 
 // ──────────────────────────────────────────────────────────────────────────────
-// AXIS (baselines + optional axis title)
+// AXIS (ticks + optional axis title — no baselines, shadcn's `axisLine={false}`)
 // ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * Stroke for the X and Y axis baselines. Canvas `chartSvg` draws
- * `<path d="M{L} {B}H{R}" stroke="#e3e3e3"/>` — the `hair` tone, i.e. the same
- * hairline as the card border, so the frame and the axes read as one chrome
- * weight rather than two.
- *
- * The canvas draws only the X baseline; the shipped charts draw both. The extra
- * Y baseline is kept — it is structure, not paint, and the table's action for
- * this row is "keep; route through the recipe".
- */
-export const CHART_AXIS_STROKE = `var(--border, ${T.border})`
 
 /**
  * Fill for an axis TITLE (`data-chart-axis-title`), the operator-set `xAxis

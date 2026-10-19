@@ -184,6 +184,21 @@ function buildExportPayload(sources: Readonly<ExportSources>) {
 
 // ─── Export use case ─────────────────────────────────────────────────────────
 
+/**
+ * Narrows an authored row to what its author may read back: a write-only value
+ * is read back by no one, its author included, and a field her read rules
+ * withhold is left out of her export as it is out of every other read.
+ */
+const readableFieldsOf = (tables: readonly AuthoredTableCandidate[]) => {
+  const left = new Map(
+    tables.map((t) => [t.tableName, new Set([...(t.writeOnly ?? []), ...(t.withheld ?? [])])])
+  )
+  return (tableName: string, row: Readonly<Record<string, unknown>>) =>
+    Object.fromEntries(
+      Object.entries(row).filter(([key]) => left.get(tableName)?.has(key) !== true)
+    )
+}
+
 /** Outcome of {@link ExportAccount}. */
 export type ExportAccountOutcome =
   | { readonly _tag: 'Ok'; readonly body: typeof accountExportResponseSchema.Type }
@@ -232,12 +247,7 @@ export const ExportAccount = (
     ])
 
     const recordTables = yield* repo.tablesWithCreatedBy(tables)
-    // A write-only value is read back by no one, its author included.
-    const writeOnly = new Map(tables.map((t) => [t.tableName, new Set(t.writeOnly ?? [])]))
-    const readable = (tableName: string, row: Readonly<Record<string, unknown>>) =>
-      Object.fromEntries(
-        Object.entries(row).filter(([key]) => writeOnly.get(tableName)?.has(key) !== true)
-      )
+    const readable = readableFieldsOf(tables)
     const perTable = yield* Effect.forEach(
       recordTables,
       ({ tableName, column }) =>

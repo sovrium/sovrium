@@ -48,6 +48,10 @@ const asStarter = (
     ? {}
     : { startedByHand: true, ...(caller.userId !== undefined && { userId: caller.userId }) }
 
+/** An action declined before it ran, for a reason that names it and no value. */
+const declined = (explanation: string): AgentActionResult =>
+  ({ ok: false, error: explanation, explanation }) as const
+
 /** Run `action` with `props` for the agent named `agentName`. */
 export const dispatchAgentAction = (input: {
   readonly app: App
@@ -59,16 +63,13 @@ export const dispatchAgentAction = (input: {
 }): Effect.Effect<AgentActionResult, never, StepRequirements> =>
   Effect.gen(function* () {
     if (needsAutomationRun(input.action)) {
-      return {
-        ok: false,
-        error: `the action "${input.action}" keeps its values per automation and is only available when an automation runs the agent`,
-      } as const
+      return declined(
+        `the action "${input.action}" keeps its values per automation and is only available when an automation runs the agent`
+      )
     }
     const { type, operator } = agentActionKey(input.action)
     const handler = defaultActionHandlers.get(actionKey(type, operator))
-    if (handler === undefined) {
-      return { ok: false, error: `the action "${input.action}" is not available` } as const
-    }
+    if (handler === undefined) return declined(`the action "${input.action}" is not available`)
     const rawAction = { name: `agent:${input.action}`, type, operator, props: input.props }
     const runContext: ActionRunContext = {
       previousSteps: {},
@@ -90,5 +91,10 @@ export const dispatchAgentAction = (input: {
     )
     return outcome.status === 'success'
       ? ({ ok: true, output: outcome.output ?? {} } as const)
-      : ({ ok: false, error: outcome.error ?? `${input.action} failed` } as const)
+      : ({
+          ok: false,
+          error: outcome.error ?? `${input.action} failed`,
+          refusedWrite: outcome.refusedWrite,
+          requestFailure: outcome.requestFailure,
+        } as const)
   }).pipe(Effect.withSpan('agents.dispatch-agent-action'))

@@ -31,6 +31,12 @@
  * log, a screenshot and a browser-history entry) while still being actionable.
  */
 
+import { Effect } from 'effect'
+import { getCookie } from 'hono/cookie'
+import {
+  consoleLabels,
+  resolveOperatorLanguage,
+} from '@/application/use-cases/admin/operator-language'
 import {
   resendInvitation,
   revokeInvitation,
@@ -41,7 +47,10 @@ import {
   adminInvitationRevokeResponseSchema,
 } from '@/domain/models/api/admin/invitations/lifecycle'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { readableName } from '@/domain/models/app/auth/readable-name-service'
+import { LANGUAGE_PREFERENCE_COOKIE } from '@/domain/models/app/languages/language-detection'
 import { logError } from '@/infrastructure/logging/logger'
+import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { requireAdminCaller } from '@/presentation/api/auth/admin-invitation-guard'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import type { InvitationServices } from '@/application/ports/contracts/invitation-services'
@@ -101,6 +110,37 @@ const respondValidated = (
 }
 
 /**
+ * What the console calls `role` for the caller, as the invitations read
+ * phrases it: the app's declared label, else the console's words, else the
+ * name made readable — in the operator's console language. A failed language
+ * read falls back to English rather than failing a resend that already went
+ * out.
+ */
+const roleLabelForCaller = async (
+  c: Context,
+  app: Readonly<App> | undefined,
+  actorUserId: string,
+  role: string
+): Promise<string> => {
+  if (app === undefined) return readableName(role)
+  const preferredLanguage = getCookie(c, LANGUAGE_PREFERENCE_COOKIE)
+  const language = await runDomainPromise(
+    c,
+    resolveOperatorLanguage({
+      actorUserId,
+      ...(preferredLanguage === undefined ? {} : { preferredLanguage }),
+    }).pipe(
+      Effect.tapCause((cause) =>
+        Effect.sync(() => logError('[admin-invitation] operator language read failed', cause))
+      ),
+      // Swallowed on purpose: the label is presentation, the resend is done.
+      Effect.orElseSucceed(() => 'en' as const)
+    )
+  )
+  return consoleLabels(app, language).role(role)
+}
+
+/**
  * POST /api/admin/invitations/:id/resend
  *
  * Delivers the SAME invitation again and re-arms its expiry. The token is
@@ -130,10 +170,16 @@ const createResendInvitationHandler =
         pages: [...(app?.pages ?? []), ...(invitations.linkPages ?? [])],
       })
       if (result.status !== 'ok') return respondToActionFailure(c, result)
+      const roleLabel = await roleLabelForCaller(
+        c,
+        app,
+        authorized.session.user.id,
+        result.value.role
+      )
       return respondValidated(
         c,
         adminInvitationResendResponseSchema,
-        { invitation: result.value },
+        { invitation: { ...result.value, roleLabel } },
         'resend invitation'
       )
     } catch (error) {

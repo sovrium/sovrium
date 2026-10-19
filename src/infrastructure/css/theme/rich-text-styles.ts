@@ -11,23 +11,26 @@
  *
  * ## What it replaces, and why that had to happen
  *
- * The editor body carried `prose prose-sm dark:prose-invert
- * prose-strong:text-inherit`. Tailwind Typography is a good stylesheet for an
- * article; it is the wrong one for a field, for three reasons that compound:
+ * The Tailwind typography plugin, which Sovrium no longer depends on, offers
+ * four classes an editor body could carry. That plugin is a stylesheet for
+ * an article; it is the wrong one for a field, for three reasons that
+ * compound:
  *
- *  - **It pins its own palette.** Typography sets colours from its own scale,
- *    not from the theme's roles, so a themed app moved every surface around the editor
- *    and none of the text inside it. Two of the four classes above existed
- *    only to claw individual colours back one at a time — `dark:prose-invert`
- *    for the dark ground, `prose-strong:text-inherit` because a bold run was
- *    otherwise painted a fixed near-black that vanished on it.
- *  - **It pins its own type scale.** `prose-sm` is 14px/1.71 with an `em`-based
- *    heading ramp of its own, which is a magazine scale rather than the
- *    platform ladder. Text inside the field was a different size from text in
- *    every field beside it.
- *  - **Its rhythm is built for a page.** Typography's paragraph margins are
- *    sized for an article column; in a 56px-tall control they are most of the
- *    box.
+ *  - **It pinned its own palette.** It set colours from its own scale, not
+ *    from the theme's roles, so a themed app moved every surface around the
+ *    editor and none of the text inside it. Two of the four classes existed
+ *    only to claw individual colours back one at a time — one for the dark
+ *    ground, one because a bold run was otherwise painted a fixed near-black
+ *    that vanished on it.
+ *  - **It pinned its own type scale.** Its small size was 14px/1.71 with an
+ *    `em`-based heading ramp of its own, which is a magazine scale rather
+ *    than the platform ladder. Text inside the field was a different size
+ *    from text in every field beside it.
+ *  - **Its rhythm is built for a page.** Its paragraph margins are sized for
+ *    an article column; in a 56px-tall control they are most of the box.
+ *
+ * (The plugin's class names are deliberately not spelled in this comment:
+ * the candidate scan reads comments, and naming one would emit it.)
  *
  * The canvas (`variants.mjs:157`, `richEditor`) asks for 13px on 1.6 — the
  * platform body rung — with a rhythm tight enough that three paragraphs fit a
@@ -49,9 +52,9 @@
  *
  * ## What it does NOT do
  *
- * It does not let the Typography plugin be dropped: `markdown-article.tsx` is
- * still a `prose` consumer, and an article genuinely is the thing Typography
- * is for. Only the FIELD moves.
+ * It does not style markdown articles: those are set by the vendored Typeset
+ * sheet (`typeset-styles.ts`), which is for long-form reading. Only the FIELD
+ * is styled here.
  */
 
 /** The block's own baseline — size, leading, ink — plus the two edge rules

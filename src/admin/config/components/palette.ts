@@ -25,8 +25,8 @@
 //
 // ─── `kindLabels` IS DELIBERATELY ABSENT ───────────────────────────────────
 //
-// The palette island carries its own kind→heading map and falls back to it when
-// the config declares none. Authoring the map here would be the third copy of a
+// The engine names every kind the console search returns, in the page language,
+// when the config declares no map. Authoring the map here would be the third copy of a
 // vocabulary the server's `adminSearchEntityTypeSchema` already owns, and the
 // first one able to drift from it silently — a heading naming a `kind` the
 // server no longer emits reads as a permanently empty group. Adding it is a

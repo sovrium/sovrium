@@ -176,6 +176,17 @@ const DAY_CELL_RULES = `.fc .fc-daygrid-day {
  * An event the author styles through the calendar's `event` part is marked
  * `sv-event-part`, and its fill and ink step back to the layered utilities
  * (`revert-layer`): both sheets here are unlayered and would otherwise win.
+ *
+ * A dot chip in a day cell too narrow for FullCalendar's own time (its time
+ * marked `sv-chip-micro` by the island) gives back its side padding and the
+ * dot's left margin, so the title it cuts keeps room for a whole ellipsis
+ * rather than a sliver of its first letter.
+ *
+ * Where even that leaves a dot chip's title less than its first letter and an
+ * ellipsis (`1.5em` holds the widest), the title is not drawn beside the time:
+ * it wraps onto a second line the one-line chip clips, so the chip reads its
+ * time alone — the browser keeps a cut line's first letter, and a narrower box
+ * would show a sliver of it with no ellipsis. The title stays in the document.
  */
 const EVENT_RULES = `.fc .fc-daygrid-block-event,
     .fc .fc-timegrid-event {
@@ -205,11 +216,35 @@ const EVENT_RULES = `.fc .fc-daygrid-block-event,
       padding: 0;
     }
 
-    .fc .fc-event-title,
-    .fc .fc-event-time {
+    .fc .fc-event-title {
+      min-width: 0;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
+    }
+
+    .fc .fc-event-time {
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .fc .fc-daygrid-dot-event .fc-event-main {
+      flex-wrap: wrap;
+      max-height: 1rem;
+      overflow: hidden;
+    }
+
+    .fc .fc-daygrid-dot-event .fc-event-title {
+      flex: 1 1 0;
+      min-width: 1.5em;
+    }
+
+    .fc .fc-daygrid-dot-event:has(.sv-chip-micro) {
+      padding-inline: 2px;
+    }
+
+    .fc .fc-daygrid-dot-event:has(.sv-chip-micro) .fc-daygrid-event-dot {
+      margin-inline: 0 1px;
     }
 
     .fc .fc-daygrid-day-bottom {

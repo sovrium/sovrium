@@ -9,6 +9,7 @@ import { and, eq, isNull, lt, notInArray } from 'drizzle-orm'
 import { FormSubmissionDatabaseError } from '@/application/ports/repositories/forms/form-submission-repository'
 import { db } from '@/infrastructure/database'
 import { formSubmissionsTable } from '@/infrastructure/database/drizzle/dialect-schema'
+import { inReadWriteTransaction } from '@/infrastructure/database/read-write-sweep'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { jsonbLiteral } from '@/infrastructure/database/sql/sql-utils'
 import type { FormSubmissionRepository } from '@/application/ports/repositories/forms/form-submission-repository'
@@ -93,19 +94,24 @@ export const FormSubmissionAccessQueries: Pick<
         .then(() => undefined)
     }),
 
+  // The two sweep deletes open their transaction READ WRITE
+  // (`read-write-sweep.ts`): the hourly draft sweep must keep deleting on a
+  // managed PostgreSQL that has gone read-only for lack of disk.
   deleteDraftsSavedBefore: ({ formName, savedBefore }) =>
     wrap(async () => {
       const submissions = formSubmissionsTable()
-      const removed = await db
-        .delete(submissions)
-        .where(
-          and(
-            eq(submissions.formName, formName),
-            eq(submissions.status, 'draft'),
-            lt(submissions.submittedAt, savedBefore)
+      const removed = await inReadWriteTransaction((tx) =>
+        tx
+          .delete(submissions)
+          .where(
+            and(
+              eq(submissions.formName, formName),
+              eq(submissions.status, 'draft'),
+              lt(submissions.submittedAt, savedBefore)
+            )
           )
-        )
-        .returning({ id: submissions.id })
+          .returning({ id: submissions.id })
+      )
       return removed.length
     }),
 
@@ -113,14 +119,16 @@ export const FormSubmissionAccessQueries: Pick<
     wrap(async () => {
       const submissions = formSubmissionsTable()
       const drafts = eq(submissions.status, 'draft')
-      const removed = await db
-        .delete(submissions)
-        .where(
-          formNames.length === 0
-            ? drafts
-            : and(drafts, notInArray(submissions.formName, [...formNames]))
-        )
-        .returning({ id: submissions.id })
+      const removed = await inReadWriteTransaction((tx) =>
+        tx
+          .delete(submissions)
+          .where(
+            formNames.length === 0
+              ? drafts
+              : and(drafts, notInArray(submissions.formName, [...formNames]))
+          )
+          .returning({ id: submissions.id })
+      )
       return removed.length
     }),
 

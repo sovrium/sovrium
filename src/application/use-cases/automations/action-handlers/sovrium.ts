@@ -26,6 +26,7 @@ import {
 import { BUNDLE_MAX_STORED_BYTES } from '@/domain/kernel/format/bounded-gunzip'
 import { lookupPath } from '../resolve-trigger-data'
 import { buildRunContextView, rawActionProps } from './run-context-resolution'
+import { starterFileGate, type StarterFileGate } from './starter-file-gate'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
 
 /**
@@ -320,9 +321,16 @@ const judgeBundleEntries = (
   }
 }
 
-/** The stored archive's bytes, or the reason the step fails, naming the key. */
-const readStoredArchive = (objectKey: string) =>
+/**
+ * The stored archive's bytes, or the reason the step fails, naming the key.
+ * In a run someone started by hand the key is read as its starter may read it
+ * (`gate`, before any byte): a refused key and a key nothing holds both fail
+ * with `Resource not found`; a bundle with no catalog row is read as before.
+ */
+const readStoredArchive = (objectKey: string, gate: StarterFileGate) =>
   Effect.gen(function* () {
+    const refused = yield* gate(objectKey)
+    if (refused !== undefined) return yield* Effect.fail(refused)
     const storage = yield* StorageService
     // The size the STORE reports (no catalog row is needed: another app may have
     // written the object) refuses an oversized object before a byte is buffered;
@@ -356,7 +364,7 @@ const readStoredArchive = (objectKey: string) =>
  * reasons `validateConfig` gives. The step fails only when there is nothing to
  * judge: no `objectKey`, or no object readable under it.
  */
-export const handleSovriumValidateBundle: ActionHandler = (action) => {
+export const handleSovriumValidateBundle: ActionHandler = (action, app, automation) => {
   const { props } = action
   const objectKey =
     props !== null && typeof props === 'object'
@@ -368,7 +376,7 @@ export const handleSovriumValidateBundle: ActionHandler = (action) => {
       error: 'sovrium.validateBundle requires an objectKey prop',
     })
   }
-  return readStoredArchive(objectKey).pipe(
+  return readStoredArchive(objectKey, starterFileGate(app, automation)).pipe(
     Effect.flatMap((bytes) => readBundleArchive(bytes)),
     Effect.map((reading): ActionOutcome => ok({ ...judgeBundleEntries(objectKey, reading) })),
     Effect.catch((error: string) => Effect.succeed<ActionOutcome>({ status: 'failure', error })),

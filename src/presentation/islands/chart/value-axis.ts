@@ -112,6 +112,12 @@ export function buildValueAxis(args: {
   readonly maxValue: number
   readonly minPositiveValue: number
   readonly scale: ValueAxisScale | undefined
+  /**
+   * Every plotted value is a whole number — a count, typically. Such an axis
+   * never labels a fraction: `0, 0.2 … 1` over a count of one claims a reading
+   * no mark can take, so its ticks are the whole steps alone.
+   */
+  readonly integral?: boolean
 }): ValueAxis {
   const max = args.maxValue > 0 ? args.maxValue : 1
   const usable = Number.isFinite(args.minPositiveValue) && args.minPositiveValue > 0
@@ -123,7 +129,14 @@ export function buildValueAxis(args: {
     return { domain: [floor, top], ticks: decadeTicks(floor, top), scale: 'log' }
   }
   const domain = niceDomain(0, max)
-  return { domain, ticks: linearTicks(domain[0], domain[1], VALUE_TICK_TARGET), scale: 'linear' }
+  const ticks = linearTicks(domain[0], domain[1], VALUE_TICK_TARGET)
+  if (args.integral !== true) return { domain, ticks, scale: 'linear' }
+  // A whole-number axis: a top below one step rounds up to it, and only the
+  // whole ticks are labelled (d3's steps are 1, 2 or 5 times a power of ten, so
+  // a fractional step's whole ticks are a subset of the integers it spans).
+  const top = Math.max(1, Math.ceil(domain[1]))
+  const whole = linearTicks(0, top, VALUE_TICK_TARGET).filter((tick) => Number.isInteger(tick))
+  return { domain: [0, top], ticks: whole, scale: 'linear' }
 }
 
 /**

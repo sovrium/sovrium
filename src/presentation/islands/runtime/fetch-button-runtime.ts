@@ -16,6 +16,7 @@ import { bindActionButtons, parseActionInput } from './client-event-delegate'
 import { showToast } from './client-toast'
 import { fetchSuccessLeaves } from './fetch-action-effects'
 import { withPending } from './pending-control'
+import { reloadOnceForStaleChunk } from './stale-chunk-reload'
 import type { FetchAction } from '@/domain/models/app/pages/components/action'
 
 /**
@@ -27,8 +28,9 @@ import type { FetchAction } from '@/domain/models/app/pages/components/action'
 // ─── Fetch button handling ──────────────────────────────────────────────────
 
 type FetchToastResponse = {
-  type: 'toast'
-  message: string
+  type?: 'toast'
+  // Absent from an `onError` that answers with `status` instead of a toast.
+  message?: string
   variant?: string
   duration?: number
   actionLabel?: string
@@ -38,14 +40,16 @@ type FetchToastResponse = {
 
 export function dispatchToastResponse(
   response: FetchToastResponse | undefined,
-  replacing?: Element
+  replacing?: Element,
+  retry?: () => void
 ): void {
-  if (!response) return
+  if (response?.message === undefined) return
   showToast(response.message, {
     variant: response.variant,
     duration: response.duration,
     actionLabel: response.actionLabel,
     actionUrl: response.actionUrl,
+    ...(retry !== undefined && { retry }),
     replacing,
   })
 }
@@ -157,6 +161,29 @@ function openFetchConfirmGate(
   trigger.insertAdjacentElement('afterend', dialog)
 }
 
+/**
+ * Open a record button's picker (`edit-select-menu.ts`), and send its pick as
+ * the record's value of the edited field.
+ *
+ * The menu is a split chunk fetched on the first press of such a button: few
+ * pages carry one, and every page loads this runtime. A chunk a newer release
+ * replaced reloads the page once, as the loader's own features do.
+ */
+function openPicker(
+  button: HTMLButtonElement,
+  raw: string,
+  send: (record: Record<string, unknown>) => void
+): void {
+  import('./edit-select-menu')
+    .then(({ parseEditSelectPicker, togglePickerMenu }) => {
+      const picker = parseEditSelectPicker(raw)
+      if (picker) togglePickerMenu(button, picker, (value) => send({ [picker.field]: value }))
+    })
+    .catch((error: unknown) => {
+      if (!reloadOnceForStaleChunk(error)) throw error
+    })
+}
+
 export function setupFetchButtonHandlers(): void {
   // A `type: 'toast'` button is the fetch button with nothing to fetch: it
   // raises the toast its action carries, through the same toast path.
@@ -182,21 +209,35 @@ export function setupFetchButtonHandlers(): void {
     // `download`, which hand the page to the browser. A refusal gives it back
     // with the focus on it before `onError` shows.
     const label = button.getAttribute('data-action-pending-label')
-    const dispatch = async (): Promise<void> => {
+    // `retrying`: a Retry from the failure toast, past a gate already cleared.
+    // `record`: a picker's pick, in place of its field (`edit-select-menu.ts`).
+    const dispatch = async (retrying = false, record?: Record<string, unknown>): Promise<void> => {
       const loading = showLoadingToast(config)
       const send = () =>
         executeFetchAction(config, {
           origin: button,
           successToast: () => dispatchToastResponse(config.onSuccess, loading),
+          retry: () => void dispatch(true, record),
+          ...(retrying && { confirm: () => true }),
+          ...(record !== undefined && { record }),
         })
       const keepPending = (sent: Awaited<ReturnType<typeof send>>) =>
         fetchSuccessLeaves(sent, config.onSuccess)
       const result =
         label === null ? await send() : await withPending(button, { label, keepPending }, send)
       if (result && !result.ok)
-        runErrorOutcome(button, () => dispatchToastResponse(config.onError, loading))
+        runErrorOutcome(button, () =>
+          dispatchToastResponse(config.onError, loading, () => void dispatch(true, record))
+        )
       // An outcome with no toast of its own still ends the loading one.
       loading?.remove()
+    }
+
+    // A button on a record carrying `editSelect` asks for the value first.
+    const picker = button.getAttribute('data-edit-select')
+    if (picker !== null) {
+      openPicker(button, picker, (record) => void dispatch(false, record))
+      return
     }
 
     // A top-level button `confirm` rides on `data-confirm` (string form) or

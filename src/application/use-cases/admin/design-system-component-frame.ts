@@ -79,6 +79,8 @@
  */
 
 import { COMPONENT_FRAME_BASE } from '@/domain/models/app/admin/mount-hrefs'
+import { componentSampleVars } from '@/domain/models/app/pages/component-sample-service'
+import { SPECIMEN_RECORD_ID } from '@/domain/models/app/pages/specimen-sample-service'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -161,12 +163,31 @@ const FRAME_SCHEME_SCRIPT =
  * It runs at body end, during parsing, so the height is already right when the
  * host's `load` event fires — and it re-fits on a `ResizeObserver` so a webfont
  * settling or an image decoding does not leave a gap under the subject.
+ *
+ * ─── AND IT SCALES THE FRAME TO ITS COLUMN ─────────────────────────────────
+ *
+ * A 1280 document in a ~650 px column that keeps its full width and scrolls
+ * shows a reader its left half, under a note saying nothing is clipped. When the
+ * host wraps the frame in a `data-specimen-scale-box`, the document keeps its
+ * declared width (its `@media` rules still answer 1280) and is SCALED to the
+ * box with a transform, the box takes the scaled height, and the scale is
+ * written to `data-frame-scale` and to the nearest `[data-design-frame-scale]`
+ * label of its section, so the page can say "shown at 51 %".
  */
 const FRAME_AUTOSIZE_SCRIPT =
   '(function(){try{var f=window.frameElement;if(!f)return;' +
-  "var fit=function(){f.style.height=document.documentElement.scrollHeight+'px'};fit();" +
+  "var box=f.parentElement&&f.parentElement.hasAttribute('data-specimen-scale-box')?f.parentElement:null;" +
+  'var fit=function(){var h=document.documentElement.scrollHeight;var s=1;' +
+  'if(box){var w=f.offsetWidth;var room=box.clientWidth;s=room>0&&w>room?room/w:1;' +
+  "box.style.height=Math.ceil(h*s)+'px';var pct=String(Math.round(s*100));" +
+  "f.setAttribute('data-frame-scale',pct);" +
+  "var section=box.closest('[data-design-section]');" +
+  "var label=section?section.querySelector('[data-design-frame-scale]'):null;" +
+  "if(label){label.textContent=pct+' %'}}" +
+  "f.style.transform=s<1?'scale('+s+')':'';f.style.height=h+'px'};fit();" +
   "window.addEventListener('load',fit);" +
-  "if(typeof ResizeObserver==='function'){new ResizeObserver(fit).observe(document.documentElement)}" +
+  "if(typeof ResizeObserver==='function'){var ro=new ResizeObserver(fit);" +
+  'ro.observe(document.documentElement);if(box){ro.observe(box)}}' +
   '}catch(e){}})();'
 
 /**
@@ -187,9 +208,31 @@ const FRAME_DOCUMENT_STYLES =
   // no class on its body still has to paint.
   'body{background:var(--color-background,transparent);color:var(--color-foreground,inherit)}'
 
-/** The page one framed document renders. */
-const framePage = (name: string, path: string, template: Component): Page =>
+/**
+ * The head script that keeps every form of a specimen inert.
+ *
+ * A specimen draws its forms — the code field, the invitation's answers, the
+ * editor's Save — because that is the state being documented, and a reader may
+ * press them. None may send anything: the document is drawn on a SAMPLE, and a
+ * submit would carry made-up values to a real endpoint. Every submit is stopped
+ * in the capture phase at the document, before any handler on the form sees it,
+ * so no request leaves and the frame does not navigate.
+ */
+const FRAME_INERT_FORMS_SCRIPT =
+  "document.addEventListener('submit',function(e){e.preventDefault();e.stopImmediatePropagation()},true);"
+
+/** The page one framed document renders, its template drawn on its sample `vars`. */
+const framePage = (
+  name: string,
+  path: string,
+  template: Component,
+  drawn: {
+    readonly vars: Readonly<Record<string, string>>
+    readonly context: Partial<Pick<Page, 'dataSource' | 'invitation'>>
+  }
+): Page =>
   ({
+    ...drawn.context,
     id: `design-system-component-frame-${name}`,
     name: `design-system-component-frame-${name}`,
     path,
@@ -204,6 +247,7 @@ const framePage = (name: string, path: string, template: Component): Page =>
     scripts: {
       inlineScripts: [
         { code: FRAME_SCHEME_SCRIPT, position: 'head' },
+        { code: FRAME_INERT_FORMS_SCRIPT, position: 'head' },
         { code: FRAME_AUTOSIZE_SCRIPT, position: 'body-end' },
       ],
     },
@@ -211,45 +255,78 @@ const framePage = (name: string, path: string, template: Component): Page =>
     // it through `renderComponentReference`, which is the same path an ordinary
     // page of the operator's own takes to draw it — so the frame documents what
     // their pages render rather than a second interpretation of it.
-    components: [{ component: (template as { readonly name?: string }).name ?? name }],
+    //
+    // With the SAMPLE `vars` (`componentSampleVars`): what the first page
+    // embedding the template supplies, so the frame draws a card a reader
+    // recognises rather than `$label` / `$value` placeholders.
+    components: [
+      { component: (template as { readonly name?: string }).name ?? name, vars: drawn.vars },
+    ],
   }) as Page
 
-/**
- * Build the app that renders one component's framed document.
- *
- * @param operatorApp - the live operator app: the source of the theme the frame
- *   paints with AND of the template it draws.
- * @param name - the template named by the `specimen`'s `subject.component`.
- * @param path - the mount-stripped path this document answers on.
- * @returns the app to render, or `undefined` when this app declares no template
- *   of that name — which the route answers with the same 404 the component page
- *   itself answers for an undeclared name.
- */
-export const buildComponentFrameApp = (
-  operatorApp: App,
-  name: string,
-  path: string
-): App | undefined => {
-  const template = (operatorApp.components ?? []).find(
-    (candidate) => (candidate as { readonly name?: unknown }).name === name
-  )
-  if (template === undefined) return undefined
+/** One framed document: the app to render, the path to render it at, and its query. */
+export interface ComponentFrame {
+  readonly app: App
+  readonly renderPath: string
+  readonly requestQuery: Readonly<Record<string, string>>
+}
 
+/** Whether a tree places the template `name` anywhere (`{ component: name }`). */
+const places = (node: unknown, name: string): boolean => {
+  if (Array.isArray(node)) return node.some((child) => places(child, name))
+  if (typeof node !== 'object' || node === null) return false
+  if ((node as { readonly component?: unknown }).component === name) return true
+  return Object.values(node).some((value) => places(value, name))
+}
+
+type PageContext = Partial<Pick<Page, 'dataSource' | 'invitation'>>
+
+/**
+ * What the template is about where it is used: the record and the invitation
+ * of the FIRST page that places it. A record editor reads `$record`, an
+ * invitation card `$invitation`; drawn without the page that gives them one,
+ * each drew its empty or failure state. The frame page declares the same
+ * binding, and the specimen readers answer it with a sample.
+ */
+const hostContext = (operatorApp: App, name: string): PageContext => {
+  const host = (operatorApp.pages ?? []).find((page) => places(page.components, name))
+  const { dataSource, invitation } = (host ?? {}) as PageContext
   return {
+    ...(dataSource === undefined ? {} : { dataSource }),
+    ...(invitation === undefined ? {} : { invitation }),
+  }
+}
+
+/** The route parameter a single-record binding reads, when it reads one. */
+const recordParamOf = (context: PageContext): string | undefined => {
+  const binding = context.dataSource as
+    { readonly mode?: string; readonly param?: string } | undefined
+  return binding?.mode === 'single' ? binding.param : undefined
+}
+
+/** The app one frame renders: the operator's config, field by field, and the frame page. */
+const frameAppOf = (operatorApp: App, page: Page): App =>
+  ({
     // The OPERATOR's name, which is what keeps `isOperatorConsoleApp` false and
     // routes this document to the operator's stylesheet rather than to the
     // console's. Not cosmetic.
     name: operatorApp.name,
+    ...(operatorApp.displayName === undefined ? {} : { displayName: operatorApp.displayName }),
     // The whole design key, copied UNTOUCHED — see the module docblock on why
     // folding a requested scheme in here would link a stylesheet that was never
     // compiled.
     ...(operatorApp.design === undefined ? {} : { design: operatorApp.design }),
     // The operator's own reusable templates, so the reference resolves. CONFIG,
     // not data: a template is a composition the author wrote, in the same class
-    // as `design.theme`. `tables`, `env` and `auth` stay behind, which is what
-    // keeps A2's bound true by construction — a data-bound component inside the
-    // template resolves nothing here and draws its empty state.
+    // as `design.theme`.
     components: operatorApp.components,
+    // The table DEFINITIONS and the auth block, so a form draws its fields and
+    // an auth form its controls. Config again, and no rows: the frame renders
+    // with sample readers only (`specimen`), which answer every read with a
+    // sample synthesised from these very definitions, so A2's bound holds by
+    // construction — there is no reader in the frame that returns a row.
+    ...(operatorApp.tables === undefined ? {} : { tables: operatorApp.tables }),
+    ...(operatorApp.auth === undefined ? {} : { auth: operatorApp.auth }),
     // The operator's TRANSLATION table, for one narrowly-scoped reason: a
     // reusable component may carry `$t:` lookups, and a document built without
     // `languages` resolves none of them — a framed header would draw
@@ -261,6 +338,49 @@ export const buildComponentFrameApp = (
     // mount a search island inside a document that has no records.
     badge: false,
     palette: { enabled: false },
-    pages: [framePage(name, path, template as Component)],
-  } as App
+    pages: [page],
+  }) as App
+
+/**
+ * Build the document that renders one component's frame.
+ *
+ * @param operatorApp - the live operator app: the source of the theme the frame
+ *   paints with AND of the template it draws.
+ * @param name - the template named by the `specimen`'s `subject.component`.
+ * @param path - the mount-stripped path this document answers on.
+ * @returns the frame to render, or `undefined` when this app declares no
+ *   template of that name — which the route answers with the same 404 the
+ *   component page itself answers for an undeclared name.
+ */
+export const buildComponentFrame = (
+  operatorApp: App,
+  name: string,
+  path: string
+): ComponentFrame | undefined => {
+  const template = (operatorApp.components ?? []).find(
+    (candidate) => (candidate as { readonly name?: unknown }).name === name
+  )
+  if (template === undefined) return undefined
+  const context = hostContext(operatorApp, name)
+  const param = recordParamOf(context)
+  // A page bound to one record names it in its address; the frame's address
+  // names the sample record the specimen readers answer for.
+  const pagePath = param === undefined ? path : `${path}/:${param}`
+  const invitationParam = (context.invitation as { readonly param?: string } | undefined)?.param
+
+  const app = frameAppOf(
+    operatorApp,
+    framePage(name, pagePath, template as Component, {
+      vars: componentSampleVars(operatorApp, name),
+      context,
+    })
+  )
+
+  return {
+    app,
+    renderPath: param === undefined ? path : `${path}/${SPECIMEN_RECORD_ID}`,
+    // An invitation page reads its token from the address: the sample one.
+    requestQuery:
+      context.invitation === undefined ? {} : { [invitationParam ?? 'token']: 'specimen' },
+  }
 }

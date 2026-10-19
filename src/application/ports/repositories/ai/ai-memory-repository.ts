@@ -6,6 +6,7 @@
  */
 
 import { Context, Data } from 'effect'
+import type { StoredToolCall } from '@/domain/models/app/agents/stored-tool-call-service'
 import type { Effect } from 'effect'
 
 /**
@@ -121,6 +122,8 @@ export class AiMemoryRepository extends Context.Service<
       readonly model?: string
       /** The question the assistant message asked, for a turn saved while paused on it. */
       readonly assistantElicitation?: AiMessageElicitation
+      /** What the answer's turn ran, one line per call — never its arguments or result. */
+      readonly assistantToolCalls?: ReadonlyArray<StoredToolCall>
       /**
        * The message the turn follows — the end of the branch it was asked on.
        * Absent, or not a message of this conversation: the current branch.
@@ -159,6 +162,8 @@ export class AiMemoryRepository extends Context.Service<
         readonly model?: string
         /** A question's parts, for one sent (or edited) as parts: references only. */
         readonly parts?: ReadonlyArray<AiMessagePart> | undefined
+        /** An answer's calls, one line each — never their arguments or results. */
+        readonly toolCalls?: ReadonlyArray<StoredToolCall> | undefined
       }>
     }) => Effect.Effect<ReadonlyArray<string>, AiMemoryDatabaseError>
     /**

@@ -11,8 +11,9 @@
  * of the actions the client runtime runs.
  */
 
+import { mapStringsDeep } from '@/domain/kernel/config-parsing/map-strings-deep'
+import { toSafeAssetUrl } from '@/domain/kernel/url/asset-url-safety'
 import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
-import { mapStringsDeep } from '@/domain/models/app/languages/translation-resolver'
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 
 /** A navigation action: moves the reader to `path` (`$record.*` filled server-side). */
@@ -90,8 +91,15 @@ const CONFIG_OWNED_ABSOLUTE = /^https?:\/\/[^/?#\\$]+(?:[/?#]|$)/i
  * absolute `http(s)` address is followed only when the configured `path` names
  * its host itself; anything else — a `$record.*` value that turns out to be
  * `https://…`, `//host` or `javascript:` included — must be a same-origin path,
- * rebuilt by the URL parser, as a card or row navigate's is. A new tab is opened through
- * `openUrl`, the only branch of the enhancer that honours `openInNewTab`.
+ * rebuilt by the URL parser, as a card or row navigate's is.
+ *
+ * A NEW tab is the exception, as it is for a grid row's new-tab link: it leaves
+ * the app open behind it and is opened with no handle on it
+ * (`noopener,noreferrer`), so a web address the record holds is followed too —
+ * through `toSafeAssetUrl`, which admits a same-origin path or an `http(s)`
+ * address and nothing else, so a `javascript:` value still opens nothing. A new
+ * tab is opened through `openUrl`, the only branch of the enhancer that honours
+ * `openInNewTab`.
  */
 export function buildNavigateClick(
   action: NavigateButtonAction,
@@ -101,9 +109,10 @@ export function buildNavigateClick(
   | undefined {
   const path = record === undefined ? action.path : substituteRecordVars(action.path, record)
   const configured = action._configuredPath ?? action.path
-  const target = CONFIG_OWNED_ABSOLUTE.test(configured) ? path : toSafeRedirectPath(path)
+  const newTab = action.openInNewTab === true
+  const target = CONFIG_OWNED_ABSOLUTE.test(configured)
+    ? path
+    : ((newTab ? toSafeAssetUrl(path) : undefined) ?? toSafeRedirectPath(path))
   if (target === undefined) return undefined
-  return action.openInNewTab === true
-    ? { openUrl: target, openInNewTab: true }
-    : { navigate: target }
+  return newTab ? { openUrl: target, openInNewTab: true } : { navigate: target }
 }

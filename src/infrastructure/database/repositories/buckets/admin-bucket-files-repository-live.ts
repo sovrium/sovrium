@@ -28,6 +28,7 @@ import {
   startsWithLiteral,
 } from '@/infrastructure/database/sql/dialect-sql-helpers'
 import { isInValueSet } from '@/infrastructure/database/sql/value-set-membership'
+import { notClaimed } from '@/infrastructure/storage/catalog-claim'
 
 /** Wrap a DB promise, adapting failures to AdminBucketFilesDatabaseError. */
 const wrap = makeDbWrap((cause) => new AdminBucketFilesDatabaseError({ cause }))
@@ -44,7 +45,9 @@ const scopeCondition = (scope: AdminBucketFilesScope): SQL => {
   const files = fileStorageMetadataTable()
   const own = eq(files.bucket, scope.bucket)
   const alsoKeys = scope.alsoKeys ?? []
-  return alsoKeys.length === 0 ? own : (or(own, isInValueSet(files.key, alsoKeys)) ?? own)
+  const scoped = alsoKeys.length === 0 ? own : (or(own, isInValueSet(files.key, alsoKeys)) ?? own)
+  // A replacing write's claim, whose bytes are not stored yet, is not a file.
+  return and(scoped, notClaimed()) ?? scoped
 }
 
 /**
@@ -293,7 +296,9 @@ const listFilesImpl = async (
  *
  * Every listing is scoped to one bucket (the `bucket` column each upload
  * records); the built-in `system` bucket's scope also takes the keys linked to
- * a record, whichever bucket holds them.
+ * a record, whichever bucket holds them. Every read, listing or total, leaves
+ * out a replacing write's claim ({@link notClaimed}): a row whose bytes are not
+ * stored yet is not a file, and is counted nowhere until it settles.
  */
 export const AdminBucketFilesRepositoryLive = Layer.succeed(AdminBucketFilesRepository, {
   listFiles: (filters) => wrap(async () => listFilesImpl(filters)),
@@ -317,6 +322,7 @@ export const AdminBucketFilesRepositoryLive = Layer.succeed(AdminBucketFilesRepo
         totalBytes: sql<unknown>`coalesce(sum(${files.size}), 0)`,
       })
       .from(files)
+      .where(notClaimed())
       .groupBy(files.bucket)
     return rows.map((row) => ({
       bucket: row.bucket,
@@ -337,11 +343,23 @@ export const AdminBucketFilesRepositoryLive = Layer.succeed(AdminBucketFilesRepo
       return (await db
         .select({ size: files.size, createdAt: files.createdAt })
         .from(files)
-        .where(gte(files.createdAt, since))) as ReadonlyArray<{
+        .where(and(gte(files.createdAt, since), notClaimed()))) as ReadonlyArray<{
         size: number
         createdAt: Date | string | number
       }>
     }),
+
+  summariseCatalog: wrap(async () => {
+    const files = fileStorageMetadataTable()
+    const rows = await db
+      .select({
+        files: sql<unknown>`count(*)`,
+        bytes: sql<unknown>`coalesce(sum(${files.size}), 0)`,
+      })
+      .from(files)
+      .where(notClaimed())
+    return { files: toFiniteCount(rows[0]?.files), bytes: toFiniteCount(rows[0]?.bytes) }
+  }),
 
   summariseUploadsBetween: ({ from, to }) =>
     wrap(async () => {
@@ -352,7 +370,7 @@ export const AdminBucketFilesRepositoryLive = Layer.succeed(AdminBucketFilesRepo
           bytes: sql<unknown>`coalesce(sum(${files.size}), 0)`,
         })
         .from(files)
-        .where(and(gte(files.createdAt, from), lt(files.createdAt, to)))
+        .where(and(gte(files.createdAt, from), lt(files.createdAt, to), notClaimed()))
       return { files: toFiniteCount(rows[0]?.files), bytes: toFiniteCount(rows[0]?.bytes) }
     }),
 })

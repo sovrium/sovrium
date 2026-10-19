@@ -8,7 +8,7 @@ A form bound to `endpoint` writes somewhere other than a table you declared, so 
 
 `endpoint` is the submit target for a form that writes somewhere other than a table you declared: the form collects its declared fields and POSTs them as a JSON body — `{ [field]: value }` — to any URL you name. Nothing goes through the records API, so the destination can be a platform route, an admin endpoint, or something of your own. Each field must then name its own `control`.
 
-`url` is required and takes any path or fully-qualified URL. `method` is `POST` by default, or `PUT` or `PATCH`. `responseEnvelope` decides how the response body is read when judging success or failure, and is `sovrium` by default. `submitLabel` overrides the button text, `onSuccess` runs on a 2xx — a toast, plus the client-state effects `status`, `refetch` and `reload`, and the two below that only a form has — and `onError` shows a toast when the submit fails.
+`url` is required and takes any path or fully-qualified URL. `method` is `POST` by default, or `PUT` or `PATCH`. `responseEnvelope` decides how the response body is read when judging success or failure, and is `sovrium` by default. `submitLabel` overrides the button text, `onSuccess` runs on a 2xx — a toast, plus the client-state effects `status`, `refetch` and `reload`, and the two below that only a form has — and `onError` shows a toast when the submit fails. A refusal whose body carries `errors: [{ field, message }]` naming fields of the form is drawn on those fields instead: each is marked invalid with its message under it, the first takes the focus, and no `onError` toast covers the form. A refusal that names none of its fields shows the toast.
 
 **`submitVariant` is for a page that stacks several forms.** One form whose submit _is_ the page's main action wants the primary fill, and gets it by declaring nothing. A settings page drawing six one-row forms down a column gets six primary buttons instead, none of which is the main action — so each declares a quieter weight and the page regains a single focal point. The vocabulary is the `button` component's own: `default`, `destructive`, `outline`, `secondary`, `ghost`, `link`, `fab`.
 
@@ -82,7 +82,7 @@ Both are refused beside `reload`, which replaces the page the dialog is drawn on
 
 ## An on/off switch
 
-`control: switch` draws a labelled switch instead of a text box, for a setting that is simply on or off. It posts a JSON boolean under its field name — `true` when on, `false` when off — and the key is always present, so an unchecked switch says "off" rather than saying nothing. `defaultValue` may be a boolean, or a `$session.<field>` reference so the switch opens in the caller's saved state. A switch takes no `options`.
+`control: switch` draws a labelled switch instead of a text box, for a setting that is simply on or off. It posts a JSON boolean under its field name — `true` when on, `false` when off — and the key is always present, so an unchecked switch says "off" rather than saying nothing. `defaultValue` may be a boolean, or a `$session.<field>` reference so the switch opens in the caller's saved state; such a switch cannot be turned until the caller's session has answered, so a quick click is never undone by the saved value arriving after it. A switch takes no `options`.
 
 ```yaml
 - type: form
@@ -93,7 +93,7 @@ Both are refused beside `reload`, which replaces the page the dialog is drawn on
 
 ## A rating field
 
-`control: rating` is accepted on an endpoint form, but the form draws it as a plain text box, not a scale of stars, and checks nothing about what is typed into it. For a scale the reader picks from, bind the form to a table: a `rating` column draws one choice per rank up to its `max` and submits the rank picked as a number.
+`control: rating` draws a scale the reader picks from: one choice per rank, each named "n of max" for a screen reader. `max` sets how many ranks it offers, from 1 to 10 (5 when omitted); `max` is refused beside any other control. A `defaultValue` opens the scale on that rank, and `required` stops a submit while no rank is picked, with the reason under the scale. The rank picked is sent as a number under the field name; an unanswered scale sends nothing.
 
 ## Help text under a field
 

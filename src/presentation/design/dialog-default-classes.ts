@@ -92,6 +92,24 @@ export const computeDialogContentClasses = (kind: DialogKind = 'dialog'): string
 export const computeNativeDialogContentClasses = (): string =>
   `${DIALOG_CONTENT} backdrop:bg-black/10`
 
+/**
+ * The alert dialog the always-loaded confirm runtime opens on the platform's own
+ * modal `<dialog>` — a type-to-confirm gate. Each part is base-nova's at
+ * `data-size="default"`, resolved, and exported on its own so that runtime pays
+ * for these strings rather than the size table: no `group-data-[size=…]` or
+ * media selectors it never meets, no open/close motion (a native `<dialog>`
+ * never toggles `data-open`), and the top layer's `::backdrop` as the dimmer.
+ */
+export const NATIVE_ALERT_DIALOG_CONTENT =
+  'fixed top-1/2 left-1/2 z-50 grid w-full max-w-xs -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-popover-foreground ring-1 ring-foreground/10 outline-none backdrop:bg-black/10 sm:max-w-sm'
+
+/** {@link NATIVE_ALERT_DIALOG_CONTENT}'s header: centred, then start-aligned from `sm`. */
+export const NATIVE_ALERT_DIALOG_HEADER =
+  'grid grid-rows-[auto_1fr] place-items-center gap-1.5 text-center sm:place-items-start sm:text-left'
+
+/** {@link NATIVE_ALERT_DIALOG_CONTENT}'s footer band. */
+export const NATIVE_ALERT_DIALOG_FOOTER = DIALOG_FOOTER
+
 /** The block holding the title and the description. */
 export const computeDialogHeaderClasses = (kind: DialogKind = 'dialog'): string =>
   kind === 'alert-dialog' ? ALERT_DIALOG_HEADER : DIALOG_HEADER

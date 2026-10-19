@@ -17,14 +17,18 @@
  */
 
 import { useCallback, type ReactElement } from 'react'
+import { formatDayRelativeTime } from '@/domain/kernel/format/day-relative-time'
+import { usableLocale } from '@/domain/kernel/format/usable-locale'
 import { CommandGroup, CommandItem } from '../parts/command-primitives'
+import { resolvePageLocale } from '../runtime/page-locale'
+import { resolvePageTimezone } from '../runtime/page-timezone'
 import {
   groupLabel,
   resultBadge,
   type AdminSearchGroup,
   type AdminSearchResult,
 } from './command-search-data'
-import type { SearchState } from './use-command-search'
+import { searchPhaseOf, type SearchState } from './use-command-search'
 
 /**
  * The table a record result belongs to, read off its link
@@ -56,9 +60,22 @@ const rowKeyOf = (result: AdminSearchResult, index: number): string => {
 }
 
 /**
- * One result: an `option` named by its title. A record row says which table it
- * comes from, by the table's plural label, before its title; any other row
- * carries its kind as an aside. `rowKey` is its identity (see `rowKeyOf`).
+ * The moment a result's entity happened, as the run history reads one
+ * (`Today 12:56`, `Oct 14, 09:30`) on the operator's wall clock, or `undefined`
+ * when it carries none.
+ */
+const momentText = (occurredAt: string | undefined): string | undefined => {
+  if (occurredAt === undefined) return undefined
+  const moment = new Date(occurredAt)
+  if (Number.isNaN(moment.getTime())) return undefined
+  return formatDayRelativeTime(moment, usableLocale(resolvePageLocale()), resolvePageTimezone())
+}
+
+/**
+ * One result: an `option` named by its title — a record's after its table's
+ * plural label — with a context line under it naming its kind and the moment
+ * its entity happened, so two results of one kind never read alike. `rowKey` is its
+ * identity (see `rowKeyOf`).
  */
 function ResultItem({
   result,
@@ -74,19 +91,23 @@ function ResultItem({
   readonly onSelect: (href: string) => void
 }): ReactElement {
   const select = useCallback(() => onSelect(result.href), [onSelect, result.href])
+  // A record row names its table on its title line; every other row its kind here.
+  const context = [table === undefined ? badge : undefined, momentText(result.occurredAt)]
+    .filter((part) => part !== undefined)
+    .join(' · ')
   return (
     <CommandItem
       value={rowKey}
       aria-label={result.title}
       onSelect={select}
-      className="justify-between"
+      className="flex-col items-start gap-0.5"
     >
-      <span className="text-foreground truncate font-medium">
+      <span className="text-foreground w-full truncate font-medium">
         {table === undefined ? result.title : `${table} · ${result.title}`}
       </span>
-      {table === undefined && (
-        <span className="text-muted-foreground shrink-0 text-xs">{badge}</span>
-      )}
+      {/* A space between the lines, so the row's text never runs the title into its kind. */}
+      {context.length > 0 && ' '}
+      {context.length > 0 && <span className="text-muted-foreground text-xs">{context}</span>}
     </CommandItem>
   )
 }
@@ -95,15 +116,17 @@ function ResultItem({
 function ResultGroup({
   group,
   kindLabels,
+  kindBadges,
   tableLabels,
   onSelect,
 }: {
   readonly group: AdminSearchGroup
   readonly kindLabels: Readonly<Record<string, string>> | undefined
+  readonly kindBadges: Readonly<Record<string, string>> | undefined
   readonly tableLabels: Readonly<Record<string, string>> | undefined
   readonly onSelect: (href: string) => void
 }): ReactElement {
-  const badge = resultBadge(group.type)
+  const badge = kindBadges?.[group.type] ?? resultBadge(group.type)
   return (
     <CommandGroup heading={groupLabel(group.type, kindLabels)}>
       {group.results.map((result, index) => (
@@ -147,18 +170,23 @@ export function SearchResults({
   query,
   search,
   kindLabels,
+  kindBadges,
   tableLabels,
   words,
   onSelect,
+  matchedLocally = false,
 }: {
+  /** Whether a page or a quick action matched: the no-results line then stays silent. */
+  readonly matchedLocally?: boolean
   readonly query: string
   readonly search: SearchState
   readonly kindLabels: Readonly<Record<string, string>> | undefined
+  readonly kindBadges?: Readonly<Record<string, string>> | undefined
   readonly tableLabels: Readonly<Record<string, string>> | undefined
   /** The palette's words in the page language (`startTyping`, `searching`, `noResultsFor`). */
   readonly words?: Readonly<Record<string, string | undefined>> | undefined
   readonly onSelect: (href: string) => void
-}): ReactElement {
+}): ReactElement | null {
   const trimmed = query.trim()
   const word = (key: string, english: string): string => words?.[key] ?? english
   if (trimmed.length === 0) {
@@ -171,10 +199,11 @@ export function SearchResults({
       </StateLine>
     )
   }
-  if (search.loading || search.resolvedQuery !== trimmed) {
+  if (searchPhaseOf(query, search) === 'searching') {
     return <StateLine status>{word('searching', 'Searching…')}</StateLine>
   }
   if (search.groups.length === 0) {
+    if (matchedLocally) return null
     const none = word('noResultsFor', 'No results for “{query}”')
     return <StateLine status>{none.split('{query}').join(trimmed)}</StateLine>
   }
@@ -185,6 +214,7 @@ export function SearchResults({
           key={group.type}
           group={group}
           kindLabels={kindLabels}
+          kindBadges={kindBadges}
           tableLabels={tableLabels}
           onSelect={onSelect}
         />

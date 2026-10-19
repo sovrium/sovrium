@@ -57,6 +57,10 @@ import {
   requireAdmin,
   requireAdminTier,
 } from '@/presentation/api/middleware/auth'
+import {
+  guardDesignSystemBundle,
+  guardDesignSystemBundleWithoutAuth,
+} from '@/presentation/api/middleware/design-system-bundle-guards'
 import type { App } from '@/domain/models/app'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import type { ContextVariableMap, Hono } from 'hono'
@@ -88,7 +92,7 @@ export const chainAdminRouteGuards = (
   auth: AuthInstance,
   resolveAppForTier: ResolveTierApp
 ): SessionHono =>
-  honoApp
+  guardDesignSystemBundle(honoApp, auth, resolveAppForTier)
     .use('/api/admin/storage/status', authMiddleware(auth))
     .use('/api/admin/storage/status', requireAuth())
     .use('/api/admin/storage/status', requireAdmin(resolveAppForTier))
@@ -199,14 +203,9 @@ export const chainAdminRouteGuards = (
     .use('/api/admin/design-system/shares', requireAdminTier(resolveAppForTier))
     .use('/api/admin/design-system/shares/*', authMiddleware(auth))
     .use('/api/admin/design-system/shares/*', requireAdminTier(resolveAppForTier))
-    // The class-provenance read. It needs its OWN entry for the reason `/shares`
-    // just gave: the `design-system.*` entries above are exact paths with no
-    // wildcard, so nothing under `/design-system/` inherits a gate from them.
-    .use('/api/admin/design-system/provenance', authMiddleware(auth))
-    .use('/api/admin/design-system/provenance', requireAdminTier(resolveAppForTier))
     // The five FACET reads (jalon 5.2b): the operator's own tokens, sentences,
     // declaration ledger, export sizes and per-type usage. Each needs its OWN
-    // entry for the reason `/provenance` just gave — the `design-system.*`
+    // entry for the reason `/shares` gave — the `design-system.*`
     // exports above are exact paths with no wildcard, so nothing under
     // `/design-system/` inherits a gate from them. And each is an exact path
     // with no sub-segments of its own, so none needs a `/*` partner.
@@ -357,7 +356,7 @@ export const chainAdminRouteGuardsWithoutAuth = (
   honoApp: SessionHono,
   resolveAppForTier: ResolveTierApp
 ): SessionHono =>
-  honoApp
+  guardDesignSystemBundleWithoutAuth(honoApp, resolveAppForTier)
     .use('/api/admin/storage/status', requireAuth())
     .use('/api/admin/storage/status', requireAdmin(resolveAppForTier))
     .use('/api/admin/buckets/overview', requireAdminTier(resolveAppForTier))
@@ -382,7 +381,6 @@ export const chainAdminRouteGuardsWithoutAuth = (
     .use('/api/admin/design-system/shares/*', requireAdminTier(resolveAppForTier))
     // The schema reads (jalon 5.2) — the no-auth mirror. See the auth-enabled
     // branch for why each needs an explicit entry rather than inheriting.
-    .use('/api/admin/design-system/provenance', requireAdminTier(resolveAppForTier))
     .use('/api/admin/schema/component-types', requireAdminTier(resolveAppForTier))
     .use('/api/admin/schema/component-types/*', requireAdminTier(resolveAppForTier))
     .use('/api/admin/schema/field-types', requireAdminTier(resolveAppForTier))

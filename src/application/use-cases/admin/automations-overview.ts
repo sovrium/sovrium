@@ -52,10 +52,10 @@ import {
   automationsRunsDetailWithStepsResponseSchema,
   automationsRunsListResponseSchema,
   type AdminRunStep,
-  type AutomationRunAdminItem,
   type AutomationsOverviewResponse,
   type AutomationsOverviewSeriesPoint,
   type AutomationsRunsDetailWithStepsResponse,
+  type AutomationsRunsListResponse,
 } from '@/domain/models/api/admin/automations'
 import {
   resolvePeriodWindow,
@@ -64,9 +64,11 @@ import {
 } from '@/domain/models/api/admin/envelope/period-preset'
 import { stepLogEntrySchema, type RunStatus } from '@/domain/models/api/automations'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
-import { triggerNameFilterOf } from '@/domain/models/app/automations/trigger-entries-service'
+import { entityLabelFor } from '@/domain/models/app/auth/readable-name-service'
+import { onDevTimeline } from '@/infrastructure/process/server-boot-instant'
 import { buildAdminRunItem, toIso } from './automations-run-item'
-import { decodeRunsCursor, encodeRunsCursor } from './automations-runs-query'
+import { runsResultFacts, tallyRunCounts } from './automations-run-labels'
+import { encodeRunsCursor, runsListFilters } from './automations-runs-query'
 import type { ConsoleLanguage } from './operator-language'
 import type { App } from '@/domain/models/app'
 
@@ -168,9 +170,13 @@ export const BuildAutomationsOverview = (
   Effect.gen(function* () {
     const repo = yield* AdminAutomationsRepository
 
-    const window = resolvePeriodWindow(period)
+    // The windows end at the development timeline's now: the runs counted here
+    // are stamped on it, so a pinned host counts the runs it made (the real
+    // clock itself everywhere else).
+    const now = onDevTimeline()
+    const window = resolvePeriodWindow(period, now)
     const fromDate = new Date(window.from)
-    const nowMs = Date.now()
+    const nowMs = now.getTime()
 
     // Period-scoped raw rows → series + period success rate.
     const rows = yield* repo.listOverviewRowsSince(fromDate)
@@ -201,6 +207,8 @@ export const BuildAutomationsOverview = (
         interval: window.interval,
         points: [...points],
       },
+      // The same buckets at the top level: a page chart binds rows by one flat key.
+      points: [...points],
     } satisfies AutomationsOverviewResponse
 
     const parsed = decodeSafe(automationsOverviewResponseSchema)(body)
@@ -228,6 +236,8 @@ export interface AdminRunsListInput {
   /** Free-text term over the automation name and failure `error`; `undefined` = no search. */
   readonly q?: string | undefined
   readonly cursor?: string | undefined
+  /** A numbered page (1-based), read when no `cursor` is: the runs past `(page - 1) * limit`. */
+  readonly page?: number | undefined
   readonly limit: number
 }
 
@@ -235,11 +245,7 @@ export interface AdminRunsListInput {
 export type AdminRunsListOutcome =
   | {
       readonly _tag: 'Ok'
-      readonly body: {
-        readonly items: readonly AutomationRunAdminItem[]
-        readonly nextCursor: string | null
-        readonly appliedQuery: string | null
-      }
+      readonly body: AutomationsRunsListResponse
     }
   | { readonly _tag: 'ValidationFailed'; readonly error: unknown }
 
@@ -278,27 +284,9 @@ export const BuildAdminRunsList = (
   Effect.gen(function* () {
     const repo = yield* AdminAutomationsRepository
 
-    // Cursor anchors on createdAt (non-null by schema). The encoded cursor
-    // carries the previous page's last `createdAt` under the `startedAt` key
-    // (historical field name) — decode it into the `cursorBefore` predicate.
-    const decoded = input.cursor ? decodeRunsCursor(input.cursor) : undefined
-    const cursorBefore =
-      decoded !== undefined && decoded !== null ? new Date(decoded.startedAt) : undefined
-
-    const rows = yield* repo.listAdminRuns({
-      status: input.status,
-      automationName: input.automationName,
-      triggerName:
-        input.triggerName === undefined
-          ? undefined
-          : triggerNameFilterOf(app.automations, input.automationName, input.triggerName),
-      automationId: input.automationId,
-      from: input.from !== undefined ? new Date(input.from) : undefined,
-      to: input.to !== undefined ? new Date(input.to) : undefined,
-      q: input.q,
-      cursorBefore,
-      limit: input.limit,
-    })
+    const filters = runsListFilters(app, input)
+    const rows = yield* repo.listAdminRuns(filters)
+    const counts = tallyRunCounts(yield* repo.countAdminRunsByStatus(filters))
 
     const pageRows = rows.slice(0, input.limit)
     // How far each run got: ONE grouped count over the page's step rows.
@@ -307,7 +295,9 @@ export const BuildAdminRunsList = (
       buildAdminRunItem(app, row, steps.get(row.id) ?? 0, language)
     )
 
-    const nextCursor = deriveRunsNextCursor(rows.length, pageRows, input.limit)
+    // A numbered page is not a continuation: it carries no cursor.
+    const nextCursor =
+      filters.offset === undefined ? deriveRunsNextCursor(rows.length, pageRows, input.limit) : null
 
     // `appliedQuery` rides EVERY response, `null` when no term was applied. Its
     // PRESENCE — not its truthiness — is what tells the grid this endpoint
@@ -315,15 +305,12 @@ export const BuildAdminRunsList = (
     // Omitting the key on a no-term request would silently re-arm that
     // in-memory pass the moment an operator CLEARS the box.
     const appliedQuery = input.q ?? null
-    const body = { items, nextCursor, appliedQuery }
+    const body = { items, nextCursor, appliedQuery, ...runsResultFacts(counts, language) }
     const parsed = decodeSafe(automationsRunsListResponseSchema)(body)
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }
-    return {
-      _tag: 'Ok',
-      body: { items: parsed.data.items, nextCursor: parsed.data.nextCursor, appliedQuery },
-    } as const
+    return { _tag: 'Ok', body: { ...parsed.data, appliedQuery } } as const
   }).pipe(Effect.withSpan('admin.build-admin-runs-list'))
 
 // ─── Run-detail use case ────────────────────────────────────────────────────────
@@ -387,6 +374,16 @@ function buildAdminRunStep(step: {
 }
 
 /**
+ * What a person reads for a step: the `label` it declares, else its name made
+ * readable. A step the automation no longer declares reads its stored name made
+ * readable too.
+ */
+function stepLabels(app: App, automationName: string): (name: string) => string {
+  const def = (app.automations ?? []).find((a) => a.name === automationName)
+  return (name) => entityLabelFor(def?.actions.find((a) => a.name === name) ?? { name })
+}
+
+/**
  * Build the single-run detail body for `runId`. Unknown id → `NotFound`
  * (anti-enum 404). The route short-circuits BEFORE the audit emit on that path
  * per the spec contract. The body includes the per-step I/O list, fetched via
@@ -416,11 +413,17 @@ export const BuildAdminRunDetail = (
       // effect-swallow: stated two lines up — the run's own row has already been read and IS the answer; the per-step I/O is detail, and losing it degrades the detail view rather than failing it.
       Effect.orElseSucceed(() => [] as const)
     )
-    const steps = stepRows.map(buildAdminRunStep)
+    const stepLabel = stepLabels(app, row.automationName)
+    const steps = stepRows
+      .map(buildAdminRunStep)
+      .map((step) => ({ ...step, label: stepLabel(step.name) }))
 
     const ran = steps.filter((step) => step.status !== 'skipped').length
     const item = buildAdminRunItem(app, row, ran, language)
-    const parsed = decodeSafe(automationsRunsDetailWithStepsResponseSchema)({ ...item, steps })
+    const parsed = decodeSafe(automationsRunsDetailWithStepsResponseSchema)({
+      ...item,
+      steps,
+    })
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }

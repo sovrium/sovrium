@@ -9,11 +9,6 @@
 #
 # The reading frame below it (the sidebar, the article, the outline and the
 # callouts) is measured and styled by part in `docs.yaml`'s `markdown` block.
-#
-# `#0d0d0d` is the ground of the `github-dark` code theme (`codeBlock.theme` in
-# design.yaml): the bar naming each code block — "terminal", or the file it
-# belongs in — is painted the same, so block and bar read as one dark panel.
-# Change the code theme, change this colour with it.
 type: container
 element: header
 props:

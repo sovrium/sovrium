@@ -10,6 +10,7 @@ import {
   SEARCH_BY_ID_LABEL,
   candidateCountLabel,
   linkCountLabel,
+  type PickerWords,
   loadMoreCountLabel,
 } from '../../runtime/picker-contract'
 import type { ListboxCandidate } from '../option-listbox'
@@ -91,11 +92,14 @@ export function CandidateFooter({
   total,
   hasMore,
   onLoadMore,
+  words,
 }: {
   readonly shown: number
   readonly total: number | undefined
   readonly hasMore: boolean
   readonly onLoadMore: () => void
+  /** The picker's words in the page language (`picker.*`), where they differ from English. */
+  readonly words?: PickerWords
 }): ReactElement | undefined {
   if (hasMore) {
     const remaining = total === undefined ? undefined : Math.max(total - shown, 1)
@@ -108,14 +112,14 @@ export function CandidateFooter({
         onClick={onLoadMore}
         className="border-border bg-card text-muted-foreground hover:bg-muted -mt-px w-full border-x border-b py-1 text-center text-sm"
       >
-        {loadMoreCountLabel(remaining ?? shown)}
+        {loadMoreCountLabel(remaining ?? shown, words)}
       </button>
     )
   }
   if (total === undefined) return undefined
   return (
     <span className="text-muted-foreground block py-1 text-sm">
-      {candidateCountLabel(shown, total)}
+      {candidateCountLabel(shown, total, words)}
     </span>
   )
 }
@@ -124,11 +128,17 @@ export function CandidateFooter({
 export function LinkCountStrip({
   linked,
   maxLinked,
+  words,
 }: {
   readonly linked: number
   readonly maxLinked: number
+  readonly words?: PickerWords
 }): ReactElement {
-  return <span className="text-muted-foreground text-sm">{linkCountLabel(linked, maxLinked)}</span>
+  return (
+    <span className="text-muted-foreground text-sm">
+      {linkCountLabel(linked, maxLinked, words)}
+    </span>
+  )
 }
 
 /**

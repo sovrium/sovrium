@@ -5,7 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useCallback, useRef, type ChangeEventHandler, type ReactElement, type Ref } from 'react'
+import {
+  useCallback,
+  useId,
+  useRef,
+  type ChangeEventHandler,
+  type ReactElement,
+  type Ref,
+} from 'react'
 import {
   fileUploadDropzoneHint,
   computeFileUploadErrorClasses,
@@ -21,6 +28,8 @@ import type {
 
 interface FileUploadIslandProps {
   readonly accept?: string
+  /** `accept` in words (`PNG, PDF`), resolved server-side for the drop zone's hint. */
+  readonly acceptLabel?: string
   readonly maxFiles?: number
   readonly maxFileSize?: number
   readonly dropZone?: boolean
@@ -170,13 +179,14 @@ function FileUploadFeedback({
  * when the request settles.
  */
 export default function FileUploadIsland(props: FileUploadIslandProps): ReactElement {
-  const { accept, maxFiles, maxFileSize, dropZone = false, disabled = false } = props
+  const { accept, maxFiles, dropZone = false, disabled = false } = props
   const { label, id, uiStrings } = props
   const inputRef = useRef<HTMLInputElement>(null)
   const upload = useFileUploadState(props)
   const browse = useCallback(() => inputRef.current?.click(), [])
   const allowMultiple = typeof maxFiles === 'number' ? maxFiles > 1 : false
-  const inputId = id ? `${id}-input` : undefined
+  const generatedId = useId()
+  const inputId = `${id ?? generatedId}-input`
   const buttonText = label ?? uploadButtonWord(uiStrings)
   const controlsDisabled = disabled || upload.submitting
 
@@ -190,7 +200,7 @@ export default function FileUploadIsland(props: FileUploadIslandProps): ReactEle
       {dropZone ? (
         <DropZone
           disabled={controlsDisabled}
-          hint={fileUploadDropzoneHint({ accept, maxFiles, maxFileSize }, uiStrings)}
+          hint={fileUploadDropzoneHint(props, uiStrings)}
           onBrowse={browse}
           onDropFiles={upload.handleFiles}
           strings={uiStrings}

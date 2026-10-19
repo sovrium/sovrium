@@ -11,6 +11,7 @@ import {
   computeTableDropZoneClasses,
   computeTableToastClasses,
 } from '@/presentation/design/table-default-classes'
+import { useImportWord } from './import-words'
 
 interface UploadStepProps {
   readonly noDataError: boolean
@@ -18,12 +19,15 @@ interface UploadStepProps {
 }
 
 export function UploadStep({ noDataError, onFileChange }: UploadStepProps) {
+  const noRows = useImportWord('csvImport.noRows', 'No data rows found')
+  const prompt = useImportWord('csvImport.drop', 'Drag and drop a CSV file here')
+  const browse = useImportWord('csvImport.browse', 'Browse file')
   if (noDataError) {
-    return <div className={computeTableToastClasses({ tone: 'error' })}>No data rows found</div>
+    return <div className={computeTableToastClasses({ tone: 'error' })}>{noRows}</div>
   }
   return (
     <div className={computeTableDropZoneClasses()}>
-      <p className={computeTableDialogBodyClasses()}>Drag and drop a CSV file here</p>
+      <p className={computeTableDialogBodyClasses()}>{prompt}</p>
       <label className="cursor-pointer">
         <input
           type="file"
@@ -32,7 +36,7 @@ export function UploadStep({ noDataError, onFileChange }: UploadStepProps) {
           onChange={onFileChange}
         />
         <span className={computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })}>
-          Browse file
+          {browse}
         </span>
       </label>
     </div>

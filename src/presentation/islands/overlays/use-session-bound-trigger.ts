@@ -6,7 +6,10 @@
  */
 
 import { useEffect } from 'react'
-import { hydrateSessionBindings } from '@/presentation/islands/runtime/session-resolver'
+import {
+  hydrateSessionBindings,
+  latestSessionUser,
+} from '@/presentation/islands/runtime/session-resolver'
 
 /**
  * Resolve every session-bound marker this island just mounted.
@@ -14,10 +17,12 @@ import { hydrateSessionBindings } from '@/presentation/islands/runtime/session-r
  * The trigger's content is injected on MOUNT, after the page-load session pass
  * has already run and found nothing to fill, so the island has to ask for
  * itself. The markers carry TEMPLATES rather than resolved values and stay on
- * their elements, which is what makes asking again idempotent.
+ * their elements, which is what makes asking again idempotent. It reuses the
+ * page's own session read rather than making a second one: nothing about the
+ * caller has changed between the page filling its chrome and this mount.
  */
 export function useSessionBoundTrigger(): void {
   useEffect(() => {
-    hydrateSessionBindings(document)
+    hydrateSessionBindings(document, latestSessionUser)
   }, [])
 }

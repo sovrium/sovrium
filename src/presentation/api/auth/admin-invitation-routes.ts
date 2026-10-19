@@ -16,6 +16,7 @@ import { logError } from '@/infrastructure/logging/logger'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { requireInviteCaller, resolveBaseURL } from '@/presentation/api/auth/admin-invitation-guard'
 import { chainAdminInvitationLifecycleRoutes } from '@/presentation/api/auth/admin-invitation-lifecycle-routes'
+import { respondToInviteFailure } from '@/presentation/api/auth/admin-invitation-refusal'
 import type { App } from '@/domain/models/app'
 import type { Auth } from '@/domain/models/app/auth'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
@@ -25,29 +26,6 @@ import type { Context, Hono } from 'hono'
 type AuthInstance = Readonly<ReturnType<typeof createAuthInstance>>
 type InvitationRouteServices = Pick<InvitationLifecycleRouteDeps, 'emailHandlers' | 'invitations'>
 type Invitations = InvitationRouteServices['invitations']
-
-/**
- * Map a non-success invite-user result onto an HTTP response.
- *
- * Pre-condition: caller has confirmed `result.status !== 'invited'`. The
- * status discriminator drives the HTTP code: `invalid-input` → 400,
- * `already-onboarded` → 422 (a fully-onboarded user), everything else → 500.
- */
-const respondToInviteFailure = (
-  c: Context,
-  result: { readonly status: string; readonly message: string }
-): Response => {
-  if (result.status === 'invalid-input') {
-    return c.json({ success: false, message: result.message, code: 'BAD_REQUEST' }, 400)
-  }
-  if (result.status === 'already-onboarded') {
-    return c.json(
-      { success: false, message: result.message, code: 'EMAIL_ALREADY_REGISTERED' },
-      422
-    )
-  }
-  return c.json({ success: false, message: result.message, code: 'INTERNAL_ERROR' }, 500)
-}
 
 /**
  * POST /api/auth/admin/invite-user
@@ -110,7 +88,7 @@ const createInviteUserHandler =
       })
 
       if (result.status !== 'invited') {
-        return respondToInviteFailure(c, result)
+        return respondToInviteFailure(c, result, authorized.session.user.id)
       }
 
       return c.json(

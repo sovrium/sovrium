@@ -11,6 +11,7 @@
  * says which columns hold a list even when a row does not carry one.
  */
 
+import { EMPTY_VALUE, isMissing } from './cell-empty'
 import { ArrayChipsCell } from './cell-renderers'
 import type { DataTableCellContext } from './island/table-features'
 import type { DataTableColumn } from '@/domain/models/app/pages/components/component-types/data/table/schema'
@@ -31,11 +32,15 @@ const entryText = (entry: unknown): string => {
  * by its label or name), and as the empty-cell dash when it holds nothing.
  * Printed as text, a list of objects read `[object Object]` and a list of
  * strings ran together as `a,b`.
+ *
+ * An absent value (`null`, `undefined`, `''`) is the muted dash every typed
+ * cell already draws: a blank cell beside a dashed one reads as "not loaded"
+ * rather than "none".
  */
 export const renderPlainCell = ({ getValue }: DataTableCellContext): React.ReactNode => {
   const value = getValue()
   if (Array.isArray(value)) return <ArrayChipsCell value={value.map(entryText)} />
-  return value === undefined || value === null ? null : String(value)
+  return isMissing(value) ? EMPTY_VALUE : String(value)
 }
 
 /**

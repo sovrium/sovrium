@@ -301,5 +301,13 @@ export const AdminAgentConversationsRepositoryLive = Layer.succeed(
     getConversation: (agentName, conversationId) =>
       wrap(async () => getConversationImpl(agentName, conversationId)),
     listMessages: (conversationId) => wrap(async () => listMessagesImpl(conversationId)),
+    countConversations: (agentName) =>
+      wrap(async () => {
+        const [row] = await db
+          .select({ total: count() })
+          .from(aiConversations)
+          .where(agentScopeCondition(agentName))
+        return toFiniteCount(row?.total ?? 0)
+      }),
   }
 )

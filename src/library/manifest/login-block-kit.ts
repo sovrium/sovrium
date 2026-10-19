@@ -58,11 +58,6 @@ export const loginParams = (
   providersParam(providers),
   stringParam('signUpPath', 'The sign-up page, linked while sign-up is open.', '/sign-up'),
   stringParam(
-    'resetPath',
-    'The password-reset page, linked when one of your pages sends the reset link.',
-    '/reset-password'
-  ),
-  stringParam(
     'twoStepPath',
     'The page an account with two-step on is sent to for its code: the `auth-two-factor` block.',
     '/two-step'
@@ -117,7 +112,7 @@ export const MIRROR_NOTE =
 export const LOGIN_NOTES: readonly string[] = [
   MIRROR_NOTE,
   'Place it alone on a page — `components: [{ component: <name> }]` — since it draws the whole screen, ground included.',
-  'Each social button is drawn only when your `auth` config offers social sign-in, one per provider listed in `providers`; "Forgot your password?" only when one of your pages sends the reset link; the sign-up line only while sign-up is open.',
+  'Each social button is drawn only when your `auth` config offers social sign-in, one per provider listed in `providers`; the sign-in form draws "Forgot your password?" in its Password label row when one of your pages sends the reset link; the sign-up line only while sign-up is open.',
   'The terms line is drawn once both `termsPath` and `privacyPath` are set.',
   THEME_NOTE,
 ]

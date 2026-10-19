@@ -214,6 +214,8 @@ export interface AuthoredTableCandidate {
   readonly columns: readonly string[]
   /** The table's write-only fields: their values are exported to no one. */
   readonly writeOnly?: readonly string[]
+  /** The fields the caller's read rules withhold from her: left out of her export. */
+  readonly withheld?: readonly string[]
 }
 
 /** One app table and the authorship column it actually carries. */

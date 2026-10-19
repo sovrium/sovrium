@@ -1,8 +1,8 @@
 # Store Sovrium files in S3-compatible storage
 
-> Send Sovrium bucket uploads to any S3-compatible store — AWS S3, MinIO, Scaleway, Backblaze — with a handful of `STORAGE_S3_` environment variables.
+> Send Sovrium bucket uploads to any S3-compatible object store, hosted or self-hosted, with a handful of `STORAGE_S3_` environment variables.
 
-Sovrium stores uploaded files on the local disk by default. To use durable object storage — AWS S3, MinIO, Scaleway Object Storage, Backblaze B2 — switch the storage backend with environment variables. Your `buckets` config never changes.
+Sovrium stores uploaded files on the local disk by default. To use durable S3-compatible object storage — a provider's hosted service or your own MinIO — switch the storage backend with environment variables. Your `buckets` config never changes.
 
 ## Point storage at S3
 

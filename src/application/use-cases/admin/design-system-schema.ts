@@ -29,16 +29,6 @@
  * a refused type is REPORTED with its own sentence rather than filtered out.
  * The console decides how to draw a refusal; this decides only that it is one.
  *
- * ─── WHY CLASS PROVENANCE IS NOT HERE ──────────────────────────────────────
- *
- * It resolves `design.components` through the RENDERER's precedence rules,
- * which live in `presentation/utils/design/` — a layer the application may not
- * import, and rightly: those rules are how a class list reaches an element, not
- * a fact about the config. The provenance read composes them in the route,
- * through the one helper both it and the `specimen` renderer share
- * (`presentation/utils/design/class-provenance-report.ts`), so the endpoint and
- * the badge beside the drawn component cannot answer differently.
- *
  * @see src/domain/models/api/admin/design-system/component-types.ts
  */
 

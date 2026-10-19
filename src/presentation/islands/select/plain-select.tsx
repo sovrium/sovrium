@@ -9,6 +9,7 @@ import { Select } from '@base-ui/react/select'
 import { useCallback, useMemo, useState, type ReactElement } from 'react'
 import { cn } from '@/presentation/design/class-merge'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { modalPortalContainer } from '@/presentation/islands/runtime/modal-portal-container'
 import {
   computeSelectClearClasses,
   computeSelectIconClasses,
@@ -154,7 +155,7 @@ function SelectPopup({
   readonly listClassName: string
 }): ReactElement {
   return (
-    <Select.Portal>
+    <Select.Portal container={modalPortalContainer}>
       <Select.Positioner
         className={computeSelectPositionerClasses()}
         sideOffset={4}

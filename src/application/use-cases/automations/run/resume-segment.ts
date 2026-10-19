@@ -35,7 +35,8 @@ import {
 import { resolveRunTimeoutMs, runActionsWithTimeout } from './action-loop'
 import { buildAutomationInvoker } from './automation-call-invoker'
 import { finaliseOnAbandon } from './defect-finaliser'
-import { finaliseRun, stepRowOf } from './run-persistence'
+import { restoreRunLedgers, type RunLedgers } from './run-ledger-persistence'
+import { finalisePausableRun, stepRowOf } from './run-persistence'
 import { withPriorTolerated } from './run-status'
 import {
   acquireSlot,
@@ -44,6 +45,7 @@ import {
   resolveConcurrencyLimit,
   unregisterCancellation,
 } from './scheduler'
+import { segmentStarterOf } from './segment-starter'
 import { unlessStarterGone } from './starter-standing'
 import { buildStepContext } from './step-context'
 import { EMPTY_RUN_ACCUMULATOR, type RunAccumulator, type RunRequirements } from './types'
@@ -81,10 +83,7 @@ const runEntryOf = ({ automation, run }: ResumedSegmentInput): Trigger =>
   triggerNamedOrFirst(automation, run.triggerName)
 
 /** Who the segment runs as: the person who started the run by hand, or the system. */
-const startedByOf = (run: PersistedRun) =>
-  run.startedByHand
-    ? { startedByHand: true as const, userId: run.triggeredByUserId ?? undefined }
-    : { userId: undefined }
+const startedByOf = (run: PersistedRun) => segmentStarterOf(run)
 
 /** Rewrite one step row of the run, its failure logged: the run's outcome stands regardless. */
 const rewriteStep = (runId: string, step: CreateStepInput) =>
@@ -104,7 +103,8 @@ const rewriteStep = (runId: string, step: CreateStepInput) =>
 const storeSegment = (
   input: ResumedSegmentInput,
   state: RunAccumulator,
-  timing: { readonly admittedAt: Date; readonly finishedAt: Date }
+  timing: { readonly admittedAt: Date; readonly finishedAt: Date },
+  ledgers: RunLedgers
 ) =>
   Effect.gen(function* () {
     const { run, segment } = input
@@ -116,7 +116,7 @@ const storeSegment = (
     if (reentered) {
       yield* rewriteStep(run.id, stepRowOf(first, segment.pausedRow, timing.finishedAt))
     }
-    yield* finaliseRun({
+    yield* finalisePausableRun({
       runId: run.id,
       automationId: input.automationId,
       engineStatus: state.runStatus,
@@ -125,15 +125,17 @@ const storeSegment = (
       startedAt: timing.admittedAt,
       finishedAt: timing.finishedAt,
       steps: reentered ? rest : state.steps,
-      userId: startedByOf(run).userId,
-      source: { app: input.app, name: input.automation.name, trigger: runEntryOf(input) },
+      // The starter and its markers, as the first segment passed them: a fallback row keeps both.
+      ...startedByOf(run),
+      // Its ledgers: a segment pausing again keeps the files the run stored and read.
+      source: { app: input.app, name: input.automation.name, trigger: runEntryOf(input), ledgers },
       segment: { stepIndexBase: segment.pausedRow + 1, priorActiveMs: run.durationMs ?? 0 },
       ...(state.runStatus === 'waiting-delay' ? { park: state.park } : {}),
     })
   })
 
-/** Run the segment's actions under what remains of the run timeout. */
-const runSegmentActions = (input: ResumedSegmentInput) =>
+/** Run the segment's actions under what remains of the run timeout, with the run's ledgers. */
+const runSegmentActions = (input: ResumedSegmentInput, ledgers: RunLedgers) =>
   Effect.gen(function* () {
     const { app, processEnv, handlers, automation, run, segment } = input
     const startedBy = startedByOf(run)
@@ -152,6 +154,7 @@ const runSegmentActions = (input: ResumedSegmentInput) =>
       runId: run.id,
       runProgram,
       templates: yield* TemplateEngine,
+      ledgers,
     })
     const container = segment.container === undefined ? {} : { container: segment.container }
     const ctx = { ...base, resume: { base: segment.base, ...container } }
@@ -172,13 +175,17 @@ const runAdmittedSegment = (
 ) =>
   Effect.gen(function* () {
     const { run, automation } = input
+    // The files the run stored and read before it paused, less any changed meanwhile.
+    const ledgers = yield* restoreRunLedgers(run.filesLedger)
     // A cancel that came while the segment waited for its slot: nothing runs.
-    const ran = isCancelled(run.id) ? EMPTY_RUN_ACCUMULATOR : yield* runSegmentActions(input)
+    const ran = isCancelled(run.id)
+      ? EMPTY_RUN_ACCUMULATOR
+      : yield* runSegmentActions(input, ledgers)
     const state: RunAccumulator = isCancelled(run.id)
       ? { ...ran, runStatus: 'cancelled', runError: ran.runError ?? 'Run cancelled' }
       : withPriorTolerated(ran, input.segment.priorTolerated)
     const finishedAt = new Date()
-    yield* storeSegment(input, state, { admittedAt: admission.admittedAt, finishedAt })
+    yield* storeSegment(input, state, { admittedAt: admission.admittedAt, finishedAt }, ledgers)
     yield* Ref.set(admission.finalised, true)
     releaseSlot(automation.name)
     unregisterCancellation(run.id)

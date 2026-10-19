@@ -36,11 +36,39 @@ import {
 } from '@/application/ports/repositories/admin/boot-ledger-repository'
 import { diffSnapshots } from '@/application/use-cases/admin/boot-ledger-diff'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
+import type { ConsoleLanguage } from '@/application/use-cases/admin/operator-language'
 import type {
   AdminReleaseDetailResponse,
   AdminReleasesListResponse,
   AdminReleaseSummary,
 } from '@/domain/models/api/admin/releases/ledger'
+
+/** A count's two forms, `{n}` standing for the figure. */
+type CountPhrase = Readonly<Record<'one' | 'other', string>>
+
+const ENGINE_MIGRATIONS_PHRASE: Readonly<Record<ConsoleLanguage, CountPhrase>> = {
+  en: { one: '{n} engine migration applied', other: '{n} engine migrations applied' },
+  fr: { one: '{n} migration moteur appliquée', other: '{n} migrations moteur appliquées' },
+}
+
+const STARTS_PHRASE: Readonly<Record<ConsoleLanguage, CountPhrase>> = {
+  en: { one: '{n} start', other: '{n} starts' },
+  fr: { one: '{n} démarrage', other: '{n} démarrages' },
+}
+
+/** `count` read through `phrase` in `language`, with that language's plural rule. */
+const countPhrase = (
+  phrase: Readonly<Record<ConsoleLanguage, CountPhrase>>,
+  count: number,
+  language: ConsoleLanguage
+): string => {
+  const form = new Intl.PluralRules(language).select(count) === 'one' ? 'one' : 'other'
+  return phrase[language][form].replace('{n}', new Intl.NumberFormat(language).format(count))
+}
+
+/** `18 starts` (`18 démarrages`): how many boots the ledger records. */
+export const ledgerStartsLabel = (count: number, language: ConsoleLanguage): string =>
+  countPhrase(STARTS_PHRASE, count, language)
 
 /** An absent optional string, in the shape the wire contract declares for it. */
 const orNull = (value: string | undefined): string | null => value ?? null
@@ -53,6 +81,7 @@ const scalarsOf = (
   id: entry.id,
   version: orNull(entry.appVersion),
   engineVersion: entry.engineVersion,
+  engineLabel: `Sovrium ${entry.engineVersion}`,
   previousEngineVersion: orNull(entry.prevEngineVersion),
   configHash: entry.configHash,
   previousConfigHash: orNull(entry.prevConfigHash),
@@ -82,7 +111,8 @@ const scalarsOf = (
  * that was never mounted, and the console draws its empty state from the 200.
  */
 export const listBootLedger = (
-  appName: string
+  appName: string,
+  language: ConsoleLanguage
 ): Effect.Effect<AdminReleasesListResponse, BootLedgerDatabaseError, BootLedgerRepository> =>
   Effect.gen(function* () {
     const ledger = yield* BootLedgerRepository
@@ -91,6 +121,16 @@ export const listBootLedger = (
     const releases = entries.map((entry, index) => ({
       ...scalarsOf(entry, index === 0),
       engineMigrationCount: entry.engineMigrations.length,
+      // Absent when none ran, so the cell reads empty rather than `0 … applied`.
+      ...(entry.engineMigrations.length === 0
+        ? {}
+        : {
+            engineMigrationsLabel: countPhrase(
+              ENGINE_MIGRATIONS_PHRASE,
+              entry.engineMigrations.length,
+              language
+            ),
+          }),
       schemaChangeCount: entry.derivedDdl.length,
     }))
 
@@ -111,6 +151,16 @@ export const listBootLedger = (
       generatedAt: new Date().toISOString(),
     }
   }).pipe(Effect.withSpan('admin.list-boot-ledger'))
+
+/** How many boots the ledger retains for `appName` — the `total` its list answers. */
+export const countBootLedger = (
+  appName: string
+): Effect.Effect<number, BootLedgerDatabaseError, BootLedgerRepository> =>
+  Effect.gen(function* () {
+    const ledger = yield* BootLedgerRepository
+    const entries = yield* ledger.listNewestFirst(appName)
+    return entries.length
+  }).pipe(Effect.withSpan('admin.count-boot-ledger'))
 
 /**
  * One boot, with its diff against the boot before it.

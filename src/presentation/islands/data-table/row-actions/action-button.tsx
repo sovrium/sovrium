@@ -19,7 +19,11 @@
  * the action's `onSuccess.refetch` re-reads the grid.
  */
 
-import { useRef, useState, type ReactElement } from 'react'
+import { useId, useRef, useState, type ReactElement } from 'react'
+import {
+  disabledControlAttributes,
+  renderDisabledControl,
+} from '@/presentation/design/disabled-reason'
 import { pendingControlProps } from '@/presentation/design/pending-state'
 import { renderPendingContent } from '@/presentation/design/spinner-mark'
 import { computeTableActionButtonClasses } from '@/presentation/design/table-default-classes'
@@ -29,6 +33,7 @@ import { actionTypeAttr } from './action-type-attr'
 import { useArmedConfirm } from './armed-confirm'
 import { EditSelectEditor } from './edit-select-editor'
 import { usePendingRowWord } from './pending-word'
+import { controlIdOf, rowActionDisabledOn } from './row-action-control'
 import { RowConfirmDialog } from './row-confirm-dialog'
 import { rowOf } from './row-origin'
 import { claimTriggerFocus, requestTriggerFocus } from './trigger-focus'
@@ -61,7 +66,11 @@ function ActionTriggerButton({
   const { pending, onClick } = useTriggerPress({ action, record, focusKey, onArm, onActionClick })
   const pendingWord = usePendingRowWord(action)
   const tone = triggerTone(action.variant)
-  return (
+  const reasonId = useId()
+  // Disabled on this row by the server's verdict: drawn, focusable, inert.
+  const disabledOnRow = rowActionDisabledOn(action, record)
+  const controlId = controlIdOf(action)
+  const button = (
     <button
       {...NAMED_BUTTON}
       ref={(node) => {
@@ -69,17 +78,24 @@ function ActionTriggerButton({
         claimTriggerFocus(focusKey, node)
       }}
       className={computeTableActionButtonClasses({
-        disabled: !onActionClick,
+        disabled: !onActionClick || disabledOnRow !== undefined,
         ...(tone === undefined ? {} : { tone }),
       })}
       data-action-type={actionTypeAttr(action)}
+      {...(controlId === undefined ? {} : { 'data-control-id': controlId })}
       disabled={!onActionClick}
+      {...(disabledOnRow === undefined
+        ? {}
+        : disabledControlAttributes(disabledOnRow.reason ? reasonId : undefined))}
       {...pendingControlProps(pending)}
-      onClick={onClick}
+      onClick={disabledOnRow === undefined ? onClick : undefined}
     >
       {pending ? renderPendingContent(pendingWord) : action.label}
     </button>
   )
+  return disabledOnRow === undefined
+    ? button
+    : renderDisabledControl(button, reasonId, disabledOnRow.reason)
 }
 
 interface ActionButtonProps {

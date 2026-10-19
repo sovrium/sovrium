@@ -13,12 +13,13 @@ import {
   type GuardedResponse,
 } from '@/infrastructure/egress/guarded-fetch'
 import { buildEnvLookup, resolveEnvInString } from '../resolve-env-vars'
-import { resolveConnectionHeaders } from './auth-headers'
+import { connectionHeaderRefusal, resolveConnectionHeaders } from './auth-headers'
 import { withWholeFileParams } from './connection-file-read'
 import { firstPageUrl, itemsOf, nextPageUrl, type PagePosition } from './connection-pagination'
 import { retryAfterMs, type OperationRequest } from './connection-request'
 import { buildCallRequest } from './connection-written-body'
 import { actionAttributes, numberProp, stringProp } from './shared'
+import { starterFileGate } from './starter-file-gate'
 import type { ActionHandler, ActionOutcome } from './shared'
 import type { App } from '@/domain/models/app'
 import type { ConnectionOperation, OperationPagination } from '@/domain/models/app/connections'
@@ -295,17 +296,28 @@ export const handleConnectionCall: ActionHandler = (action, app, automation, run
     const { connection, operation } = found
 
     const auth = yield* resolveConnectionHeaders(app, automation, {}, connectionName)
-    if (auth.error !== undefined) return { status: 'failure', error: auth.error } as const
+    const refusal = connectionHeaderRefusal(auth)
+    if (refusal !== undefined) return refusal
     const base = resolveBaseUrl(app, connection.baseUrl ?? '', auth.tokenFields)
     if (!base.ok) {
       return { status: 'failure', error: `connection ${connectionName}: ${base.error}` } as const
     }
 
-    const rendered = (props['params'] as Record<string, unknown> | undefined) ?? {}
-    const params = withWholeFileParams(rendered, operation, runContext)
-    const built = yield* Effect.result(buildCallRequest({ baseUrl: base.url, operation, params }))
+    const params = withWholeFileParams(
+      (props['params'] as Record<string, unknown> | undefined) ?? {},
+      operation,
+      runContext
+    )
+    const gate = starterFileGate(app, automation)
+    const built = yield* Effect.result(
+      buildCallRequest({ baseUrl: base.url, operation, params }, gate)
+    )
     if (built._tag === 'Failure') {
-      return { status: 'failure', error: `operation ${label}: ${built.failure.message}` } as const
+      const { message, callerRefused } = built.failure
+      return {
+        status: 'failure',
+        error: callerRefused ? message : `operation ${label}: ${message}`,
+      } as const
     }
     return yield* performCall({
       label,

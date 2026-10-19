@@ -197,3 +197,53 @@ export const satisfiesFieldCondition = (
   const { field, ...operators } = condition
   return matchesConditionOperators(operators, record[field])
 }
+
+/**
+ * A per-record DISABLED predicate: the control is still drawn, but the reader
+ * cannot use it while the condition holds.
+ *
+ * The SAME grammar as `visibleWhen` and `visibility.record` — a record `field`
+ * and the shared operators — because all three answer a question about the
+ * record the control is drawn on. What differs is the answer: `visibleWhen`
+ * removes the control, `disabledWhen` keeps it in place and says why it cannot
+ * be used, which is clearer when the reader would otherwise wonder where the
+ * action went ("you need 8 credits" next to a greyed button).
+ *
+ * The condition is evaluated on the server, on the whole row, and only the
+ * verdict reaches the page. The press is refused there too, so a crafted
+ * request cannot run what the page shows disabled.
+ *
+ * Unlike `visibleWhen`, an absent `disabledWhen` means "never disabled", so a
+ * caller must not pass it to {@link satisfiesFieldCondition}, which reads an
+ * absent condition as "satisfied".
+ *
+ * @example
+ * ```yaml
+ * disabledWhen: { field: credit_balance, lt: 8 }
+ * disabledReason: Il vous faut au moins 8 crédits.
+ * ```
+ */
+export const DisabledWhenSchema = FieldConditionSchema.annotate({
+  title: 'Disabled When',
+  description:
+    'Draws the control disabled on records whose named field satisfies the condition, instead of hiding it. The reader can still reach it and read why, but pressing it does nothing, and an automation it would start is refused by the server with 409. The condition is checked on the server against the whole record, even a field the reader may not read; only whether the control is disabled reaches the page, never the value it was decided on. Omit to keep the control usable on every record.',
+  examples: [{ field: 'credit_balance', lt: 8 }],
+})
+
+/**
+ * What a disabled control says about why it cannot be used.
+ *
+ * Shown as a tooltip when the control is hovered or focused, and always present
+ * as the control's accessible description, so a screen reader announces it
+ * without the pointer. Refused without a `disabledWhen` beside it, since it
+ * would describe a state the control never reaches.
+ */
+export const DisabledReasonSchema = Schema.String.annotate({
+  title: 'Disabled Reason',
+  description:
+    'Why the control is disabled, shown in a tooltip when it is hovered or focused and announced as its accessible description. Accepts `$record.<field>` (a field the reader may not read reads as empty) and a `$t:` translation key. Without it, the control is disabled with no explanation. Needs `disabledWhen`.',
+  examples: ['Il vous faut au moins 8 crédits.', '$t:credits.notEnough'],
+})
+
+/** @public */
+export type DisabledWhen = Schema.Schema.Type<typeof DisabledWhenSchema>

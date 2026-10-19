@@ -88,3 +88,31 @@ export function isReadWithheld(node: unknown): boolean {
     (props as Record<string, unknown>)[READ_WITHHELD_MARKER] === true
   )
 }
+
+/**
+ * Returns a permission-denied data-bound component with no children or data.
+ *
+ * A `table` is reduced further, to its unbound (static) shape with no headers
+ * and no rows. Dropping the children is enough for a binding whose rows the
+ * server expands, but a grid's rows arrive through its island, and the island
+ * props are built from the binding itself: the table name, the author's columns
+ * and the field catalogue read out of `app.tables`. A grid the caller may not
+ * read therefore mounted anyway, printed the column names of a table the
+ * records API refuses them, and offered its toolbar. Without a `dataSource` the
+ * renderer takes the static branch, which emits none of that.
+ *
+ * A board, a calendar, a gallery, a chart, a timeline, a drawer and a KPI are
+ * withheld instead ({@link withheldComponent}): their islands are built from the
+ * table's declaration, so they leave the page — a KPI keeping its label.
+ */
+export function emptyDataBoundComponent(component: Component): Component {
+  if (isWithheldOverUnreadableTable(component)) return withheldComponent(component)
+  // A record the page handed down (`_record`) leaves with the binding: a form
+  // the caller may not read renders empty, not prefilled from the page.
+  const { _record: _withheld, ...ownProps } = (component.props ?? {}) as Record<string, unknown>
+  const props = { ...ownProps, _dataSourceBound: true }
+  if (component.type === 'table') {
+    return { type: component.type, ...(component.id && { id: component.id }), props } as Component
+  }
+  return { ...component, children: undefined, props }
+}

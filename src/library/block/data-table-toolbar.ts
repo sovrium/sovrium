@@ -82,21 +82,39 @@ const toolbarButton = (label: string, action: Node, variant = 'outline'): Node =
   action,
 })
 
+/** The Export CSV button: a download of the table as the reader may read it. */
+const exportButton = (p: P): Node =>
+  toolbarButton(p('exportLabel'), {
+    type: 'fetch',
+    mode: 'download',
+    url: `/api/tables/${p('table')}/export?format=csv`,
+    filename: `${p('table')}.csv`,
+  })
+
+/**
+ * Export CSV, held back on an empty table when `hideExportWhenEmpty` is set: a
+ * box bound to the table's first record draws the button once per row, so an
+ * empty table — or a read that fails — draws none, and the page still renders.
+ * `contents` keeps the box out of the toolbar's flex row.
+ */
+const exportAffordance = (p: P): Node =>
+  p('hideExportWhenEmpty').trim() === ''
+    ? exportButton(p)
+    : {
+        type: 'container',
+        element: 'div',
+        props: { className: 'contents [&>li]:list-none' },
+        dataSource: { table: p('table'), limit: 1 },
+        children: [exportButton(p)],
+      }
+
 /** Export, Import and New, right-aligned on the same row. */
 const trailing = (p: P): Node => ({
   type: 'container',
   element: 'div',
   props: { className: 'flex items-center gap-2 sm:ml-auto' },
   children: [
-    ...when(
-      p('exportLabel'),
-      toolbarButton(p('exportLabel'), {
-        type: 'fetch',
-        mode: 'download',
-        url: `/api/tables/${p('table')}/export?format=csv`,
-        filename: `${p('table')}.csv`,
-      })
-    ),
+    ...when(p('exportLabel'), exportAffordance(p)),
     ...when(
       p('importLabel'),
       toolbarButton(p('importLabel'), { action: 'openImport', table: p('table') })
@@ -161,6 +179,11 @@ const TOOLBAR_PARAMS = [
   stringParam('toolbarLabel', 'The toolbar’s name for a screen reader.', 'Table controls'),
   stringParam('exportLabel', 'The export button’s words. Empty to omit the button.', 'Export CSV'),
   stringParam(
+    'hideExportWhenEmpty',
+    'Any value holds Export CSV back until the table holds a record the reader may read. Empty draws it always.',
+    ''
+  ),
+  stringParam(
     'importLabel',
     'The import button’s words. Empty to omit the button — on a read-only directory, say.',
     'Import CSV'
@@ -192,7 +215,7 @@ export const entry = defineLibraryEntry({
     'The block narrows nothing by itself: each control publishes on the channel named by `channel`. Subscribe a data component to it with `dataSource: { table: <table>, bindTo: <channel>, sharedFilter: {} }` — a grid, a board or a calendar, as many as the page holds.',
     'The block reads a table you already have: `library add` refuses until your config declares it and the facet field. Point it at your own names with `--set table=…` and `--set facetField=…`.',
     'The facet offers the options the facet field declares, in their declared order, and keeps the records holding any of the ones picked.',
-    'Export CSV downloads the table as the reader may read it. Import CSV opens the import dialog, shown only to a reader the table lets create records. New appears once you name the page’s sheet with `--set newSheet=<sheet id>`. Empty `exportLabel` or `importLabel` drops that button.',
+    'Export CSV downloads the table as the reader may read it. Import CSV opens the import dialog, shown only to a reader the table lets create records. New appears once you name the page’s sheet with `--set newSheet=<sheet id>`. Empty `exportLabel` or `importLabel` drops that button. Set `--set hideExportWhenEmpty=true` to draw Export CSV only once the table holds a record the reader may read.',
     'What a reader types or picks narrows the page for that visit only.',
     THEME_NOTE,
   ],

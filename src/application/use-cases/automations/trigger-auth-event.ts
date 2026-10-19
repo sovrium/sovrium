@@ -23,7 +23,8 @@ import type { Trigger } from '@/domain/models/app/automations/trigger'
  * verbatim — kept here as a value-level allow-list so we can index into it
  * without reaching into the trigger-schema module.
  */
-export type AuthTriggerEvent = 'signUp' | 'signIn' | 'signOut' | 'passwordReset' | 'emailVerified'
+export type AuthTriggerEvent =
+  'signUp' | 'signIn' | 'signOut' | 'passwordReset' | 'emailVerified' | 'invitationAccepted'
 
 /**
  * Inputs to the auth-event trigger.
@@ -50,6 +51,12 @@ export interface TriggerAuthEventInput {
   readonly user: Readonly<Record<string, unknown>>
   readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly userId?: string
+  /**
+   * What the event says besides the account, beside `user` and `event` in
+   * `{{trigger.data.*}}` — `invitationAccepted`'s `role`, `invitedBy` and
+   * `invitationCreatedAt`. It never overrides `user` or `event`.
+   */
+  readonly data?: Readonly<Record<string, unknown>>
 }
 
 /**
@@ -111,7 +118,7 @@ export const triggerAuthEventAutomations = (
           trigger,
           app,
           processEnv,
-          triggerData: { user, event } as TriggerData,
+          triggerData: { ...input.data, user, event } as TriggerData,
           userId,
         }),
       { concurrency: 1, discard: true }

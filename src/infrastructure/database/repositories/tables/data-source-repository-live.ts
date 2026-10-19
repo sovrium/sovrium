@@ -22,7 +22,11 @@ import {
   toRecordIdList,
   userAccessTableSql,
 } from '@/infrastructure/database/sql/user-access-rows'
-import { readManyToMany, readManyToManyHolders } from '@/infrastructure/database/table-queries'
+import {
+  readManyToMany,
+  readManyToManyHolders,
+  readOneToMany,
+} from '@/infrastructure/database/table-queries'
 import { buildFilterCondition } from '@/infrastructure/database/table-queries/data-source-filter-condition'
 import { readUserListHolders } from '@/infrastructure/database/table-queries/query-helpers/user-list-holders'
 import type { DataSourceQueryOptions } from '@/application/ports/repositories/tables/data-source-repository'
@@ -282,6 +286,11 @@ export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
 
   fetchManyToManyHolders: (input) =>
     readManyToManyHolders(input).pipe(
+      Effect.mapError((error) => new DataSourceDatabaseError({ cause: error }))
+    ),
+
+  fetchOneToManyLinks: (input) =>
+    readOneToMany(input).pipe(
       Effect.mapError((error) => new DataSourceDatabaseError({ cause: error }))
     ),
 

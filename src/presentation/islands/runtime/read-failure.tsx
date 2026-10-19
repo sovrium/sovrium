@@ -39,13 +39,26 @@ export const isRateLimitedRead = (error: unknown): boolean => statusOf(error) ==
 export const isSessionEndedRead = (error: unknown): boolean => statusOf(error) === 401
 
 /**
- * The island QueryClient's two retries, withheld from a rate-limited read: it is
- * not worth asking again before its `Retry-After`, and asking at once only
- * spends the budget and holds the widget empty for the length of the backoff.
- * The widget offers its own Retry instead.
+ * Whether a read was answered 404: the reader may not read it, or it is gone.
+ * Asking again cannot change that answer, so no Retry is offered for it.
  */
-export const retryUnlessRateLimited = (failureCount: number, error: Error): boolean =>
-  !isRateLimitedRead(error) && !isSessionEndedRead(error) && failureCount < 2
+export const isNotFoundRead = (error: unknown): boolean => statusOf(error) === 404
+
+/**
+ * The island QueryClient's two retries, kept for a FAULT and withheld from an
+ * ANSWER. A read the server refused with a 4xx — a sort key it does not
+ * accept (400), a session that ended (401), a reader it does not serve (404),
+ * a spent budget (429) — returns the same refusal however often it is asked,
+ * so retrying it only holds the widget in its optimistic state for the length
+ * of the backoff: a header claiming a sort the server already refused, with
+ * nothing on screen saying so. A 5xx or a dropped connection may pass, and is
+ * asked again. The widget offers its own Retry either way.
+ */
+export const retryFaultsOnly = (failureCount: number, error: Error): boolean => {
+  const status = statusOf(error)
+  const answered = typeof status === 'number' && status >= 400 && status < 500
+  return !answered && failureCount < 2
+}
 
 /**
  * The notice's English words. The page-language text comes from the server

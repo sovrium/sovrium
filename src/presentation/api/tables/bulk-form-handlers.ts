@@ -17,9 +17,10 @@ import {
   hasDeletePermissionForRoles,
   hasUpdatePermissionForRoles,
 } from '@/domain/models/app/auth/permission-evaluator-service'
+import { provideDomain } from '@/infrastructure/logging/request-effect'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
-import { runOnRequest } from '@/presentation/api/runtime/run-effect'
+import { runEffect } from '@/presentation/api/runtime/run-effect'
 import { formatValidationError } from '@/presentation/api/tables/validation'
 import {
   sanitizeUpdateRichTextFields,
@@ -30,6 +31,7 @@ import {
 import { filterAllowedFieldsWithRole } from './record-update-permissions'
 import { getLinkReader } from './relationship-rules'
 import { enforceBulkMutationGate, resolveGuardForTable } from './row-level-guard'
+import { maskUnreadableUniqueConflict, updatedWrite } from './unique-conflict-mask'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -97,14 +99,19 @@ export async function handleFormBulkDelete(c: Context, app: App) {
     if (gateError) return gateError
   }
 
-  await runOnRequest(
+  // A refused delete answers what the batch delete answers, never the page's success.
+  const deleted = await runEffect(
     c,
-    batchDeleteWithSideEffects({
-      ...{ session, tableName, app, ids, permanent: false },
-      requester: recordWriteRequester(session.userId, userRole),
-      processEnv: process.env,
-    })
+    provideDomain(
+      c,
+      batchDeleteWithSideEffects({
+        ...{ session, tableName, app, ids, permanent: false },
+        requester: recordWriteRequester(session.userId, userRole),
+        processEnv: process.env,
+      })
+    )
   )
+  if (!deleted.ok) return deleted
 
   // The path arrives in the request body, so it is only honoured once proven
   // same-origin — otherwise it is an open redirect off this site.
@@ -329,15 +336,23 @@ export async function handleFormBulkUpdate(c: Context, app: App) {
 
   // The batch update the records API runs, side effects included: a column the
   // user wrote by hand is no longer reported as a failed computed fallback.
-  await runOnRequest(
+  // A refused update answers what the batch update answers for the same change —
+  // a taken unique value included — never the page's success or its redirect.
+  const updated = await runEffect(
     c,
-    batchUpdateWithSideEffects({
-      ...{ session, tableName, app, linkReader: getLinkReader(c), processEnv: process.env },
-      records: recordsData,
-      returnRecords: false,
-      requester: recordWriteRequester(session.userId, userRole),
-    })
+    provideDomain(
+      c,
+      batchUpdateWithSideEffects({
+        ...{ session, tableName, app, linkReader: getLinkReader(c), processEnv: process.env },
+        records: recordsData,
+        returnRecords: false,
+        requester: recordWriteRequester(session.userId, userRole),
+      })
+    )
   )
+  if (!updated.ok) {
+    return maskUnreadableUniqueConflict(c, app, updatedWrite(recordsData), updated)
+  }
 
   // The path arrives in the request body, so it is only honoured once proven
   // same-origin — otherwise it is an open redirect off this site.

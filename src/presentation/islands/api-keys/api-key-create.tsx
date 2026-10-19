@@ -66,7 +66,7 @@ function NameField({ error }: { readonly error: string }): ReactElement {
         data-slot="input"
         name="name"
         type="text"
-        placeholder={useWord('namePlaceholder', 'What will carry this key?')}
+        placeholder={useWord('namePlaceholder', 'e.g. Zapier sync')}
         aria-describedby={`${id}-help`}
         {...(error !== '' && { 'aria-invalid': 'true' })}
         className={computeInputDefaultClasses()}

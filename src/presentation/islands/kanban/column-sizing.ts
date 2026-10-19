@@ -20,8 +20,13 @@ export interface KanbanColumnPlacement {
  */
 const FIXED = 'w-72 shrink-0'
 
-/** `columnSizing: fill` — the columns share the board's width from md up. */
-const FILL = 'md:w-auto md:min-w-0 md:flex-1'
+/**
+ * `columnSizing: fill` — the columns share the board's width from md up, down
+ * to a readable 12rem each. Below that floor a narrow board (a tablet beside a
+ * sidebar) scrolls sideways under its edge shadow rather than squeezing every
+ * column to a sliver whose title and cards no longer fit it.
+ */
+const FILL = 'md:w-auto md:min-w-48 md:flex-1'
 
 /**
  * A width named in `columnWidths`, from md up. The length travels as a custom

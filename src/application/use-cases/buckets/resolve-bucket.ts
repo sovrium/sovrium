@@ -14,6 +14,7 @@
  * `buckets[]` block do with its own storage?".
  */
 
+import { AVATAR_BUCKET_NAME, resolveAvatarBucket } from '@/domain/models/app/auth/avatar-url'
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { deriveSystemBucketPermissions } from '@/domain/models/app/buckets/system-bucket-permissions'
 import type { App } from '@/domain/models/app'
@@ -48,3 +49,27 @@ export const resolveUploadBucket = (
     ? { name: SYSTEM_BUCKET_NAME, public: !app.auth }
     : { name: SYSTEM_BUCKET_NAME, public: !app.auth, permissions }
 }
+
+/**
+ * Resolve the bucket a DOWNLOAD reads from: {@link resolveUploadBucket}, then
+ * the ENGINE-OWNED avatar bucket, for the one name the engine mints URLs under
+ * itself (`POST /api/account/avatar`). Without it an app declaring no bucket
+ * would store the object and hand back a URL that 404s.
+ *
+ * ORDER IS THE FENCE. `resolveUploadBucket` answers FIRST, so a host that
+ * declares `avatars` keeps its own bucket and every rule it wrote — its
+ * `public` flag and its `permissions.download` included. The fallback is
+ * reached only when the host declared nothing, so it can never narrow an app
+ * that has been serving public avatars.
+ *
+ * Reads only, and not inside `resolveUploadBucket` itself: that resolver also
+ * serves upload, delete and sign, and teaching it this name would open three
+ * write doors on a bucket the host never declared. The files API's download
+ * and an automation run judging a stored file for its starter both read here.
+ */
+export const resolveDownloadBucket = (
+  app: App,
+  bucketName: string | undefined
+): Bucket | undefined =>
+  resolveUploadBucket(app, bucketName) ??
+  (bucketName === AVATAR_BUCKET_NAME ? resolveAvatarBucket(app.buckets) : undefined)

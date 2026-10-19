@@ -115,11 +115,6 @@ const formatSize = (bytes: number): string => {
   return `${Number((bytes / size).toFixed(1))} ${unit}`
 }
 
-/**
- * The description under the title, or `undefined` when there is nothing true
- * to say. `accept` is shown as the author wrote it: a prose translation of a
- * MIME list would be a guess at what the author meant.
- */
 /** "up to N files" in the page language (`fileUpload.maxOneFile` / `fileUpload.maxFiles`). */
 const fileCountWords = (maxFiles: number, strings?: Readonly<Record<string, string>>): string =>
   (maxFiles === 1
@@ -131,20 +126,27 @@ const fileCountWords = (maxFiles: number, strings?: Readonly<Record<string, stri
 const fileSizeWords = (maxFileSize: number, strings?: Readonly<Record<string, string>>): string =>
   (strings?.['fileUpload.sizeEach'] ?? '{size} each').replace('{size}', formatSize(maxFileSize))
 
+/** What a drop zone's description states: the accepted types, in words when known, and the limits. */
+export interface FileUploadHintInput {
+  readonly accept?: string
+  readonly acceptLabel?: string
+  readonly maxFiles?: number
+  readonly maxFileSize?: number
+}
+
+/**
+ * The description under the title, or `undefined` when there is nothing true
+ * to say. The types read as `acceptLabel` — `accept` in words (`PNG, PDF`),
+ * resolved by the server where the page language is known — and fall back to
+ * `accept` as the author wrote it.
+ */
 export const fileUploadDropzoneHint = (
-  {
-    accept,
-    maxFiles,
-    maxFileSize,
-  }: {
-    readonly accept?: string
-    readonly maxFiles?: number
-    readonly maxFileSize?: number
-  },
+  { accept, acceptLabel, maxFiles, maxFileSize }: FileUploadHintInput,
   strings?: Readonly<Record<string, string>>
 ): string | undefined => {
+  const types = acceptLabel ?? accept
   const parts = [
-    accept === undefined || accept.trim() === '' ? undefined : accept,
+    types === undefined || types.trim() === '' ? undefined : types,
     maxFiles === undefined ? undefined : fileCountWords(maxFiles, strings),
     maxFileSize === undefined ? undefined : fileSizeWords(maxFileSize, strings),
   ].filter((part): part is string => part !== undefined)

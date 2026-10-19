@@ -13,12 +13,14 @@ import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
 import { logError } from '@/infrastructure/logging/logger'
 import { validateAttachmentConstraints } from '../../attachments/validate-attachment-constraints'
 import { buildSyntheticSession } from '../build-guest-session'
+import { guardUnattendedAttach } from './document-attach-inputs'
 import { attachmentCells, attachmentColumnKind, attachmentKey } from './document-file-ref'
 import { GeneratedFileWriteError } from './document-output-error'
 import { type Raw } from './document-run'
 import { attachmentRefusal } from './record-attachment-gate'
-import { writerActorOf } from './record-caller-gate'
+import { callerRefusal, writerActorOf } from './record-caller-gate'
 import { updateAndAnnounce } from './record-events'
+import { starterReadsRecord } from './record-read-scope'
 import type { ActionRunContext, AutomationContext } from './shared'
 import type { StepRequirements } from '../run/types'
 import type { UserSession } from '@/application/ports/contracts/user-session'
@@ -40,6 +42,11 @@ import type { App } from '@/domain/models/app'
 const refuse = (message: string): Effect.Effect<never, GeneratedFileWriteError> =>
   Effect.fail(new GeneratedFileWriteError({ message }))
 
+/** The refusal of a hand-started run's starter: the step reports `Resource not found`. */
+const refuseStarter: Effect.Effect<never, GeneratedFileWriteError> = Effect.fail(
+  new GeneratedFileWriteError({ message: 'attachTo refused', callerRefused: true })
+)
+
 interface AttachTarget {
   readonly table: string
   readonly field: string
@@ -47,6 +54,9 @@ interface AttachTarget {
   readonly multiple: boolean
   readonly mode: 'append' | 'replace'
 }
+
+/** The value a pre-write check judges: the field changes, to a file not yet written. */
+const PENDING_ATTACHMENT = '<pending>'
 
 /** The declared mode, else the field's default: append to a list, replace a single file. */
 const attachModeOf = (declared: unknown, multiple: boolean): 'append' | 'replace' => {
@@ -70,7 +80,11 @@ const attachTargetOf = (app: App, attachTo: Raw): AttachTarget | string => {
 }
 
 /** The field's cells now, read under the writer's session. */
-const currentCells = (target: AttachTarget, session: Readonly<UserSession>) =>
+const currentCells = (
+  target: AttachTarget,
+  session: Readonly<UserSession>,
+  startedByHand: boolean
+) =>
   Effect.gen(function* () {
     const repo = yield* TableRepository
     const row = yield* repo.getRecord(session, target.table, target.recordId).pipe(
@@ -82,6 +96,7 @@ const currentCells = (target: AttachTarget, session: Readonly<UserSession>) =>
       )
     )
     if (row === null) {
+      if (startedByHand) return yield* refuseStarter
       return yield* refuse(
         `attachTo names record ${target.recordId} of ${target.table}, which does not exist`
       )
@@ -169,6 +184,48 @@ const deleteReplaced = (input: {
   )
 }
 
+/** Whether the starter may read the target record (a missing row reads as a hidden one). */
+const starterReads = (app: App, automation: AutomationContext, target: AttachTarget) =>
+  starterReadsRecord(app, automation, { table: target.table, recordId: target.recordId }).pipe(
+    Effect.tapCause((cause) =>
+      Effect.sync(() => logError('[automations] attachTo record not read for its starter', cause))
+    ),
+    // effect-swallow: a check that cannot read fails closed — the file is neither written nor attached.
+    Effect.orElseSucceed(() => false)
+  )
+
+/**
+ * `attachTo` is a record write: in a run someone started by hand, it is the
+ * starter's update of that one field, checked BEFORE any file is written. A
+ * record they may not read, may not change, or that does not exist fails the
+ * step alike with `Resource not found`. A run nobody started attaches as the
+ * system, and only what every file the step read lets it
+ * (`document-attach-inputs.ts`); an `attachTo` that names no attachment field
+ * keeps its own refusal.
+ */
+export const guardStarterAttach = (input: {
+  readonly attachTo: Raw
+  readonly app: App
+  readonly automation: AutomationContext
+}): Effect.Effect<void, GeneratedFileWriteError, StepRequirements> =>
+  Effect.gen(function* () {
+    const { app, automation } = input
+    if (automation.startedByHand !== true) return yield* guardUnattendedAttach(input)
+    const target = attachTargetOf(app, input.attachTo)
+    if (typeof target === 'string') return yield* refuse(target)
+    const refused = yield* callerRefusal(app, automation, [
+      {
+        op: 'update',
+        tableName: target.table,
+        recordId: target.recordId,
+        change: { [target.field]: PENDING_ATTACHMENT },
+      },
+    ])
+    if (refused !== undefined || !(yield* starterReads(app, automation, target))) {
+      return yield* refuseStarter
+    }
+  }).pipe(Effect.withSpan('automations.guard-starter-attach'))
+
 /** Attach the generated file at `key` to the record `attachTo` names. */
 export const attachGeneratedFile = (input: {
   readonly attachTo: Raw
@@ -181,8 +238,9 @@ export const attachGeneratedFile = (input: {
     const { app, key } = input
     const target = attachTargetOf(app, input.attachTo)
     if (typeof target === 'string') return yield* refuse(target)
+    yield* guardStarterAttach(input)
     const session = buildSyntheticSession(writerActorOf(input.automation))
-    const before = yield* currentCells(target, session)
+    const before = yield* currentCells(target, session, input.automation.startedByHand === true)
     const value = !target.multiple ? key : target.mode === 'append' ? [...before, key] : [key]
     yield* writeField({ target, value, session, app, runContext: input.runContext })
     if (target.mode !== 'replace') return

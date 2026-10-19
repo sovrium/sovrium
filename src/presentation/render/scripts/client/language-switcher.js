@@ -633,9 +633,9 @@
     // Read off the parser's `href`, never reassembled from `search` and `hash`:
     // those two carry the address bar's own text, and a URL rebuilt from them
     // is DOM text written back into an attribute. `href` is the parsed,
-    // re-serialised address, on this origin under the language code the server
-    // stamped on the link.
-    link.setAttribute('href', newUrl.href)
+    // re-serialised address under the language code the server stamped, minus
+    // its origin: relative, like the server-rendered link and every other one.
+    link.setAttribute('href', newUrl.href.slice(newUrl.origin.length))
     link.addEventListener('click', function (event) {
       event.stopPropagation()
       if (languagesConfig.persistSelection ?? true) {

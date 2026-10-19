@@ -60,6 +60,45 @@ export const storageKeySpellingTaken = (key: string): Readonly<StorageKeySpellin
     message: `A file is already stored under another spelling of ${key}`,
   })
 
+/**
+ * A create-only write found something already stored at its key: an object in
+ * the store, catalogued or not, or a catalog row. It replaced nothing. Carried
+ * as a `StorageError` `cause`; the message names the caller's key only.
+ */
+export class StorageKeyTaken extends Data.TaggedError('StorageKeyTaken')<{
+  readonly key: string
+  readonly message: string
+}> {}
+
+/** The create-only refusal for `key`, with its canonical message. */
+export const storageKeyTaken = (key: string): Readonly<StorageKeyTaken> =>
+  new StorageKeyTaken({ key, message: `A file is already stored at ${key}` })
+
+/** Whether a storage failure is a create-only write refused because its key holds something. */
+export const isStorageKeyTaken = (error: Readonly<StorageError>): boolean =>
+  error.cause instanceof StorageKeyTaken
+
+/**
+ * Whether a failed `create-only` write found its key held: taken, or held by
+ * another bucket's object, which every write is answered as not-found.
+ */
+export const isCreateOnlyRefusal = (error: Readonly<StorageError>): boolean =>
+  isStorageKeyTaken(error) || isStorageObjectNotFound(error)
+
+/**
+ * How `upload` treats a key that already holds something: `replace` (the
+ * default) writes over it; `create-only` writes only when nothing is stored at
+ * it, failing with {@link StorageKeyTaken} and leaving what is there unchanged.
+ */
+export type UploadMode = 'replace' | 'create-only'
+
+/** One page of a listing: its keys in key order, and the key the next page starts after. */
+export interface StorageListPage {
+  readonly keys: readonly string[]
+  /** `undefined` on the last page. */
+  readonly after: string | undefined
+}
+
 /** A stored object another spelling of a key would land on, as the catalog records it. */
 export interface StoredSpelling {
   readonly key: string
@@ -95,6 +134,12 @@ export interface StoredSpelling {
  */
 export const UNATTRIBUTED_BUCKET: unique symbol = Symbol.for('sovrium/storage/unattributed-bucket')
 
+/** What {@link StorageService} `objectIdentity` answers. */
+export type StoredObjectIdentity =
+  | { readonly kind: 'identity'; readonly value: string }
+  | { readonly kind: 'absent' }
+  | { readonly kind: 'none' }
+
 /** The bucket an operation is attributed to, or an explicit opt-out. */
 export type BucketBinding = string | typeof UNATTRIBUTED_BUCKET
 
@@ -107,6 +152,8 @@ export interface AttributedUpload {
    * key is new: what lets a document output overwrite only its own files.
    */
   readonly generatedBy?: string
+  /** How the write treats a key that already holds something; `replace` when absent. */
+  readonly mode?: UploadMode
 }
 
 /**
@@ -143,6 +190,14 @@ export const uploadTargetParts = (target: UploadTarget): AttributedUpload =>
 export class StorageService extends Context.Service<
   StorageService,
   {
+    /**
+     * Store `content` at `key`. A target in `create-only` mode
+     * ({@link UploadMode}) asks the object store not to replace anything (S3
+     * `If-None-Match: *`, an exclusive create on local storage, an insert that
+     * does not replace on the database provider), and its catalog row is
+     * inserted, never upserted. A store that may ignore the condition is
+     * checked again just before the bytes are sent.
+     */
     readonly upload: (
       key: string,
       content: Uint8Array,
@@ -199,6 +254,17 @@ export class StorageService extends Context.Service<
      */
     readonly statObject: (key: string) => Effect.Effect<{ readonly size: number }, StorageError>
     /**
+     * The object store's own identity of the object at `key`, read with one
+     * metadata call and no download: a text that changes whenever the bytes
+     * there may have changed, including by a write that did not go through
+     * Sovrium. `absent` when nothing is stored there; `none` when this store,
+     * or this mount, cannot give such an identity (the caller then hashes the
+     * bytes). Fails when the store cannot answer. Every store answers it, so
+     * "this store gives no identity" is the store's own `none`, never a
+     * missing member a caller has to guess at.
+     */
+    readonly objectIdentity: (key: string) => Effect.Effect<StoredObjectIdentity, StorageError>
+    /**
      * The stored object, other than `key` itself and in any bucket, that a
      * write at `key` would land on: a key equal to it after Unicode NFC
      * normalisation on every provider, and after letter case too where the
@@ -211,6 +277,24 @@ export class StorageService extends Context.Service<
       key: string
     ) => Effect.Effect<Option.Option<StoredSpelling>, StorageError>
     readonly list: (prefix: string) => Effect.Effect<readonly string[], StorageError>
+    /**
+     * One page of the keys under `prefix`, in key order, starting after `after`
+     * (`undefined`: the first page), at most `size` keys. A caller that stops
+     * early reads only the pages it needs; {@link list} reads them all.
+     */
+    readonly listPage: (input: {
+      readonly prefix: string
+      readonly after: string | undefined
+      readonly size: number
+    }) => Effect.Effect<StorageListPage, StorageError>
+    /**
+     * The bucket the catalog records for each of `keys` that has a row, in one
+     * read: a key with a row maps to its bucket (`undefined`: in none), a key
+     * with no row is absent from the map.
+     */
+    readonly catalogBuckets: (
+      keys: readonly string[]
+    ) => Effect.Effect<ReadonlyMap<string, string | undefined>, StorageError>
     /** Total bytes used across all keys for the active provider — used for quota enforcement. */
     readonly getTotalBytes: Effect.Effect<number, StorageError>
   }

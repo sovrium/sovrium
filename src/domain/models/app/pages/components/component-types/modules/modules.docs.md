@@ -52,7 +52,7 @@ Classes for the component's named **parts**, not just its root — the links of 
 
 Naming the part is what replaces a descendant selector such as `[&_a[aria-current=page]]:bg-primary-subtle`: the part survives a change to the markup Sovrium draws, and the selector does not.
 
-**Space a prose part with `mt-*` and `mb-*`, never `my-*`.** The prose parts — `heading1`, `paragraph`, `list`, `quote` and the rest a markdown text, a markdown page or a rich-text field draws — sit inside typography rules that set their own vertical margins. Those rules win over the `my-*` shorthand, so `paragraph: my-6` paints nothing, while `paragraph: mt-6 mb-6` takes effect. `sovrium validate` prints a notice for a `my-*` token on a prose part, naming the token, the part and the `mt-*` / `mb-*` spelling; the config stays valid. A step off the spacing scale paints nothing either, whichever spelling it uses.
+**A prose part takes any margin utility.** `my-*`, `mt-*` and `mb-*` all space the prose parts — `heading1`, `paragraph`, `list`, `quote` and the rest a markdown text, a markdown page or a rich-text field draws. A step off the spacing scale paints nothing, whichever spelling it uses.
 
 ## `content`
 

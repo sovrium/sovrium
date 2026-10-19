@@ -8,6 +8,8 @@
 import { AI_CHAT_UI_STRINGS } from './interpreter-ui-strings-ai-chat'
 import { CONSOLE_UI_STRINGS } from './interpreter-ui-strings-console'
 import { CONTROL_UI_STRINGS } from './interpreter-ui-strings-controls'
+import { RECORD_SHEET_UI_STRINGS } from './interpreter-ui-strings-record-sheet'
+import { SURFACE_UI_STRINGS } from './interpreter-ui-strings-surfaces'
 
 /**
  * The interpreter strings of the page components that draw their own states —
@@ -20,6 +22,11 @@ import { CONTROL_UI_STRINGS } from './interpreter-ui-strings-controls'
  * and an author renames any key under `sovrium.<key>`.
  */
 export const COMPONENT_UI_STRINGS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  // ---- A record sheet whose read failed — refused, or the server unreachable ----
+  'recordDrawer.readFailed': {
+    en: 'This record couldn’t be read.',
+    fr: 'Cet enregistrement n’a pas pu être lu.',
+  },
   // ---- A data component with no record to draw and no authored `emptyMessage` ----
   'chart.empty': { en: 'No data to chart yet.', fr: 'Aucune donnée à afficher pour l’instant.' },
   'chart.emptyHint': {
@@ -200,4 +207,6 @@ export const COMPONENT_UI_STRINGS: Readonly<Record<string, Readonly<Record<strin
   ...AI_CHAT_UI_STRINGS,
   ...CONTROL_UI_STRINGS,
   ...CONSOLE_UI_STRINGS,
+  ...RECORD_SHEET_UI_STRINGS,
+  ...SURFACE_UI_STRINGS,
 }

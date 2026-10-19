@@ -4,10 +4,10 @@
 
 ## Health
 
-| Method | Path                   | Description                                                                                                                                                                                                                                                  |
-| ------ | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `GET`  | `/api/health`          | Server status. No credential required; an app with authentication answers `{ status, version }` unless the caller is an admin                                                                                                                                |
-| `GET`  | `/api/health?probe=db` | Readiness. Runs one database query with a 2-second budget: `200` `{ status: 'ok', checks: { db: 'ok' } }`, or `503` with `status: 'degraded'` and `db` reading `timeout` or `error`. Same short body for every caller; any other `probe` value answers `400` |
+| Method | Path                   | Description                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------ | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/health`          | Server status. No credential required; an app with authentication answers `{ status, version }` unless the caller is an admin                                                                                                                                                                                                                                                                                        |
+| `GET`  | `/api/health?probe=db` | Readiness. Runs one database query with a 2-second budget: `200` `{ status: 'ok', checks: { db: 'ok' } }`, or `503` with `status: 'degraded'` and `db` reading `timeout` or `error`. Same short body for every caller; any other `probe` value answers `400`. While a server waits for a database it could not reach at boot, both health routes answer `503` `degraded` with `db: 'error'` (**Lifecycle Commands**) |
 
 ## Tables
 
@@ -64,7 +64,7 @@ The five webhook routes are for admins. Any other signed-in caller gets the same
 
 `POST .../records/bulk-delete` and `bulk-update` back HTML form submissions. Batch delete reads `permanent` from the JSON body only; the query-string form belongs to single-record delete and does nothing here.
 
-`bulk-update` applies one change to every listed record under the same rules as a PATCH of each — the row as written included — refuses a key that names no field with `400`, and clears a field with JSON `null`.
+`bulk-update` applies one change to every listed record under the same rules as a PATCH of each — the row as written included — refuses a key that names no field with `400`, and clears a field with JSON `null`. A change the write refuses answers what the batch update answers for it — a `unique` value held by a record the caller may not read is the `404` of a record out of reach, one held by a record she reads is the `409` — and never the route's success or its `_redirect`; nothing is changed. A `bulk-delete` the write refuses likewise answers what the batch delete answers.
 
 ### Trash and history
 

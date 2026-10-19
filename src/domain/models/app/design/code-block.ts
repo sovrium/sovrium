@@ -8,101 +8,46 @@
 import { Schema } from 'effect'
 
 /**
- * Code-block theme configuration — one Shiki theme per colour scheme.
+ * Code-block theme configuration — DEPRECATED, and ignored.
  *
- * Selects the syntax-highlighting theme applied to fenced code blocks in
- * markdown pages. The named theme drives the class/CSS-variable output emitted
- * by the Shiki highlighter — colors are delivered through the CSS system (not
- * inline `style`), so the output survives the canonical HTML sanitizer.
+ * Code blocks draw shadcn/ui's default colours, the ones its own Code Block
+ * uses: `github-light` in the light colour scheme and `github-dark` in the dark
+ * one, following the visitor's scheme. That holds for a `code` component, a
+ * markdown fence and a code block in an ai-chat answer alike.
  *
- * The surface stays deliberately small — two named themes rather than a palette
- * of code-specific tokens — but it is TWO names rather than one, because one
- * cannot answer an app that renders in both schemes.
+ * The key names a Shiki theme (`theme`) and a dark counterpart
+ * (`darkTheme`). It is deprecated since 0.40 and INERT from that release on:
+ * still accepted, so a config naming it keeps validating and starting, with a
+ * deprecation warning from `validate`, `start` and `build`; ignored everywhere;
+ * and refused from 0.41, when it leaves this schema for `removed-keys.ts`.
  *
- * ─── WHY `darkTheme` EXISTS ────────────────────────────────────────────────
- *
- * A single `theme` is a single set of token colours, and a page that honours
- * `prefers-color-scheme` repaints everything around the block without repainting
- * the block. Measured on the operator console's `/schema` page with
- * `colorScheme: 'system'` and `theme: 'github-light'`: the `pre.shiki` chrome
- * correctly darkened to `oklch(0.272 0 0)` while the tokens stayed on the light
- * theme's ink — body text `#24292E` at **1.27:1**, string literals `#032F62` at
- * **1.40:1**, 6020 low-contrast nodes on one page. The configuration a reader
- * came to read was, in that scheme, invisible.
- *
- * Flipping the one name to `github-dark` only moves the defect: the chrome then
- * pins to a near-black slab in the LIGHT scheme, which is correct in dark and
- * the loudest thing on the page in light. With one name there is no third state,
- * which is what makes this a schema gap rather than a configuration mistake.
- *
- * ─── WHY A SIBLING KEY AND NOT `theme: { light, dark }` ────────────────────
- *
- * `theme` already ships, is named in the published documentation in both
- * locales, and is declared by every app config that styles code. Widening it to
- * an object is a breaking rename paid by every existing config, to buy one added
- * capability; an OPTIONAL sibling is additive, and an app that never renders in
- * a second scheme never learns the name exists.
- *
- * ─── WHY IT IS NOT DERIVED ─────────────────────────────────────────────────
- *
- * `github-light` ↔ `github-dark` is a naming coincidence, not a rule: `nord`,
- * `dracula` and `vitesse-black` have no light sibling to compute, and
- * `catppuccin-latte`'s counterpart is spelled `catppuccin-mocha`. A derivation
- * would be right for one family and silently wrong for the rest, so the pair is
- * declared.
- *
- * ─── WHAT OMITTING IT MEANS ────────────────────────────────────────────────
- *
- * With a `theme` named, `theme` governs both schemes and no dark-scoped rule is
- * emitted at all. The absence is not a defaulted `darkTheme` — an app that
- * deliberately wants one theme everywhere (a docs site pinned to light, a
- * terminal-styled surface pinned to dark) keeps it by naming that one theme.
- *
- * With NEITHER named, the engine's pair applies — `github-light` in the light
- * scheme, `github-dark` in the dark one — because every app follows the
- * visitor's colour scheme by default (see `resolveCodeBlockThemes`). A
- * `darkTheme` named alone pairs with the default `github-light`.
- *
- * @example
- * ```typescript
- * // One theme everywhere, in both schemes
- * const design = {
- *   codeBlock: { theme: 'github-dark' }
- * }
- *
- * // A pair: quiet in light, legible in dark
- * const design = {
- *   colorScheme: 'system',
- *   codeBlock: { theme: 'github-light', darkTheme: 'github-dark' }
- * }
- * ```
+ * Why inert rather than honoured for its last release: a per-app theme was the
+ * one place an app could put a palette on the page the engine does not floor
+ * for contrast, and one surface (the ai-chat answer) never read it, so a named
+ * dark theme put light-theme ink on a dark ground there. Honouring it for one
+ * more release would keep both defects alive for that release.
  */
 export const CodeBlockConfigSchema = Schema.Struct({
-  /** Named Shiki theme applied to fenced code blocks */
+  /** Deprecated and ignored: was the Shiki theme for code blocks. */
   theme: Schema.optional(
     Schema.String.pipe(
       Schema.annotate({
-        title: 'Code Block Theme',
+        title: 'Code Block Theme (deprecated)',
         description:
-          'Named Shiki theme for syntax highlighting (e.g., github-dark, github-light). Named without a `darkTheme`, it applies in both colour schemes. When neither is named, code blocks use `github-light` in the light scheme and `github-dark` in the dark one.',
-        examples: ['github-dark', 'github-light', 'nord', 'dracula'],
+          "Deprecated since 0.40 and ignored; refused from 0.41. Code blocks use shadcn/ui's default colours: `github-light` in the light colour scheme and `github-dark` in the dark one. Remove the key.",
+        examples: ['github-light'],
       }),
       Schema.check(Schema.isMinLength(1))
     )
   ),
-  /**
-   * Named Shiki theme applied to fenced code blocks under the DARK colour
-   * scheme. Omitted beside a named `theme`, that theme governs both schemes and
-   * nothing dark-scoped is emitted; omitted with no `theme` either, the engine's
-   * `github-dark` applies — see the module comment.
-   */
+  /** Deprecated and ignored: was the Shiki theme for the dark colour scheme. */
   darkTheme: Schema.optional(
     Schema.String.pipe(
       Schema.annotate({
-        title: 'Code Block Dark Theme',
+        title: 'Code Block Dark Theme (deprecated)',
         description:
-          'Named Shiki theme applied under the dark colour scheme. When omitted, a named `theme` applies in both schemes; with no `theme` either, the dark scheme uses `github-dark`. Named alone, it pairs with the default `github-light`.',
-        examples: ['github-dark', 'nord', 'dracula', 'catppuccin-mocha'],
+          "Deprecated since 0.40 and ignored; refused from 0.41. Code blocks use shadcn/ui's default colours: `github-dark` in the dark colour scheme. Remove the key.",
+        examples: ['github-dark'],
       }),
       Schema.check(Schema.isMinLength(1))
     )
@@ -110,16 +55,14 @@ export const CodeBlockConfigSchema = Schema.Struct({
 }).pipe(
   Schema.annotate({
     identifier: 'CodeBlockConfig',
-    title: 'Code Block Configuration',
-    description: 'Syntax-highlighting theme configuration for markdown fenced code blocks',
+    title: 'Code Block Configuration (deprecated)',
+    description:
+      "Deprecated since 0.40 and ignored; refused from 0.41. Code blocks use shadcn/ui's default colours, `github-light` in the light colour scheme and `github-dark` in the dark one, whatever this names. Remove `design.codeBlock`.",
   })
 )
 
 /**
- * @public Forward-prep: paired with `CodeBlockConfigSchema` to match the
- * sibling design-module pattern (`DesignElevation`, `DesignRadius`,
- * `BreakpointsConfig`). Awaiting adoption by the Shiki code-block CSS
- * generator — the consumer that will turn the `design.codeBlock.theme`
- * selector into emitted highlight styles.
+ * @public The decoded shape of the deprecated key, kept while the schema still
+ * accepts it (one release, until 0.41 refuses it).
  */
 export type CodeBlockConfig = Schema.Schema.Type<typeof CodeBlockConfigSchema>

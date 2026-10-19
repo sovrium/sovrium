@@ -25,6 +25,7 @@ import {
   defineAdminRead,
 } from '@/application/use-cases/admin/admin-read-operation'
 import { buildAdminAttention } from '@/application/use-cases/admin/attention'
+import { resolveOperatorLanguage } from '@/application/use-cases/admin/operator-language'
 import { buildAdminOverview } from '@/application/use-cases/admin/overview'
 import { SearchAdminGlobal } from '@/application/use-cases/admin/search'
 import { buildTablesOverview } from '@/application/use-cases/admin/tables-overview'
@@ -48,8 +49,8 @@ import {
   type TablesOverviewQuery,
 } from '@/domain/models/api/admin/tables/overview'
 import { hasReadPermission } from '@/domain/models/app/auth/permission-evaluator-service'
-import { defaultLanguageTranslator } from '@/domain/models/app/languages/translation-resolver'
-import { tableLabelPlural } from '@/domain/models/app/tables/table-display-name-service'
+import { tableLabelsFor } from '@/domain/models/app/auth/readable-name-service'
+import { readerLanguageTranslator } from '@/domain/models/app/languages/translation-resolver'
 import { parseStorageEnvConfig } from '@/domain/models/process-env/storage/storage'
 import { Logger } from '@/infrastructure/logging/logger'
 import type {
@@ -118,12 +119,14 @@ const attention = defineAdminRead<undefined>({
   },
   subject: 'attention',
   decode: noInput,
-  read: (app) =>
+  // The invitation and findings details are phrased in the operator's console language.
+  read: (app, _input, request) =>
     Effect.gen(function* () {
       const host = yield* AdminReadHost
+      const language = yield* resolveOperatorLanguage(request)
       // The boot instant is the one the config version reports as `startedAt`:
       // one value shared by two reads, not two clocks that happen to agree.
-      const body = yield* buildAdminAttention(app, host.processStartedAt)
+      const body = yield* buildAdminAttention(app, host.processStartedAt, language)
       return answerWithSchema(adminAttentionResponseSchema, body)
     }),
 })
@@ -300,19 +303,24 @@ const tablesOverview = defineAdminRead<Period>({
   // Only the tables the caller may READ: the sidebar's Records disclosure lists
   // this answer, and a table whose records route 404s the caller is not one it
   // should be offered — the same predicate, so the two cannot disagree.
+  // A table's label is read in the operator's console language when the app
+  // declares that language (`$t:table.quotes.many` → « Devis »), else its first.
   read: (app, period, request) =>
-    Effect.flatMap(getUserRole(request.actorUserId, app), (role) =>
-      buildTablesOverview({
-        tables: (app.tables ?? [])
-          .filter((table) => hasReadPermission(table, role, app.tables))
-          .map((table) => ({
-            displayName: table.name,
-            dbName: sanitizeTableName(table.name),
-            label: tableLabelPlural(table, defaultLanguageTranslator(app.languages)),
-          })),
-        period,
-        now: new Date(),
-      }).pipe(Effect.map((body) => answerWithSchema(tablesOverviewResponseSchema, body)))
+    Effect.flatMap(
+      Effect.all([getUserRole(request.actorUserId, app), resolveOperatorLanguage(request)]),
+      ([role, language]) =>
+        buildTablesOverview({
+          tables: (app.tables ?? [])
+            .filter((table) => hasReadPermission(table, role, app.tables))
+            .map((table) => ({
+              displayName: table.name,
+              dbName: sanitizeTableName(table.name),
+              label: tableLabelsFor(table, readerLanguageTranslator(app.languages, language))
+                .labelPlural,
+            })),
+          period,
+          now: new Date(),
+        }).pipe(Effect.map((body) => answerWithSchema(tablesOverviewResponseSchema, body)))
     ),
   audit: { action: AUDIT_ACTIONS.TABLE_OVERVIEW_QUERIED, resourceId: () => 'overview' },
 })

@@ -7,6 +7,10 @@
 
 /** What a bucket WRITE (upload / delete) falls back to, and how it is refused. */
 
+import {
+  permitsBucketFileDelete,
+  type BucketFileCaller,
+} from '@/domain/models/app/buckets/bucket-file-access-validation'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { App } from '@/domain/models/app'
@@ -14,7 +18,7 @@ import type { Bucket } from '@/domain/models/app/buckets'
 import type { Context } from 'hono'
 
 /**
- * The gate a WRITE (upload / delete) falls back to when the bucket declares no
+ * The gate an UPLOAD falls back to when the bucket declares no
  * permission for it: a session is required.
  *
  * `public: true` governs READS only — it grants nothing on `POST`/`DELETE`
@@ -36,6 +40,19 @@ export function defaultWriteGrant(
 ): boolean {
   if (bucket.public && !app.auth) return true
   return session !== undefined
+}
+
+/**
+ * The delete rung of a bucket file: the domain's own decision
+ * (`permitsBucketFileDelete`), so the files API and an automation's
+ * `file/delete` cannot drift apart. `caller` is `undefined` with no session.
+ */
+export function deleteGrant(
+  app: App,
+  bucket: Bucket,
+  caller: BucketFileCaller | undefined
+): boolean {
+  return permitsBucketFileDelete(bucket, caller, { app })
 }
 
 /**

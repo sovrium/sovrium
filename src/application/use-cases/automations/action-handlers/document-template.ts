@@ -11,7 +11,9 @@ import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/service
 import { ASSET_MAX_BYTES } from '@/domain/models/app/assets/asset-content-validation'
 import { authoredReferenceRoots } from '../authored-references'
 import { isRecord } from './document-run'
+import { noteStepFileInput } from './step-file-inputs'
 import type { ActionRunContext } from './shared'
+import type { StarterFileGate, StarterGateRequirements } from './starter-file-gate'
 import type {
   DocumentRenderOptions,
   DocumentRendering,
@@ -35,6 +37,8 @@ import type { AssetKind } from '@/domain/models/app/assets/asset'
 /** A template that could not be read or rendered; `message` names it. */
 export class DocumentTemplateError extends Data.TaggedError('DocumentTemplateError')<{
   readonly message: string
+  /** Set when a run started by hand may not read the template: the step answers the refusal alone. */
+  readonly callerRefused?: true
 }> {}
 
 /** A template's text, who wrote it, and what kind it is when that is known. */
@@ -91,12 +95,20 @@ const tooLargeTemplate = (key: string, size: number): Effect.Effect<never, Docum
     )
   )
 
-/** `{ key, bucket? }`: a file in storage, written by whoever may write to its bucket. */
+/**
+ * `{ key, bucket? }`: a file in storage, written by whoever may write to its
+ * bucket — and, in a run started by hand, one `gate` lets the run read.
+ */
 const bucketTemplate = (
   key: string,
-  bucket: unknown
-): Effect.Effect<TemplateText, DocumentTemplateError, StorageService> =>
+  bucket: unknown,
+  gate: StarterFileGate
+): Effect.Effect<TemplateText, DocumentTemplateError, StarterGateRequirements> =>
   Effect.gen(function* () {
+    const refused = yield* gate(key)
+    if (refused !== undefined) {
+      return yield* new DocumentTemplateError({ message: refused, callerRefused: true })
+    }
     const storage = yield* StorageService
     const binding = typeof bucket === 'string' ? bucket : UNATTRIBUTED_BUCKET
     // The catalogued size refuses an oversized template before a byte is
@@ -109,6 +121,8 @@ const bucketTemplate = (
       .download(key, binding)
       .pipe(Effect.mapError(() => templateError(`template "${key}" could not be read`)))
     if (bytes.length > ASSET_MAX_BYTES) return yield* tooLargeTemplate(key, bytes.length)
+    // A stored template is a file the document is built from: it carries its standing.
+    yield* noteStepFileInput({ label: `template "${key}"`, key })
     return {
       text: decode(bytes),
       bytes,
@@ -121,22 +135,24 @@ const bucketTemplate = (
 
 /** One template source, read (see {@link readTemplateSource}). */
 const readSource = (
-  source: unknown
-): Effect.Effect<TemplateText, DocumentTemplateError, StorageService> => {
+  source: unknown,
+  gate: StarterFileGate
+): Effect.Effect<TemplateText, DocumentTemplateError, StarterGateRequirements> => {
   if (!isRecord(source)) return Effect.fail(templateError('the template names no source'))
   if (typeof source['inline'] === 'string') return Effect.succeed(inlineTemplate(source['inline']))
   if (typeof source['asset'] === 'string') return assetTemplate(source['asset'])
   const { key, bucket } = source
   return typeof key === 'string' && key !== ''
-    ? bucketTemplate(key, bucket)
+    ? bucketTemplate(key, bucket, gate)
     : Effect.fail(templateError('the template names no source'))
 }
 
-/** Read a template source as the action's props hold it. */
+/** Read a template source as the action's props hold it, a stored one through `gate`. */
 export const readTemplateSource = (
-  source: unknown
-): Effect.Effect<TemplateText, DocumentTemplateError, StorageService> =>
-  readSource(source).pipe(Effect.withSpan('automations.read-template-source'))
+  source: unknown,
+  gate: StarterFileGate
+): Effect.Effect<TemplateText, DocumentTemplateError, StarterGateRequirements> =>
+  readSource(source, gate).pipe(Effect.withSpan('automations.read-template-source'))
 
 /**
  * The context a template renders against: the action's `data` and nothing

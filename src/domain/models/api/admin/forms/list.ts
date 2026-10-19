@@ -138,6 +138,13 @@ export type FormsListQuery = typeof formsListQuerySchema.Type
  */
 export const formAdminItemSchema = Schema.Struct({
   ...formSummarySchema.fields,
+  label: optionalField(
+    Schema.String.annotate({
+      description:
+        "The form's name as a person reads it, in the caller's console language: its declared `title` with a `$t:` key resolved, else its `name` made readable (`quote-request` reads `Quote request`). Display text only; links and lookups use `name`.",
+      examples: ['Quote request'],
+    })
+  ),
   _admin: adminEnvelopeSchema,
 }).annotate({ identifier: 'FormAdminItem' })
 

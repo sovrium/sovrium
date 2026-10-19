@@ -54,7 +54,10 @@
  */
 
 import { useLayoutEffect, useState } from 'react'
-import { computeTableFrozenCellClasses } from '@/presentation/design/table-default-classes'
+import {
+  computeTableFrozenCellClasses,
+  computeTableTrailingPinCellClasses,
+} from '@/presentation/design/table-default-classes'
 import type { CSSProperties, RefObject } from 'react'
 
 /** Sticky `left` offset in px, keyed by the frozen column's field name. */
@@ -102,6 +105,18 @@ export function frozenCellStyle(left: number): CSSProperties {
     left,
     zIndex: 2,
   }
+}
+
+/** The surface of the trailing action column while columns are clipped past it. */
+export const TRAILING_PIN_CELL_CLASS = computeTableTrailingPinCellClasses()
+
+/**
+ * The trailing action column's pin: `right: 0`, so its row menu stays on screen
+ * however wide the grid is. Inert while the grid fits its container — a sticky
+ * cell only moves once there is something to scroll.
+ */
+export function trailingPinStyle(header: boolean): CSSProperties {
+  return { position: 'sticky', right: 0, zIndex: header ? 3 : 2 }
 }
 
 /** Running total of the widths that precede each entry. */

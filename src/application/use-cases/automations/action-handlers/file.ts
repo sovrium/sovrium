@@ -7,8 +7,6 @@
 
 import { Effect } from 'effect'
 import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
-import { resolveUploadBucket } from '@/application/use-cases/buckets/resolve-bucket'
-import { isPlainKey, takenKeyRefusal } from './document-output'
 import {
   autoDelimiter,
   csvCell,
@@ -17,21 +15,26 @@ import {
   parseCsvDocument,
 } from './file-csv'
 import {
-  extByMime,
   extOf,
   isSelfContainedSource,
   mimeByExt,
   resolveSource,
+  storeArtifact,
   tempKey,
   uploadArtifact,
-  uploadArtifactTo,
 } from './file-support'
+import { uploadPlacement } from './file-upload-placement'
+import { uploadSourceStanding } from './own-file-url'
+import { CALLER_REFUSAL } from './record-caller-gate'
 import { resolveOwnProps } from './run-context-resolution'
-import { recordOwnUpload } from './run-written-files'
+import {
+  builtFromRunBytes,
+  recordOwnUpload,
+  recordRunArtifact,
+  RUN_BYTES,
+} from './run-written-files'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
-import type { UploadTarget } from '@/application/ports/services/storage-service'
-import type { App } from '@/domain/models/app'
 
 /**
  * `file:*` action handlers — read/write bucket files via the StorageService
@@ -68,48 +71,11 @@ const errorOutcome = (message: string): ActionOutcome => ({
 // upload
 // ---------------------------------------------------------------------------
 
-/**
- * Where an upload goes. With no `bucket` it is a temporary artifact in no
- * bucket, at its `path` or a fresh temp key. With a `bucket` — a literal the
- * app declares, checked at start — it is catalogued there, recorded as stored
- * by `automation`, at its `path` or a fresh key outside the temp prefix (the
- * temp sweep must never reach a file a record may hold). A `path` that is not
- * a plain relative key is refused in both cases, and so is one already holding a file this
- * automation did not store: a person's upload is never replaced.
- */
-const uploadPlacement = (input: {
-  readonly app: App
-  readonly path: string | undefined
-  readonly bucket: string | undefined
-  readonly mime: string
-  readonly automation: string
-}): Effect.Effect<
-  { readonly key: string; readonly target: UploadTarget } | { readonly refusal: string },
-  never,
-  StorageService
-> =>
-  Effect.gen(function* () {
-    const { path, bucket, mime, automation } = input
-    const hasPath = path !== undefined && path.trim() !== ''
-    if (hasPath && !isPlainKey(path)) {
-      return {
-        refusal: `file.upload path "${path}" must be a relative key with no "." or ".." segment`,
-      }
-    }
-    if (bucket === undefined) {
-      return { key: hasPath ? path : tempKey(''), target: UNATTRIBUTED_BUCKET }
-    }
-    // Start refuses an undeclared literal; a `code` step's call is checked here.
-    if (resolveUploadBucket(input.app, bucket) === undefined) {
-      return { refusal: `file.upload bucket "${bucket}" is not declared` }
-    }
-    const target = { bucket, uploadedById: undefined, generatedBy: automation }
-    if (!hasPath) return { key: `${globalThis.crypto.randomUUID()}${extByMime(mime)}`, target }
-    const refusal = yield* takenKeyRefusal(path, bucket, automation)
-    return refusal === undefined
-      ? { key: path, target }
-      : { refusal: `file.upload cannot write the file: ${refusal}` }
-  })
+/** The answer to an upload that was not written: refused as the gate refuses, or failed. */
+const writeFailure = (wrote: 'taken' | 'failed', key: string): ActionOutcome =>
+  wrote === 'taken'
+    ? { status: 'failure', error: CALLER_REFUSAL }
+    : errorOutcome(`failed to upload to ${key}`)
 
 /** What an upload step hands on: its bucket when it named one, else its path or `temporary`. */
 const uploadOutput = (
@@ -130,11 +96,8 @@ export const handleFileUpload: ActionHandler = (action, app, automation) =>
     const explicitContentType = optionalString(p, 'contentType')
     if (!source) return { status: 'failure', error: 'file.upload requires a source' } as const
 
-    // Consume `resolveSource`'s SSRF block: a private/loopback/link-local
-    // `http(s)://` source fails BEFORE any fetch with `OutboundUrlBlockedError`.
-    // Surface it as an explicit `error` outcome (mirroring the `http.ts` /
-    // `webhook.ts` `invalid_outbound_url_${reason}` shape) and DO NOT proceed
-    // to store — the bytes were never fetched.
+    // `resolveSource`'s SSRF block: a private or loopback `http(s)://` source fails before
+    // any fetch, surfaced as `invalid_outbound_url_<reason>`; nothing is stored.
     const resolved = yield* Effect.result(resolveSource(source, stringRecord(p['headers'])))
     if (resolved._tag === 'Failure') {
       return errorOutcome(`invalid_outbound_url_${resolved.failure.reason}`)
@@ -142,14 +105,23 @@ export const handleFileUpload: ActionHandler = (action, app, automation) =>
     const { bytes, detectedMime } = resolved.success
     const mime =
       explicitContentType || detectedMime || mimeByExt(path) || 'application/octet-stream'
-    const placed = yield* uploadPlacement({ app, path, bucket, mime, automation: automation.name })
+    const placed = yield* uploadPlacement({ app, path, bucket, mime, automation })
     if ('refusal' in placed) return { status: 'failure', error: placed.refusal } as const
     const { key, target } = placed
 
     const storage = yield* StorageService
-    const wrote = yield* uploadArtifactTo(storage, key, { bytes, contentType: mime }, target)
-    if (!wrote) return errorOutcome(`failed to upload to ${key}`)
-    yield* Effect.sync(() => recordOwnUpload(automation.writtenFiles, { bucket, source, key }))
+    const wrote = yield* storeArtifact(storage, key, { bytes, contentType: mime }, target)
+    // A key found free that a file took in the meantime: kept, and refused as the gate refuses.
+    if (wrote !== 'written') return writeFailure(wrote, key)
+    // A stored key, or a URL of the app, carries the standing of the file it names.
+    const carriesRunBytes = yield* uploadSourceStanding(
+      automation.writtenFiles,
+      source,
+      resolved.success
+    )
+    yield* Effect.sync(() =>
+      recordOwnUpload(automation.writtenFiles, { bucket, key, carriesRunBytes })
+    )
 
     return {
       status: 'success',
@@ -163,7 +135,7 @@ export const handleFileUpload: ActionHandler = (action, app, automation) =>
 // download
 // ---------------------------------------------------------------------------
 
-export const handleFileDownload: ActionHandler = (action, _app, _automation) =>
+export const handleFileDownload: ActionHandler = (action, _app, automation) =>
   Effect.gen(function* () {
     const key = stringProp(props(action), 'key')
     if (!key) return errorOutcome('file.download requires a key')
@@ -177,6 +149,9 @@ export const handleFileDownload: ActionHandler = (action, _app, _automation) =>
     const target = tempKey(extOf(key))
     const wrote = yield* uploadArtifact(storage, target, bytes, mime)
     if (!wrote) return errorOutcome(`failed to stage download for ${key}`)
+    // The staged copy holds the stored file's bytes, and carries its standing.
+    const carriesRunBytes = builtFromRunBytes(automation.writtenFiles, [key])
+    yield* recordRunArtifact(automation.writtenFiles, target, { carriesRunBytes })
 
     return {
       status: 'success',
@@ -239,7 +214,7 @@ const renderCsv = (
   return [...headerLine, ...rows.map(lineFor)].join('\n')
 }
 
-export const handleFileGenerateCsv: ActionHandler = (action, _app, _automation, runContext) =>
+export const handleFileGenerateCsv: ActionHandler = (action, _app, automation, runContext) =>
   Effect.gen(function* () {
     const p = resolvedProps(action, runContext)
     const rows = asArrayProp(p['data'])
@@ -259,6 +234,8 @@ export const handleFileGenerateCsv: ActionHandler = (action, _app, _automation, 
     const storage = yield* StorageService
     const wrote = yield* uploadArtifact(storage, key, bytes, 'text/csv')
     if (!wrote) return errorOutcome(`failed to write csv to ${key}`)
+    // Built from the step's data alone: its bytes are the run's.
+    yield* recordRunArtifact(automation.writtenFiles, key, RUN_BYTES)
 
     const base = {
       key,

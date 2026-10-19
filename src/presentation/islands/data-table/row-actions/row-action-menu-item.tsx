@@ -10,6 +10,7 @@ import { useState, type ReactElement } from 'react'
 import { computeMenuItemClasses } from '../../overlays/menu-default-classes'
 import { actionTypeAttr } from './action-type-attr'
 import { useArmedConfirm } from './armed-confirm'
+import { controlIdOf, rowActionDisabledOn } from './row-action-control'
 import { RowConfirmDialog } from './row-confirm-dialog'
 import { RowEditSubmenu } from './row-edit-submenu'
 import { refocusMenuTrigger } from './trigger-focus'
@@ -42,7 +43,9 @@ const variantOf = (action: ActionColumnItem): 'default' | 'destructive' =>
  * gate, the same modal alert dialog the inline button opens, held in the
  * grid-level store so it survives the rebuild the dispatch causes. An
  * `editSelect` action is a submenu of its options. A destructive action is a
- * destructive item, in the destructive ink.
+ * destructive item, in the destructive ink. An action the row disables
+ * (`disabledWhen`, the server's verdict in the row's `_disabled`) is a disabled
+ * item, its reason written under its label.
  */
 export function RowActionMenuItem(props: RowActionEntryProps): ReactElement {
   const { action, record, onActionClick, confirmKey, origin, focusKey } = props
@@ -50,12 +53,15 @@ export function RowActionMenuItem(props: RowActionEntryProps): ReactElement {
   const [pending, setPending] = useState(false)
   if (action.editSelect !== undefined) return <RowEditSubmenu {...props} />
   const variant = variantOf(action)
+  const disabledOnRow = rowActionDisabledOn(action, record)
+  const controlId = controlIdOf(action)
   return (
     <Menu.Item
       data-slot="dropdown-menu-item"
       data-variant={variant}
       data-action-type={actionTypeAttr(action)}
-      disabled={pending}
+      {...(controlId === undefined ? {} : { 'data-control-id': controlId })}
+      disabled={pending || disabledOnRow !== undefined}
       className={computeMenuItemClasses({ variant })}
       onClick={() => {
         if (action.confirm !== undefined) return confirm.arm()
@@ -68,6 +74,9 @@ export function RowActionMenuItem(props: RowActionEntryProps): ReactElement {
       }}
     >
       {action.label}
+      {disabledOnRow?.reason ? (
+        <span className="text-muted-foreground block text-xs">{disabledOnRow.reason}</span>
+      ) : undefined}
     </Menu.Item>
   )
 }

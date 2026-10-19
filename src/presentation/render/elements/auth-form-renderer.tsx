@@ -23,13 +23,10 @@ import {
 } from '@/presentation/design/auth-form-types'
 import { computeSubmitButtonClasses } from '@/presentation/design/button-default-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
-import {
-  computeFormFieldClasses,
-  computeFormFieldLabelClasses,
-  computeFormLayoutClasses,
-} from '../../design/forms-default-classes'
+import { computeFormLayoutClasses } from '../../design/forms-default-classes'
 import { computeInputDefaultClasses } from '../../design/input-default-classes'
 import { omitInternalMarkers } from '../props/internal-marker-props'
+import { AuthFieldLabel } from './auth-field-label'
 import {
   resolveOnSuccessRedirect,
   successPageOf,
@@ -38,6 +35,7 @@ import {
   type AuthFormRenderContext,
 } from './auth-form-action'
 import { boundTableOf, resolveAuthFormFields } from './auth-form-fields'
+import { authFieldControlId, withRecoveryLink } from './auth-form-recovery-link'
 import { passwordRuleText, renderAuthFieldRule, withPasswordRule } from './password-rule'
 import { renderTwoFactorNotice, twoFactorNoticeOf, type TwoFactorNotice } from './two-factor-notice'
 import type { ElementProps } from './html-element-renderer'
@@ -237,9 +235,9 @@ function renderAuthFormField(field: AuthFormField): ReactElement {
       data-field={field.name}
       key={field.name}
     >
-      <label className={computeFormFieldClasses()}>
-        <span className={computeFormFieldLabelClasses()}>{field.label}</span>
+      <AuthFieldLabel field={field}>
         <input
+          id={authFieldControlId(field)}
           type={field.inputType}
           data-component-type="input"
           name={field.name}
@@ -253,7 +251,7 @@ function renderAuthFormField(field: AuthFormField): ReactElement {
           className={computeInputDefaultClasses({ state: 'default' })}
           {...(field.placeholder && { placeholder: field.placeholder })}
         />
-      </label>
+      </AuthFieldLabel>
       {renderAuthFieldRule(field)}
       <div
         id={errorId}
@@ -354,7 +352,11 @@ export function renderAuthForm(
     ...(variant !== undefined && { variant }),
     ...(action._passkeyAutofill === true && { passkeyAutofill: true }),
   })
-  const fields = withPasswordRule(hinted, passwordRuleText(component, lang, languages))
+  const fields = withRecoveryLink(
+    withPasswordRule(hinted, passwordRuleText(component, lang, languages)),
+    action._recoveryHref,
+    context
+  )
   const islandProps = buildIslandPropsJson({
     table: boundTableOf(component),
     method,

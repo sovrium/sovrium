@@ -9,6 +9,8 @@ import { analyticsIsEnabled } from '@/domain/models/app/analytics/analytics-enab
 import { TEMPLATE_ASSET_KINDS, resolveAssetKind } from '@/domain/models/app/assets/asset'
 import {
   componentTreeHasMatch,
+  placedTemplatesOf,
+  someRenderedNode,
   type TreeNode,
 } from '@/domain/models/app/pages/component-tree-has-type'
 import { pruneSidebarEntriesToDroppedPages } from '@/domain/models/app/pages/sidebar-requires-service'
@@ -31,6 +33,24 @@ const isResetRequestForm = (node: TreeNode): boolean => {
 const passwordResetIsOffered = (app: App): boolean =>
   (app.auth?.strategies ?? []).some((strategy) => strategy.type === 'emailAndPassword') &&
   componentTreeHasMatch(app, isResetRequestForm)
+
+/**
+ * The path of the first page that draws the form asking for a reset link — on
+ * the page, in a breakpoint's children or through a placed template — or
+ * `undefined` when the app serves none. A page whose path takes a parameter is
+ * passed over: it has no single address a link could lead to. An email sign-in
+ * form draws "Forgot your password?" towards this page, and none without it.
+ */
+export const passwordResetRequestPath = (app: App): string | undefined => {
+  const templates: readonly unknown[] = app.components ?? []
+  return (app.pages ?? []).find((page) => {
+    const items: readonly unknown[] = page.components ?? []
+    return (
+      !page.path.includes(':') &&
+      someRenderedNode(items, placedTemplatesOf(items, templates), isResetRequestForm)
+    )
+  })?.path
+}
 
 /**
  * What a capability is asked ABOUT, beyond the app itself.

@@ -42,8 +42,7 @@ export const ConfigInvitationIssuerLive: Layer.Layer<ConfigInvitationIssuer> = L
             import('@/infrastructure/server/admin-mounts'),
           ])
           return {
-            services: createInvitationServices(
-              createAuthInstance(app.auth),
+            services: createInvitationServices(createAuthInstance(app.auth), () =>
               mountedInvitationPages(adminMountsFor(app))
             ),
             mailer: createEmailHandlers(app.auth, app.name, undefined, app.languages),

@@ -160,6 +160,18 @@ export const agentConversationsListQuerySchema = Schema.Struct({
         'Optional exact account id: only the conversations that account held. AND-combined with the window, `q` and the cursor. An id no conversation carries answers an empty page, not an error.',
     }).pipe(Schema.check(Schema.isMinLength(1)))
   ),
+  period: optionalField(
+    Schema.Literals(['7d', '30d', '90d']).annotate({
+      description:
+        "Optional relative window on `lastActivityAt`: the last 7, 30 or 90 days, counted back from the server's now (the pinned instant on a development host that sets `SOVRIUM_DEV_CLOCK`). AND-combined with `from`/`to`, `userId`, `q` and the cursor. Omit for all time.",
+    })
+  ),
+  format: optionalField(
+    Schema.Literals(['csv']).annotate({
+      description:
+        '`csv` answers the matching conversations as a CSV download (`text/csv`, one header row, then one row per conversation: title, person, messages, started, last activity) instead of the JSON page. Every match is written, not one page; message text is never included.',
+    })
+  ),
   q: searchTermSchema.annotate({
     description:
       'Optional free-text search over the conversation `title` and `sessionId`, as a case-insensitive literal substring. Composes with the `from`/`to` window (AND) and with the cursor, so the page is a page of MATCHES. Message `content` is intentionally not searched — transcript search is a separate capability. Empty / whitespace-only means "no search".',
@@ -215,7 +227,7 @@ export const agentConversationMessageSchema = Schema.Struct({
   toolCalls: optionalField(
     Schema.Unknown.annotate({
       description:
-        'Structured tool-call payload for an assistant/tool turn (`ai_messages.tool_calls`, jsonb). `null` for plain text turns. Opaque JSON — the dashboard renders it as a collapsible tool-call panel.',
+        "The tool calls an assistant turn ran (`ai_messages.tool_calls`), absent for a plain text turn. A turn recorded by the engine stores one object per call — `id`, `name` (the action, e.g. `record.list`), `outcome` (`ok`, `denied`, `failed`, `pending-approval`, `pending-input`), `table` when the call read or wrote a declared table, and `rowCount` when it answered rows — and never the call's arguments or result. This read adds `tableLabel`, the table's label as the app declares it now. Older rows may carry other shapes; the dashboard reads both.",
     })
   ),
   createdAt: looseIsoDateTime({
@@ -226,7 +238,8 @@ export const agentConversationMessageSchema = Schema.Struct({
 /**
  * The conversation header echoed alongside the messages in the detail response.
  * A subset of the list item (no `messageCount` — the operator counts the
- * `messages` array directly on the detail screen).
+ * `messages` array directly on the detail screen), naming the person who held
+ * the conversation as the list row does.
  */
 export const agentConversationHeaderSchema = Schema.Struct({
   id: Schema.String.annotate({
@@ -243,6 +256,14 @@ export const agentConversationHeaderSchema = Schema.Struct({
         "The durable store's session key (`ai_conversations.session_id`); `null` when absent.",
     })
   ),
+  userId: Schema.String.annotate({
+    description:
+      'Id of the account that held this conversation (`ai_conversations.user_id`), as the list item carries it.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  userName: Schema.String.annotate({
+    description:
+      'Display name of that account, as the users directory shows it — the thread names its person rather than its session. Its email is not carried here.',
+  }),
   createdAt: looseIsoDateTime({
     description:
       'ISO 8601 UTC timestamp the conversation was opened (`ai_conversations.created_at`).',

@@ -124,16 +124,6 @@ export const footerLink = (sentence: string, label: string, href: string): Block
   ],
 })
 
-/** A plain link on its own line, for "Forgot password?" and its kin. */
-export const quietLink = (label: string, href: string): BlockNode => ({
-  type: 'link',
-  props: {
-    href,
-    className: 'self-start text-sm underline-offset-4 hover:underline',
-  },
-  content: label,
-})
-
 /**
  * The page and the card: centred on the page ground at `sm` and up; on a phone
  * the card has no frame and the content starts at the top.

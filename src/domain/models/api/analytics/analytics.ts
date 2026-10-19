@@ -170,7 +170,8 @@ export const analyticsOverviewResponseSchema = Schema.Struct({
     sessions: Schema.Int.annotate({ description: 'Total sessions' }),
   }),
   timeSeries: Schema.Array(timeSeriesPointSchema).annotate({
-    description: 'Time series data points',
+    description:
+      'Time series data points, ascending. At `granularity=day`, once the window holds one event every day of the window is present, a quiet day with zeros; empty when the window holds none.',
   }),
 })
 

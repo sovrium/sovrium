@@ -16,33 +16,35 @@ import type {
   WrittenBodyPiece,
   WrittenBodyPlan,
 } from './connection-request'
-import type { StorageService } from '@/application/ports/services/storage-service'
+import type { StarterFileGate, StarterGateRequirements } from './starter-file-gate'
 
 const pieceBytes = (
-  piece: WrittenBodyPiece
-): Effect.Effect<Uint8Array, WrittenBodyFileError, StorageService> =>
+  piece: WrittenBodyPiece,
+  gate: StarterFileGate
+): Effect.Effect<Uint8Array, WrittenBodyFileError, StarterGateRequirements> =>
   piece.file !== undefined
-    ? readOperationFile(piece.file, 'file').pipe(Effect.map((file) => file.bytes))
+    ? readOperationFile(piece.file, 'file', gate).pipe(Effect.map((file) => file.bytes))
     : Effect.succeed(new TextEncoder().encode(piece.text))
 
 /** The finished body and Content-Type of a written-body plan. */
 const assemble = (
   plan: WrittenBodyPlan,
-  boundary: string
+  boundary: string,
+  gate: StarterFileGate
 ): Effect.Effect<
   { readonly body: Uint8Array<ArrayBuffer>; readonly contentType: string },
   WrittenBodyFileError,
-  StorageService
+  StarterGateRequirements
 > =>
   plan.kind === 'raw'
-    ? pieceBytes(plan.piece).pipe(
+    ? pieceBytes(plan.piece, gate).pipe(
         // A copy, so the body owns a plain ArrayBuffer `fetch` accepts.
         Effect.map((bytes) => ({
           body: new Uint8Array(bytes),
           contentType: plan.piece.contentType,
         }))
       )
-    : Effect.forEach(plan.parts, pieceBytes).pipe(
+    : Effect.forEach(plan.parts, (part) => pieceBytes(part, gate)).pipe(
         Effect.map((bytes) =>
           assembleMultipartRelated(
             plan.parts.map((part, index) => ({
@@ -61,11 +63,12 @@ const assemble = (
  */
 const fieldValue = (
   field: BodyField,
-  kind: FieldBodyPlan['kind']
-): Effect.Effect<readonly [string, unknown], WrittenBodyFileError, StorageService> =>
+  kind: FieldBodyPlan['kind'],
+  gate: StarterFileGate
+): Effect.Effect<readonly [string, unknown], WrittenBodyFileError, StarterGateRequirements> =>
   field.kind === 'value'
     ? Effect.succeed([field.name, field.value] as const)
-    : readOperationFile(field.file, field.name).pipe(
+    : readOperationFile(field.file, field.name, gate).pipe(
         Effect.map(
           (file) =>
             [
@@ -80,9 +83,10 @@ const fieldValue = (
 /** Complete a request whose field body carries a `file` parameter: read, then encode. */
 const completeFieldBody = (
   request: OperationRequest,
-  plan: FieldBodyPlan
-): Effect.Effect<OperationRequest, WrittenBodyFileError, StorageService> =>
-  Effect.forEach(plan.fields, (field) => fieldValue(field, plan.kind)).pipe(
+  plan: FieldBodyPlan,
+  gate: StarterFileGate
+): Effect.Effect<OperationRequest, WrittenBodyFileError, StarterGateRequirements> =>
+  Effect.forEach(plan.fields, (field) => fieldValue(field, plan.kind, gate)).pipe(
     Effect.map((fields) => withEncodedBody(request, encodeBody(plan.kind, fields))),
     Effect.withSpan('automations.connection-field-body')
   )
@@ -94,12 +98,13 @@ const completeFieldBody = (
  * and encode it. A request with neither is returned as it is.
  */
 const completeWrittenBody = (
-  request: OperationRequest
-): Effect.Effect<OperationRequest, WrittenBodyFileError, StorageService> => {
-  if (request.fieldBody !== undefined) return completeFieldBody(request, request.fieldBody)
+  request: OperationRequest,
+  gate: StarterFileGate
+): Effect.Effect<OperationRequest, WrittenBodyFileError, StarterGateRequirements> => {
+  if (request.fieldBody !== undefined) return completeFieldBody(request, request.fieldBody, gate)
   const plan = request.writtenBody
   if (plan === undefined) return Effect.succeed(request)
-  return assemble(plan, `sovrium-${crypto.randomUUID()}`).pipe(
+  return assemble(plan, `sovrium-${crypto.randomUUID()}`, gate).pipe(
     Effect.map(({ body, contentType }) => ({
       url: request.url,
       method: request.method,
@@ -114,15 +119,16 @@ const completeWrittenBody = (
  * The request of one operation call, complete: placed and coerced by
  * `buildOperationRequest`, then with its written body read and assembled. A
  * parameter error or an unreadable file fails with the message the step
- * reports.
+ * reports; `gate` judges each stored file a run started by hand names.
  */
 export const buildCallRequest = (
-  input: Parameters<typeof buildOperationRequest>[0]
-): Effect.Effect<OperationRequest, WrittenBodyFileError, StorageService> => {
+  input: Parameters<typeof buildOperationRequest>[0],
+  gate: StarterFileGate
+): Effect.Effect<OperationRequest, WrittenBodyFileError, StarterGateRequirements> => {
   const built = buildOperationRequest(input)
   return (
     built.ok
-      ? completeWrittenBody(built.request)
+      ? completeWrittenBody(built.request, gate)
       : Effect.fail(new WrittenBodyFileError({ message: built.error }))
   ).pipe(Effect.withSpan('automations.connection-call-request'))
 }

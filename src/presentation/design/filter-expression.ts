@@ -88,7 +88,7 @@ export interface FilterBarCondition {
 export const OPERATORS_BY_KIND: Readonly<Record<FilterFieldKind, readonly string[]>> = {
   text: ['eq', 'neq', 'contains', 'startsWith'],
   number: ['eq', 'neq', 'gt', 'lt', 'gte', 'lte', 'between'],
-  date: ['eq', 'neq', 'gt', 'lt', 'gte', 'lte', 'between'],
+  date: ['eq', 'neq', 'gt', 'lt', 'gte', 'lte', 'between', 'within'],
   select: ['eq', 'neq', 'in'],
 }
 
@@ -111,6 +111,40 @@ const BASE_LABELS: Readonly<Record<string, string>> = {
   startsWith: 'starts with',
   in: 'is any of',
   between: 'is between',
+  within: 'is within',
+}
+
+/**
+ * The windows `within` offers on a date, relative to now: days back (negative)
+ * or forward. The bar publishes the window as a `between` of two instants
+ * computed when the expression is built, so the records endpoint needs no
+ * operator of its own and a reload keeps the same rows.
+ */
+export const WITHIN_WINDOWS: Readonly<Record<string, number>> = {
+  'past-7d': -7,
+  'past-30d': -30,
+  'next-7d': 7,
+}
+
+/** How each `within` window reads, in English (`filterBar.within.<window>`). */
+const WITHIN_LABELS: Readonly<Record<string, string>> = {
+  'past-7d': 'the last 7 days',
+  'past-30d': 'the last 30 days',
+  'next-7d': 'the next 7 days',
+}
+
+/** How one `within` window reads, in the page language when given. */
+export const withinLabel = (window: string, strings?: Readonly<Record<string, string>>): string =>
+  strings?.[`filterBar.within.${window}`] ?? WITHIN_LABELS[window] ?? window
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/** A `within` window as the two ends of a `between`, around `nowMs`. */
+function withinEnds(window: string, nowMs: number): readonly [string, string] {
+  const days = WITHIN_WINDOWS[window] ?? 0
+  const now = new Date(nowMs).toISOString()
+  if (days < 0) return [new Date(nowMs + days * DAY_MS).toISOString().slice(0, 10), now]
+  return [now, `${new Date(nowMs + days * DAY_MS).toISOString().slice(0, 10)}T23:59:59.999Z`]
 }
 
 const COMPARISON_LABELS: Readonly<Record<FilterFieldKind, Readonly<Record<string, string>>>> = {
@@ -163,6 +197,7 @@ const API_OPERATORS: Readonly<Record<string, string>> = {
   in: 'in',
   startsWith: 'startsWith',
   between: 'between',
+  within: 'between',
 }
 
 /** The kind a field is filtered as. `text` when the author declared none. */
@@ -180,6 +215,14 @@ export function labelOf(field: FilterBarField | undefined, name: string): string
   return field?.label ?? field?.name ?? name
 }
 
+/** A `between` value as a chip reads it: `{from} and {to}` in the page language. */
+const rangeText = (value: string, strings?: Readonly<Record<string, string>>): string => {
+  const [from, to] = betweenEnds(value)
+  return (strings?.['filterBar.range'] ?? '{from} and {to}')
+    .replace('{from}', () => from)
+    .replace('{to}', () => to)
+}
+
 /**
  * What a value reads as in a chip.
  *
@@ -194,12 +237,8 @@ export function displayValue(
   operator?: string,
   strings?: Readonly<Record<string, string>>
 ): string {
-  if (operator === 'between') {
-    const [from, to] = betweenEnds(value)
-    return (strings?.['filterBar.range'] ?? '{from} and {to}')
-      .replace('{from}', () => from)
-      .replace('{to}', () => to)
-  }
+  if (operator === 'within') return withinLabel(value, strings)
+  if (operator === 'between') return rangeText(value, strings)
   const option = field?.options?.find((candidate) => candidate.value === value)
   return option?.label ?? option?.value ?? value
 }
@@ -215,6 +254,7 @@ export function betweenEnds(value: string): readonly [string, string] {
 
 /** Coerce one authored value into the type the endpoint's SQL will bind. */
 function typedValue(kind: FilterFieldKind, operator: string, value: string): unknown {
+  if (operator === 'within') return withinEnds(value, Date.now())
   if (operator === 'between') {
     return betweenEnds(value).map((end) => (kind === 'number' ? Number(end) : end))
   }
@@ -239,6 +279,7 @@ function toLeaf(
   return {
     field: condition.field,
     operator: API_OPERATORS[condition.operator] ?? condition.operator,
+    // `within` reaches the endpoint as the `between` it stands for (see WITHIN_WINDOWS).
     value: typedValue(kindOf(field), condition.operator, condition.value),
   }
 }
@@ -269,7 +310,9 @@ export function buildFilterExpression(
 
 /** Records-API operator -> the bar's own, the inverse of the map above. */
 const BAR_OPERATORS: Readonly<Record<string, string>> = Object.fromEntries(
-  Object.entries(API_OPERATORS).map(([bar, api]) => [api, bar])
+  Object.entries(API_OPERATORS)
+    .filter(([bar]) => bar !== 'within')
+    .map(([bar, api]) => [api, bar])
 )
 
 /** One published leaf back into a condition, or `undefined` when it is not one. */

@@ -109,7 +109,7 @@ Read: `sovrium docs components/content-components`
 | --- | --- |
 | `attachment` | An attachment chip: one file drawn by its icon or thumbnail, its name and size, and a way to open it. |
 | `audio` | An audio file with play, progress and duration. |
-| `code` | Source text in a monospace block, highlighted by language. |
+| `code` | A Code Block: source text in a monospace frame, highlighted by language, with a copy button. |
 | `file-preview` | A stored file shown inline: a PDF in its viewer, an image with zoom, else a download. |
 | `icon` | One glyph from the app's icon set, sized and coloured by the text around it. |
 | `iframe` | Another page embedded at a fixed height. |

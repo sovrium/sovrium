@@ -116,6 +116,11 @@ export interface AdminRunsListFilters {
    */
   readonly q?: string | undefined
   readonly limit: number
+  /**
+   * Rows to skip before the page — a NUMBERED page (`?page=`), the alternative
+   * to {@link cursorBefore}. The two never meet: a page is asked for by one.
+   */
+  readonly offset?: number | undefined
 }
 
 export class AdminAutomationsRepository extends Context.Service<
@@ -145,6 +150,15 @@ export class AdminAutomationsRepository extends Context.Service<
     readonly listAdminRuns: (
       filters: AdminRunsListFilters
     ) => Effect.Effect<readonly AdminAutomationRunRow[], AdminAutomationsDatabaseError>
+
+    /**
+     * How many runs match `filters` — every filter but the page window — per
+     * stored status, as ONE grouped count. The sum is the whole result's size,
+     * the figure a numbered pager counts its pages from.
+     */
+    readonly countAdminRunsByStatus: (
+      filters: AdminRunsListFilters
+    ) => Effect.Effect<ReadonlyMap<string, number>, AdminAutomationsDatabaseError>
 
     /**
      * Single-run lookup by id (runs ⋈ definitions). Returns `undefined` when no

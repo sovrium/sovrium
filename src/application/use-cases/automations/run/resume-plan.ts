@@ -109,6 +109,7 @@ const waitRowOf = (
   ...(row.error === null ? {} : { error: row.error }),
   ...(row.logs === null ? {} : { logs: row.logs }),
   ...(row.reads === null ? {} : { reads: row.reads }),
+  ...(row.clientError === null ? {} : { clientError: row.clientError }),
 })
 
 /** Plan the resume of a parked run against `actions`, its current configuration. */

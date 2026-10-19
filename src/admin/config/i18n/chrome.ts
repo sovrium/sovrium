@@ -55,7 +55,8 @@ export default {
   'admin.shell.account': 'Account',
   'admin.offline.message': 'You’re offline. Check your connection, then retry.',
   'admin.offline.retry': 'Retry',
-  'admin.shell.readOnly': 'Read-only — your role is Viewer',
+  'admin.shell.readOnly': 'You can read, not change[ — your role is $session.roleLabel]',
+  'admin.shell.readOnlyShort': 'Read-only',
   'admin.shell.role.admin': 'Admin',
   'admin.shell.role.viewer': 'Viewer',
   'admin.shell.myAccount': 'My profile',
@@ -83,7 +84,6 @@ export default {
   // `landmark` names the `<nav>` region for a screen reader. Every group
   // shares it, so the sidebar is one landmark rather than six.
   'admin.nav.landmark.console': 'Console',
-  'admin.nav.designSystem': 'Design system',
   'admin.nav.design.overview': 'Overview',
   'admin.nav.design.foundations': 'Foundations',
   'admin.nav.design.components': 'Components',
@@ -103,6 +103,7 @@ export default {
   'admin.crumb.changelog': 'Changelog',
   'admin.crumb.records': 'Records',
   'admin.crumb.files': 'Files',
+  'admin.crumb.systemBucket': 'System',
   'admin.crumb.conversations': 'Conversations',
   'admin.crumb.submissions': 'Submissions',
   'admin.crumb.connections': 'Connections',
@@ -112,6 +113,7 @@ export default {
   // The row, the trail and the heading all say Runs: the page is the run
   // history, and the automations catalogue is one view inside it.
   'admin.crumb.runs': 'Runs',
+  'admin.crumb.run': 'Run',
   'admin.crumb.links': 'Links',
   'admin.crumb.templates': 'Templates',
   // `/decisions/:id` gets NO entry of its own, deliberately: the id segment is
@@ -121,44 +123,51 @@ export default {
 
   // ── Document titles ─────────────────────────────────────────────────────
   //
-  // Each carries the "Sovrium — " stem verbatim rather than composing it from a
-  // shared prefix plus a leaf. Composition would need a token the title slot
-  // does not interpolate, and the stem is the one part of a console title an
-  // operator has the least business renaming: it says whose surface this is,
-  // inside their own app, under their own domain (BRAND §2).
+  // Each opens with the app's own name (`$app.label`, the name its chrome
+  // prints) and then names the page, so a tab strip of five console tabs over
+  // two apps says which is which. The page name is the one the sidebar gives
+  // it. `$app.*` and `$param.*` resolve in a title after its translation, so a
+  // record's own page can name the record (`admin.meta.component`).
   //
   // The `Data · ` middle segment mirrors the sidebar's grouping, so a browser
   // tab strip reads the same way the nav does.
-  'admin.meta.welcome': 'Sovrium — Welcome',
-  'admin.meta.acceptInvitation': 'Sovrium — Accept invitation',
-  'admin.meta.notFound': 'Sovrium — Page not found',
-  'admin.meta.organisation': 'Sovrium — Organisation',
-  'admin.meta.profile': 'Sovrium — My profile',
-  'admin.meta.gdpr': 'Sovrium — My data',
-  'admin.meta.apiKeys': 'Sovrium — API keys',
-  'admin.meta.env': 'Sovrium — Environment',
-  'admin.meta.api': 'Sovrium — API',
-  'admin.meta.mcp': 'Sovrium — MCP',
-  'admin.meta.changelog': 'Sovrium — Changelog',
-  'admin.meta.release': 'Sovrium — Changelog · Release',
-  'admin.meta.tables': 'Sovrium — Records',
-  'admin.meta.buckets': 'Sovrium — Files',
-  'admin.meta.agents': 'Sovrium — Conversations',
-  'admin.meta.forms': 'Sovrium — Submissions',
-  'admin.meta.connections': 'Sovrium — Connections',
-  'admin.meta.users': 'Sovrium — Users',
-  'admin.meta.invitations': 'Sovrium — Invitations',
-  'admin.meta.userAccount': 'Sovrium — Account',
-  'admin.meta.recordAccess': 'Sovrium — Who has access',
-  'admin.meta.pages': 'Sovrium — Analytics',
-  'admin.meta.automations': 'Sovrium — Runs',
-  'admin.meta.automationRun': 'Sovrium — Run',
-  'admin.meta.links': 'Sovrium — Links',
-  'admin.meta.templates': 'Sovrium — Templates',
-  'admin.meta.footprint': 'Sovrium — Footprint',
-  'admin.meta.decisions': 'Sovrium — Decisions',
-  'admin.meta.decision': 'Sovrium — Decision',
-  'admin.meta.login': 'Sovrium — Sign in',
-  'admin.meta.forgotPassword': 'Sovrium — Forgot password',
-  'admin.meta.resetPassword': 'Sovrium — New password',
+  'admin.meta.welcome': '$app.label — Welcome',
+  'admin.meta.acceptInvitation': '$app.label — Accept invitation',
+  'admin.meta.notFound': '$app.label — Page not found',
+  'admin.meta.organisation': '$app.label — Organisation',
+  'admin.meta.profile': '$app.label — My profile',
+  'admin.meta.gdpr': '$app.label — My data',
+  'admin.meta.apiKeys': '$app.label — API keys',
+  'admin.meta.env': '$app.label — Environment',
+  'admin.meta.api': '$app.label — API',
+  'admin.meta.mcp': '$app.label — MCP',
+  'admin.meta.changelog': '$app.label — Changelog',
+  'admin.meta.release': '$app.label — Changelog · Release',
+  'admin.meta.tables': '$app.label — Records',
+  'admin.meta.buckets': '$app.label — Files',
+  'admin.meta.agents': '$app.label — Conversations',
+  'admin.meta.forms': '$app.label — Submissions',
+  'admin.meta.connections': '$app.label — Connections',
+  'admin.meta.users': '$app.label — Users',
+  'admin.meta.invitations': '$app.label — Invitations',
+  'admin.meta.userAccount': '$app.label — Account',
+  'admin.meta.recordAccess': '$app.label — Who has access',
+  'admin.meta.pages': '$app.label — Analytics',
+  'admin.meta.automations': '$app.label — Runs',
+  'admin.meta.automationRun': '$app.label — Run',
+  'admin.meta.links': '$app.label — Links',
+  'admin.meta.templates': '$app.label — Templates',
+  'admin.meta.footprint': '$app.label — Footprint',
+  'admin.meta.decisions': '$app.label — Decisions',
+  'admin.meta.decision': '$app.label — Decision',
+  'admin.meta.login': '$app.label — Sign in',
+  'admin.meta.forgotPassword': '$app.label — Forgot password',
+  'admin.meta.resetPassword': '$app.label — New password',
+  'admin.meta.designSystem': '$app.label — Design system',
+  'admin.meta.foundations': '$app.label — Foundations',
+  'admin.meta.components': '$app.label — Components',
+  // A component's own page names the component, not the noun.
+  'admin.meta.component': '$app.label — $param.name',
+  'admin.meta.brand': '$app.label — Brand',
+  'admin.meta.voice': '$app.label — Voice',
 } as const

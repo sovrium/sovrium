@@ -75,7 +75,7 @@ name: my-app
 badge: false # removes the badge — one line, free, forever
 ```
 
-**Placement.** By default the badge floats: it is pinned to the bottom-right corner of the window, over the page. On pages whose last row holds content — a submit button, a table's pager — use `badge: { placement: footer }` instead: the badge then renders as a static line inside a `<footer>` after the page's main content, so it never covers anything. `placement: floating` is the default and matches `badge: true`.
+**Placement.** By default the badge floats: it is pinned to the bottom-right corner of the window, over the page. On pages whose last row holds content — a submit button, a table's pager — use `badge: { placement: footer }` instead: the badge then renders as a static line inside a `<footer>` after the page's main content, so it never covers anything. On a page laid out as a window-high shell — a row exactly one window high, its overflow hidden (`h-screen overflow-hidden`), holding a sidebar beside an inset that scrolls on its own (`overflow-y-auto`) — the footer closes that inset instead: it is the inset's last line, reached by scrolling it to its end, and the page itself never grows a second scroll below the shell. `placement: floating` is the default and matches `badge: true`.
 
 ```yaml
 badge:

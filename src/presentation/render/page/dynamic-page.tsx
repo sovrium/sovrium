@@ -9,19 +9,20 @@ import { type ReactElement } from 'react'
 import { fillRoutePattern, type RouteParams } from '@/domain/kernel/matching/route-matcher'
 import { resolveDensityStep } from '@/domain/models/app/design/density-service'
 import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
+import { placeFooterBadge } from '@/presentation/render/page/badge-shell-inset'
 import { ClientRuntimeScript } from '@/presentation/render/page/client-script-paths'
-import { DemoNotice } from '@/presentation/render/page/demo-notice'
 import { IslandEntryScript } from '@/presentation/render/page/island-entry-script'
 import { PageAccessibilityChrome } from '@/presentation/render/page/page-accessibility-chrome'
 import { PageBodyScripts } from '@/presentation/render/page/page-body-scripts'
 import { hasClientSideNavigation } from '@/presentation/render/page/page-island-detection'
 import { resolvePageLanguage } from '@/presentation/render/page/page-lang-resolver'
 import { PageMain } from '@/presentation/render/page/page-main'
-import { extractPageMetadata } from '@/presentation/render/page/page-metadata'
+import { usePageMetadata } from '@/presentation/render/page/page-metadata'
 import { groupScriptsByPosition } from '@/presentation/render/page/page-scripts'
 import { PageSidebar } from '@/presentation/render/page/page-sidebar'
 import { PageSpaNavMount } from '@/presentation/render/page/page-spa-nav-mount'
-import { SovriumBadge } from '@/presentation/render/page/sovrium-badge'
+import { PlatformChrome } from '@/presentation/render/page/platform-chrome'
+import { PresenceIndicatorMount } from '@/presentation/render/page/presence-indicator-mount'
 import { getToastDismissLabel } from '@/presentation/render/page/toast-dismiss-labels'
 // Island-runtime detection lives in page-island-detection.ts (extracted on main);
 // this file keeps only interactive-runtime detection, which shares the same
@@ -186,42 +187,6 @@ const TOAST_CONTAINER_STYLE = {
   minHeight: '1px',
 } as const
 
-/** Stable identity for the presence-indicator container to satisfy react-perf. */
-const PRESENCE_CONTAINER_STYLE = { minHeight: '1px' } as const
-
-/**
- * Renders the page-level presence-indicator island placeholder.
- *
- * Emitted on every page configured with `presence: true`. The placeholder
- * carries the page's ADDRESS as an island prop — the pattern filled with this
- * request's route parameters, so `/orders/:id` shown for order 42 is
- * `/orders/42` — and the hydrated `presence-indicator` island opens that
- * address's presence channel: two people on two records of
- * one page are on two channels. The visible `[data-testid="presence-indicator"]`
- * div is rendered server-side so the indicator is present even before hydration.
- */
-function PresenceIndicatorMount({
-  page,
-  routeParams,
-}: {
-  readonly page: Page
-  readonly routeParams: RouteParams | undefined
-}): Readonly<ReactElement> {
-  const islandProps = JSON.stringify({ pagePath: fillRoutePattern(page.path, routeParams ?? {}) })
-  return (
-    <div
-      data-island="presence-indicator"
-      data-island-props={islandProps}
-      style={PRESENCE_CONTAINER_STYLE}
-    >
-      <div
-        data-testid="presence-indicator"
-        aria-label="Users viewing this page"
-      />
-    </div>
-  )
-}
-
 /**
  * Returns the resolved sidebar sections only when the page actually
  * declares a sidebar AND the resolver produced at least one section.
@@ -265,42 +230,6 @@ function PageToastContainer({
       {...(toasts.position !== undefined && { 'data-position': toasts.position })}
       style={TOAST_CONTAINER_STYLE}
     />
-  )
-}
-
-/**
- * Persistent platform chrome: the "Built with Sovrium" badge (bottom-right, or a
- * footer line) and the demo context notice (bottom-left). Extracted from
- * `DynamicPageBody` so the two visibility gates live together — they are one
- * visual system and the pair has to stay clear of each other — and so the body
- * renderer stays under the complexity cap.
- *
- * The two gates have OPPOSITE defaults, deliberately:
- * - `badgePlacement` is resolved from per-app config by the caller, so an absent
- *   value means "no app context" and renders nothing.
- * - `demoNoticeEnabled` is an override, not a source: whether the notice appears
- *   is decided by `SOVRIUM_DEMO_*` inside `DemoNotice`, so absent means "let the
- *   env decide" and only an explicit `false` suppresses it.
- */
-function PlatformChrome({
-  lang,
-  badgePlacement,
-  demoNoticeEnabled,
-}: {
-  readonly lang: string
-  readonly badgePlacement?: BadgePlacement
-  readonly demoNoticeEnabled?: boolean
-}): Readonly<ReactElement> {
-  return (
-    <>
-      {badgePlacement !== undefined && (
-        <SovriumBadge
-          lang={lang}
-          placement={badgePlacement}
-        />
-      )}
-      {demoNoticeEnabled !== false && <DemoNotice lang={lang} />}
-    </>
   )
 }
 
@@ -366,8 +295,9 @@ function DynamicPageBody({
       {hasClientSideNavigation(page, components) && <PageSpaNavMount />}
       {page.presence === true && (
         <PresenceIndicatorMount
-          page={page}
-          routeParams={routeParams}
+          pagePath={fillRoutePattern(page.path, routeParams ?? {})}
+          lang={lang}
+          languages={languages}
         />
       )}
       {page.toasts && (
@@ -433,12 +363,14 @@ export function DynamicPage({
   // to derive it independently, which is how `<html lang>` and `<title>` drifted
   // into different languages on the same document.
   const langConfig = resolvePageLanguage(page, languages, detectedLanguage, urlLanguage)
-  const metadata = extractPageMetadata(page, design, languages, {
+  const metadata = usePageMetadata(page, design, languages, {
     lang: langConfig.lang,
     frontmatter: markdownPayload?.frontmatter,
   })
-  const scripts = groupScriptsByPosition(page)
+  const scripts = groupScriptsByPosition(page, components)
   const pageWithMeta = mergeComponentMetaIntoPage(page, components)
+  // On a window-high shell, a footer badge closes its scrolling inset instead.
+  const placed = placeFooterBadge(page, badgePlacement)
 
   return (
     <html
@@ -476,7 +408,7 @@ export function DynamicPage({
         feedTitle={feedTitle}
       />
       <DynamicPageBody
-        page={page}
+        page={placed.page}
         components={components}
         design={design}
         languages={languages}
@@ -492,7 +424,7 @@ export function DynamicPage({
         resolvedSidebar={resolvedSidebar}
         markdownPayload={markdownPayload}
         session={session}
-        badgePlacement={badgePlacement}
+        badgePlacement={placed.badgePlacement}
         demoNoticeEnabled={demoNoticeEnabled}
       />
     </html>

@@ -27,7 +27,6 @@ const env = process.env as Record<string, string | undefined>
 
 export const getNodeEnv = (): string | undefined => env['NODE_ENV']
 export const isProduction = (): boolean => getNodeEnv() === 'production'
-export const isDevelopment = (): boolean => getNodeEnv() === 'development'
 
 /**
  * Whether outgoing email can leave this process: `SMTP_HOST` is set for the
@@ -57,32 +56,23 @@ export const isEmailConfigured = (): boolean => isOutgoingEmailConfigured(env)
 export const isDebugEnabled = (): boolean => isDebugLevel()
 
 /**
- * Whether in-memory render caches (compiled CSS, page HTML, dev JS bundles)
- * should be bypassed so edits appear immediately without a server restart.
+ * Whether the in-process render caches (compiled CSS, the page-output cache, the
+ * island and client bundles) are bypassed, so a source or config edit shows on
+ * the next request without a restart.
  *
- * True when `NODE_ENV=development`, or when an operator explicitly opts in with
- * `SOVRIUM_DEV_NO_CACHE=1` (e.g. running `sovrium start --watch` with NODE_ENV
- * unset). This is an operator-controlled dev concern — an env var, never app
- * schema. Production (and the default unset-NODE_ENV case) keep caching on; the
- * cache-key fix + clear-on-reload already keep `--watch` correct there.
- */
-export const isDevCacheDisabled = (): boolean =>
-  env['SOVRIUM_DEV_NO_CACHE'] === '1' || isDevelopment()
-
-/**
- * Whether the static page-output cache (`ECO_PAGE_CACHE`) should be bypassed for
- * a dev edit-loop. Unlike {@link isDevCacheDisabled} this honours ONLY the
- * explicit `SOVRIUM_DEV_NO_CACHE=1` watch-mode opt-in — it does NOT treat
- * `NODE_ENV=development` as a blanket disable.
+ * Honours ONLY the explicit `SOVRIUM_DEV_NO_CACHE=1` opt-in — an operator dev
+ * concern, an env var and never app schema. `NODE_ENV` is not a cache switch:
+ * `NODE_ENV=development` is also what test servers and the capture harnesses
+ * run under, and treating it as "no cache" rebuilt the island bundle on every
+ * island page request they made. Plain `sovrium start --watch` needs no bypass
+ * either: the CSS and page cache keys carry the config checksum, and a reload
+ * clears them.
  *
- * The page cache is governed by the `ECO_PAGE_CACHE` operator toggle (an
- * eco-aligned platform property), so a development NODE_ENV must not silently
- * override an explicit `ECO_PAGE_CACHE=on`. The `--watch` workflow still gets a
- * fresh render per request because it sets `SOVRIUM_DEV_NO_CACHE=1` (the
- * cache-key checksum + clear-on-reload already keep `--watch` correct
- * otherwise).
+ * The page-output cache reads this too, ANDed with its own `ECO_PAGE_CACHE`
+ * toggle, so a development `NODE_ENV` never overrides an explicit
+ * `ECO_PAGE_CACHE=on`.
  */
-export const isPageCacheDevBypassed = (): boolean => env['SOVRIUM_DEV_NO_CACHE'] === '1'
+export const isDevCacheDisabled = (): boolean => env['SOVRIUM_DEV_NO_CACHE'] === '1'
 
 /**
  * Whether the dev live-reload affordance (the `/__sovrium_dev/reload` SSE route

@@ -44,6 +44,8 @@ export interface PageState {
   loading: boolean
   /** Dialogs answered since the last step read them. */
   dialogs: readonly BrowserDialog[]
+  /** The addresses the page requested since the run last read them, top frame or not. */
+  requested: readonly string[]
   /** A top-frame navigation the guard refused, since the last step read it. */
   refused: AddressRefusal | undefined
   /** A top-frame response that was a file rather than a page, since the last step read it. */
@@ -86,6 +88,7 @@ export const newPageState = (
   topOrigin: undefined,
   loading: false,
   dialogs: [],
+  requested: [],
   refused: undefined,
   notDocument: undefined,
   closed: false,
@@ -211,6 +214,7 @@ const answerPaused = async (state: PageState, send: CdpSend, paused: Paused): Pr
     topOrigin: state.topOrigin,
   })
   if (decision.kind === 'continue') {
+    if (paused.status === undefined) state.requested = [...state.requested, paused.url]
     if (paused.status !== undefined) {
       await send('Fetch.continueRequest', { requestId: paused.requestId })
       return

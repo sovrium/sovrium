@@ -22,18 +22,21 @@ import { Effect } from 'effect'
 import { itemLoopOutcome } from './shared'
 import type { ActionOutcome } from './shared'
 import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
+import type { RefusedWrite } from '@/domain/models/app/agents/agent-action-failure-service'
 
 /** What happened to one item of a batch. */
 export type ItemResult =
   | { readonly kind: 'created' }
   | { readonly kind: 'updated' }
-  | { readonly kind: 'failed'; readonly error: string }
+  | { readonly kind: 'failed'; readonly error: string; readonly refusedWrite?: RefusedWrite }
 
 export interface BatchTally {
   readonly created: number
   readonly updated: number
   readonly failed: number
   readonly firstError: string | undefined
+  /** The refusal the database made of the first failed item, when it was a write it refused. */
+  readonly firstRefusedWrite?: RefusedWrite | undefined
   readonly stopped: boolean
 }
 
@@ -47,13 +50,26 @@ const emptyTally = (): BatchTally => ({
   stopped: false,
 })
 
-export const failed = (error: string): ItemResult => ({ kind: 'failed', error })
+/**
+ * A failed item. `refusedWrite` is set when the database refused the item's
+ * write, so the step reports it as the single-record operators report theirs.
+ */
+export const failed = (error: string, refusedWrite?: RefusedWrite): ItemResult =>
+  refusedWrite === undefined ? { kind: 'failed', error } : { kind: 'failed', error, refusedWrite }
+
+const firstFailureOf = (
+  tally: BatchTally,
+  result: ItemResult
+): Pick<BatchTally, 'firstError' | 'firstRefusedWrite'> =>
+  tally.firstError !== undefined || result.kind !== 'failed'
+    ? { firstError: tally.firstError, firstRefusedWrite: tally.firstRefusedWrite }
+    : { firstError: result.error, firstRefusedWrite: result.refusedWrite }
 
 const foldItemResult = (tally: BatchTally, result: ItemResult): BatchTally => ({
   created: tally.created + (result.kind === 'created' ? 1 : 0),
   updated: tally.updated + (result.kind === 'updated' ? 1 : 0),
   failed: tally.failed + (result.kind === 'failed' ? 1 : 0),
-  firstError: tally.firstError ?? (result.kind === 'failed' ? result.error : undefined),
+  ...firstFailureOf(tally, result),
   stopped: tally.stopped,
 })
 
@@ -95,11 +111,16 @@ export const batchOutcome = (input: {
   readonly output: Record<string, unknown>
   readonly continueOnItemError: boolean
   readonly fallbackError: string
-}): ActionOutcome =>
-  itemLoopOutcome({
+}): ActionOutcome => {
+  const outcome = itemLoopOutcome({
     failed: input.tally.failed,
     firstError: input.tally.firstError,
     output: input.output,
     continueOnItemError: input.continueOnItemError,
     fallbackError: input.fallbackError,
   })
+  const refusedWrite = input.tally.firstRefusedWrite
+  return outcome.status === 'failure' && refusedWrite !== undefined
+    ? { ...outcome, refusedWrite }
+    : outcome
+}

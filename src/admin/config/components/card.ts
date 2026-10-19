@@ -34,4 +34,4 @@ export const CARD_LIST_CLASS = `${CARD_SURFACE} divide-border divide-y`
 // to `h3` is a WCAG 1.3.1 structure failure however the heading looks.
 
 /** The body column every account surface centres its cards in. */
-export const ACCOUNT_COLUMN = 'flex max-w-3xl flex-col gap-6'
+export const ACCOUNT_COLUMN = 'flex flex-col gap-6'

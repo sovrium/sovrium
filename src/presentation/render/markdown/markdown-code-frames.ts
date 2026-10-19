@@ -49,6 +49,11 @@ import {
   computeCodeBlockHeaderClasses,
 } from '@/presentation/design/code-block-default-classes'
 import {
+  computeCodeBlockActionsClasses,
+  computeCodeBlockTitleClasses,
+} from '@/presentation/design/code-block-line-classes'
+import { shapeCodeBlockPre } from '@/presentation/render/elements/code-block-lines'
+import {
   CODE_COPY_STATUS_HTML,
   renderCodeCopyButtonHtml,
 } from '@/presentation/render/elements/code-copy-glyphs'
@@ -88,34 +93,105 @@ const markCommandPre = (preHtml: string): string =>
     '<pre data-slot="code-block-content" data-code-command="true" data-copy-target="true"'
   )
 
-/**
- * Build the frame for a single fence: a `<figure>` holding a header that names
- * the block and carries the copy control, then the highlighted `<pre>`.
- *
- * The header text is the author's explicit `title=` when they wrote one, and the
- * language-derived default otherwise — 1000+ docs fences carry no title, and a
- * header only a hand-authored subset gets would leave the docs looking
- * half-migrated.
- */
-const renderFenceFrame = (block: MarkdownCodeBlock, preHtml: string): string => {
+/** How a frame is drawn: the docs keep the defaults, an ai-chat answer asks for a small one. */
+export interface FenceFrameOptions {
+  readonly size: 'default' | 'sm'
+  readonly variant: 'default' | 'destructive'
+  /**
+   * What the header names: `docs-default` is the author's `title=`, else the
+   * file or terminal the language implies (`query.sql`, `>_ Terminal`);
+   * `language` is the language the fence names, verbatim, and no title at all
+   * for a fence naming none.
+   */
+  readonly title: 'docs-default' | 'language'
+  /** Whether the header carries the copy button and its status region. */
+  readonly copy: boolean
+}
+
+/** A docs fence's frame: default size and variant, the derived title, a copy button. */
+const DOCS_FENCE_FRAME: FenceFrameOptions = {
+  size: 'default',
+  variant: 'default',
+  title: 'docs-default',
+  copy: true,
+}
+
+/** The header a frame draws: its frame kind, and the text naming the block, if any. */
+interface FenceHeader {
+  readonly frame: 'file' | 'terminal'
+  readonly label: string | undefined
+  readonly text: string | undefined
+}
+
+/** Resolve a fence's header under the title mode asked for. */
+const resolveFenceHeader = (
+  block: Pick<MarkdownCodeBlock, 'lang' | 'title'>,
+  mode: FenceFrameOptions['title']
+): FenceHeader => {
+  if (mode === 'language') {
+    const label = block.lang.length === 0 ? undefined : block.lang
+    return { frame: 'file', label, text: label }
+  }
   const fallback = resolveDefaultCodeFrame(block.lang)
   const { title } = block
   const frame = title === undefined ? fallback.frame : 'file'
   const label = title ?? fallback.label
-  const headerText = frame === 'file' ? label : `>_ ${label}`
-  const headerMarker = frame === 'file' ? 'data-code-filename="true"' : 'data-code-terminal="true"'
+  return { frame, label, text: frame === 'file' ? label : `>_ ${label}` }
+}
+
+/** The header's title part, or nothing for a block with no title. */
+const renderFenceTitle = (header: FenceHeader): string => {
+  if (header.text === undefined) return ''
+  const marker = header.frame === 'file' ? 'data-code-filename="true"' : 'data-code-terminal="true"'
   return [
-    `<figure data-slot="code-block" data-code-frame="${frame}" data-code-copy-scope="true"`,
-    ` aria-label="${escapeText(label).replace(/"/g, '&quot;')}"`,
+    `<span data-slot="code-block-title" class="${computeCodeBlockTitleClasses()}">`,
+    `<span data-slot="code-block-filename" ${marker} class="${computeCodeBlockFilenameClasses()}">`,
+    `${escapeText(header.text)}</span></span>`,
+  ].join('')
+}
+
+/** The header's actions group with the copy control and its status region, when asked for. */
+const renderFenceActions = (copy: boolean): string =>
+  copy
+    ? [
+        `<span data-slot="code-block-actions" class="${computeCodeBlockActionsClasses()}">`,
+        renderCodeCopyButtonHtml(COPY_LABEL, COPIED_LABEL),
+        `</span>`,
+        CODE_COPY_STATUS_HTML,
+      ].join('')
+    : ''
+
+/**
+ * Build the frame for a single fence, on the same shadcn/ui Code Block anatomy
+ * the `code` component draws: a `<figure>` holding a header with the title and
+ * the actions group carrying the copy control, then the highlighted `<pre>`
+ * with one line part per source line. The fence's language is passed through,
+ * so a `diff` fence draws its `+` and `-` lines as added and removed.
+ *
+ * Under the docs defaults, the header text is the author's explicit `title=`
+ * when they wrote one, and the language-derived default otherwise — 1000+ docs
+ * fences carry no title, and a header only a hand-authored subset gets would
+ * leave the docs looking half-migrated.
+ */
+export const renderFenceFrame = (
+  block: Pick<MarkdownCodeBlock, 'lang' | 'title'>,
+  preHtml: string,
+  options: FenceFrameOptions = DOCS_FENCE_FRAME
+): string => {
+  const header = resolveFenceHeader(block, options.title)
+  const label =
+    header.label === undefined
+      ? ''
+      : ` aria-label="${escapeText(header.label).replace(/"/g, '&quot;')}"`
+  return [
+    `<figure data-slot="code-block" data-size="${options.size}" data-variant="${options.variant}"`,
+    ` data-code-frame="${header.frame}" data-code-copy-scope="true"${label}`,
     ` class="${computeCodeBlockClasses()}">`,
     `<figcaption data-slot="code-block-header" class="${computeCodeBlockHeaderClasses()}">`,
-    `<span data-slot="code-block-filename" ${headerMarker} class="${computeCodeBlockFilenameClasses()}">`,
-    `<span class="truncate">${escapeText(headerText)}</span>`,
-    renderCodeCopyButtonHtml(COPY_LABEL, COPIED_LABEL),
-    `</span>`,
-    CODE_COPY_STATUS_HTML,
+    renderFenceTitle(header),
+    renderFenceActions(options.copy),
     `</figcaption>`,
-    markCommandPre(preHtml),
+    markCommandPre(shapeCodeBlockPre(preHtml, { language: block.lang })),
     `</figure>`,
   ].join('')
 }
@@ -139,3 +215,28 @@ export const spliceMarkdownCodeFrames = (
     return renderFenceFrame(block, match)
   })
 }
+
+/** An ai-chat answer's frame: small, titled by the language, copyable once the fence closed. */
+const chatFenceFrame = (closed: boolean): FenceFrameOptions => ({
+  size: 'sm',
+  variant: 'default',
+  title: 'language',
+  copy: closed,
+})
+
+/**
+ * Wrap every block of code in an ai-chat answer in a small Code Block frame,
+ * titled by the language the fence names. A fence still being written while the
+ * answer streams is framed too, but without its copy button and status region:
+ * half a block is code that does not run, so it gains the button once it closes.
+ * A block whose ordinal has no entry is framed as a closed, untitled one, so the
+ * answer never draws a bare `<pre>`.
+ */
+export const spliceChatCodeFrames = (
+  html: string,
+  codeBlocks: readonly { readonly lang: string; readonly closed: boolean }[]
+): string =>
+  html.replace(FENCE_RE, (match, indexStr: string) => {
+    const block = codeBlocks[Number(indexStr)] ?? { lang: '', closed: true }
+    return renderFenceFrame({ lang: block.lang }, match, chatFenceFrame(block.closed))
+  })

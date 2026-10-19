@@ -17,19 +17,19 @@ import {
   renderOpenDatePickerPopup,
 } from '@/presentation/render/resolve/open-specimen-markup'
 import {
-  computeBadgeClasses,
   computeStatusBadgeDotClasses,
   computeStatusBadgeWrapperClasses,
-  type BadgeVariant,
   type StatusDotColor,
 } from '../../design/feedback-default-classes'
 import * as Renderers from '../elements'
 import { overlayButtonSchemaFallbacks } from '../elements/button-action-builders'
 import { alertComponent } from './alert-component'
+import { defaultBadge } from './badge-default-component'
 import { withSizeAndIcon } from './button-icon-parts'
 import { withNewTabName } from './button-new-tab-name'
 import { convertBadgeProps } from './component-registry-helpers'
 import { contrastBadgeComponent } from './design-components'
+import { fileUploadComponent } from './file-upload-component'
 import { inputComponents } from './input-component'
 import { inputGroupComponent } from './input-group-component'
 // prettier-ignore
@@ -38,8 +38,7 @@ import {
   mergePrestyle,
   variantFromButtonClassName,
 } from './interactive-prestyle-builders'
-import { localizeChildLabel, resolveInterpreterStringOverrides } from './island-child-label'
-import { pickCompField, resolveUploadActionUrl } from './island-overlay-props-builders'
+import { resolveInterpreterStringOverrides } from './island-child-label'
 import { linkComponent } from './link-component'
 import { searchShellComponents } from './search-shell-components'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
@@ -61,21 +60,6 @@ function resolveStatusDotColor(value: unknown): StatusDotColor {
   return typeof value === 'string' && STATUS_DOT_COLORS.has(value as StatusDotColor)
     ? (value as StatusDotColor)
     : 'gray'
-}
-
-const BADGE_VARIANTS = new Set<BadgeVariant>([
-  'default',
-  'secondary',
-  'destructive',
-  'outline',
-  'ghost',
-  'link',
-])
-
-/** The tone a badge's `badgeVariant` names; base-nova's `default` when unset or unknown. */
-function resolveBadgeVariant(componentRaw: Record<string, unknown>): BadgeVariant {
-  const rawVariant = componentRaw['badgeVariant']
-  return BADGE_VARIANTS.has(rawVariant as BadgeVariant) ? (rawVariant as BadgeVariant) : 'default'
 }
 
 const BUTTON_VARIANTS = new Set<ButtonVariant>([
@@ -169,8 +153,7 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
       const propsWithSchemaFallbacks = overlayButtonSchemaFallbacks(elementProps, c, lang)
       const loading = c['loading'] as boolean | undefined
       const disabled = propsWithSchemaFallbacks['disabled'] === true
-      // A button's visual state determines whether the prestyled
-      // hover-lift / motion classes apply. Disabled and loading reads as inactive.
+      // Whether the prestyled hover-lift / motion classes apply; disabled and loading are inactive.
       const buttonState: ButtonState = loading ? 'loading' : disabled ? 'disabled' : 'default'
       const mergedClassName = buildButtonClassName(
         c,
@@ -190,10 +173,7 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
         ),
         content: sized.iconOnly ? undefined : content,
         children: sized.children,
-        interactions,
-        action,
-        routeParams,
-        loading,
+        ...{ interactions, action, routeParams, loading, lang, component: c },
       })
     },
 
@@ -352,59 +332,7 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
       })
     },
 
-    'file-upload': ({ elementProps, component, rawProps, currentLang, languages }) => {
-      // `accept`, `maxFiles`, `dropZone`, `maxFileSize` and `disabled` are top-level schema
-      // fields (siblings of `props`), read like the form-control islands' (`pickFromComponent`
-      // in `island-form-components.tsx`); the `fileUpload.*` words serve both variants.
-      const uiStrings = resolveInterpreterStringOverrides(['fileUpload.'], currentLang, languages)
-      const c = (component ?? {}) as Record<string, unknown>
-      const accept = pickCompField<string>(c, rawProps, 'accept')
-      const maxFiles = pickCompField<number>(c, rawProps, 'maxFiles')
-      const dropZone = pickCompField<boolean>(c, rawProps, 'dropZone')
-      const maxFileSize = pickCompField<number>(c, rawProps, 'maxFileSize')
-      const disabled = rawProps?.['disabled'] as boolean | undefined
-      // `rawProps` is the props bag BEFORE transformation, so a `$t:` key in the
-      // trigger's label arrives unresolved — the seam `localizeChildLabel`
-      // already exists for on a tab's caption. An ABSENT label stays absent, so
-      // the island keeps choosing its own built-in text rather than an empty one.
-      const authoredLabel = rawProps?.['label'] as string | undefined
-      const label =
-        authoredLabel === undefined
-          ? undefined
-          : localizeChildLabel(authoredLabel, currentLang, languages)
-      // Submission wiring (siblings of `props`): the upload destination + the onSuccess
-      // effects / onError toast, run by the island on the response to its POST.
-      const uploadActionUrl = resolveUploadActionUrl(pickCompField(c, rawProps, 'uploadAction'))
-      const onSuccess = pickCompField(c, rawProps, 'onSuccess')
-      const onError = pickCompField(c, rawProps, 'onError')
-      const shared = { accept, maxFiles, dropZone, disabled, label }
-
-      // Hydrate (emit the island marker) when `dropZone` is true (real-time size /
-      // count validation) OR when an `uploadAction` is set (the button variant
-      // must hydrate to POST the picked file + run its onSuccess/onError effects).
-      // The SSR placeholder is the same plain skeleton; the island re-renders on
-      // mount.
-      if (dropZone === true || uploadActionUrl !== undefined) {
-        const islandProps = {
-          accept,
-          maxFiles,
-          maxFileSize,
-          dropZone,
-          disabled,
-          label,
-          uiStrings,
-          uploadAction: uploadActionUrl,
-          onSuccess,
-          onError,
-          id: elementProps.id as string | undefined,
-          className: elementProps.className as string | undefined,
-          'data-testid': elementProps['data-testid'] as string | undefined,
-        }
-        return Renderers.renderFileUploadIsland({ props: elementProps, islandProps, ...shared })
-      }
-
-      return Renderers.renderFileUpload({ props: elementProps, ...shared, uiStrings })
-    },
+    'file-upload': fileUploadComponent,
 
     icon: ({ elementProps, renderedChildren, component }) => {
       const className = buildIconClassName(
@@ -416,7 +344,7 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
     },
 
     badge: (context) => {
-      const { elementProps, content, renderedChildren, interactions, component } = context
+      const { elementProps, component } = context
       const c = (component ?? {}) as Record<string, unknown>
       const authorClassName = elementProps['className'] as string | undefined
 
@@ -463,27 +391,7 @@ export const interactiveComponents: Partial<Record<DispatchableComponentType, Co
         })
       }
 
-      // Default mode: shadcn/ui's badge, its tone named by `badgeVariant` and
-      // stamped as `data-variant`; the author's className beats the recipe.
-      const badgeVariant = resolveBadgeVariant(c)
-      const badgeProps = convertBadgeProps({
-        ...elementProps,
-        className: mergePrestyle(computeBadgeClasses({ variant: badgeVariant }), authorClassName),
-        'data-slot': 'badge',
-        'data-variant': badgeVariant,
-      })
-
-      // With an `href` the badge IS the link (shadcn's `render={<a />}`).
-      if (typeof c['href'] === 'string') {
-        return Renderers.renderLink({ ...badgeProps, href: c['href'] }, content, renderedChildren)
-      }
-      return Renderers.renderHTMLElement({
-        type: 'span',
-        props: badgeProps,
-        content: content,
-        children: renderedChildren,
-        interactions: interactions,
-      })
+      return defaultBadge(context, c, authorClassName)
     },
 
     customHTML: ({ elementProps, content, component }) => {

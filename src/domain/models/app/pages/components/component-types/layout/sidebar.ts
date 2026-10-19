@@ -7,17 +7,13 @@
 
 import { Schema } from 'effect'
 import { ComponentPropsSchema } from '../../props'
-import { SystemSourceSchema } from '../../system-source'
 import { CallerCapabilitySchema } from '../../visibility'
 import { coreFields } from '../modules/core'
 import { responsiveFields } from '../modules/responsive'
 import { visibilityFields } from '../modules/visibility'
 import { SidebarBadgeSourceSchema } from './sidebar-badge-source'
-import {
-  SidebarActionSchema,
-  SidebarSourceLoadingSchema,
-  sidebarShellFields,
-} from './sidebar-shell'
+import { SidebarActionSchema, sidebarShellFields } from './sidebar-shell'
+import { SidebarGroupSourceSchema, SidebarItemSourceSchema } from './sidebar-source'
 
 export const SidebarTypeLiteral = Schema.Literal('sidebar')
 
@@ -320,137 +316,6 @@ export const SidebarSubItemSchema = Schema.Struct({
 
 /** @public */
 export type SidebarSubItem = Schema.Schema.Type<typeof SidebarSubItemSchema>
-
-/**
- * A group's FETCHED source: the shared rows-envelope system source plus the two
- * projections that turn an arbitrary row into a navigation entry.
- *
- * Reusing `SystemSourceSchema` rather than inventing a second endpoint shape is
- * what makes a data-driven sidebar speak the binding a `table` already
- * speaks — including `param` (a group listing whichever collection the route
- * names) and `query` (a statically filtered group).
- *
- * @example
- * ```yaml
- * source:
- *   endpoint: /api/admin/tables
- *   rowsKey: items
- *   labelKey: name
- *   hrefTemplate: /tables/{name}
- *   itemProps:
- *     data-testid: data-nav-tables-{name}
- * ```
- */
-export const SidebarGroupSourceSchema = Schema.Struct({
-  ...SystemSourceSchema.fields,
-  /** Row key whose value becomes the entry label */
-  labelKey: Schema.String.pipe(
-    Schema.annotate({
-      description: "Row key whose value becomes each entry's label",
-      examples: ['name', 'title'],
-    }),
-    Schema.check(Schema.isMinLength(1))
-  ),
-  /** Entry href with `{field}` placeholders filled from the row */
-  hrefTemplate: Schema.String.pipe(
-    Schema.annotate({
-      description: 'Entry href with {field} placeholders filled from the row',
-      examples: ['/tables/{name}', '/_admin/data/forms/{slug}'],
-    }),
-    Schema.check(
-      Schema.isMinLength(1),
-      Schema.isPattern(/\{[^{}]+\}/, {
-        message:
-          'hrefTemplate must carry at least one {field} placeholder — without one every fetched entry would link to the same path',
-      })
-    )
-  ),
-  /**
-   * Attributes rendered on EACH fetched entry, with `{field}` placeholders
-   * filled from the row exactly as `hrefTemplate`'s are.
-   *
-   * The placeholder grammar is `hrefTemplate`'s on purpose. A fetched row is
-   * already addressed with `{name}` two fields above; giving the same row a
-   * second spelling here would make the sidebar the one place in the config
-   * where one value is written two ways.
-   *
-   * Without this a fetched entry is addressable only by the label the endpoint
-   * happened to return — so the row listing a table cannot be pointed at until
-   * someone already knows which tables exist.
-   */
-  itemProps: Schema.optional(
-    ComponentPropsSchema.annotate({
-      description:
-        'Attributes rendered on each fetched entry; values may carry {field} placeholders filled from the row',
-    })
-  ),
-}).annotate({
-  identifier: 'SidebarGroupSource',
-  title: 'Sidebar Group Source',
-  description:
-    'Rows-envelope system source for a sidebar group, projected to entries via labelKey + hrefTemplate',
-})
-
-/** @public */
-export type SidebarGroupSource = Schema.Schema.Type<typeof SidebarGroupSourceSchema>
-
-/**
- * An ENTRY's fetched source: a group source plus the copy for the three states a
- * lazily-loaded child list passes through.
- *
- * A group's fetched entries render nothing until they arrive, which is right for
- * a list the reader never asked for. A disclosure is the opposite: the reader
- * has just clicked it open, so silence reads as a broken control. The three
- * labels are therefore part of THIS shape and not of the group's.
- *
- * They default to the operator console's own wording, so converting that console
- * to config needs no per-entry copy, and each accepts a `$t:` key so an app
- * shipping in another language is not stuck with it.
- */
-export const SidebarItemSourceSchema = Schema.Struct({
-  ...SidebarGroupSourceSchema.fields,
-  /** Line shown while the children are being fetched (default: `Loading…`) */
-  loadingLabel: Schema.optional(
-    Schema.String.pipe(
-      Schema.annotate({
-        description: 'Line shown while the children load; accepts a $t: key (default: "Loading…")',
-        examples: ['Loading…', '$t:nav.loading'],
-      }),
-      Schema.check(Schema.isMinLength(1))
-    )
-  ),
-  /** Line shown when the fetch failed (default: `Couldn't load the list.`) */
-  errorLabel: Schema.optional(
-    Schema.String.pipe(
-      Schema.annotate({
-        description:
-          'Line shown when the children could not be loaded; accepts a $t: key (default: "Couldn\'t load the list.")',
-        examples: ["Couldn't load the list.", '$t:nav.error'],
-      }),
-      Schema.check(Schema.isMinLength(1))
-    )
-  ),
-  loading: Schema.optional(SidebarSourceLoadingSchema),
-  /** Line shown when the endpoint returned no rows (default: `No items.`) */
-  emptyLabel: Schema.optional(
-    Schema.String.pipe(
-      Schema.annotate({
-        description:
-          'Line shown when the endpoint returned no rows; accepts a $t: key (default: "No items.")',
-        examples: ['No items.', '$t:nav.empty'],
-      }),
-      Schema.check(Schema.isMinLength(1))
-    )
-  ),
-}).annotate({
-  identifier: 'SidebarItemSource',
-  title: 'Sidebar Item Source',
-  description:
-    "Rows source for an entry's disclosure, with the copy for its loading, error and empty states",
-})
-
-/** @public */
-export type SidebarItemSource = Schema.Schema.Type<typeof SidebarItemSourceSchema>
 
 /**
  * One navigation entry inside a sidebar group — a link, optionally a DISCLOSURE.

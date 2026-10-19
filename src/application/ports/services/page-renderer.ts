@@ -10,7 +10,12 @@ import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
+import type { CallerFieldReader } from '@/domain/models/app/tables/field-read-filter-service'
 import type { CurrentUserContext } from '@/domain/models/app/tables/row-level-evaluator-service'
+import type {
+  RowGrants,
+  RowReadAdmission,
+} from '@/domain/models/app/tables/row-read-admission-service'
 import type { RowRuleReader } from '@/domain/models/app/tables/visitor-row-rule-service'
 
 /**
@@ -51,6 +56,12 @@ export type CallerTableView = {
    * may read — or `undefined` where that route refuses her.
    */
   readonly boundView?: { readonly fields?: readonly string[] } | undefined
+  /**
+   * `true` when the table's records list admits her no row — a table she may
+   * read no field of — so the table API answers her as a table that does not
+   * exist: no views, no permission map, and no grid drawn over it.
+   */
+  readonly refused?: true
 }
 
 /**
@@ -93,6 +104,17 @@ export type LoadRowRuleContext = (
 ) => Promise<CurrentUserContext>
 
 /**
+ * The rows of `tableName` the records list admits the caller holding `session`
+ * (none: a visitor), and the grants that admit them — the list's own answer
+ * (`readerRowsOf`), so a server-drawn list draws and counts exactly those rows.
+ */
+export type ReadReaderRows = (
+  app: App,
+  tableName: string,
+  session: SessionInfo | undefined
+) => Promise<{ readonly admission: RowReadAdmission; readonly grants: RowGrants }>
+
+/**
  * Sign a download address for one stored file, for the caller of this request.
  *
  * `scope: 'record'` — the file is an attachment of a record the page has
@@ -103,7 +125,8 @@ export type LoadRowRuleContext = (
 export type SignFileUrl = (
   bucket: string,
   key: string,
-  scope: 'record' | 'bucket'
+  scope: 'record' | 'bucket',
+  display?: 'inline'
 ) => Promise<string | undefined>
 
 /**
@@ -265,6 +288,14 @@ export class PageRenderer extends Context.Service<
          */
         readonly callerCapabilities?: readonly CallerCapability[]
         /**
+         * The mounted console caller's role and groups, for the one question a
+         * session-less render cannot otherwise answer: which of a table's
+         * fields her record sheet may show and edit. Narrow on purpose, as
+         * `callerCapabilities` is: it reaches the record sheet's field access
+         * and nothing else.
+         */
+        readonly callerFieldReader?: CallerFieldReader | undefined
+        /**
          * The table API's own answer to "what may this caller see of this
          * table?", for the payload a data-table grid hands its reader (its
          * views, its permission map, its field list). Absent, a grid keeps
@@ -275,8 +306,18 @@ export class PageRenderer extends Context.Service<
         readonly readRecordLabels?: ReadRecordLabels
         /** The records API's row-rule context, for the rows a page judges in memory. */
         readonly loadRowRuleContext?: LoadRowRuleContext
+        /** The rows the records list admits this caller, for every list a page draws. */
+        readonly readReaderRows?: ReadReaderRows
         /** The download-address signer a `file-preview` draws its file through. */
         readonly signFileUrl?: SignFileUrl
+        /**
+         * Render a design-system SPECIMEN: every reader answers a sample
+         * synthesised from config (no record, invitation, sign-in or history of
+         * the instance is read), every caller-scoped reader above is dropped,
+         * and no island is mounted, so the document is a picture of the
+         * template in its main state rather than a live page.
+         */
+        readonly specimen?: boolean
       }
     ) => PageRenderResult | Promise<PageRenderResult>
 

@@ -30,12 +30,14 @@ import {
   type AdminReadDecode,
   type AdminReadOperation,
 } from '@/application/use-cases/admin/admin-read-operation'
+import { countBootLedger, ledgerStartsLabel } from '@/application/use-cases/admin/boot-ledger'
 import {
   buildConfigDeclarations,
   buildConfigReflection,
 } from '@/application/use-cases/admin/config/config-reflection'
 import { buildInstanceFacts } from '@/application/use-cases/admin/config/instance-facts'
 import { buildMcpToolsResponse } from '@/application/use-cases/admin/config/mcp-tool-listing'
+import { resolveOperatorLanguage } from '@/application/use-cases/admin/operator-language'
 import {
   configDeclarationFamilySchema,
   configDeclarationsQuerySchema,
@@ -53,6 +55,8 @@ import {
   mcpToolsResponseSchema,
   type McpToolCategory,
 } from '@/domain/models/api/admin/mcp'
+import { tableLabelsFor } from '@/domain/models/app/auth/readable-name-service'
+import { readerLanguageTranslator } from '@/domain/models/app/languages/translation-resolver'
 import { parseMcpEnvConfig, resolveMcpEnv } from '@/domain/models/process-env/mcp'
 
 const NO_ARGUMENTS = { type: 'object', properties: {} } as const
@@ -107,12 +111,23 @@ const instanceRead = defineAdminRead<number | undefined>({
   },
   subject: 'instance facts response',
   decode: (raw) => ({ _tag: 'Ok', input: parseLimit(raw['limit']) }),
-  read: (app, limit) =>
+  // Each table is named as the tables overview names it: its plural label read
+  // in the operator's console language, else its name made readable.
+  read: (app, limit, request) =>
     Effect.gen(function* () {
       const host = yield* AdminReadHost
+      const translate = readerLanguageTranslator(
+        app.languages,
+        yield* resolveOperatorLanguage(request)
+      )
       return answerWithSchema(
         instanceFactsResponseSchema,
-        buildInstanceFacts(app, host.origin, limit)
+        buildInstanceFacts(
+          app,
+          host.origin,
+          limit,
+          (table) => tableLabelsFor(table, translate).labelPlural
+        )
       )
     }),
 })
@@ -214,10 +229,16 @@ const configReflection = defineAdminRead<undefined>({
   http: { conditional: { ignoreKeys: ['generatedAt'] } },
   subject: 'config reflection response',
   decode: noInput,
-  read: (app) =>
-    Effect.sync(() =>
-      answerWithSchema(configReflectionResponseSchema, buildConfigReflection(app, processEnv()))
-    ),
+  // `startsLabel` counts the boot ledger in the operator's console language.
+  read: (app, _input, request) =>
+    Effect.gen(function* () {
+      const language = yield* resolveOperatorLanguage(request)
+      const starts = yield* countBootLedger(app.name)
+      return answerWithSchema(configReflectionResponseSchema, {
+        ...buildConfigReflection(app, processEnv()),
+        startsLabel: ledgerStartsLabel(starts, language),
+      })
+    }),
 })
 
 const CONFIG_FAMILIES = [...configDeclarationFamilySchema.literals]

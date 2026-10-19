@@ -7,7 +7,6 @@
 
 import {
   asComponent,
-  body,
   eyebrow,
   h1,
   lead,
@@ -22,6 +21,18 @@ import {
   when,
 } from '@/library/manifest/block-kit'
 import { defineLibraryEntry } from '@/library/manifest/define'
+import type { BlockNode } from '@/library/manifest/block-kit'
+
+/**
+ * A body paragraph of the article. No size or leading of its own: the article
+ * is a Typeset container, and its paragraphs read at Typeset's scale.
+ */
+const paragraph = (content: string): BlockNode => ({
+  type: 'text',
+  element: 'p',
+  props: { className: 'text-pretty text-muted-foreground' },
+  content,
+})
 
 /** A single readable column of long-form prose. */
 export const entry = defineLibraryEntry({
@@ -63,14 +74,17 @@ export const entry = defineLibraryEntry({
         {
           type: 'container',
           element: 'article',
-          props: { className: 'mx-auto flex w-full max-w-2xl flex-col gap-6' },
+          // One Typeset container: the body, the section heading and the figure
+          // take its scale and rhythm; the eyebrow, title, standfirst and pull
+          // quote keep their display classes (a utility wins over Typeset),
+          // though the space above the quote is Typeset's.
+          props: { className: 'typeset mx-auto w-full max-w-2xl' },
           children: [
             ...when(p('eyebrow'), eyebrow(p('eyebrow'))),
             h1(p('headline'), 'lg:text-5xl'),
             lead(p('standfirst')),
-            body(
-              '[Body paragraph. A comfortable measure sits between 60 and 75 characters per line, which this column keeps at every width.]',
-              'text-lg'
+            paragraph(
+              '[Body paragraph. A comfortable measure sits between 60 and 75 characters per line, which this column keeps at every width.]'
             ),
             stack(
               [
@@ -87,10 +101,10 @@ export const entry = defineLibraryEntry({
             {
               type: 'text',
               element: 'h2',
-              props: { className: 'mt-4 text-2xl font-semibold tracking-tight text-foreground' },
+              props: { className: 'font-semibold tracking-tight text-foreground' },
               content: '[Section heading]',
             },
-            body('[Paragraph.]', 'text-lg'),
+            paragraph('[Paragraph.]'),
             {
               type: 'text',
               element: 'blockquote',

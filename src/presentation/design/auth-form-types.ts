@@ -45,6 +45,12 @@ export interface AuthFormField {
   readonly labelKey?: string
   /** The rule under a new-password field, already in the page language. */
   readonly rule?: string
+  /**
+   * A sign-in password field's way back in: the link drawn at the end of its
+   * label row, to the app's password-reset request page, worded in the page
+   * language.
+   */
+  readonly recovery?: { readonly href: string; readonly text: string }
 }
 
 /** What an auth form's browser hints depend on. */
@@ -144,14 +150,19 @@ export const isAccountLinkMethod = (method: string | undefined): boolean =>
   method === 'linkAccount' || method === 'unlinkAccount'
 
 /**
- * The engine strings (`twoFactor.*` catalogue keys, by prefix) each auth form
- * speaks in the page language: the enrolment and recovery-codes screens, and
- * the banner a password sign-in shows while a two-step code is owed.
+ * The engine strings (catalogue keys, by prefix) each auth form speaks in the
+ * page language: the enrolment and recovery-codes screens, the banner a
+ * password sign-in shows while a two-step code is owed, the « check your
+ * email » a mailed link answers with, the second step's « trust this device »
+ * and a new API key's reveal.
  */
 const ENGINE_STRING_PREFIXES: Readonly<Record<string, readonly string[]>> = {
-  login: ['twoFactor.pendingSignIn'],
+  login: ['twoFactor.pendingSignIn', 'auth.magicLinkSent'],
+  resetPassword: ['auth.resetSent'],
+  verifyTwoFactor: ['auth.trustDevice'],
   enableTwoFactor: ['twoFactor.'],
   regenerateBackupCodes: ['twoFactor.'],
+  createApiKey: ['apiKeys.copyOnce', 'apiKeys.copiedConfirm', 'apiKeys.done'],
 }
 
 /**
@@ -234,9 +245,8 @@ export function authPendingLabel(method: string | undefined): string {
  */
 export function authSubmitLabelKey(method: string | undefined): string | undefined {
   const key = method ?? 'login'
-  return key !== 'verifyTwoFactor' && SUBMIT_LABELS[key] !== undefined
-    ? `auth.submit.${key}`
-    : undefined
+  if (key === 'verifyTwoFactor') return 'twoFactor.verify'
+  return SUBMIT_LABELS[key] === undefined ? undefined : `auth.submit.${key}`
 }
 
 /** The catalogue key of each method's built-in in-flight word, where it is not `form.saving`. */
@@ -275,6 +285,7 @@ const PASSWORD_FIELD: AuthFormField = {
 const codeField = (factor: string | undefined): AuthFormField => ({
   name: 'code',
   label: factor === 'backupCode' ? 'Recovery code' : 'Verification code',
+  labelKey: factor === 'backupCode' ? 'auth.recoveryCode' : 'twoFactor.code',
   required: true,
   inputType: 'text',
 })
@@ -294,7 +305,9 @@ function accountMethodFields(
 ): readonly AuthFormField[] | undefined {
   if (method === 'verifyTwoFactor') return [codeField(factor)]
   if (method === 'createApiKey')
-    return [{ name: 'name', label: 'Name', required: true, inputType: 'text' }]
+    return [
+      { name: 'name', label: 'Name', labelKey: 'auth.keyName', required: true, inputType: 'text' },
+    ]
   if (PASSWORD_ONLY_METHODS.has(method)) return [PASSWORD_FIELD]
   return isAccountFormMethod(method) ? [] : undefined
 }

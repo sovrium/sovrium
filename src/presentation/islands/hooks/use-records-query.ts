@@ -21,6 +21,7 @@ import {
   fetchTableRecords,
 } from '../runtime/records-api'
 import { fetchSystemEndpoint } from './use-system-source-fetch'
+import { fetchWholeEnvelope, readsWholeEnvelope } from './whole-envelope-policy'
 import type { LazySharedRequest } from './use-lazy-shared-filter'
 import type { LiveRefreshSource } from './use-realtime-subscription'
 import type { SharedFilterBindingConfig } from './use-shared-filter'
@@ -208,6 +209,9 @@ const buildPageQueryKey = (prefix: string, request: PageRequest): readonly unkno
 /** Fetch page `pageIndex` from whichever binding the request names. */
 const fetchRecordsPage = (request: PageRequest, pageIndex: number): Promise<FetchResult> => {
   const { system, table, view, sortParam, filterParam, extraParams, pageSize } = request
+  if (system && readsWholeEnvelope({ ...request, system }, pageIndex)) {
+    return fetchWholeEnvelope(system)
+  }
   // System source: fetch the read endpoint and normalize its rows envelope.
   if (system) return fetchSystemEndpoint({ system, pagination: { pageIndex, pageSize }, sortParam })
   if (!table) return Promise.resolve({ records: [], total: 0 })

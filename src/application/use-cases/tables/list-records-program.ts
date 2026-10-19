@@ -32,6 +32,7 @@ import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import { buildAiComputeProjections } from '@/application/use-cases/ai-compute/status-projection'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
+import { caseFoldedSortFieldsOf } from '@/domain/models/app/tables/text-sort-service'
 import {
   answerOrderedAggregations,
   reshapeShortcutAggregations,
@@ -52,6 +53,7 @@ import {
   enrichRecordsWithRelatedLabels,
 } from './record-link-enrichment'
 import { type TransformedRecord } from './record-transformer'
+import { filterToReaderRows, readerRowsOf } from './row-read-admission'
 import type { RequestedLabel } from './relationship-display-fields'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
@@ -61,9 +63,10 @@ import type {
   LookupReadMask,
   QueryFilter,
 } from '@/application/ports/repositories/tables/table-repository'
-import type { DatabaseError } from '@/domain/errors'
+import type { DatabaseError, NotFoundError } from '@/domain/errors'
 import type { ListRecordsResponse } from '@/domain/models/api/tables/tables'
 import type { App } from '@/domain/models/app'
+import type { RowGrants } from '@/domain/models/app/tables/row-read-admission-service'
 
 interface ListRecordsConfig {
   readonly session: Readonly<UserSession>
@@ -104,6 +107,8 @@ interface ListRecordsConfig {
    * (B-01). Empty string falls back to root-relative URLs.
    */
   readonly origin?: string
+  /** The rows a scope grant names, each read under the roles it gives as well. */
+  readonly grants?: RowGrants
 }
 
 /**
@@ -173,6 +178,7 @@ const listGroups = (
     order: {
       kind: 'first-seen',
       sort: config.sort,
+      caseFoldedSortFields: caseFoldedSortFieldsOf(config.app, config.tableName),
       ...(config.sortByOptionOrder === true && { app: config.app }),
       ...(primaryKey ? { primaryKey } : {}),
     },
@@ -211,17 +217,11 @@ const labelAudience = (config: ListRecordsConfig) => ({
 /**
  * Build the response page of records: `processRecords` → attachment-url enrich
  * (B-01) → paginate → many-to-many enrich → relationship labels.
- * Extracted so `createListRecordsProgram` stays under the per-function line
- * budget.
  *
- * `page.total` is passed in rather than read off `records.length` because the
- * two stop agreeing under SQL pushdown: `records` is then ONE window and the
- * count comes from a separate `COUNT(*)` over the same filter.
- *
- * `page.preSliced` says the engine already cut the window. Slicing it again
- * with the same offset is the defect this flag exists to prevent — page 1
- * (offset 0) would stay perfect while every later page silently returned
- * nothing.
+ * `page.total` is passed in: under SQL pushdown `records` is ONE window and the
+ * count a separate `COUNT(*)` over the same filter. `page.preSliced` says the
+ * engine already cut the window — slicing it again with the same offset would
+ * leave page 1 perfect and every later page empty.
  */
 const buildRecordPage = (
   config: ListRecordsConfig,
@@ -238,9 +238,9 @@ const buildRecordPage = (
       format: config.format,
       timezone: config.timezone,
       fields: config.fields,
+      ...(config.grants === undefined ? {} : { grants: config.grants }),
     })
-    // B-01: decorate `'attachment'` JSONB field values with signedUrl /
-    // signedUrlExpiresAt (private buckets) or a direct `url` (public buckets).
+    // B-01: signed or direct URLs on `'attachment'` JSONB field values.
     const enriched = enrichRecordsWithAttachmentUrls(processed, {
       app: config.app,
       tableName: config.tableName,
@@ -289,9 +289,8 @@ const buildRecordPage = (
  * row sets — which is why this reuses it instead of adding a second count query
  * with its own copy of the WHERE builder.
  *
- * A count that fails to parse falls back to the page length rather than to 0:
- * under-reporting a total is a wrong answer, but reporting zero rows on a
- * response that visibly carries some is a self-contradicting one.
+ * A count that fails to parse falls back to the page length, never to 0: a
+ * total of zero beside visible rows would contradict itself.
  */
 const countMatchingRecords = (
   repo: TableRepository['Service'],
@@ -349,6 +348,7 @@ const readListRows = (config: ListRecordsConfig, repo: TableRepository['Service'
       includeDeleted,
       lookupMasks,
       sort: config.sort,
+      caseFoldedSortFields: caseFoldedSortFieldsOf(config.app, tableName),
       ...(config.sortByOptionOrder === true && { app: config.app }),
       limit: config.limit ?? DEFAULT_PAGE_SIZE,
       offset: config.offset,
@@ -359,9 +359,7 @@ const readListRows = (config: ListRecordsConfig, repo: TableRepository['Service'
         fields: withLookupKeyColumns(config.app, tableName, config.fields),
         groupBy,
       }),
-      // The default sort key for a request that supplied no `sort`. A table
-      // keyed on a composite of its own columns has no `id` column, so the
-      // repository cannot assume one — see the port's doc on this field.
+      // The default sort key for an unsorted request: a composite key may have no `id` column.
       ...(primaryKey ? { primaryKey } : {}),
     })
     const total = yield* countMatchingRecords(
@@ -376,18 +374,20 @@ export function createListRecordsProgram(
   input: ListRecordsConfig
 ): Effect.Effect<
   ListRecordsResponse,
-  DatabaseError,
+  DatabaseError | NotFoundError,
   TableRepository | AuthRepository | DataSourceRepository | AiComputeStatusRepository
 > {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
     const { reader } = linkReadOptions(input)
-    const config = { ...input, filter: yield* withRuledRelatedText(input, reader) }
+    // Only the rows the reader may read: refused whole when she may read none.
+    const { admission, grants } = yield* readerRowsOf(input.app, input.tableName, reader)
+    const ruled = yield* withRuledRelatedText(input, reader)
+    const config = { ...input, grants, filter: yield* filterToReaderRows(ruled, admission) }
     const { session, tableName, filter, includeDeleted, aggregate, groupBy } = config
 
     const { total, preSliced, lookupMasks, ...read } = yield* readListRows(config, repo)
-    // On the RAW rows, before field permissions and `?fields=` can drop a
-    // lookup's key — and before the groups below are keyed on its value.
+    // On the RAW rows: before permissions or `?fields=` drop a lookup's key, and groups key on it.
     const records = yield* omitHiddenColumnLookups(config.app, tableName, read.records, reader)
     const { records: pageRecords, pagination } = yield* buildRecordPage(config, records, {
       total,

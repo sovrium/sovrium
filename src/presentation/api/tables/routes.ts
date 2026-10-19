@@ -13,6 +13,7 @@ import {
   rejectNonKeyRecordId,
 } from '@/presentation/api/middleware/table'
 import { chainBatchRoutesMethods } from './batch-routes'
+import { chainCalendarFeedReadRoute, chainCalendarFeedTokenRoutes } from './calendar-feed-routes'
 import { chainRecordRoutesMethods } from './record-routes'
 import { handleListSpecimenTableRecords } from './specimen-handlers'
 import { gateUnreadableTable } from './table-read-gate'
@@ -62,6 +63,35 @@ function provideGuestContext() {
 }
 
 /**
+ * Z-2: Register the multi-tenant `user_access` junction routes BEFORE
+ * applying `validateTable` middleware. user_access is an engine-managed
+ * junction (DDL created at startup when `auth.scopeTables` is set), not a
+ * user-defined table in `app.tables[]`, so the table-name lookup in
+ * `validateTable` would otherwise return 404 for these endpoints.
+ *
+ * Middleware applied via `.use()` only affects routes registered AFTER the
+ * `.use()` call. Registering user_access routes first means they bypass
+ * validateTable / enrichUserRole / guest context — which is correct: this
+ * junction has its own per-row validation (auth.scopeTables / auth.roles).
+ * Auth middleware applied higher up in `api-routes.ts` still runs.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Hono type inference with middleware requires flexible typing
+function chainUserAccessRoutes<T extends Hono<any, any, any>>(honoApp: T, resolveApp: () => App) {
+  return honoApp
+    .post('/api/tables/user_access/records', (c) => handleCreateUserAccessRecord(c, resolveApp()))
+    .get('/api/tables/user_access/records', (c) => handleListUserAccessRecords(c, resolveApp()))
+    .get('/api/tables/user_access/records/:grantId', (c) =>
+      handleGetUserAccessRecord(c, resolveApp())
+    )
+    .patch('/api/tables/user_access/records/:grantId', (c) =>
+      handleUpdateUserAccessRecord(c, resolveApp())
+    )
+    .delete('/api/tables/user_access/records/:grantId', (c) =>
+      handleDeleteUserAccessRecord(c, resolveApp())
+    )
+}
+
+/**
  * Chain table routes onto a Hono app
  *
  * **Middleware Chain** (applied before all :tableId routes):
@@ -104,29 +134,9 @@ export function chainTableRoutes<T extends Hono<any, any, any>>(
   // boot `app`, so existing behavior is unchanged.
   resolveApp: () => App = () => app
 ) {
-  // Z-2: Register the multi-tenant `user_access` junction routes BEFORE
-  // applying `validateTable` middleware. user_access is an engine-managed
-  // junction (DDL created at startup when `auth.scopeTables` is set), not a
-  // user-defined table in `app.tables[]`, so the table-name lookup in
-  // `validateTable` would otherwise return 404 for these endpoints.
-  //
-  // Middleware applied via `.use()` only affects routes registered AFTER the
-  // `.use()` call. Registering user_access routes first means they bypass
-  // validateTable / enrichUserRole / guest context — which is correct: this
-  // junction has its own per-row validation (auth.scopeTables / auth.roles).
-  // Auth middleware applied higher up in `api-routes.ts` still runs.
-  const honoWithUserAccess = honoApp
-    .post('/api/tables/user_access/records', (c) => handleCreateUserAccessRecord(c, resolveApp()))
-    .get('/api/tables/user_access/records', (c) => handleListUserAccessRecords(c, resolveApp()))
-    .get('/api/tables/user_access/records/:grantId', (c) =>
-      handleGetUserAccessRecord(c, resolveApp())
-    )
-    .patch('/api/tables/user_access/records/:grantId', (c) =>
-      handleUpdateUserAccessRecord(c, resolveApp())
-    )
-    .delete('/api/tables/user_access/records/:grantId', (c) =>
-      handleDeleteUserAccessRecord(c, resolveApp())
-    )
+  // Z-2: the `user_access` junction routes go BEFORE `validateTable` (see
+  // `chainUserAccessRoutes`).
+  const honoWithUserAccess = chainUserAccessRoutes(honoApp, resolveApp)
 
   // The design-system catalogue's fixture, under a RESERVED table name, and
   // registered here for exactly the reason above: it is a platform constant
@@ -138,9 +148,14 @@ export function chainTableRoutes<T extends Hono<any, any, any>>(
   // nothing an operator can edit into the catalogue every instance documents.
   // See `specimen-handlers.ts` for why the sibling `?rows=` endpoint is not
   // made redundant by this binding.
-  const honoWithSpecimenTable = honoWithUserAccess.get(
-    `/api/tables/${SPECIMEN_TABLE_NAME}/records`,
-    (c) => handleListSpecimenTableRecords(c)
+  const honoWithSpecimenTable = chainCalendarFeedReadRoute(
+    honoWithUserAccess.get(`/api/tables/${SPECIMEN_TABLE_NAME}/records`, (c) =>
+      handleListSpecimenTableRecords(c)
+    ),
+    // A calendar app polls its feed address with no cookie: the token in the
+    // path is its credential, checked by the route, so it is registered ahead
+    // of the table chain below (see `calendar-feed-routes.ts`).
+    resolveApp
   )
 
   // Apply middleware for routes with :tableId parameter
@@ -183,7 +198,10 @@ export function chainTableRoutes<T extends Hono<any, any, any>>(
   return chainViewRoutesMethods(
     chainRecordRoutesMethods(
       chainBatchRoutesMethods(
-        chainTableRoutesMethods(honoWithRecordIdGate, resolveApp),
+        chainTableRoutesMethods(
+          chainCalendarFeedTokenRoutes(honoWithRecordIdGate, resolveApp),
+          resolveApp
+        ),
         resolveApp
       ),
       resolveApp

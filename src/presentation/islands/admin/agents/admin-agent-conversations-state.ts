@@ -17,9 +17,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useDebouncedValue } from '../../hooks/use-debounced-value'
 import { useLazySharedFilter } from '../../hooks/use-lazy-shared-filter'
-import { subscribe } from '../../runtime/event-bus'
 import { READ_ONCE_QUERY_OPTIONS } from '../../runtime/query-client'
 import {
   loadAllConversations,
@@ -33,26 +31,16 @@ import {
 } from './admin-agent-conversations-data'
 import type { SharedFilterBindingConfig } from '../../hooks/use-shared-filter'
 
-/**
- * The "New conversation" compose state. `agent` is `''`
- * until the operator picks one from the "Agent" combobox; once a non-empty
- * agent is picked the thread column swaps the idle prompt for the chat composer.
- * `composerKey` remounts the composer (fresh sessionId) per new conversation.
- */
-export interface NewConversationState {
-  readonly active: boolean
-  readonly agent: string
-  readonly composerKey: number
-}
-
 /** Everything the island render needs from the conversation-viewer state. */
 export interface AgentConversationsController {
   readonly list: ListState
   readonly thread: ThreadState
   readonly selectedId: string | undefined
+  /** The term the page's search box published, already applied by the server. */
   readonly search: string
-  readonly setSearch: (value: string) => void
   readonly onResetSearch: () => void
+  /** Leave the open thread for the list (below the medium breakpoint). */
+  readonly onBack: () => void
   /** The agent filter value (`''` = all agents) + its setter. */
   readonly agent: string
   readonly setAgent: (value: string) => void
@@ -60,22 +48,25 @@ export interface AgentConversationsController {
   readonly onSelect: (conversationId: string) => void
   readonly reloadList: () => void
   readonly reloadThread: () => void
-  /** The "New conversation" compose flow. */
-  readonly newConversation: NewConversationState
-  readonly onStartNewConversation: () => void
-  readonly onPickNewAgent: (value: string) => void
 }
 
+/** From Tailwind's `md` breakpoint up, the list and the thread sit side by side. */
+const SIDE_BY_SIDE = '(min-width: 48rem)'
+
 /**
- * How long the search box waits before asking the server.
- *
- * The box had NO debounce while it filtered in memory, where a keystroke cost
- * nothing. It now fans a request out to every declared agent, so an undebounced
- * box would issue one request per agent per keystroke. 300 ms matches the
- * data-table's own search default (`search.debounceMs ?? 300`) so the two
- * search boxes in the console feel the same.
+ * Clear the page's search box for the no-match state's Reset: the box is the
+ * page's, not the viewer's, so it is emptied where it stands and its own input
+ * event publishes the empty term on the channel, as a typed one would.
  */
-const SEARCH_DEBOUNCE_MS = 300
+function clearPublishedSearch(bindTo: string | undefined): void {
+  if (bindTo === undefined) return
+  const box = document.querySelector<HTMLInputElement>(
+    `input[data-publishes-bind-to="${CSS.escape(bindTo)}"][data-publishes-param="q"]`
+  )
+  if (box === null) return
+  box.value = ''
+  box.dispatchEvent(new Event('input', { bubbles: true }))
+}
 
 /**
  * Narrow the merged list by the AGENT filter only.
@@ -111,10 +102,10 @@ function filterConversations(
  */
 function useConversationList(
   agentNames: ReadonlyArray<string>,
-  search: string,
   dataSource: SharedFilterBindingConfig
 ): {
   readonly list: ListState
+  readonly search: string
   readonly reloadList: () => void
 } {
   const queryClient = useQueryClient()
@@ -126,13 +117,13 @@ function useConversationList(
   // what the page publishes actually changes.
   const sharedKey = JSON.stringify(shared)
   const listKey = useMemo(
-    () => ['admin-agent-conversations', 'list', namesKey, search, sharedKey] as const,
-    [namesKey, search, sharedKey]
+    () => ['admin-agent-conversations', 'list', namesKey, sharedKey] as const,
+    [namesKey, sharedKey]
   )
 
   const listQuery = useQuery({
     queryKey: listKey,
-    queryFn: () => loadAllConversations(namesKey ? namesKey.split(' ') : [], search, shared),
+    queryFn: () => loadAllConversations(namesKey ? namesKey.split(' ') : [], '', shared),
     enabled: ready,
     ...READ_ONCE_QUERY_OPTIONS,
   })
@@ -148,58 +139,25 @@ function useConversationList(
     void queryClient.invalidateQueries({ queryKey: listKey })
   }, [queryClient, listKey])
 
-  // Reload when the composer reports a persisted round-trip for any of our
-  // agents — the same event-bus refresh the bucket-files list uses after an
-  // upload (CONV-013). The composer keys the event `agent-conversation:${agentSlug}`.
-  useEffect(() => {
-    const names = new Set(namesKey ? namesKey.split(' ') : [])
-    return subscribe('sovrium:crud-success', (detail) => {
-      const prefix = 'agent-conversation:'
-      if (!detail.table.startsWith(prefix)) return
-      if (names.has(detail.table.slice(prefix.length))) reloadList()
-    })
-  }, [namesKey, reloadList])
-
-  return { list, reloadList }
+  return { list, search: shared['q'] ?? '', reloadList }
 }
 
 /**
- * The "New conversation" compose flow: a trigger that opens an agent
- * picker, picking an agent that opens the composer, and a `composerKey` bumped
- * on each new conversation so the composer remounts with a fresh sessionId.
+ * From the medium breakpoint up the newest conversation opens with the page,
+ * and a selection the list no longer holds moves to its newest; below it,
+ * nothing opens until a row is tapped, so a phone lands on the list.
  */
-function useNewConversation(agentNames: ReadonlyArray<string>): {
-  readonly newConversation: NewConversationState
-  readonly onStartNewConversation: () => void
-  readonly onPickNewAgent: (value: string) => void
-  readonly cancelNewConversation: () => void
-} {
-  // With exactly one agent in scope there is nothing to pick: preselect it so
-  // "New conversation" opens straight onto the composer. Starting empty made
-  // the operator re-choose the agent whose page they were already on — the
-  // composer stayed hidden behind a one-option `select` until they did. (The
-  // conversation FILTER hides itself below two agents; this is the compose
-  // PICKER, a different control, and it was still rendering.)
-  const soleAgent = agentNames.length === 1 ? (agentNames[0] ?? '') : ''
-  const [active, setActive] = useState(false)
-  const [agent, setAgent] = useState(soleAgent)
-  const [composerKey, setComposerKey] = useState(0)
-  const onStartNewConversation = useCallback(() => {
-    setAgent(soleAgent)
-    setComposerKey((k) => k + 1)
-    setActive(true)
-  }, [soleAgent])
-  const onPickNewAgent = useCallback((value: string) => setAgent(value), [])
-  const cancelNewConversation = useCallback(() => {
-    setActive(false)
-    setAgent(soleAgent)
-  }, [soleAgent])
-  return {
-    newConversation: { active, agent, composerKey },
-    onStartNewConversation,
-    onPickNewAgent,
-    cancelNewConversation,
-  }
+function useNewestOnWideScreens(
+  list: ListState,
+  selectedId: string | undefined,
+  select: (id: string) => void
+): void {
+  useEffect(() => {
+    const [newest] = list.conversations
+    if (list.phase !== 'ready' || newest === undefined) return
+    if (list.conversations.some((conversation) => conversation.id === selectedId)) return
+    if (window.matchMedia(SIDE_BY_SIDE).matches) select(newest.id)
+  }, [list, selectedId, select])
 }
 
 /** Load the message thread for the selected conversation (scoped to its owning agent). */
@@ -254,28 +212,16 @@ export function useAgentConversations(
   dataSource: SharedFilterBindingConfig
 ): AgentConversationsController {
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined)
-  // Two search values, deliberately. `search` is what the operator sees in the
-  // box and updates on every keystroke; `debouncedSearch` is what reaches the
-  // network. Binding the fetch straight to `search` would fan one request per
-  // declared agent out on every character typed.
-  const [search, setSearch] = useState('')
-  const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_MS)
-  const { list, reloadList } = useConversationList(agentNames, debouncedSearch, dataSource)
+  // The search box is the PAGE's, in its toolbar row: its term reaches the
+  // list as `q` on the shared channel, never as island state.
+  const { list, search, reloadList } = useConversationList(agentNames, dataSource)
   const [agent, setAgent] = useState('')
   const { thread, reloadThread } = useSelectedThread(list, selectedId)
-  const { newConversation, onStartNewConversation, onPickNewAgent, cancelNewConversation } =
-    useNewConversation(agentNames)
-
-  // Picking an existing conversation leaves the compose flow (the thread column
-  // shows the selected transcript, not the composer).
-  const onSelect = useCallback(
-    (conversationId: string) => {
-      cancelNewConversation()
-      setSelectedId(conversationId)
-    },
-    [cancelNewConversation]
-  )
-  const onResetSearch = useCallback(() => setSearch(''), [])
+  const onSelect = useCallback((conversationId: string) => setSelectedId(conversationId), [])
+  useNewestOnWideScreens(list, selectedId, onSelect)
+  const onBack = useCallback(() => setSelectedId(undefined), [])
+  const { bindTo } = dataSource
+  const onResetSearch = useCallback(() => clearPublishedSearch(bindTo), [bindTo])
   // Agent partitioning only — the term was already applied by the server on the
   // way in (see `filterConversations`).
   const visibleConversations = useMemo(
@@ -288,16 +234,13 @@ export function useAgentConversations(
     thread,
     selectedId,
     search,
-    setSearch,
     onResetSearch,
+    onBack,
     agent,
     setAgent,
     visibleConversations,
     onSelect,
     reloadList,
     reloadThread,
-    newConversation,
-    onStartNewConversation,
-    onPickNewAgent,
   }
 }

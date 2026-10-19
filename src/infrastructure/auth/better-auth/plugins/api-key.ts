@@ -6,10 +6,12 @@
  */
 
 import { apiKey } from '@better-auth/api-key'
-import { APIError } from 'better-auth/api'
+import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { adminAc, userAc } from 'better-auth/plugins/admin/access'
 import { isBanInForce } from '@/domain/models/app/auth/ban-standing-service'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
+import { endpointSucceeded } from '@/infrastructure/auth/better-auth/hook-context'
+import { devTimelineCreatedAt } from '@/infrastructure/process/server-boot-instant'
 import type { Auth } from '@/domain/models/app/auth'
 import type { GenericEndpointContext } from '@better-auth/core'
 import type { Statements } from 'better-auth/plugins/access'
@@ -165,6 +167,35 @@ const rejectBannedOwner = (hook: BeforeHook): BeforeHook => ({
  * authenticating. Options alone cannot express that check — see that function's
  * note for why the seam has to be here.
  */
+/**
+ * On a host pinned with `SOVRIUM_DEV_CLOCK`, a key just created is dated on the
+ * development timeline, in its row (so the list reads it) and in the answer, as
+ * runs and conversations are. The vendor route stamps `new Date()` and writes
+ * through the bare adapter, which no database hook sees, so the stamp is set
+ * once the key exists. `expiresAt` is left as the route computed it, from the
+ * real clock its expiry is checked against. Production is untouched: the hook
+ * matches nothing there.
+ */
+const stampOnDevTimeline = {
+  matcher: (ctx: { readonly path?: string }) =>
+    ctx.path === '/api-key/create' && devTimelineCreatedAt().createdAt !== undefined,
+  handler: createAuthMiddleware(async (ctx) => {
+    const { createdAt } = devTimelineCreatedAt()
+    const { returned } = ctx.context
+    if (createdAt === undefined || !endpointSucceeded(returned) || returned instanceof Response) {
+      return
+    }
+    const created = returned as { readonly id?: unknown }
+    if (typeof created.id !== 'string') return
+    await ctx.context.adapter.update({
+      model: 'apikey',
+      where: [{ field: 'id', value: created.id }],
+      update: { createdAt, updatedAt: createdAt },
+    })
+    return ctx.json({ ...created, createdAt, updatedAt: createdAt })
+  }),
+}
+
 export const buildApiKeyPlugin = (authConfig?: Auth) => {
   if (!authConfig?.apiKeys) return []
 
@@ -183,7 +214,11 @@ export const buildApiKeyPlugin = (authConfig?: Auth) => {
   return [
     {
       ...plugin,
-      hooks: { ...plugin.hooks, before: plugin.hooks.before.map(rejectBannedOwner) },
+      hooks: {
+        ...plugin.hooks,
+        before: plugin.hooks.before.map(rejectBannedOwner),
+        after: [stampOnDevTimeline],
+      },
     },
   ]
 }

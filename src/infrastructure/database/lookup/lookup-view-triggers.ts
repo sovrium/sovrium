@@ -6,7 +6,9 @@
  */
 
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
+import { INTRINSIC_CREATED_AT_COLUMN } from '@/domain/models/app/tables/system-fields'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { SQLITE_ISO_NOW } from '../sql/dialect-ddl'
 import { getColumnDefaultExpression } from '../sql/sql-column-generators'
 import { shouldCreateDatabaseColumn } from '../sql/sql-field-predicates'
 import type { Table } from '@/domain/models/app/tables'
@@ -147,6 +149,30 @@ export const getInsertValueExpressions = (table: Table): readonly string[] =>
         ? `NEW.${quoteSqlIdentifier(field.name)}`
         : `COALESCE(NEW.${quoteSqlIdentifier(field.name)}, ${defaultExpr})`
     })
+
+/**
+ * The automatic `created_at` column a view-backed table's `INSTEAD OF INSERT`
+ * trigger carries, with its insert-value expression — empty when the table
+ * declares a field of that name (then {@link getBaseFields} carries it).
+ *
+ * The column is not a declared field, so the base write left it out and every
+ * row created through the view took the base default — the server's clock —
+ * even when the create named its own creation date (a seed on a pinned dev
+ * clock, an import keeping its source dates). An omitted date still takes the
+ * column's default through the `COALESCE`.
+ */
+export const getInsertCreatedAtColumn = (
+  table: Table
+): { readonly fields: readonly string[]; readonly values: readonly string[] } => {
+  if (table.fields.some((field) => field.name === INTRINSIC_CREATED_AT_COLUMN)) {
+    return { fields: [], values: [] }
+  }
+  const fallback = isSqliteRuntime() ? `(${SQLITE_ISO_NOW})` : 'CURRENT_TIMESTAMP'
+  return {
+    fields: [INTRINSIC_CREATED_AT_COLUMN],
+    values: [`COALESCE(NEW.${quoteSqlIdentifier(INTRINSIC_CREATED_AT_COLUMN)}, ${fallback})`],
+  }
+}
 
 /**
  * The transaction-local setting a view's `INSTEAD OF INSERT` trigger leaves the

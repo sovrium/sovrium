@@ -108,6 +108,7 @@ export function toSetupParams(props: DataTableIslandProps) {
     dataSource: props.dataSource,
     columnConfig: withPermissionEditableDefault(props.columns, permissionEditableAllowed(props)),
     isViewBound: props.isViewBound === true,
+    hasViewSwitcher: props.viewSwitcher !== undefined,
     paginationConfig: props.pagination,
     selectionConfig: props.selection,
     publishesSelection: props.publishes !== undefined,
@@ -145,6 +146,19 @@ export function toPasteParams(
   }
 }
 
+/** A `seek` row click, or `undefined` when it names no player or no moment. */
+function toSeekRowClick(
+  action: NonNullable<DataTableIslandProps['onRowClick']>
+): DataTableRowClickAction | undefined {
+  if (typeof action.target !== 'string' || action.time === undefined) return undefined
+  return {
+    type: 'seek',
+    target: action.target,
+    time: action.time,
+    ...(action.play === false && { play: false }),
+  }
+}
+
 /**
  * Narrow the schema-level `onRowClick` (any action variant) down to the
  * shapes the data-table row-click handler consumes:
@@ -152,6 +166,7 @@ export function toPasteParams(
  * - `navigate` — `{ type: 'navigate', path: <string>, openInNewTab? }`
  * - `openSheet` — `{ action: 'openSheet', component: <drawer-id> }`
  *   discriminated by `action` (not `type`) per the OpenDrawerActionSchema.
+ * - `seek` — `{ type: 'seek', target, time, play? }`, moving a player on the page.
  *
  * Returns `undefined` for unknown / unsupported variants so the row-click
  * handler remains a no-op rather than crashing on a malformed payload.
@@ -168,7 +183,7 @@ export function resolveRowClickAction(
   if (action.action === 'openSheet' && typeof action.component === 'string') {
     return { type: 'openSheet', component: action.component }
   }
-  return undefined
+  return action.type === 'seek' ? toSeekRowClick(action) : undefined
 }
 
 /**

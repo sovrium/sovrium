@@ -16,8 +16,8 @@
  * Every other value is a process fact, so both surfaces answer it identically:
  * the boot instant is ONE frozen constant (the config version's `startedAt`
  * and the attention report's are byte-identical by construction, not by two
- * clocks agreeing), and the engine build, the footprint telemetry and the class
- * provenance are read from the same modules for both.
+ * clocks agreeing), and the engine build and the footprint telemetry are read
+ * from the same modules for both.
  */
 
 import { Effect } from 'effect'
@@ -26,10 +26,11 @@ import {
   type AdminReadHostFactory,
 } from '@/application/ports/services/admin-read-host'
 import { resolveRuntimeLabel } from '@/domain/models/process-env/database/database-dialect'
+import { readSovriumDevClock } from '@/domain/models/process-env/dev-clock'
 import { exportRecordsToCsv } from '@/infrastructure/export/csv-exporter'
+import { onDevTimeline, readServerBootInstant } from '@/infrastructure/process/server-boot-instant'
 import { getSovriumVersion } from '@/infrastructure/process/version'
 import { assembleFootprintOverview } from '@/presentation/api/admin/footprint-overview'
-import { buildClassProvenance } from '@/presentation/render/styling/class-provenance-report'
 import type { ConfigVersionResponse } from '@/domain/models/api/admin/config/version'
 
 /**
@@ -41,6 +42,17 @@ import type { ConfigVersionResponse } from '@/domain/models/api/admin/config/ver
  * specific process instance.
  */
 const PROCESS_STARTED_AT: string = new Date().toISOString()
+
+/**
+ * When this instance started, as its console reads it: the process boot, or —
+ * on a host pinned with `SOVRIUM_DEV_CLOCK` — the server's boot on the
+ * development timeline (the pinned instant), the timeline its runs are stamped
+ * on, so « failed since this instance started » counts the runs it made.
+ */
+const instanceStartedAt = (): string =>
+  readSovriumDevClock() === undefined
+    ? PROCESS_STARTED_AT
+    : onDevTimeline(readServerBootInstant()).toISOString()
 
 /**
  * The git commit SHA from `SOVRIUM_COMMIT_SHA`, injected at binary build time.
@@ -68,7 +80,7 @@ const configVersion: Effect.Effect<ConfigVersionResponse> = Effect.gen(function*
     commit: buildCommit(),
     runtime: resolveRuntimeLabel(),
     nodeVersion: Bun.version,
-    startedAt: PROCESS_STARTED_AT,
+    startedAt: instanceStartedAt(),
   }
 })
 
@@ -76,11 +88,10 @@ const configVersion: Effect.Effect<ConfigVersionResponse> = Effect.gen(function*
 export const makeAdminReadHost: AdminReadHostFactory = (origin) =>
   AdminReadHost.of({
     origin,
-    processStartedAt: PROCESS_STARTED_AT,
+    processStartedAt: instanceStartedAt(),
     configVersion,
     footprintOverview: assembleFootprintOverview,
     encodeCsv: exportRecordsToCsv,
-    classProvenance: (input) => ({ ...buildClassProvenance(input) }),
   })
 
 /** Provide the host to an admin read program, for a caller that reached `origin`. */

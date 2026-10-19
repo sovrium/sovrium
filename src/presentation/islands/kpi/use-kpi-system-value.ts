@@ -6,6 +6,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
+import { useLiveRefresh } from '../hooks/use-realtime-subscription'
 import {
   fetchSystemEnvelope,
   systemEnvelopeQueryKey,
@@ -110,9 +111,12 @@ function resolveSystemValue(system: KpiSystemSource, envelope: unknown): KpiSyst
  * cache a stale neutral. The island treats an exhausted-retry error (`data`
  * undefined) as neutral too, so the card always degrades calmly rather than
  * surfacing a raw error region.
+ *
+ * A sibling's `onSuccess.refetch` naming this tile's host re-reads the
+ * envelope; a system binding has no table, so it never polls or subscribes.
  */
 export function useKpiSystemValue(system: KpiSystemSource | undefined) {
-  return useQuery({
+  const query = useQuery({
     queryKey: systemEnvelopeQueryKey(system),
     enabled: Boolean(system?.endpoint),
     queryFn: () => fetchSystemEnvelope(system),
@@ -124,4 +128,6 @@ export function useKpiSystemValue(system: KpiSystemSource | undefined) {
         ? { kind: 'neutral' }
         : resolveSystemValue(system, result.envelope),
   })
+  useLiveRefresh(system === undefined ? undefined : {}, query.refetch)
+  return query
 }

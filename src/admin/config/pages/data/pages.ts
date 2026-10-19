@@ -50,7 +50,6 @@
 import { sectionCard } from '../../components/dashboard-blocks'
 import {
   consolePage,
-  emptyState,
   kpiStrip,
   pageHeading,
   tabbedBody,
@@ -100,6 +99,10 @@ const enabledIntro = (): PageComponent => ({
   visibility: { declares: 'analytics' },
 })
 
+// Painted, like the enabled intro and every console page. On an app that collects no
+// analytics the route is its Footprint half alone, and the page opens on that
+// half rather than on a notice about the half it does not have. The sentence
+// still names the page and says analytics is off for a reader that asks.
 const disabledIntro = (): PageComponent => ({
   ...(pageHeading('$t:admin.pages.heading', '$t:admin.pages.blurbDisabled') as Record<
     string,
@@ -107,25 +110,6 @@ const disabledIntro = (): PageComponent => ({
   >),
   visibility: { unlessDeclares: 'analytics' },
 })
-
-/**
- * The "analytics not enabled" state.
- *
- * A static named region, and NO live components: when the operator declares no
- * `analytics` block every `/api/analytics/*` endpoint is unregistered, so each
- * panel would degrade to a neutral placeholder that tells the operator nothing
- * about why. The surface says it instead.
- */
-const disabledRegion = (): PageComponent =>
-  ({
-    ...(emptyState(
-      '$t:admin.pages.disabled.heading',
-      '$t:admin.pages.disabled.body',
-      '$t:admin.pages.disabled.hint',
-      '$t:admin.pages.disabled.region'
-    ) as Record<string, unknown>),
-    visibility: { unlessDeclares: 'analytics' },
-  }) as PageComponent
 
 /**
  * One audience figure, read as a pre-computed scalar from the overview envelope.
@@ -178,6 +162,8 @@ const audienceChart = (): PageComponent =>
     },
     chartType: 'area',
     xAxis: { field: 'period', format: 'date' },
+    // Horizontal rules only, no axis baselines: shadcn's chart anatomy.
+    yAxis: { field: 'pageViews', gridLines: true },
     series: [
       { field: 'pageViews', label: '$t:admin.analytics.pageViews' },
       { field: 'uniqueVisitors', label: '$t:admin.analytics.uniqueVisitors' },
@@ -291,7 +277,7 @@ const acquisitionSection = (): PageComponent =>
             { field: 'pageViews', label: '$t:admin.analytics.views', align: 'right' },
             { field: 'uniqueVisitors', label: '$t:admin.analytics.visitors', align: 'right' },
           ],
-          emptyMessage: '$t:admin.analytics.noReferrers',
+          emptyMessage: '$t:admin.pages.noReferrers',
         }),
         breakdown({
           label: '$t:admin.pages.campaigns.region',
@@ -304,7 +290,7 @@ const acquisitionSection = (): PageComponent =>
             { field: 'medium', label: '$t:admin.analytics.medium' },
             { field: 'pageViews', label: '$t:admin.analytics.views', align: 'right' },
           ],
-          emptyMessage: '$t:admin.analytics.noCampaigns',
+          emptyMessage: '$t:admin.pages.noCampaigns',
         }),
       ],
     } as PageComponent,
@@ -415,22 +401,25 @@ const TABS = [
 const FOOTPRINT_ONLY = [{ id: 'footprint', label: '$t:admin.analytics.footprint' }] as const
 
 /**
- * The Pages panel: the four audience components, whichever of them applies.
+ * The Pages panel: the audience of the operator's own pages.
  *
- * `liveBody` and `disabledRegion` carry opposite `declares` gates, so exactly
- * one reaches the document — and BOTH stay inside this one panel, for the
- * `panels[i]` ↔ `children[i]` rule: a gate that removed a top-level child would
- * put the footprint body under the Pages tab with nothing saying so.
+ * Only ever drawn where every one of its reads answers — see {@link withPages}
+ * — so it carries the live components alone and no "not enabled" fallback.
  */
-const pagesPanel = (): PageComponent => tabPanel([liveBody(), disabledRegion()])
+const pagesPanel = (): PageComponent => tabPanel([liveBody()])
 
 /**
- * The strip, twice, under opposite gates.
+ * The strip, in two shapes under complementary gates.
  *
- * An app that serves no page has no audience to measure, so its Analytics is
- * the Footprint half alone — a strip offering a Pages tab there would open on a
- * report that can only ever be empty. A tab set's panels are fixed per set, so
- * the two shapes are two sets and exactly one reaches the document.
+ * The audience half needs two things at once: an app that collects analytics,
+ * and a caller the `/api/analytics/*` readers answer — an admin-equivalent one.
+ * Missing either, the Pages tab could only ever open on an empty or refused
+ * report, so the route is its Footprint half alone. The lede above says why
+ * when the app collects nothing; a viewer is simply not offered the audience.
+ *
+ * A tab set's panels are fixed per set, so the shapes are separate sets and
+ * exactly one reaches the document. A component's visibility keys all have to
+ * hold, so "either is missing" takes two Footprint-only copies.
  */
 const withPages = (): PageComponent =>
   ({
@@ -438,10 +427,10 @@ const withPages = (): PageComponent =>
       pagesPanel(),
       tabPanel([footprintBody()]),
     ]) as Record<string, unknown>),
-    visibility: { declares: 'pages' },
+    visibility: { declares: 'analytics', capability: 'administer-accounts' },
   }) as PageComponent
 
-const footprintOnly = (): PageComponent =>
+const footprintOnly = (visibility: Readonly<Record<string, string>>): PageComponent =>
   ({
     ...(tabbedBody('$t:admin.pages.tabs.region', FOOTPRINT_ONLY, [
       tabPanel([footprintBody()]),
@@ -449,7 +438,7 @@ const footprintOnly = (): PageComponent =>
     // Its one tab is always the open one: `?tab=` defaults to Pages for the
     // two-tab strip, and this strip has no such tab to open.
     defaultTab: 'footprint',
-    visibility: { unlessDeclares: 'pages' },
+    visibility,
   }) as PageComponent
 
 /**
@@ -473,7 +462,8 @@ const analyticsPage: PageConfig = consolePage({
       children: [enabledIntro(), disabledIntro()],
     } as PageComponent,
     withPages(),
-    footprintOnly(),
+    footprintOnly({ unlessDeclares: 'analytics' }),
+    footprintOnly({ declares: 'analytics', unlessCapability: 'administer-accounts' }),
   ],
   page: { window: { default: '30d', presets: [{ id: '30d' }] }, query: tabQuery(TABS) },
   shell: { breadcrumb: { analytics: '$t:admin.crumb.analytics' } },

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { escapeCssValue } from '@/domain/kernel/sanitize/css-value-escaping'
 import { resolveTokenReference } from '@/infrastructure/css/theme/theme-token-resolver'
 import type { Design } from '@/domain/models/app/design'
 import type { AnimationConfigObject, DesignMotion } from '@/domain/models/app/design/motion'
@@ -34,11 +35,11 @@ export function generateKeyframes(
           ? Object.entries(props as Record<string, unknown>)
               .map(([prop, val]) => {
                 const resolvedValue = resolveTokenReference(val, design)
-                return `${prop}: ${resolvedValue};`
+                return `${escapeCssValue(prop)}: ${escapeCssValue(String(resolvedValue))};`
               })
               .join(' ')
           : ''
-      return `  ${step} { ${propsStr} }`
+      return `  ${escapeCssValue(step)} { ${propsStr} }`
     })
     .join('\n')
 
@@ -64,9 +65,9 @@ export function generateAnimationClass(
   easing?: string,
   delay?: string
 ): string {
-  const dur = duration || '300ms'
-  const ease = easing || 'ease'
-  const del = delay || '0ms'
+  const dur = escapeCssValue(duration || '300ms')
+  const ease = escapeCssValue(easing || 'ease')
+  const del = escapeCssValue(delay || '0ms')
   return `.animate-${name} { animation: ${name} ${dur} ${ease} ${del}; }`
 }
 
@@ -128,7 +129,7 @@ export function processAnimationEntry(
     return [keyframesCSS, animationClass]
   }
   if (typeof config === 'string') {
-    return [`.animate-${name} { animation: ${config}; }`]
+    return [`.animate-${name} { animation: ${escapeCssValue(config)}; }`]
   }
   if (typeof config === 'object' && config !== undefined) {
     return processAnimationConfigObject(name, config as AnimationConfigObject, design)

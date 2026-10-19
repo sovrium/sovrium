@@ -12,7 +12,8 @@
  * ─── ONE COERCION ───────────────────────────────────────────────────────────
  *
  * A missing field (`undefined`) and an explicit `null` both resolve to the
- * EMPTY STRING; every other value is coerced with `String(value)`.
+ * EMPTY STRING; a list joins with `, `; every other value is coerced with
+ * `String(value)`.
  *
  * The rule is written once. The page renderer, the kanban card template and
  * the search island all delegate here, so none of them can, say, test only
@@ -174,7 +175,10 @@ const fieldText = (record: Readonly<Record<string, unknown>>, fieldName: string)
   const stored = fieldName.replace(/\.raw$/, '')
   if (stored === RECORD_TEXT_KEY) return ''
   const value = record[fieldName] ?? record[stored]
-  return value === undefined || value === null ? '' : String(value)
+  if (value === undefined || value === null) return ''
+  // A list reads as a list: `Camille Martin, Léa Bernard`, never the bare comma
+  // `String(array)` joins with. Kept this small on purpose: islands ship it.
+  return Array.isArray(value) ? value.join(', ') : String(value)
 }
 
 /**

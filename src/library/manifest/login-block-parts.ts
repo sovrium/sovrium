@@ -18,7 +18,7 @@
  */
 
 import { ifDeclared, unlessDeclared } from './auth-block-kit'
-import { forgotLink, passwordForm, providerList, socialButtons } from './login-block-forms'
+import { passwordForm, providerList, socialButtons } from './login-block-forms'
 import type { BlockNode } from './block-kit'
 
 export { magicLinkForm, signUpForm } from './login-block-forms'
@@ -233,10 +233,13 @@ export const signUpLine = ({ p }: Screen): BlockNode =>
 export const signInLine = ({ p }: Screen): BlockNode =>
   descriptionLink('Already have an account?', 'Sign in', p('signInPath'))
 
-/** The email-and-password form and the reset link under it. */
+/**
+ * The email-and-password form. Its "Forgot your password?" is the form's own,
+ * drawn in the Password label row when one of the app's pages sends the reset
+ * link.
+ */
 export const passwordColumn = ({ p }: Screen): readonly BlockNode[] => [
   passwordForm('Sign in', p('successPath'), p('twoStepPath')),
-  forgotLink(p('resetPath')),
 ]
 
 /** The social buttons for the screen's `providers`, in shadcn's column or a given grid. */

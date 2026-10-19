@@ -8,7 +8,13 @@
 import { useMemo } from 'react'
 import { computeTableHeaderCellClasses } from '@/presentation/design/table-default-classes'
 import { columnPlacementClass } from '../column-align'
-import { FROZEN_CELL_CLASS, frozenHeaderStyle, type FrozenOffsets } from '../frozen-columns'
+import {
+  FROZEN_CELL_CLASS,
+  frozenHeaderStyle,
+  TRAILING_PIN_CELL_CLASS,
+  trailingPinStyle,
+  type FrozenOffsets,
+} from '../frozen-columns'
 import { HeaderLabel } from './header-label'
 import { ResizeHandle } from './resize-handle'
 import { ariaSortFor } from './sort-state'
@@ -26,6 +32,7 @@ function headerCellStyle(
   width: number | undefined
 ): CSSProperties | undefined {
   const sizing = width === undefined ? undefined : { width, minWidth: width }
+  if (meta?.trailing === true) return { ...sizing, ...trailingPinStyle(true) }
   if (meta?.frozen !== true) return sizing
   return { ...sizing, ...frozenHeaderStyle(frozenOffsets[meta.field ?? ''] ?? 0) }
 }
@@ -37,7 +44,7 @@ function headerCellStyle(
 function headerCellClassName(meta: DataTableColumnMeta | undefined, sortable: boolean): string {
   return `${computeTableHeaderCellClasses()} relative ${columnPlacementClass(meta)} ${
     sortable ? 'group/th cursor-pointer select-none' : ''
-  } ${meta?.frozen === true ? FROZEN_CELL_CLASS : ''}`
+  } ${meta?.frozen === true ? FROZEN_CELL_CLASS : ''} ${meta?.trailing === true ? TRAILING_PIN_CELL_CLASS : ''}`
 }
 
 /** Renders a single header cell with sort indicator + resize handle. */

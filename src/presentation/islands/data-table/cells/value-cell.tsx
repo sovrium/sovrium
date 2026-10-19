@@ -13,6 +13,7 @@ import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
 import { resolveColumnLabel } from '@/presentation/design/field-display'
 import { resolvePageTimezone } from '../../runtime/page-timezone'
 import { readDisplayLabel } from '../../runtime/record-display-label'
+import { EMPTY_VALUE, isMissing } from '../cell-empty'
 import { renderListCell, renderPlainCell } from '../cell-plain'
 import { cellRendererOf, type FIELD_TYPE_TO_CELL_RENDERER } from '../cell-renderer-registry'
 import { cellClassOf, drawsTextChip, optionChipCellClassOf } from '../column-presentation'
@@ -145,6 +146,10 @@ function renderValueCell(value: unknown, chrome: ValueCellChrome, displayLabel?:
   // chrome below; unmapped values fall through. The record itself is never changed.
   const label = chrome.chipLabels ? undefined : col.valueLabels?.[String(value)]
   if (label !== undefined) return wrapWithClass(label, conditionalClass)
+
+  // An absent value reads as the muted dash under any format: a format shapes a
+  // value, and there is none to shape (a `datetime` of nothing printed blank).
+  if (col.format && isMissing(value)) return wrapWithClass(EMPTY_VALUE, conditionalClass)
 
   // Path 1 — explicit format override
   if (col.format) {

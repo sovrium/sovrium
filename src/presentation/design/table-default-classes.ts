@@ -74,6 +74,7 @@ export {
   computeTableFillPreviewClasses,
   computeTableFillHandleClasses,
   computeTableFrozenCellClasses,
+  computeTableTrailingPinCellClasses,
   computeTableRowNumberClasses,
   computeTableEmptyValueClasses,
   computeTableCheckboxControlClasses,

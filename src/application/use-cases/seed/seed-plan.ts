@@ -64,6 +64,11 @@ export interface BuildSeedPlanInput {
   readonly requestedTables: readonly string[]
   /** The one instant every `{{today}}` in this run renders against. */
   readonly runAt: Readonly<Date>
+  /**
+   * The creation instant of a row whose file writes no `created_at` — the
+   * pinned development clock — or `undefined` to leave it to the database.
+   */
+  readonly createdAt?: Readonly<Date> | undefined
 }
 
 /** Plan every value of one row, collecting the refusals rather than the first. */
@@ -177,6 +182,25 @@ const orderScope = (
   }
 }
 
+/** `records` with `createdAt` on every row whose file writes no `created_at`. */
+const withCreationDate = (
+  records: readonly PlannedSeedRecord[],
+  createdAt: Readonly<Date> | undefined
+): readonly PlannedSeedRecord[] =>
+  createdAt === undefined
+    ? records
+    : records.map((record) =>
+        Object.hasOwn(record.fields, 'created_at')
+          ? record
+          : {
+              ...record,
+              fields: {
+                ...record.fields,
+                created_at: { kind: 'literal', value: createdAt.toISOString() },
+              },
+            }
+      )
+
 /** Assemble one `PlannedSeedTable` from a planned file. */
 const toPlannedTable = (
   entry: { readonly file: LoadedSeedFile; readonly records: readonly PlannedSeedRecord[] },
@@ -212,7 +236,13 @@ export const buildSeedPlan = (input: BuildSeedPlanInput): SeedPlanResult => {
   const valueErrors = planned.flatMap((entry) => entry.errors)
   if (valueErrors.length > 0) return { ok: false, errors: valueErrors }
 
-  const base = planned.map((entry) => toPlannedTable(entry, tables, scope))
+  const base = planned.map((entry) =>
+    toPlannedTable(
+      { ...entry, records: withCreationDate(entry.records, input.createdAt) },
+      tables,
+      scope
+    )
+  )
   const mergeKeys =
     input.mode === 'upsert'
       ? resolveUpsertMergeKeys(input.files, base, tables)

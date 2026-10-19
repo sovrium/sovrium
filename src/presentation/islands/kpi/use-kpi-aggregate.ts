@@ -10,7 +10,7 @@ import { useCallback } from 'react'
 import { createRecordsClient } from '@/presentation/islands/runtime/rpc-client'
 import { useLazySharedFilter } from '../hooks/use-lazy-shared-filter'
 import { useLiveRefresh } from '../hooks/use-realtime-subscription'
-import { retryUnlessRateLimited } from '../runtime/read-failure'
+import { retryFaultsOnly } from '../runtime/read-failure'
 import { aggregateKpi, type KpiAggregateConfig } from './kpi-compute'
 import { buildFilterParam, useKpiRecords, type KpiRecordsDataSource } from './use-kpi-records'
 
@@ -131,7 +131,7 @@ export function useKpiAggregate(
   return useQuery({
     queryKey: ['table-aggregate', table, query],
     enabled: table !== undefined && shared.ready,
-    retry: retryUnlessRateLimited,
+    retry: retryFaultsOnly,
     queryFn: () =>
       table === undefined ? Promise.resolve(undefined) : fetchAggregations(table, query),
     select: (answer: AggregateAnswer | undefined) => figureOf(answer, aggregate),

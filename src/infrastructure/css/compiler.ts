@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { withCompileDiskCache } from '@/infrastructure/css/cache/compile-disk-cache'
 import {
   getOrComputeCachedCSS,
   loadPrecompiledCSS,
@@ -27,9 +28,10 @@ import { loadCodeBlockDarkPalette } from '@/infrastructure/css/theme/code-block-
 import { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
 import { logDebug, logError, logWarning } from '@/infrastructure/logging/logger'
 import { isDevCacheDisabled, isProduction as checkIsProduction } from '@/infrastructure/process/env'
-import { isCompiled, SOVRIUM_PACKAGE_ROOT } from '@/infrastructure/process/package-paths'
+import { SOVRIUM_PACKAGE_ROOT } from '@/infrastructure/process/package-paths'
+import { compileCacheTarget } from './compile-cache-target'
 import { buildSourceCSS } from './source-css'
-import { cssCompileKey, precompiledStampOf } from './versioned-css-path'
+import { cssCompileKey, precompiledStampOf, usesNativeFreeCompiler } from './versioned-css-path'
 import type { App } from '@/domain/models/app'
 import type { AcceptedPlugin, Result as PostcssResult } from 'postcss'
 
@@ -131,6 +133,18 @@ const logCompilationError = (error: unknown): CSSCompilationError => {
 const isProduction = checkIsProduction()
 
 /**
+ * Compile `app`'s stylesheet, or reuse the bytes an earlier process compiled
+ * for the same engine and inputs. The minimal fallback served after a failed
+ * native-free compile is never stored: it must not outlive the failure.
+ */
+const compileOrReuse = (app?: App): Effect.Effect<CompiledCSS, CSSCompilationError> =>
+  withCompileDiskCache(
+    compileCacheTarget(app),
+    compileCSSRaw(app),
+    (compiled) => compiled.css !== MINIMAL_FALLBACK_CSS
+  )
+
+/**
  * Whether the GENERIC pre-compiled file — built by `compileCSSRaw()` with NO
  * app, holding the builtin candidate set under the default design, as the test
  * harness writes it once per run — is a sound substitute for this app's own
@@ -199,8 +213,8 @@ export const acceptsPrecompiledStamp = (stamp: string | undefined, app?: App): b
  */
 export const compileCSSRaw = (app?: App): Effect.Effect<CompiledCSS, CSSCompilationError> =>
   Effect.gen(function* () {
-    // The named dark code-block theme's own palette, read from Shiki (async).
-    const sourceCSS = buildSourceCSS(app, yield* loadCodeBlockDarkPalette(app?.design))
+    // The dark code-block theme's own palette, read from Shiki (async).
+    const sourceCSS = buildSourceCSS(app, yield* loadCodeBlockDarkPalette)
 
     logDebug(`[CSS] Source CSS length: ${sourceCSS.length} bytes`)
     logDebug(`[CSS] Contains @import 'tailwindcss': ${sourceCSS.includes("@import 'tailwindcss'")}`)
@@ -214,7 +228,7 @@ export const compileCSSRaw = (app?: App): Effect.Effect<CompiledCSS, CSSCompilat
     //
     // SOVRIUM_FORCE_NATIVE_FREE_CSS=1 forces this path from source too, so the
     // native-free output can be verified without compiling a binary.
-    if (isCompiled || process.env.SOVRIUM_FORCE_NATIVE_FREE_CSS === '1') {
+    if (usesNativeFreeCompiler()) {
       return yield* compileCSSNativeFree(sourceCSS, app).pipe(
         Effect.catch((error) => {
           logError(
@@ -260,6 +274,10 @@ export const compileCSSRaw = (app?: App): Effect.Effect<CompiledCSS, CSSCompilat
  * fast path here: compiled around, silently — nothing is stale, and a designed
  * app booting beside the harness's shared file has nothing to be told.
  *
+ * "Compiled" here means {@link compileOrReuse}: a restart with unchanged
+ * inputs reads back the previous process's compile from the on-disk cache
+ * instead of running Tailwind again.
+ *
  * @param app - The app being served.
  * @param mayUsePrecompiledFile - Whether this mode reads the file at all.
  */
@@ -268,7 +286,7 @@ const precompiledOrCompile = (
   mayUsePrecompiledFile: boolean
 ): Effect.Effect<CompiledCSS, CSSCompilationError> =>
   Effect.gen(function* () {
-    if (!mayUsePrecompiledFile) return yield* compileCSSRaw(app)
+    if (!mayUsePrecompiledFile) return yield* compileOrReuse(app)
     const file = yield* loadPrecompiledCSS
     if (file === undefined) {
       if (isProduction) {
@@ -277,15 +295,15 @@ const precompiledOrCompile = (
             'Run "sovrium build" for faster startup.'
         )
       }
-      return yield* compileCSSRaw(app)
+      return yield* compileOrReuse(app)
     }
     if (acceptsPrecompiledStamp(file.stamp, app)) {
       logDebug('[CSS] Loaded from pre-compiled file')
       return { css: file.css, timestamp: Date.now(), precompiled: true }
     }
-    if (file.stamp === precompiledStampOf()) return yield* compileCSSRaw(app)
+    if (file.stamp === precompiledStampOf()) return yield* compileOrReuse(app)
     yield* warnStalePrecompiledOnce(file.path)
-    const compiled = yield* compileCSSRaw(app)
+    const compiled = yield* compileOrReuse(app)
     return { ...compiled, staleIgnored: true }
   })
 
@@ -345,8 +363,9 @@ export const compileCSS = (app?: App): Effect.Effect<CompiledCSS, CSSCompilation
       getDesignSystemScope(app) === undefined &&
       (isProduction || Boolean(process.env.SOVRIUM_CSS_FILE))
 
-    // Dev cache bypass: recompile every request so config edits appear without a
-    // restart. Still honor the pre-compiled file fast path for the default theme.
+    // `SOVRIUM_DEV_NO_CACHE=1` bypass: recompile every request so an edit shows
+    // without a restart. Still honor the pre-compiled file fast path for the
+    // default theme.
     if (!isProduction && isDevCacheDisabled()) {
       return yield* precompiledOrCompile(app, mayUsePrecompiledFile)
     }

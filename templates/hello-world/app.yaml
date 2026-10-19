@@ -58,10 +58,6 @@ design:
     foreground-subtle: '#8a9099'
     border: '#282c32'
 
-  # Code reads the same by day and by night: one dark theme in both schemes.
-  codeBlock:
-    theme: github-dark
-
   # Standard corners.
   radius:
     sm: 0.25rem
@@ -148,19 +144,17 @@ pages:
               # edits these lines where they already are, in app.yaml, so the
               # page carries no button at all.
               #
-              # The block and its frame and caption parts paint the code and its file bar in the
-              # code theme's own dark ground, so bar and code read as one block
-              # in both schemes.
+              # The code block follows the colour scheme: light code by day, dark
+              # by night. Its classes only size the block and its file bar.
               - type: container
                 children:
                   - type: code
                     props:
                       language: yaml
-                      className: '!bg-[#0d1117] !px-3.5 !py-3 !text-[13px] !leading-[1.65]'
+                      className: '!px-3.5 !py-3 !text-[13px] !leading-[1.65]'
                     classes:
                       parts:
-                        frame: border-[#30363d]
-                        caption: h-[34px] border-[#30363d] bg-[#0d1117] px-3 py-0 text-[12px] !text-[#9da7b3]
+                        caption: h-[34px] px-3 py-0 text-[12px]
                     filename: app.yaml
                     copy: false
                     content: |-

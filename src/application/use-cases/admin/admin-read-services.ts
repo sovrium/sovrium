@@ -84,6 +84,13 @@ import type {
   UsersOverviewRepository,
 } from '@/application/ports/repositories/tables/users-overview-repository'
 import type { AdminReadHost } from '@/application/ports/services/admin-read-host'
+import type { CSSCompilationError, CSSCompiler } from '@/application/ports/services/css-compiler'
+import type {
+  DesignKitAssetReadError,
+  DesignKitAssets,
+} from '@/application/ports/services/design-kit-assets'
+import type { EmailCssInliner } from '@/application/ports/services/email-css-inliner'
+import type { PageRenderer } from '@/application/ports/services/page-renderer'
 import type { StorageService } from '@/application/ports/services/storage-service'
 import type { TemplateEngine } from '@/application/ports/services/template-engine'
 import type { AdminAttentionServices } from '@/application/use-cases/admin/attention'
@@ -109,6 +116,8 @@ export type AdminReadError =
   | InvitationTokenDatabaseError
   | DesignSystemShareDatabaseError
   | AccountDatabaseError
+  | CSSCompilationError
+  | DesignKitAssetReadError
 
 /** The services an admin read requires. Extend as areas join. */
 export type AdminReadServices =
@@ -130,6 +139,7 @@ export type AdminReadServices =
   | AdminBucketFilesRepository
   | StorageService
   | TemplateEngine
+  | EmailCssInliner
   | Logger
   | AdminAgentConversationsRepository
   | AdminFormsRepository
@@ -139,3 +149,6 @@ export type AdminReadServices =
   | OrganizationTeamRepository
   | DesignSystemShareRepository
   | AccountRepository
+  | PageRenderer
+  | CSSCompiler
+  | DesignKitAssets

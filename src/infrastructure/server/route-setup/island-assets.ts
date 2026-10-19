@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type Hono } from 'hono'
 import {
-  memoizeUnlessDev,
+  memoizeUnlessNoCache,
   PREBUILT_ISLAND_DIR,
   prebuiltIslandBuild,
   servePrebuiltIslandEntry,
@@ -56,7 +56,7 @@ import { islandDirName, sweepStaleIslandDirs } from './island-dir-sweep'
  * half-written module. The browser then throws a SyntaxError, no island mounts,
  * and a page built only from islands renders as an empty skeleton with nothing
  * in the server log to show for it (`/assets/` is excluded from the logger).
- * Under `isDevCacheDisabled()` the exposure is at its worst: `memoizeUnlessDev`
+ * Under `isDevCacheDisabled()` the exposure is at its worst: `memoizeUnlessNoCache`
  * stops memoizing, so all 126 outputs are rewritten on EVERY request rather than
  * once per process.
  *
@@ -93,11 +93,11 @@ export interface IslandBuildResult {
 /**
  * Provides the island client bundle.
  *
- * In development: builds from source at runtime via Bun.build with code splitting.
+ * From source: builds at runtime via Bun.build with code splitting.
  * In bundled mode: returns the pre-built entry from dist/island-chunks/island-entry.js.
  *
- * Result is memoized for the process lifetime (bypassed on dev live-edit runs;
- * see `memoizeUnlessDev`).
+ * Result is memoized for the process lifetime (bypassed only under
+ * `SOVRIUM_DEV_NO_CACHE=1`; see `memoizeUnlessNoCache`).
  */
 export const buildIslands = (() => {
   let sweepStarted = false
@@ -168,7 +168,7 @@ export const buildIslands = (() => {
     return { entryFile, preloads: await computeIslandPreloadManifest(reader, entryFile) }
   }
 
-  return memoizeUnlessDev(build)
+  return memoizeUnlessNoCache(build)
 })()
 
 /**

@@ -33,9 +33,10 @@ A row is deleted once its `field` falls before the start of the day `days` days 
 ## What the sweep does
 
 - **It deletes for good.** The rows are removed from the database, not moved to the trash, and cannot be restored. A row already in the trash is deleted when it falls out of the window like any other; a trashed row still inside it stays in the trash and can be restored as usual.
-- **It is quiet.** Deleting by retention starts no record automation, sends no table webhook and writes no entry in the record history. The server log gets one line per table with the number of rows deleted.
+- **It is quiet.** Deleting by retention starts no record automation, sends no table webhook and writes no entry in the record history. The server log gets one line per table with the number of rows deleted, every time the sweep runs, zero included.
 - **It respects links.** A row that another table still points at through a relationship whose `onDelete` is `restrict` is kept, and counted as kept in that log line. Under `cascade` or `set-null`, the linked rows follow the relationship's rule.
 - **It works in batches.** However large the backlog — the first sweep after you add `retention` to a table that has grown for a year — one sweep removes it, a bounded number of rows at a time, so the database is never held by one huge delete.
+- **It keeps working when the disk is full.** A managed PostgreSQL that has run out of disk stays reachable but defaults every transaction to read-only. The sweep opens its transaction read-write explicitly, which is the one write such a server allows, so it keeps freeing space in exactly that state. A sweep the server still refuses — a standby does — is logged with the table, the rows that were due and the refusal, and the next day's sweep runs regardless.
 
 The sweep runs daily at 03:30 in the operator timezone. It does not run at startup, and there is no endpoint to run it early: a row is deleted by its age, not by a request. Running it twice on the same day deletes nothing the second time.
 

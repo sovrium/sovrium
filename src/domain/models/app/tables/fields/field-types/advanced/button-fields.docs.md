@@ -51,6 +51,10 @@ This is the same grammar a data table's row actions use, so "show this control o
 
 Omitting `visibleWhen` shows the button on every record.
 
+## Disabling a button on some records
+
+`disabledWhen`, in the same grammar, keeps the button on the record but disabled, and `disabledReason` says why: `{ disabledWhen: { field: credit_balance, lt: 8 }, disabledReason: You need at least 8 credits. }`. The button is marked `aria-disabled`, stays focusable, and pressing it starts nothing; the reason shows in a tooltip on hover and on focus and is its accessible description. The condition is checked by the server on the whole record, even a field the reader may not read; the page receives only that the button is disabled (`_disabled: ['field:<name>']` on the record). A press sent to the invoke endpoint answers, in order: 404 for the dispatch, write and role checks as before; 404 when `visibleWhen` does not hold; 409 `ACTION_DISABLED` with the reason when `disabledWhen` holds.
+
 ## Visibility is not permission
 
 `visibleWhen` decides what is drawn. It does not decide what may run: the automation behind the button is subject to the same permissions it would be subject to anywhere else, and a caller who reaches the invoke endpoint directly is checked there. Use `visibleWhen` to keep an irrelevant control off a record, and the automation's own gating to keep an unauthorised caller out of it.

@@ -183,9 +183,9 @@ const OPEN_ACTION = {
  * automations and connections grids rely on exactly that. Keying these is a
  * translation pass this surface has not had yet, not a platform limit.
  *
- * `touches` is an ARRAY, and it prints comma-joined: neither the cell renderer
- * nor `$record.` substitution has a separator to give it, and iterating an array
- * field is an open proposal rather than something this page can author.
+ * `touches` is an ARRAY. `$record.` substitution joins a list with a comma and a
+ * space; the grid cell prints it as its renderer does. Iterating an array field
+ * is an open proposal rather than something this page can author.
  * It is still the most useful column on the grid — it is how an operator finds
  * the decision that explains the property they are looking at.
  */
@@ -193,7 +193,7 @@ const REGISTER_COLUMNS = [
   { field: 'id', label: '$t:admin.common.id', width: 110 },
   { field: 'title', label: '$t:admin.common.title' },
   STATUS_COLUMN,
-  { field: 'date', label: '$t:admin.common.date', width: 120 },
+  { field: 'date', label: '$t:admin.common.date', width: 120, format: 'long-date' },
   { field: 'touches', label: '$t:admin.decisions.touches' },
   { field: 'supersededBy', label: '$t:admin.decisions.supersededBy', width: 150 },
   OPEN_ACTION,
@@ -527,7 +527,7 @@ const documentPage: PageConfig = consolePage({
   page: {
     requires: ['decisions'],
   },
-  shell: { breadcrumb: { decisions: '$t:admin.crumb.decisions' } },
+  shell: { breadcrumb: { decisions: '$t:admin.crumb.decisions' }, document: true },
   body: [
     {
       type: 'container',

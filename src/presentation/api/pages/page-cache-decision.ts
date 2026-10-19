@@ -29,7 +29,7 @@ import {
 import { pageWindowVariantKey, resolvePageWindow } from '@/domain/models/app/pages/window-props'
 import { parseEcoPageCache } from '@/domain/models/process-env/eco/eco-page-cache'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
-import { isPageCacheDevBypassed } from '@/infrastructure/process/env'
+import { isDevCacheDisabled } from '@/infrastructure/process/env'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { RenderablePathCacheability } from '@/domain/models/app/pages/page-cacheability'
@@ -100,7 +100,7 @@ export function decidePageCache(
   path: string,
   request: { readonly session?: SessionInfo; readonly previewMode?: boolean }
 ): PageCacheDecision {
-  const cacheEnabled = parseEcoPageCache(process.env) === 'on' && !isPageCacheDevBypassed()
+  const cacheEnabled = parseEcoPageCache(process.env) === 'on' && !isDevCacheDisabled()
   const anonymousRender = request.session === undefined && request.previewMode !== true
   const shareableBypass = cacheEnabled && anonymousRender
   const classification = classifyRenderablePath(app, path)

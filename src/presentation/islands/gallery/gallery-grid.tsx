@@ -46,7 +46,8 @@ function getViewportWidth(): number {
 /**
  * Renders the gallery records as a responsive CSS-grid card grid. Tracks the
  * viewport width via `resize` events so `data-columns` reflects the active
- * breakpoint at all times.
+ * breakpoint at all times. The grid is a list of cards, as the carousel's
+ * track is: a reader hears how many there are, and each card is an item of it.
  */
 export function GalleryGrid({
   records,
@@ -60,8 +61,7 @@ export function GalleryGrid({
 
   useEffect(() => {
     const onResize = () => setViewportWidth(getViewportWidth())
-    // Read the actual viewport on mount — the SSR-default we used during the
-    // first render may not match the real client viewport.
+    // The real viewport, on mount: the first render's SSR default may differ.
     setViewportWidth(getViewportWidth())
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
@@ -81,9 +81,8 @@ export function GalleryGrid({
     resolvedLayout === 'masonry'
       ? (pieces?.masonry ?? computeGalleryGridClasses({ layout: 'masonry' }))
       : `${pieces?.grid ?? computeGalleryGridClasses()} ${responsiveClasses}`
-  // The active column count describes the gallery, so it is written on the
-  // element that NAMES it — the island host, or the wrapper a data-table's view
-  // switcher draws — which already carries the declared layout from the server.
+  // The active column count is written on the element that NAMES the gallery
+  // (the island host), which already carries the declared layout.
   const ref = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     ref.current
@@ -94,6 +93,7 @@ export function GalleryGrid({
   return (
     <div
       ref={ref}
+      role="list"
       className={layoutClasses}
     >
       {records.map((record, index) => (
@@ -103,6 +103,7 @@ export function GalleryGrid({
           card={card}
           table={table}
           featured={featured === 'first' && index === 0 && resolvedLayout === 'grid'}
+          role="listitem"
         />
       ))}
     </div>

@@ -136,6 +136,7 @@ export default function AiChatIsland(props: AiChatIslandProps): ReactElement {
         onAnswer={answer}
         sessionId={chat.sessionId}
         showBranch={chat.showBranch}
+        showUsage={props.showUsage === true}
       />
 
       {status === 'error' && (

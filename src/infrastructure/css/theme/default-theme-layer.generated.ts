@@ -319,7 +319,7 @@ export const V1_ROOT_LIGHT = `:root {
 
     /* Humane fg — literal, no author alias */
 
-    /* shadcn 4.21.4, base-nova neutral, light — scripts/baselines/shadcn-registry */
+    /* shadcn 4.21.5, base-nova neutral, light — scripts/baselines/shadcn-registry */
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
     --card: oklch(1 0 0);
@@ -405,7 +405,7 @@ export const V1_ROOT_DARK = `html:is(.dark, [data-theme='dark']) {
     --sv-info-solid: #398ad6;
     --sv-info-solid-fg: var(--sv-neutral-50);
 
-    /* shadcn 4.21.4, base-nova neutral, dark — scripts/baselines/shadcn-registry */
+    /* shadcn 4.21.5, base-nova neutral, dark — scripts/baselines/shadcn-registry */
     --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.205 0 0);
@@ -587,7 +587,7 @@ export const NEUTRAL_FLOOR_ROOT_LIGHT = `:root {
     --sv-info-700: var(--sv-neutral-700);
     --sv-info-950: var(--sv-neutral-950);
 
-    /* shadcn 4.21.4, base-nova neutral, light — scripts/baselines/shadcn-registry */
+    /* shadcn 4.21.5, base-nova neutral, light — scripts/baselines/shadcn-registry */
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
     --card: oklch(1 0 0);
@@ -663,7 +663,7 @@ export const NEUTRAL_FLOOR_ROOT_DARK = `html:is(.dark, [data-theme='dark']) {
     --sv-info-solid: var(--sv-info-500);
     --sv-info-solid-fg: var(--sv-neutral-50);
 
-    /* shadcn 4.21.4, base-nova neutral, dark — scripts/baselines/shadcn-registry */
+    /* shadcn 4.21.5, base-nova neutral, dark — scripts/baselines/shadcn-registry */
     --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.205 0 0);

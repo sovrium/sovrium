@@ -14,8 +14,9 @@
  */
 
 import { Cause, DateTime, Effect } from 'effect'
-import { StorageService } from '@/application/ports/services/storage-service'
+import { AdminBucketFilesRepository } from '@/application/ports/repositories/buckets/admin-bucket-files-repository'
 import { ReadBucketUsage } from '@/application/use-cases/admin/bucket-files'
+import { readableName } from '@/domain/models/app/auth/readable-name-service'
 import {
   bucketIdForName,
   declaredBucketNames,
@@ -23,7 +24,7 @@ import {
 } from '@/domain/models/app/buckets/bucket-identity'
 import { parseStorageEnvConfig } from '@/domain/models/process-env/storage/storage'
 import { Logger } from '@/infrastructure/logging/logger'
-import type { AdminReadServices } from '@/application/use-cases/admin/admin-read-operation'
+import type { ConsoleLanguage } from '@/application/use-cases/admin/operator-language'
 import type { BucketAdminItem, BucketProvider } from '@/domain/models/api/admin/buckets/list'
 import type { BucketsOverviewResponse } from '@/domain/models/api/admin/buckets/overview'
 import type { App } from '@/domain/models/app'
@@ -129,6 +130,20 @@ const declaredUploadRules = (
   }
 }
 
+/** What the console calls the built-in bucket, per console language. */
+const SYSTEM_BUCKET_WORDS: Readonly<Record<ConsoleLanguage, string>> = {
+  en: 'System',
+  fr: 'Système',
+}
+
+/**
+ * The words the console prints for a bucket, in `language`: the built-in one is
+ * named in the operator's language, as the built-in agent is; a declared bucket
+ * declares no label, so a person reads its name made readable.
+ */
+const bucketLabelOf = (name: string, language: ConsoleLanguage): string =>
+  name === SYSTEM_BUCKET_NAME ? SYSTEM_BUCKET_WORDS[language] : readableName(name)
+
 /**
  * One item per bucket the app exposes — the built-in `system` first, then every
  * declared bucket — each counting only the objects recorded under it. Empty when
@@ -136,8 +151,9 @@ const declaredUploadRules = (
  * bucket.
  */
 export const buildBucketItems = (
-  app: App
-): Effect.Effect<readonly BucketAdminItem[], never, AdminReadServices> =>
+  app: App,
+  language: ConsoleLanguage
+): Effect.Effect<readonly BucketAdminItem[], never, AdminBucketFilesRepository | Logger> =>
   Effect.gen(function* () {
     const meta = resolveDefaultBucket()
     if (!meta) return []
@@ -146,6 +162,7 @@ export const buildBucketItems = (
     return declaredBucketNames(app.buckets).map((name) => ({
       id: bucketIdForName(name),
       name,
+      label: bucketLabelOf(name, language),
       provider: meta.provider,
       region: meta.region,
       ...declaredUploadRules(app, name),
@@ -164,32 +181,34 @@ export const buildBucketItems = (
 
 /**
  * The overview's right-edge totals. `buckets` counts what the app DECLARES;
- * `files` / `totalBytes` are the backend's global figures. Declared buckets are
- * path prefixes inside the one env-resolved backend, so they all land under the
- * same provider key — which keeps `by_provider` summing to `buckets`.
+ * `files` / `totalBytes` are one count-and-sum read of the storage catalog —
+ * the corpus the series sums, so the two agree by construction, and an object
+ * the app did not store (no catalog row) is never counted. The store itself is
+ * never listed. Declared buckets are path prefixes inside the one env-resolved
+ * backend, so they all land under the same provider key — which keeps
+ * `by_provider` summing to `buckets`.
  */
 export const buildOverviewTotals = (
   app: App
-): Effect.Effect<BucketsOverviewResponse['totals'], never, AdminReadServices> =>
+): Effect.Effect<BucketsOverviewResponse['totals'], never, AdminBucketFilesRepository | Logger> =>
   Effect.gen(function* () {
     const meta = resolveDefaultBucket()
     if (!meta) {
       return { buckets: 0, files: 0, totalBytes: 0, by_provider: { s3: 0, local: 0, bytea: 0 } }
     }
     const buckets = declaredBucketNames(app.buckets).length
-    const { fileCount, totalBytes } = yield* degradeTo(
+    const catalog = yield* degradeTo(
       Effect.gen(function* () {
-        const storage = yield* StorageService
-        const [bytes, keys] = yield* Effect.all([storage.getTotalBytes, storage.list('')])
-        return { totalBytes: bytes, fileCount: keys.length }
+        const repo = yield* AdminBucketFilesRepository
+        return yield* repo.summariseCatalog
       }),
       'storage totals',
-      { totalBytes: 0, fileCount: 0 }
+      { files: 0, bytes: 0 }
     )
     return {
       buckets,
-      files: fileCount,
-      totalBytes,
+      files: catalog.files,
+      totalBytes: catalog.bytes,
       by_provider: {
         s3: meta.provider === 's3' ? buckets : 0,
         local: meta.provider === 'local' ? buckets : 0,

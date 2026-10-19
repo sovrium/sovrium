@@ -16,13 +16,14 @@ import {
   computeFormHelpTextClasses,
 } from '@/presentation/design/form-layout-classes'
 import {
-  LOAD_MORE_LABEL,
-  RECORD_PICKER_COPY,
   linkCountLabel,
+  pickerWord,
   resolvePickerEmptyLabel,
+  type PickerWords,
 } from '../../runtime/picker-contract'
 import { OptionListbox } from '../option-listbox'
-import { type FieldDef, labelOf } from './field-def'
+import { type FieldDef } from './field-def'
+import { FieldLabelText } from './field-label'
 import type { RecordPicker } from './use-record-picker'
 import type { CandidateSearch } from '../use-candidate-search'
 import type { ReactElement, ReactNode } from 'react'
@@ -74,7 +75,7 @@ export function FieldShell(props: {
         htmlFor={props.inputId}
         className={computeFieldLabelClasses()}
       >
-        {labelOf(props.field)}
+        <FieldLabelText field={props.field} />
       </label>
       {props.children}
       {props.field.description !== undefined && (
@@ -105,8 +106,9 @@ export function SuggestionsPopup(props: {
   readonly selected: readonly string[]
   readonly multiple: boolean
   readonly onToggle: (id: string) => void
+  readonly words?: PickerWords
 }): ReactElement {
-  const { search } = props
+  const { search, words } = props
   // Same words and same precedence as the GRID's picker over the same records.
   // The form passes no `unconfiguredLabel`: a field with no `relatedTable`
   // searches nothing here and reads as an empty result, where the grid names
@@ -115,8 +117,9 @@ export function SuggestionsPopup(props: {
   const emptyLabel = resolvePickerEmptyLabel({
     failed: search.failed,
     loading: search.loading,
-    emptyLabel: RECORD_PICKER_COPY.empty,
-    failedLabel: RECORD_PICKER_COPY.failed,
+    emptyLabel: pickerWord(words, 'picker.noMatchingRecords'),
+    failedLabel: pickerWord(words, 'picker.loadFailed'),
+    searchingLabel: pickerWord(words, 'picker.searching'),
   })
   return (
     <div
@@ -140,7 +143,7 @@ export function SuggestionsPopup(props: {
           onClick={search.loadMore}
           className="border-border bg-card text-muted-foreground hover:bg-muted -mt-px w-full border-x border-b py-1 text-center text-sm"
         >
-          {LOAD_MORE_LABEL}
+          {pickerWord(words, 'picker.loadMore')}
         </button>
       )}
     </div>
@@ -157,12 +160,20 @@ export function SuggestionsPopup(props: {
 export function LinkCount(props: {
   readonly linked: number
   readonly maxLinked: number
+  readonly words?: PickerWords
 }): ReactElement {
   return (
     <span className={computeFormHelpTextClasses()}>
-      {linkCountLabel(props.linked, props.maxLinked)}
+      {linkCountLabel(props.linked, props.maxLinked, props.words)}
     </span>
   )
+}
+
+/** The field's guidance, then the refusal line when there is one. */
+function describedBy(field: FieldDef, errorId: string | undefined) {
+  const own = fieldDescribedBy(field)['aria-describedby']
+  const ids = [own, errorId].filter((id): id is string => id !== undefined)
+  return ids.length === 0 ? {} : { 'aria-describedby': ids.join(' ') }
 }
 
 /**
@@ -184,6 +195,8 @@ export function PickerCombobox(props: {
   readonly expanded: boolean
   readonly locked: boolean
   readonly invalid?: boolean
+  /** The id of the line saying why the value was refused, added to the field's description. */
+  readonly errorId?: string
   /**
    * The `data-component-type` the combobox names itself with, where the picker
    * is drawn inside a surface that names its parts (a record drawer). A page
@@ -214,7 +227,7 @@ export function PickerCombobox(props: {
       {...(field.required && { required: true, 'data-required': 'true' })}
       {...(field.placeholder && { placeholder: field.placeholder })}
       {...(props.invalid && { 'aria-invalid': 'true' })}
-      {...fieldDescribedBy(field)}
+      {...describedBy(field, props.errorId)}
       onChange={(e) => props.onTerm(e.target.value)}
       onFocus={props.onOpen}
       onClick={props.onOpen}
@@ -267,10 +280,14 @@ export function PickerControl(props: {
   readonly picker: RecordPicker
   readonly allowMultiple: boolean
   readonly invalid?: boolean
+  /** See `PickerCombobox`'s `errorId`. */
+  readonly errorId?: string
   /** See `PickerCombobox`'s `componentType`. */
   readonly componentType?: string
   /** See `PickerCombobox`'s `controlClassName`. */
   readonly controlClassName?: string
+  /** The pickers' words in the page language (`picker.*`). */
+  readonly words?: PickerWords
 }): ReactElement {
   const { picker, inputId } = props
   const expanded = picker.open && !picker.atCap
@@ -288,6 +305,7 @@ export function PickerControl(props: {
         // that precedes it.
         onClose={() => setTimeout(picker.closePopup, BLUR_CLOSE_DELAY_MS)}
         {...(props.invalid !== undefined && { invalid: props.invalid })}
+        {...(props.errorId !== undefined && { errorId: props.errorId })}
         {...(props.componentType !== undefined && { componentType: props.componentType })}
         {...(props.controlClassName !== undefined && {
           controlClassName: props.controlClassName,
@@ -300,6 +318,7 @@ export function PickerControl(props: {
           selected={picker.linkedIds}
           multiple={props.allowMultiple}
           onToggle={picker.toggle}
+          words={props.words}
         />
       )}
     </div>

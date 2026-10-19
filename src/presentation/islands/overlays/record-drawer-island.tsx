@@ -127,6 +127,8 @@ export interface RecordDrawerIslandProps extends RelatedSlotProps, DrawerNavigat
   readonly saveFailedLabel?: string
   /** What a drawer says of a record it cannot show (`recordDrawer.notFound`). */
   readonly notFoundLabel?: string
+  /** What a drawer says of a record whose read failed (`recordDrawer.readFailed`). */
+  readonly readFailedLabel?: string
   /** The other words the drawer draws on its own (`record-drawer-labels.ts`). */
   readonly builtInLabels?: DrawerBuiltInLabels
   /** The author's `props.className`, added to the surface the reader sees. */
@@ -166,6 +168,8 @@ export default function RecordDrawerIsland(props: RecordDrawerIslandProps): Reac
   const sheet = useRecordSheet(props, labels)
   const surface = {
     title: sheet.stacked?.title ?? sheet.title,
+    // A record stacked over the one it was reached from is not in the list.
+    header: sheet.stacked === undefined ? sheet.header : undefined,
     body: (
       <DrawerBody
         props={props}

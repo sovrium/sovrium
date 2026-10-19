@@ -153,7 +153,7 @@ export const drawerFields = {
       siblings: Schema.optional(
         Schema.Boolean.annotate({
           description:
-            'Draw Previous and Next, stepping through the rows of the table the sheet was opened from, in its current order, filter and page (default: false)',
+            'Draw Previous and Next in the sheet header, stepping through the rows of the table the sheet was opened from, in its current order, filter and page, with the record’s place in that list under the title (default: false)',
         })
       ),
       fullPage: Schema.optional(

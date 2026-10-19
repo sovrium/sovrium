@@ -78,24 +78,17 @@ const mountsByApp = new WeakMap<App, readonly EmbeddedAppMount[]>()
 /**
  * The console's placement for this operator app — one mount, or none.
  *
- * Resolving the preset LAZILY — on the first call rather than at module load —
- * keeps a decode failure out of import time, where it would take down every
- * entry point that merely touches this module. It is still a boot error: the
- * first caller is the route registration that runs during `createServer`.
- *
- * The kill switch short-circuits BEFORE the preset is read, so an operator who
- * has switched the console off never pays for decoding it — and, more to the
- * point, an instance running with `SOVRIUM_ADMIN=off` still boots even if the
- * preset itself is the thing that is broken.
+ * The mount list is cheap: the preset is handed over as a thunk and decoded on
+ * the first request that needs it (`buildMount`), not here — registration and
+ * the startup banner read only the base path. That the preset decodes against
+ * this release's schema is proved when it is generated
+ * (`scripts/build/generate-admin-preset.ts`), so a start does not re-prove it.
+ * `SOVRIUM_ADMIN=off` builds no mount at all (`buildEmbeddedAppMounts`).
  */
 export const adminMountsFor = (operatorApp: App): readonly EmbeddedAppMount[] => {
   const cached = mountsByApp.get(operatorApp)
   if (cached !== undefined) return cached
-  const adminMode = parseSovriumAdmin()
-  const mounts =
-    adminMode === 'off'
-      ? []
-      : buildEmbeddedAppMounts(operatorApp, resolveAdminPresetApp(), adminMode)
+  const mounts = buildEmbeddedAppMounts(operatorApp, resolveAdminPresetApp, parseSovriumAdmin())
   mountsByApp.set(operatorApp, mounts)
   return mounts
 }

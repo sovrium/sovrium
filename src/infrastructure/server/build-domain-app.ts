@@ -139,7 +139,7 @@ export const buildDomainRuntimeAndApp = (
       )
     }
     const skills = yield* loadAgentSkillsOrRefuse(config)
-    const runtime = createDomainRuntime(config.app, assets.store, skills)
+    const runtime = createDomainRuntime(config.app, assets.store, skills, config.publicDir)
     const context = yield* Effect.tryPromise({
       try: () => runtime.context(),
       catch: (cause: unknown) =>

@@ -49,6 +49,7 @@ function GridPager({ props }: { readonly props: GridBodyProps }) {
     <PaginationControls
       table={props.table}
       total={props.totalRecords}
+      reading={props.unanswered}
       pageSizeOptions={props.paginationConfig?.pageSizeOptions}
       position="top"
     />
@@ -69,6 +70,7 @@ function BottomBar({ props, paged }: { readonly props: GridBodyProps; readonly p
     <PaginationControls
       table={props.table}
       total={props.totalRecords}
+      reading={props.unanswered}
       pageSizeOptions={props.paginationConfig?.pageSizeOptions}
       position="bottom"
       paged={paged}
@@ -107,6 +109,8 @@ export function GridBody(props: GridBodyProps) {
         <PhoneRows
           table={props.grid.table}
           ariaLabel={props.grid.ariaLabel}
+          onRowClickAction={props.grid.onRowClickAction}
+          tableName={props.grid.tableName}
         />
       ) : (
         <TableContent {...props.grid} />

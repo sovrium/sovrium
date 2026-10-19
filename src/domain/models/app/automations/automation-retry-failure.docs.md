@@ -95,6 +95,8 @@ An address that appears in both is emailed once. `SOVRIUM_NOTIFY_AUTOMATIONS=off
 
 The footer carries the app's version and the Sovrium version (`acme-ops v2.3.1 (Sovrium v0.28.0)`), and the email arrives from the app's name unless `SMTP_FROM_NAME` says otherwise.
 
+The body's first sentence says the automation failed, and adds that it did so after using all of its retries only when a retry policy allowed more than one attempt and every one of them failed; a run with no retries to use is simply reported as failed. A run skipped because a connection it needs is not configured is not a failure and sends no email.
+
 A run that exceeded its `timeout` reads `Automation timed out: <name>` and says it timed out. The body names the automation, the error — shown as text, never interpreted as markup — and when it happened. The error is summarised before it is sent: its first line only, with a database's detail block removed except the column a duplicate key names, whose value is replaced (`Key (email)=(…)`), any password in a connection URL masked, and at most 200 characters. The full error stays in the run's history in the console. The email itself is headed with the app's name. When `BASE_URL` is set, it links to the console's automations catalogue, where a paused automation is resumed, and, in its footer, to the profile page where each operator switches the email off; without `BASE_URL` no link can be built, so the run id is printed instead.
 
 A run the server stopped under reads `Automation interrupted: <name>`, and its error is `Interrupted: the server stopped during this run` — see _Runs interrupted by a restart_ in the runs article.

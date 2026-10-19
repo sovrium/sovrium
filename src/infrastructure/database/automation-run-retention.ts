@@ -18,8 +18,13 @@ import {
   automationApprovalRequests as approvalsSqlite,
   automationRuns as runsSqlite,
 } from '@/infrastructure/database/drizzle/schema-sqlite/automation'
+import {
+  RetentionSweepFailure,
+  inReadWriteTransaction,
+} from '@/infrastructure/database/read-write-sweep'
 import { logInfo } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
+import { onDevTimeline } from '@/infrastructure/process/server-boot-instant'
 
 /**
  * The run-history retention EXECUTOR: `SOVRIUM_AUTOMATION_RUN_RETENTION_DAYS`.
@@ -36,7 +41,10 @@ import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timez
  * Unset, the variable keeps every run: an upgrade must never start deleting
  * history an operator relied on. Batched like the table sweep; the Drizzle
  * builder encodes `created_at` per dialect (`timestamptz` on PostgreSQL, an
- * INTEGER of milliseconds on SQLite).
+ * INTEGER of milliseconds on SQLite). Each batch's delete runs in a
+ * transaction opened READ WRITE (`read-write-sweep.ts`), so the sweep keeps
+ * freeing space on a managed PostgreSQL that has gone read-only for lack of
+ * disk, and the outcome is logged every time, zero included.
  */
 
 const automationRuns = resolveDialectSchema(runsPg, runsSqlite)
@@ -76,15 +84,23 @@ const deleteBatch = async (cutoff: Readonly<Date>): Promise<number> => {
     .where(and(lt(automationRuns.createdAt, cutoff), hasEnded()))
     .limit(BATCH_SIZE)
   if (due.length === 0) return 0
-  const deleted = await db
-    .delete(automationRuns)
-    .where(
-      inArray(
-        automationRuns.id,
-        due.map((run) => run.id)
+  const deleted = await inReadWriteTransaction((tx) =>
+    tx
+      .delete(automationRuns)
+      .where(
+        inArray(
+          automationRuns.id,
+          due.map((run) => run.id)
+        )
       )
-    )
-    .returning({ id: automationRuns.id })
+      .returning({ id: automationRuns.id })
+  ).catch((cause: unknown) => {
+    throw new RetentionSweepFailure({
+      table: 'system.automation_runs',
+      attempted: due.length,
+      cause,
+    })
+  })
   return deleted.length
 }
 
@@ -103,16 +119,14 @@ const deleteAll = async (cutoff: Readonly<Date>, total: number): Promise<number>
  */
 export async function pruneExpiredAutomationRuns(
   env: Readonly<Record<string, string | undefined>> = process.env,
-  now: Readonly<Date> = new Date()
+  now: Readonly<Date> = onDevTimeline()
 ): Promise<number> {
   const days = parseSovriumAutomationRunRetentionDays(env)
   if (days === undefined) return 0
   const cutoff = zonedStartOfDayDaysBefore(now, resolveOperatorTimezone(), days)
   const deleted = await deleteAll(cutoff, 0)
-  if (deleted > 0) {
-    logInfo(
-      `[automation-run-retention] Deleted ${String(deleted)} run(s) that ended before ${cutoff.toISOString()}`
-    )
-  }
+  logInfo(
+    `[automation-run-retention] Deleted ${String(deleted)} run(s) that ended before ${cutoff.toISOString()}`
+  )
   return deleted
 }

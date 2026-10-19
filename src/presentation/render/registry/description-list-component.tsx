@@ -45,7 +45,7 @@ import {
   type DescriptionListLayout,
 } from '../../design/display-default-classes'
 import { omitInternalMarkers } from '../props/internal-marker-props'
-import { NOT_SET, renderFieldDetail } from './description-list-field-detail'
+import { renderFieldDetail } from './description-list-field-detail'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { Tables } from '@/domain/models/app/tables'
@@ -152,14 +152,17 @@ const renderRow = ({
       </dt>
       <dd
         data-slot="description-list-detail"
-        className={computeDescriptionDetailClasses({ withAction: item.action !== undefined })}
+        className={computeDescriptionDetailClasses({
+          withAction: item.action !== undefined,
+          empty: detail === undefined,
+        })}
       >
         {detail === undefined ? (
           <span
             data-description-empty=""
             className={computeDescriptionEmptyClasses()}
           >
-            {item.field === undefined ? EMPTY_DETAIL : NOT_SET}
+            {EMPTY_DETAIL}
           </span>
         ) : (
           detail

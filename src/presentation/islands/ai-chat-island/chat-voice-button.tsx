@@ -117,7 +117,7 @@ export function ChatVoiceButton({
     labels.voiceError
   )
   const maxMs = (voiceInput.maxDurationSeconds ?? DEFAULT_MAX_SECONDS) * 1000
-  const recorder = useVoiceRecorder(maxMs, handleRecorded)
+  const recorder = useVoiceRecorder(maxMs, handleRecorded, labels)
   const handlers = usePushToTalk(recorder)
   const recording = recorder.phase !== 'idle'
   const message = recorder.error ?? status
@@ -127,8 +127,7 @@ export function ChatVoiceButton({
         type="button"
         data-slot="input-group-button"
         data-testid="chat-voice"
-        // English in every language for now: the dictation specs name the button so.
-        aria-label="Hold to talk"
+        aria-label={labels.holdToTalk}
         aria-pressed={recording}
         disabled={disabled || transcribing}
         {...handlers}

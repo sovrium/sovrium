@@ -6,3 +6,4 @@
  */
 
 export * from './role'
+export * from './label'

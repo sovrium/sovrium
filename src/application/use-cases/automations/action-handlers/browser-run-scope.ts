@@ -14,7 +14,7 @@ import type { AutomationRunRepository } from '@/application/ports/repositories/a
 import type { BrowserSessionRepository } from '@/application/ports/repositories/automations/browser-session-repository'
 import type { BrowserDriver, BrowserSession } from '@/application/ports/services/browser-driver'
 import type { App } from '@/domain/models/app'
-import type { Effect } from 'effect'
+import type { Effect, Ref } from 'effect'
 
 /**
  * The shapes one `browser/run` carries from step to step: what the run is
@@ -109,8 +109,11 @@ export interface BrowserRunScope {
   /** Store a picture; `undefined` when it could not be stored. */
   readonly storeShot: (
     bytes: Uint8Array,
-    name: string
+    name: string,
+    session: BrowserSession
   ) => Effect.Effect<ScreenshotRef | undefined, never, StepRequirements>
+  /** Whether a page of the session loaded anything from the app itself (`browser-own-app.ts`). */
+  readonly seenOwnApp: Ref.Ref<boolean>
   /** Runs once the irreversible click's element is found: the idempotency key turns `pending`. */
   readonly beforeSubmit: Effect.Effect<void, never, StepRequirements>
   /** The step whose confirmation a person approved: it clicks without asking again. */

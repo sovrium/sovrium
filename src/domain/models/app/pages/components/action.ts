@@ -13,7 +13,7 @@
  *
  * - `action-response.ts`   — the shared post-action vocabulary (toast, onSuccess/onError)
  * - `action-operations.ts` — auth, crud, automation (engine operations)
- * - `action-client.ts`     — navigate, toast, openSheet, openImport, fill (resolved in the page)
+ * - `action-client.ts`     — navigate, toast, openSheet, openImport, fill, seek (resolved in the page)
  * - `action-fetch.ts`      — fetch and its response envelope family
  */
 
@@ -23,6 +23,7 @@ import {
   NavigateActionSchema,
   OpenDrawerActionSchema,
   OpenImportActionSchema,
+  SeekActionSchema,
   ToastActionSchema,
 } from './action-client'
 import { FetchActionSchema } from './action-fetch'
@@ -51,10 +52,12 @@ export type {
 } from './action-fetch'
 
 /**
- * Every action variant except `fill`, in the order {@link ActionSchema} lists
- * them. `fill` writes into a form control and runs only where the page's
- * client runtime dispatches it — a button, a list item click, a board drop
- * hook — so a slot whose handler never reads it takes this list instead.
+ * Every action variant except `fill` and `seek`, in the order
+ * {@link ActionSchema} lists them. Both act on another component of the page —
+ * `fill` writes into a form control, `seek` moves a media player — and run only
+ * where the page's client runtime dispatches them (a button, a list item click,
+ * a row or card click, and for `fill` a board drop hook), so a slot whose
+ * handler never reads them takes this list instead.
  */
 const NON_FILL_ACTION_MEMBERS = [
   AuthActionSchema,
@@ -68,9 +71,9 @@ const NON_FILL_ACTION_MEMBERS = [
 ] as const
 
 /**
- * An action slot that refuses `fill`: the full action vocabulary minus the one
- * variant its handler never runs. Without it, `fill` validated there and then
- * did nothing. The refusal names the slot and what it accepts, so the author
+ * An action slot that refuses `fill` and `seek`: the full action vocabulary
+ * minus the two variants its handler never runs. Without it, `fill` validated
+ * there and then did nothing. The refusal names the slot and what it accepts, so the author
  * sees where `fill` belongs instead of a bare union mismatch.
  *
  * @param slot - The option path as an author writes it, e.g. `actions[].action`
@@ -85,7 +88,7 @@ export const actionWithoutFill = (
     identifier,
     title,
     description,
-    message: `${slot} accepts an auth, crud, automation, navigate, toast, fetch, openSheet or openImport action. A fill action runs only from a button, a list item click (onRowClick) or a board drop hook (drag.onDrop).`,
+    message: `${slot} accepts an auth, crud, automation, navigate, toast, fetch, openSheet or openImport action. A fill action runs only from a button, a list item click (onRowClick) or a board drop hook (drag.onDrop); a seek action only from a button, or a list item, table row or card click.`,
   })
 
 /**
@@ -101,10 +104,11 @@ export const actionWithoutFill = (
  * - **toast**: Show a transient toast notification
  * - **fetch**: Client-side fetch with toast response
  * - **fill**: Write a value into a form control on the same page
+ * - **seek**: Move a video or audio player on the same page to a moment
  * - **openSheet**: Open a drawer component — discriminated on `action`, NOT on
  *   `type`, which is why it is easy to miss when counting this union.
  * - **openImport**: Open the CSV import dialog for one table — also on `action`.
- *   The union has NINE members; a list of seven here has already been read as
+ *   The union has TEN members; a list of seven here has already been read as
  *   authoritative by downstream comments that then undercounted it.
  *
  * @example
@@ -154,12 +158,16 @@ export const actionWithoutFill = (
  *     message: Saved!
  * ```
  */
-export const ActionSchema = Schema.Union([...NON_FILL_ACTION_MEMBERS, FillActionSchema]).pipe(
+export const ActionSchema = Schema.Union([
+  ...NON_FILL_ACTION_MEMBERS,
+  FillActionSchema,
+  SeekActionSchema,
+]).pipe(
   Schema.annotate({
     identifier: 'Action',
     title: 'Action',
     description:
-      'Component action. Discriminated by type: auth (authentication), crud (data operations), automation (invoke workflow), navigate (pure URL navigation), toast (transient notification), fetch (client-side HTTP with toast response), fill (write a value into a form control on the same page). Open-drawer is discriminated by `action: openSheet` instead of `type` (PG-04 quick-edit drawer pattern), and open-import (the CSV import dialog for one table) by `action: openImport`. A control narrows a data component through its `publishes` on a shared-filter channel, not through an action.',
+      'Component action. Discriminated by type: auth (authentication), crud (data operations), automation (invoke workflow), navigate (pure URL navigation), toast (transient notification), fetch (client-side HTTP with toast response), fill (write a value into a form control on the same page), seek (move a video or audio player on the same page to a moment). Open-drawer is discriminated by `action: openSheet` instead of `type` (PG-04 quick-edit drawer pattern), and open-import (the CSV import dialog for one table) by `action: openImport`. A control narrows a data component through its `publishes` on a shared-filter channel, not through an action.',
   })
 )
 
@@ -168,8 +176,9 @@ export const ActionSchema = Schema.Union([...NON_FILL_ACTION_MEMBERS, FillAction
  *
  * The subset of {@link ActionSchema} a data-table row click actually honours.
  *
- * The row-click handler implements exactly two variants — `navigate` and
- * `openSheet` — and returns `undefined` for everything else
+ * The row-click handler implements exactly three variants — `navigate`,
+ * `openSheet` and `seek` (a transcript row playing its call from where it was
+ * said) — and returns `undefined` for everything else
  * (`resolveRowClickAction` in
  * `src/presentation/islands/data-table/island/data-table-island.tsx`). Typing `onRowClick`
  * as the full nine-member `ActionSchema` therefore accepted seven variants that
@@ -203,12 +212,13 @@ export const ActionSchema = Schema.Union([...NON_FILL_ACTION_MEMBERS, FillAction
 export const RowClickActionSchema = Schema.Union([
   NavigateActionSchema,
   OpenDrawerActionSchema,
+  SeekActionSchema,
 ]).pipe(
   Schema.annotate({
     identifier: 'RowClickAction',
     title: 'Row Click Action',
     description:
-      'Action triggered by a table row click. Only two variants are honoured at runtime: `navigate` (pure URL navigation, discriminated by `type: navigate`, `path` supports `$record.X` substitution) and `openSheet` (opens a sibling drawer component, discriminated by `action: openSheet`). The remaining Action variants (auth, crud, automation, toast, fetch, fill, openImport) are rejected here because the row-click handler ignores them — put richer behaviour on the footer actions of the referenced drawer component instead.',
+      'Action triggered by a table row click. Three variants are honoured at runtime: `navigate` (pure URL navigation, discriminated by `type: navigate`, `path` supports `$record.X` substitution), `openSheet` (opens a sibling drawer component, discriminated by `action: openSheet`) and `seek` (moves a video or audio player on the page to the moment the row names, `time` supports `$record.X`). The remaining Action variants (auth, crud, automation, toast, fetch, fill, openImport) are rejected here because the row-click handler ignores them — put richer behaviour on the footer actions of the referenced drawer component instead.',
   })
 )
 
@@ -216,7 +226,7 @@ export const RowClickActionSchema = Schema.Union([
  * Card Click Action
  *
  * What a click on a card does — a board card (`kanban.card.onClick`) or a
- * gallery card (`gallery.galleryCard.onClick`): the two verbs a grid row and
+ * gallery card (`gallery.galleryCard.onClick`): the three verbs a grid row and
  * a list item take, and no others.
  *
  * Both handlers only ever read a navigate path, so accepting the full
@@ -236,22 +246,23 @@ export const RowClickActionSchema = Schema.Union([
 export const CardClickActionSchema = Schema.Union([
   NavigateActionSchema,
   OpenDrawerActionSchema,
+  SeekActionSchema,
 ]).annotate({
   identifier: 'CardClickAction',
   title: 'Card Click Action',
   description:
-    'What a click on a card does: `navigate` follows a path, with `$record.*` read from the card record and `$param.*` from the page address; `openSheet` opens that record in the named drawer on the page, as a grid row click does. Any other action is refused — put richer behaviour on the drawer footer actions instead.',
+    'What a click on a card does: `navigate` follows a path, with `$record.*` read from the card record and `$param.*` from the page address; `openSheet` opens that record in the named drawer on the page, as a grid row click does; `seek` moves a video or audio player on the page to the moment the card names. Any other action is refused — put richer behaviour on the drawer footer actions instead.',
 })
 
 /**
  * List Row Click Action
  *
- * What a click on a `list` item does: the two verbs a grid row takes, plus
+ * What a click on a `list` item does: the three verbs a grid row takes, plus
  * `fill` — a list beside a form is how a composer offers its reusable scripts,
  * and a click on one writes its text into the message box.
  *
  * A separate node rather than a widened {@link RowClickActionSchema}: the grid's
- * row-click handler implements `navigate` and `openSheet` only, and widening
+ * row-click handler implements `navigate`, `openSheet` and `seek` only, and widening
  * the shared union would let `fill` validate on a grid and then do nothing — the
  * exact silence the narrowed unions exist to remove.
  *
@@ -268,11 +279,12 @@ export const ListRowClickActionSchema = Schema.Union([
   NavigateActionSchema,
   OpenDrawerActionSchema,
   FillActionSchema,
+  SeekActionSchema,
 ]).annotate({
   identifier: 'ListRowClickAction',
   title: 'List Row Click Action',
   description:
-    'What a click on a list item does: `navigate` follows a path filled with the item values, `openSheet` opens the item in the named drawer on the page, and `fill` writes a value from the item into a form control on the same page. Any other action is refused.',
+    'What a click on a list item does: `navigate` follows a path filled with the item values, `openSheet` opens the item in the named drawer on the page, `fill` writes a value from the item into a form control on the same page, and `seek` moves a video or audio player on the page to the moment the item names (a transcript line playing its call from there). Any other action is refused.',
 })
 
 /** @public */

@@ -42,6 +42,11 @@ import {
   type AgentConversationHeader,
 } from '@/domain/models/api/admin/agents/conversations'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { withTableLabels } from '@/domain/models/app/agents/stored-tool-call-service'
+import { serverNow } from '@/domain/models/process-env/dev-clock'
+
+/** A declared table's label as the console prints it, or `undefined` for an undeclared one. */
+export type TableLabelOf = (table: string) => string | undefined
 
 // ─── Pure coercion helpers ───────────────────────────────────────────────────
 
@@ -78,6 +83,8 @@ function buildConversationHeader(row: AdminAgentConversationRow): AgentConversat
     id: row.id,
     title: row.title,
     sessionId: row.sessionId,
+    userId: row.userId,
+    userName: row.userName,
     createdAt: toIso(row.createdAt),
     lastActivityAt: toIso(row.updatedAt),
   }
@@ -89,7 +96,7 @@ function buildConversationHeader(row: AdminAgentConversationRow): AgentConversat
  * `model` / `tokenCount` / `toolCalls` are nullable. Omits `conversationId` by
  * construction (it is the request path segment — never a response field).
  */
-function buildMessage(row: AdminAgentMessageRow): AgentConversationMessage {
+function buildMessage(row: AdminAgentMessageRow, labelOf: TableLabelOf): AgentConversationMessage {
   return {
     id: row.id,
     role: row.role as AgentConversationMessage['role'],
@@ -97,7 +104,8 @@ function buildMessage(row: AdminAgentMessageRow): AgentConversationMessage {
     status: row.status as AgentConversationMessage['status'],
     model: row.model,
     tokenCount: row.tokenCount,
-    toolCalls: row.toolCalls ?? null,
+    // A stored call naming a table reads by that table's label as declared NOW.
+    toolCalls: withTableLabels(row.toolCalls ?? null, labelOf),
     createdAt: toIso(row.createdAt),
   }
 }
@@ -150,8 +158,28 @@ export interface AgentConversationsListInput {
   readonly q?: string | undefined
   /** Exact account id narrowing the list to that account's conversations. */
   readonly userId?: string | undefined
+  /** A relative window on the last activity, counted back from the server's now. */
+  readonly period?: ConversationsPeriod | undefined
   readonly cursor?: string | undefined
   readonly limit: number
+}
+
+/** The relative windows the list takes (`?period`). */
+export type ConversationsPeriod = '7d' | '30d' | '90d'
+
+const PERIOD_DAYS: Readonly<Record<ConversationsPeriod, number>> = { '7d': 7, '30d': 30, '90d': 90 }
+
+/**
+ * The lower bound of the list's window: the later of `from` and the start of
+ * `period`, counted back from the server's now — the pinned instant on a
+ * development host, so a pinned host answers on its pinned day. The browser
+ * computes no date.
+ */
+function windowStart(input: Readonly<AgentConversationsListInput>): string | undefined {
+  if (input.period === undefined) return input.from
+  const start = serverNow().getTime() - PERIOD_DAYS[input.period] * 86_400_000
+  const from = input.from === undefined ? Number.NEGATIVE_INFINITY : Date.parse(input.from)
+  return new Date(Math.max(start, from)).toISOString()
 }
 
 /**
@@ -166,9 +194,10 @@ function buildListFilters(
   input: Readonly<AgentConversationsListInput>,
   decoded: { readonly value: string; readonly id: string } | null
 ): AdminAgentConversationsListFilters {
+  const from = windowStart(input)
   return {
     agentName: input.agentName,
-    ...(input.from !== undefined ? { from: input.from } : {}),
+    ...(from !== undefined ? { from } : {}),
     ...(input.to !== undefined ? { to: input.to } : {}),
     ...(input.q !== undefined ? { q: input.q } : {}),
     ...(input.userId !== undefined ? { userId: input.userId } : {}),
@@ -271,7 +300,8 @@ export type AgentConversationDetailOutcome =
  */
 export const BuildAgentConversationDetail = (
   agentName: string,
-  conversationId: string
+  conversationId: string,
+  labelOf: TableLabelOf = () => undefined
 ): Effect.Effect<
   AgentConversationDetailOutcome,
   AdminAgentConversationsDatabaseError,
@@ -288,7 +318,7 @@ export const BuildAgentConversationDetail = (
     const messageRows = yield* repo.listMessages(conversationId)
     const body = {
       conversation: buildConversationHeader(conversationRow),
-      messages: messageRows.map((row) => buildMessage(row)),
+      messages: messageRows.map((row) => buildMessage(row, labelOf)),
     }
 
     const parsed = decodeSafe(agentConversationDetailResponseSchema)(body)
@@ -300,3 +330,42 @@ export const BuildAgentConversationDetail = (
       body: { conversation: parsed.data.conversation, messages: parsed.data.messages },
     } as const
   }).pipe(Effect.withSpan('admin.build-agent-conversation-detail'))
+
+// ─── Every match (the CSV export) ─────────────────────────────────────────────
+
+/** The page size the export walks the list in. */
+const EXPORT_PAGE = 200
+
+/**
+ * Every conversation the list's filters match, newest first — not one page:
+ * the export walks the same `(updatedAt, id)` seek the cursor does until the
+ * match stream ends.
+ */
+export const ListAllAgentConversations = (
+  input: Omit<AgentConversationsListInput, 'cursor' | 'limit'>
+): Effect.Effect<
+  ReadonlyArray<AgentConversationListItem>,
+  AdminAgentConversationsDatabaseError,
+  AdminAgentConversationsRepository
+> =>
+  Effect.gen(function* () {
+    const repo = yield* AdminAgentConversationsRepository
+    const walk = (
+      cursor: { readonly value: string; readonly id: string } | null,
+      found: ReadonlyArray<AgentConversationListItem>
+    ): Effect.Effect<
+      ReadonlyArray<AgentConversationListItem>,
+      AdminAgentConversationsDatabaseError
+    > =>
+      Effect.flatMap(
+        repo.listConversations(buildListFilters({ ...input, limit: EXPORT_PAGE }, cursor)),
+        (rows) => {
+          const items = [...found, ...rows.slice(0, EXPORT_PAGE).map(buildConversationItem)]
+          const last = items.at(-1)
+          return rows.length > EXPORT_PAGE && last !== undefined
+            ? walk({ value: last.lastActivityAt, id: last.id }, items)
+            : Effect.succeed(items)
+        }
+      )
+    return yield* walk(null, [])
+  }).pipe(Effect.withSpan('admin.list-all-agent-conversations'))

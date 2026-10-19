@@ -49,7 +49,8 @@ import type { BetterAuthPlugin } from 'better-auth'
 export const dispatchAuthEvent = (
   event: AuthTriggerEvent,
   user: Readonly<Record<string, unknown>>,
-  hookContext: AuthHookContext | undefined
+  hookContext: AuthHookContext | undefined,
+  data?: Readonly<Record<string, unknown>>
 ): Promise<void> => {
   const appMeta = hookContext?.appMeta
   const domainContext = hookContext?.domainContext
@@ -61,6 +62,7 @@ export const dispatchAuthEvent = (
     user,
     processEnv: process.env,
     userId: typeof user['id'] === 'string' ? (user['id'] as string) : undefined,
+    ...(data === undefined ? {} : { data }),
   })
   // Swallowed on purpose: an automation must never fail the sign-in, sign-out
   // or reset it reacts to. The cause is logged for the operator.

@@ -113,7 +113,7 @@ A materialized view is a cache, and a cache has an age. `refreshOnMigration` tie
 
 ## Exactly one default
 
-Marking a view `isDefault: true` decides what a consumer gets when it asks for the table without naming a view. The single-default rule and the uniqueness of view ids are both checked when the configuration is decoded, so two defaults stop the boot rather than making the answer depend on array order.
+Marking a view `isDefault: true` decides what a consumer gets when it asks for the table without naming a view — a grid with a view switcher opens on it. A view that groups by a field its `fields` leaves out still serves that field, so its groups have their values; the grid draws no column for it. The single-default rule and the uniqueness of view ids are both checked when the configuration is decoded, so two defaults stop the boot rather than making the answer depend on array order.
 
 ## Who may see a view
 

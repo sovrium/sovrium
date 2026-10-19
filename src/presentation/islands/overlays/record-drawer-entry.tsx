@@ -102,6 +102,7 @@ export function FieldInput({
         value={value}
         disabled={disabled}
         onChange={onChange}
+        error={error}
       >
         <EntryDescription field={field} />
       </LinkField>
@@ -115,6 +116,7 @@ export function FieldInput({
         value={value}
         disabled={disabled}
         onChange={onChange}
+        error={error}
       >
         <EntryDescription field={field} />
       </ChoiceField>
@@ -177,7 +179,9 @@ function ReadOnlyFieldValue({
         currency={field.currency}
         weekday={field.weekday}
         timeZone={field.timeZone}
+        format={field.format}
         paints={field.paints}
+        valueLabels={field.valueLabels}
       />
     </span>
   )

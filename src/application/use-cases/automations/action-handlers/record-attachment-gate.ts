@@ -37,13 +37,14 @@ import {
 } from '@/application/use-cases/attachments/validate-attachment-references'
 import { SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
 import { resolveStoragePublicAccess } from '@/domain/models/process-env/storage/storage-public-access'
-import { recordInlineStored, type RunWrittenFiles } from './run-written-files'
+import {
+  createRunWrittenFiles,
+  recordInlineStored,
+  type RunWrittenFiles,
+} from './run-written-files'
 import type { StorageService } from '@/application/ports/services/storage-service'
 import type { CallerWriteRequest } from '@/application/use-cases/tables/permissions/caller-write-authority'
 import type { App } from '@/domain/models/app'
-
-/** A run with no ledger stored nothing: its nobody-writer may reference no existing key. */
-const NOTHING_WRITTEN: RunWrittenFiles = { record: () => undefined, has: () => false }
 
 /**
  * Who a step writing as `actorId` is judged as: the app for the durable system
@@ -53,10 +54,11 @@ const NOTHING_WRITTEN: RunWrittenFiles = { record: () => undefined, has: () => f
  */
 const writerFor = (
   actorId: string,
-  written: RunWrittenFiles = NOTHING_WRITTEN
+  // A run with no ledger stored nothing: a fresh empty one per call, so no write can ever reach it.
+  written: RunWrittenFiles = createRunWrittenFiles()
 ): Effect.Effect<AttachmentWriter, never, AuthRepository> =>
   actorId === SYSTEM_USER_ID
-    ? Effect.succeed({ authenticated: true, app: { wroteThisRun: written.has } })
+    ? Effect.succeed({ authenticated: true, app: { wroteThisRun: written.hasRunBytes } })
     : Effect.gen(function* () {
         const auth = yield* AuthRepository
         // effect-swallow: an unreadable role reads as no role, which narrows the writer's reach.

@@ -24,7 +24,8 @@ import { deleteRecordVia } from '@/application/use-cases/tables/record-delete-or
 import { updateRecordVia } from '@/application/use-cases/tables/record-update-orchestration'
 import { normalizeTemplatedWriteValuesIn } from '@/domain/models/app/tables/templated-write-value-service'
 import type { buildSyntheticSession, buildSystemSession } from '../build-guest-session'
-import type { ActionOutcome, ActionRunContext, RecordWriteEvent } from './shared'
+import type { ActionOutcome, ActionRunContext } from './shared'
+import type { RecordWriteEvent } from '../run/record-event-channel'
 import type { LinkReader } from '@/application/use-cases/tables/linked-row-visibility'
 import type { App } from '@/domain/models/app'
 

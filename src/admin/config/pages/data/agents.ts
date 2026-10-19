@@ -38,6 +38,8 @@
 // list, and that stays true whatever a future transport does.
 
 import { consolePage, fullWidth, toolbarRow } from '../../components/data-page'
+import { toolbarSearch } from '../../components/data-table-blocks'
+import { toolbarFacet } from '../../components/toolbar-facet'
 import { AGENTS_ENDPOINT, USERS_ENDPOINT } from '../../system-sources'
 import type { Page as PageConfig } from '@/domain/models/app'
 
@@ -65,35 +67,192 @@ const CONVERSATIONS_FILTER_CHANNEL = 'conversations-filter'
  * conversation with this agent can still be picked, and the viewer then says
  * so with its own empty state, which is an honest answer rather than a gap.
  *
- * The caption sits INLINE, so the row stays the 40 px control row: the label
- * wraps the control, which makes "Person" the control's accessible name, and
- * the caption's own bottom margin (written for a caption above) is cancelled;
- * the control takes the rest of the label's width, which is full on a phone
- * and bounded from `sm` up so it never stretches across the content column.
- * The empty choice submits `''`, which the channel omits, so the viewer opens
- * on everyone.
+ * Drawn as a toolbar facet, like every filter of a control row. The resting
+ * choice submits `''`, which the channel omits, so the viewer opens on everyone.
  */
 const personFilter = (): PageComponent =>
-  ({
-    type: 'native-select',
-    props: {
-      id: 'conversations-person-filter',
-      label: '$t:admin.conversations.person',
-      className:
-        'flex w-full items-center gap-2 sm:w-72 [&>[data-slot=label]]:mb-0 [&>[data-slot=label]]:shrink-0 [&>[data-slot=native-select-wrapper]]:min-w-0 [&>[data-slot=native-select-wrapper]]:flex-1',
-    },
-    emptyOption: { label: '$t:admin.conversations.everyone' },
+  toolbarFacet({
+    id: 'conversations-person-filter',
+    label: '$t:admin.conversations.person',
+    allLabel: '$t:admin.conversations.everyone',
     publishes: { bindTo: CONVERSATIONS_FILTER_CHANNEL, param: 'userId' },
-    dataSource: {
-      system: {
-        endpoint: USERS_ENDPOINT,
-        rowsKey: 'users',
-        idKey: 'id',
-        query: { limit: 200, sort: 'name', order: 'asc' },
+    choices: {
+      dataSource: {
+        system: {
+          endpoint: USERS_ENDPOINT,
+          rowsKey: 'users',
+          idKey: 'id',
+          query: { limit: 200, sort: 'name', order: 'asc' },
+        },
+        valueKey: 'id',
+        labelKey: 'name',
       },
-      valueKey: 'id',
-      labelKey: 'name',
     },
+  })
+
+/**
+ * The Period facet: a relative window on each thread's last activity, sent as a
+ * wire word (`period`) the server counts back from its own now — so the browser
+ * computes no date, and a pinned development host answers on its pinned day.
+ * It opens on All time: a default window would hide a person's older threads
+ * from an operator auditing them.
+ */
+const periodFilter = (): PageComponent =>
+  toolbarFacet({
+    id: 'conversations-period-filter',
+    label: '$t:admin.conversations.period',
+    allLabel: '$t:admin.conversations.allTime',
+    publishes: { bindTo: CONVERSATIONS_FILTER_CHANNEL, param: 'period' },
+    choices: {
+      options: [
+        { value: '7d', label: '$t:admin.conversations.last7' },
+        { value: '30d', label: '$t:admin.conversations.last30' },
+        { value: '90d', label: '$t:admin.conversations.last90' },
+      ],
+    },
+  })
+
+/** The search box of the toolbar row, publishing `q` on the viewer's channel. */
+const conversationSearch = (): PageComponent => {
+  const box = toolbarSearch(CONVERSATIONS_FILTER_CHANNEL, '$t:admin.conversations.search') as {
+    readonly props: Readonly<Record<string, unknown>>
+  }
+  return {
+    ...box,
+    props: { ...box.props, 'aria-label': '$t:admin.conversations.searchLabel' },
+  } as PageComponent
+}
+
+/** The agent's conversations as CSV: the list read's `?format=csv`, saved as a file. */
+const exportCsv = (agent: string): PageComponent =>
+  ({
+    type: 'button',
+    label: '$t:admin.common.exportCsv',
+    variant: 'outline',
+    action: {
+      type: 'fetch',
+      mode: 'download',
+      url: `/api/admin/agents/${agent}/conversations?format=csv`,
+      filename: 'conversations.csv',
+    },
+    props: { className: 'sm:ml-auto' },
+  }) as PageComponent
+
+/**
+ * The control row over the list: search, Person, Period and the export. A named
+ * toolbar, like the records page's, so assistive technology announces the
+ * row as one group of controls.
+ */
+const conversationToolbar = (agent: string): PageComponent => {
+  const row = toolbarRow([
+    conversationSearch(),
+    personFilter(),
+    periodFilter(),
+    exportCsv(agent),
+  ]) as { readonly props: Readonly<Record<string, unknown>> }
+  return {
+    ...row,
+    props: { ...row.props, role: 'toolbar', 'aria-label': '$t:admin.conversations.toolbar' },
+  } as PageComponent
+}
+
+/**
+ * One fact of the agent header, shown only when the agent has it; an id reads in
+ * mono. A fact that may run long (`fits: false`) gives way with an ellipsis and
+ * carries its whole value as a tooltip; a short one keeps its width.
+ */
+const headerFact = (field: string, label: string, mono = true, fits = true): PageComponent =>
+  ({
+    type: 'container',
+    element: 'div',
+    props: {
+      className: fits
+        ? 'flex shrink-0 items-baseline gap-1.5'
+        : 'flex min-w-0 items-baseline gap-1.5',
+    },
+    visibility: { record: { field, isNotEmpty: true } },
+    children: [
+      { type: 'text', element: 'span', props: { className: 'shrink-0' }, content: label },
+      {
+        type: 'text',
+        element: 'span',
+        props: {
+          className: mono ? 'text-foreground font-mono text-xs' : 'text-foreground truncate',
+          ...(fits ? {} : { title: `$record.${field}` }),
+        },
+        content: `$record.${field}`,
+      },
+    ],
+  }) as PageComponent
+
+/**
+ * The agent's facts, in the top bar beside the trail whose last crumb already
+ * names it (`GET /api/admin/agents/:name`, the page's record): how many
+ * conversations it holds as a badge, then the model that answers it and the
+ * actions it may call. The name is the trail's to draw; the header repeats it
+ * only as the page's `h2`, spoken and not drawn, and the count's noun likewise.
+ * Below `xl` the bar keeps the badge and drops the facts, which the open
+ * thread's own badges carry.
+ */
+const agentHeader = (): PageComponent =>
+  ({
+    type: 'container',
+    element: 'div',
+    props: {
+      'data-testid': 'agent-header',
+      // Only the room the trail and the controls leave, and at most half the
+      // bar: an agent with many tools (the built-in System agent lists two per
+      // table) would otherwise push the trail and the read-only notice out.
+      // Never narrower than the count: the facts beside it are contained
+      // (`contain: inline-size`), so they ask for no width of their own and
+      // take only what is left, ending in an ellipsis; below `xl`, where the
+      // sidebar leaves the bar no room for them, they are not drawn at all.
+      className: 'flex min-w-min max-w-1/2 flex-1 items-center gap-3',
+    },
+    children: [
+      {
+        type: 'text',
+        element: 'h2',
+        props: { className: 'sr-only' },
+        content: '$record.label',
+      },
+      {
+        type: 'container',
+        element: 'div',
+        props: {
+          'data-slot': 'badge',
+          className:
+            'bg-muted text-foreground inline-flex h-5 shrink-0 items-center rounded-md px-1.5 text-xs font-medium tabular-nums',
+        },
+        children: [
+          {
+            type: 'text',
+            element: 'span',
+            props: { 'data-testid': 'agent-conversation-count' },
+            content: '$record.conversationCount',
+          },
+          {
+            type: 'text',
+            element: 'span',
+            props: { className: 'sr-only' },
+            content: '$t:admin.agents.header.conversations',
+          },
+        ],
+      },
+      {
+        type: 'container',
+        element: 'div',
+        props: {
+          className:
+            'text-muted-foreground hidden min-w-0 flex-1 items-baseline gap-x-3 overflow-hidden text-sm [contain:inline-size] xl:flex',
+        },
+        children: [
+          headerFact('model', '$t:admin.agents.header.model'),
+          // The tools read for people (`Query clients`), not as ids.
+          headerFact('toolLabels', '$t:admin.agents.header.tools', false, false),
+        ],
+      },
+    ],
   }) as PageComponent
 
 /**
@@ -116,7 +275,9 @@ const conversationViewer = (agent: string): PageComponent =>
     props: {
       className: 'flex flex-col gap-4',
       'data-island': 'admin-agent-conversations',
-      'data-island-props': `{"agentNames":["${agent}"],"dataSource":{"bindTo":"${CONVERSATIONS_FILTER_CHANNEL}","sharedFilter":{"params":["userId","q"]}}}`,
+      // The label and model come from the page's record (the agent), substituted
+      // into this serialised string like any other leaf.
+      'data-island-props': `{"agentNames":["${agent}"],"agentLabel":"$record.label","agentModel":"$record.model","dataSource":{"bindTo":"${CONVERSATIONS_FILTER_CHANNEL}","sharedFilter":{"params":["userId","q","period"]}}}`,
     },
     children: [
       {
@@ -135,7 +296,17 @@ const conversationViewer = (agent: string): PageComponent =>
     ],
   }) as PageComponent
 
-/** One agent's viewer page, differing only in its blurb and its bound name. */
+/**
+ * One agent's viewer page, differing only in its blurb and its bound name.
+ *
+ * The page is bound to the agent itself (`GET /api/admin/agents/:name`), so the
+ * breadcrumb's last crumb, the header and the viewer's badges read its label
+ * rather than its identifier — and a name the index does not list is the
+ * console's own 404, as the reads behind it answer.
+ *
+ * The toolbar and the viewer sit in one named region, so the list's search box,
+ * its facets and the list itself are found together.
+ */
 const viewerPage = (id: string, path: string, agent: string, blurb: string): PageConfig =>
   consolePage({
     id,
@@ -144,14 +315,24 @@ const viewerPage = (id: string, path: string, agent: string, blurb: string): Pag
     heading: ['$t:admin.agents.heading', blurb],
     page: {
       requires: ['agents'],
+      dataSource: {
+        system:
+          agent === 'system'
+            ? { endpoint: `${AGENTS_ENDPOINT}/system` }
+            : { endpoint: `${AGENTS_ENDPOINT}/:agent`, param: 'agent' },
+      },
     },
-    shell: { breadcrumb: BREADCRUMB },
+    shell: {
+      breadcrumb: BREADCRUMB,
+      breadcrumbCurrent: '$record.label',
+      topbarFact: agentHeader(),
+    },
     body: [
       fullWidth({
         type: 'container',
-        element: 'div',
-        props: { className: 'flex min-w-0 flex-col gap-2' },
-        children: [toolbarRow([personFilter()]), conversationViewer(agent)],
+        element: 'section',
+        props: { 'aria-label': '$t:admin.agents.viewer', className: 'flex min-w-0 flex-col gap-4' },
+        children: [conversationToolbar(agent), conversationViewer(agent)],
       } as PageComponent),
     ],
   })

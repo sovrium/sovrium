@@ -37,6 +37,7 @@
 
 import { Effect } from 'effect'
 import { toolSafeTableName } from '@/domain/models/app/auth/ai-access'
+import { logError } from '@/infrastructure/logging/logger'
 import { executeOtherTool } from './chat-browser-tool'
 import {
   chatReadableColumns,
@@ -286,13 +287,7 @@ const executeQuery = async (run: ToolCallRun): Promise<ToolExecution> => {
       inputs,
     }).pipe(Effect.provide(run.services), Effect.result)
   )
-  if (result._tag === 'Failure') {
-    return {
-      content: `Error: query execution failed — ${failureMessage(result.failure)}`,
-      action,
-      denied: false,
-    }
-  }
+  if (result._tag === 'Failure') return lookupFailed(call, result.failure, action)
   // Project every returned row to the columns asked for (or every readable
   // one), the role-readable columns only — field-level scoping
   // defence-in-depth — before handing it to the model.
@@ -303,13 +298,15 @@ const executeQuery = async (run: ToolCallRun): Promise<ToolExecution> => {
   return { content: JSON.stringify({ rows }), action, denied: false }
 }
 
-/** The text of a failed tool read: its cause's message, else the failure itself. */
-const failureMessage = (failure: unknown): string => {
-  const cause =
-    failure !== null && typeof failure === 'object' && 'cause' in failure
-      ? (failure as { readonly cause: unknown }).cause
-      : failure
-  return cause instanceof Error ? cause.message : String(cause)
+/**
+ * A lookup the database did not answer: the cause is logged for the operator,
+ * and the model — and the person reading, who receives what the model is
+ * handed — reads one sentence naming the tool. The database's own sentence
+ * can quote the SQL and the values bound to it, so it goes no further.
+ */
+const lookupFailed = (call: ChatToolCall, failure: unknown, action: ChatAction): ToolExecution => {
+  logError('[ai-chat] a chat lookup did not complete', failure, { tool: call.name })
+  return { content: `Error: the "${call.name}" lookup did not complete.`, action, denied: false }
 }
 
 /** Execute a validated structured `count_<table>` call. */
@@ -335,13 +332,7 @@ const executeCount = async (run: ToolCallRun): Promise<ToolExecution> => {
       conditions: validation.inputs.conditions,
     }).pipe(Effect.provide(services), Effect.result)
   )
-  if (result._tag === 'Failure') {
-    return {
-      content: `Error: count execution failed — ${failureMessage(result.failure)}`,
-      action,
-      denied: false,
-    }
-  }
+  if (result._tag === 'Failure') return lookupFailed(call, result.failure, action)
   return { content: JSON.stringify({ count: result.success }), action, denied: false }
 }
 

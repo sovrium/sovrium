@@ -26,7 +26,7 @@ A single-line text input. Reference: shadcn/ui Input. The HTML input type is the
 
 <!-- sovrium:options type:input -->
 
-`inputType` is `text` by default, or `email`, `password`, `number`, `tel`, `url` or `search`. A one-time code is its own type, [`input-otp`](#input-otp); `inputType: one-time-code` is refused with a message naming it. Placeholder, default value, disabled and required all travel through `props`.
+`inputType` is `text` by default, or `email`, `password`, `number`, `tel`, `url` or `search`. A `search` input draws its clear control in the theme's muted ink, the foreground ink on hover, rather than the browser's own cross; it still empties the field. A one-time code is its own type, [`input-otp`](#input-otp); `inputType: one-time-code` is refused with a message naming it. Placeholder, default value, disabled and required all travel through `props`.
 
 ## `input-otp`
 

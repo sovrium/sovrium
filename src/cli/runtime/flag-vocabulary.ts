@@ -145,6 +145,9 @@ export const FLAG_VALUE_OPTIONS = [
   // the file would be read as the config path.
   '--request',
   '--report',
+  // `sovrium design-system import <path> --from figma`. Both lists: absent here,
+  // `figma` would be read as the source path.
+  '--from',
 ] as const
 
 /** Commands that use two-level noun-verb dispatch (verb in 2nd positional slot). */
@@ -214,6 +217,8 @@ const KNOWN_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   // `sovrium env push --overwrite | --redeploy`.
   '--overwrite',
   '--redeploy',
+  // `sovrium design-system import --write`: write the design instead of printing it.
+  '--write',
 ])
 
 const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
@@ -283,6 +288,8 @@ const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
   // seed unit hands the command its options and reads its result.
   '--request',
   '--report',
+  // `sovrium design-system import --from <format>`.
+  '--from',
 ])
 
 /** Strip `=value` from `--flag=value` so the bare flag name can be matched. */

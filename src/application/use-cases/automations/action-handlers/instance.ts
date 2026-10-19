@@ -7,7 +7,12 @@
 
 import { Data, Effect } from 'effect'
 import { InstanceSupervisor } from '@/application/ports/services/instance-supervisor'
-import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
+import {
+  isCreateOnlyRefusal,
+  StorageService,
+  UNATTRIBUTED_BUCKET,
+  uploadTargetParts,
+} from '@/application/ports/services/storage-service'
 import { INSTANCE_ENGINE_VERSION_PATTERN } from '@/domain/models/app/automations/actions/instance/engine-install'
 import { INSTANCE_SLUG_PATTERN } from '@/domain/models/app/automations/actions/instance/instance-slug'
 import {
@@ -20,10 +25,15 @@ import {
   isHostActionsEnabled,
 } from '@/domain/models/process-env/host-actions'
 import { logError } from '@/infrastructure/logging/logger'
+import { CALLER_REFUSAL } from './record-caller-gate'
+import { PRE_EXISTING_BYTES } from './run-written-files'
 import { actionAttributes } from './shared'
-import type { ActionHandler, ActionOutcome } from './shared'
+import { starterFileGate, type StarterGateRequirements } from './starter-file-gate'
+import { starterOverwriteVerdict } from './starter-overwrite-gate'
+import type { ActionHandler, ActionOutcome, AutomationContext } from './shared'
 import type { InstanceSupervisorError } from '@/application/ports/services/instance-supervisor'
 import type { StorageError } from '@/application/ports/services/storage-service'
+import type { App } from '@/domain/models/app'
 
 /**
  * `instance/*` action handlers — supervise the other Sovrium apps of this host
@@ -132,13 +142,19 @@ export const instanceHandler =
     operator: string,
     body: (
       props: Readonly<Record<string, unknown>>,
-      action: Readonly<Record<string, unknown>>
-    ) => Effect.Effect<Record<string, unknown>, StepError, InstanceSupervisor | StorageService>
+      action: Readonly<Record<string, unknown>>,
+      app: App,
+      automation: AutomationContext
+    ) => Effect.Effect<
+      Record<string, unknown>,
+      StepError,
+      InstanceSupervisor | StarterGateRequirements
+    >
   ): ActionHandler =>
-  (action) =>
+  (action, app, automation) =>
     Effect.suspend(() =>
       isHostActionsEnabled(process.env)
-        ? body(propsOf(action), action)
+        ? body(propsOf(action), action, app, automation)
         : refuse(HOST_ACTIONS_DISABLED_MESSAGE)
     ).pipe(
       Effect.map((output): ActionOutcome => ({ status: 'success', output })),
@@ -278,24 +294,48 @@ export const handleInstanceLogs = instanceHandler('logs', (props) =>
   })
 )
 
-export const handleInstanceBackup = instanceHandler('backup', (props, action) =>
+export const handleInstanceBackup = instanceHandler('backup', (props, action, app, automation) =>
   Effect.gen(function* () {
     const slug = yield* slugOf(props)
     const destination = isRecord(props['destination']) ? props['destination'] : {}
     const objectKey = yield* textOf(destination['objectKey'], 'destination.objectKey')
+    // Judged before the backup unit starts: a hand-started run writes over no file it did not write.
+    const judge = starterOverwriteVerdict(app, automation)
+    const before = yield* judge(objectKey)
+    if (before.kind === 'refused') return yield* refuse(before.refusal)
     const supervisor = yield* InstanceSupervisor
     const archive = yield* supervisor.backup(slug, unitJobTimeout(action))
+    // Judged again, as the unit may run for minutes: a file stored there meanwhile is kept.
+    const after = before.kind === 'open' ? before : yield* judge(objectKey)
+    if (after.kind === 'refused') return yield* refuse(after.refusal)
+    const mode = before.kind === 'free' ? 'create-only' : 'replace'
     const storage = yield* StorageService
-    yield* storage.upload(objectKey, archive, 'application/gzip', UNATTRIBUTED_BUCKET)
+    const stored = yield* Effect.result(
+      storage.upload(objectKey, archive, 'application/gzip', {
+        ...uploadTargetParts(UNATTRIBUTED_BUCKET),
+        mode,
+      })
+    )
+    if (stored._tag === 'Failure') {
+      return yield* mode === 'create-only' && isCreateOnlyRefusal(stored.failure)
+        ? refuse(CALLER_REFUSAL)
+        : Effect.fail(stored.failure)
+    }
+    yield* Effect.sync(() =>
+      automation.writtenFiles?.record(UNATTRIBUTED_BUCKET, objectKey, PRE_EXISTING_BYTES)
+    )
     return { slug, objectKey, bytes: archive.byteLength }
   })
 )
 
-export const handleInstanceRestore = instanceHandler('restore', (props, action) =>
+export const handleInstanceRestore = instanceHandler('restore', (props, action, app, automation) =>
   Effect.gen(function* () {
     const slug = yield* slugOf(props)
     const source = isRecord(props['source']) ? props['source'] : {}
     const objectKey = yield* textOf(source['objectKey'], 'source.objectKey')
+    // Read as the starter may read it, before anything reaches the host.
+    const refused = yield* starterFileGate(app, automation)(objectKey)
+    if (refused !== undefined) return yield* refuse(refused)
     const storage = yield* StorageService
     const archive = yield* storage
       .download(objectKey, UNATTRIBUTED_BUCKET)

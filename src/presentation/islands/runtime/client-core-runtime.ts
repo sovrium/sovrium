@@ -22,6 +22,7 @@
  * - Standalone `type: 'fetch'` button dispatch (incl. its dispatch modes +
  *   the inline confirm gate) via the shared `executeFetchAction` runtime
  * - The `fill` action, from a button or an island's `sovrium:fill` event
+ * - The `seek` action, from a button or an island's `sovrium:seek` event
  *
  * Everything here binds through {@link delegate} — one listener on `document`,
  * matched per event — rather than by sweeping the document for elements at load
@@ -40,9 +41,11 @@ import { leavesPage, runErrorOutcome, runSuccessOutcome } from './action-outcome
 import { automationPressHeaders } from './automation-press-headers'
 import { delegate, bindActionButtons, parseActionInput } from './client-event-delegate'
 import { showToast } from './client-toast'
+import { applyFetchSuccessEffects } from './fetch-action-effects'
 import { dispatchToastResponse, setupFetchButtonHandlers } from './fetch-button-runtime'
 import { setupFillHandlers } from './fill-runtime'
 import { withPending } from './pending-control'
+import { setupSeekHandlers } from './seek-runtime'
 
 // ─── Modal lifecycle ────────────────────────────────────────────────────────
 
@@ -177,11 +180,15 @@ async function pressAutomation(
 ): Promise<'success' | 'error' | undefined> {
   const awaitValue = button.getAttribute('data-action-await') === 'true'
   const inputData = parseActionInput(button.getAttribute('data-action-input'))
+  // A button drawn on a record names it, so the server judges the press on it.
+  const press = button.hasAttribute('data-action-press')
+    ? parseActionInput(button.getAttribute('data-action-press'))
+    : undefined
   try {
     const response = await fetch(`/api/automations/${encodeURIComponent(name)}/form-action`, {
       method: 'POST',
       headers: automationPressHeaders(),
-      body: JSON.stringify({ inputData }),
+      body: JSON.stringify(press === undefined ? { inputData } : { inputData, press }),
     })
     const body = (await response.json().catch(() => undefined)) as
       { readonly status?: unknown } | undefined
@@ -193,9 +200,11 @@ async function pressAutomation(
 }
 
 /**
- * A success then closes the overlay the button sits in and moves on, as its
+ * A success then re-reads the components `data-on-success-refetch` names or
+ * redraws the page (`-reload`), through the same effects a fetch action runs,
+ * closes the overlay the button sits in and moves on, as its
  * `data-on-success-close` / `-navigate` ask (`action-outcome.ts`); a success
- * that leaves the page keeps the button pending until it goes.
+ * that leaves or redraws the page keeps the button pending until it goes.
  */
 function setupAutomationButtonHandlers(): void {
   bindActionButtons('automation', async (button) => {
@@ -203,14 +212,19 @@ function setupAutomationButtonHandlers(): void {
     if (!name) return
     const label = button.getAttribute('data-action-pending-label') ?? 'Running…'
     const navigate = button.getAttribute('data-on-success-navigate') ?? undefined
+    // Both are drawn only when asked for (`successExitAttributes`): present
+    // means `reload: true`, and the ids are joined by single spaces.
+    const reload = button.hasAttribute('data-on-success-reload')
+    const refetch = button.getAttribute('data-on-success-refetch')?.split(' ')
     const keepPending = (sent: 'success' | 'error' | undefined) =>
-      sent === 'success' && leavesPage(navigate)
+      sent === 'success' && (reload || leavesPage(navigate))
     const press = () => pressAutomation(button, name)
     const outcome = await withPending(button, { label, keepPending }, press)
     if (outcome === undefined) return
     if (outcome === 'error') return runErrorOutcome(button, () => showOutcomeToast(button, 'error'))
     runSuccessOutcome(button, {
       toast: () => showOutcomeToast(button, 'success'),
+      effects: () => applyFetchSuccessEffects({ refetch, reload }),
       close: button.getAttribute('data-on-success-close') === 'true',
       navigate,
     })
@@ -290,6 +304,7 @@ function initClientRuntime(): void {
   setupAuthButtonHandlers()
   setupFetchButtonHandlers()
   setupFillHandlers()
+  setupSeekHandlers()
   setupEndpointFormHandlers(dispatchToastResponse)
   setupSessionBoundChrome()
   setupNativeSelectPublishers()

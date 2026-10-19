@@ -5,8 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { useMemo } from 'react'
 import { AccountSessionsContext, isAccountSessionsEndpoint } from '../account-sessions'
 import { usePasteImport } from '../paste-preview/use-paste-import'
+import { useViewLayout } from '../view-options/view-layout'
 import { ViewSwitcher } from '../view-options/view-switcher'
 import {
   isReadOnlyBinding,
@@ -30,6 +32,29 @@ import type { DataTableIslandProps } from './island-props'
 const NO_UI_STRINGS: GridStrings = {}
 
 /**
+ * The grid's strings, with the pager's range replaced by the endpoint's own
+ * sentence for the result when it sends one (`35 runs · 3 failed`), and the
+ * page readout shortened to `1 / 2` on a phone to make room for it.
+ */
+function useGridStrings(strings: GridStrings | undefined, summary: string | undefined) {
+  return useMemo(
+    () =>
+      summary === undefined
+        ? (strings ?? NO_UI_STRINGS)
+        : {
+            ...strings,
+            'datatable.pagination.range': summary,
+            // A grid that does not page counts its rows in the same phrase.
+            'sharedFilter.resultCount': summary,
+            'sharedFilter.resultCountOne': summary,
+            // The sentence takes the width a phone's `Page 1 of 2` had.
+            'datatable.pagination.pageShort': '{page} / {count}',
+          },
+    [strings, summary]
+  )
+}
+
+/**
  * The label a refused sort's column is named by: the declared column label,
  * else the field's own label, else its name.
  */
@@ -46,12 +71,14 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
   const props = usePhoneRowOpen(useColumnDisplayFieldMeta(islandProps))
   const isReadOnly = isReadOnlyBinding(props)
   const setup = useDataTableIslandSetup(toSetupParams(props))
+  const gridStrings = useGridStrings(props.uiStrings, setup.resultSummary)
   // Clipboard + paste-import: cell/row selection + Ctrl/Cmd+C / +V handlers.
   // Paste-import (CSV-via-clipboard) targets a DB table; for a system source
   // there is no records table to write to, so it is gated OFF.
   const clipboardRef = useClipboardCopy()
   const paste = usePasteImport(toPasteParams(props, clipboardRef, setup.handleRefresh, isReadOnly))
   const onRowClickAction = resolveRowClickAction(props.onRowClick)
+  const applyViewLayout = useViewLayout(setup.table, setup.ui)
   usePublishedSelection(props.publishes, setup.table, setup.rowSelection)
 
   // A system source is read-only: never offer the trailing add-row (there is
@@ -78,7 +105,8 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
   // grid never asked the server. So neither the empty state nor the pager's
   // "No results" is drawn under a failure; a refused RE-read keeps both, over
   // the rows it is still showing.
-  const failedEmpty = setup.readError !== undefined && setup.table.getRowModel().rows.length === 0
+  const rowCount = setup.table.getRowModel().rows.length
+  const failedEmpty = setup.readError !== undefined && rowCount === 0
   const noRecords = props.uiStrings?.['datatable.noRecords'] ?? 'No records found'
   const searching = setup.searchQuery.trim() !== ''
   const emptyMessage = failedEmpty
@@ -88,7 +116,7 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
   const sessionsList = isAccountSessionsEndpoint(props.dataSource.system?.endpoint)
 
   return (
-    <GridStringsContext.Provider value={props.uiStrings ?? NO_UI_STRINGS}>
+    <GridStringsContext.Provider value={gridStrings}>
       {paste.dialog}
       {paste.toast}
       {/*
@@ -106,6 +134,7 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
           error={setup.readError}
           onRetry={setup.handleRefresh}
           sortColumnLabel={columnLabelOf(props, setup.refusedSortColumn)}
+          named={props.tableReadFailure}
         />
       )}
       {props.viewSwitcher !== undefined && tableName !== '' && (
@@ -116,6 +145,7 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
             props.dataSource.view !== undefined && { configuredView: props.dataSource.view })}
           sessionView={setup.ui.view}
           onSelect={setup.ui.setView}
+          onLayout={applyViewLayout}
           inAddress={props.publishes?.url === true}
         />
       )}
@@ -131,6 +161,7 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
           allColumns={setup.allColumns}
           totalRecords={setup.totalRecords}
           isLoading={setup.isLoading}
+          unanswered={(setup.isError || setup.readError !== undefined) && rowCount === 0}
           selectionConfig={effectiveSelection({
             selectionConfig: props.selection,
             publishesSelection: props.publishes !== undefined,

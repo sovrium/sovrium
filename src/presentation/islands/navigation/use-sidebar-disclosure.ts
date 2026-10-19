@@ -163,13 +163,14 @@ export function useSidebarDisclosure(props: SidebarDisclosureIslandProps): Discl
    * Reading `window.location` unconditionally is safe here in a way it is not in
    * the SSR half: this component only ever renders in a browser.
    *
-   * No `activeMatch` — a fetched row addresses one object, so `exact` (the
-   * default) is right and `prefix` would mark a sibling.
+   * The source's `activeMatch` applies to every row: `exact` by default, a
+   * fetched row addressing one object.
    */
+  const rowMatch = source?.activeMatch
   const isEntryCurrent = useCallback(
     (entry: ProjectedEntry): boolean =>
-      sidebarEntryMatches(entry.href, undefined, path ?? currentSidebarAddress()),
-    [path]
+      sidebarEntryMatches(entry.href, rowMatch, path ?? currentSidebarAddress()),
+    [path, rowMatch]
   )
 
   return { expanded, status, entries, onToggle, isChildCurrent, isEntryCurrent }

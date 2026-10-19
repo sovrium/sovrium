@@ -35,11 +35,11 @@ import type { ResolvedMarkdownPage } from '@/presentation/render/markdown/markdo
  * SSR component that renders a page's resolved markdown payload.
  *
  * Layout modes:
- *   - `'prose'` (default): single-column article with prose typography.
+ *   - `'prose'` (default): single-column article set with Typeset.
  *   - `'docs'`: three-column layout (collection sidebar + article + right-rail
  *     TOC) backed by `collectionNav` from `contentDir.nav.enabled: true`;
  *     prev/next chrome renders at the foot of the article (cluster 5).
- *   - `'full'`: full-width article without prose constraints.
+ *   - `'full'`: full-width article without Typeset or a reading measure.
  *   - `'none'`: raw markdown HTML with no article wrapper or prose styling —
  *     emits only `<div data-component="markdown" data-layout="none">` so
  *     authors can embed the rendered HTML in custom chrome (cluster 5).
@@ -50,20 +50,32 @@ import type { ResolvedMarkdownPage } from '@/presentation/render/markdown/markdo
 const ARTICLE_LAYOUT_CLASSES: Readonly<
   Record<Exclude<ResolvedMarkdownPage['layout'], 'none'>, string>
 > = {
-  // `prose` shares the docs layout's typographic recipe (headings, lists, code
-  // and quotes read the same in both); `max-w-3xl` keeps the centred column.
-  prose: 'prose dark:prose-invert mx-auto max-w-3xl px-4 py-12',
+  // `max-w-3xl` keeps the centred reading column.
+  prose: 'mx-auto max-w-3xl px-4 py-12',
   // `min-w-0` lets the article shrink inside the flex row so long code blocks
   // and wide tables scroll within the column instead of overflowing it.
-  // `prose` mints the markdown typography from the `@tailwindcss/typography`
-  // plugin (wired into the CSS compiler); `dark:prose-invert` activates the
-  // inverted (light-on-dark) ramp only under the `.dark` scheme. The docs
-  // markdown layout now follows the active light/dark scheme (a `theme-toggle`
-  // / `theme.colorScheme` sets a reliable `.dark` class on `<html>`), so prose
-  // is light in light mode and inverted in dark mode. `max-w-none` lets the
-  // article fill the 3-column layout's center column instead of prose's 65ch cap.
-  docs: 'prose dark:prose-invert max-w-none min-w-0 flex-1 px-8 py-12',
+  docs: 'min-w-0 flex-1 px-8 py-12',
   full: 'w-full px-4 py-12',
+} as const
+
+/**
+ * The Typeset classes of the element holding the rendered blocks, per layout.
+ *
+ * Typeset sets the prose (shadcn/ui's `typeset.css`, vendored, with Sovrium's
+ * presets beside it — `infrastructure/css/theme/typeset-styles.ts`). It goes on
+ * the element that RECEIVES the markdown HTML, not on the `<article>`: Typeset
+ * spaces the container's direct children, so a code block frame or a callout
+ * the markdown emits has to be one of them to open a paragraph's space above
+ * it, and the docs breadcrumb header and outline beside the body stay out of
+ * the flow. `prose` and `docs` share the recipe; `docs` reads at the docs
+ * preset's 15px. `full` stays unstyled, as `none` does.
+ */
+const BODY_TYPESET_CLASSES: Readonly<
+  Record<Exclude<ResolvedMarkdownPage['layout'], 'none'>, string | undefined>
+> = {
+  prose: 'typeset',
+  docs: 'typeset typeset-docs',
+  full: undefined,
 } as const
 
 interface MarkdownArticleProps {
@@ -125,7 +137,10 @@ function renderArticle(
         Spec scenario a pages markdown spec verifies the boundary.
       */}
       <div
-        className={layout === 'docs' ? DOCS_CONTENT_MEASURE_CLASSES : undefined}
+        className={cn(
+          BODY_TYPESET_CLASSES[layout],
+          layout === 'docs' ? DOCS_CONTENT_MEASURE_CLASSES : undefined
+        )}
         // eslint-disable-next-line sovrium/require-sanitized-html -- markdown rendered from the app's own content directory (operator-authored files), with engine syntax highlighting
         dangerouslySetInnerHTML={buildHtmlContainer(
           applyProsePartClasses(markdown.html, markdown.parts)

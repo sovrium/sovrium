@@ -42,6 +42,8 @@ import { designSystemScopeKey } from '@/infrastructure/css/design-system-scope'
 import { mountIdentityKey } from '@/infrastructure/css/mount-identity'
 import { resolveNativeFreeCandidates } from '@/infrastructure/css/native-free-compiler'
 import { buildSourceCSS } from '@/infrastructure/css/source-css'
+import { appSetsTypeset } from '@/infrastructure/css/typeset-gate'
+import { isCompiled } from '@/infrastructure/process/package-paths'
 import { getSovriumVersionSync } from '@/infrastructure/process/version'
 import type { App } from '@/domain/models/app'
 
@@ -95,28 +97,59 @@ export const versionedCssHashOf = (appInputs: string, engine: string): string =>
   digest(`${engine}\n${appInputs}`)
 
 /**
+ * The two compile paths, which emit different bytes for the same inputs: the
+ * native PostCSS pipeline a source checkout runs, and the pure-JS native-free
+ * engine the compiled binary runs (and a source run forced onto it).
+ */
+export type CssCompilePath = 'native-free' | 'postcss'
+
+/**
+ * Whether this process compiles with the pure-JS native-free engine (inside
+ * the compiled binary, or forced from source with
+ * `SOVRIUM_FORCE_NATIVE_FREE_CSS=1`) rather than the native PostCSS pipeline.
+ */
+export const usesNativeFreeCompiler = (): boolean =>
+  isCompiled || process.env.SOVRIUM_FORCE_NATIVE_FREE_CSS === '1'
+
+/** This process's {@link CssCompilePath}. */
+export const cssCompilePath = (): CssCompilePath =>
+  usesNativeFreeCompiler() ? 'native-free' : 'postcss'
+
+/**
  * What the ENGINE contributes to every stylesheet, as one string: its version,
- * and the app-free source CSS it feeds the compiler (the default token layer,
- * the component and utility layers, and the `@font-face` rules — whose URLs
- * carry each font file's own content hash).
+ * the compile path, and the app-free source CSS it feeds the compiler (the
+ * default token layer, the component and utility layers, and the `@font-face`
+ * rules — whose URLs carry each font file's own content hash).
  *
  * The version covers everything that is not source text: the Tailwind release,
  * the native-free compiler, an emitter that only fires under a declared design.
  * The source text covers two builds that share a version number, so a font or
- * token change made between releases still moves the URL. Exported for the test.
+ * token change made between releases still moves the URL. The compile path
+ * covers one version and one source text compiled two ways: a source run
+ * forced onto the native-free engine emits the binary's bytes, not PostCSS's,
+ * and a stamp blind to that would let a file from one path pass as the
+ * other's. Exported for the test.
  *
  * @param version - the engine version.
  * @param sourceCss - the app-free source CSS (`buildSourceCSS()`).
+ * @param compilePath - the compiling process's {@link cssCompilePath}.
  */
-export const engineCssFingerprintOf = (version: string, sourceCss: string): string =>
-  `${version}:${createHash('sha256').update(sourceCss).digest('hex')}`
+export const engineCssFingerprintOf = (
+  version: string,
+  sourceCss: string,
+  compilePath: CssCompilePath
+): string => `${version}:${compilePath}:${createHash('sha256').update(sourceCss).digest('hex')}`
 
-/** Computed once per process: neither input changes while it runs. */
+/** Computed once per process: none of its inputs changes while it runs. */
 let engineFingerprint: string | undefined
 
 /** The running engine's {@link engineCssFingerprintOf}. */
-const engineCssFingerprint = (): string =>
-  (engineFingerprint ??= engineCssFingerprintOf(getSovriumVersionSync(), buildSourceCSS()))
+export const engineCssFingerprint = (): string =>
+  (engineFingerprint ??= engineCssFingerprintOf(
+    getSovriumVersionSync(),
+    buildSourceCSS(),
+    cssCompilePath()
+  ))
 
 /**
  * The cache key standing in for EVERY `/_admin` operator-console surface.
@@ -227,11 +260,18 @@ export const getVersionedCssHash = (app: App): string => {
  * a token layer the operator's compile never does, can never key as the
  * operator's file.
  *
+ * The Typeset segment is the empty string for every app whose stylesheet
+ * carries Typeset (the generic compile included), and marks the apps whose
+ * stylesheet leaves it out (`appSetsTypeset`): two configs alike in design and
+ * candidates, one with a markdown page and one without, compile different bytes.
+ *
  * `ECO_DESIGN_LAYER` is deliberately absent: it changes the engine's own
  * default layer, which the engine fingerprint already hashes.
  */
 export const cssCompileKey = (app?: App): string =>
-  getCSSCacheKey(app?.design, resolveNativeFreeCandidates(app)) + designSystemScopeKey(app)
+  getCSSCacheKey(app?.design, resolveNativeFreeCandidates(app)) +
+  designSystemScopeKey(app) +
+  (appSetsTypeset(app) ? '' : ':no-typeset')
 
 /** The 8-hex digest of {@link cssCompileKey} under this engine. */
 const appCssInputsHash = (app?: App): string =>

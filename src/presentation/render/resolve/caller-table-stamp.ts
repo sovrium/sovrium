@@ -14,7 +14,11 @@ import {
   recordViewForReader,
 } from '@/presentation/render/props/record-view-for-reader'
 import { isViewBoundSource } from '@/presentation/render/props/view-binding-inputs'
-import { isWithheldOverUnreadableTable, withheldComponent } from './withheld-component'
+import {
+  emptyDataBoundComponent,
+  isWithheldOverUnreadableTable,
+  withheldComponent,
+} from './withheld-component'
 import type { DataSourceDb } from './data-source-contracts'
 import type { CallerTableView, ReadTableAsCaller } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
@@ -40,7 +44,8 @@ const withProps = (component: Component, props: Record<string, unknown>): Compon
  * A grid: the table as its reader may see it, and — when it reads through one
  * of the table's views — that view's definition as the view's route answers
  * her. Its configured columns lose every column on a field she may not read,
- * and its switcher every alternate view laid out by one.
+ * and its switcher every alternate view laid out by one. Over a table whose
+ * list admits her no row it is drawn as a grid she may not read: no grid.
  */
 async function stampGrid(component: Component, ctx: StampContext): Promise<Component> {
   const binding = component.dataSource as
@@ -49,6 +54,8 @@ async function stampGrid(component: Component, ctx: StampContext): Promise<Compo
   if (table === undefined) return component
   const view = typeof binding?.view === 'string' ? binding.view : undefined
   const callerTable = await ctx.read(ctx.app, table.name, ctx.session, view)
+  // A table whose list admits her no row is drawn as one she may not read.
+  if (view === undefined && callerTable.refused === true) return emptyDataBoundComponent(component)
   const { columns } = component as { readonly columns?: readonly unknown[] }
   const readable = view === undefined ? readableColumnsOf(columns, table, callerTable) : columns
   return alternateViewsForReader(
@@ -77,7 +84,8 @@ async function stampRecordView(component: Component, ctx: StampContext): Promise
   if (table === undefined) return component
   const view = typeof binding?.view === 'string' ? binding.view : undefined
   const callerTable = await ctx.read(ctx.app, table.name, ctx.session, view)
-  if (view !== undefined && callerTable.boundView === undefined) {
+  // Through a view, the view's route decides; else the table's list does.
+  if (view === undefined ? callerTable.refused === true : callerTable.boundView === undefined) {
     return withheldComponent(component)
   }
   const forReader = recordViewForReader(component, table, callerTable)

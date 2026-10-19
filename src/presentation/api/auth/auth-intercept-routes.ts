@@ -7,11 +7,21 @@
 
 /**
  * The routes `setupAuthRoutes` registers ahead of Better Auth's own catch-all:
- * the root-level OAuth discovery documents the RFCs require, and the admin user
- * list with the AI agent users filtered out.
+ * the root-level OAuth discovery documents the RFCs require, the admin user
+ * list with the AI agent users filtered out, and the language cookie a saved
+ * language is written to.
  */
 import { type Context, type Hono } from 'hono'
+import { getCookie, setCookie } from 'hono/cookie'
+import { roleLabelFor } from '@/domain/models/app/auth/readable-name-service'
+import {
+  findDeclaredLanguage,
+  findDeclaredLanguageCode,
+  LANGUAGE_PREFERENCE_COOKIE,
+} from '@/domain/models/app/languages/language-detection'
+import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import type { App } from '@/domain/models/app'
+import type { Languages } from '@/domain/models/app/languages/language'
 // Both type-only: the auth instance and the OAuth metadata handlers arrive as
 // parameters (`authInstance`, `runtime`) from `createHonoApp`, which loads the
 // Better Auth package once, at boot, only when `app.auth` is set.
@@ -103,6 +113,137 @@ export const setupAgentUserListFilter = (
       (user) => typeof user.email !== 'string' || !user.email.endsWith(AGENT_EMAIL_SUFFIX)
     )
     return c.json({ ...body, users: filtered }, 200)
+  })
+}
+
+/** The languages the built-in role words exist in, for an app that declares none. */
+const BUILT_IN_WORD_LANGUAGES: Languages = {
+  default: 'en',
+  supported: [
+    { code: 'en', locale: 'en-US', label: 'English' },
+    { code: 'fr', locale: 'fr-FR', label: 'Français' },
+  ],
+}
+
+/**
+ * The language a caller reads in, from the first of their preferences that
+ * names one: their saved account language, then the `sovrium_language` cookie
+ * the page they read was served by. A preference the app declares wins; one
+ * only the built-in role words exist in (an English-only app read by a French
+ * console) still reads those words; neither falls back to the app's default.
+ */
+const callerLanguage = (app: App, preferences: ReadonlyArray<string | undefined>): string => {
+  const declared = (languages: Languages | undefined): string | undefined =>
+    preferences
+      .map((preference) => findDeclaredLanguageCode(languages, preference))
+      .find((code) => code !== undefined)
+  return (
+    declared(app.languages) ?? declared(BUILT_IN_WORD_LANGUAGES) ?? app.languages?.default ?? 'en'
+  )
+}
+
+/**
+ * The caller's role as the app calls it, in the language they read: the role's
+ * declared label (its `$t:` key translated), else the built-in words for a role
+ * every app carries, else its name made readable.
+ */
+const sessionRoleLabel = (app: App, role: string, language: string): string =>
+  roleLabelFor(app.auth, role, language, (text) =>
+    resolveTranslationPattern(text, language, app.languages)
+  )
+
+/**
+ * The saved language as `$session.language` reads it: the declared locale of
+ * the language it names, whichever spelling was saved — a bare `fr` reads as
+ * `fr-FR` — so a control offering locales lands on the option of that
+ * language. A value naming no language the app (or the built-in words) knows
+ * is read back as it was saved. What is stored is unchanged.
+ */
+const sessionLanguage = (app: App, saved: string): string =>
+  findDeclaredLanguage(app.languages, saved) ??
+  findDeclaredLanguage(BUILT_IN_WORD_LANGUAGES, saved) ??
+  saved
+
+/**
+ * Intercept `GET /api/auth/get-session` to lay the caller's `roleLabel` on the
+ * envelope: their role as the app calls it, in their own language — what
+ * `session: roleLabel` and `$session.roleLabel` read. Composed here because the
+ * browser holds neither `auth.roles` nor the app's translations.
+ *
+ * Better Auth's own answer is kept whole — status, headers (a refreshed session
+ * cookie included) and every field — and an answer that is not a signed-in
+ * envelope is forwarded untouched. Registered before the `/api/auth/*`
+ * catch-all so Hono's first-match routing picks it up.
+ */
+export const setupSessionRoleLabel = (
+  honoApp: Readonly<Hono>,
+  authInstance: Readonly<ReturnType<typeof createAuthInstance>>,
+  app?: App
+): Readonly<Hono> => {
+  if (!app?.auth) return honoApp
+
+  return honoApp.get('/api/auth/get-session', async (c) => {
+    const response = await authInstance.handler(c.req.raw)
+    if (response.status !== 200) return response
+    const body = (await response
+      .clone()
+      .json()
+      .catch(() => undefined)) as
+      { user?: { role?: unknown; language?: unknown } & Record<string, unknown> } | null | undefined
+    const user = body?.user
+    if (user === undefined || typeof user.role !== 'string') return response
+    const saved = typeof user.language === 'string' ? user.language : undefined
+    const language = callerLanguage(app, [saved, getCookie(c, LANGUAGE_PREFERENCE_COOKIE)])
+    const headers = new Headers(response.headers)
+    headers.delete('content-length')
+    return new Response(
+      JSON.stringify({
+        ...body,
+        user: {
+          ...user,
+          ...(saved === undefined ? {} : { language: sessionLanguage(app, saved) }),
+          roleLabel: sessionRoleLabel(app, user.role, language),
+        },
+      }),
+      { status: 200, headers }
+    )
+  })
+}
+
+/**
+ * Write a language saved through `POST /api/auth/update-user` to this
+ * browser's `sovrium_language` cookie as well as to the account, so a page that
+ * reads the cookie before any session — a signed-out page, a surface composed
+ * without the caller — reads the language the operator just chose rather than
+ * an older one. The order the server resolves a language in is unchanged: a
+ * saved account language still outranks the cookie.
+ *
+ * Middleware rather than a route: the update itself stays Better Auth's,
+ * through the catch-all and everything it applies. The cookie is written only
+ * when the update succeeded, with the value Better Auth's language guard just
+ * accepted; it carries no authority (the server clamps it to the languages it
+ * declares), so it is the switcher's cookie, not `HttpOnly`.
+ */
+export const setupSavedLanguageCookie = (honoApp: Readonly<Hono>, app?: App): Readonly<Hono> => {
+  if (!app?.auth) return honoApp
+
+  return honoApp.use('/api/auth/update-user', async (c, next) => {
+    const body =
+      c.req.method === 'POST'
+        ? ((await c.req.raw
+            .clone()
+            .json()
+            .catch(() => undefined)) as { language?: unknown } | null | undefined)
+        : undefined
+    await next()
+    const language = body?.language
+    if (c.res.status !== 200 || typeof language !== 'string' || language.trim() === '') return
+    setCookie(c, LANGUAGE_PREFERENCE_COOKIE, language.trim(), {
+      path: '/',
+      maxAge: 31_536_000,
+      sameSite: 'Lax',
+      secure: new URL(c.req.url).protocol === 'https:',
+    })
   })
 }
 

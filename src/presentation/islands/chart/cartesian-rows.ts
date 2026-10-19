@@ -75,13 +75,13 @@ export function valueAxisOver(
       ? shown.reduce((sum, series) => sum + valueOf(row, series.field), 0)
       : shown.reduce((max, series) => Math.max(max, valueOf(row, series.field)), 0)
   )
-  const positives = rows.flatMap((row) =>
-    shown.map((series) => valueOf(row, series.field)).filter((value) => value > 0)
-  )
+  const values = rows.flatMap((row) => shown.map((series) => valueOf(row, series.field)))
+  const positives = values.filter((value) => value > 0)
   return buildValueAxis({
     maxValue: heights.reduce((max, height) => Math.max(max, height), 0),
     minPositiveValue: positives.reduce((min, value) => Math.min(min, value), Infinity),
     scale: options.scale,
+    integral: values.every((value) => Number.isInteger(value)),
   })
 }
 

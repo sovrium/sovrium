@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { requestSearch } from '@/domain/kernel/url/request-search'
 import { toMountPath } from '@/domain/models/app/admin/mount-hrefs'
 import { resolveRedirect } from '@/domain/models/app/redirects/redirect-matcher'
@@ -35,4 +36,27 @@ export const resolveMountedRedirect = (
   const mountPath = toMountPath(mount.basePath, c.req.path)
   const resolution = resolveRedirect(rules, [], mountPath, requestSearch(c))
   return resolution === undefined ? undefined : c.redirect(resolution.location, resolution.status)
+}
+
+/**
+ * Where a reader who is ALREADY signed in goes when they reach a sign-in surface
+ * of the mount: back to the page named by `?next=`, when it is a page of this
+ * mount, else the mount's home.
+ *
+ * A console page whose read came back 401 sends the reader to `login?next=` —
+ * and when the session turns out to be live after all (the refusal was a stale
+ * cookie, a proxy, a read the server answered for another reason), sending
+ * them to the home would lose the page they were on. `next` is held to a
+ * same-origin path under the mount, so it can never lead off the console, and
+ * never to a sign-in surface of the mount.
+ */
+export const signedInDestination = (mount: EmbeddedAppMount, next: string | undefined): string => {
+  const safe = toSafeRedirectPath(next)
+  const base = mount.basePath
+  const inMount = safe !== undefined && (safe === base || safe.startsWith(`${base}/`))
+  // A `next` naming a sign-in surface itself would answer this redirect with
+  // itself, forever.
+  const signInSurface =
+    safe !== undefined && mount.signedInRedirectPaths.has(safe.split(/[?#]/, 1)[0] ?? safe)
+  return inMount && !signInSurface ? safe : base
 }

@@ -20,7 +20,10 @@ import {
   mintSignedUrl,
   resolveSignBucket,
 } from '@/application/use-cases/buckets/signed-url-minting'
-import { checkUploadPath, resolveMaxFileSize } from '@/application/use-cases/buckets/upload-policy'
+import {
+  checkBucketUploadPath,
+  resolveMaxFileSize,
+} from '@/application/use-cases/buckets/upload-policy'
 import { resolveStorageSigningSecret } from '@/application/use-cases/storage/signing-secret'
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { logError } from '@/infrastructure/logging/logger'
@@ -112,14 +115,14 @@ export const signUploadLink = (
 ): Effect.Effect<ActionOutcome, never> =>
   Effect.gen(function* () {
     const { key } = request
-    const invalidPath = checkUploadPath(key)
+    const bucket = resolveSignBucket(app, SYSTEM_BUCKET_NAME) ?? SYSTEM_BUCKET
+    const invalidPath = checkBucketUploadPath(bucket, key)
     if (invalidPath) return softError(invalidPath.message)
 
     const stored = yield* keyIsStored(storage, key)
     if (stored === undefined) return softError(`failed to sign url for ${key}`)
     if (stored) return softError(`a file is already stored at ${key}`)
 
-    const bucket = resolveSignBucket(app, SYSTEM_BUCKET_NAME) ?? SYSTEM_BUCKET
     const constraints = bindConstraints(bucket, request.contentType)
     if (typeof constraints === 'string') return softError(constraintRefusalMessage(constraints))
 

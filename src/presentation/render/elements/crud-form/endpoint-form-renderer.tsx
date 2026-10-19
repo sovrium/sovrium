@@ -72,6 +72,7 @@ import {
 } from './endpoint-form-controls'
 import { formPartOf, type FormPart } from './endpoint-form-parts'
 import { passwordAidOf, passwordRuleId, type PasswordAid } from './endpoint-form-password'
+import { renderEndpointRatingField } from './endpoint-form-rating'
 import { formRuleProps, hasRules } from './endpoint-form-rules'
 import type { ElementProps } from '../html-element-renderer'
 import type { Languages } from '@/domain/models/app/languages'
@@ -175,10 +176,12 @@ function withHelpText(
 function renderEndpointField(
   field: FormFieldConfig,
   part: FormPart,
-  aid: PasswordAid
+  aid: PasswordAid,
+  lang: string | undefined
 ): ReactElement {
   if (field.hidden === true) return renderEndpointHiddenField(field)
   if (field.control === 'switch') return withHelpText(field, renderEndpointSwitchField(field))
+  if (field.control === 'rating') return withHelpText(field, renderEndpointRatingField(field))
   return withHelpText(
     field,
     <label
@@ -188,7 +191,7 @@ function renderEndpointField(
       <span className={part('label', computeFormFieldLabelClasses())}>
         {field.label ?? field.field}
       </span>
-      {renderEndpointControl(field, part, aid)}
+      {renderEndpointControl(field, part, aid, lang)}
     </label>,
     aid
   )
@@ -258,7 +261,7 @@ export function renderEndpointForm(
       {...(endpoint.submitOn === 'change' && { 'data-submit-on': 'change' })}
       {...formRuleProps(fields, designStyles?.parts['error'], refusable)}
     >
-      {fields.map((field, index) => renderEndpointField(field, part, aids[index] ?? {}))}
+      {fields.map((field, index) => renderEndpointField(field, part, aids[index] ?? {}, page.lang))}
       {endpoint.submitOn === 'change' ? renderNoSubmit() : renderSubmit(endpoint, part, page)}
     </form>
   )

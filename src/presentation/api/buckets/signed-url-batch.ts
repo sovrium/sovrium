@@ -13,7 +13,7 @@ import {
   resolveExpiresIn,
   resolveSignBucket,
 } from '@/application/use-cases/buckets/signed-url-minting'
-import { checkUploadPath } from '@/application/use-cases/buckets/upload-policy'
+import { checkBucketUploadPath } from '@/application/use-cases/buckets/upload-policy'
 import { fileExists } from '@/presentation/api/buckets/signed-download'
 import {
   buildSignedUrl,
@@ -150,10 +150,10 @@ async function signBatchEntries(
   files: readonly BatchFileRequest[]
 ): Promise<readonly BatchResult[] | string> {
   if (files.some((file) => pathOf(file) === undefined)) return 'Missing path'
-  // An upload entry names the key it creates, so it is held to the explicit-path rule.
+  // An upload entry names the key it creates, so it is held to the explicit-path rules.
   const pathRejection = files
     .filter((file) => operationOf(file) === 'upload')
-    .map((file) => checkUploadPath(pathOf(file) as string))
+    .map((file) => checkBucketUploadPath(bucketConfig, pathOf(file) as string))
     .find((rejection) => rejection !== undefined)
   if (pathRejection) return pathRejection.message
   const bucket = bucketConfig.name

@@ -67,18 +67,33 @@ const HEX_8 = /^#[0-9a-fA-F]{8}$/
 const FUNCTIONAL_COLOR = /^([a-z]+)\(([^)]*)\)$/i
 
 /**
- * Colour-function names whose components DTCG carries as-authored.
+ * Colour-function names whose components DTCG carries through, each mapped to
+ * the CSS Color 4 percentage reference range of its three channels, in order.
+ *
+ * A percentage channel resolves to `(n / 100) * range`, so the range is what
+ * `100%` means for that channel — and CSS gives each channel its own:
+ * `oklch(50% 40% 250)` is L 0.5 and C 0.16, because oklch C reads 100% as 0.4,
+ * while lch C reads it as 150. `undefined` marks a HUE, which CSS has no
+ * percentage form for; a percentage there is refused, not guessed.
+ *
+ * The resolved numbers are what DTCG 2025.10 expects in `components`: L 0–1
+ * for the ok spaces, 0–100 for lab/lch, and S/L/W/B on 0–100 for hsl/hwb.
  *
  * `srgb` is deliberately absent: `rgb()` channels are 0–255 in CSS and 0–1 in
  * DTCG, so it needs the rescale below rather than a pass-through.
+ *
+ * @see https://www.w3.org/TR/css-color-4/
  */
-const PASS_THROUGH_COLOR_SPACES: ReadonlySet<string> = new Set([
-  'oklch',
-  'oklab',
-  'lab',
-  'lch',
-  'hsl',
-  'hwb',
+const PASS_THROUGH_PERCENT_RANGES: ReadonlyMap<
+  string,
+  readonly [number | undefined, number | undefined, number | undefined]
+> = new Map([
+  ['oklch', [1, 0.4, undefined]],
+  ['oklab', [1, 0.4, 0.4]],
+  ['lch', [100, 150, undefined]],
+  ['lab', [100, 125, 125]],
+  ['hsl', [undefined, 100, 100]],
+  ['hwb', [undefined, 100, 100]],
 ])
 
 /** Round to six decimals — enough for 8-bit fidelity, short enough to read. */
@@ -181,13 +196,15 @@ const parsePassThroughColor = (
   channels: readonly string[],
   alpha: number | undefined
 ): DtcgColorValue | undefined => {
-  if (!PASS_THROUGH_COLOR_SPACES.has(space)) return undefined
+  const ranges = PASS_THROUGH_PERCENT_RANGES.get(space)
+  if (!ranges) return undefined
 
-  // `oklch(50% 0.1 250)` — the lightness percentage is relative to 1, every
-  // other percentage channel to 100 (`hsl(90 20% 43%)` stays 20 and 43).
-  const components = channels.map((channel, index) =>
-    parseComponent(channel, space.startsWith('ok') && index === 0 ? 1 : 100)
-  )
+  const components = channels.map((channel, index) => {
+    const range = ranges[index]
+    if (range !== undefined) return parseComponent(channel, range)
+    // A hue (or a surplus channel) has no percentage reference range.
+    return channel.trim().endsWith('%') ? undefined : parseComponent(channel, 1)
+  })
   if (components.length < 3 || components.some((channel) => channel === undefined)) {
     return undefined
   }

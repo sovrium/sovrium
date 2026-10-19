@@ -9,7 +9,6 @@ import { useId, type ReactElement } from 'react'
 import {
   numericAdornmentOf,
   numericInputAttributes,
-  toDateInputValue,
 } from '@/presentation/design/field-control-attributes'
 import { fieldDescribedBy } from '@/presentation/design/field-display'
 import { computeFormFieldLabelClasses } from '@/presentation/design/form-layout-classes'
@@ -22,7 +21,7 @@ import { RatingScale } from '../rating-scale'
 import { CONTROL_CLASS, LABEL_CLASS } from './field-chrome-classes'
 import { type FieldDef, labelOf } from './field-def'
 import { FieldHelpText } from './field-help-text'
-import { LabelledControl } from './field-label'
+import { FieldLabelText, LabelledControl } from './field-label'
 import { FieldShell, PickerControl, ReadOnlyPicker } from './record-picker-chrome'
 import { readLinkedIds, writeLinkedIds } from './record-picker-value'
 import { useUserPicker } from './use-user-picker'
@@ -80,7 +79,7 @@ function LabelledTypedControl(props: {
 }): ReactElement {
   return (
     <LabelledControl
-      label={labelOf(props.field)}
+      label={<FieldLabelText field={props.field} />}
       help={<FieldHelpText field={props.field} />}
       control={props.control}
     />
@@ -130,25 +129,6 @@ export function NumberField({ field, value, onChange, invalid }: TypedFieldProps
         {adornment.position === 'after' && unit}
       </div>
     </FieldShell>
-  )
-}
-
-/** A `date` column: a native date input holding the ISO calendar date. */
-export function DateField({ field, value, onChange, invalid }: TypedFieldProps): ReactElement {
-  return (
-    <LabelledTypedControl
-      field={field}
-      control={(id) => (
-        <NativeInput
-          field={field}
-          type="date"
-          value={toDateInputValue(value)}
-          onInput={(raw) => onChange(field.name, raw)}
-          id={id}
-          {...(invalid !== undefined && { invalid })}
-        />
-      )}
-    />
   )
 }
 
@@ -218,7 +198,9 @@ export function MultiSelectField({ field, value, onChange }: TypedFieldProps): R
       {...fieldDescribedBy(field)}
       {...(field.disabled && { disabled: true })}
     >
-      <legend className={computeFormFieldLabelClasses()}>{labelOf(field)}</legend>
+      <legend className={computeFormFieldLabelClasses()}>
+        <FieldLabelText field={field} />
+      </legend>
       <div className="flex flex-wrap gap-x-4 gap-y-2">
         {(field.options ?? []).map((option) => (
           <label

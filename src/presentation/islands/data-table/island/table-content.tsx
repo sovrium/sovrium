@@ -12,6 +12,7 @@ import { TableHeader } from '../body-header'
 import { TableSummaryFooter } from '../body-summary'
 import { tableFrameAttributes } from './fill-column-widths'
 import { FillColGroup, LoadingStatus, ScrollRegion } from './grid-frame-parts'
+import { useGridString } from './grid-strings'
 import { nameClippedCell } from './scroll-edges'
 import { columnFieldName, useFrozenPinning } from './table-frozen-columns'
 import {
@@ -87,6 +88,11 @@ function FillRefusals({
   readonly refusals: readonly string[]
   readonly onDismiss: () => void
 }) {
+  const sentence = useGridString(
+    'datatable.fillRefused',
+    '{reason} — that column was left unchanged.'
+  )
+  const dismiss = useGridString('datatable.dismiss', 'Dismiss')
   if (refusals.length === 0) return undefined
   return (
     <div
@@ -96,7 +102,7 @@ function FillRefusals({
     >
       <div>
         {refusals.map((reason) => (
-          <p key={reason}>{reason} — that column was left unchanged.</p>
+          <p key={reason}>{sentence.split('{reason}').join(reason)}</p>
         ))}
       </div>
       <button
@@ -104,7 +110,7 @@ function FillRefusals({
         onClick={onDismiss}
         className="hover:bg-muted rounded px-2 font-medium"
       >
-        Dismiss
+        {dismiss}
       </button>
     </div>
   )

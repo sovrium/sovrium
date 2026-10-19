@@ -11,22 +11,42 @@ import {
   computeTableEditorPopoverClasses,
   computeTablePanelControlClasses,
 } from '@/presentation/design/table-default-classes'
+import { fieldLabel } from './field-reading'
+import { useImportWord } from './import-words'
+import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 
 interface ColumnMappingSelectProps {
+  /** The CSV column this control maps: it names the control for assistive tech. */
+  readonly column: string
   readonly value: string | undefined
   readonly tableFields?: readonly string[]
+  readonly fieldMeta?: FieldMetaMap
   readonly onChange: (value: string | undefined) => void
 }
 
-export function ColumnMappingSelect({ value, tableFields, onChange }: ColumnMappingSelectProps) {
+/** The field a CSV column goes into, by its label, or Skip to leave the column out. */
+export function ColumnMappingSelect({
+  column,
+  value,
+  tableFields,
+  fieldMeta,
+  onChange,
+}: ColumnMappingSelectProps) {
   const [open, setOpen] = useState(false)
-  const label = value ?? 'Skip'
+  const skip = useImportWord('csvImport.skip', 'Skip')
+  const name = useImportWord('csvImport.fieldFor', 'Field for column {column}', { column })
+  const label = value === undefined ? skip : fieldLabel(value, fieldMeta)
+  const pick = (field: string | undefined): void => {
+    onChange(field)
+    setOpen(false)
+  }
 
   return (
     <div className="relative">
       <button
         type="button"
         role="combobox"
+        aria-label={name}
         aria-expanded={open}
         aria-haspopup="listbox"
         onClick={() => setOpen((prev) => !prev)}
@@ -43,26 +63,20 @@ export function ColumnMappingSelect({ value, tableFields, onChange }: ColumnMapp
           <li
             role="option"
             aria-selected={value === undefined}
-            onClick={() => {
-              onChange(undefined)
-              setOpen(false)
-            }}
+            onClick={() => pick(undefined)}
             className={computeTableEditorListRowClasses()}
           >
-            Skip
+            {skip}
           </li>
           {tableFields?.map((field) => (
             <li
               key={field}
               role="option"
               aria-selected={value === field}
-              onClick={() => {
-                onChange(field)
-                setOpen(false)
-              }}
+              onClick={() => pick(field)}
               className={computeTableEditorListRowClasses()}
             >
-              {field}
+              {fieldLabel(field, fieldMeta)}
             </li>
           ))}
         </ul>

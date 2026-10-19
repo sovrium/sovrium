@@ -115,7 +115,12 @@ export function ComboboxItemRenderer(item: OptionItem): ReactElement {
   )
 }
 
-export function ComboboxPopupContent(): ReactElement {
+export function ComboboxPopupContent({
+  emptyLabel = 'No results',
+}: {
+  /** What a search that matched nothing says, in the page language (`select.noResults`). */
+  readonly emptyLabel?: string
+}): ReactElement {
   return (
     <Combobox.Portal>
       {/*
@@ -141,7 +146,7 @@ export function ComboboxPopupContent(): ReactElement {
             className={computeComboboxEmptyClasses()}
             data-slot="combobox-empty"
           >
-            No results
+            {emptyLabel}
           </Combobox.Empty>
           <Combobox.List
             className={computeComboboxListClasses()}

@@ -20,9 +20,12 @@ import { Schema } from 'effect'
  *  - a `title` SEPARATE from the body `message` (e.g. title "Confirmer l'effacement"
  *    over body "L'effacement est définitif et irréversible"), so the dialog's
  *    accessible NAME and its visible body text differ;
- *  - a `role` choice — `alertdialog` (default, the inline destructive gate) or
+ *  - a `role` choice — `alertdialog` (default, the destructive gate) or
  *    `dialog` (a focusable, input-gated confirm such as type-to-confirm);
- *  - a type-to-confirm `input`: the confirm affordance stays DISABLED until the user
+ *  - a type-to-confirm `input`: on a `button`, the gate opens MODAL — focus moved
+ *    inside, the field visibly labelled, Escape and Cancel dismissing it without
+ *    firing; a data-table row action or a record-drawer footer action keeps its
+ *    inline gate — and the confirm affordance stays DISABLED until the user
  *    types `matchValue`. `matchValue` supports the `$session.<field>` token (resolved
  *    client-side from the caller's session — e.g. `$session.email` requires the user
  *    to retype their OWN email) and `$record.<field>`;
@@ -57,7 +60,7 @@ import { Schema } from 'effect'
 export const ConfirmRoleSchema = Schema.Literals(['alertdialog', 'dialog']).annotate({
   title: 'Confirm Role',
   description:
-    'ARIA role of the confirm surface: "alertdialog" (default — the inline destructive gate) or "dialog" (a focusable, input-gated confirm such as type-to-confirm).',
+    'ARIA role of the confirm surface: "alertdialog" (default — the destructive gate, drawn inline beside its trigger, or as a modal when a button’s confirm carries an input) or "dialog" (a focusable, input-gated confirm such as type-to-confirm).',
 })
 
 /** Type-to-confirm input descriptor: the confirm affordance is disabled until the value matches. */
@@ -65,7 +68,7 @@ export const ConfirmInputSchema = Schema.Struct({
   /** Accessible label of the type-to-confirm textbox (also its visible label). */
   label: Schema.String.annotate({
     description:
-      'Accessible label of the type-to-confirm input (e.g. "Saisissez votre adresse e-mail").',
+      'Label naming the type-to-confirm input (e.g. "Saisissez votre adresse e-mail"). On a button, the confirm opens as a modal with this label shown above the field: focus moves inside, and Escape or Cancel closes it without firing the action. A row action or record-drawer footer action keeps its inline gate.',
     examples: ['Saisissez votre adresse e-mail', 'Type DELETE to confirm'],
   }),
   /**

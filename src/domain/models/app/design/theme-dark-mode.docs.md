@@ -37,6 +37,8 @@ design:
 
 Only the tokens that need to change have to appear. A token you leave out keeps its light value in both schemes — correct for a brand accent, and usually wrong for anything with `background` or `foreground` in the name.
 
+A brand colour you leave out — `primary`, `secondary`, `accent`, `ring`, a sidebar brand role, a chart series — keeps its light value everywhere it is read under the dark scheme: in its utility (`bg-primary`) and in the variable a component reads directly (`--primary`). A surface kept in its light colour keeps its light foreground too, unless a dark foreground is declared: a linen `accent` with no dark value still carries the dark text it carries in light, never the near-white text of the dark palette.
+
 **Check contrast in both palettes, not one.** A `primary` tuned against a white background is frequently too dark against a near-black one, which is why the example above lightens it rather than reusing it. The pair is two designs, not one design with the lights off.
 
 **`darkColors` overrides the palette; it does not extend it.** A name appearing only here and never in `colors` produces no utility at all, because `bg-{name}` and `text-{name}` are minted from the `colors` block. Declare the token in `colors` first, then give it its second value here.

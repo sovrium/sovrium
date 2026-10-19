@@ -33,27 +33,30 @@ import {
   produceTransformedFile,
   removeBucketFile,
 } from '@/application/use-cases/buckets/bucket-file-programs'
-import { resolveUploadBucket } from '@/application/use-cases/buckets/resolve-bucket'
-import { checkUploadFile, checkUploadPath } from '@/application/use-cases/buckets/upload-policy'
+import {
+  resolveDownloadBucket,
+  resolveUploadBucket,
+} from '@/application/use-cases/buckets/resolve-bucket'
+import {
+  checkBucketUploadPath,
+  checkUploadFile,
+} from '@/application/use-cases/buckets/upload-policy'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { isImageKey } from '@/domain/kernel/identity/mime-types'
 import { isChatAttachmentKey } from '@/domain/kernel/identity/storage-key'
-import { AVATAR_BUCKET_NAME, resolveAvatarBucket } from '@/domain/models/app/auth/avatar-url'
 import {
-  classifyPermissionRung,
-  evaluatePermission,
-  grantWhenUndeclared,
-  permits,
-  SESSION_WITH_UNRESOLVED_ROLE,
-} from '@/domain/models/app/auth/permission-evaluation'
-import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
+  bucketPermissionNeedsRole,
+  isPublicBucketFile,
+  permitsBucketFileAction,
+  type BucketFileCaller,
+} from '@/domain/models/app/buckets/bucket-file-access-validation'
 import {
   buildTransformCacheKey,
   buildTransformETag,
 } from '@/domain/models/app/buckets/image-transform-cache-key'
 import {
   hasTransformParams,
-  defaultTransformParams,
+  downloadTransformParams,
 } from '@/domain/models/app/buckets/image-transform-params'
 import {
   parsePresetEnv,
@@ -85,7 +88,7 @@ import { refuseUnlessOwnerOrAdmin } from '@/presentation/api/buckets/object-owne
 import { createHandleSignedServe } from '@/presentation/api/buckets/signed-download'
 import { createHandleBatchSign } from '@/presentation/api/buckets/signed-url-batch'
 import { createHandleSign, createHandleSignedUpload } from '@/presentation/api/buckets/signed-urls'
-import { defaultWriteGrant, denyWrite } from '@/presentation/api/buckets/write-gate'
+import { defaultWriteGrant, deleteGrant, denyWrite } from '@/presentation/api/buckets/write-gate'
 import { storageErrorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { rejectUpload } from '@/presentation/api/runtime/upload-rejection'
@@ -109,28 +112,8 @@ import type { Context, Hono } from 'hono'
  */
 function createHandleGetBucketFile(app: App) {
   return async (c: Context) => {
-    // Same resolution as upload — falls back to an implicit private `default`
-    // bucket so apps without an explicit `buckets[]` config still work.
-    //
-    // …and then to the ENGINE-OWNED avatar bucket, for the one name the engine
-    // mints URLs under itself (`POST /api/account/avatar`). Without this an
-    // app declaring no bucket would store the object and hand back a URL that
-    // 404s — the dead reference the upload's old 404 was avoiding.
-    //
-    // ORDER IS THE FENCE. `resolveUploadBucket`
-    // answers FIRST, so a host that declares `avatars` keeps its own bucket and
-    // every rule it wrote — its `public` flag and its `permissions.download`
-    // included. The fallback is reached only when the host declared nothing, so
-    // it can never narrow an app that has been serving public avatars.
-    //
-    // Applied to the DOWNLOAD handler only, and not inside
-    // `resolveUploadBucket` itself: that resolver also serves upload, delete
-    // and sign, and teaching it this name would open three write doors on a
-    // bucket the host never declared.
-    const bucketName = c.req.param('bucketName')
-    const bucket =
-      resolveUploadBucket(app, bucketName) ??
-      (bucketName === AVATAR_BUCKET_NAME ? resolveAvatarBucket(app.buckets) : undefined)
+    // The upload resolution, then the engine-owned avatar bucket (`resolveDownloadBucket`).
+    const bucket = resolveDownloadBucket(app, c.req.param('bucketName'))
     if (!bucket) {
       return notFound(c, 'Bucket not found')
     }
@@ -145,9 +128,7 @@ function createHandleGetBucketFile(app: App) {
     // the storage key as public. Either short-circuits the read gate: the
     // documented model associates `permissions.download` with the private row,
     // so a declared `download` does not narrow a public bucket.
-    const publicAccess = resolveStoragePublicAccess()
-    const isPublic = bucket.public || isFilePublic(publicAccess, key)
-    if (!isPublic) {
+    if (!isPublicBucketFile(bucket, isFilePublic(resolveStoragePublicAccess(), key))) {
       // Otherwise the bucket's `permissions.download` decides, falling back to
       // the platform's long-standing "a session is required" gate when the
       // action is undeclared.
@@ -193,7 +174,7 @@ async function serveTransformedDownload(
   const query = c.req.query()
   const hasPreset = query['preset'] !== undefined && query['preset'] !== ''
   if (!hasPreset && !hasTransformParams(query)) {
-    return serveFileDownload(c, key, defaultTransformParams(), bucket)
+    return serveFileDownload(c, key, downloadTransformParams(key), bucket)
   }
 
   const presets = parsePresetEnv(process.env['STORAGE_TRANSFORM_PRESETS'])
@@ -330,24 +311,24 @@ async function canAct(
 ): Promise<boolean> {
   const { bucket, action, session, undeclaredGrant, app } = input
   const permission = bucket.permissions?.[action]
-  const policy = {
-    whenUndeclared: grantWhenUndeclared(undeclaredGrant),
-    adminOverride: 'admin-outranks-role-list',
-  } as const
+  const caller = await bucketCaller(c, permission, session)
+  return permitsBucketFileAction(permission, caller, { undeclaredGrant, app })
+}
 
-  // Every rung except a declared role array is decidable from session presence
-  // alone, so the `getUserRole` round-trip is deferred until the ladder will
-  // actually read the role.
-  if (classifyPermissionRung(permission) !== 'roles') {
-    const caller = session ? SESSION_WITH_UNRESOLVED_ROLE : undefined
-    return permits(evaluatePermission(permission, caller, policy))
-  }
-
-  if (!session) return permits(evaluatePermission(permission, undefined, policy))
-  const role = await runDomainPromise(c, getUserRole(session.userId))
-  return permits(
-    evaluatePermission(permission, { role, adminEquivalent: isAdminEquivalent(role, app) }, policy)
-  )
+/**
+ * Who `session` is to a bucket rung. Every rung except a declared role array
+ * is decidable from session presence alone, so the `getUserRole` round-trip is
+ * deferred until the ladder will actually read the role.
+ */
+async function bucketCaller(
+  c: Context,
+  permission: Parameters<typeof bucketPermissionNeedsRole>[0],
+  session: UserSession | undefined
+): Promise<BucketFileCaller | undefined> {
+  if (session === undefined) return undefined
+  return bucketPermissionNeedsRole(permission)
+    ? { role: await runDomainPromise(c, getUserRole(session.userId)) }
+    : {}
 }
 
 /**
@@ -384,7 +365,7 @@ function createHandlePostBucketFile(app: App) {
     // STORAGE_PUBLIC_PATHS toggle matches against.
     const explicitPath = typeof body['path'] === 'string' ? body['path'] : undefined
     if (explicitPath !== undefined) {
-      const pathRejection = checkUploadPath(explicitPath)
+      const pathRejection = checkBucketUploadPath(bucket, explicitPath)
       if (pathRejection) return rejectUpload(c, pathRejection)
     }
 
@@ -435,17 +416,8 @@ function createHandleDeleteBucketFile(app: App) {
     }
 
     const session = getSessionContext(c)
-    if (
-      !(await canAct(c, {
-        bucket,
-        action: 'delete',
-        session,
-        undeclaredGrant: defaultWriteGrant(app, bucket, session),
-        app,
-      }))
-    ) {
-      return denyWrite(c, session)
-    }
+    const caller = await bucketCaller(c, bucket.permissions?.delete, session)
+    if (!deleteGrant(app, bucket, caller)) return denyWrite(c, session)
 
     const key = c.req.param('filename')
     if (!key) {

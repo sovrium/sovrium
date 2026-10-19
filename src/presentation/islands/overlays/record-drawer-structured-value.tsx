@@ -70,6 +70,58 @@ function renderObjectPairs(value: unknown): ReactElement[] {
   ))
 }
 
+/** One `term → value` pair of a key-value block: the term above, the value under it. */
+function TermPairs({ entries }: { readonly entries: ReadonlyArray<readonly [string, unknown]> }) {
+  return (
+    <dl className="flex flex-col gap-3">
+      {entries.map(([name, val]) => (
+        <div
+          key={name}
+          className="flex flex-col gap-0.5"
+        >
+          <dt className="text-muted-foreground text-xs font-medium">{name}</dt>
+          <dd className="text-foreground text-sm break-words whitespace-pre-wrap">
+            {formatScalar(val)}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+/**
+ * An object as a key-value block: each key a term over its value, and a key
+ * holding an object of its own a titled group of those — a form's section and
+ * the answers under it. The plain pairs come first, then the groups, each in
+ * its own order.
+ */
+function KeyValueBlock({ data }: { readonly data: unknown }): ReactElement {
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+    return <div className="flex flex-col gap-1">{renderObjectPairs(data)}</div>
+  }
+  const entries = Object.entries(data as RawRecord)
+  const isGroup = (val: unknown): val is RawRecord =>
+    typeof val === 'object' && val !== null && !Array.isArray(val)
+  const pairs = entries.filter(([, val]) => !isGroup(val))
+  const groups = entries.filter((entry): entry is [string, RawRecord] => isGroup(entry[1]))
+  return (
+    <div className="flex flex-col gap-3">
+      {pairs.length > 0 && <TermPairs entries={pairs} />}
+      {groups.map(([title, group]) => (
+        <div
+          key={title}
+          role="group"
+          aria-label={title}
+          className="flex flex-col gap-1"
+        >
+          <p className="text-foreground text-sm font-medium">{title}</p>
+          <TermPairs entries={Object.entries(group)} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 const PRE_CLASS = 'text-foreground overflow-auto text-sm'
 
 /** Array-of-objects → a readable `<ul>` list, one labelled item per element. */
@@ -102,9 +154,7 @@ export function StructuredValue({
 }): ReactElement {
   const data = coerceStructured(value)
   if (renderAs === 'list') return <StructuredList data={data} />
-  if (renderAs === 'key-value') {
-    return <div className="flex flex-col gap-1">{renderObjectPairs(data)}</div>
-  }
+  if (renderAs === 'key-value') return <KeyValueBlock data={data} />
   if (renderAs === 'code') {
     return (
       <pre className={PRE_CLASS}>

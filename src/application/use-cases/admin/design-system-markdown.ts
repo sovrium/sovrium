@@ -33,63 +33,49 @@
  * and the JSON to describe two different design systems.
  */
 
-import { escapeMarkdownTableCell } from '@/domain/kernel/markdown/markdown-escaping'
 import { SOVRIUM_EXTENSION_KEY } from '@/domain/models/api/admin/design-system'
-import { formatColorValue } from '@/domain/models/app/design/token-value-dtcg-service'
+import {
+  formatColorValue,
+  type DtcgColorValue,
+} from '@/domain/models/app/design/token-value-dtcg-service'
+import {
+  formatMeasure,
+  formatOptionalMeasure,
+  renderSections,
+  table,
+  type Section,
+} from './design-system-markdown-table'
 import type { DesignSystemDocument } from '@/domain/models/api/admin/design-system'
 
-/** A rendered section: its H2 title and its body lines, or nothing to say. */
-interface Section {
-  readonly title: string
-  readonly lines: readonly string[]
-}
+/** A colour cell, empty when the document carries no value for the token. */
+const colorCell = (value: DtcgColorValue | undefined): string =>
+  value === undefined ? '' : formatColorValue(value)
 
 /**
- * A value placed in a table cell, escaped through the canonical helper.
- *
- * Pipe is the column separator, backslash is the escape character, and a
- * newline ends the row — all three are authored values here, since token
- * descriptions and voice rules come from the app config.
+ * The colour table: ONE row per role, its light and dark value side by side, so
+ * an agent picking a role reads both. The Dark cell is the dark document's
+ * (`buildDesignSystem(app, 'dark')`, the shared dark cascade): what `.dark` paints.
  */
-const cell = (text: string | undefined): string => escapeMarkdownTableCell(text ?? '')
-
-/** A markdown table with a fixed header. */
-const table = (
-  headers: readonly string[],
-  rows: readonly (readonly string[])[]
-): readonly string[] => [
-  `| ${headers.join(' | ')} |`,
-  `| ${headers.map(() => '---').join(' | ')} |`,
-  ...rows.map((row) => `| ${row.map(cell).join(' | ')} |`),
-]
-
-/** Drop sections with no rows — an empty H2 is chrome, which this format has none of. */
-const renderSections = (sections: readonly Section[]): readonly string[] =>
-  sections.flatMap((section) =>
-    section.lines.length > 0 ? [`## ${section.title}`, '', ...section.lines, ''] : []
-  )
-
-/** A dimension rendered for a table cell, or an empty cell when it is absent. */
-const formatOptionalMeasure = (
-  value: { readonly value: number; readonly unit: string } | undefined
-): string => (value === undefined ? '' : formatMeasure(value))
-
-/** `{value: 4, unit: 'rem'}` → `4rem`. */
-const formatMeasure = (value: { readonly value: number; readonly unit: string }): string =>
-  `${value.value}${value.unit}`
-
-/** The colour table, carrying each token's usage rule beside its value. */
-const colorSection = (document: Readonly<DesignSystemDocument>): Section => {
+const colorSection = (
+  document: Readonly<DesignSystemDocument>,
+  dark: Readonly<DesignSystemDocument>
+): Section => {
   const roles = document.$extensions[SOVRIUM_EXTENSION_KEY].colorRoles ?? {}
-  const rows = Object.entries(document.color).map((entry) => [
-    entry[0],
-    formatColorValue(entry[1].$value),
-    entry[1].$description ?? roles[entry[0]]?.usage ?? '',
-    roles[entry[0]]?.pairsWith ?? '',
+  const rows = Object.entries(document.color).map(([token, entry]) => [
+    token,
+    colorCell(entry.$value),
+    colorCell(dark.color[token]?.$value),
+    entry.$description ?? roles[token]?.usage ?? '',
+    roles[token]?.pairsWith ?? '',
   ])
+  const note =
+    'The Light column is the default scheme; the Dark column is what the app paints under `.dark`.'
   return {
     title: 'Colour tokens',
-    lines: rows.length === 0 ? [] : table(['Token', 'Value', 'Usage', 'Pairs with'], rows),
+    lines:
+      rows.length === 0
+        ? []
+        : [note, '', ...table(['Token', 'Light', 'Dark', 'Usage', 'Pairs with'], rows)],
   }
 }
 
@@ -421,8 +407,8 @@ const catalogueSection = (document: Readonly<DesignSystemDocument>): Section => 
 }
 
 /**
- * Values that ship but have no DTCG token form — shadows, `clamp()` steps, a
- * dark palette in a single-mode document. Distinct from the inert list: these
+ * Values that ship but have no DTCG token form — shadows, `clamp()` steps.
+ * Distinct from the inert list: these
  * DO take effect, so an agent should honour them; they simply have no typed
  * home above.
  */
@@ -445,12 +431,14 @@ const unmappableSection = (document: Readonly<DesignSystemDocument>): Section =>
 /**
  * Project the design-system document into an llms.txt-shaped agent brief.
  *
- * @param document - The document `buildDesignSystem` produced.
+ * @param document - The light document `buildDesignSystem(app)` produced.
+ * @param darkDocument - The dark one, `buildDesignSystem(app, 'dark')`.
  * @param appName - The app the document describes, for the mandatory H1.
  * @returns Markdown, ending in a single trailing newline.
  */
 export function renderDesignSystemMarkdown(
   document: Readonly<DesignSystemDocument>,
+  darkDocument: Readonly<DesignSystemDocument>,
   appName: string
 ): string {
   const summary =
@@ -469,7 +457,7 @@ export function renderDesignSystemMarkdown(
       voiceSection(document),
       toneSection(document),
       zoneSection(document),
-      colorSection(document),
+      colorSection(document, darkDocument),
       typeScaleSection(document),
       measureSection('Spacing tokens', document.spacing),
       measureSection('Radius tokens', document.radius),

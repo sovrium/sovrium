@@ -106,12 +106,17 @@ export const ISLANDS_BY_TYPE: Readonly<Record<string, readonly string[]>> = {
   button: ['open-import'],
 }
 
-/** Islands every page may mount regardless of its components → CORE. */
+/**
+ * Islands every page may mount regardless of its components → CORE. `form-field`
+ * is mounted by a server-rendered form — a hosted form's own page, or a form a
+ * page or a dialog embeds — which no component type of the page names.
+ */
 export const PAGE_LEVEL_ISLANDS: readonly string[] = [
   'command',
   'presence-indicator',
   'page-record-system',
   'spa-nav',
+  'form-field',
 ]
 
 /** Islands only the operator console mounts → the console set. */

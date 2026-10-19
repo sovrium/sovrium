@@ -76,6 +76,8 @@ menuItems:
   - { label: Export as CSV, icon: download }
 ```
 
+A menu item whose `action` is `{ type: theme, value: light | dark | system }` sets the colour theme, as an account menu often does. A run of such rows is one radio group, checked on the reader's current choice when the menu opens — `system` when nothing is stored. Choosing a row switches the page at once and remembers the choice exactly as a `theme-toggle` does, so the next page loads in it; `system` forgets the stored choice and follows the device. The `theme` action is accepted on menu items only, not on buttons or other components.
+
 ## `context-menu`
 
 A right-click menu, anchored to the pointer position rather than to a trigger button. Reference: shadcn/ui Context Menu. Its items are the same shape as a dropdown's, and its panel is drawn like one.
@@ -148,7 +150,7 @@ At `/automations/runs/42` that renders **Automations › Run › 42**, with `Aut
 
 ### Naming the current page
 
-The last crumb of a derived trail is the page the reader is on, and on a record page its segment is an id. `currentLabel` names that crumb directly — `currentLabel: $record.title` turns `Orders / 42` into `Orders / Acme — spring order` — and, like `labels` and `home`, requires `derive`.
+The last crumb of a derived trail is the page the reader is on, and on a record page its segment is an id. `currentLabel` names that crumb directly — `currentLabel: $record.title` turns `Orders / 42` into `Orders / Acme — spring order`. It also works without `derive`: on an enumerated trail it is drawn after `breadcrumbItems` as the current, unlinked crumb. In a crumb's `label` and in `currentLabel`, a `$record.<field>` naming a relationship prints the linked record's display field; in an `href` it keeps the stored id. On a page whose grid is bound to the table its route names (`dataSource.table: $param.table`), `currentLabel: $param.table` reads that table's plural label rather than the identifier in the URL — `labelPlural`, else `label`, else the table `name` — so `/records/invoice_lines` ends on **Invoice lines**.
 
 ### A catch-all page
 
@@ -162,7 +164,7 @@ The palette's "Go to" actions list only the pages the visitor may open. An anony
 
 <!-- sovrium:options type:command depth=3 -->
 
-`groups` replaces the built-in quick actions with your own commands: each group has a `label` and its `items`, and each item a `label`, an optional `icon`, an optional `shortcut` drawn as one keycap per key (`['G', 'I']`), and either an `href` or an `action` (`toast` or `navigate`). Typing narrows the items across groups and hides a group left with no match; choosing an item closes the command, then goes where it points or runs its action. In search mode (`search`), your groups are drawn above the result groups and narrowed by typing the same way; drop `groups` to show the results alone.
+`groups` replaces the built-in quick actions with your own commands: each group has a `label` and its `items`, and each item a `label`, an optional `icon`, an optional `shortcut` drawn as one keycap per key (`['G', 'I']`), and either an `href` or an `action` (`toast` or `navigate`). Typing narrows the items across groups and hides a group left with no match; choosing an item closes the command, then goes where it points or runs its action. In search mode (`search`), your groups are drawn above the result groups and narrowed by typing the same way; drop `groups` to show the results alone. Search mode also matches, as you type, the pages your sidebar names — under **Pages**, each by its sidebar label, only those the visitor may open — and the **Toggle dark mode** action under **Quick actions**; a group with no match is not drawn.
 
 A group or an item takes the same `visibility` a component takes — `runtime: ai`, `capability`, `roles`, `when` — and one whose conditions do not hold is left out of the page entirely, not hidden in it. An item's `label` and `href` may carry `$query`, the words typed so far (URL-encoded in `href`): `label: Ask "$query" about this app` with `href: /?q=$query` turns what the reader typed into a question carried to another page. Such an item always matches the words it reads. While nothing is typed it shows its `emptyLabel`, or is not drawn if it has none. Bare `$query` is the palette's own; a page's `$query.<name>` is a different thing.
 

@@ -40,14 +40,10 @@ interface CreateCommentConfig {
    */
   readonly guestName?: string
   readonly guestEmail?: string
-  /**
-   * Resolved moderation status (PG-02). The create-comment gate combines the
-   * spam classification and the table's moderation policy into a single
-   * verdict; the program persists it to the row so the moderation status is
-   * durable from creation and the response reflects the stored value rather
-   * than a synthesized literal. Defaults to `'approved'` when omitted.
-   */
+  /** The resolved moderation verdict (PG-02), persisted to the row; `'approved'` when omitted. */
   readonly status?: 'approved' | 'pending' | 'rejected'
+  /** `'system'`: the app writes it, with no author account, and reaches any live record. */
+  readonly actor?: 'session' | 'system'
 }
 
 /**
@@ -191,20 +187,14 @@ export function createCommentProgram(config: CreateCommentConfig): Effect.Effect
 > {
   return Effect.gen(function* () {
     const comments = yield* CommentRepository
-    const {
-      session,
-      tableId,
-      recordId,
-      tableName,
-      content,
-      parentCommentId,
-      guestName,
-      guestEmail,
-      status,
-    } = config
+    const { session, tableId, recordId, tableName, content, parentCommentId } = config
+    const { guestName, guestEmail, status, actor } = config
 
-    // Check if record exists
-    const hasAccess = yield* comments.checkRecordExists({ session, tableName, recordId })
+    // Check if record exists (the app's own comment reaches any live record)
+    const hasAccess = yield* comments.checkRecordExists({
+      ...{ session, tableName, recordId },
+      isAdmin: actor === 'system',
+    })
     if (!hasAccess) {
       return yield* Effect.fail(new NotFoundError('Record not found'))
     }
@@ -223,6 +213,7 @@ export function createCommentProgram(config: CreateCommentConfig): Effect.Effect
       content,
       parentId: parentCommentId,
       status,
+      ...(actor === undefined ? {} : { actor }),
       ...(isGuestSession(session.userId) ? { guestName, guestEmail } : {}),
     })
 
@@ -408,6 +399,12 @@ interface ListCommentsConfig {
    * comments across the app.
    */
   readonly tableId: string
+  /**
+   * Every key the thread's comments may be stored under (`commentTableKeysOf`):
+   * a comment keeps the id or name it was posted through, so the list and its
+   * count read under both.
+   */
+  readonly tableKeys: readonly string[]
   /**
    * Opt-in per-user read tracking. When `true` the response carries
    * an `unreadCount`; when omitted/false the feature is inert (no read-state
@@ -647,7 +644,7 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
   return Effect.gen(function* () {
     const comments = yield* CommentRepository
     const { session, recordId, tableName, limit, offset, sortOrder, viewerIsAdmin } = config
-    const { tableId, readTracking } = config
+    const { tableId, tableKeys, readTracking } = config
 
     // Moderation visibility. Fail-closed:
     // when the viewer's admin-ness is unknown (`undefined`), default to
@@ -660,7 +657,7 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
     // List comments (admins see all statuses; everyone else approved-only)
     const commentsList = yield* comments.list({
       session,
-      tableId,
+      tableKeys,
       recordId,
       limit,
       offset,
@@ -675,7 +672,7 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
         ? calculatePagination({
             limit,
             offset,
-            total: yield* comments.getCount({ session, tableId, recordId, includeAllStatuses }),
+            total: yield* comments.getCount({ session, tableKeys, recordId, includeAllStatuses }),
           })
         : undefined
 

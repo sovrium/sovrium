@@ -11,7 +11,7 @@ import {
   createViewRecordsClient,
 } from '@/presentation/islands/runtime/rpc-client'
 import { useLazySharedFilter } from '../hooks/use-lazy-shared-filter'
-import { retryUnlessRateLimited } from '../runtime/read-failure'
+import { retryFaultsOnly } from '../runtime/read-failure'
 import type { LiveRefreshSource } from '../hooks/use-realtime-subscription'
 import type { SharedFilterBindingConfig } from '../hooks/use-shared-filter'
 import type { TableRecord } from '../runtime/types'
@@ -84,7 +84,7 @@ export function useKpiRecords(dataSource: KpiRecordsDataSource | undefined) {
   return useQuery({
     queryKey,
     enabled: Boolean(dataSource?.table) && shared.ready,
-    retry: retryUnlessRateLimited,
+    retry: retryFaultsOnly,
     queryFn: async (): Promise<KpiFetchResult> => {
       if (!dataSource?.table) return { records: [] }
 

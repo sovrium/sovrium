@@ -6,7 +6,10 @@
  */
 
 import type { TableRecord } from '../../runtime/types'
-import type { ActionColumnItem } from '@/domain/models/app/pages/components/component-types/data/table/schema'
+import type {
+  ActionColumn,
+  ActionColumnItem,
+} from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 /**
  * Callback for executing a per-row action. The data-table island wires this to
@@ -44,3 +47,16 @@ export interface ActionControlLabels {
  * default), or one `…` menu per row.
  */
 export type RowActionsDisplay = 'inline' | 'menu'
+
+/**
+ * What an action column's cells draw from: the column's config, the handler a
+ * press calls, the controls' labels and the display. Carried on the column's
+ * meta so the cell component itself can be one stable function.
+ */
+export interface RowActionCellConfig {
+  readonly col: ActionColumn
+  readonly onActionClick: RowActionHandler | undefined
+  readonly labels: ActionControlLabels
+  /** Absent means `inline`. */
+  readonly display: RowActionsDisplay | undefined
+}

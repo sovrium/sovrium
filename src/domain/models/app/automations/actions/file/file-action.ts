@@ -10,6 +10,7 @@ import { FileCompressActionSchema } from './compress'
 import { FileCopyActionSchema } from './copy'
 import { FileDeleteActionSchema } from './delete'
 import { FileDownloadActionSchema } from './download'
+import { FileExtractAudioActionSchema } from './extract-audio'
 import { FileExtractTextActionSchema } from './extract-text'
 import { FileGenerateCsvActionSchema } from './generate-csv'
 import { FileGetMetadataActionSchema } from './get-metadata'
@@ -27,7 +28,9 @@ import { FileUploadActionSchema } from './upload'
  * Phase 1 (Core): upload, download, delete, copy, move, list, getMetadata, signUrl,
  *                 generateCsv
  * Phase 2 (Advanced): parseCsv, extractText, transformImage, compress
- * Phase 3 (Spreadsheets): parseXlsx. Generated documents (PDF, image, Word,
+ * Phase 3 (Spreadsheets): parseXlsx.
+ * Phase 4 (Media): extractAudio.
+ * Generated documents (PDF, image, Word,
  * workbook) are the `document` family.
  */
 export const FileActionSchema = Schema.Union(
@@ -48,6 +51,8 @@ export const FileActionSchema = Schema.Union(
     FileCompressActionSchema,
     // Phase 3 — Spreadsheets (closed OOXML subset); writing one is document/generateXlsx
     FileParseXlsxActionSchema,
+    // Phase 4 — Media (a remux: the audio track is copied, never re-encoded)
+    FileExtractAudioActionSchema,
   ]
 ).pipe(
   Schema.annotate({

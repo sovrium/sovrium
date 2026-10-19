@@ -54,14 +54,6 @@
  * This wrapper is the house pattern for the request edge, and `provideDomain`
  * — the server's resolved services — is what it is given. `provideDomain` is
  * the only shape a NEW handler should reach for.
- *
- * FOUR runners remain, each for a reason that is not "not done yet" — read the
- * header of the one you are looking at before assuming otherwise:
- * `routes/ai/`, `routes/automations/` and `routes/forms/` compose `AiService`,
- * whose layer probes Ollama over the network while it is being built, so
- * merging them into `createAppLayer` would put that round trip on the boot
- * path; `routes/agents/` serves the cron scheduler, which has no request to
- * take a context from.
  */
 
 import { Effect } from 'effect'

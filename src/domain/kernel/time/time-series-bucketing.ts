@@ -177,3 +177,45 @@ export const buildDenseBucketGrid = <V extends object>(options: {
     return { timestamp, ...(rowsByBucket.get(timestamp) ?? emptyValue) }
   })
 }
+
+/** An instant's UTC calendar day, `YYYY-MM-DD`. */
+const utcDayOf = (ms: number): string => new Date(ms).toISOString().slice(0, 10)
+
+/**
+ * A DAILY series with every day of `[from, to]` present: the days the source
+ * skipped come back as `emptyPoint(day, like)`, where `like` is the series' first
+ * point, so a filled point can borrow its shape (a dialect's period suffix).
+ *
+ * A series read with SQL `GROUP BY day` holds only the days something happened,
+ * so a window with one active day drew one dot on an empty plot instead of a
+ * line along zero. An EMPTY series stays empty: "nothing was recorded" is a
+ * different answer from "measured, and it was zero every day", and the reader
+ * shows its empty state for the first.
+ *
+ * Days are matched on the first ten characters of `dayOf(point)`, which both a
+ * `YYYY-MM-DD` and a `YYYY-MM-DD HH:MM:SS+00` key start with. A point outside
+ * the window is kept, in day order.
+ */
+export const fillMissingDays = <P>(options: {
+  readonly points: ReadonlyArray<P>
+  readonly dayOf: (point: P) => string
+  readonly fromIso: string
+  readonly toIso: string
+  readonly emptyPoint: (day: string, like: P) => P
+}): ReadonlyArray<P> => {
+  const { points, dayOf, fromIso, toIso, emptyPoint } = options
+  const like = points[0]
+  if (like === undefined) return points
+  const firstMs = Math.floor(new Date(fromIso).getTime() / DAY_MS) * DAY_MS
+  const lastMs = Math.floor(new Date(toIso).getTime() / DAY_MS) * DAY_MS
+  if (Number.isNaN(firstMs) || Number.isNaN(lastMs) || lastMs < firstMs) return points
+  const windowDays = Array.from({ length: Math.round((lastMs - firstMs) / DAY_MS) + 1 }, (_u, i) =>
+    utcDayOf(firstMs + i * DAY_MS)
+  )
+  const byDay = points.reduce<Readonly<Record<string, ReadonlyArray<P>>>>((acc, point) => {
+    const day = dayOf(point).slice(0, 10)
+    return { ...acc, [day]: [...(acc[day] ?? []), point] }
+  }, {})
+  const days = [...new Set([...windowDays, ...Object.keys(byDay)])].toSorted()
+  return days.flatMap((day) => byDay[day] ?? [emptyPoint(day, like)])
+}

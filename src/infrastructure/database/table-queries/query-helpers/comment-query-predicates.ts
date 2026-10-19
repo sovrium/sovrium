@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { eq, and, isNull } from 'drizzle-orm'
+import { eq, and, inArray, isNull } from 'drizzle-orm'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { recordComments as recordCommentsPg } from '@/infrastructure/database/drizzle/schema/record-comments'
 import { recordComments as recordCommentsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/record-comments'
@@ -30,15 +30,15 @@ export function activeCommentById(commentId: string) {
  * commenters of `memos` record 1. Matches the granularity
  * {@link approvedGuestCommentByEmail} has always keyed on.
  *
- * `tableId` is the caller's table key as stored on the row — the raw
+ * A row stores the table key its comment was posted through — the raw
  * `:tableId` URL segment, which `validateTable` accepts as either the table's
- * numeric id or its name. Writes (`createComment`) and reads go through that
- * same segment, so they agree; the read-state watermark
- * (`comment_read_state`) is keyed identically.
+ * numeric id or its name — so a thread is read under EVERY key of its one
+ * table (`commentTableKeysOf`): read by one spelling alone, it would miss the
+ * comments posted through the other.
  */
-export function activeCommentsByRecordId(tableId: string, recordId: string) {
+export function activeCommentsByRecordId(tableKeys: readonly string[], recordId: string) {
   return and(
-    eq(recordComments.tableId, tableId),
+    inArray(recordComments.tableId, [...tableKeys]),
     eq(recordComments.recordId, recordId),
     isNull(recordComments.deletedAt)
   )
@@ -91,16 +91,11 @@ export function approvedGuestCommentByEmail(tableId: string, guestEmail: string)
  * included.
  */
 export function visibleCommentsByRecordId(
-  tableId: string,
+  tableKeys: readonly string[],
   recordId: string,
   includeAllStatuses: boolean
 ) {
   return includeAllStatuses
-    ? activeCommentsByRecordId(tableId, recordId)
-    : and(
-        eq(recordComments.tableId, tableId),
-        eq(recordComments.recordId, recordId),
-        isNull(recordComments.deletedAt),
-        eq(recordComments.status, 'approved')
-      )
+    ? activeCommentsByRecordId(tableKeys, recordId)
+    : and(activeCommentsByRecordId(tableKeys, recordId), eq(recordComments.status, 'approved'))
 }

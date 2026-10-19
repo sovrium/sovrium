@@ -12,9 +12,14 @@
  * the field (`contains` on a name, `between` on an amount, `is any of` on a
  * status).
  *
- * A type with no such kind — a checkbox, a relationship, an attachment, a
- * computed value — is left out rather than offered as text: a condition on it
- * would compare a stored shape the reader never sees. Which fields the READER
+ * A type with no such kind — a checkbox, an attachment, a computed value — is
+ * left out rather than offered as text: a condition on it would compare a stored
+ * shape the reader never sees. A many-to-one link is the exception that has an
+ * answer: it is offered as a `select` among the related table's rows, by the
+ * link's `displayField`, through an `optionsSource` the option-source pass
+ * resolves for the reader right after (and removes, so the related table's name
+ * never reaches the browser). A link with no `displayField`, or of any other
+ * shape — which stores no column to compare — is left out. Which fields the READER
  * may see is the caller's question (`readable`), asked of each field before it
  * is offered, so a restricted field's name never leaves the server.
  */
@@ -28,6 +33,12 @@ export interface DerivedFilterField {
   readonly label?: string
   readonly kind: DerivedFilterKind
   readonly options?: readonly { readonly value: string; readonly label?: string }[]
+  /** A link's choices: the related rows by their display field, read for the reader. */
+  readonly optionsSource?: {
+    readonly table: string
+    readonly displayField: string
+    readonly sort: readonly { readonly field: string; readonly direction: 'asc' }[]
+  }
 }
 
 /** The minimum of a table field this derivation reads. */
@@ -36,6 +47,26 @@ interface SourceField {
   readonly type: string
   readonly label?: unknown
   readonly options?: readonly unknown[]
+  readonly relationType?: unknown
+  readonly relatedTable?: unknown
+  readonly displayField?: unknown
+}
+
+/** A many-to-one link as a choice among the related rows, or `undefined` when it offers none. */
+function deriveLink(field: SourceField): DerivedFilterField | undefined {
+  const { relationType, relatedTable, displayField } = field
+  if (relationType !== 'many-to-one' || typeof relatedTable !== 'string') return undefined
+  if (typeof displayField !== 'string') return undefined
+  return {
+    name: field.name,
+    ...(typeof field.label === 'string' ? { label: field.label } : {}),
+    kind: 'select',
+    optionsSource: {
+      table: relatedTable,
+      displayField,
+      sort: [{ field: displayField, direction: 'asc' }],
+    },
+  }
 }
 
 const KIND_OF_TYPE: Readonly<Record<string, DerivedFilterKind>> = {
@@ -72,6 +103,7 @@ const toOption = (
 
 /** One field as the bar offers it, or `undefined` when its type has no kind. */
 function derive(field: SourceField): DerivedFilterField | undefined {
+  if (field.type === 'relationship') return deriveLink(field)
   const kind = KIND_OF_TYPE[field.type]
   if (kind === undefined) return undefined
   const options =

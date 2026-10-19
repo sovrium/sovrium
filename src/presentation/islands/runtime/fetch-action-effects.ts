@@ -13,6 +13,7 @@ import {
   substituteRecordInBody,
 } from './fetch-action-substitution'
 import { refreshServerRenderedRegions } from './refetch-server-rendered-region'
+import type { ToastRetry } from './toast-accessibility'
 import type {
   FetchAction,
   FetchResponseEnvelope,
@@ -55,7 +56,12 @@ export interface ExecuteFetchActionOptions {
    * Defaulting this to the shared renderer would emit a second, plainer toast
    * beside that rich one on both paths.
    */
-  readonly renderToast?: (message: string, variant?: string) => void
+  readonly renderToast?: (
+    message: string,
+    variant?: string,
+    duration?: number,
+    retry?: ToastRetry
+  ) => void
   /**
    * Row / detail record context for `$record.<field>` substitution in the
    * `navigate` / `download` target `url` (and the `download` `filename`). Supplied
@@ -76,10 +82,25 @@ export interface ExecuteFetchActionOptions {
   readonly successToast?: (body: unknown) => void
   /** The caller's own success effect (an endpoint form's reset), after `status`/`refetch`. */
   readonly successEffects?: () => void
+  /**
+   * How the Retry inside an `onError.status` alert runs the action again, when
+   * the caller re-dispatches it itself (a button that goes pending). Absent,
+   * the executor runs the same action again, past its confirmation.
+   */
+  readonly retry?: () => void
 }
 
 /** A toast slot (the action's `onSuccess` / `onError`), possibly absent. */
-type ToastSlot = FetchAction['onSuccess']
+type ToastSlot = FetchAction['onSuccess'] | FetchAction['onError']
+
+/**
+ * The same-page effects of a success: the `status` region, the components to
+ * `refetch`, and `reload`. A fetch action's `onSuccess` carries all three; an
+ * automation's carries the two refreshes.
+ */
+type SameSiteSuccessEffects = Partial<
+  Pick<NonNullable<FetchAction['onSuccess']>, 'status' | 'refetch' | 'reload'>
+>
 
 /** A response body is "errored" under the Better-Auth envelope when its `error` is truthy. */
 function bodyHasError(body: unknown): boolean {
@@ -111,10 +132,31 @@ export function evaluateFetchEnvelope(
  * toast on a catalogue of many says WHICH one, rather than leaving the reader
  * to guess.
  */
-export function renderActionToast(slot: ToastSlot, options: ExecuteFetchActionOptions): void {
-  if (slot && options.renderToast) {
-    options.renderToast(substituteRecord(slot.message, options.record), slot.variant)
+export function renderActionToast(
+  slot: ToastSlot,
+  options: ExecuteFetchActionOptions,
+  again?: () => void
+): void {
+  // An `onError` that answers with `status` declares no toast message.
+  if (slot?.message !== undefined && options.renderToast) {
+    const message = substituteRecord(slot.message, options.record)
+    const retry = retryOf(slot, again)
+    if (retry === undefined) options.renderToast(message, slot.variant)
+    else options.renderToast(message, slot.variant, undefined, retry)
   }
+}
+
+/**
+ * The Retry a failure toast offers: its `actionLabel` when it names no
+ * `actionUrl` to post to, running `again` — the same action, past its gate.
+ */
+function retryOf(
+  slot: { readonly actionLabel?: string; readonly actionUrl?: string } | undefined,
+  again: (() => void) | undefined
+): ToastRetry | undefined {
+  if (slot?.actionLabel === undefined || slot.actionUrl !== undefined || again === undefined)
+    return undefined
+  return { label: slot.actionLabel, run: again }
 }
 
 /**
@@ -174,7 +216,7 @@ export function renderActionToast(slot: ToastSlot, options: ExecuteFetchActionOp
  * re-implementing the status-region promotion + sibling-refetch dispatch.
  */
 export function applyFetchSuccessEffects(
-  onSuccess: FetchAction['onSuccess'],
+  onSuccess: SameSiteSuccessEffects | undefined,
   body?: unknown
 ): void {
   if (!onSuccess) return
@@ -204,6 +246,54 @@ export function applyFetchSuccessEffects(
     void refreshServerRenderedRegions(ids)
   }
   if (onSuccess.reload === true && typeof window !== 'undefined') window.location.reload()
+}
+
+/** An inline failure alert, cleared: the region goes quiet and empty. */
+function clearAlert(target: Element): void {
+  target.removeAttribute('role')
+  target.replaceChildren()
+}
+
+/**
+ * Settle a fetch action's `onError.status` alert once its request answered.
+ *
+ * On failure the message is written into the element named by `target` (a
+ * TEXT node, never markup — standing rule S2) and the element becomes a
+ * `role="alert"` region; a `retryLabel` adds a button that clears the alert and
+ * runs `retry`. A prior success's `aria-label` is dropped, so the region is not
+ * named by the answer it replaced. On success an alert still standing there is
+ * cleared — unless `onSuccess.status` already wrote the same element, which it
+ * has then made a `status` region.
+ */
+export function settleErrorStatus(
+  action: FetchAction,
+  ok: boolean,
+  retry: () => void,
+  record?: Record<string, unknown>
+): void {
+  const status = action.onError?.status
+  const target =
+    status === undefined || typeof document === 'undefined'
+      ? null
+      : document.getElementById(status.target)
+  if (!status || !target) return
+  if (ok) {
+    if (target.getAttribute('role') === 'alert') clearAlert(target)
+    return
+  }
+  target.setAttribute('role', 'alert')
+  target.removeAttribute('aria-label')
+  target.replaceChildren(substituteRecord(status.message, record))
+  if (status.retryLabel === undefined) return
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = 'ml-2 font-medium underline'
+  button.textContent = status.retryLabel
+  button.addEventListener('click', () => {
+    clearAlert(target)
+    retry()
+  })
+  target.append(button)
 }
 
 /**

@@ -40,5 +40,12 @@ export class ServerOrigin extends Context.Service<
      * useful failure to report to a caller that only wants to build a URL.
      */
     readonly current: Effect.Effect<string>
+    /**
+     * The origin the server is bound to, which `current` does not name when
+     * `BASE_URL` is set; `undefined` before the server has bound. A caller
+     * that only builds URLs never reads it; one that recognises the app's own
+     * addresses must, so every provider answers it.
+     */
+    readonly listening: Effect.Effect<string | undefined>
   }
 >()('ServerOrigin') {}

@@ -18,6 +18,7 @@ export default {
   'admin.tables.toolbar': 'Contrôles des enregistrements',
   'admin.tables.search': 'Chercher dans les lignes',
   'admin.tables.export': 'Exporter en CSV',
+  'admin.tables.import': 'Importer un CSV',
 
   'admin.buckets.heading': 'Fichiers',
   'admin.buckets.blurb':
@@ -34,6 +35,18 @@ export default {
     'Les conversations avec l’agent Système intégré : l’assistant de Bienvenue, et toute discussion qui ne nomme aucun agent déclaré. Il lit les données de ton app sans jamais les modifier. Ouvres-en une pour lire le fil complet.',
   'admin.conversations.person': 'Personne',
   'admin.conversations.everyone': 'Tout le monde',
+  'admin.conversations.period': 'Période',
+  'admin.conversations.allTime': 'Depuis le début',
+  'admin.conversations.last7': '7 derniers jours',
+  'admin.conversations.last30': '30 derniers jours',
+  'admin.conversations.last90': '90 derniers jours',
+  'admin.conversations.search': 'Rechercher…',
+  'admin.conversations.searchLabel': 'Rechercher des conversations',
+  'admin.conversations.toolbar': 'Contrôles des conversations',
+  'admin.agents.viewer': 'Conversations de l’agent',
+  'admin.agents.header.conversations': 'conversations',
+  'admin.agents.header.model': 'Modèle',
+  'admin.agents.header.tools': 'Outils',
 
   'admin.forms.heading': 'Réponses',
   'admin.forms.blurb':
@@ -173,30 +186,22 @@ export default {
 
   'admin.users.heading': 'Utilisateurs',
   'admin.users.blurb':
-    'Gère les comptes de ton app : cherche un utilisateur, ajuste son rôle ou ses groupes, ou suspends son accès. La création de compte passe par l’API admin (voir Développeurs → API).',
+    'Les comptes et les invitations de ton app : le rôle, les groupes et le statut de chaque compte.',
   'admin.users.tabs.region': 'Sous-vues Utilisateurs',
   'admin.users.account.heading': 'Compte',
   'admin.users.account.blurb':
-    'Un compte\u00a0: son rôle, ses groupes et son statut, les écritures qu’une administratrice peut y faire, et ce que la console ne sait pas encore en montrer.',
-  'admin.users.account.region': 'Compte',
-  'admin.users.account.back': 'Retour aux utilisateurs',
+    'Un compte\u00a0: son rôle, ses groupes et son statut, les écritures qu’une administratrice peut y faire, et ce qu’il peut lire.',
+  'admin.users.account.facts.region': 'Détails du compte',
+  'admin.users.account.actions.region': 'Actions sur le compte',
   'admin.users.account.roles.region': 'Rôles assignables',
   'admin.users.account.roles.heading': 'Rôles assignables',
-  'admin.users.account.roles.body':
-    'Tous les rôles que cette app peut assigner, lus dans sa configuration. Les rôles sont déclarés dans auth.roles[]\u00a0; la console les lit et ne les écrit jamais.',
-  'admin.users.account.gaps.region': 'Non montré ici',
-  'admin.users.account.gaps.heading': 'Non montré ici',
-  'admin.users.account.gaps.sessions.heading': 'Sessions ouvertes',
-  'admin.users.account.gaps.sessions.body':
-    'Fermer toutes les sessions se fait ci-dessus, dans les actions de la ligne. Les lister, non\u00a0: le point d’accès qui les renvoie répond à un POST, et une lecture de console est un GET.',
-  'admin.users.account.gaps.activity.heading': 'Dernière activité',
-  'admin.users.account.gaps.activity.body':
-    'L’annuaire renvoie id, e-mail, nom, rôle, statut et groupes. Un instant de dernière activité par compte demande une jointure sur la table des sessions, qu’aucune lecture ne fait.',
+  'admin.users.account.roles.source': 'depuis auth.roles',
   'admin.users.account.access.region': 'Accès',
   'admin.users.account.access.heading': 'Accès',
   'admin.users.account.access.body':
-    'Les enregistrements des tables à portée accordés à ce compte, et le rôle que donne chaque accès. Les accès se modifient par l’API, le seed ou les automatisations, jamais ici.',
+    'Ce que cette personne peut lire et écrire, avec l’accès derrière chaque ligne. Les accès se modifient par l’API, le seed ou les automatisations, jamais ici.',
   'admin.users.account.access.grid': 'Autorisations',
+  'admin.users.account.access.reach': 'Organisation › Portée',
 
   'admin.pages.heading': 'Analytique',
   'admin.pages.blurb':
@@ -226,15 +231,15 @@ export default {
   'admin.agents.loading': 'Chargement des conversations…',
   'admin.automations.region': 'Automatisations',
   'admin.buckets.browser.region': 'Explorateur de fichiers',
+  'admin.buckets.layout': 'Affichage',
+  'admin.buckets.layout.list': 'Liste',
+  'admin.buckets.layout.grid': 'Grille',
   'admin.buckets.upload.region': 'Envoyer un fichier',
   'admin.buckets.upload.failed': 'Impossible d’envoyer {file}.',
   // The three rules keys keep a space at each end: they sit between other
   // elements of one line, and the spaces are what separate the words for a
   // screen reader (the line's flex gap is not text).
   'admin.buckets.public': 'Public',
-  'admin.buckets.rules.types': ' Accepte ',
-  'admin.buckets.rules.sizeBefore': ' Jusqu’à ',
-  'admin.buckets.rules.sizeAfter': ' par fichier ',
   'admin.connections.region': 'Connexions',
   'admin.forms.metrics.region': 'Indicateurs du formulaire',
   'admin.forms.submissions.region': 'Réponses',
@@ -258,13 +263,10 @@ export default {
     'Cette app ne déclare encore aucune automatisation. Ajoutes-en une dans ta config d’app pour voir ses exécutions apparaître ici.',
   'admin.automations.empty.hint': 'Aucune automatisation pour l’instant — donc rien à exécuter.',
 
-  'admin.automations.catalog.reason': 'Motif de la pause',
-  'admin.automations.catalog.reason.automatic': 'Automatique, après des échecs répétés',
   'admin.automations.catalog.col.automation': 'Automatisation',
   'admin.automations.catalog.col.trigger': 'Déclencheurs',
   'admin.automations.catalog.col.state': 'État',
-  'admin.automations.catalog.col.pausedBy': 'Mise en pause par',
-  'admin.automations.catalog.col.pausedAt': 'Mise en pause le',
+  'admin.automations.catalog.col.paused': 'En pause',
   'admin.automations.catalog.state.active': 'Active',
   'admin.automations.catalog.state.paused': 'En pause',
   'admin.automations.catalog.state.disabled': 'Désactivée dans la config',
@@ -275,16 +277,16 @@ export default {
     'Les nouvelles exécutions s’arrêtent jusqu’à la reprise. Une exécution déjà en cours n’est pas annulée.',
   'admin.automations.catalog.pause.toast': '$record.name mise en pause',
   'admin.automations.catalog.pause.failed': 'Impossible de mettre $record.name en pause.',
+  'admin.automations.catalog.pause.retry': 'Réessayer',
   'admin.automations.catalog.resume.toast': 'Automatisation reprise',
   'admin.automations.catalog.empty': 'Aucune automatisation',
 
   'admin.automations.runs.heading': 'Historique des exécutions',
-  'admin.automations.runs.scope':
-    'Affiche les 25 exécutions les plus récentes. La recherche et les filtres interrogent toutes les exécutions et renvoient les 25 correspondances les plus récentes.',
-  'admin.automations.runs.filter.all': 'Toutes',
+  'admin.automations.runs.filter.allAutomations': 'Toutes les automatisations',
   'admin.automations.runs.filter.automation': 'Filtrer par automatisation',
   'admin.automations.runs.filter.trigger': 'Filtrer par déclencheur',
-  'admin.automations.runs.filter.allTriggers': 'Tous',
+  'admin.automations.runs.filter.allTriggers': 'Tous les déclencheurs',
+  'admin.automations.runs.filter.allStatuses': 'Tous les statuts',
   'admin.automations.runs.filter.status': 'Filtrer par statut',
   'admin.automations.runs.status.success': 'Réussie',
   'admin.automations.runs.status.failed': 'Échouée',
@@ -306,6 +308,7 @@ export default {
   'admin.automations.runs.col.started': 'Démarrée',
   'admin.automations.runs.col.duration': 'Durée',
   'admin.automations.runs.col.stepCount': 'Étapes',
+  'admin.automations.runs.col.record': 'Enregistrement',
   'admin.automations.runs.col.attempt': 'Tentative',
   'admin.automations.runs.col.error': 'Erreur',
   'admin.automations.runs.action.record': 'Ouvrir l’enregistrement',
@@ -323,16 +326,25 @@ export default {
   'admin.automations.runs.detail.field.trigger': 'Déclencheur',
   'admin.automations.runs.detail.field.started': 'Démarrée',
   'admin.automations.runs.detail.field.finished': 'Terminée',
-  'admin.automations.runs.detail.field.duration': 'Durée (ms)',
+  'admin.automations.runs.detail.field.duration': 'Durée',
   'admin.automations.runs.detail.field.attempt': 'Tentative',
   'admin.automations.runs.detail.facts.title': 'Exécution',
   'admin.automations.runs.detail.facts.description':
     'Ce qui l’a lancée, comment elle s’est terminée et combien de temps elle a pris.',
   'admin.automations.runs.detail.failure': 'Échec',
+  'admin.automations.runs.detail.failure.next': 'Corrige la cause, puis relance cette exécution.',
+  'admin.automations.runs.detail.failure.connections': 'Voir les connexions',
+  'admin.automations.runs.detail.failure.env': 'Voir l’environnement',
   'admin.automations.runs.detail.log': 'Journal',
   'admin.automations.runs.detail.dataIn': 'Données en entrée',
   'admin.automations.runs.detail.dataOut': 'Données en sortie',
   'admin.automations.runs.detail.steps': 'Étapes',
+  'admin.automations.runs.detail.trigger': 'Déclencheur',
+  'admin.automations.runs.detail.trigger.description':
+    'Ce qui a lancé cette exécution, tel que la première étape l’a reçu.',
+  'admin.automations.runs.detail.triggerData': 'Données du déclencheur',
+  'admin.automations.runs.detail.outcome': 'Résultat',
+  'admin.automations.runs.detail.noOutput': 'Cette étape n’a rien renvoyé.',
   'admin.automations.runs.detail.back': 'Retour aux exécutions',
   'admin.automations.runs.detail.retry': 'Relancer',
   'admin.automations.runs.detail.retry.title': 'Confirmer la relance',
@@ -347,6 +359,12 @@ export default {
   'admin.forms.dropOff.heading': 'Abandon par étape',
   'admin.forms.dropOff.singlePage': 'Sans objet : formulaire d’une seule page',
   'admin.forms.reveal': 'Afficher les réponses',
+  'admin.forms.answers': 'Réponses',
+  'admin.forms.status.received': 'Reçue',
+  'admin.forms.status.processing': 'En cours',
+  'admin.forms.status.processed': 'Traitée',
+  'admin.forms.status.failed': 'En échec',
+  'admin.forms.status.spam': 'Indésirable',
   'admin.forms.export.region': 'Exporter en CSV',
   'admin.forms.scope':
     'Affiche les 25 réponses les plus récentes. La recherche interroge toutes les réponses et renvoie les 25 correspondances les plus récentes.',
@@ -362,11 +380,6 @@ export default {
   'admin.pages.browsers.region': 'Navigateurs',
   'admin.pages.os.region': 'Systèmes d’exploitation',
   'admin.pages.events.heading': 'Journal des événements',
-  'admin.pages.disabled.region': 'Analytique non activée',
-  'admin.pages.disabled.heading': 'L’analytique n’est pas activée',
-  'admin.pages.disabled.body':
-    'Active l’analytique dans ta config d’app (analytics) pour mesurer l’audience, les visiteurs et les sessions de tes pages.',
-  'admin.pages.disabled.hint': 'Rien à mesurer tant que l’analytique n’est pas activée.',
 
   'admin.links.period.region': 'Période',
   'admin.links.period.24h': '24 h',
@@ -436,7 +449,7 @@ export default {
   'admin.footprint.rgesn.link': 'Comment Sovrium se situe face au RGESN 2024',
 
   'admin.locked.audit.footprint.measuredProvenance':
-    'Mesuré par ce processus depuis son démarrage ; les compteurs sont remis à zéro quand il redémarre. Les notes lisent le Content-Length de chaque réponse via l’en-tête X-Eco-Index — ce n’est pas un score Lighthouse ou EcoIndex.fr, qui inspectent la page rendue. Mets ECO_INDEX_HEADER=on pour les enregistrer. Le taux de succès ne compte que les rendus proposés au cache : les requêtes authentifiées et dynamiques le contournent, donc une instance sans trafic anonyme affiche — plutôt qu’un taux.',
+    'Mesuré par ce processus depuis son démarrage ; les compteurs sont remis à zéro quand il redémarre. Les notes lisent le Content-Length de chaque réponse via l’en-tête X-Eco-Index — ce n’est pas un score Lighthouse ou EcoIndex.fr, qui inspectent la page rendue. Les notes ne sont enregistrées que tant que ECO_INDEX_HEADER est activé. Le taux de succès ne compte que les rendus proposés au cache : les requêtes authentifiées et dynamiques le contournent, donc une instance sans trafic anonyme affiche — plutôt qu’un taux.',
   'admin.locked.audit.footprint.storageProvenance':
     'Les trois plus gros consommateurs, mesurés à la demande. Chaque ligne nomme l’instrument derrière son chiffre, parce qu’une taille sans origine déclarée ne se distingue pas d’une taille que personne n’a prise. Une taille vide signifie que la sonde était indisponible — un zéro signifie que la ressource a été mesurée et qu’elle est vide.',
   'admin.locked.audit.footprint.configurationProvenance':

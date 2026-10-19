@@ -22,6 +22,7 @@ import type {
   ChatAttachmentRepository,
 } from '@/application/ports/repositories/ai/chat-attachment-repository'
 import type { StorageError, StorageService } from '@/application/ports/services/storage-service'
+import type { StoredToolCall } from '@/domain/models/app/agents/stored-tool-call-service'
 
 /**
  * Application use-cases for durable AI chat memory.
@@ -46,6 +47,8 @@ export const persistChatTurn = (input: {
   readonly agentName?: string
   readonly model?: string
   readonly assistantElicitation?: AiMessageElicitation
+  /** What the answer's turn ran, one line per call (`stored-tool-call-service.ts`). */
+  readonly assistantToolCalls?: ReadonlyArray<StoredToolCall>
   readonly parentId?: string | undefined
   readonly ids?: { readonly question: string; readonly answer: string } | undefined
   readonly userParts?: ReadonlyArray<AiMessagePart>
@@ -99,6 +102,7 @@ export const recordConversationBranch = (input: {
     readonly role: 'user' | 'assistant'
     readonly content: string
     readonly parts?: ReadonlyArray<AiMessagePart> | undefined
+    readonly toolCalls?: ReadonlyArray<StoredToolCall> | undefined
   }>
 }): Effect.Effect<ReadonlyArray<string>, AiMemoryDatabaseError, AiMemoryRepository> =>
   Effect.gen(function* () {

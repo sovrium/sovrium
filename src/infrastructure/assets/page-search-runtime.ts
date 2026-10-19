@@ -8,7 +8,7 @@
 import { Effect } from 'effect'
 import { getRuntimeAssets } from '@/infrastructure/assets/embedded-runtime-assets'
 import { isBundled, isCompiled, resolvePackagePath } from '@/infrastructure/process/package-paths'
-import { memoizeUnlessDev } from './client-entries'
+import { memoizeUnlessNoCache } from './client-entries'
 import type { SSGGenerationError } from '@/application/ports/services/static-site-generator'
 
 /**
@@ -27,7 +27,7 @@ import type { SSGGenerationError } from '@/application/ports/services/static-sit
  *
  * The prebuilt copy comes from `[internal ref]`.
  */
-const readPageSearchRuntimeText = memoizeUnlessDev(async (): Promise<string> => {
+const readPageSearchRuntimeText = memoizeUnlessNoCache(async (): Promise<string> => {
   if (isCompiled) {
     const assets = await getRuntimeAssets()
     return Bun.file(assets.pageSearchRuntime).text()

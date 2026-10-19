@@ -14,108 +14,44 @@
  * tool call, and a "reply interrupted" marker for a streamed turn that never
  * finished.
  *
- * A message's `toolCalls` render as collapsed rows under its bubble
- * (`-tool-calls`), and its model as a badge beside its role. A `tool` turn's
- * body is the tool's own output, kept monospaced.
- * Its idle / loading / error states live here so the island stays a thin render
- * under the per-island `max-lines` cap.
+ * One turn is `-turn`, the head of the thread `-thread-header`; this module
+ * holds the column's idle / loading / error states and the transcript around
+ * them, so the island stays a thin render under the per-island `max-lines` cap.
  */
 
 import { type ReactElement } from 'react'
 import { conversationCaptions } from './admin-agent-conversations-captions'
-import {
-  formatDateTime,
-  roleLabel,
-  type ConversationHeader,
-  type ThreadMessage,
-  type ThreadState,
-} from './admin-agent-conversations-data'
+import { type ThreadState } from './admin-agent-conversations-data'
 import { useAgentConversationString as useWord } from './admin-agent-conversations-strings'
-import { ToolCalls } from './admin-agent-conversations-tool-calls'
+import {
+  BackToList,
+  ThreadHeader,
+  type ThreadNames,
+} from './admin-agent-conversations-thread-header'
+import { MessageTurn } from './admin-agent-conversations-turn'
 
-/** The catalogue key of each speaker's tag (`agentConversations.role*`). */
-const ROLE_KEYS: Readonly<Record<string, string>> = {
-  user: 'roleUser',
-  assistant: 'roleAssistant',
-  tool: 'roleTool',
-  system: 'roleSystem',
-}
-/** A single message turn, aligned + styled by role. */
-function MessageTurn({ message }: { readonly message: ThreadMessage }): ReactElement {
-  const isUser = message.role === 'user'
-  const isTool = message.role === 'tool'
-  const align = isUser ? 'items-end' : 'items-start'
-  const bubble = isUser
-    ? 'bg-muted text-muted-foreground'
-    : isTool
-      ? 'bg-muted text-muted-foreground border-border border font-mono'
-      : 'bg-card text-foreground border-border border'
-
+/** The eye the read-only note leads with. */
+function Eye(): ReactElement {
   return (
-    <div className={`flex flex-col gap-1 ${align}`}>
-      <div className="text-foreground-subtle flex items-center gap-2 px-1 text-sm">
-        <span className="font-medium">
-          {useWord(ROLE_KEYS[message.role] ?? '', roleLabel(message.role))}
-        </span>
-        <span aria-hidden="true">·</span>
-        <span className="tabular-nums">{formatDateTime(message.createdAt)}</span>
-        {message.model ? (
-          <span
-            data-testid="message-model"
-            title={conversationCaptions().model}
-            className="border-border text-muted-foreground rounded border px-1.5 py-px font-mono text-xs"
-          >
-            {message.model}
-          </span>
-        ) : undefined}
-      </div>
-      <div className={`text-md max-w-[44rem] rounded-lg px-3.5 py-2.5 leading-relaxed ${bubble}`}>
-        {isTool ? (
-          <pre className="overflow-x-auto text-sm whitespace-pre-wrap">{message.content}</pre>
-        ) : (
-          <p className="whitespace-pre-wrap">{message.content}</p>
-        )}
-      </div>
-      <ToolCalls payload={message.toolCalls} />
-      <MessageFootnote message={message} />
-    </div>
-  )
-}
-
-/** The per-message footnote: the token count on agent turns, the "interrupted" marker. */
-function MessageFootnote({
-  message,
-}: {
-  readonly message: ThreadMessage
-}): ReactElement | undefined {
-  const parts: ReadonlyArray<string> = [
-    typeof message.tokenCount === 'number' ? `${message.tokenCount} tokens` : '',
-  ].filter((part) => part.length > 0)
-  const interrupted = message.status === 'incomplete'
-  if (parts.length === 0 && !interrupted) return undefined
-  return (
-    <div className="text-foreground-subtle flex items-center gap-2 px-1 text-sm">
-      {parts.length > 0 ? <span className="font-mono">{parts.join(' · ')}</span> : undefined}
-      {interrupted ? (
-        <span className="text-muted-foreground inline-flex items-center gap-1 font-medium">
-          <span aria-hidden="true">•</span> reply interrupted
-        </span>
-      ) : undefined}
-    </div>
-  )
-}
-
-/** The thread header: conversation title + session + created/last-activity. */
-function ThreadHeader({ header }: { readonly header: ConversationHeader }): ReactElement {
-  return (
-    <header className="border-border flex flex-col gap-1 border-b pb-3">
-      <h3 className="text-foreground text-xl font-semibold tracking-tight">{header.title}</h3>
-      <p className="text-foreground-subtle flex flex-wrap items-center gap-2 text-sm">
-        <span className="font-mono">{header.sessionId}</span>
-        <span aria-hidden="true">·</span>
-        <span>Last activity {formatDateTime(header.lastActivityAt)}</span>
-      </p>
-    </header>
+    <svg
+      aria-hidden="true"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="shrink-0"
+    >
+      <path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0" />
+      <circle
+        cx="12"
+        cy="12"
+        r="3"
+      />
+    </svg>
   )
 }
 
@@ -134,7 +70,7 @@ function ThreadStateCard({
   return (
     <section
       aria-label={label}
-      className="border-border bg-card flex min-h-64 flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-10 text-center"
+      className="border-border bg-card flex min-h-64 flex-col items-center justify-center gap-2 rounded-lg border p-10 text-center"
     >
       <p className="text-foreground text-md font-medium">{title}</p>
       <p className="text-muted-foreground text-md max-w-sm leading-relaxed">{body}</p>
@@ -143,7 +79,6 @@ function ThreadStateCard({
   )
 }
 
-/** The loading skeleton for the thread column. */
 /** The thread column's state words, in the console language (`agentConversations.*`). */
 function useThreadWords() {
   return {
@@ -157,6 +92,7 @@ function useThreadWords() {
   }
 }
 
+/** The loading skeleton for the thread column. */
 function ThreadLoading(): ReactElement {
   return (
     <div
@@ -181,9 +117,13 @@ function ThreadLoading(): ReactElement {
 export function ConversationThread({
   state,
   onRetry,
+  onBack,
+  names,
 }: {
   readonly state: ThreadState
   readonly onRetry: () => void
+  readonly onBack: () => void
+  readonly names: ThreadNames
 }): ReactElement {
   const { idleLabel, idle, idleBody, failedLabel, failed, failedBody, retry } = useThreadWords()
   if (state.phase === 'idle') {
@@ -195,7 +135,14 @@ export function ConversationThread({
       />
     )
   }
-  if (state.phase === 'loading') return <ThreadLoading />
+  if (state.phase === 'loading') {
+    return (
+      <div className="flex flex-col gap-4">
+        <BackToList onBack={onBack} />
+        <ThreadLoading />
+      </div>
+    )
+  }
   if (state.phase === 'error') {
     return (
       <ThreadStateCard
@@ -214,23 +161,52 @@ export function ConversationThread({
     )
   }
   return (
+    <ThreadTranscript
+      state={state}
+      onBack={onBack}
+      names={names}
+    />
+  )
+}
+
+/** A loaded thread: the way back, its header, its messages and the read-only note. */
+function ThreadTranscript({
+  state,
+  onBack,
+  names,
+}: {
+  readonly state: ThreadState
+  readonly onBack: () => void
+  readonly names: ThreadNames
+}): ReactElement {
+  return (
     <div className="flex flex-col gap-4">
-      {state.header ? <ThreadHeader header={state.header} /> : undefined}
+      <BackToList onBack={onBack} />
+      {state.header ? (
+        <ThreadHeader
+          header={state.header}
+          messages={state.messages}
+          names={names}
+        />
+      ) : undefined}
       <div
         aria-label="Message thread"
-        className="flex flex-col gap-4"
+        className="flex flex-col gap-5"
       >
         {state.messages.map((message) => (
           <MessageTurn
             key={message.id}
             message={message}
+            person={state.header?.userName ?? ''}
+            agent={names.agentLabel}
           />
         ))}
       </div>
       <p
         data-testid="conversation-read-only"
-        className="border-border text-foreground-subtle border-t pt-3 text-sm"
+        className="border-border text-muted-foreground flex items-center gap-2 border-t pt-3 text-sm"
       >
+        <Eye />
         {conversationCaptions().readOnly}
       </p>
     </div>

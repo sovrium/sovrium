@@ -9,13 +9,17 @@ import {
   findMultiSelectSelectionOverflows,
   findUndeclaredMultiSelectValues,
 } from '@/domain/models/app/tables/multi-select-values-validation'
+import { findUndeclaredSingleSelectValues } from '@/domain/models/app/tables/single-select-values-validation'
 import type { LoopScope } from './loop-scope'
+import type { ParkedStepCell } from './parked-step-files'
 import type { ContainerResume, RunPark } from './run-park'
 import type { RunWrittenFiles } from './run-written-files'
+import type { RecordEventChannel } from '../run/record-event-channel'
 import type { ExecutedStep, NestedStepRuns, StepRequirements } from '../run/types'
 import type { WriteOnlyInheritance } from '../run/write-only-values'
 import type { TemplateRenderer } from '@/application/ports/services/template-engine'
 import type { App } from '@/domain/models/app'
+import type { ActionFailureFacts } from '@/domain/models/app/agents/agent-action-failure-service'
 import type { StepRead } from '@/domain/models/app/automations/step-read-service'
 import type { Effect } from 'effect'
 
@@ -30,10 +34,28 @@ export interface StepLogEntry {
  * caller redacts before persisting); `output` is what later steps read as
  * `{{<name>.*}}`. `responseOverride` shapes the synchronous trigger response
  * without polluting `output` (`webhook/response`, `flow/stop`); never persisted.
+ * A failure's facts (`refusedWrite`, `requestFailure`) are all an agent may be told.
  */
-export interface ActionOutcome {
+/**
+ * A connection whose credential reads from a `$env.` variable that is not set
+ * on this instance: an integration the operator has not switched on, not a
+ * failure.
+ */
+export interface UnconfiguredConnection {
+  readonly connection: string
+  /** The first unset variable a credential prop references. */
+  readonly variable: string
+}
+
+export interface ActionOutcome extends ActionFailureFacts {
   readonly status: 'success' | 'failure' | 'filtered'
   readonly error?: string
+  /**
+   * Set, with `status: 'filtered'`, when the action needs a connection whose
+   * `$env.` credential is not set: the run halts and is recorded SKIPPED with
+   * `error` as its reason — never retried, never alerted, never a failure.
+   */
+  readonly unconfigured?: UnconfiguredConnection
   readonly output?: Record<string, unknown>
   /**
    * Whether a FAILED outcome is worth another attempt under a `retry` policy,
@@ -71,10 +93,7 @@ export interface ActionOutcome {
    * `output`; persisted on the step and read by the erasure index.
    */
   readonly reads?: readonly StepRead[]
-  /**
-   * Set by `path` and `loop`: the outputs their nested actions produced, by
-   * step name, which later steps of the run read as `{{<step>.*}}`.
-   */
+  /** Set by `path` and `loop`: their nested actions' outputs by step name (`{{<step>.*}}`). */
   readonly nestedOutputs?: Readonly<Record<string, Record<string, unknown>>>
   /** Set by `path` and `loop`: the steps they ran, recorded like top-level ones. */
   readonly nestedSteps?: NestedStepRuns
@@ -89,14 +108,14 @@ export interface ActionOutcome {
  *
  * `id` is the `system.automation_definitions.id` UUID — required by handlers
  * whose writes target tables FK'd to that row (e.g. `state`, `digest`). The
- * runtime resolves `id` lazily on first trigger via `AutomationRepository`
- * (see `run-automation.ts`).
+ * runtime resolves `id` lazily via `AutomationRepository` (`run-automation.ts`).
  *
  * `userId` is the `auth.users.id` of the user who triggered the automation
  * (via webhook session, manual trigger, etc.). Required by handlers that
  * resolve per-user state (e.g. OAuth2 token lookup in `http/request`).
- * Undefined for system-triggered automations (cron, automation-call) where
- * no caller user exists.
+ * Undefined when no caller user exists (a webhook without a session, a
+ * schedule, a record event). An automation called from a hand-started run is
+ * attributed to the person who started that run.
  *
  * `runId` is the in-flight run's id (the `approval/request` handler links its
  * pending row to it); undefined when no run row was persisted.
@@ -106,15 +125,15 @@ export interface AutomationContext {
   readonly id: string
   readonly userId?: string
   readonly runId?: string
-  /**
-   * Set when a person started the run by hand and `userId` names them: record actions
-   * then write as that person, under the table's rules (`ExecuteAutomationRunInput`).
-   */
+  /** A person started the run by hand: `userId`, or a visitor (`ExecuteAutomationRunInput`). */
   readonly startedByHand?: true
+  readonly startedAsGuest?: true
   /** What it inherits about write-only values down `automation/call` (`run/write-only-values`). */
   readonly writeOnly?: WriteOnlyInheritance
-  /** The files this run stored in a bucket (`run-written-files.ts`). */
+  /** Files this run stored, and read from its starter's records (`run-written-files.ts`). */
   readonly writtenFiles?: RunWrittenFiles
+  readonly readFiles?: RunWrittenFiles
+  readonly parkedStep?: ParkedStepCell // a browser step's reading across its pause
 }
 
 /**
@@ -267,39 +286,6 @@ export type NestedStepInvoker = (input: {
   readonly loopScopes?: readonly LoopScope[] // the loops the action sits in, outermost first
 }) => Promise<{ readonly outcome: ActionOutcome; readonly step: ExecutedStep }>
 
-/** One write an automation step made, as the record triggers read it. */
-export interface RecordWriteEvent {
-  readonly tableName: string
-  readonly event: 'create' | 'update' | 'delete' | 'restore'
-  readonly record: Readonly<Record<string, unknown>>
-  readonly previousRecord?: Readonly<Record<string, unknown>>
-}
-
-/**
- * How a step's writes reach the record triggers.
- *
- * `refusal` answers BEFORE a write: a chain of record events started by
- * automation writes stops at a depth limit, and the step that would pass it
- * fails with the reason instead of writing — the bound on a cycle the config
- * cannot show (a visible one is refused at validation). `dispatch` starts the
- * matching automations AFTER a write, in the background.
- */
-export interface RecordEventChannel {
-  /** True when some record automation fires on this event in this table. */
-  readonly watches: (tableName: string, event: RecordWriteEvent['event']) => boolean
-  /**
-   * The refusal a write meets past the depth limit. `fields` are the fields an
-   * update writes: a write no record automation watches starts nothing and is
-   * never refused.
-   */
-  readonly refusal: (
-    tableName: string,
-    event: RecordWriteEvent['event'],
-    fields?: readonly string[]
-  ) => string | undefined
-  readonly dispatch: (write: RecordWriteEvent) => void
-}
-
 /**
  * Action handler signature.
  *
@@ -336,7 +322,8 @@ export type ActionHandler = (
 ) => Effect.Effect<ActionOutcome, never, StepRequirements>
 
 /**
- * The first `multi-select` contract violation in an automation's record
+ * The first select-option contract violation (`single-select` / `status`
+ * membership, then `multi-select` membership and cardinality) in an automation's record
  * payload, phrased for an {@link ActionOutcome} `error` — or `undefined` when
  * the payload is clean.
  *
@@ -353,20 +340,25 @@ export type ActionHandler = (
  *
  * The membership rule is checked before the cardinality rule so an automation
  * gets the same message, for the same payload, that the records API returns
- * (`validateMultiSelectOptions` then `validateMultiSelectSelectionLimits` in
- * `presentation/api/validation/rules/multi-select-rules.ts`). One contract
+ * (`validateSingleSelectOptions`, `validateMultiSelectOptions` then
+ * `validateMultiSelectSelectionLimits` in `presentation/api/tables/`). One contract
  * across every write path was the entire point of extracting the rules.
  *
  * An unknown `tableName` returns `undefined` — resolving the table is not this
  * helper's job, and the downstream write reports it far more precisely.
  */
-export const findMultiSelectViolationMessage = (
+export const findOptionViolationMessage = (
   app: App,
   tableName: string,
   fields: Readonly<Record<string, unknown>>
 ): string | undefined => {
   const table = app.tables?.find((candidate) => candidate.name === tableName)
   if (!table) return undefined
+
+  const undeclaredOne = findUndeclaredSingleSelectValues(table.fields, fields)[0]
+  if (undeclaredOne) {
+    return `Invalid option for field '${undeclaredOne.field}'. Allowed options: ${undeclaredOne.allowed.join(', ')}`
+  }
 
   const undeclared = findUndeclaredMultiSelectValues(table.fields, fields)[0]
   if (undeclared) {

@@ -155,13 +155,14 @@ export const breadcrumbFields = {
    * A record page's last segment is an id (`/orders/42`), and `labels` maps
    * segments, which an id is not. This names the current crumb directly, so a
    * record page reads `Orders / Order 42 — Acme` with `currentLabel:
-   * $record.title`. Requires `derive`, like `labels` and `home`.
+   * $record.title`. On an enumerated trail (no `derive`) it is drawn after
+   * `breadcrumbItems` as the current crumb.
    */
   currentLabel: Schema.optional(
     Schema.String.pipe(
       Schema.annotate({
         description:
-          'Label of the last crumb of a derived trail — the current page. Accepts $record.<field> (a record page names its record) and $t: keys. Requires derive.',
+          "Label of the current crumb — the page the reader is on. Accepts $record.<field> (a record page names its record) and $t: keys. On a derived trail it names the last crumb and also accepts $param.<name>: when the page binds a grid to the table that param names, it reads the table's plural label. On an enumerated trail it is drawn after `breadcrumbItems` as the current crumb.",
         examples: ['$record.title', '$t:nav.current'],
       }),
       Schema.check(Schema.isMinLength(1))

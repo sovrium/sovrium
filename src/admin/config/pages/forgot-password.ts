@@ -46,28 +46,14 @@ export const forgotPasswordCopy = {
           },
           children: [
             {
-              // Sovrium's own mark, served by the engine at a root path (the
-              // mount does not rewrite it), one ground per colour scheme.
+              // The app's own mark, as on the sign-in page: the engine fills the
+              // tile with the declared logo, or a monogram when there is none.
               type: 'container',
-              props: { className: 'flex size-6 items-center justify-center' },
-              children: [
-                {
-                  type: 'image',
-                  props: {
-                    src: '/assets/brand/sovrium/mark-light-outline.svg',
-                    alt: 'Sovrium',
-                    className: 'block size-6 shrink-0 dark:hidden',
-                  },
-                },
-                {
-                  type: 'image',
-                  props: {
-                    src: '/assets/brand/sovrium/mark-dark-outline.svg',
-                    alt: 'Sovrium',
-                    className: 'hidden size-6 shrink-0 dark:block',
-                  },
-                },
-              ],
+              props: {
+                className:
+                  'flex size-6 items-center justify-center overflow-hidden rounded-md bg-primary text-xs font-semibold text-primary-foreground data-[app-mark=logo]:bg-transparent',
+                'data-app-mark': 'tile',
+              },
             },
             {
               type: 'text',

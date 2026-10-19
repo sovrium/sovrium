@@ -56,6 +56,34 @@ export function monthKeyLabeller(keys: readonly string[]): ((key: string) => str
   }
 }
 
+/** A day bucket key, as a `day` or `week` interval groups a date: `YYYY-MM-DD`. */
+const DAY_KEY = /^(\d{4})-(\d{2})-(\d{2})$/
+
+/**
+ * The labeller of an axis whose every key is a day bucket (a `day`, or the
+ * first day of a `week`): each key printed as its day and short month in the
+ * page language (`31 Aug` in en-GB, `Aug 31` in en-US, `31 août`), with its
+ * year only when the keys span more than one year. `undefined` when any key is
+ * not a day bucket, so the keys print as they are — never as raw ISO dates.
+ */
+export function dayKeyLabeller(keys: readonly string[]): ((key: string) => string) | undefined {
+  const days = keys.map((key) => DAY_KEY.exec(key))
+  if (days.length === 0 || days.some((day) => day === null)) return undefined
+  const years = new Set(days.map((day) => day?.[1]))
+  const format = new Intl.DateTimeFormat(usableLocale(resolvePageLocale()), {
+    day: 'numeric',
+    month: 'short',
+    ...(years.size > 1 ? { year: 'numeric' } : {}),
+    timeZone: 'UTC',
+  })
+  return (key) => {
+    const day = DAY_KEY.exec(key)
+    return day === null
+      ? key
+      : format.format(new Date(Date.UTC(Number(day[1]), Number(day[2]) - 1, Number(day[3]))))
+  }
+}
+
 /** A sub-day bucket key, as an `hour` or `minute` interval groups a date: an ISO instant. */
 const INSTANT_KEY = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
 
@@ -87,13 +115,15 @@ export function timeKeyLabeller(keys: readonly string[]): ((key: string) => stri
  * The labeller of a category axis declared with `format`: a date axis of
  * instants reads as times ({@link timeKeyLabeller}), any other date axis as
  * `<Month> <Year>`; an undeclared axis of month buckets reads as months
- * ({@link monthKeyLabeller}); anything else through {@link formatAxisLabel}.
+ * ({@link monthKeyLabeller}), of day buckets as days ({@link dayKeyLabeller});
+ * anything else through {@link formatAxisLabel}.
  */
 export function axisKeyLabeller(
   keys: readonly string[],
   format: ChartAxisFormat | undefined
 ): (key: string) => string {
-  const labeller = format === 'date' ? timeKeyLabeller(keys) : monthKeyLabeller(keys)
+  const labeller =
+    format === 'date' ? timeKeyLabeller(keys) : (monthKeyLabeller(keys) ?? dayKeyLabeller(keys))
   return labeller ?? ((key) => formatAxisLabel(key, format))
 }
 

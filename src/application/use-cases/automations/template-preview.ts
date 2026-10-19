@@ -8,9 +8,9 @@
 import { Data, Effect, Result } from 'effect'
 import { AssetStore } from '@/application/ports/services/asset-store'
 import { DocumentRenderer } from '@/application/ports/services/document-renderer'
+import { EmailCssInliner } from '@/application/ports/services/email-css-inliner'
 import { OfficeConverter } from '@/application/ports/services/office-converter'
 import { TemplateEngine } from '@/application/ports/services/template-engine'
-import { inlineEmailCss } from '@/domain/kernel/sanitize/email-css-inlining'
 import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
 import { resolveAssetKind, type AssetKind } from '@/domain/models/app/assets/asset'
 import { fillWordTemplate } from './action-handlers/document-docx'
@@ -126,7 +126,8 @@ const renderText = (
 const emailPreview = (template: TemplateText, input: TemplatePreviewInput) =>
   Effect.gen(function* () {
     const rendering = yield* renderText(template, input.data, input, 'email')
-    const html = sanitizeRichTextHTML(inlineEmailCss(rendering.text), { profile: 'email' })
+    const inlined = yield* (yield* EmailCssInliner).inline(rendering.text)
+    const html = sanitizeRichTextHTML(inlined, { profile: 'email' })
     return yield* placeMediaInMarkup({ text: html, media: rendering.media }, 'html')
   })
 
@@ -211,6 +212,7 @@ export type TemplatePreviewRequirements =
   | TemplateEngine
   | StorageService
   | DocumentRenderer
+  | EmailCssInliner
   | SvgRasterizer
   | ImageTransformService
   | OfficeConverter
@@ -248,7 +250,11 @@ export const renderTemplatePreview = (
  */
 export const renderTemplateTextPreview = (
   input: Omit<TemplatePreviewInput, 'format'>
-): Effect.Effect<string | undefined, TemplatePreviewError, TemplateEngine | StorageService> =>
+): Effect.Effect<
+  string | undefined,
+  TemplatePreviewError,
+  TemplateEngine | StorageService | EmailCssInliner
+> =>
   Effect.gen(function* () {
     const template = yield* templateAt(input.app, input.path)
     const text = OUTPUTS[template.kind]?.[0]

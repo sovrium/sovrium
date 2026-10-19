@@ -14,22 +14,10 @@
 import { useCallback, useState, type ReactElement } from 'react'
 import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { Command, CommandInput, CommandList } from '../parts/command-primitives'
-import { renderToast } from '../runtime/toast'
 import { BuiltInActions } from './command-actions'
+import { toggleDarkMode } from './command-dark-mode'
 import { CommandHints, type CommandHintWords } from './command-hints'
 import type { PaletteConfig } from './command-actions-data'
-
-/** Flip the page between light and dark, and say which it is now, in the page language. */
-function toggleDarkMode(strings: PaletteConfig['strings']): void {
-  const root = document.documentElement
-  const enable = !root.classList.contains('dark')
-  root.classList.toggle('dark', enable)
-  renderToast(
-    enable
-      ? (strings['darkModeOn'] ?? 'Dark mode enabled')
-      : (strings['lightModeOn'] ?? 'Light mode enabled')
-  )
-}
 
 /** The BUILT-IN mode: quick actions and the content matches. */
 export function BuiltInPalette({

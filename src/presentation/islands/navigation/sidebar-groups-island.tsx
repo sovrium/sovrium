@@ -5,14 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useEffect, useState } from 'react'
-import {
-  computeSidebarEntryClasses,
-  computeSidebarGroupListClasses,
-  computeSidebarMenuItemClasses,
-} from '@/presentation/design/sidebar-default-classes'
+import { useEffect, useId, useRef, useState } from 'react'
+import { computeSidebarGroupListClasses } from '@/presentation/design/sidebar-default-classes'
 import { buildSystemQueryUrl } from '../runtime/system-query-url'
 import { toProjectedEntry, type ProjectedEntry } from './sidebar-entry-projection'
+import { FetchedEntry } from './sidebar-fetched-entry'
+import { useFetchedSidebarCurrent } from './use-fetched-sidebar-current'
+import type { ChildrenSource } from './sidebar-fetched-children'
 
 /**
  * The fetched half of a `sidebar` group: one navigation entry per row of a rows
@@ -66,6 +65,12 @@ interface SidebarGroupsIslandProps {
    * the only thing naming it, and the endpoint decides what that label says.
    */
   readonly rail?: boolean
+  /** How each row matches the address to mark itself current: `exact` (default) or `prefix`. */
+  readonly activeMatch?: string
+  /** A second fetched level: each row becomes a disclosure whose list loads on first expand. */
+  readonly childrenSource?: ChildrenSource
+  /** Whether the sidebar opted into client-side navigation tracking. */
+  readonly track?: boolean
 }
 
 /**
@@ -81,7 +86,12 @@ interface SidebarGroupsIslandProps {
  * across every consumer of the shared source shape.
  */
 async function fetchEntries(
-  props: Required<Omit<SidebarGroupsIslandProps, 'itemProps' | 'query' | 'rail'>> &
+  props: Required<
+    Omit<
+      SidebarGroupsIslandProps,
+      'itemProps' | 'query' | 'rail' | 'activeMatch' | 'childrenSource' | 'track'
+    >
+  > &
     Pick<SidebarGroupsIslandProps, 'itemProps' | 'query'>
 ): Promise<readonly ProjectedEntry[]> {
   try {
@@ -110,8 +120,14 @@ export default function SidebarGroupsIsland({
   itemProps,
   query,
   rail,
+  activeMatch,
+  childrenSource,
+  track,
 }: SidebarGroupsIslandProps) {
   const [entries, setEntries] = useState<readonly ProjectedEntry[]>([])
+  const host = useRef<HTMLUListElement>(null)
+  const current = useFetchedSidebarCurrent(entries, activeMatch, host)
+  const listPrefix = useId()
 
   useEffect(() => {
     if (endpoint === undefined || labelKey === undefined || hrefTemplate === undefined) return
@@ -132,28 +148,20 @@ export default function SidebarGroupsIsland({
 
   return (
     <ul
+      ref={host}
       data-slot="sidebar-menu"
       className={computeSidebarGroupListClasses()}
     >
-      {entries.map((entry) => (
-        <li
+      {entries.map((entry, index) => (
+        <FetchedEntry
           key={entry.href}
-          data-slot="sidebar-menu-item"
-          className={computeSidebarMenuItemClasses()}
-        >
-          <a
-            {...(entry.props ?? {})}
-            href={entry.href}
-            data-slot="sidebar-menu-button"
-            data-size="default"
-            className={computeSidebarEntryClasses(false)}
-            {...(rail !== true || entry.props?.['title'] !== undefined
-              ? {}
-              : { title: entry.label })}
-          >
-            <span>{entry.label}</span>
-          </a>
-        </li>
+          entry={entry}
+          current={entry.href === current}
+          rail={rail}
+          track={track}
+          listId={`sbf${listPrefix.replaceAll(/[^A-Za-z0-9_-]/g, '')}-${String(index)}`}
+          childrenSource={childrenSource}
+        />
       ))}
     </ul>
   )

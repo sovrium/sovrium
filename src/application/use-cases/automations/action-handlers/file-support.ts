@@ -6,7 +6,12 @@
  */
 
 import { Data, Effect } from 'effect'
-import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
+import {
+  isCreateOnlyRefusal,
+  StorageService,
+  UNATTRIBUTED_BUCKET,
+  uploadTargetParts,
+} from '@/application/ports/services/storage-service'
 import { sweepAgedTempFiles } from '@/application/use-cases/storage/sweep-temp-storage'
 import { FILE_SOURCE_FETCH_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
 import { TEMP_STORAGE_PREFIX } from '@/domain/models/app/automations/actions/file/shared'
@@ -71,20 +76,26 @@ interface ArtifactFile {
   readonly contentType: string
 }
 
-/** The write + temp sweep both exported write paths share; each opens its own span. */
+/** How an artifact write ended: written, refused because the key holds something, or failed. */
+export type ArtifactWrite = 'written' | 'taken' | 'failed'
+
+/** The write + temp sweep every exported write path shares; each opens its own span. */
 const writeArtifact = (
   storage: Effect.Success<typeof StorageService>,
   key: string,
   file: ArtifactFile,
   target: UploadTarget
-): Effect.Effect<boolean, never> =>
+): Effect.Effect<ArtifactWrite, never> =>
   Effect.gen(function* () {
     const wrote = yield* Effect.result(storage.upload(key, file.bytes, file.contentType, target))
-    if (wrote._tag === 'Failure') return false
+    if (wrote._tag === 'Failure') {
+      const createOnly = uploadTargetParts(target).mode === 'create-only'
+      return createOnly && isCreateOnlyRefusal(wrote.failure) ? 'taken' : 'failed'
+    }
     if (key.startsWith(TEMP_STORAGE_PREFIX)) {
       yield* sweepAgedTempFiles(storage, { preserve: key })
     }
-    return true
+    return 'written'
   })
 
 /**
@@ -105,7 +116,22 @@ export const uploadArtifactTo = (
   file: ArtifactFile,
   target: UploadTarget
 ): Effect.Effect<boolean, never> =>
-  writeArtifact(storage, key, file, target).pipe(Effect.withSpan('automations.upload-artifact'))
+  writeArtifact(storage, key, file, target).pipe(
+    Effect.map((wrote) => wrote === 'written'),
+    Effect.withSpan('automations.upload-artifact')
+  )
+
+/**
+ * {@link uploadArtifactTo}, saying how the write ended: a write whose target
+ * is `create-only` onto a key that holds something answers `taken`.
+ */
+export const storeArtifact = (
+  storage: Effect.Success<typeof StorageService>,
+  key: string,
+  file: ArtifactFile,
+  target: UploadTarget
+): Effect.Effect<ArtifactWrite, never> =>
+  writeArtifact(storage, key, file, target).pipe(Effect.withSpan('automations.store-artifact'))
 
 /** {@link uploadArtifactTo} with no bucket: the write path of every artifact a step makes. */
 export const uploadArtifact = (
@@ -115,6 +141,7 @@ export const uploadArtifact = (
   contentType: string
 ): Effect.Effect<boolean, never> =>
   writeArtifact(storage, key, { bytes, contentType }, UNATTRIBUTED_BUCKET).pipe(
+    Effect.map((wrote) => wrote === 'written'),
     Effect.withSpan('automations.upload-artifact')
   )
 
@@ -126,6 +153,10 @@ export interface ResolvedSource {
   readonly bytes: Uint8Array
   /** MIME type detected from the source itself (data URI / HTTP header). */
   readonly detectedMime?: string
+  /** Set when the bytes were read from a stored key: they existed before the run. */
+  readonly fromStore?: true
+  /** Set for a fetched source: the address that served the bytes, after any redirect. */
+  readonly fetchedFrom?: string
 }
 
 /**
@@ -191,9 +222,8 @@ const fetchRemote = async (
     const { response } = sent
     if (!response.ok || response.truncated) return NO_BYTES
     const headerMime = response.headers.get('content-type')?.split(';')[0]?.trim()
-    return headerMime
-      ? { bytes: response.body, detectedMime: headerMime }
-      : { bytes: response.body }
+    const fetched = { bytes: response.body, fetchedFrom: response.url }
+    return headerMime ? { ...fetched, detectedMime: headerMime } : fetched
   } catch {
     return NO_BYTES
   }
@@ -251,7 +281,7 @@ export const resolveSource = (
     const storage = yield* StorageService
     const downloaded = yield* Effect.result(storage.download(source, UNATTRIBUTED_BUCKET))
     return downloaded._tag === 'Failure'
-      ? { bytes: new Uint8Array(0) }
-      : { bytes: downloaded.success }
+      ? { bytes: new Uint8Array(0), fromStore: true as const }
+      : { bytes: downloaded.success, fromStore: true as const }
   }).pipe(Effect.withSpan('automations.resolve-source'))
 }

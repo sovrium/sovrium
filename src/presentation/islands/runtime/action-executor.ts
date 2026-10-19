@@ -70,6 +70,7 @@ import {
   buildRequestInit,
   emptyBody,
   fetchSuccessNavigate,
+  settleErrorStatus,
 } from './fetch-action-effects'
 import { substituteRecord } from './fetch-action-substitution'
 import type { FetchActionResult, ExecuteFetchActionOptions } from './fetch-action-effects'
@@ -117,15 +118,17 @@ async function performFetchAction(
   // operate actions whose ids ride the body, or whose url is already built, are
   // left unchanged.
   const url = substituteRecord(action.url, options.record)
+  // A Retry runs the request again, past the gate it already cleared.
+  const again = () => void performFetchAction(action, options)
   try {
     const res = await fetch(url, buildRequestInit(action, options.record))
     const body = await res.json().catch(emptyBody)
     const ok = evaluateFetchEnvelope(envelope, res.status, body)
     if (ok) runFetchSuccess(action, body, options)
-    else renderActionToast(action.onError, options)
+    else renderActionToast(action.onError, options, again)
     return { ok, status: res.status, body }
   } catch {
-    renderActionToast(action.onError, options)
+    renderActionToast(action.onError, options, again)
     return { ok: false, status: 0, body: undefined }
   }
 }
@@ -223,10 +226,29 @@ export async function executeFetchAction(
   // Confirm gate (applies to every mode): abort silently when declined.
   if (!passesConfirmGate(action, options)) return undefined
   const mode = action.mode ?? 'fetch'
-  if (mode === 'fetch') return performFetchAction(action, options)
-  if (mode === 'navigate') return performNavigate(action, options)
-  if (mode === 'download') return performDownload(action, options)
-  if (mode === 'oauth') return performOauth(action, options)
+  const run = MODES[mode]
   // Any future unhandled mode: no-op.
-  return undefined
+  if (run === undefined) return undefined
+  const result = await run(action, options)
+  // Every mode that answers settles its inline failure alert the same way. Its
+  // Retry runs the same action again, past the confirmation already given.
+  const again = () => void executeFetchAction(action, { ...options, confirm: () => true })
+  settleErrorStatus(action, result.ok, options.retry ?? again, options.record)
+  return result
+}
+
+/** The dispatch of each mode. */
+const MODES: Readonly<
+  Record<
+    NonNullable<FetchAction['mode']>,
+    (
+      action: FetchAction,
+      options: ExecuteFetchActionOptions
+    ) => FetchActionResult | Promise<FetchActionResult>
+  >
+> = {
+  fetch: performFetchAction,
+  navigate: performNavigate,
+  download: performDownload,
+  oauth: performOauth,
 }

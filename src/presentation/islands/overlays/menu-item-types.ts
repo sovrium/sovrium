@@ -28,7 +28,9 @@ interface MenuActionOutcome {
  * A menu item's config `action` (a subset of the shared `ActionSchema`). Every
  * type the menu runs is honoured: `navigate` draws the row as a link, `auth`
  * `method: logout` signs out, and `toast`, `automation` and `fetch` run when the
- * row is picked (`menu-item-actions.ts`), as they would from a button.
+ * row is picked (`menu-item-actions.ts`), as they would from a button. A run
+ * of `theme` rows is one radio group checked on the reader's current theme
+ * (`menu-radio-entries.tsx`).
  */
 export interface MenuItemAction {
   readonly type?: string
@@ -44,6 +46,8 @@ export interface MenuItemAction {
   readonly await?: boolean
   readonly onSuccess?: MenuActionOutcome
   readonly onError?: MenuActionOutcome
+  /** `theme`: the colour theme the row sets — `light`, `dark` or `system`. */
+  readonly value?: string
 }
 
 export interface MenuItem {

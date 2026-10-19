@@ -12,13 +12,16 @@
  */
 
 import { withWriteOnlyValuesMasked } from '@/application/use-cases/automations/run/write-only-values'
+import { formatElapsedDuration } from '@/domain/kernel/format/duration-format'
 import { runStatusSchema, type RunStatus } from '@/domain/models/api/automations'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { entityLabelFor } from '@/domain/models/app/auth/readable-name-service'
 import { redactRunTriggerData } from '@/domain/models/app/automations/trigger/webhook-credential-headers-service'
 import {
   runRecordRefOf,
   runTriggerOf,
 } from '@/domain/models/app/automations/trigger-entries-service'
+import { runRecordLabel, runTriggerLabel } from './automations-run-labels'
 import type { AdminAutomationRunRow } from '@/application/ports/repositories/automations/admin-automations-repository'
 import type { ConsoleLanguage } from '@/application/use-cases/admin/operator-language'
 import type { AutomationRunAdminItem } from '@/domain/models/api/admin/automations'
@@ -99,19 +102,27 @@ export function buildAdminRunItem(
   // The erasure marker the public run reads carry, present only when set.
   const valuesErasedAt = toIso(row.valuesErasedAt)
   const stepCount = def === undefined ? null : def.actions.length
+  const durationLabel = formatElapsedDuration(row.durationMs, language)
   return {
     id: row.id,
     automationName: row.automationName,
+    // What a person reads: the declared label, else the name made readable —
+    // also for an automation no longer declared, from its stored name.
+    automationLabel: entityLabelFor(def ?? { name: row.automationName }),
     status: coerceStatus(row.status),
     ...runTriggerOf(def, row.triggerName),
     triggerData: withWriteOnlyValuesMasked(app, redactRunTriggerData(row.triggerData ?? null, def)),
     startedAt: startedAtIso,
     completedAt: toIso(row.completedAt),
     durationMs: row.durationMs,
+    // The elapsed-time readout a `duration` column prints, absent while running.
+    ...(durationLabel === undefined ? {} : { durationLabel }),
     attempt: 1,
     error: row.error,
     ...(valuesErasedAt === null ? {} : { valuesErasedAt }),
     ...runRecordRefOf(def, row.triggerName, row.triggerData),
+    recordLabel: runRecordLabel(app, def, row),
+    triggerLabel: runTriggerLabel(app, def, row, language),
     stepsRun,
     stepCount,
     stepsLabel: runStepsLabel(stepsRun, stepCount, language),

@@ -49,9 +49,10 @@ function CodeCopyGlyphs(): ReactElement {
 }
 
 /**
- * The copy button. `data-copy-code` is the contract the delegated
- * `copyCodeScript` keys on; `data-copied-label` is the text that handler writes
- * into the status region.
+ * The copy button: shadcn/ui's `code-block-copy-button`, drawn as its ghost
+ * `icon-xs` Button. `data-copy-code` is the contract the delegated
+ * `copyCodeScript` keys on, `data-copied-label` the text that handler writes
+ * into the status region, and `data-copied` the state it sets while it confirms.
  */
 export function CodeCopyButton({
   copyLabel,
@@ -63,7 +64,7 @@ export function CodeCopyButton({
   return (
     <button
       type="button"
-      data-slot="button"
+      data-slot="code-block-copy-button"
       data-variant="ghost"
       data-size="icon-xs"
       aria-label={copyLabel}

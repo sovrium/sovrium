@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import {
+  CHAT_TOOL_PREVIEW_MAX_CHARS,
   chatRequestSchema,
   chatResponseSchema,
   elicitationAnswerSchema,
@@ -25,6 +26,9 @@ import {
 import { type StaticGroupSpec } from '../openapi/route-spec'
 
 const errorResponse = (description: string) => effectJsonResponse(errorResponseSchema, description)
+
+/** What the tool events of a stream carry for the person reading it. */
+const TOOL_PREVIEWS = `A tool_call carries id, name, arguments and input, arguments holding no value of a field the reader may not read; a tool_result carries id, name, ok, outcome, content, approvalId when the call is held, and output. input and output are previews for the reader, at most ${String(CHAT_TOOL_PREVIEW_MAX_CHARS)} characters, flagged inputTruncated or outputTruncated when cut: the arguments and the result as indented JSON, holding no value of a field the reader may not read. A call refused because of the reader's own permissions reads like a call on a table the agent cannot reach.`
 const chatRequestBody = effectJsonBody(chatRequestSchema)
 
 /** AI chat route group. */
@@ -65,8 +69,7 @@ export const aiChatGroup: StaticGroupSpec = {
       responses: {
         200: {
           content: { 'text/event-stream': { schema: effectSchema(Schema.String) } },
-          description:
-            'Server-Sent Events stream of typed events: content, reasoning, tool_call, tool_result, elicit, then done and the [DONE] sentinel',
+          description: `Server-Sent Events stream of typed events: content, reasoning, tool_call, tool_result, elicit, then done and the [DONE] sentinel. ${TOOL_PREVIEWS}`,
         },
         400: errorResponse('Invalid request body'),
         401: errorResponse('Not authenticated'),
@@ -130,8 +133,7 @@ export const aiChatGroup: StaticGroupSpec = {
       responses: {
         200: {
           content: { 'text/event-stream': { schema: effectSchema(Schema.String) } },
-          description:
-            'Server-Sent Events stream of the rest of the turn: tool_result, content, then done and the [DONE] sentinel',
+          description: `Server-Sent Events stream of the rest of the turn: tool_result, content, then done and the [DONE] sentinel. ${TOOL_PREVIEWS}`,
         },
         400: errorResponse('Invalid decision'),
         404: errorResponse('No such approval for the caller'),

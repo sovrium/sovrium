@@ -13,7 +13,7 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import { toEntryFormValues, type ValueEntry, type Values } from './record-drawer-values'
 
 export type { Values } from './record-drawer-values'
@@ -73,7 +73,12 @@ export function useTableRecordRead(read: {
   readonly recordId: string | undefined
   readonly setValues: Dispatch<SetStateAction<Values>>
   readonly entries: ReadonlyArray<ValueEntry>
-}): { readonly record: RawRecord; readonly loading: boolean; readonly notFound: boolean } {
+}): {
+  readonly record: RawRecord
+  readonly baseline: Values | undefined
+  readonly loading: boolean
+  readonly notFound: boolean
+} {
   const { open, table, recordId, setValues, entries } = read
   const enabled = open && Boolean(table) && Boolean(recordId)
   const recordQuery = useQuery({
@@ -85,6 +90,10 @@ export function useTableRecordRead(read: {
   })
 
   const data = recordQuery.data?.record
+  const baseline = useMemo(
+    () => (data === undefined ? undefined : toEntryFormValues(data, entries)),
+    [data, entries]
+  )
   const [seeded, setSeeded] = useState<RawRecord | undefined>(undefined)
   useEffect(() => {
     if (data === undefined) return
@@ -95,6 +104,7 @@ export function useTableRecordRead(read: {
 
   return {
     record: data ?? EMPTY_RECORD,
+    baseline,
     notFound: answeredNotFound(enabled, recordQuery),
     // True while the record GET is in flight, and until its response is in the
     // inputs — see the LOAD GATE note above for why the body is inert until then.

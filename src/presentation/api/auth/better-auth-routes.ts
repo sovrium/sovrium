@@ -14,6 +14,8 @@ import { chainAccountListRoutes } from './account-lists-routes'
 import { chainAdminInvitationRoutes } from './admin-invitation-routes'
 import {
   setupAgentUserListFilter,
+  setupSavedLanguageCookie,
+  setupSessionRoleLabel,
   setupOauthProtectedResourceRoute,
   setupOauthWellKnownRoutes,
 } from './auth-intercept-routes'
@@ -273,9 +275,12 @@ export function setupAuthRoutes(
   // Intercept the admin list-users endpoint to exclude AI agent users by
   // default. Registered before the Better Auth catch-all so the specific GET
   // route wins; the handler delegates listing to Better Auth then filters.
-  const appWithAgentUserFilter = setupAgentUserListFilter(
-    appWithOauthPkceValidation,
-    authInstance,
+  const appWithAgentUserFilter = setupSavedLanguageCookie(
+    setupSessionRoleLabel(
+      setupAgentUserListFilter(appWithOauthPkceValidation, authInstance, app),
+      authInstance,
+      app
+    ),
     app
   )
 

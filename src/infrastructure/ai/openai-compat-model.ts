@@ -30,7 +30,7 @@ import { Effect, Layer, Redacted, Stream } from 'effect'
 import { HttpClient, HttpClientResponse } from 'effect/http'
 import { boundedHttpClientLayer } from '@/infrastructure/egress/bounded-http-client'
 import type { ProviderCallFor } from './language-model-chat'
-import type { LanguageModel } from 'effect/ai'
+import type * as LanguageModel from 'effect/ai/LanguageModel'
 
 /** A resolved OpenAI-compatible endpoint. */
 export interface OpenAiCompatConnection {

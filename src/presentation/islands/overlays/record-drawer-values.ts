@@ -96,6 +96,19 @@ export function toEntryFormValues(
   )
 }
 
+/**
+ * Whether a sheet still holds the record exactly as it loaded: every control
+ * reads what the record's own copy reads, a missing control counting as empty.
+ * Values are compared rather than change events counted, because a control
+ * typed back to its loaded value is unchanged though it fired events on the way.
+ * No `baseline` (a new record, or one not read yet) is never unchanged.
+ */
+export function holdsLoadedValues(values: Values, baseline: Values | undefined): boolean {
+  if (baseline === undefined) return false
+  const names = new Set([...Object.keys(values), ...Object.keys(baseline)])
+  return [...names].every((name) => (values[name] ?? '') === (baseline[name] ?? ''))
+}
+
 /** Whether an entry is a single-valued link, which clears to `null`. */
 const isSingleLink = (entry: ValueEntry): boolean =>
   entry.type === 'relationship' && entry.relatedTable !== undefined && entry.allowMultiple !== true

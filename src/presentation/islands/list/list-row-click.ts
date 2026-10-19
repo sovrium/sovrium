@@ -10,8 +10,9 @@
  * `onRowClick` is the grid's — `openSheet` opens the named drawer on the
  * item's record (the drawer then names itself and the record in the address,
  * `?record=<id>&drawer=<id>` — [internal ref]), `navigate` follows a path with the
- * item's `$record.*` values, and `fill` writes one of them into a form control
- * on the page (a composer's saved scripts).
+ * item's `$record.*` values, `fill` writes one of them into a form control
+ * on the page (a composer's saved scripts), and `seek` moves a player on the
+ * page to the moment the item names (a transcript line).
  *
  * ONE handler, on the list: a click or an Enter lands on some element inside
  * an item, and the item it belongs to is found from the event, so a list of a
@@ -21,7 +22,7 @@
 import { useCallback, type SyntheticEvent } from 'react'
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import { useRecordSelectionToggle } from '../hooks/use-lazy-shared-filter-publisher'
-import { cardPathClick, openCardDrawer } from '../runtime/card-click'
+import { cardPathClick, openCardDrawer, seekFromCard } from '../runtime/card-click'
 import { fillFromCard } from '../runtime/fill-dispatch'
 import type { SharedFilterPublisherConfig } from '../hooks/use-shared-filter-publisher'
 
@@ -32,6 +33,8 @@ interface RowClick {
   readonly path?: unknown
   readonly target?: unknown
   readonly value?: unknown
+  readonly time?: unknown
+  readonly play?: unknown
   readonly action?: unknown
   readonly component?: unknown
 }
@@ -49,6 +52,10 @@ function runRowClick(click: RowClick, record: Row, table: string | undefined): v
   }
   if (click.type === 'fill') {
     fillFromCard(click, record)
+    return
+  }
+  if (click.type === 'seek') {
+    seekFromCard(click, (template) => substituteRecordVars(template, record))
     return
   }
   if (click.action === 'openSheet' && typeof click.component === 'string') {

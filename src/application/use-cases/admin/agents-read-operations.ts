@@ -6,13 +6,14 @@
  */
 
 /**
- * The agent admin reads, as registry entries: the agent index, one agent's
- * conversations, and one conversation's transcript.
+ * The agent admin reads, as registry entries: the agent index and one agent
+ * (`agents-index-read-operations.ts`), one agent's conversations, and one
+ * conversation's transcript.
  *
  * Each entry is the whole of one read: the admin route, the MCP admin tool and
  * the OpenAPI operation are derived from it. Each writes its
- * `agent.{list,conversation.list,conversation.detail}.queried` audit event on
- * success (canonical `resource.type === 'agent'`).
+ * `agent.{list,detail,conversation.list,conversation.detail}.queried` audit
+ * event on success (canonical `resource.type === 'agent'`).
  *
  * The conversation reads are CROSS-USER and AGENT-SCOPED. A name outside the
  * conversation sources the config declares — an unknown agent and a malformed
@@ -21,126 +22,38 @@
  * id reveals anything.
  */
 
-import { Effect, Option, Schema } from 'effect'
+import { DateTime, Effect, Option, Schema } from 'effect'
+import { AdminReadHost } from '@/application/ports/services/admin-read-host'
 import {
   adminReadPathParams,
+  adminReadText,
   defineAdminRead,
-  answerWithSchema,
+  type AdminReadOperation,
+  type AdminReadOutcome,
 } from '@/application/use-cases/admin/admin-read-operation'
 import {
   BuildAgentConversationDetail,
   BuildAgentConversations,
+  ListAllAgentConversations,
   type AgentConversationsListInput,
+  type TableLabelOf,
 } from '@/application/use-cases/admin/agent-conversations'
+import { AGENT_INDEX_READ_OPERATIONS } from '@/application/use-cases/admin/agents-index-read-operations'
+import {
+  resolveOperatorLanguage,
+  type ConsoleLanguage,
+} from '@/application/use-cases/admin/operator-language'
+import { buildCsvAttachmentDisposition } from '@/domain/kernel/url/csv-attachment'
 import {
   agentConversationDetailResponseSchema,
   agentConversationsListQuerySchema,
   agentConversationsListResponseSchema,
 } from '@/domain/models/api/admin/agents/conversations'
-import {
-  agentsListQuerySchema,
-  agentsListResponseSchema,
-} from '@/domain/models/api/admin/agents/list'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
-import {
-  SYSTEM_AGENT_NAME,
-  declaredAgentNames,
-  isConversationSourceAgent,
-  isSystemAgentName,
-} from '@/domain/models/app/agents/agent-identity'
-import type { AdminReadOperation } from '@/application/use-cases/admin/admin-read-operation'
+import { isConversationSourceAgent } from '@/domain/models/app/agents/agent-identity'
+import { tableLabelsFor } from '@/domain/models/app/auth/readable-name-service'
+import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import type { App } from '@/domain/models/app'
-
-// ─── Agent index ─────────────────────────────────────────────────────────────
-
-/**
- * Page the projected agent names with the same opaque-base64 cursor the buckets
- * index uses (`{ afterName }`). A malformed or stale cursor rewinds to the first
- * page rather than erroring — the token is an internal contract, so a caller has
- * no way to have "fixed" it.
- */
-const encodeAgentCursor = (afterName: string): string =>
-  Buffer.from(JSON.stringify({ afterName }), 'utf8').toString('base64')
-
-const decodeAgentCursor = (cursor: string, names: ReadonlyArray<string>): number => {
-  try {
-    const decoded = JSON.parse(Buffer.from(cursor, 'base64').toString('utf8')) as {
-      readonly afterName?: unknown
-    }
-    if (typeof decoded.afterName !== 'string') return 0
-    const index = names.indexOf(decoded.afterName)
-    return index === -1 ? 0 : index + 1
-  } catch {
-    return 0
-  }
-}
-
-interface AgentsIndexInput {
-  readonly cursor: string | undefined
-  readonly limit: number
-}
-
-/** The index knobs, read leniently as the route always read them (limit 1..200, else 50). */
-const decodeAgentsIndex = (raw: Readonly<Record<string, unknown>>): AgentsIndexInput => {
-  const limit = Number(raw['limit'] ?? '50')
-  return {
-    cursor: typeof raw['cursor'] === 'string' && raw['cursor'] !== '' ? raw['cursor'] : undefined,
-    limit: Number.isFinite(limit) && limit >= 1 && limit <= 200 ? limit : 50,
-  }
-}
-
-/**
- * The agent index: every declared agent and the built-in system agent, from the
- * SAME projection the console's agents page is built from — two independent
- * enumerations are how the sidebar once rendered "No items." beside a page that
- * had agents.
- */
-const buildAgentsIndex = (app: App, { cursor, limit }: AgentsIndexInput) => {
-  const names = declaredAgentNames(app.agents)
-  const items = names.map((name) => ({ name, isSystem: isSystemAgentName(name) }))
-  const start = cursor ? decodeAgentCursor(cursor, names) : 0
-  const page = items.slice(start, start + limit)
-  const last = page.at(-1)
-  const nextCursor =
-    start + page.length < items.length && last !== undefined ? encodeAgentCursor(last.name) : null
-  return answerWithSchema(agentsListResponseSchema, { items: page, nextCursor })
-}
-
-const agentsList = defineAdminRead<AgentsIndexInput>({
-  id: 'agents.list',
-  method: 'get',
-  path: '/api/admin/agents',
-  pathParams: [],
-  queryParams: ['cursor', 'limit'],
-  tool: {
-    suffix: 'agents_list',
-    description:
-      'List the declared agents and the built-in system agent, as GET /api/admin/agents answers them (admin-only, read-only).',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        limit: { type: 'integer', minimum: 1, maximum: 200, description: 'Agents per page.' },
-        cursor: { type: 'string', description: 'The nextCursor of the previous page.' },
-      },
-    },
-  },
-  openapi: {
-    summary: 'List the agents',
-    description:
-      'Every agent the config declares plus the built-in system agent, in the order the ' +
-      "console's agents page lists them, each marked whether it is the system agent. Admin only.",
-    operationIdBase: 'listAdminAgents',
-    // An unusable limit falls back to 50 and a stale cursor rewinds: never refused.
-    querySchema: agentsListQuerySchema,
-    refusesQuery: false,
-    responseSchema: agentsListResponseSchema,
-    responseDescription: 'One page of agents',
-  },
-  subject: 'agent list',
-  decode: (raw) => ({ _tag: 'Ok', input: decodeAgentsIndex(raw) }),
-  read: (app, input) => Effect.succeed(buildAgentsIndex(app, input)),
-  audit: { action: AUDIT_ACTIONS.AGENT_LIST_QUERIED, resourceId: () => SYSTEM_AGENT_NAME },
-})
 
 // ─── Conversations ───────────────────────────────────────────────────────────
 
@@ -166,6 +79,8 @@ const decodeConversationsList = (raw: Readonly<Record<string, unknown>>, app: Ap
       to: raw['to'],
       q: raw['q'],
       userId: raw['userId'],
+      period: raw['period'],
+      format: raw['format'],
     }),
     {
       onNone: () =>
@@ -174,7 +89,7 @@ const decodeConversationsList = (raw: Readonly<Record<string, unknown>>, app: Ap
           reason: 'malformed',
           message: 'Invalid query parameters',
         }) as const,
-      onSome: ({ cursor, limit, from, to, q, userId }) =>
+      onSome: ({ cursor, limit, from, to, q, userId, period, format }) =>
         ({
           _tag: 'Ok',
           input: {
@@ -183,20 +98,59 @@ const decodeConversationsList = (raw: Readonly<Record<string, unknown>>, app: Ap
             ...(to !== undefined ? { to } : {}),
             ...(q !== undefined ? { q } : {}),
             ...(userId !== undefined ? { userId } : {}),
+            ...(period !== undefined ? { period } : {}),
             ...(cursor !== undefined ? { cursor } : {}),
+            ...(format !== undefined ? { format } : {}),
             limit,
-          } satisfies AgentConversationsListInput,
+          } satisfies ConversationsListRequest,
         }) as const,
     }
   )
 }
 
-const conversationsList = defineAdminRead<AgentConversationsListInput>({
+/** The list read's input: the list filters, and the format it is answered in. */
+type ConversationsListRequest = AgentConversationsListInput & { readonly format?: 'csv' }
+
+/** The CSV export's columns, in order. Never a message's text. */
+const CONVERSATIONS_CSV_COLUMNS = ['title', 'person', 'messages', 'started', 'last activity']
+
+/**
+ * Every conversation the filters match, as a CSV download: one row per thread
+ * naming its person, never what anybody wrote — an export is an index of
+ * threads; a transcript belongs to the person's own account export.
+ */
+const conversationsCsv = (input: ConversationsListRequest) =>
+  Effect.gen(function* () {
+    const items = yield* ListAllAgentConversations(input)
+    const host = yield* AdminReadHost
+    const csv = host.encodeCsv(
+      items.map((item) => ({
+        title: item.title ?? '',
+        person: item.userName,
+        messages: item.messageCount,
+        started: item.createdAt,
+        'last activity': item.lastActivityAt,
+      })),
+      CONVERSATIONS_CSV_COLUMNS
+    )
+    const takenAt = DateTime.toDateUtc(yield* DateTime.now)
+    return {
+      _tag: 'Ok',
+      body: adminReadText('text/csv; charset=utf-8', csv, {
+        'Content-Disposition': buildCsvAttachmentDisposition(
+          `${input.agentName}-conversations`,
+          takenAt
+        ),
+      }),
+    } satisfies AdminReadOutcome
+  })
+
+const conversationsList = defineAdminRead<ConversationsListRequest>({
   id: 'agents.conversations.list',
   method: 'get',
   path: '/api/admin/agents/:name/conversations',
   pathParams: ['name'],
-  queryParams: ['cursor', 'limit', 'from', 'to', 'q', 'userId'],
+  queryParams: ['cursor', 'limit', 'from', 'to', 'q', 'userId', 'period', 'format'],
   tool: {
     suffix: 'agent_conversations_list',
     description:
@@ -221,6 +175,16 @@ const conversationsList = defineAdminRead<AgentConversationsListInput>({
           minLength: 1,
           description: 'Only the conversations this account id held.',
         },
+        period: {
+          type: 'string',
+          enum: ['7d', '30d', '90d'],
+          description: 'Only conversations active in the last 7, 30 or 90 days.',
+        },
+        format: {
+          type: 'string',
+          enum: ['csv'],
+          description: 'csv answers every match as CSV text instead of one JSON page.',
+        },
         limit: {
           type: 'integer',
           minimum: 1,
@@ -237,9 +201,10 @@ const conversationsList = defineAdminRead<AgentConversationsListInput>({
     description:
       'Cursor-paginated conversations of one agent, newest activity first, each with its ' +
       'message count and the account that held it (id and display name); `q` narrows ' +
-      'server-side and is echoed back as `appliedQuery`, and `userId` narrows to one ' +
-      'account. An ' +
-      'agent the config does not declare is answered 404 and writes no audit event. Admin only.',
+      'server-side and is echoed back as `appliedQuery`, `userId` narrows to one account and ' +
+      '`period` to a recent window. `?format=csv` downloads every match instead of the page, ' +
+      'without any message text. An agent the config does not declare is answered 404 and ' +
+      'writes no audit event. Admin only.',
     operationIdBase: 'listAdminAgentConversations',
     paramsSchema: adminReadPathParams({ name: 'The agent name' }),
     querySchema: agentConversationsListQuerySchema,
@@ -248,12 +213,27 @@ const conversationsList = defineAdminRead<AgentConversationsListInput>({
   },
   subject: 'agent conversation list',
   decode: decodeConversationsList,
-  read: (_app, input) => BuildAgentConversations(input),
+  read: (_app, input) =>
+    input.format === 'csv' ? conversationsCsv(input) : BuildAgentConversations(input),
   audit: {
     action: AUDIT_ACTIONS.AGENT_CONVERSATION_LIST_QUERIED,
     resourceId: (_app, input) => input.agentName,
   },
 })
+
+/**
+ * A declared table's label as the console prints it in `language` — its plural,
+ * else its singular, else its name made readable — read from the app as it is
+ * declared NOW, so a stored call on a renamed table reads by its new label.
+ */
+const tableLabelOf =
+  (app: App, language: ConsoleLanguage): TableLabelOf =>
+  (name) => {
+    const table = app.tables?.find((candidate) => candidate.name === name)
+    if (table === undefined) return undefined
+    const translate = (text: string) => resolveTranslationPattern(text, language, app.languages)
+    return tableLabelsFor(table, translate).labelPlural
+  }
 
 interface ConversationAddress {
   readonly agentName: string
@@ -298,7 +278,10 @@ const conversationRead = defineAdminRead<ConversationAddress>({
       ? { _tag: 'Ok', input: { agentName, id } }
       : { _tag: 'NotFound' }
   },
-  read: (_app, { agentName, id }) => BuildAgentConversationDetail(agentName, id),
+  read: (app, { agentName, id }, request) =>
+    Effect.flatMap(resolveOperatorLanguage(request), (language) =>
+      BuildAgentConversationDetail(agentName, id, tableLabelOf(app, language))
+    ),
   audit: {
     action: AUDIT_ACTIONS.AGENT_CONVERSATION_DETAIL_QUERIED,
     resourceId: (_app, { id }) => id,
@@ -307,7 +290,7 @@ const conversationRead = defineAdminRead<ConversationAddress>({
 
 /** The agent admin reads, in the order the registry lists them (no two paths overlap). */
 export const AGENTS_READ_OPERATIONS: ReadonlyArray<AdminReadOperation> = [
-  agentsList,
+  ...AGENT_INDEX_READ_OPERATIONS,
   conversationsList,
   conversationRead,
 ]

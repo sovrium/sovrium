@@ -87,5 +87,8 @@ export const resolveServerOrigin = (): string => {
  */
 export const ServerOriginLive: Layer.Layer<ServerOrigin> = Layer.succeed(
   ServerOrigin,
-  ServerOrigin.of({ current: Effect.sync(resolveServerOrigin) })
+  ServerOrigin.of({
+    current: Effect.sync(resolveServerOrigin),
+    listening: Effect.sync(() => boundOrigin),
+  })
 )

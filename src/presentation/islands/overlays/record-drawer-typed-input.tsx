@@ -8,17 +8,18 @@
 /**
  * The editable drawer's control for a field that is neither a choice nor a
  * single link: the control a form draws for its type, one input (36 px) high —
- * a date picker for a date, a number input for a number, a text area for long
- * text, a checkbox for a checkbox, a file picker for an attachment, a colour
+ * a text box in the page's date format for a date, a number input for a number, a text area for long
+ * text, a checkbox for a checkbox, a drop zone for an attachment, an amount
+ * box flanked by its currency's sign for a currency, a colour
  * input for a colour, `h:mm` for a duration, a text area for JSON, and a text
  * box for the rest. A rating, a multi-select, a date-time, rich text, code and
  * a multi-valued link are the create form's own controls
  * (`record-drawer-form-control.tsx`).
  *
  * The decisions are the form's own: `fieldWidgetOf` says which control a type
- * takes, `inputComponentTypeOf` what the control is named, and the file picker
- * IS the form's (`FileField`), so it uploads to the column's bucket and holds
- * the stored key the records API takes. Each control holds a string, as every
+ * takes, `inputComponentTypeOf` what the control is named, and the drop zone
+ * uploads as the form's file picker does (`useFileField`), to the column's
+ * bucket, holding the stored key the records API takes. Each control holds a string, as every
  * drawer control does (`record-drawer-values.ts`).
  *
  * A refused value — a blank required field of a new record, JSON that does not
@@ -33,14 +34,19 @@ import {
   numericInputAttributes,
   toDateInputValue,
 } from '@/presentation/design/field-control-attributes'
-import { fieldDescriptionId } from '@/presentation/design/field-display'
 import { fieldWidgetOf } from '@/presentation/design/field-type-behavior'
 import { computeInputDefaultClasses } from '@/presentation/design/input-default-classes'
-import { FileField } from '../parts/crud-form/file-field'
+import { RequiredMark } from '../parts/crud-form/field-label'
 import { readsAsTrue } from '../runtime/cell-value-semantics'
+import { AmountField } from './record-drawer-amount-input'
+import { AttachmentField } from './record-drawer-attachment-input'
 import { isFormControlEntry } from './record-drawer-choices'
+import { controlStateAttributes } from './record-drawer-control-state'
+import { DateTextField } from './record-drawer-date-input'
 import { FormControl } from './record-drawer-form-control'
-import type { FieldDef } from '../parts/crud-form/field-def'
+import { RefusalLine } from './record-drawer-refusal-line'
+import type { DrawerDropZoneWords } from './record-drawer-field'
+import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type { ReactElement, ReactNode } from 'react'
 
 /** The drawer entry a typed control is drawn for — see `RecordDrawerField`. */
@@ -51,7 +57,12 @@ export interface DrawerTypedEntry {
   readonly bucket?: string
   readonly allowedFileTypes?: readonly string[]
   readonly maxFileSize?: number
+  readonly dropZone?: DrawerDropZoneWords
+  /** A currency field's display: its code, and where its sign sits. */
+  readonly currency?: CurrencyDisplayOptions
   readonly required?: boolean
+  /** The label carries a visible `*`, hidden from assistive technology. */
+  readonly requiredMark?: boolean
   readonly options?: ReadonlyArray<{ readonly value: string; readonly label: string }>
   readonly max?: number
   readonly ratingStyle?: string
@@ -80,39 +91,6 @@ const CONTROL_CLASS = `${computeInputDefaultClasses()} disabled:cursor-not-allow
 /** A text area starts one input high and grows with its text, never below it. */
 const TEXTAREA_CLASS = cn(CONTROL_CLASS, 'h-auto min-h-20')
 
-/** The id of the line saying why an entry's value was refused. */
-const errorIdOf = (name: string): string => `${fieldDescriptionId(name)}-error`
-
-/**
- * The state attributes every control carries: required, refused, and the lines
- * describing it — its guidance, then why it was refused.
- */
-function stateAttributes(props: TypedFieldProps): Readonly<Record<string, unknown>> {
-  const { field, error } = props
-  const describedBy = [
-    field.description === undefined ? undefined : fieldDescriptionId(field.name),
-    error === undefined ? undefined : errorIdOf(field.name),
-  ].filter((id): id is string => id !== undefined)
-  return {
-    ...(field.required === true ? { required: true } : {}),
-    ...(error === undefined ? {} : { 'aria-invalid': 'true' }),
-    ...(describedBy.length === 0 ? {} : { 'aria-describedby': describedBy.join(' ') }),
-  }
-}
-
-/** The line saying why the value was refused. */
-function RefusalLine({ name, error }: { readonly name: string; readonly error?: string }) {
-  if (error === undefined) return undefined
-  return (
-    <span
-      id={errorIdOf(name)}
-      className="text-destructive text-sm"
-    >
-      {error}
-    </span>
-  )
-}
-
 /** The native input a box-shaped entry is drawn with, and the value it holds. */
 function boxInputOf(
   type: string,
@@ -130,7 +108,10 @@ function BoxField(props: TypedFieldProps) {
   const input = boxInputOf(field.type, value)
   return (
     <label className="text-md flex flex-col gap-1">
-      <span className="text-muted-foreground">{label}</span>
+      <span className="text-muted-foreground">
+        {label}
+        <RequiredMark marked={field.requiredMark} />
+      </span>
       <input
         type={input.type}
         data-component-type={inputComponentTypeOf(input.type)}
@@ -141,7 +122,7 @@ function BoxField(props: TypedFieldProps) {
         onChange={(event) => onChange(field.name, event.target.value)}
         className={input.type === 'color' ? cn(CONTROL_CLASS, 'w-16 p-1') : CONTROL_CLASS}
         {...(input.type === 'number' ? numericInputAttributes({ type: field.type }) : {})}
-        {...stateAttributes(props)}
+        {...controlStateAttributes(props)}
       />
       <RefusalLine
         name={field.name}
@@ -158,7 +139,10 @@ function TextAreaField(props: TypedFieldProps) {
   const json = field.type === 'json'
   return (
     <label className="text-md flex flex-col gap-1">
-      <span className="text-muted-foreground">{label}</span>
+      <span className="text-muted-foreground">
+        {label}
+        <RequiredMark marked={field.requiredMark} />
+      </span>
       <textarea
         data-component-type="textarea"
         aria-label={label}
@@ -168,7 +152,7 @@ function TextAreaField(props: TypedFieldProps) {
         onChange={(event) => onChange(field.name, event.target.value)}
         className={json ? cn(TEXTAREA_CLASS, 'font-mono') : TEXTAREA_CLASS}
         {...(json ? { spellCheck: false } : {})}
-        {...stateAttributes(props)}
+        {...controlStateAttributes(props)}
       />
       <RefusalLine
         name={field.name}
@@ -193,41 +177,13 @@ function CheckboxField(props: TypedFieldProps) {
           disabled={disabled}
           onChange={(event) => onChange(field.name, String(event.target.checked))}
           className="accent-primary h-4 w-4 disabled:cursor-not-allowed"
-          {...stateAttributes(props)}
+          {...controlStateAttributes(props)}
         />
-        <span className="text-muted-foreground">{label}</span>
+        <span className="text-muted-foreground">
+          {label}
+          <RequiredMark marked={field.requiredMark} />
+        </span>
       </label>
-      {children}
-    </div>
-  )
-}
-
-/** The form's field definition for an attachment, as its file picker reads it. */
-const toFileFieldDef = (field: DrawerTypedEntry, label: string, disabled: boolean): FieldDef => ({
-  name: field.name,
-  type: field.type as FieldDef['type'],
-  displayLabel: label,
-  ...(disabled ? { disabled: true } : {}),
-  ...(field.bucket === undefined ? {} : { bucket: field.bucket }),
-  ...(field.allowedFileTypes === undefined ? {} : { allowedFileTypes: field.allowedFileTypes }),
-  ...(field.maxFileSize === undefined ? {} : { maxFileSize: field.maxFileSize }),
-})
-
-/**
- * An attachment: the form's file picker, showing the stored file. It reads its
- * value once, so it is drawn afresh when the record lands (`key`) rather than
- * keeping the empty value it was first drawn with.
- */
-function AttachmentField({ field, label, value, disabled, onChange, children }: TypedFieldProps) {
-  return (
-    <div className="text-md flex flex-col gap-1">
-      <FileField
-        key={disabled ? 'pending' : 'loaded'}
-        field={toFileFieldDef(field, label, disabled)}
-        multiple={field.type === 'multiple-attachments'}
-        value={value}
-        onChange={onChange}
-      />
       {children}
     </div>
   )
@@ -239,6 +195,8 @@ export function TypedField(props: TypedFieldProps): ReactElement {
   const widget = fieldWidgetOf(props.field.type)
   if (widget === 'textarea' || props.field.type === 'json') return <TextAreaField {...props} />
   if (widget === 'checkbox') return <CheckboxField {...props} />
+  if (props.field.type === 'currency') return <AmountField {...props} />
+  if (props.field.type === 'date') return <DateTextField {...props} />
   if (widget === 'file-single' || widget === 'file-multiple') return <AttachmentField {...props} />
   return <BoxField {...props} />
 }

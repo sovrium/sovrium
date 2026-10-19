@@ -21,7 +21,7 @@
  * pass to misread (that pass only knows `$user.*`).
  */
 
-import { mapStringsDeep } from '@/domain/models/app/languages/translation-resolver'
+import { mapStringsDeep } from '@/domain/kernel/config-parsing/map-strings-deep'
 import { appLabelOf } from '@/domain/models/app/pages/app-vars'
 import {
   invitationConditionHolds,

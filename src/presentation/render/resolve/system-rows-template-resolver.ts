@@ -58,8 +58,10 @@
 import { ISLAND_COMPONENT_TYPES } from '@/presentation/render/registry/island-component-types'
 import { isListIslandMode } from '@/presentation/render/registry/list-island-mode'
 import { expandDataSourceChildren } from '@/presentation/render/resolve/data-source-rows'
+import { rowsWithText } from '@/presentation/render/resolve/system-record-text'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
+import type { RecordTextContext } from '@/presentation/render/props/record-value-format'
 import type { SystemRowsFetcher } from '@/presentation/render/resolve/first-object-redirect-resolver'
 
 /** Envelope default, shared with every other rows consumer. */
@@ -255,9 +257,13 @@ async function mapNode(
  */
 export async function expandSystemRowTemplates(
   page: Page,
-  fetchSystemRows: SystemRowsFetcher | undefined
+  input: { readonly fetchSystemRows?: SystemRowsFetcher | undefined },
+  db: { readonly recordText?: RecordTextContext | undefined } = {}
 ): Promise<Page> {
   if (page.components === undefined) return page
+  // Each row carries its ISO dates as text in the page language, for the
+  // template's text sites; `.raw` keeps the stamp (`system-record-text.ts`).
+  const fetchSystemRows = rowsWithText(input.fetchSystemRows, db.recordText)
   const components = await mapNode(page.components, fetchSystemRows)
   if (components === page.components) return page
   return { ...page, components: components as Page['components'] }

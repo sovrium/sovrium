@@ -8,6 +8,7 @@
 import { Effect } from 'effect'
 import {
   StorageKeySpellingTaken,
+  StorageKeyTaken,
   StorageService,
 } from '@/application/ports/services/storage-service'
 import {
@@ -27,7 +28,7 @@ import {
   resolveExpiresIn,
   resolveSignBucket,
 } from '@/application/use-cases/buckets/signed-url-minting'
-import { checkUploadPath } from '@/application/use-cases/buckets/upload-policy'
+import { checkBucketUploadPath } from '@/application/use-cases/buckets/upload-policy'
 import { resolveStorageSigningSecret } from '@/application/use-cases/storage/signing-secret'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
@@ -204,7 +205,12 @@ async function storeSignedUpload(
   const mimeType = requestType !== '' ? requestType : inferMimeFromKey(path)
   const upload = Effect.gen(function* () {
     const storage = yield* StorageService
-    return yield* storage.upload(path, body, mimeType, { bucket, uploadedById: uploadedBy })
+    // Create-only: a file stored at the path since the check above is kept (409).
+    return yield* storage.upload(path, body, mimeType, {
+      bucket,
+      uploadedById: uploadedBy,
+      mode: 'create-only',
+    })
   })
   const result = await Effect.runPromise(provideDomain(c, upload).pipe(Effect.result))
   if (result._tag === 'Failure') {
@@ -222,7 +228,9 @@ async function storeSignedUpload(
  * like an absent key (404).
  */
 const signedUploadFailure = (c: Context, cause: unknown): Response => {
-  if (cause instanceof StorageKeySpellingTaken) return objectAlreadyStored(c)
+  if (cause instanceof StorageKeySpellingTaken || cause instanceof StorageKeyTaken) {
+    return objectAlreadyStored(c)
+  }
   return isNotFoundError(cause)
     ? notFound(c, 'File not found')
     : c.json(storageErrorBody('Upload failed', 'STORAGE_ERROR'), 500)
@@ -317,8 +325,8 @@ async function buildSignResponse(
   if (typeof path !== 'string' || path.length === 0) {
     return c.json(storageErrorBody('Missing path', 'BAD_REQUEST'), 400)
   }
-  // An upload names the key it creates, so it is held to the explicit-path rule.
-  const pathRejection = operation === 'upload' ? checkUploadPath(path) : undefined
+  // An upload names the key it creates, so it is held to the explicit-path rules.
+  const pathRejection = operation === 'upload' ? checkBucketUploadPath(bucket, path) : undefined
   if (pathRejection) return c.json(storageErrorBody(pathRejection.message, 'BAD_REQUEST'), 400)
 
   const expiresInSeconds = resolveExpiresIn(body.expiresIn)

@@ -12,14 +12,15 @@
  */
 
 import { Effect } from 'effect'
-import { Tool, Toolkit } from 'effect/ai'
+import * as Tool from 'effect/ai/Tool'
+import * as Toolkit from 'effect/ai/Toolkit'
 import {
   AiConfigError,
   messageText,
   type ChatInput,
   type ChatMessage,
 } from '@/application/ports/services/ai-service'
-import type { Prompt } from 'effect/ai'
+import type * as Prompt from 'effect/ai/Prompt'
 
 // ---------------------------------------------------------------------------
 // ChatInput -> Prompt

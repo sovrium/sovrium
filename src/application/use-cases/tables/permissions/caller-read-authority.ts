@@ -10,8 +10,10 @@
  * answered for a user id rather than for an HTTP request.
  *
  * The read twin of `authorizeCallerWrites`, and it shares its caller: the same
- * {@link loadCallerIdentity} gathers the role, groups, `user_access` roles and
- * assignments, and refuses an account that no longer exists or has been banned.
+ * {@link loadSessionIdentity} gathers the role, groups, `user_access` roles and
+ * assignments, and refuses an account that no longer exists or has been banned;
+ * the guest session reads as a visitor who is not signed in, as the records API
+ * reads her: only a table whose read is open to everyone.
  * From that identity the scope carries the three rules a records-API read meets:
  * the table's read grant (no grant, no scope at all), the row-level `read` rule
  * (as a filter clause the list pushes into SQL, and as a predicate a single row
@@ -22,8 +24,12 @@
  */
 
 import { Effect } from 'effect'
-import { hasReadPermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
-import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
+import { isGuestSession } from '@/domain/models/app/auth/guest-session'
+import { hasReadPermissionForCaller } from '@/domain/models/app/auth/permission-evaluator-service'
+import {
+  isFieldReadableByCaller,
+  isFieldReadableUnderFieldRules,
+} from '@/domain/models/app/tables/field-read-filter-service'
 import {
   isPredicateGroup,
   projectPredicateToFilter,
@@ -34,7 +40,7 @@ import {
   rowPassesRule,
 } from '@/domain/models/app/tables/row-level-write-decision-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
-import { loadCallerIdentity } from './caller-write-authority'
+import { loadSessionIdentity } from './caller-write-authority'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
@@ -59,6 +65,12 @@ export interface CallerReadScope {
   readonly admits: (row: Row) => boolean
   /** Whether the caller may read one column. */
   readonly readsColumn: (column: string) => boolean
+  /**
+   * Whether the caller may NAME a column in a field selection: every column
+   * they read, plus a write-only one they would read were it not write-only.
+   * Naming it is not reading it — a surface that selects it shows its mask, never its value.
+   */
+  readonly selectsColumn: (column: string) => boolean
   /** The row with every column the caller may not read removed. */
   readonly project: (row: Row) => Row
 }
@@ -100,9 +112,17 @@ export const callerReadScope = (
   Effect.gen(function* () {
     const table = app.tables?.find((t) => t.name === tableName)
     if (table === undefined) return undefined
-    const identity = yield* loadCallerIdentity(app, session.userId, table)
+    const identity = yield* loadSessionIdentity(app, session.userId, table)
     if (identity === undefined) return undefined
-    if (!hasReadPermissionForRoles(table, identity.effectiveRoles, app)) return undefined
+    const signedOut = isGuestSession(session.userId)
+    if (
+      !hasReadPermissionForCaller(
+        table,
+        { effectiveRoles: identity.effectiveRoles, signedOut },
+        app
+      )
+    )
+      return undefined
     const caller = { role: identity.role, groups: identity.groups }
     const readable = (column: string): boolean =>
       isFieldReadableByCaller(app, tableName, caller, column)
@@ -117,6 +137,8 @@ export const callerReadScope = (
           identity.ctx
         ),
       readsColumn: readable,
+      selectsColumn: (column: string) =>
+        isFieldReadableUnderFieldRules(app, tableName, caller, column),
       project: (row: Row) =>
         Object.fromEntries(Object.entries(row).filter(([column]) => readable(column))),
     }

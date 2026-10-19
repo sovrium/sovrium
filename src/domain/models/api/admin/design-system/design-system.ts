@@ -648,12 +648,48 @@ export const specimenRowsQuerySchema = Schema.Struct({
 export type SpecimenRowsQuery = typeof specimenRowsQuerySchema.Type
 
 /**
+ * The colour mode a token document describes.
+ *
+ * `light` is the document `GET /api/admin/design-system.json` has always
+ * served, and it stays byte-identical: asking for it by name answers exactly
+ * what asking for nothing answers. `dark` is the same tree with the colours the
+ * app paints under `.dark` — the operator's `design.darkColors` over the
+ * inherited dark defaults — and every other group unchanged, because a mode
+ * changes colours and nothing else.
+ *
+ * Two literals and no more. A third value is refused rather than read as
+ * light, for the reason the CLI refuses an unknown `--format`: a caller asking
+ * for a mode the app does not have, and receiving the light document, has no
+ * way to learn it was given something else.
+ *
+ * @public Read by the JSON export's query (below), the CLI's `--mode` and the
+ * bundle manifest's `modes`.
+ */
+export const designSystemModeSchema = Schema.Literals(['light', 'dark']).annotate({
+  description:
+    'Which colour mode the token document describes. `light` (the default) is the document served without the parameter; `dark` swaps in the colours the app paints in dark mode.',
+  identifier: 'DesignSystemMode',
+})
+
+/** @public */
+export type DesignSystemMode = typeof designSystemModeSchema.Type
+
+/**
  * Query parameters for `GET /api/admin/design-system.json`.
  *
  * `flat` is opt-in BY NAME and by PRESENCE: any value, empty included, switches
  * the body to the `{ items, total }` row projection (`flatTokensResponseSchema`);
  * absent, the body is the DTCG document, byte-identical to what it has always
  * been. A plain optional string because the handler tests presence, not value.
+ *
+ * `mode` is DECODED, unlike `flat`, because its value matters: an unknown mode
+ * is a 400 naming the accepted values. Omitted, the document is the light one.
+ * The two compose — `?flat=1&mode=dark` is the dark document as rows.
+ *
+ * One schema under the identifier the query has always been published as, so
+ * the published contract gains an optional parameter and nothing else.
+ *
+ * @public The query schema the JSON export decodes and publishes.
  */
 export const designSystemJsonQuerySchema = Schema.Struct({
   flat: optionalField(
@@ -663,6 +699,7 @@ export const designSystemJsonQuerySchema = Schema.Struct({
       examples: ['1'],
     })
   ),
+  mode: optionalField(designSystemModeSchema),
 }).annotate({ identifier: 'DesignSystemJsonQuery' })
 
 /** @public */

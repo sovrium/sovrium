@@ -183,3 +183,21 @@ export const CHAT_ATTACHMENT_KEY_PREFIX = 'ai-chat/'
  */
 export const isChatAttachmentKey = (key: string): boolean =>
   storageKeyCollisionForm(key, { caseInsensitive: true }).startsWith(CHAT_ATTACHMENT_KEY_PREFIX)
+
+/**
+ * The order an object store lists its keys in: UTF-8 byte order, which is
+ * Unicode code point order. JavaScript's `<` compares UTF-16 code units and
+ * disagrees with it once a key holds a character above U+FFFF beside one in
+ * U+E000–U+FFFF, so every listing that cuts a `limit` or a page cursor
+ * compares keys with this instead. Negative when `a` sorts first.
+ */
+export const compareStorageKeys = (a: string, b: string): number => {
+  if (a === b) return 0
+  const left = Array.from(a)
+  const right = Array.from(b)
+  const at = left.findIndex((char, index) => char !== right[index])
+  // `a` is a prefix of `b`, or `b` of `a`: the shorter key sorts first.
+  if (at === -1) return -1
+  if (at >= right.length) return 1
+  return (left[at]?.codePointAt(0) ?? 0) - (right[at]?.codePointAt(0) ?? 0)
+}

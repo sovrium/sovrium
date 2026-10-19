@@ -93,6 +93,8 @@ export const dispatchAutomationOnce = (input: {
    * them. Omitted means an event dispatch, which records no starter.
    */
   readonly startedByHand?: boolean
+  /** The press had no session: the run acts as a visitor who is not signed in. */
+  readonly startedAsGuest?: boolean
 }): Effect.Effect<RunAutomationResult | undefined, never, ExecuteAutomationRunRequirements> =>
   Effect.gen(function* () {
     const { automation, app, processEnv, triggerData, userId } = input
@@ -111,5 +113,6 @@ export const dispatchAutomationOnce = (input: {
       userId,
       ...(input.recordEventDepth === undefined ? {} : { recordEventDepth: input.recordEventDepth }),
       ...(input.startedByHand === true ? { startedByHand: true } : {}),
+      ...(input.startedAsGuest === true ? { startedAsGuest: true } : {}),
     })
   }).pipe(Effect.withSpan('automations.dispatch-automation-once'))

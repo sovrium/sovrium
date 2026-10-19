@@ -36,9 +36,43 @@ import { triggersOfType } from '@/domain/models/app/automations/trigger-entries-
 import { isReadonlyComputedFieldType } from '@/domain/models/app/tables/fields/field'
 import { logError } from '@/infrastructure/logging/logger'
 import { triggerRecordEventAutomations } from '../trigger-record-event'
+import type { CommentEventChannel } from './comment-event-channel'
 import type { StepContext } from './types'
-import type { RecordEventChannel, RecordWriteEvent } from '../action-handlers/shared'
 import type { App } from '@/domain/models/app'
+
+/** One write an automation step made, as the record triggers read it. */
+export interface RecordWriteEvent {
+  readonly tableName: string
+  readonly event: 'create' | 'update' | 'delete' | 'restore'
+  readonly record: Readonly<Record<string, unknown>>
+  readonly previousRecord?: Readonly<Record<string, unknown>>
+}
+
+/**
+ * How a step's writes reach the record triggers.
+ *
+ * `refusal` answers BEFORE a write: a chain of record events started by
+ * automation writes stops at a depth limit, and the step that would pass it
+ * fails with the reason instead of writing — the bound on a cycle the config
+ * cannot show (a visible one is refused at validation). `dispatch` starts the
+ * matching automations AFTER a write, in the background.
+ */
+export interface RecordEventChannel {
+  /** True when some record automation fires on this event in this table. */
+  readonly watches: (tableName: string, event: RecordWriteEvent['event']) => boolean
+  /**
+   * The refusal a write meets past the depth limit. `fields` are the fields an
+   * update writes: a write no record automation watches starts nothing and is
+   * never refused.
+   */
+  readonly refusal: (
+    tableName: string,
+    event: RecordWriteEvent['event'],
+    fields?: readonly string[]
+  ) => string | undefined
+  readonly dispatch: (write: RecordWriteEvent) => void
+  readonly comments?: CommentEventChannel // the same depth, for the comments a step writes
+}
 
 /**
  * How many automation writes a chain of record events may cross. A run started

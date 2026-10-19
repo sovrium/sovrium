@@ -7,12 +7,21 @@
 
 import { runSuccessOutcome, toastShownAhead } from '../../runtime/action-outcome'
 import { automationPressHeaders } from '../../runtime/automation-press-headers'
+import { applyFetchSuccessEffects } from '../../runtime/fetch-action-effects'
 import { substituteRecord, substituteRecordInBody } from '../../runtime/fetch-action-substitution'
 
 type OutcomeToast = { readonly toast?: { readonly message?: string; readonly variant?: string } }
 
-/** A success slot: its toast, where it goes next (`$record.*` from the row), and `close`. */
-type OutcomeSuccess = OutcomeToast & { readonly navigate?: string; readonly close?: boolean }
+/**
+ * A success slot: its toast, where it goes next (`$record.*` from the row),
+ * `close`, and the same-page refreshes `refetch` and `reload`.
+ */
+type OutcomeSuccess = OutcomeToast & {
+  readonly navigate?: string
+  readonly close?: boolean
+  readonly refetch?: string | readonly string[]
+  readonly reload?: boolean
+}
 
 /** The `type: 'automation'` action an actions column entry may carry. */
 export type AutomationRowAction = {
@@ -22,6 +31,8 @@ export type AutomationRowAction = {
   readonly await?: boolean
   readonly onSuccess?: OutcomeSuccess
   readonly onError?: OutcomeToast
+  /** The row the press was made on, when the action is a conditioned control (`row-action-control.ts`). */
+  readonly press?: { readonly table: string; readonly recordId: string; readonly control: string }
 }
 
 type ToastRenderer = (message: string, variant?: string) => void
@@ -34,6 +45,13 @@ function rowNavigate(
   const navigate = onSuccess?.navigate
   return navigate === undefined ? undefined : substituteRecord(navigate, record)
 }
+
+/** The press's body: the row-filled `inputData`, and the row it names when it names one. */
+const pressBody = (action: AutomationRowAction, record: Record<string, unknown>): string =>
+  JSON.stringify({
+    inputData: substituteRecordInBody(action.inputData ?? {}, record),
+    ...(action.press === undefined ? {} : { press: action.press }),
+  })
 
 /**
  * Press an automation from a row: the same request a page `button` with this
@@ -66,7 +84,7 @@ export async function runAutomationRowAction(
       {
         method: 'POST',
         headers: automationPressHeaders(),
-        body: JSON.stringify({ inputData: substituteRecordInBody(action.inputData ?? {}, record) }),
+        body: pressBody(action, record),
       }
     )
     const body = (await response.json().catch(() => undefined)) as
@@ -78,6 +96,11 @@ export async function runAutomationRowAction(
     runSuccessOutcome(origin, {
       toast: awaitRun ? () => show(action.onSuccess) : undefined,
       shownToast: toastShownAhead(awaitRun, action.onSuccess),
+      effects: () =>
+        applyFetchSuccessEffects({
+          refetch: action.onSuccess?.refetch,
+          reload: action.onSuccess?.reload,
+        }),
       close: action.onSuccess?.close,
       navigate: rowNavigate(action.onSuccess, record),
     })

@@ -14,6 +14,7 @@ import {
 } from '@/domain/models/app/automations/manual-trigger-role-service'
 import { triggerOfType } from '@/domain/models/app/automations/trigger-entries-service'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
+import { judgePress } from './judge-press'
 import { loadPausedAutomationNames } from './paused-automation-names'
 import {
   executeAutomationRun,
@@ -24,6 +25,7 @@ import {
 } from './run-automation'
 import type { TriggerData } from './resolve-trigger-data'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
+import type { PressReference } from '@/domain/models/api/automations/automations'
 import type { App } from '@/domain/models/app'
 import type { Trigger } from '@/domain/models/app/automations/trigger'
 
@@ -100,6 +102,13 @@ export interface RunManualAutomationOptions {
    * `permissions.trigger` then narrows who may start it, on top of the role rule.
    */
   readonly byName?: boolean
+  /**
+   * The record a page control was pressed on (a button field): its
+   * `visibleWhen` and `disabledWhen` are judged on that record after the role
+   * gate, and a run that names no record — the trigger route, the MCP tool, the
+   * agent chat — is not judged by them.
+   */
+  readonly press?: PressReference
 }
 
 /**
@@ -122,6 +131,7 @@ export const runManualAutomation = ({
   handlers = defaultActionHandlers,
   userId,
   byName = false,
+  press,
 }: RunManualAutomationOptions): Effect.Effect<
   RunAutomationResult,
   RunAutomationError,
@@ -145,6 +155,8 @@ export const runManualAutomation = ({
         required: requiredRole,
       } satisfies RunAutomationError)
     }
+
+    if (press !== undefined) yield* judgePress({ app, name, press, userId })
 
     const automationId = yield* resolveAutomationId(name, automation)
     return yield* executeAutomationRun({

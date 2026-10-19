@@ -190,7 +190,7 @@ export function CartesianChart(props: CartesianChartProps): ReactElement {
         aria-label={props.accessibleName}
       >
         {props.gridLines === true ? gridElement() : undefined}
-        {categoryAxisElement(props.categoryLabel, props.xTitle)}
+        {categoryAxisElement(props.categoryLabel, props.xTitle, rows.length)}
         {valueAxisElement(axis, props.valueLabel, props.yTitle)}
         {props.tooltip === undefined ? undefined : (
           <ChartTooltip

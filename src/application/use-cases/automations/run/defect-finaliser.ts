@@ -40,6 +40,9 @@ export interface AdmittedRun {
   readonly triggerData: TriggerData
   readonly admittedAt: Date
   readonly userId: string | undefined
+  /** A person started the run by hand: a fallback row keeps the marker. */
+  readonly startedByHand?: boolean
+  readonly startedAsGuest?: boolean
   /** Set to `true` by `finaliseAndRelease` once the run's row is finalised. */
   readonly finalised: Ref.Ref<boolean>
 }
@@ -71,6 +74,8 @@ const closeAbandonedRun = (
       finishedAt: new Date(),
       steps: [],
       userId: run.userId,
+      ...(run.startedByHand === true ? { startedByHand: true } : {}),
+      ...(run.startedAsGuest === true ? { startedAsGuest: true } : {}),
     })
     releaseSlot(run.name)
     unregisterCancellation(run.runId)

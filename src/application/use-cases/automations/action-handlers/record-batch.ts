@@ -24,10 +24,11 @@ import {
 } from './record-caller-gate'
 import { automationCreateFields } from './record-create-fields'
 import { createAndAnnounce, recordEventLoopRefusal, updateAndAnnounce } from './record-events'
-import { declaredFilterFields } from './record-filter-shape'
-import { errorMessageOf, resolveActionTargetIds } from './record-filters'
+import { errorMessageOf } from './record-filters'
+import { resolveRunTargetIds } from './record-starter-targets'
+import { refusedWriteOf } from './record-write-failure'
 import { resolveOwnProps } from './run-context-resolution'
-import { actionAttributes, findMultiSelectViolationMessage, stringProp } from './shared'
+import { actionAttributes, findOptionViolationMessage, stringProp } from './shared'
 import type { ItemResult } from './record-batch-loop'
 import type { ActionHandler, ActionOutcome, ActionRunContext, AutomationContext } from './shared'
 import type { StepRequirements } from '../run/types'
@@ -116,7 +117,7 @@ const itemAdmission = (input: {
   readonly requests: readonly CallerWriteRequest[]
 }): Effect.Effect<AttachmentAdmission, never, GateRequirements> =>
   Effect.gen(function* () {
-    const refused = yield* callerRefusal(input.app, input.automation, input.requests)
+    const refused = yield* callerRefusal(input.app, input.automation, input.requests, 'batch')
     if (refused !== undefined) return { status: 'failure', error: refused.error } as const
     const { automation } = input
     return yield* admitAttachments({
@@ -148,7 +149,7 @@ const createItem = (input: {
     // `continueOnItemError` keeps its documented meaning and the run history
     // names the offending row. `createRecordProgram` cannot host this check —
     // it takes `app` optionally and this caller passes none.
-    const multiSelectError = findMultiSelectViolationMessage(app, tableName, fields)
+    const multiSelectError = findOptionViolationMessage(app, tableName, fields)
     if (multiSelectError) return failed(multiSelectError)
     const loop = recordEventLoopRefusal(runContext, tableName, 'create')
     if (loop !== undefined) return failed(loop.error ?? 'record-event loop')
@@ -166,7 +167,7 @@ const createItem = (input: {
       })
     )
     return created._tag === 'Failure'
-      ? failed(errorMessageOf(created.failure))
+      ? failed(errorMessageOf(created.failure), refusedWriteOf(created.failure, fields))
       : ({ kind: 'created' } as const)
   })
 
@@ -215,7 +216,7 @@ export const handleRecordBatchCreate: ActionHandler = (action, app, automation, 
 // ---------------------------------------------------------------------------
 
 /**
- * An item-level rendering of {@link resolveActionTargetIds}'s refusal.
+ * An item-level rendering of {@link resolveRunTargetIds}'s refusal.
  *
  * The batch operators report per-ITEM results, not action outcomes, so the
  * refusal is re-dressed as an `ItemResult` rather than re-derived — using the
@@ -262,7 +263,7 @@ const writeUpdates = (input: {
       )
     )
     return written._tag === 'Failure'
-      ? failed(errorMessageOf(written.failure))
+      ? failed(errorMessageOf(written.failure), refusedWriteOf(written.failure, fields))
       : ({ kind: 'updated' } as const)
   }).pipe(Effect.withSpan('automations.batch-write-updates'))
 
@@ -283,7 +284,7 @@ const applyUpdateItem = (input: {
 
     // Multi-select membership + cardinality — see `createItem`. Runs before the
     // target lookup so a bad payload is rejected without spending a query.
-    const multiSelectError = findMultiSelectViolationMessage(app, tableName, data)
+    const multiSelectError = findOptionViolationMessage(app, tableName, data)
     if (multiSelectError) return failed(multiSelectError)
 
     // This is the operator the RUNTIME field check exists for: `items` is
@@ -293,11 +294,10 @@ const applyUpdateItem = (input: {
     // An unresolvable field is reported as itself rather than as "matched no
     // records": the two are indistinguishable from run history, and on SQLite
     // the unrefused form of that filter matches EVERY row.
-    const targets = yield* resolveActionTargetIds({
+    const targets = yield* resolveRunTargetIds({
       operator: 'batchUpdate item',
-      tableName,
+      ...{ app, automation, tableName },
       filter: entry['filter'],
-      declared: declaredFilterFields(app, tableName),
     })
     if (!targets.resolved) return refusedItem(targets.outcome)
 
@@ -356,7 +356,7 @@ export const handleRecordBatchUpdate: ActionHandler = (action, app, automation, 
 // record/batchUpsert
 // ---------------------------------------------------------------------------
 
-const upsertItem = (input: {
+export const upsertItem = (input: {
   readonly item: unknown
   readonly tableName: string
   readonly matchField: string
@@ -372,7 +372,7 @@ const upsertItem = (input: {
     // Multi-select membership + cardinality — see `createItem`. Checked once
     // here rather than inside `createUpsertRow`/`updateUpsertRows`: `data` is
     // the same payload on both branches.
-    const multiSelectError = findMultiSelectViolationMessage(app, tableName, data)
+    const multiSelectError = findOptionViolationMessage(app, tableName, data)
     if (multiSelectError) return failed(multiSelectError)
 
     const matchValue = data[matchField]
@@ -388,11 +388,10 @@ const upsertItem = (input: {
     // duplicates (see `resolveIdsByFilterLenient`). A `matchField` naming no column
     // is refused instead: it may arrive templated, and on SQLite the unrefused
     // lookup matches every row and the upsert UPDATES THE TABLE.
-    const targets = yield* resolveActionTargetIds({
+    const targets = yield* resolveRunTargetIds({
       operator: 'batchUpsert item',
-      tableName,
+      ...{ app, automation, tableName },
       filter: { conditions: [{ field: matchField, operator: 'equals', value: matchValue }] },
-      declared: declaredFilterFields(app, tableName),
     })
     if (!targets.resolved) return refusedItem(targets.outcome)
 
@@ -411,7 +410,7 @@ const upsertItem = (input: {
     return ids.length === 0
       ? yield* createUpsertRow({ session, actorId, tableName, data: values, app, runContext })
       : yield* writeUpdates({ actorId, tableName, ids, data: values, app, automation, runContext })
-  })
+  }).pipe(Effect.withSpan('automations.batch-upsert-item'))
 
 const createUpsertRow = (input: {
   readonly session: ReturnType<typeof buildSyntheticSession>
@@ -435,7 +434,7 @@ const createUpsertRow = (input: {
       })
     )
     return created._tag === 'Failure'
-      ? failed(errorMessageOf(created.failure))
+      ? failed(errorMessageOf(created.failure), refusedWriteOf(created.failure, data))
       : ({ kind: 'created' } as const)
   })
 

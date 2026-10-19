@@ -13,7 +13,9 @@ import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite
 import {
   getExistingViews,
   getExistingMaterializedViews,
+  executeSQLStatements,
   executeSQLStatementsParallel,
+  type SQLExecutionError,
   type TransactionLike,
 } from '../sql/sql-execution'
 import { generateSqlCondition } from '../table-queries/filter-operators'
@@ -335,3 +337,28 @@ export const dropAllObsoleteViews = async (
 
   await Effect.runPromise(program)
 }
+
+/**
+ * Drop every view and materialized view before a full migration touches any
+ * table. Steps 9-11 rebuild every view the config declares, in the same
+ * transaction, and drop the rest anyway, so nothing that survives the migration
+ * changes.
+ *
+ * A view names the relations it reads. SQLite re-checks every view in the
+ * schema when a column is renamed or dropped, and, when `legacy_alter_table` is
+ * off (the default of Bun's bundled SQLite on Linux), when a table is renamed,
+ * which is how every table rebuild ends. A declared view over a view-backed
+ * table reads the lookup view Step 5.5 drops, so it dangled until Steps 9-11,
+ * and the first such ALTER on ANY table aborted the boot with
+ * `error in view <id>: no such table`. PostgreSQL refuses to change the type of
+ * a column a view selects. With no view standing, neither can happen.
+ */
+export const dropEveryView = (tx: TransactionLike): Effect.Effect<void, SQLExecutionError> =>
+  Effect.gen(function* () {
+    const materializedViews = yield* getExistingMaterializedViews(tx)
+    const views = yield* getExistingViews(tx)
+    yield* executeSQLStatements(tx, [
+      ...materializedViews.map(dropMaterializedViewStatement),
+      ...views.map(dropViewStatement),
+    ])
+  })

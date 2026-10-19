@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { redactSecretPath } from '@/domain/kernel/url/secret-path-redaction'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { errorResponseSchema } from '@/domain/models/api/combinators/error'
 import { logError } from '@/infrastructure/logging/logger'
@@ -123,7 +124,7 @@ export function respondWith<T, E, R, S extends Schema.Top = Schema.Top>(
       // no message on its stack header, so passing it as the cause alone would
       // log a bare `Error` and lose the attribution (measured on effect@4.0.0).
       logError(
-        `[API Error] response failed its schema at ${c.req.method} ${c.req.path} requestId=${requestId}: ${validated.error.message}`,
+        `[API Error] response failed its schema at ${c.req.method} ${redactSecretPath(c.req.path)} requestId=${requestId}: ${validated.error.message}`,
         validated.error
       )
       return toErrorResponse(c, validated.error)

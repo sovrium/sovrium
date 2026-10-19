@@ -12,16 +12,10 @@
  * page catching up with the server, and it is no reason to withdraw a
  * half-answered destructive confirmation.
  *
- * Holding that fact in the action cell could never satisfy that, and the reason
- * is structural rather than a missing guard. The action column's cell renderer
- * is a CLOSURE built fresh on every render of the island
- * (`buildActionCellRenderer` -> `buildColumns` -> `useDataTableIslandSetup`),
- * and TanStack's `flexRender` turns whatever it is handed into
- * `React.createElement(Comp, props)`. A new closure is therefore a new element
- * TYPE, which React does not reconcile: it unmounts the old cell and mounts a
- * new one. Every `useState` inside the cell is reset by that, so a grid
- * re-reading itself under an open gate silently un-pressed the operator's
- * click.
+ * Holding that fact in the action cell cannot satisfy that. The cell is one
+ * stable component (`RowActionCell`), so a re-read only re-renders it — but the
+ * grid still unmounts a cell whose row leaves the rendered page, and every
+ * `useState` inside goes with it, while the gate must survive.
  *
  * So the armed gate is identified by a KEY, and the key lives in a provider the
  * re-render does not own — `DataTableView`, whose own element type is a stable

@@ -61,9 +61,11 @@ import type { Page as PageConfig } from '@/domain/models/app'
 type PageComponent = NonNullable<PageConfig['components']>[number]
 
 /**
- * The heading every data surface names itself by: `h1` + orienting sentence,
- * both `sr-only` — the library's `page-header` block, installed in
- * `page-header.ts` with both lines kept for screen readers.
+ * The heading every console surface names itself by: `h1` + orienting
+ * sentence — the library's `page-header` block, installed in `page-header.ts`.
+ * Painted by default: every console page carries one visible `h1`, so a
+ * reader never meets a page whose only title is the trail. `visible: false`
+ * keeps both lines for screen readers alone.
  *
  * Both arguments are `content`-bound, so both may be `$t:` tokens. They are not
  * the only place one resolves: since 2026-09-18 `props` and every schema-level
@@ -80,7 +82,7 @@ type PageComponent = NonNullable<PageConfig['components']>[number]
 export function pageHeading(
   heading: string,
   blurb: string,
-  options: { readonly showBlurb?: boolean } = {}
+  options: { readonly showBlurb?: boolean; readonly visible?: boolean } = {}
 ): PageComponent {
   // ─── A VISIBLE BLURB, WHERE THE SENTENCE IS NEWS ──────────────────────────
   //
@@ -91,17 +93,13 @@ export function pageHeading(
   // carries four columns no other bucket has — and keeping that for screen
   // readers alone left the one surface that most needed explaining unexplained.
   //
-  // What is NOT reversed: the `h1` stays `sr-only` (the chrome bar's trail
-  // already names the page, so painting it would say the name twice), and
-  // every other data page keeps both hidden. It is an opt-in per call rather
-  // than a new default because the ~90px the retired title block returned was
-  // measured and wanted; a surface opts in only when its sentence tells the
-  // operator something the trail cannot.
+  // The `h1` is painted too: every console page paints its title, so the
+  // console follows one rule for titles.
   //
   // The `h1` and the `p` stay SIBLINGS in one wrapper either way, so a reader
   // addressing "the sentence under the heading" finds the same element whether
   // it is painted or not.
-  return dataPageHeader(heading, blurb, options)
+  return dataPageHeader(heading, blurb, { ...options, visible: options.visible !== false })
 }
 
 /**
@@ -159,7 +157,10 @@ export function fillHost(children: readonly PageComponent[]): PageComponent {
   return {
     type: 'container',
     element: 'div',
-    props: { className: 'flex min-h-0 min-w-0 flex-1 flex-col pt-2' },
+    // A toolbar row above the grid stands 16px clear of it, as shadcn's tasks
+    // page spaces its toolbar from its table (`gap-4`). Said on the toolbar
+    // rather than as a `gap`, for the empty drawer host above.
+    props: { className: 'flex min-h-0 min-w-0 flex-1 flex-col pt-2 [&>[role=toolbar]]:mb-4' },
     children: [...children],
   } as PageComponent
 }
@@ -464,6 +465,12 @@ export interface ConsolePageSpec {
   readonly heading?: readonly [string, string]
   /** Paint the sentence (see {@link pageHeading}). */
   readonly showBlurb?: boolean
+  /**
+   * Draw the title and the sentence as a visible header (`pageHeaderVisibleCopy`).
+   * Default true: every console page carries one visible `h1`. `false` is left
+   * for a surface that paints its own title.
+   */
+  readonly visibleHeading?: boolean
   /** The 40px control row's contents: search, filters, the primary action last. */
   readonly toolbar?: readonly PageComponent[]
   /** The figures above the body: the region's name and its section cards. */
@@ -488,7 +495,12 @@ const pageTabStrip = (tabs: ConsolePageTabs): PageComponent => {
 const pageLead = (spec: ConsolePageSpec): readonly PageComponent[] => [
   ...(spec.heading === undefined
     ? []
-    : [pageHeading(spec.heading[0], spec.heading[1], { showBlurb: spec.showBlurb === true })]),
+    : [
+        pageHeading(spec.heading[0], spec.heading[1], {
+          showBlurb: spec.showBlurb === true,
+          visible: spec.visibleHeading !== false,
+        }),
+      ]),
   ...(spec.toolbar === undefined ? [] : [toolbarRow(spec.toolbar)]),
   ...(spec.kpis === undefined ? [] : [kpiStrip(spec.kpis.label, spec.kpis.tiles)]),
 ]

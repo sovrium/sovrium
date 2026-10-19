@@ -12,7 +12,8 @@ import {
   computeTableEditorStripClasses,
 } from '@/presentation/design/table-default-classes'
 import { OptionListbox } from '../../parts/option-listbox'
-import { LOAD_MORE_LABEL, linkCountLabel } from '../../runtime/picker-contract'
+import { PICKER_WORDS, linkCountLabel } from '../../runtime/picker-contract'
+import { useGridString } from '../island/grid-strings'
 import type { ListboxCandidate } from '../../parts/option-listbox'
 import type { ReactElement } from 'react'
 
@@ -47,7 +48,9 @@ export function LinkCount(props: {
 }): ReactElement {
   return (
     <span className={`${computeTableEditorLabelClasses()} ${STRIP}`}>
-      {linkCountLabel(props.linked, props.maxLinked)}
+      {linkCountLabel(props.linked, props.maxLinked, {
+        'picker.linkCount': useGridString('picker.linkCount', PICKER_WORDS['picker.linkCount']),
+      })}
     </span>
   )
 }
@@ -77,7 +80,7 @@ export function LoadMoreButton(props: { readonly onClick: () => void }): ReactEl
       onClick={props.onClick}
       className={`${computeTableEditorListRowClasses()} ${computeTableEditorStripClasses()} justify-center text-center`}
     >
-      {LOAD_MORE_LABEL}
+      {useGridString('picker.loadMore', PICKER_WORDS['picker.loadMore'])}
     </button>
   )
 }

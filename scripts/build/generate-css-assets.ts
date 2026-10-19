@@ -87,6 +87,10 @@ const fail = (message: string): never => {
   throw new Error(message)
 }
 
+/** The vendored Typeset sheet the engine embeds, and the snapshot copy holding its sha256. */
+const TYPESET_SOURCE_CSS = 'src/presentation/design/typeset/typeset.css'
+const TYPESET_SNAPSHOT_CSS = 'scripts/baselines/shadcn-registry/typeset.css'
+
 const readStylesheet = (relPath: string): string =>
   readFileSync(join(REPO_ROOT, 'node_modules', relPath), 'utf-8')
 
@@ -248,6 +252,17 @@ const main = async (): Promise<void> => {
         'the snapshot (`bun run pull:shadcn-registry`) in the commit that bumps shadcn.'
     )
   }
+  // shadcn's Typeset, vendored into the engine byte for byte. Its source copy
+  // under `src/` is the one embedded; the registry snapshot holds the sha256,
+  // so the two must agree or a hand edit of upstream bytes would ship.
+  const typesetCss = readFileSync(join(REPO_ROOT, TYPESET_SOURCE_CSS), 'utf-8')
+  if (typesetCss !== readFileSync(join(REPO_ROOT, TYPESET_SNAPSHOT_CSS), 'utf-8')) {
+    fail(
+      `${TYPESET_SOURCE_CSS} differs from ${TYPESET_SNAPSHOT_CSS}. The vendored Typeset sheet ` +
+        'is upstream bytes: copy both from the same upstream commit and record its sha256 in ' +
+        'the snapshot manifest.'
+    )
+  }
 
   const lines = (classes: readonly string[]): string =>
     `${JSON.stringify(classes.join('\n'))}.split('\\n')`
@@ -317,6 +332,9 @@ export const TW_ANIMATE_CSS: string = ${JSON.stringify(twAnimateCss)}
 
 /** Upstream \`@import 'shadcn/tailwind.css'\` stylesheet (shadcn/dist/tailwind.css, the registry snapshot's pin). */
 export const SHADCN_TAILWIND_CSS: string = ${JSON.stringify(shadcnTailwindCss)}
+
+/** shadcn/ui's Typeset stylesheet (src/presentation/design/typeset/typeset.css, upstream bytes). */
+export const TYPESET_CSS: string = ${JSON.stringify(typesetCss)}
 `
 
   writeFileSync(outPath, fileContent)
@@ -328,7 +346,7 @@ export const SHADCN_TAILWIND_CSS: string = ${JSON.stringify(shadcnTailwindCss)}
       `CORE ${attribution.core.length}, console-only ${attribution.console.length}, ` +
       `${attribution.groups.length} type groups over ${stats.typeReachedFiles} of ` +
       `${stats.presentationFiles} presentation files; ` +
-      `${formatKb(tailwindIndexCss, twAnimateCss, shadcnTailwindCss)} embedded stylesheets`
+      `${formatKb(tailwindIndexCss, twAnimateCss, shadcnTailwindCss, typesetCss)} embedded stylesheets`
   )
 }
 

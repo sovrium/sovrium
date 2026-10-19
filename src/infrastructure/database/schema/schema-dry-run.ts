@@ -15,10 +15,9 @@
  * visible from the operator's side: it takes WRITE LOCKS on a production
  * database and would actually execute the recreate-with-data row copy before
  * discarding it. Someone runs `--dry-run` precisely to decide whether the
- * upgrade needs a maintenance window; a dry run that locks tables and copies
- * rows is the cost they were trying to measure. It would not even be complete —
- * `reconcileCommandSearchIndexes` runs outside the transaction and would escape
- * the rollback entirely.
+ * upgrade needs a maintenance window; locking tables and copying rows is the
+ * cost they were measuring. Nor would it be complete: `reconcileCommandSearchIndexes`
+ * runs outside the transaction and would escape the rollback.
  *
  * ## Why read-only introspection is enough
  *
@@ -53,6 +52,7 @@ import {
   generateAlterTableStatements,
   needsTableRecreation,
   obsoleteTableDropStatement,
+  type ColumnDrop,
   type ObsoleteTable,
   type ViewTopologyStep,
 } from '../schema-migration'
@@ -80,6 +80,7 @@ import { planFormulaRecomputes } from './formula-engine-recompute'
 import { getPreviousSchema } from './migration-audit-trail'
 import { sortTablesByDependencies } from './schema-dependency-sorting'
 import { planRelationSet, type RelationPlan } from './schema-dry-run-relations'
+import { withSqliteDropRebuild } from './schema-dry-run-sqlite-drops'
 import { withUniquePlan } from './schema-dry-run-unique'
 import { planViewRebuilds } from './schema-dry-run-views'
 import type { TransactionLike } from '../sql/sql-execution'
@@ -212,7 +213,7 @@ const planExistingTable = (params: {
   readonly hasAuthConfig: boolean
   readonly refusals: readonly string[]
   readonly physical: string
-}): TableChange => {
+}): { readonly change: TableChange; readonly drops: readonly ColumnDrop[] } => {
   const {
     table,
     existingColumns,
@@ -226,10 +227,10 @@ const planExistingTable = (params: {
   const previous = findPreviousTableDefinition(table, tablePrimaryKeyTypes, previousSchema)
   const rebuilt = formulaColumnsNeedRebuild(table, existingColumns, previous) // as the apply path
   if (needsTableRecreation(table, existingColumns) || rebuilt || refusals.length > 0) {
-    return { ...named, kind: 'recreate', statements: [], unsimulated: true }
+    return { change: { ...named, kind: 'recreate', statements: [], unsimulated: true }, drops: [] }
   }
 
-  const statements = generateAlterTableStatements({
+  const { statements, drops } = generateAlterTableStatements({
     table,
     existingColumns,
     previousSchema,
@@ -238,9 +239,8 @@ const planExistingTable = (params: {
     physicalTableName: physical,
   })
 
-  return statements.length === 0
-    ? { ...named, kind: 'unchanged', statements: [], unsimulated: false }
-    : { ...named, kind: 'alter', statements, unsimulated: false }
+  const kind = statements.length === 0 ? 'unchanged' : 'alter'
+  return { change: { ...named, kind, statements, unsimulated: false }, drops }
 }
 
 /**
@@ -285,7 +285,8 @@ const planTable = (inputs: TablePlanInputs): Effect.Effect<TableChange, never> =
       previousSchema,
     })
 
-    const change = planExistingTable({
+    const context = { tx, table, source, existingColumns }
+    const { change: planned, drops } = planExistingTable({
       table,
       existingColumns,
       previousSchema,
@@ -294,16 +295,15 @@ const planTable = (inputs: TablePlanInputs): Effect.Effect<TableChange, never> =
       refusals,
       physical,
     })
-    return yield* withUniquePlan({ tx, table, source, existingColumns, change })
+    const change = yield* withSqliteDropRebuild({ ...context, drops, change: planned })
+    return yield* withUniquePlan({ ...context, change })
   }).pipe(
     // A table whose plan cannot be computed is reported as unsimulated rather
-    // than aborting the whole report. `generateAlterTableStatements` THROWS on
-    // an ambiguous rename or a refused destructive drop, and losing every other
-    // table's plan to one such table would make the mode useless exactly when
-    // the operator most needs it. The throw is REPORTED as the refusal it is
-    // (see `describePlanRefusal`) rather than swallowed: an operator whose plan
-    // would be rejected needs the sentence naming what to do about it, the one
-    // thing about an unsimulated recreate that is knowable ahead of time.
+    // than aborting the report: `generateAlterTableStatements` THROWS on an
+    // ambiguous rename or a refused destructive drop, and losing every other
+    // table's plan to it would make the mode useless when most needed. The throw
+    // is REPORTED as the refusal it is (see `describePlanRefusal`): the sentence
+    // naming what to do is the one thing about it knowable ahead of time.
     Effect.catchCause((cause) =>
       Effect.succeed({
         table: inputs.table.name,

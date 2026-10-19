@@ -1,5 +1,5 @@
 # sovrium-library: block/page-heading-actions@0.37.0
-# sovrium-library-params: deleteHref=%2Finvoices%2Finv-0142%2Fdelete&duplicateHref=%2Finvoices%2Fnew%3Ffrom%3Dinv-0142&editHref=%2Finvoices%2Finv-0142%2Fedit&primaryHref=%2Finvoices%2Finv-0142%2Fremind&primaryLabel=Send%20reminder&secondaryHref=%2Finvoices%2Finv-0142.pdf&secondaryLabel=Download%20PDF&title=Invoice%20INV-0142
+# sovrium-library-params: deleteHref=%2Fprojects%2F1&duplicateHref=%2Fworklist&editHref=%2Fprojects%2F1%2Fedit&primaryHref=%2Fprojects%2F1%2Fedit&primaryLabel=Edit%20project&secondaryHref=%2Fapi%2Ftables%2Fprojects%2Fexport%3Fformat%3Dcsv&secondaryLabel=Export%20CSV&title=Spring%20rebrand
 name: page-heading-actions
 type: container
 props:
@@ -7,11 +7,9 @@ props:
 children:
   - type: breadcrumb
     breadcrumbItems:
-      - label: Clients
-        href: /clients
-      - label: Atelier Nord
-        href: /clients/atelier-nord
-      - label: INV-0142
+      - label: Projects
+        href: /projects
+      - label: Spring rebrand
   - type: flex
     props:
       className: flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between
@@ -24,7 +22,7 @@ children:
             element: h1
             props:
               className: text-3xl font-semibold tracking-tight text-foreground
-            content: Invoice INV-0142
+            content: Spring rebrand
           - type: flex
             props:
               className: flex flex-wrap items-center gap-4
@@ -42,7 +40,7 @@ children:
                     element: span
                     props:
                       className: text-sm text-muted-foreground
-                    content: Atelier Nord
+                    content: Maison Lefort
               - type: flex
                 props:
                   className: flex items-center gap-1.5
@@ -56,19 +54,19 @@ children:
                     element: span
                     props:
                       className: text-sm text-muted-foreground
-                    content: Due 12 Oct 2026
+                    content: Due 14 Oct 2026
               - type: badge
                 badgeVariant: outline
-                content: Paid
+                content: Active
       - type: flex
         props:
           className: flex flex-wrap items-center gap-2
         children:
           - type: link
             props:
-              href: /invoices/inv-0142.pdf
+              href: /api/tables/projects/export?format=csv
               className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] no-underline hover:no-underline focus-visible:no-underline border-border-strong bg-card text-foreground hover:bg-muted hover:text-foreground h-8 px-3 text-base'
-            content: Download PDF
+            content: Export CSV
           - type: dropdown-menu
             triggerLabel: More actions
             menuItems:
@@ -76,21 +74,21 @@ children:
                 icon: pencil
                 action:
                   type: navigate
-                  path: /invoices/inv-0142/edit
+                  path: /projects/1/edit
               - label: Duplicate
                 icon: copy
                 action:
                   type: navigate
-                  path: /invoices/new?from=inv-0142
+                  path: /worklist
               - separator: true
               - label: Delete
                 icon: trash-2
                 action:
                   type: navigate
-                  path: /invoices/inv-0142/delete
+                  path: /projects/1
                 variant: destructive
           - type: link
             props:
-              href: /invoices/inv-0142/remind
+              href: /projects/1/edit
               className: 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-ring)] no-underline hover:no-underline focus-visible:no-underline border-primary bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground h-8 px-3 text-base'
-            content: Send reminder
+            content: Edit project

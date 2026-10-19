@@ -45,8 +45,12 @@
 
 import { ledgerTable } from '../../components/data-table-blocks'
 import { withShell } from '../../components/shell'
-import { DESIGN_GUIDANCE_ENDPOINT, DESIGN_ZONES_ENDPOINT } from '../../system-sources'
-import { designSystemBreadcrumb } from './chrome'
+import {
+  DESIGN_COVERAGE_ENDPOINT,
+  DESIGN_GUIDANCE_ENDPOINT,
+  DESIGN_ZONES_ENDPOINT,
+} from '../../system-sources'
+import { designSystemDocumentShell } from './chrome'
 import {
   MEASURE_MD,
   MEASURE_SM,
@@ -66,12 +70,11 @@ type PageComponent = NonNullable<PageConfig['components']>[number]
 const SLUG = 'voice'
 const TITLE = '$t:admin.common.voice'
 
-/** The five sections, in reading order — the rail is derived from this list. */
+/** The four sections, in reading order — the rail is derived from this list. */
 const SECTIONS: readonly RailSection[] = [
   { id: 'voice-principles', title: '$t:admin.ds.voice.principles' },
   { id: 'voice-voice', title: '$t:admin.common.voice' },
   { id: 'voice-tone', title: '$t:admin.ds.voice.toneByMoment' },
-  { id: 'voice-in-practice', title: '$t:admin.ds.voice.practice' },
   { id: 'voice-zones', title: '$t:admin.ds.voice.perZone' },
 ]
 
@@ -349,61 +352,12 @@ const toneSection = (): PageComponent =>
   ])
 
 /**
- * IN PRACTICE — the one block on this page that is Sovrium's own words.
- *
- * Every rule above is an instruction, and the one thing instructions cannot do
- * is show the difference they describe. There is NO config key behind this
- * pair, which is exactly why it carries the worked-example label: read as the
- * operator's, it would be the console putting copy into their mouth.
- */
-const practiceRow = (verdict: 'fact' | 'claim', label: string, line: string): PageComponent =>
-  ({
-    type: 'container',
-    element: 'div',
-    props: { className: 'flex flex-col gap-1', 'data-design-practice': verdict },
-    children: [
-      microLabel(label),
-      {
-        type: 'text',
-        element: 'p',
-        props: {
-          className:
-            verdict === 'fact'
-              ? `text-foreground ${MEASURE_MD} text-md leading-relaxed`
-              : `text-foreground-subtle ${MEASURE_MD} text-md leading-relaxed line-through`,
-        },
-        content: line,
-      },
-    ],
-  }) as PageComponent
-
-const inPracticeSection = (): PageComponent =>
-  anchoredSection(SECTIONS[3] as RailSection, [
-    {
-      type: 'container',
-      element: 'div',
-      props: { className: 'flex flex-col gap-3', 'data-testid': 'design-system-in-practice' },
-      children: [
-        {
-          type: 'container',
-          element: 'div',
-          props: { className: 'grid gap-4 sm:grid-cols-2' },
-          children: [
-            practiceRow('fact', '$t:admin.ds.voice.fact', '$t:admin.ds.voice.factExample'),
-            practiceRow('claim', '$t:admin.ds.voice.claim', '$t:admin.ds.voice.claimExample'),
-          ],
-        } as PageComponent,
-      ],
-    } as PageComponent,
-  ])
-
-/**
  * ZONES — which route family reads in which register, and where it departs.
  *
- * A one-register app has no zone map, and the ledger says so in one line. A
- * two-register app has one, and without this block its second register was
- * undiscoverable from the console: `design.voice` alone described `/portal/*`
- * as addressing the reader the way the marketing pages do, which is precisely
+ * A one-register app has no zone map, and the section says so in one line —
+ * no table, no empty field groups. A two-register app has one, and without
+ * this block its second register was undiscoverable from the console:
+ * `design.voice` alone described `/portal/*` as addressing the reader the way the marketing pages do, which is precisely
  * the *confident and wrong* class — worse than saying nothing, because a writer
  * would act on it.
  *
@@ -439,27 +393,54 @@ const inPracticeSection = (): PageComponent =>
  * rather than a field, so drawing those needs platform work.
  */
 const zonesSection = (): PageComponent =>
-  anchoredSection(SECTIONS[4] as RailSection, [
+  anchoredSection(SECTIONS[3] as RailSection, [
     {
       type: 'container',
       element: 'div',
       props: { className: 'flex flex-col', 'data-testid': 'design-system-zones' },
+      // ONE row: the coverage read narrowed to `zones`, whose `declared` says
+      // whether this app has a zone map at all. Empty means empty: an app
+      // with no zones reads one line, not a sortable table with no rows and
+      // four labelled groups with nothing under them.
+      dataSource: {
+        system: {
+          endpoint: DESIGN_COVERAGE_ENDPOINT,
+          query: { key: 'zones' },
+          rowsKey: 'items',
+          idKey: 'key',
+        },
+      },
       children: [
-        ledgerTable({
-          props: { 'aria-label': '$t:admin.common.zones', className: 'mb-3' },
-          dataSource: {
-            system: { endpoint: DESIGN_ZONES_ENDPOINT, rowsKey: 'items', idKey: 'pattern' },
-          },
-          columns: [
-            { field: 'pattern', label: '$t:admin.common.routePattern' },
-            { field: 'zone', label: '$t:admin.common.zone' },
+        {
+          type: 'container',
+          element: 'div',
+          props: { className: 'flex flex-col' },
+          visibility: { record: { field: 'declared', eq: true } },
+          children: [
+            ledgerTable({
+              props: { 'aria-label': '$t:admin.common.zones', className: 'mb-3' },
+              dataSource: {
+                system: { endpoint: DESIGN_ZONES_ENDPOINT, rowsKey: 'items', idKey: 'pattern' },
+              },
+              columns: [
+                { field: 'pattern', label: '$t:admin.common.routePattern' },
+                { field: 'zone', label: '$t:admin.common.zone' },
+              ],
+              emptyMessage: '$t:admin.ds.voice.noZone',
+            }),
+            labelledRows('$t:admin.ds.voice.zoneAddress', 'zone.voice.pronoun'),
+            labelledRows('$t:admin.ds.voice.zonePrefers', 'zone.voice.prefer'),
+            labelledRows('$t:admin.ds.voice.zoneAvoids', 'zone.voice.avoid'),
+            labelledRows('$t:admin.ds.voice.zoneTone', 'zone.voice.tone'),
           ],
-          emptyMessage: '$t:admin.ds.voice.noZone',
-        }),
-        labelledRows('$t:admin.ds.voice.zoneAddress', 'zone.voice.pronoun'),
-        labelledRows('$t:admin.ds.voice.zonePrefers', 'zone.voice.prefer'),
-        labelledRows('$t:admin.ds.voice.zoneAvoids', 'zone.voice.avoid'),
-        labelledRows('$t:admin.ds.voice.zoneTone', 'zone.voice.tone'),
+        },
+        {
+          type: 'text',
+          element: 'p',
+          visibility: { record: { field: 'declared', eq: false } },
+          props: { className: `text-foreground-subtle ${MEASURE_MD} text-md` },
+          content: '$t:admin.ds.voice.noZone',
+        },
       ],
     } as PageComponent,
   ])
@@ -474,7 +455,7 @@ const voice: PageConfig = withShell(
     // bound a `meta.description` carries, so the head gets the short form and
     // the reader gets the long one.
     meta: {
-      title: TITLE,
+      title: '$t:admin.meta.voice',
       description: '$t:admin.ds.voice.blurb',
     },
     // The ONE scalar no rows binding can answer: how many tone moments this app
@@ -486,18 +467,10 @@ const voice: PageConfig = withShell(
     components: railedConsoleBody({
       title: TITLE,
       sections: SECTIONS,
-      children: [
-        principlesSection(),
-        voiceSection(),
-        toneSection(),
-        inPracticeSection(),
-        zonesSection(),
-      ],
+      children: [principlesSection(), voiceSection(), toneSection(), zonesSection()],
     }),
   },
-  {
-    breadcrumb: designSystemBreadcrumb(SLUG, TITLE),
-  }
+  designSystemDocumentShell(SLUG, TITLE)
 )
 
 export default voice

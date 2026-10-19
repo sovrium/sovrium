@@ -56,6 +56,7 @@ export default function CommentThreadIsland(props: CommentThreadIslandProps): Re
     currentUserId,
     currentUserIsAdmin,
     threading,
+    signedIn,
     'data-testid': testId,
   } = props
   const threadingEnabled = threading === true
@@ -218,7 +219,7 @@ export default function CommentThreadIsland(props: CommentThreadIslandProps): Re
               />
             </div>
           )}
-          {currentUserId ? (
+          {currentUserId || signedIn === true ? (
             <CommentThreadForm
               placeholder={placeholder}
               isSubmitting={createMutation.isPending}

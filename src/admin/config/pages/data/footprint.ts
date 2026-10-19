@@ -129,6 +129,9 @@ const region = (label: string, body: readonly PageComponent[], provenance: strin
  * own — which is the point of making them nullable rather than defaulting them
  * to `A` and `0`.
  */
+/** A figure counted in seconds, read as an elapsed time. */
+const SECONDS = { type: 'duration', options: { unit: 's' } } as const
+
 const measuredRegion = (): PageComponent =>
   region(
     '$t:admin.footprint.measured.heading',
@@ -151,8 +154,9 @@ const measuredRegion = (): PageComponent =>
           }),
           tile('$t:admin.footprint.cacheSize', 'pageCache.bytes', { type: 'bytes' }),
           tile('$t:admin.footprint.memory', 'runtime.rssBytes', { type: 'bytes' }),
-          tile('$t:admin.footprint.cpu', 'runtime.cpuSeconds', { type: 'number' }),
-          tile('$t:admin.footprint.uptime', 'runtime.uptimeSeconds', { type: 'number' }),
+          // Both arrive as SECONDS and read as one elapsed time (`8.9 s`, `6 d 4 h`).
+          tile('$t:admin.footprint.cpu', 'runtime.cpuSeconds', SECONDS),
+          tile('$t:admin.footprint.uptime', 'runtime.uptimeSeconds', SECONDS),
         ],
       } as PageComponent,
     ],
@@ -186,7 +190,9 @@ const storageRegion = (): PageComponent =>
               bucket: '$t:admin.footprint.kind.bucket',
             },
           },
-          { field: 'bytes', label: '$t:admin.footprint.bytes', format: 'compact' },
+          // `bytes`, not `compact`: a size reads 74 KB, never an SI "74K" under
+          // a header that has to say "(bytes)" to be understood.
+          { field: 'bytes', label: '$t:admin.common.size', align: 'right', format: 'bytes' },
           {
             field: 'measurement',
             label: '$t:admin.footprint.measuredBy',

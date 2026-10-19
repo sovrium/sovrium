@@ -27,10 +27,12 @@ import {
   isFieldReadableUnderFieldRules,
 } from '@/domain/models/app/tables/field-read-filter-service'
 import { forbiddenWriteFields } from '@/domain/models/app/tables/field-write-permission-service'
+import { relatedValuesRefusedTo } from '@/domain/models/app/tables/lookup-link-service'
 import {
   CANONICAL_READ_POLICY,
   buildReadAccessPlan,
 } from '@/domain/models/app/tables/read-access-plan-service'
+import { toManyLinksRefusedTo } from '@/domain/models/app/tables/related-field-read-service'
 import { reverseRelationsOf } from '@/domain/models/app/tables/reverse-relations-service'
 import { writeOnlyFieldNames } from '@/domain/models/app/tables/write-only-field-service'
 import { WRITE_ONLY_PRESENCE_LABELS } from './write-only-presence-labels'
@@ -38,6 +40,7 @@ import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
+import type { CallerFieldReader } from '@/domain/models/app/tables/field-read-filter-service'
 
 /** The render-time-only key the page pass stamps a drawer's field access under. */
 export const DRAWER_FIELD_ACCESS_KEY = '_drawerFieldAccess'
@@ -105,28 +108,60 @@ export function unreadableTables(app: App, session: SessionInfo | undefined): re
 }
 
 /**
- * The access `session` has to the fields of `tableName`, or `undefined` when it
- * has all of it. With no session, the reader is anonymous: they hold no role,
+ * Whom a drawer's field access is decided for, and against which app's rules:
+ * the session's reader against the rendering app; on a session-less mounted
+ * console, the caller's role and groups against the HOST app, whose tables,
+ * field rules and role ladder they are; else nobody — an anonymous reader.
+ */
+interface FieldAccessReader {
+  readonly app: App
+  readonly reader: CallerFieldReader | undefined
+}
+
+const fieldAccessReaderOf = (
+  app: App,
+  session: SessionInfo | undefined,
+  caller: DrawerCaller
+): FieldAccessReader =>
+  session === undefined && caller.fieldReader !== undefined
+    ? { app: caller.hostApp ?? app, reader: caller.fieldReader }
+    : {
+        app,
+        reader:
+          session === undefined ? undefined : { role: session.role, groups: session.groups ?? [] },
+      }
+
+/**
+ * The access the reader has to the fields of `tableName`, or `undefined` when
+ * they have all of it. With no reader, they are anonymous: they hold no role,
  * so a field whose read rights name any is left out. What they may write is
  * not marked — a visitor saves nothing a drawer could send.
  */
 const fieldAccessFor = (
-  app: App,
-  tableName: string,
-  session: SessionInfo | undefined
+  { app, reader }: FieldAccessReader,
+  tableName: string
 ): DrawerFieldAccess | undefined => {
   const table = app.tables?.find((candidate) => candidate.name === tableName)
   if (table === undefined) return undefined
   const names = table.fields.map((field) => field.name)
-  const caller = readerOf(session)
-  const unreadable = names.filter((name) => !isFieldReadableByCaller(app, tableName, caller, name))
+  const caller = reader ?? { role: '' }
+  // A value read from a table the reader may not read — a count, a rollup, a
+  // lookup, a link to many — is withheld as the records API withholds it.
+  const related = { role: caller.role, groups: reader?.groups ?? [], signedOut: !reader }
+  const refused = new Set([
+    ...relatedValuesRefusedTo(app, tableName, related),
+    ...toManyLinksRefusedTo(app, tableName, related),
+  ])
+  const unreadable = names.filter(
+    (name) => refused.has(name) || !isFieldReadableByCaller(app, tableName, caller, name)
+  )
   const unwritable =
-    session === undefined
+    reader === undefined
       ? []
       : forbiddenWriteFields(
           app,
           tableName,
-          { role: session.role, groups: session.groups ?? [] },
+          reader,
           Object.fromEntries(names.map((name) => [name, true]))
         )
   const writeOnly = writeOnlyFieldNames(app, tableName).filter((name) =>
@@ -169,14 +204,13 @@ export interface DrawerHostFacts {
 
 /** What the reader may read and write on each table linking to `tableName`. */
 const linkedAccessFor = (
-  app: App,
-  tableName: string,
-  session: SessionInfo | undefined
+  reader: FieldAccessReader,
+  tableName: string
 ): Readonly<Record<string, DrawerFieldAccess>> => {
-  const linked = [...new Set(reverseRelationsOf(tableName, app.tables).map((r) => r.table))]
+  const linked = [...new Set(reverseRelationsOf(tableName, reader.app.tables).map((r) => r.table))]
   return Object.fromEntries(
     linked.flatMap((name) => {
-      const access = fieldAccessFor(app, name, session)
+      const access = fieldAccessFor(reader, name)
       return access === undefined ? [] : [[name, access] as const]
     })
   )
@@ -211,6 +245,8 @@ const callerFacts = (
 export interface DrawerCaller {
   readonly capabilities?: readonly CallerCapability[] | undefined
   readonly hostApp?: App | undefined
+  /** Her role and groups on a session-less mounted console, which decide her field access. */
+  readonly fieldReader?: CallerFieldReader | undefined
 }
 
 /**
@@ -224,7 +260,7 @@ const hostFactsFor = (
   session: SessionInfo | undefined,
   caller: DrawerCaller
 ): DrawerHostFacts => {
-  const linkedAccess = linkedAccessFor(app, tableName, session)
+  const linkedAccess = linkedAccessFor(fieldAccessReaderOf(app, session, caller), tableName)
   const hostApp = caller.hostApp ?? app
   return {
     ...callerFacts(app, session, caller.capabilities),
@@ -260,7 +296,7 @@ export function markDrawerFieldAccess(
       : record
     const tableName = drawerTable(record)
     if (tableName === undefined) return withChildren as Component
-    const access = fieldAccessFor(app, tableName, session)
+    const access = fieldAccessFor(fieldAccessReaderOf(app, session, caller), tableName)
     const host = isGenericSheet(record) ? hostFactsFor(app, tableName, session, caller) : undefined
     if (access === undefined && host === undefined) return withChildren as Component
     const props = (record['props'] as Readonly<Record<string, unknown>> | undefined) ?? {}

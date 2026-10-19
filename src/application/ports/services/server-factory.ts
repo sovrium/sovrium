@@ -160,6 +160,19 @@ export interface ServerFactoryConfig {
  * disciplined: the render pass cannot ask for a listener by mistake, because
  * there is no field on this type that would describe one.
  */
+/** What the holding listener needs: where to bind, and the app whose version the probe reports. */
+export interface HoldListenerConfig {
+  readonly app: App
+  readonly port?: number
+  readonly hostname?: string
+}
+
+/** The held listener: the port it bound (none on a Unix socket), and how to let it go. */
+export interface HeldListener {
+  readonly port: number | undefined
+  readonly release: Effect.Effect<void, never>
+}
+
 export interface RenderAppConfig {
   readonly app: App
   readonly publicDir?: string
@@ -248,6 +261,20 @@ export class ServerFactory extends Context.Service<
      * maintenance pass is not worth an outage.
      */
     readonly runDeferredMaintenance: (app: App) => Effect.Effect<void, never>
+    /**
+     * Bind the listener a boot HOLDS while its database is unreachable.
+     *
+     * Every request it answers is a 503: the health routes report `degraded`
+     * with `checks.db: 'error'`, API paths get the `SERVICE_UNAVAILABLE`
+     * envelope, pages a short unavailable page. It serves no app, reads no
+     * table and runs nothing — it exists so a supervisor's readiness probe and
+     * a proxy see a process that is alive and waiting, not one that is gone.
+     *
+     * `release` stops it and waits for the port to be free again, so the real
+     * `create` that follows binds the same address. It is what `startServer`
+     * calls between the migrator's refused `SELECT 1` and its first success.
+     */
+    readonly hold: (config: HoldListenerConfig) => Effect.Effect<HeldListener, ServerCreationError>
     /**
      * Build a Hono app to RENDER through, binding no socket.
      *

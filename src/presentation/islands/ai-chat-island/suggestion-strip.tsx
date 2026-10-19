@@ -9,10 +9,10 @@
  * Prompt-suggestion chips for the `ai-chat` island.
  *
  * The hydrated twin of the strip `ai-chat-component.tsx` renders into the SSR
- * skeleton. Both read `computeAiChatSuggestionStripClasses` and the outlined
- * small button, which is what stops the panel repainting the moment the island
- * mounts; what this side adds is the one thing markup cannot carry — a click
- * handler.
+ * skeleton. Both read `computeAiChatSuggestionStripClasses` and
+ * `computeAiChatSuggestionChipClasses`, which is what stops the panel
+ * repainting the moment the island mounts; what this side adds is the one
+ * thing markup cannot carry — a click handler.
  *
  * It FILLS, it does not send. A chip lives outside the `<form>` and is
  * `type="button"`, so a click puts its text in the composer and leaves the send
@@ -25,15 +25,14 @@
  */
 
 import { useCallback } from 'react'
-import { computeAiChatSuggestionStripClasses } from '@/presentation/design/ai-chat-composition-classes'
-import { computePartButtonClasses } from '@/presentation/design/button-variant-classes'
+import {
+  computeAiChatSuggestionChipClasses,
+  computeAiChatSuggestionStripClasses,
+} from '@/presentation/design/ai-chat-composition-classes'
 import type { ReactElement } from 'react'
 
-/**
- * The small outlined button — the one variant whose fill is the surface behind
- * it, so a row of chips reads as offers rather than as competing send buttons.
- */
-const SUGGESTION_CHIP = computePartButtonClasses({ variant: 'outline', size: 'sm' })
+/** One chip, from the skeleton's recipe: it wraps a long prompt rather than overflowing. */
+const SUGGESTION_CHIP = computeAiChatSuggestionChipClasses()
 
 interface SuggestionChipProps {
   readonly prompt: string

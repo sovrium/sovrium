@@ -84,6 +84,11 @@ export const fileStorageBytea = systemSchema.table('file_storage_bytea', {
     .references(() => fileStorageMetadata.id, { onDelete: 'cascade' })
     .unique(),
   content: bytea('content').notNull(),
+  /**
+   * Bumped by the very statement that replaces `content`: the object's identity
+   * for a paused run's fingerprint, which changes with every write of the bytes.
+   */
+  writeCount: integer('write_count').notNull().default(1),
 })
 
 // Type inference

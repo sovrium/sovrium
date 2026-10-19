@@ -12,7 +12,8 @@ import {
   type ConstraintViolationClass,
 } from '@/domain/errors/driver-failure'
 import { transactionConflictOf } from '@/domain/errors/transaction-conflict-error'
-import { logDebug, logError } from '@/infrastructure/logging/logger'
+import { logDebug } from '@/infrastructure/logging/logger'
+import { DEFAULT_SANITIZER_LOG, logAnsweredError, type SanitizerLog } from './error-sanitizer-log'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 
 /**
@@ -152,24 +153,6 @@ const toClientDetails = (
 }
 
 /**
- * Log error details for debugging (server-side only)
- */
-function logErrorDetails(error: unknown, requestId: string | undefined): void {
-  logError(`[API Error] requestId=${requestId}`, error)
-  logDebug(`[API Error - error type] ${typeof error}`)
-  logDebug(
-    `[API Error - error own keys] ${error && typeof error === 'object' ? Object.keys(error).join(', ') : 'not an object'}`
-  )
-  logDebug(
-    `[API Error - error all keys] ${error && typeof error === 'object' ? Object.getOwnPropertyNames(error).join(', ') : 'not an object'}`
-  )
-  const errObj = error as ErrorObject
-  logDebug(`[API Error - error _tag] ${errObj._tag}`)
-  logDebug(`[API Error - error message] ${errObj.message}`)
-  logDebug(`[API Error - error details] ${JSON.stringify(errObj.details)}`)
-}
-
-/**
  * Extract actual error from Effect FiberFailure wrapper
  */
 function extractActualError(error: unknown): ErrorObject {
@@ -225,12 +208,10 @@ function mapTaggedError(errorTag: string, actualError: ErrorObject): SanitizedEr
     // producers get one answer whether or not a driver error sits beneath.
     case 'ForeignKeyViolationError':
       return constraintAnswer('foreign-key', actualError)
+    // A taken value names the column it was refused for when the write path
+    // attributed it, so a form can say so on that field.
     case 'UniqueConstraintViolationError':
-      return {
-        error: 'Conflict',
-        code: 'CONFLICT',
-        message: 'Resource already exists',
-      }
+      return constraintAnswer('unique', actualError)
     case 'NotFoundError':
     case 'TableNotFoundError':
       return {
@@ -332,6 +313,18 @@ function constraintAnswer(violation: ConstraintViolationClass, error: unknown): 
 }
 
 /**
+ * A sanitized answer and, when the request was refused because of the
+ * CALLER'S input, the classification that says so. `callerSide` is what decides
+ * the log level: a caller's bad value is an ordinary 4xx, not a server fault.
+ */
+interface ClassifiedAnswer {
+  readonly answer: SanitizedError
+  readonly callerSide: string | undefined
+}
+
+const serverSide = (answer: SanitizedError): ClassifiedAnswer => ({ answer, callerSide: undefined })
+
+/**
  * Map a database-driver failure to a sanitized response, or `undefined` when
  * the error never came from the driver (so the caller falls through to its own
  * semantic handling).
@@ -344,27 +337,49 @@ function constraintAnswer(violation: ConstraintViolationClass, error: unknown): 
  * The switch has no `default`, so adding an origin to `DriverFailure` fails to
  * compile until it has been given a status here.
  */
-function mapDriverFailure(error: unknown): SanitizedError | undefined {
+function mapDriverFailure(error: unknown): ClassifiedAnswer | undefined {
   // Lost a conflict with a concurrent transaction: the caller may send it again.
   if (transactionConflictOf(error) !== undefined) {
-    return { error: 'Conflict', code: 'CONFLICT', message: CONFLICT_RETRY_MESSAGE }
+    return serverSide({ error: 'Conflict', code: 'CONFLICT', message: CONFLICT_RETRY_MESSAGE })
   }
   const failure = classifyDriverFailure(error)
   switch (failure.origin) {
     case 'constraint': {
-      return constraintAnswer(failure.violation, error)
+      const answer = constraintAnswer(failure.violation, error)
+      return { answer, callerSide: `constraint:${failure.violation}` }
     }
-    case 'caller-input':
-      return {
-        error: SANITIZED_ERROR_TITLES.VALIDATION_ERROR,
-        code: 'VALIDATION_ERROR',
-        message: CALLER_INPUT_MESSAGES[failure.rejection],
-      }
+    case 'caller-input': {
+      const { VALIDATION_ERROR: title } = SANITIZED_ERROR_TITLES
+      const message = CALLER_INPUT_MESSAGES[failure.rejection]
+      const answer: SanitizedError = { error: title, code: 'VALIDATION_ERROR', message }
+      return { answer, callerSide: `caller-input:${failure.rejection}` }
+    }
     case 'operator':
-      return INTERNAL_ERROR
+      return serverSide(INTERNAL_ERROR)
     case 'application':
       return undefined
   }
+}
+
+/** Classify an error into its sanitized answer, without logging. */
+function classifyError(error: unknown): ClassifiedAnswer {
+  const actualError = extractActualError(error)
+  const errorTag = actualError._tag
+  // Known safe error types — every one of them a 4xx about the request.
+  const tagged = errorTag ? mapTaggedError(errorTag, actualError) : undefined
+  if (tagged) return { answer: tagged, callerSide: `tagged:${errorTag}` }
+  // Classify against the database driver BEFORE any message-shaped matching:
+  // a constraint rejection gets the status that describes it (identically on
+  // both dialects), and any other driver failure stays an alertable 500.
+  const driverFailure = mapDriverFailure(error)
+  if (driverFailure) return driverFailure
+  // Not-found patterns (access denied included, so existence never leaks).
+  // Matched on message text, which may hide a server fault: error-level log.
+  if (isNotFoundError(error)) {
+    return serverSide({ error: 'Not Found', code: 'NOT_FOUND', message: 'Resource not found' })
+  }
+  // Generic internal error (no details leaked to prevent information disclosure)
+  return serverSide(INTERNAL_ERROR)
 }
 
 /**
@@ -372,7 +387,7 @@ function mapDriverFailure(error: unknown): SanitizedError | undefined {
  *
  * ✅ Removes internal details (file paths, SQL, stack traces, database schemas)
  * ✅ Maps to generic error codes and user-safe messages
- * ✅ Logs full error server-side for debugging
+ * ✅ Logs a caller-side 4xx as one warn line, any other failure with its cause
  * ✅ Returns only information safe to expose to clients
  *
  * **Security Benefits:**
@@ -385,35 +400,15 @@ function mapDriverFailure(error: unknown): SanitizedError | undefined {
  * @param requestId - Optional request ID for correlation in logs
  * @returns Sanitized error safe for client consumption
  */
-export function sanitizeError(error: unknown, requestId?: string): SanitizedError {
-  logErrorDetails(error, requestId)
-
-  const actualError = extractActualError(error)
-  const errorTag = actualError._tag
-
-  // Handle known safe error types
-  if (errorTag) {
-    const sanitized = mapTaggedError(errorTag, actualError)
-    if (sanitized) return sanitized
-  }
-
-  // Classify against the database driver BEFORE any message-shaped matching:
-  // a constraint rejection gets the status that describes it (identically on
-  // both dialects), and any other driver failure stays an alertable 500.
-  const driverFailure = mapDriverFailure(error)
-  if (driverFailure) return driverFailure
-
-  // Check for not-found patterns (includes access denied to avoid leaking existence)
-  if (isNotFoundError(error)) {
-    return {
-      error: 'Not Found',
-      code: 'NOT_FOUND',
-      message: 'Resource not found',
-    }
-  }
-
-  // Generic internal error (no details leaked to prevent information disclosure)
-  return INTERNAL_ERROR
+export function sanitizeError(
+  error: unknown,
+  requestId?: string,
+  log: SanitizerLog = DEFAULT_SANITIZER_LOG
+): SanitizedError {
+  const { answer, callerSide } = classifyError(error)
+  const answered = `${getStatusCode(answer.code)} ${answer.code}`
+  logAnsweredError({ error, requestId, answered, callerSide }, log)
+  return answer
 }
 
 /**

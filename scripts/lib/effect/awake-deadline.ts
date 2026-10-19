@@ -46,25 +46,55 @@ import * as Effect from 'effect/Effect'
 
 const NANOS_PER_MILLI = 1_000_000
 
-/** Sleep until `budgetNanos` of monotonic (awake) time has passed since `start`. */
-const sleepUntil = (start: bigint, budgetNanos: bigint): Effect.Effect<void> =>
+/**
+ * Sleep until `budgetNanos` of monotonic (awake) time has passed since `start`.
+ *
+ * When the budget runs out, `rearm` (if given) is asked for the budget that
+ * holds NOW; a strictly larger one is slept out in turn, anything else ends the
+ * sleep. Yields the budget that finally expired, so a timeout can name it.
+ */
+const sleepUntil = (
+  start: bigint,
+  budgetNanos: bigint,
+  rearm: (() => bigint) | undefined
+): Effect.Effect<bigint> =>
   Effect.flatMap(Clock.monotonicTimeNanos, (now) => {
     const remaining = budgetNanos - (now - start)
-    return remaining <= BigInt(0)
-      ? Effect.void
-      : Effect.flatMap(Effect.sleep(Duration.nanos(remaining)), () =>
-          sleepUntil(start, budgetNanos)
-        )
+    if (remaining > BigInt(0)) {
+      return Effect.flatMap(Effect.sleep(Duration.nanos(remaining)), () =>
+        sleepUntil(start, budgetNanos, rearm)
+      )
+    }
+    const next = rearm?.()
+    return next !== undefined && next > budgetNanos
+      ? sleepUntil(start, next, rearm)
+      : Effect.succeed(budgetNanos)
   })
+
+const toNanos = (duration: Duration.Duration): bigint =>
+  BigInt(Math.ceil(Duration.toMillis(duration) * NANOS_PER_MILLI))
 
 /**
  * Complete once `duration` of AWAKE time has elapsed — measured on the same
  * monotonic clock `Effect.timed` uses, so a deadline and the duration printed
  * beside it can never disagree.
+ *
+ * With `rearm`, the deadline is re-read each time it expires and may only GROW
+ * (see {@link timeoutAwakeOrElse}). Yields the deadline that finally expired.
  */
-export const sleepAwake = (duration: Duration.Duration): Effect.Effect<void> =>
+export const sleepAwake = (
+  duration: Duration.Duration,
+  rearm?: () => Duration.Duration
+): Effect.Effect<Duration.Duration> =>
   Effect.flatMap(Clock.monotonicTimeNanos, (start) =>
-    sleepUntil(start, BigInt(Math.ceil(Duration.toMillis(duration) * NANOS_PER_MILLI)))
+    Effect.map(
+      sleepUntil(
+        start,
+        toNanos(duration),
+        rearm === undefined ? undefined : () => toNanos(rearm())
+      ),
+      (expired) => Duration.millis(Number(expired) / NANOS_PER_MILLI)
+    )
   )
 
 /**
@@ -73,19 +103,35 @@ export const sleepAwake = (duration: Duration.Duration): Effect.Effect<void> =>
  * Same race semantics: whichever of `self` and the deadline completes first
  * wins, and the loser is interrupted — so a timed-out child is still released
  * by its scope.
+ *
+ * `rearm` is the deadline's second reading. When `duration` expires it is
+ * called once, and a LONGER deadline replaces the expired one (and is re-read
+ * again when it, in turn, expires); an equal or shorter one lets the deadline
+ * fire. It exists for budgets that stretch with machine load: the one-minute
+ * load average is a damped mean that trails a contention spike by tens of
+ * seconds, so a budget computed only when the step STARTS under-reads a
+ * machine that filled up just after — which is exactly what happens on CI,
+ * where every job of a run starts at once.
+ * A deadline can therefore never move EARLIER, and `rearm` must be bounded (a
+ * capped load factor is) or a hang would never end. `orElse` receives the
+ * deadline that finally expired.
  */
 export const timeoutAwakeOrElse = <A, E, R, A2, E2, R2>(
   self: Effect.Effect<A, E, R>,
   options: {
     readonly duration: Duration.Duration
-    readonly orElse: () => Effect.Effect<A2, E2, R2>
+    readonly rearm?: () => Duration.Duration
+    readonly orElse: (expired: Duration.Duration) => Effect.Effect<A2, E2, R2>
   }
 ): Effect.Effect<A | A2, E | E2, R | R2> =>
   Effect.raceFirst(
     Effect.map(self, (value) => ({ timedOut: false as const, value })),
-    Effect.as(sleepAwake(options.duration), { timedOut: true as const })
+    Effect.map(sleepAwake(options.duration, options.rearm), (expired) => ({
+      timedOut: true as const,
+      expired,
+    }))
   ).pipe(
     Effect.flatMap((settled): Effect.Effect<A | A2, E2, R2> =>
-      settled.timedOut ? options.orElse() : Effect.succeed(settled.value)
+      settled.timedOut ? options.orElse(settled.expired) : Effect.succeed(settled.value)
     )
   )

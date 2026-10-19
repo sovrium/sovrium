@@ -334,6 +334,16 @@ export const findDefaultValueChanges = (
 }
 
 /**
+ * One `DROP COLUMN` the migration plans, with the statement rendered for it, so a
+ * caller that may withhold a drop (`planSqliteDrops`) knows which statement drops
+ * which column without re-rendering and string-matching it.
+ */
+export interface ColumnDrop {
+  readonly column: string
+  readonly statement: string
+}
+
+/**
  * Build drop/add column statements from the computed columns to modify
  *
  * `tablePrimaryKeyTypes` is REQUIRED for the same reason it is on
@@ -349,7 +359,11 @@ export const buildColumnStatements = (options: {
   readonly allFields: readonly Fields[number][]
   readonly tablePrimaryKeyTypes: ReadonlyMap<string, string | undefined>
   readonly hasAuthConfig?: boolean
-}): { readonly dropStatements: readonly string[]; readonly addStatements: readonly string[] } => {
+}): {
+  readonly drops: readonly ColumnDrop[]
+  readonly dropStatements: readonly string[]
+  readonly addStatements: readonly string[]
+} => {
   const {
     tableName,
     columnsToDrop,
@@ -359,14 +373,14 @@ export const buildColumnStatements = (options: {
     tablePrimaryKeyTypes,
     hasAuthConfig = true,
   } = options
-  // Dialect-aware: `ALTER TABLE … DROP COLUMN … CASCADE` is PG-only. SQLite
-  // supports `DROP COLUMN` since 3.35 but without `CASCADE` — dependent FK
-  // constraints are handled by `PRAGMA foreign_keys = ON` at runtime.
-  const cascadeSuffix = isSqliteRuntime() ? '' : ' CASCADE'
-  const dropStatements = columnsToDrop.map(
-    (columnName) =>
-      `ALTER TABLE ${tableName} DROP COLUMN ${quoteSqlIdentifier(columnName)}${cascadeSuffix}`
-  )
+  // `CASCADE` is PostgreSQL-only. SQLite (3.35+) drops without it and refuses a
+  // column a key, an index, a constraint, a trigger or a view still names; the
+  // migration rebuilds the table for those instead.
+  const cascade = isSqliteRuntime() ? '' : ' CASCADE'
+  const drops = columnsToDrop.map((column): ColumnDrop => ({
+    column,
+    statement: `ALTER TABLE ${tableName} DROP COLUMN ${quoteSqlIdentifier(column)}${cascade}`,
+  }))
   const addStatements = columnsToAdd.map((field) => {
     const isPrimaryKey = primaryKeyFields.includes(field.name)
     const columnDef = generateColumnDefinition(
@@ -378,5 +392,5 @@ export const buildColumnStatements = (options: {
     )
     return `ALTER TABLE ${tableName} ADD COLUMN ${columnDef}`
   })
-  return { dropStatements, addStatements }
+  return { drops, dropStatements: drops.map((drop) => drop.statement), addStatements }
 }

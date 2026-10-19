@@ -13,6 +13,8 @@
  * lives in the infrastructure layer.
  */
 
+import { isDecodableImageKey } from '@/domain/kernel/identity/mime-types'
+
 /**
  * How a two-dimension resize reconciles the requested box with the source
  * aspect ratio.
@@ -263,6 +265,15 @@ export const parseTransformParams = (
  * `Accept`-header format negotiation.
  */
 export const defaultTransformParams = (): TransformParams => ({ fit: DEFAULT_FIT })
+
+/**
+ * The params for a download that names no transform: the defaults, which let
+ * `Accept` negotiation transcode a raster image, or `format: 'origin'` for any
+ * other file. A browser offers WebP for every `<img>`, an SVG among them, and
+ * a file the pipeline cannot decode is served as stored rather than refused.
+ */
+export const downloadTransformParams = (key: string): TransformParams =>
+  isDecodableImageKey(key) ? defaultTransformParams() : { fit: DEFAULT_FIT, format: 'origin' }
 
 /**
  * Returns true when the query carries at least one transform-affecting parameter.

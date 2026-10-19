@@ -14,6 +14,7 @@ import {
 } from '@/infrastructure/database/drizzle/dialect-schema'
 import type {
   InvitationTokenRow,
+  InvitationUser,
   PendingInvitationRow,
 } from '@/application/ports/contracts/invitation-services'
 
@@ -119,20 +120,15 @@ export async function insertInvitationToken(params: {
   })
 }
 
-/**
- * Look up an invitation token row by token value.
- *
- * Returns undefined if no row matches (token was never issued, was already
- * consumed, or has been deleted manually).
- */
+/** The invitation row of a token, or `undefined` (never issued, consumed, or deleted). */
 export async function findInvitationToken(token: string): Promise<InvitationTokenRow | undefined> {
   const verifications = authVerificationsTable()
   const rows = await db
     .select({
       id: verifications.id,
-      identifier: verifications.identifier,
       value: verifications.value,
       expiresAt: verifications.expiresAt,
+      createdAt: verifications.createdAt,
     })
     .from(verifications)
     .where(eq(verifications.identifier, buildInvitationIdentifier(token)))
@@ -140,13 +136,8 @@ export async function findInvitationToken(token: string): Promise<InvitationToke
 
   const row = rows[0]
   if (!row) return undefined
-
-  return {
-    id: row.id,
-    token,
-    userId: decodeInvitationValue(row.value).userId,
-    expiresAt: row.expiresAt,
-  }
+  const { id, expiresAt, createdAt } = row
+  return { id, token, ...decodeInvitationValue(row.value), expiresAt, createdAt }
 }
 
 /**
@@ -369,14 +360,17 @@ export async function insertCredentialAccount(params: {
 }
 
 /**
- * Mark a user's email as verified.
- *
- * Customers accepting an invitation have proven control of their email by
- * clicking the link, so we can flip emailVerified=true on accept.
+ * Mark a user's email as verified — following the invitation link proves the
+ * mailbox — and answer whether it was NOT verified before (the flip happened).
  */
-export async function markUserEmailVerified(userId: string): Promise<void> {
+export async function markUserEmailVerified(userId: string): Promise<boolean> {
   const users = authUsersTable()
-  await db.update(users).set({ emailVerified: true }).where(eq(users.id, userId))
+  const flipped = await db
+    .update(users)
+    .set({ emailVerified: true })
+    .where(and(eq(users.id, userId), eq(users.emailVerified, false)))
+    .returning({ id: users.id })
+  return flipped.length > 0
 }
 
 /**
@@ -401,17 +395,13 @@ export async function deleteCredentialAccountForUser(userId: string): Promise<vo
 }
 
 /**
- * Find a Better Auth user by id, returning the lean (id, email, name)
- * shape used by the admin-invitation accept flow. Returns `undefined`
- * when the user has been deleted between issuing and accepting the
- * invitation (a rare race).
+ * Find a Better Auth user by id, as the accept flow reads it: `undefined` when
+ * no account holds the id any more, removed between issuing and accepting (a rare race).
  */
-export async function findUserById(
-  userId: string
-): Promise<{ readonly id: string; readonly email: string; readonly name: string } | undefined> {
+export async function findUserById(userId: string): Promise<InvitationUser | undefined> {
   const users = authUsersTable()
   const rows = await db
-    .select({ id: users.id, email: users.email, name: users.name })
+    .select({ id: users.id, email: users.email, name: users.name, role: users.role })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1)

@@ -44,16 +44,16 @@ type PageComponent = NonNullable<PageConfig['components']>[number]
  * The offset anything pinned BESIDE the site header derives from — declared
  * once, here, because the header is this file's.
  *
- * The block's header is `h-11`: 44px including the hairline. Anything sticky in
+ * The block's header is `h-12`: 48px including the hairline. Anything sticky in
  * the same scrolling column clears it by one 16px step, so the offset is
- * `top-15` (60px) and a full-height sticky box is `max-h-[calc(100vh-3.75rem)]`.
+ * `top-16` (64px) and a full-height sticky box is `max-h-[calc(100vh-4rem)]`.
  * The three numbers are one decision; import these rather than spelling the
  * class (`pages/design-system/sections.ts` pins its rail against the same edge).
  */
-export const CHROME_BAR_OFFSET_CLASS = 'top-15'
+export const CHROME_BAR_OFFSET_CLASS = 'top-16'
 
 /** The max height of a sticky box pinned at {@link CHROME_BAR_OFFSET_CLASS}. */
-export const CHROME_BAR_STICKY_MAX_H_CLASS = 'max-h-[calc(100vh-3.75rem)]'
+export const CHROME_BAR_STICKY_MAX_H_CLASS = 'max-h-[calc(100vh-4rem)]'
 
 /** What a surface may vary about its own shell. */
 export interface ShellOptions {
@@ -72,6 +72,11 @@ export interface ShellOptions {
    * be a crumb linking to a 404. Named by the URL segment, not its label.
    */
   readonly breadcrumbUnlinked?: readonly string[]
+  /**
+   * The label of the trail's LAST crumb, in place of its URL segment — the
+   * noun for the object a page shows (`Run`), where the segment is its id.
+   */
+  readonly breadcrumbCurrent?: string
   /**
    * A second navigation column, drawn between the console sidebar and the
    * content — the docs-shaped surfaces' own navigation.
@@ -134,6 +139,21 @@ export interface ShellOptions {
    */
   readonly flush?: boolean
   /**
+   * The page reads top to bottom — a reference, a setting, one record's own
+   * page — so its body stops at one reading width (`max-w-5xl`, 1024 px)
+   * instead of running to the edge.
+   *
+   * ─── ONE WIDTH RULE, DECIDED HERE AND NOWHERE ELSE ─────────────────────
+   *
+   * A page whose body is a data table, a grid of specimens or a dashboard runs
+   * the full width: columns are what the width is for. Every other console page
+   * sets this flag, and its blocks carry no cap of their own — a card capped at
+   * `max-w-3xl` inside a page capped at `max-w-4xl` beside a third page capped
+   * at neither is how the console came to have five content widths. A sentence
+   * may still keep its reading measure; a layout block may not keep a width.
+   */
+  readonly document?: boolean
+  /**
    * One short fact about the page, in the top bar beside the trail — a count
    * the reader should see whichever view of the page is open below.
    */
@@ -195,6 +215,13 @@ const offlineNotice = (): PageComponent =>
 /** The body's own block: 16px all round, a 24px rhythm between sections. */
 const BODY_CLASS = 'flex min-w-0 flex-1 flex-col gap-6 p-4'
 
+/** A document page's body: the same block, stopped at one reading width. */
+const DOCUMENT_BODY_CLASS = `${BODY_CLASS} w-full max-w-5xl`
+
+/** The body block a page gets, by {@link ShellOptions.document}. */
+const bodyClassOf = (options: ShellOptions): string =>
+  options.document === true ? DOCUMENT_BODY_CLASS : BODY_CLASS
+
 /**
  * The body slot: the page's components, or — with a nav column — the column and
  * the content side by side.
@@ -218,7 +245,7 @@ const bodySlot = (body: readonly PageComponent[], options: ShellOptions): PageCo
     return {
       type: 'container',
       element: 'div',
-      props: { className: options.fill ? `${BODY_CLASS} min-h-0` : BODY_CLASS },
+      props: { className: options.fill ? `${bodyClassOf(options)} min-h-0` : bodyClassOf(options) },
       children: [...body],
     } as PageComponent
   }
@@ -237,12 +264,14 @@ const bodySlot = (body: readonly PageComponent[], options: ShellOptions): PageCo
     children: [
       {
         // A plain `div`: the `sidebar` inside already publishes the landmark.
+        // Drawn from `xl` only: at 1024 px a second 208 px column beside the
+        // console sidebar left the content about 560 px.
         // The frame stays `self-stretch` so its rule runs the whole page; the
         // box INSIDE it pins at the header's edge and scrolls its own overflow.
         type: 'container',
         element: 'div',
         props: {
-          className: `border-border ${options.navColumnDrawer === true ? 'contents' : 'hidden'} w-52 flex-none flex-col self-stretch border-r px-3 pt-2 lg:flex`,
+          className: `border-border ${options.navColumnDrawer === true ? 'contents' : 'hidden'} w-52 flex-none flex-col self-stretch border-r px-3 pt-2 xl:flex`,
           'data-testid': 'design-system-nav-column',
         },
         children: [
@@ -260,7 +289,7 @@ const bodySlot = (body: readonly PageComponent[], options: ShellOptions): PageCo
       {
         type: 'container',
         element: 'div',
-        props: { className: BODY_CLASS },
+        props: { className: bodyClassOf(options) },
         children: [...body],
       },
     ],
@@ -279,6 +308,9 @@ const siteHeader = (options: ShellOptions): PageComponent => {
         ...(options.breadcrumb !== undefined ? { labels: options.breadcrumb } : {}),
         ...(options.breadcrumbUnlinked !== undefined
           ? { unlinked: options.breadcrumbUnlinked }
+          : {}),
+        ...(options.breadcrumbCurrent !== undefined
+          ? { currentLabel: options.breadcrumbCurrent }
           : {}),
       },
       ...(options.topbarFact === undefined ? [] : [options.topbarFact]),

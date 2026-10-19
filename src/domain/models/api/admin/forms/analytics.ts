@@ -61,8 +61,8 @@ const submissionsPerDayPointSchema = Schema.Struct({
     examples: ['2026-10-06'],
   }).pipe(Schema.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/))),
   count: Schema.Int.annotate({
-    description: 'Submissions received on that day.',
-  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1))),
+    description: 'Submissions received on that day; `0` for a quiet day of the window.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
 })
 
 /** One step of a multi-step form, with its drop-off count. */
@@ -91,7 +91,7 @@ const formAnalyticsAggregateSchema = Schema.Struct({
   }),
   submissionsPerDay: Schema.Array(submissionsPerDayPointSchema).annotate({
     description:
-      'Submissions per UTC day, ascending. Days with no submission are absent, not zero-filled.',
+      'Submissions per UTC day, ascending: once the window holds one submission, every day of the window is present, a quiet day with `0`, so the series draws as a line. Empty when the window holds none.',
   }),
   averageCompletionTime: Schema.Finite.annotate({
     description: 'Average completion time. Always `0` in this version: it is not measured yet.',

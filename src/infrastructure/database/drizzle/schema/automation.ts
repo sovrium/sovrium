@@ -148,6 +148,13 @@ export const automationRuns = systemSchema.table(
      */
     startedByHand: boolean('started_by_hand').notNull().default(false),
     /**
+     * Whether the person who started this run by hand was a visitor who was
+     * not signed in (a page button pressed with no session). Its record
+     * actions then read and write as a visitor, through every pause, resume
+     * and replay. Records no one: `triggered_by_user_id` stays NULL.
+     */
+    startedAsGuest: boolean('started_as_guest').notNull().default(false),
+    /**
      * The name of the trigger entry that started the run (its own `name`, else
      * its type). NULL for a run recorded before an automation could declare
      * several triggers: it reads as its automation's first trigger.
@@ -173,6 +180,14 @@ export const automationRuns = systemSchema.table(
      */
     resumeAt: timestamp('resume_at', { withTimezone: true }),
     resumeCursor: jsonb('resume_cursor'),
+    /**
+     * While the run is paused — on an approval, a confirmation or a long
+     * wait — the files it had stored and read so far, each with whether its
+     * bytes came in with the run and a fingerprint of the object at its key,
+     * so the resume picks up the same standing and drops any file someone
+     * changed meanwhile. Keys only, never bytes. NULL once the run moves on.
+     */
+    filesLedger: jsonb('files_ledger'),
     /**
      * When the values this run captured were erased with the account of a
      * person they named: trigger data, step inputs, outputs, errors and logs,
@@ -225,6 +240,12 @@ export const automationRunSteps = systemSchema.table(
     reads: jsonb('reads'),
     /** A path or loop step's paths or items, each with the steps run inside, masked. */
     nested: jsonb('nested'),
+    /**
+     * The step's error as a reader who does not read every run is shown it,
+     * when that differs from `error` (a hand-started write refused for a taken
+     * value reads as any other refused write). NULL for every other step.
+     */
+    clientError: text('client_error'),
   },
   (table) => [index('automation_run_steps_runId_idx').on(table.runId)]
 )

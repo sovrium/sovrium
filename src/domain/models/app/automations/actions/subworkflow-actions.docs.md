@@ -31,6 +31,10 @@ Both validate against the schema and neither is read at runtime, so a call writt
 
 A call works among a `loop`'s actions, once per item, and among a `path` branch's actions, as it does at the top level. It is held to the same rules there: a call that would re-enter an automation already running in the chain fails as a circular reference, and one past its `maxDepth` fails before the callee starts.
 
+**Who the called automation acts as.** A call from a run someone started by hand (a manual trigger, a table button, an MCP action template, an agent's chat turn) runs the called automation as that person: its filters reach only the records they may read, a record they may not read fails as one that does not exist, and its writes are checked against their rules, at every depth and in both modes. A call from a run nobody started (a schedule, a webhook, a record event) runs the called automation as the system, as its caller does. Calling an automation never widens what the person who started the chain may read or change.
+
+The run a call starts is not its starter's to read: the person who started the chain reads the called run only as an admin or a named approver would. Otherwise it answers `404` and is absent from her run list. What the called automation hands back reaches the calling run's step as before.
+
 ## Returning
 
 Hands output back to the caller. It is only meaningful in an automation whose trigger is an automation call.

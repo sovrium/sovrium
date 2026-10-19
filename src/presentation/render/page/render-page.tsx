@@ -25,6 +25,7 @@ import { renderToString } from 'react-dom/server'
 import { frontmatterAccess, isArticleReadable } from '@/domain/models/app/pages/content-dir-access'
 import { checkPageAccess } from '@/domain/models/app/pages/page-access-check'
 import { findDeclaredPage } from '@/domain/models/app/pages/page-path-resolvability'
+import { findStampedDeclaredPage } from '@/domain/models/app/pages/record-control-service'
 import { evaluateEmbeddedFormRefsAccess } from '@/presentation/render/forms/form-ref-access-check'
 import {
   isContentDirSlugNotFound,
@@ -49,6 +50,7 @@ import { resolveSidebarCurrentEntries } from '@/presentation/render/resolve/side
 import { resolvePageSidebar } from '@/presentation/render/resolve/sidebar-resolver'
 import { resolveSidebarScopedEntries } from '../resolve/sidebar-scope-resolver'
 import { rootRelativeFavicons, servedBelowRoot } from './favicon-address'
+import { documentRequestFacts, requestPathOf } from './head-references'
 import {
   noopDb,
   resolveOverlayedSession,
@@ -62,6 +64,7 @@ import {
   resolveIslandAssets,
   type IslandBuilder,
 } from './page-document-assembly'
+import { resolvePageLanguage } from './page-lang-resolver'
 import { pagePayloadForReader } from './page-payload-for-reader'
 import { definedOnly } from './page-row-scope-resolver'
 import { absolutizeSharingImage } from './sharing-image-address'
@@ -122,7 +125,6 @@ export async function renderPageByPath(
      */
     readonly hostApp?: App
     /**
-    /**
      * G2: the mount base every derived breadcrumb href hangs off. The path this
      * function receives has already had the base stripped, so the segments are
      * right and every href would otherwise point OUT of the mount — at a page of
@@ -170,6 +172,11 @@ export async function renderPageByPath(
      * address (a static 404) and the token is left verbatim.
      */
     readonly requestPath?: string | undefined
+    /**
+     * `false` keeps the hosting environment's demo notice out of this document:
+     * a design-system frame pictures the operator's template, not the instance.
+     */
+    readonly demoNotice?: false
   }
 ): Promise<PageRenderResult> {
   const {
@@ -189,9 +196,8 @@ export async function renderPageByPath(
     urlLanguage,
     callerCapabilities,
   } = options ?? {}
-  // Every page pass below reads the tree with its `{ component: name }`
-  // references already inlined — see `component-reference-expansion.ts`.
-  const found = expandMatchedPageReferences(findDeclaredPage(app, path), app.components)
+  // Every pass below reads the tree with its `{ component }` references inlined.
+  const found = expandMatchedPageReferences(findStampedDeclaredPage(app, path), app.components)
   if (!found) return undefined
   const { page: matchedPage, params: routeParams, indexBasePathPattern } = found
 
@@ -268,16 +274,14 @@ export async function renderPageByPath(
       requestQuery,
       urlLanguage,
       callerCapabilities,
-      requestPath: options !== undefined && 'requestPath' in options ? options.requestPath : path,
+      requestPath: requestPathOf(path, options),
     }),
   })
   if (resolvedPage === undefined) return undefined
   if ('unauthorized' in resolvedPage) return { unauthorized: true }
-  // P5: turn every `derive: 'path'` breadcrumb into a concrete trail while the
-  // REQUEST path is still in hand — the component dispatcher never sees it.
-  // G2 then G3: both need the REQUEST path, which the component dispatcher
-  // never sees — resolving here is what keeps the renderer free of a prop that
-  // would be inert for every component but these two.
+  // P5, G2 then G3 all need the REQUEST path, which the component dispatcher never
+  // sees: a `derive: 'path'` breadcrumb becomes a trail, and the renderer stays free
+  // of a prop that would be inert for every other component.
   //
   // G2b runs BEFORE G3 and is a separate pass for a reason: it can DELETE its
   // input, and a current-entry mark resolved onto a row the gate then removes
@@ -306,10 +310,12 @@ export async function renderPageByPath(
     servedBelowRoot({ path, urlLanguage, basePath })
   )
 
-  // Highlight every `code`
-  // component BEFORE `renderToString`, so a block nested inside a `tabs` panel
-  // survives the island's `renderToStaticMarkup` serialisation already
-  // highlighted (a post-render splice cannot reach into an escaped attribute).
+  // Highlight every `code` block BEFORE `renderToString` (a `tabs` panel serialises it
+  // early), in the page language a content opening with a `$t:` key is read in.
+  const codeLanguage = {
+    lang: resolvePageLanguage(page, app.languages, detectedLanguage, urlLanguage).lang,
+    languages: app.languages,
+  }
   const [
     resolvedSidebar,
     islandAssets,
@@ -324,26 +330,16 @@ export async function renderPageByPath(
     resolveMarkdownPage(page, routeParams, app, detectedLanguage, indexBasePathPattern, (fm) =>
       isArticleReadable(undefined, frontmatterAccess(fm), app, session)
     ),
-    resolvePageCodeHighlights(
-      page.components,
-      app.design?.codeBlock?.theme,
-      app.design?.codeBlock?.darkTheme
-    ),
-    // A list placed through `{ component: name }` is stamped in its TEMPLATE,
-    // since the renderer expands the reference from this list, not from the page.
+    resolvePageCodeHighlights(page.components, codeLanguage),
+    // A `{ component: name }` list is stamped in its TEMPLATE, which the renderer expands.
     resolveComponentsCodeHighlights(
       stampTemplateIslands(app.components, { app, routeParams }),
-      app.design?.codeBlock?.theme,
-      app.design?.codeBlock?.darkTheme
+      codeLanguage
     ),
   ])
 
-  // A contentDir page whose requested slug has no backing markdown file (in an
-  // existing collection directory) is a genuine not-found — return undefined so the caller renders the 404 not-found page
-  // instead of an empty 200 article shell. Checked AFTER the parallel resolve
-  // (instead of as a pre-flight read) so the hot path reads the article file
-  // once; the discriminator only re-reads on the rare no-payload branch, and
-  // is a constant `false` for non-contentDir pages.
+  // A contentDir slug with no backing markdown file is a genuine 404, not an empty
+  // article shell; checked after the parallel resolve so the hot path reads it once.
   if (
     (markdownPayload === undefined && (await isContentDirSlugNotFound(page, routeParams))) ||
     !articleAdmits(markdownPayload, app, session)
@@ -362,21 +358,22 @@ export async function renderPageByPath(
     resolvedSidebar,
     markdownPayload,
     session,
+    demoNotice: options?.demoNotice,
+    ...documentRequestFacts(app, routeParams, path, options),
   })
   // A standalone `code` component emits a synchronous
   // pre-highlight placeholder (Shiki's dynamic import can't run inside
   // `renderToString`). This async pass splices in the Shiki class-based markup,
-  // reading the palette from `design.codeBlock` — both halves of it, when the
-  // app named a dark counterpart. A no-op for pages without `code` components.
+  // drawn with shadcn/ui's default light/dark pair. A no-op for pages without
+  // `code` components.
   // The one filter over every island payload: nothing names a field the
   // reader may not read, whichever renderer serialised it.
   const readerHtml = await pagePayloadForReader(pageHtml, { app, session, db })
-  return highlightComponentCodeBlocks(
-    absolutizeSharingImage(readerHtml, requestOrigin),
-    app.design?.codeBlock?.theme,
-    app.design?.codeBlock?.darkTheme
-  )
+  return highlightComponentCodeBlocks(absolutizeSharingImage(readerHtml, requestOrigin))
 }
+
+/** What `renderPage` takes beside the app and the path: exactly `renderPageByPath`'s options. */
+type RenderPageByPathOptions = Parameters<typeof renderPageByPath>[2]
 
 /**
  * Renders any page by path to HTML string for server-side rendering
@@ -392,48 +389,7 @@ export async function renderPageByPath(
 export async function renderPage(
   app: App,
   path: string,
-  options?: {
-    readonly detectedLanguage?: string
-    readonly session?: SessionInfo
-    readonly cookies?: Readonly<Record<string, string>>
-    readonly db?: DataSourceDb
-    readonly islandBuilder?: IslandBuilder
-    readonly previewMode?: boolean
-    /** [internal ref] / a forms spec: host request query for embedded `$query` prefill. */
-    readonly requestQuery?: Readonly<Record<string, string>>
-    /** G1: scheme + host this request arrived on, feeding `$app.origin`. */
-    readonly requestOrigin?: string
-    /**
-     * G1: the app whose OWN facts `$app.*` prints, when it is not the app being
-     * rendered. A mounted embedded app renders its own preset pages, but the
-     * name, version and brand a console must show are the OPERATOR's — a fact
-     * the preset config cannot contain. Absent for a standalone app, where the
-     * two are the same object.
-     */
-    readonly hostApp?: App
-    /** G2: mount base every derived breadcrumb href hangs off. */
-    readonly basePath?: string
-    /** G1: the running engine's version, feeding `$app.engineVersion`. */
-    readonly engineVersion?: string
-    /** P3: server-side rows reader for `page.redirectToFirst`. */
-    readonly fetchSystemRows?: SystemRowsFetcher
-    /** server-side record reader for a page-level `{ system }` binding. */
-    readonly fetchSystemRecord?: SystemRecordFetcher
-    /** The `/:lang/` URL-prefix locale, when present. */
-    readonly urlLanguage?: string
-    /**
-     * P10/mount: the caller's resolved powers. A mounted console renders
-     * session-less, so without this the capability gates are inert there — see
-     * `holdsCapability` (`visibility-filter.ts`).
-     */
-    readonly callerCapabilities?: readonly CallerCapability[]
-    /**
-     * The path the visitor asked for, feeding `$app.path`. Absent, it is the
-     * path being rendered; passed as `undefined`, the request named no single
-     * address (a static 404) and the token is left verbatim.
-     */
-    readonly requestPath?: string | undefined
-  }
+  options?: RenderPageByPathOptions
 ): Promise<PageRenderResult> {
   const result = await renderPageByPath(app, path, options)
   if (result) return result

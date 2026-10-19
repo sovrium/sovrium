@@ -54,6 +54,8 @@ export const gotoPage = async (state: PageState, url: string, timeoutMs: number)
   }
   state.refused = undefined
   state.notDocument = undefined
+  // Also seen where no request is intercepted (WebKit): the address the step opens.
+  state.requested = [...state.requested, url]
   try {
     await withDeadline(state.view.navigate(url), timeoutMs, `opening ${url}`)
   } catch (error) {

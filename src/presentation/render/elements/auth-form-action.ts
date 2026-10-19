@@ -33,6 +33,12 @@ export type AuthFormAction = {
    * its email field invites the browser's passkey autofill. Never authored.
    */
   readonly _passkeyAutofill?: boolean
+  /**
+   * Stamped by the page pass on an email sign-in form of an app serving a
+   * password-reset request page: that page's address, which the Password label
+   * row links to. Never authored.
+   */
+  readonly _recoveryHref?: string
   /** Stamped by the invitation pass: the query key the page reads its token from. */
   readonly _invitationParam?: string
   /** `login`: the page an account still owing its two-step code is sent to. */

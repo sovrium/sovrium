@@ -66,3 +66,5 @@ An image signed URL accepts transform parameters appended to it. The token cover
 ```
 
 A raster image arrives with an inline disposition on this route, so it renders directly in an image tag. An SVG does not: it is forced to a download, because an inline SVG on your own origin can execute script.
+
+A PDF that a `file-preview` shows is framed through an address of its own, signed for that use only. It is served inline and may be framed by your app's own pages, still under a policy that runs nothing from the file. The Download and Open links of the same file keep the ordinary download: a forced download that no page may frame. The display is part of the signature, so adding it to a download link by hand gets a 403.

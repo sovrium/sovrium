@@ -1,3 +1,417 @@
+## [0.40.0](https://github.com/sovrium/sovrium/compare/v0.39.1...v0.40.0) (2026-10-19)
+
+### Features
+
+- **pages**: let a button on a record open a pre-filled picker
+- **tables**: show a button or row action disabled with its reason
+- **pages**: seek a video or audio player from any button, link or list item
+- **automations**: run an automation when an invited person accepts
+- **automations**: write, read and delete record comments from an automation
+- **automations**: extract the audio track of a video
+- **design**: make the Claude Design folder of the design-system bundle publish as it is
+- **admin**: offer the design-system bundle download in the console's share and export section
+- **automations**: import calendar events from an ICS feed
+- **tables**: subscribe to a table as a calendar feed
+- **pages**: refetch re-reads every data component named on success
+- **design**: add a Style Dictionary dark config to the design-system bundle
+- **design**: count every component a Claude Design project ships when importing
+- **design**: show each colour's light and dark value in the design-system brief
+- **admin-buckets**: name buckets for people, and read one bucket by name
+- **design**: render a clean, documented component kit in the design-system bundle
+- **forms**: start a relationship field on a row found by a lookup
+- **design**: import design tokens from Claude Design, Figma, Tokens Studio, Style Dictionary and CSS into the app config
+- **pages**: fetched sidebar entries can open onto their own fetched children
+- **forms**: draw a rating scale on endpoint forms
+- **design**: include Claude Design, Figma, Tokens Studio and Style Dictionary files in the design-system bundle
+- **automations**: let revokeAccess take a record away under one role only
+- **pages**: let an automation button re-read or reload once its run succeeds
+- **design**: add Claude Design, Figma, Tokens Studio and Style Dictionary exports of the design tokens
+- **pages**: menu items can switch the colour theme
+- **design**: export the design system as a portable bundle with a rendered component kit
+- **admin-api**: read run durations, boot engines and click windows in words
+- **admin**: tell operators a design-system share link allows a bundle download
+- **tables**: filter by a linked record or a date window, and read empty values as a dash
+- **design**: export the dark theme in the design-system tokens
+- **admin-console**: show a submission's answers in its form's own sections
+- **admin-console**: browse a bucket's files as a grid of thumbnails
+- **storage**: an upload control states the types and size its bucket takes
+- **pages**: fill record references a translation carries
+- **auth**: name the signed-in caller's role in their session
+- **pages**: say a failed fetch action inline under its control, with an optional Retry
+- **admin**: name people and agents in the conversations viewer, with one toolbar and a phone layout
+- **admin**: read one agent, export conversations as CSV, and keep the tool calls a turn ran
+- **data-table**: a three-step CSV import that reads semicolon files and matches unknown choice values
+- **pages**: hold a record sheet's Previous and Next in its header, with the record's place in the list
+- **actions**: a failure toast can offer Retry
+- **console**: page the run history by number and describe each run
+- **pages**: add a duration format for KPI tiles
+- **pages**: resolve $app and $param references in a page's title and description
+- **auth**: let roles and groups declare the label the console shows
+- **pages**: leave out the "All" view entry beside a view that filters nothing
+- **pages**: draw "Forgot your password?" in a sign-in form's Password label row
+- **admin**: draw a 7-day runs chart on the console's Welcome page
+- **automations**: publish the overview buckets as a top-level points array
+- **automations**: name the automation and its steps by their labels on the run detail
+- **library**: let the data table toolbar hold back Export CSV on an empty table
+- **pages**: label a record sheet's stored values the way its grid does
+- **admin**: create a record from the Records page
+- **ai-chat**: set an answer's prose as a chat message with Typeset
+- **ai-chat**: open a tool line onto what the call was given and returned
+- **ai-chat**: draw code in an answer as a small highlighted code block
+- **markdown**: set markdown pages and the article block with shadcn/ui's Typeset
+- **ai-chat**: show the tokens each answer used, for a chat that opts in
+- **code-block**: draw code blocks on shadcn/ui's Code Block anatomy
+- **ai-chat**: show a cited number's source and passage in a hover card
+- **ai-chat**: draw the agent at work as Trace lines in the chat window
+- **ai-chat**: carry a reader preview of each tool call and its result on the chat stream
+
+### Bug Fixes
+
+- **auth**: keep typing in an account form when its code finishes loading
+- **language-switcher**: keep the two-language toggle's link relative
+- **data-sources**: answer a re-read after a write with rows from after it
+- **data-table**: keep a row's action menu open while the grid re-reads
+- **pages**: a sidebar standing on its own is as tall as its entries again
+- **islands**: release the islands a page booted with when its content is swapped
+- **forms**: start a form field's choice where the text inputs beside it start
+- **pages**: paint a choice's option colour above the record drawer's Select
+- **admin**: put an account's actions in labelled buttons at the head of its page
+- **pages**: draw the Select for choices in the editable record drawer
+- **forms**: draw the date picker and the Select in table-bound forms
+- **forms**: draw the date picker and the Select on hosted and dialog forms
+- **admin**: keep the demo notice out of design-system preview frames
+- **pages**: keep the footer badge inside a full-height sidebar shell
+- **admin**: one scroll, a readable run page and tidier design-system pages
+- **sidebar**: keep a group's label still and draw a linked parent as one row
+- **automations**: skip runs whose connection credential is not set
+- **pages**: type the inline related-record create in the record drawer
+- **api**: log a request refused for its own input as a warning, not an error
+- **tables**: refuse an undeclared single-select or status option before the write
+- **automations**: a hand-started run reads the records and fields its starter may read
+- **pages**: refuse a press that names no record when only judged controls start it
+- **automations**: judge a press only on a record its presser may read
+- **tables**: draw a record page's button field disabled on its record
+- **automations**: answer an unknown and an unreadable pressed record alike
+- **pages**: refuse a disabledWhen the server would never judge
+- **pages**: judge a disabled control when its binding lists only some fields
+- **tables**: a calendar feed whose owner may read no row of its table answers not found
+- **records**: record pages, grids and table descriptions follow the list's row admission
+- **automations**: answer a machine the write-only fields a session webhook reveals
+- **automations**: let a hand-started run list a write-only field and read it masked
+- **ai**: a chat figure counts only what the reader can read
+- **records**: every read of a table agrees with the list
+- **auth**: an invitation acceptance still answers when its automations cannot start
+- **tables**: a comment thread lists comments posted by the table's id or its name
+- **automations**: a hand-started run that names no starter cannot use comment steps
+- **auth**: accepting an invitation now counts as verifying the address
+- **automations**: a paused run hashes a local file written moments before its fingerprint
+- **automations**: an uncertain reading of an app address no longer lends a file standing
+- **records**: an aggregate agrees with the rows the reader can list
+- **data-table**: read a grid's first page once when it opens on a default view
+- **automations**: browser pictures of the app, and paused-run fingerprints, keep a run's file standing
+- **automations**: a bucket file URL of the app carries its file's standing on any host
+- **forms**: read a field's takenMessage against the column it writes
+- **tables**: a table button answers a refused write as a manual trigger does
+- **automations**: bound the audio remux by the file it reads
+- **automations**: type the revokeAccess role for typed configs
+- **automations**: a loop or path in a hand-started run reports a refused write as its step does
+- **records**: a refused bulk-form update or delete answers its refusal, never success
+- **forms**: tell a submitter a value is taken only when she may read the record holding it
+- **automations**: transcribe a video from its audio track only
+- **languages**: the grid's new row and pickers, the paged picker, the slash menu and the chat follow the page language
+- **data-table**: offer Load more on an unpaginated grid over the automation runs endpoint
+- **pages**: ship the sidebar current-entry script only on pages with a sidebar
+- **theming**: keep a brand colour's derived text colour in dark
+- **tables**: retire calendar feed addresses with their feed, and answer HEAD probes
+- **automations**: a cancelled wait no longer keeps the file ledgers it would have resumed with
+- **automations**: a fetch redirected to one of the app's files carries that file's standing
+- **pages**: an upload's choose-file button works without an author id
+- **automations**: judge attachTo audiences per reader and admit assets the configuration names
+- **tables**: build calendar feed addresses on the public origin and redact every spelling of a token
+- **automations**: read a large or malformed ICS feed in linear time
+- **pages**: refetch re-reads a chart or KPI fed by a system endpoint
+- **automations**: attachTo in a run nobody started admits only files that qualify
+- **automations**: a paused run keeps the files it stored and read
+- **automations**: a run's files carry the standing of what they were made from
+- **languages**: account forms, form refusals, comments, presence, dictation and charts follow the page language
+- **languages**: grid, pickers, CSV import and rich-text toolbar follow the page language
+- **records**: a unique write over a record the caller may not read answers the ordinary refusal
+- **storage**: console totals and search count no file still being written
+- **storage**: a replacing write settles only its own pending catalog row
+- **design**: report colour spaces the config cannot hold as unmapped on import
+- **design**: import dark colours a design tool states, and keep pill radii in px
+- **storage**: a replacing write never takes over a row another writer created meanwhile
+- **cli**: refuse --mode outside the JSON token document
+- **storage**: list only stored files on the local provider, without following links
+- **storage**: fail a listing whose store cycles through its page tokens
+- **pages**: turn a record drawer's Save on only once something changed
+- **admin-console**: list each readable table's records page in the command palette
+- **tables**: match imported choice values to an option by its label in any language
+- **tables**: name each CSV import column-mapping control after its column
+- **admin-console**: shorten the conversations search placeholder so it fits a narrow toolbar
+- **admin-console**: keep the short read-only notice on pages that show facts in the top bar
+- **tables**: answer a table its reader receives no field of as a missing table, on every read
+- **admin-console**: match import headers to labels in every language on the records page
+- **tables**: read a scope table by the rows a grant admits and the fields its reader may read
+- **admin-console**: draw no grid column for a value the records API withholds from its reader
+- **admin-console**: show a dash for an empty attachment field in a read-only record sheet
+- **tables**: keep the creation date given for a row written to a table with a computed field
+- **forms**: an edit form carries no value for a link its reader may not read
+- **account**: the personal-data export follows the caller's read rules
+- **records**: an export holds no column its reader may not read
+- **admin-console**: label the built-in bucket in the operator's console language
+- **admin-console**: phrase the French same-day oldest-invitation detail naturally
+- **tables**: match CSV import headers to field labels in any declared language
+- **admin-console**: stack the conversation list and thread by the viewer's own width
+- **admin-console**: make the overview's counts read correctly for any number
+- **admin-console**: keep the top bar's controls inside it at every width
+- **automations**: judge a link to many records when showing a run's captured records
+- **records**: leave out a count, rollup or lookup read through a withheld link to many records
+- **admin-console**: a pinned host counts its form submissions since its pinned start
+- **calendar**: name every event chip by its title on hover
+- **auth**: a language saved as a bare code reads back as its declared locale
+- **buckets**: name the bucket, table and field of a system-bucket file by their labels
+- **links**: name the slug as taken when a new link claims a slug the configuration declares
+- **seed**: an undated seeded row is created at the pinned development clock
+- **overlays**: a record sheet draws only what its reader may read and keeps its place while stepping
+- **records**: a link to many records follows its related table's read rule and its own field rule
+- **languages**: show the language a page reads in on an unsaved language select, and remember a saved one in the browser
+- **design**: quote imported font names that contain a quote
+- **design**: keep authored guidance on its own line in DESIGN.md and the brand book
+- **design**: escape font names and shadows in the Claude Design token export
+- **css**: keep a design value inside its declaration in the served stylesheet
+- **admin-api**: name an agent's tools the way people read them on the agent read
+- **record-drawer**: count a record's place across the groups of a grouped grid
+- **design**: accept exactly one colour value in design colours
+- **storage**: refuse a path of a type the bucket does not take with the file-type refusal
+- **admin-console**: read only a short list of abbreviations in capitals, and keep a name's own capitals
+- **admin-buckets**: carry the bucket's label on the one-bucket read
+- **migrations**: drop a user or relationship field on SQLite by rebuilding the table
+- **dev**: stamp form submissions, uploaded files and API keys on the pinned development clock
+- **calendar**: read a month chip by its time alone when its title has no room for a letter and an ellipsis
+- **storage**: recognise office documents, archives and common video by their extension
+- **record-drawer**: count a record's place through the whole list the grid reads
+- **record-drawer**: decide the console record sheet's fields for the signed-in operator
+- **design-system**: print and measure the derived foreground ink in the token rows
+- **storage**: hold an explicit upload path to the types its bucket allows
+- **admin-console**: keep known abbreviations in capitals in readable names
+- **overlays**: let a record sheet on a record page name the row it opens
+- **cli**: do not follow symlinks when listing skill files
+- **cli**: do not follow symlinks when listing backup and bundle files
+- **admin-forms**: name forms and submissions for people on the admin reads
+- **design**: import a colour function only when it is one complete call
+- **data-table**: count one row in the singular in a grid that does not page
+- **cli**: write imported design tokens atomically and refuse to overwrite what the import does not own
+- **cli**: keep design-system import reads inside the given path, and refuse oversized sources
+- **design**: read imported token names as the file's own keys, and keep resolver references inside the source
+- **design**: keep colour opacity in the Tokens Studio export
+- **admin-api**: name each table for people on the instance facts
+- **cli**: report a bundle build failure as an error line
+- **design**: audit only whole design-system downloads, not each file read
+- **design-system**: print a translucent colour's hex with its alpha
+- **admin-console**: name the admin tiers in French on a French console
+- **pages**: moving the sidebar's current mark keeps the author's link classes
+- **cli**: refuse a seeded grant naming a record in the trash
+- **automations**: refuse to grant access to a record that is missing or in the trash
+- **design**: compare translucent colours by their opacity when importing design tokens
+- **design**: read percentage chroma and a/b channels at their CSS reference range in exported tokens
+- **auth**: give an invitee one grant per scope table
+- **tables**: fold a grant changed onto a held role and refuse trashed records
+- **storage**: end a paged listing whose store cycles its page tokens
+- **design**: report which dark colours the operator chose in the flat dark token rows
+- **pages**: name a linked record in a breadcrumb, and draw currentLabel on an enumerated trail
+- **pages**: keep a session-bound switch inert until the session answers
+- **pages**: fetched sidebar entries mark the current page
+- **pages**: let a still click open a card on a draggable board
+- **records**: sort text fields by the alphabet whatever the capitals
+- **pages**: read a kanban badge footer as its option label
+- **pages**: open a record's web address in a new tab, and draw a button with href as a link
+- **navigation**: keep the current sidebar row in view when a group opens later
+- **tables**: refuse access grants naming unknown accounts or records, and merge duplicates
+- **cli**: combine seed grant entries with the same table and role
+- **storage**: keep found bytes on a lost create-only write, finish paged listings, and replace database files atomically
+- **automations**: a copy of a file stored before the run no longer attaches as new
+- **pages**: menus, popovers and selects opened inside a modal dialog open above it
+- **pages**: draw an empty description-list field as a muted dash and format currency formulas
+- **admin**: show the same dark colours in the design-system console as the app paints
+- **console**: write a thread begun today in lower case inside its header
+- **pages**: an in-layout sidebar holds the screen height and stays in view
+- **pages**: fill record values at every depth of an action body
+- **pages**: head create sheets and the palette create dialog in sentence case
+- **admin-console**: name attention subjects as the console does, list the app's agents first
+- **calendar**: keep a whole ellipsis in a narrow month chip
+- **automations**: count a pinned development host's runs on its own timeline
+- **console**: write a pause's moment as the run history writes it
+- **console**: read conversation, search and API key moments on the operator's clock
+- **kanban**: keep shared columns readable on a narrow board
+- **data-table**: open a row from its phone item
+- **design-system**: draw each component specimen in the state its users meet
+- **file-preview**: show a private PDF in its frame instead of an empty box
+- **admin-console**: accept site paths as link destinations and list runs on phones
+- **auth**: name the session's role in the language the reader chose by cookie too
+- **admin**: name tables in the console language, name files by their record, and read form insights once
+- **pages**: keep the time on narrow calendar chips and expose the palette's search state
+- **theming**: centre icon-only buttons and derive readable foregrounds
+- **charts**: draw no axis baselines and keep daily trends continuous
+- **automations**: read a pause as one line and draw the run filters as toolbar facets
+- **admin**: say a failed export under its button, name the role as the app calls it, and translate the request examples
+- **records**: type a record sheet's dates in the page's format, list a link's records from a button, and name a refused save
+- **automations**: stop a paged file listing whose store repeats its cursor
+- **storage**: write a create-only database file and its bytes in one transaction
+- **automations**: read each trigger the same way in the catalogue, its filter and a run
+- **records**: keep a record's stored files in its sheet and hold Save while a file uploads
+- **automations**: keep a file stored after a hand-started run's check, and own every file a run writes
+- **storage**: count the storage overview totals from the catalog
+- **admin-console**: give a reader who may not change a table its record sheet read-only
+- **records**: draw a record sheet's currency as an amount box and its attachment as a drop zone
+- **automations**: stamp runs and conversations on the development clock
+- **admin-console**: name unlabelled fields in sentence case in the grid and record sheet
+- **admin-console**: offer the Comments tab in the console's record sheet
+- **admin-console**: name the record sheet by the record it holds
+- **navigation**: show the current sidebar row on load
+- **pages**: translate a code block's content
+- **forms**: draw a refusal on the field it names instead of a toast over the form
+- **records**: say why a required link was refused, and keep Save off the read-only tabs
+- **calendar**: print event times as HH:mm and never truncate them
+- **charts**: tick count axes in whole numbers and label date buckets as days
+- **console**: format numbers and dates in the operator app's region
+- **ai-chat**: wrap a long suggestion chip inside the panel
+- **data-table**: name the grid when its read fails, and recognise a 404 from a system endpoint
+- **automations**: a hand-started run writes over no stored file it did not write, on every file road
+- **storage**: fail an S3 listing whose store repeats its page token
+- **database**: keep apps with table views starting when a migration changes a table
+- **automations**: judge stored-file removal and taken keys per run
+- **buckets**: refuse an attachment field naming an undeclared bucket
+- **storage**: read every page of an S3 listing
+- **admin**: name tables, automations and steps readably in the console, and draw states as status badges
+- **buckets**: a record write never names a chat upload, and judges a reference as a download
+- **storage**: the database provider lists a literal prefix, completely
+- **automations**: a hand-started bundle check or apply reads a stored key as its starter may
+- **automations**: a hand-started run writes over no stored file it did not write
+- **automations**: keep chat attachments out of reach of a hand-started run
+- **automations**: never read a stored key through a file reference's url form
+- **automations**: answer an unknown account alike when a hand-started run lifts a ban
+- **automations**: a hand-started run lists, uploads and reads stored files as its starter may
+- **admin**: print each assignable role by its label on the account page
+- **admin**: show each pending invitation's role by its label
+- **admin**: show roles and groups by their labels in the users console
+- **automations**: run a page press with no session as a visitor, and a session webhook as its caller
+- **automations**: a hand-started run reads key-named stored files as its starter
+- **automations**: answer an unknown account alike in a hand-started run
+- **theme**: keep a brand colour without a dark value on every channel in dark
+- **automations**: keep a called run out of its chain starter's own runs
+- **automations**: report a batch item refused for a taken value like a single write
+- **admin**: tell a read-only operator who can create and revoke share links
+- **design**: centre the sidebar fold control on the console shell's taller header
+- **pages**: print a system record's dates and lists in the page language
+- **pages**: narrow a fully loaded system grid by the filter conditions a page control publishes
+- **admin**: the conversations viewer no longer offers a second assistant
+- **admin**: phrase the attention details in the operator's console language
+- **pages**: confirm a reversible action with the default button, not the destructive one
+- **admin**: carry each role and group name in a readable form in the console reads
+- **pages**: draw one row menu when a grid has several action columns
+- **pages**: say a record could not be read instead of drawing an empty sheet
+- **pages**: keep what the reader typed when a session prefill arrives late
+- **admin**: tell console search results apart, and match pages and quick actions
+- **admin**: say what an API key can read on the keys page
+- **admin**: give API keys one home in the console
+- **admin**: show the declared environment variables as a searchable table
+- **automations**: hold grants and revocations in a run started by hand to the starter's rights
+- **admin**: read a run by its labels, failure first, raw data folded
+- **admin**: show the app's own mark on the password recovery pages
+- **admin**: refresh a user account's facts after an action changes them
+- **admin**: draw the console's site header at 48px
+- **sidebar**: fold a shut collapsible group to a single 32px row
+- **library**: draw the console shell's site header at shadcn's 48px height
+- **admin**: give the Developers pages a visible title and description
+- **admin**: open a run from its row in the runs history
+- **analytics**: count link clicks on one clock under a pinned development clock
+- **admin**: leave pending invitees out of the account directory
+- **auth**: state the app's own password minimum on the console's account pages
+- **tables**: name the table in a failed read and keep the grid silent until it answers
+- **admin**: send a signed-in reader back to the page named by next
+- **admin**: fold a boot's engine migrations and offer the diff only where there is one
+- **admin**: read console dates in the operator's locale and record boots on the dev clock
+- **pages**: print a list value as a comma-separated list in text
+- **admin**: offer CSV import in the records toolbar, and export only once a table has a record
+- **admin**: show a user account as labelled facts
+- **admin**: draw the console's not-found page as an empty state
+- **admin**: drop the sign-in separator when nothing sits above it
+- **admin**: show the role and expiry on an invitation, and a clear dead end for a link that no longer works
+- **admin**: name a required, unset environment variable and stop calling a blank default a default
+- **tables**: read the records that point at a record through a one-to-many field
+- **tables**: open a grid on the table's default view and draw its columns and grouping
+- **tables**: keep a wide grid's first column and row menu on screen
+- **tables**: draw date columns in the text face with tabular figures
+- **admin**: name expired connections by their declared label on the welcome attention read
+- **design-system**: preview the Overview pages from the app's own design
+- **admin**: fold the second navigation column below the xl width
+- **design-system**: draw component specimens on sample data, list their props, and scale wide frames
+- **admin**: recompose the console overview around what needs attention
+- **design-system**: show the palette in shadcn's names, filled, with paired contrast and dark defaults
+- **database**: keep retention sweeps deleting when PostgreSQL defaults to read-only
+- **server**: boot into a 503 state while the database is unreachable instead of exiting
+- **automations**: a hand-started run acts as its starter in attachments, grantee lists, refused unique values and called automations
+- **config**: treat a TypeScript config key set to undefined as absent
+- **admin**: name a connection by the label its configuration declares
+- **admin**: read the submissions export gate from the inbox itself
+- **admin**: tighten the user account page
+- **pages**: keep the required asterisk out of a new record's field names
+- **admin**: Voice page shows only what the app declares
+- **admin**: give every Welcome count card a way to its page
+- **pages**: keep focus inside a sheet when the action that had it disappears
+- **admin**: show a submission's status word and revealed answers in its drawer
+- **admin**: name the run page's last breadcrumb Run instead of the run's id
+- **css**: record which compiler built a pre-compiled stylesheet
+- **automations**: resolve a started run's update and delete filters within what its starter may read
+- **design**: colour the github-light token kinds code blocks drew in plain ink
+- **agents**: keep the database's own words out of a failed chat lookup
+- **agents**: tell an agent how a request it sent failed, without the reply
+- **agents**: narrow every record value in a streamed tool call to what the reader may read
+- **admin**: read the links once on the Links page
+- **design**: draw every code block in shadcn/ui's default colours
+- **pages**: share one read when two components ask for the same query in a different order
+- **agents**: hand back a refused agent write as one sentence that repeats no value
+- **ai-chat**: keep values a reader may not read out of an agent's tool events
+- **pages**: show a plain notice when a chart's read fails
+- **admin**: name search results in the reader's language
+- **pages**: open a type-to-confirm gate as a modal alert dialog
+- **admin**: read the attention and session feeds once per page
+- **navigation**: draw a sidebar row's disclosure chevron as the group header's
+- **pages**: print a system-source drawer's date-time as its grid column does
+- **admin**: label and date the console submission drawer as its grid does
+- **admin**: show the analytics-off sentence on the console Analytics page
+- **storage**: serve SVG and other non-raster files to a browser's image request
+- **admin**: stop printing light colour values as dark ones on Foundations
+- **admin**: draw component specimens whose choice controls read a table
+- **admin**: name a connection once in the Overview's reconnect notice
+- **admin**: show an account's access grants only to an administrator
+- **tables**: tell a refused grid sort at once instead of retrying it
+- **admin**: stop offering a sort on the Users Groups column
+- **admin**: keep click analytics off the console Links pages for read-only operators
+- **admin**: open console Analytics on Footprint where the audience cannot be read
+- **admin**: show the app's own mark on the design-system Overview and Brand pages
+- **admin**: link the design-system Overview's gap rows to the published manual
+- **agents**: word a tool call refused for the person's own permissions like any other unreachable table
+
+### Performance Improvements
+
+- **pages**: load the record picker on first use
+- **forms**: load the choice Select on demand in forms and the record drawer
+- **tables**: read a grid's records once per load when a filter bar shares its channel
+- **design**: build the design-system bundle once under concurrent reads
+- **ai**: import only the AI modules the provider layer uses
+- **email**: load the SMTP client on first send
+- **email**: load the email CSS inliner on first message
+- **css**: load the Tailwind engine on first compile
+- **cli**: load each command on demand
+- **automations**: load the TypeScript validator on first use
+- **auth**: load the SSO and passkey plugins only when configured
+- **openapi**: build the OpenAPI document on first request
+- **admin-console**: open the console preset on first use instead of at start
+- **css**: reuse a compiled stylesheet across restarts when the app's CSS inputs are unchanged
+- **assets**: keep the island bundle cache on under NODE_ENV=development unless SOVRIUM_DEV_NO_CACHE=1
+
 ## [0.39.1](https://github.com/sovrium/sovrium/compare/v0.39.0...v0.39.1) (2026-10-16)
 
 _No user-facing changes in this release._

@@ -19,10 +19,12 @@ import { validateAllAiAccessRules } from './auth/ai-access-validation'
 import { validateAllRoleReferences, validateTableRoleReferences } from './auth/role-validation'
 import { validateAllAuthActionReferences } from './auth/roles/invite-role-validation'
 import { type Action, AutomationsSchema } from './automations'
+import { validateAllCalendarImports } from './automations/actions/calendar/import-ics-validation'
 import { validateWebhookTriggersAgainstApp } from './automations/trigger/webhook-app-validation'
 import { entriesOfType, hasTriggerOfType } from './automations/trigger-entries-service'
 import { BadgeSchema } from './badge'
 import { BucketsSchema } from './buckets'
+import { validateFieldBucketReferences } from './buckets/field-bucket-reference-validation'
 import { validateComponentPlacements } from './component-placement-validation'
 import { ComponentsSchema } from './components'
 import { connectionCallIssue } from './connection-file-source-validation'
@@ -251,20 +253,24 @@ const validateSelectDeclarations = (
 
 /**
  * The declaration checks closing the final filter, as one branch: table
- * permission groups, the groups and roles the `auth` operators name literally, then
- * every `$env.NAME` anywhere in the configuration against the variables
+ * permission groups, the groups and roles the `auth` operators name literally, the
+ * table and fields a `calendar/importIcs` step writes, then every `$env.NAME` anywhere in the configuration against the variables
  * `app.env` declares. Grouped for the same complexity-budget reason as
  * {@link validateSelectDeclarations}.
  */
 const validateDeclaredReferences = (
   app: Parameters<typeof validateAllTablePermissionGroups>[0] &
     Parameters<typeof validateAllAuthActionReferences>[0] &
-    Parameters<typeof validateAllEnvReferences>[0]
+    Parameters<typeof validateAllEnvReferences>[0] &
+    Parameters<typeof validateAllCalendarImports>[0]
 ): true | string => {
   const permissionGroupError = validateAllTablePermissionGroups(app)
   if (permissionGroupError !== true) return permissionGroupError
   const authActionError = validateAllAuthActionReferences(app)
   if (authActionError !== true) return authActionError
+  // The table a `calendar/importIcs` step writes into, and the fields it maps.
+  const calendarImportError = validateAllCalendarImports(app)
+  if (calendarImportError !== true) return calendarImportError
   return validateAllEnvReferences(app)
 }
 
@@ -591,31 +597,8 @@ export const AppSchema = Schema.Struct({
       return validateRowRuleGrantRoles(app) ?? validateAllRoleReferences(app)
     })
   ),
-  // Bucket reference cross-validation: attachment field bucket references must exist in app.buckets
-  Schema.check(
-    Schema.makeFilter((app) => {
-      // Only validate when both buckets and tables are configured
-      if (!app.buckets || !app.tables) return true
-
-      const bucketNames = new Set(app.buckets.map((b) => b.name))
-      const errors = app.tables.flatMap((table) =>
-        table.fields
-          .filter(
-            (field): field is typeof field & { bucket: string } =>
-              (field.type === 'single-attachment' || field.type === 'multiple-attachments') &&
-              'bucket' in field &&
-              typeof (field as Record<string, unknown>).bucket === 'string'
-          )
-          .filter((field) => !bucketNames.has(field.bucket))
-          .map(
-            (field) =>
-              `Table '${table.name}' field '${field.name}' references undefined bucket '${field.bucket}'. Valid buckets: ${Array.from(bucketNames).join(', ')}`
-          )
-      )
-
-      return errors.length > 0 ? errors[0] : true
-    })
-  ),
+  // Bucket reference cross-validation: an attachment field names a bucket the app can serve
+  Schema.check(Schema.makeFilter(validateFieldBucketReferences)),
   // Automation cross-validation: record/comment triggers and record actions must
   // reference existing tables. A config with no `tables` key declares an EMPTY
   // set, not an unknown one, so every table-naming surface is refused there too.

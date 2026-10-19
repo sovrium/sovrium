@@ -47,6 +47,7 @@ import {
   outputTypesOf,
   type ParkedAgent,
 } from './browser-agent-park'
+import { keepStepReading, startStepReading } from './browser-own-app'
 import {
   browserRunOptionsOf,
   pageShot,
@@ -135,6 +136,8 @@ interface AgentRun {
   readonly automation: AutomationContext
   readonly runContext: ActionRunContext | undefined
   readonly storeShot: ReturnType<typeof shotStore>
+  /** Whether a page of the session loaded anything from the app itself (`browser-own-app.ts`). */
+  readonly seenOwnApp: Ref.Ref<boolean>
   readonly shots: readonly ScreenshotRef[]
   readonly stepTimeoutMs: number
   readonly runMs: number
@@ -145,7 +148,7 @@ const shoot = (run: AgentRun, name: string) =>
   Effect.gen(function* () {
     const bytes = yield* pageShot(run.session)
     if (bytes._tag === 'None') return []
-    const shot = yield* run.storeShot(bytes.value, name)
+    const shot = yield* run.storeShot(bytes.value, name, run.session)
     return shot === undefined ? [] : [shot]
   })
 
@@ -170,6 +173,8 @@ const finish = (
     }
     const shot = yield* shoot(run, 'confirm')
     const shots = [...run.shots, ...shot]
+    // What the step read so far is kept with the run, never in its output.
+    yield* keepStepReading(run.automation, run.seenOwnApp, run.session)
     const { runId } = run.automation
     if (runId === undefined) {
       yield* run.session.close
@@ -347,12 +352,15 @@ export const handleBrowserAgent: ActionHandler = (action, _app, automation, runC
     const parked = parkedAgentOf(runContext)
     const runId = automation.runId ?? globalThis.crypto.randomUUID()
     const counter = yield* Ref.make((parked?.screenshots.length ?? 0) + 1)
+    // Resuming, the step starts with what it had read before its submission was held.
+    const seenOwnApp = yield* startStepReading(automation, parked !== undefined)
     const run: Omit<AgentRun, 'session'> = {
       options: agentOptionsOf(action),
       base,
       automation,
       runContext,
-      storeShot: shotStore({ runId, bucket: base.bucket, automation, counter }),
+      storeShot: shotStore({ runId, bucket: base.bucket, automation, counter, seenOwnApp }),
+      seenOwnApp,
       shots: parked?.screenshots ?? [],
       stepTimeoutMs: base.stepMs ?? driver.limits.stepTimeoutMs,
       runMs: base.runMs ?? driver.limits.runTimeoutMs,

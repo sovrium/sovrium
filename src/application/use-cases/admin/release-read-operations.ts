@@ -28,6 +28,7 @@ import {
 } from '@/application/use-cases/admin/admin-read-operation'
 import { listBootLedger, readBootLedgerEntry } from '@/application/use-cases/admin/boot-ledger'
 import { readDecisionRegister } from '@/application/use-cases/admin/decisions-register'
+import { resolveOperatorLanguage } from '@/application/use-cases/admin/operator-language'
 import { decisionsCatalogResponseSchema } from '@/domain/models/api/admin/decisions/catalog'
 import {
   releaseDetailResponseSchema,
@@ -64,9 +65,12 @@ const releasesList = defineAdminRead<undefined>({
   },
   subject: 'boot ledger',
   decode: noInput,
-  read: (app) =>
-    Effect.map(listBootLedger(app.name), (body) =>
-      answerWithSchema(releasesListResponseSchema, body)
+  // `engineMigrationsLabel` is phrased in the operator's console language.
+  read: (app, _input, request) =>
+    Effect.flatMap(resolveOperatorLanguage(request), (language) =>
+      Effect.map(listBootLedger(app.name, language), (body) =>
+        answerWithSchema(releasesListResponseSchema, body)
+      )
     ),
 })
 

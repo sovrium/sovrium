@@ -36,6 +36,10 @@ import {
 } from '@/application/use-cases/admin/admin-read-operation'
 import { ListAuditEvents } from '@/application/use-cases/admin/audit-log/emit'
 import { GROUPS_READ_OPERATIONS } from '@/application/use-cases/admin/groups-read-operations'
+import {
+  consoleLabels,
+  resolveOperatorLanguage,
+} from '@/application/use-cases/admin/operator-language'
 import { buildAdminOrganisationGraph } from '@/application/use-cases/admin/organisation-graph'
 import { ROLES_READ_OPERATIONS } from '@/application/use-cases/admin/roles-read-operations'
 import {
@@ -195,8 +199,13 @@ const usersDirectory = defineAdminRead<UsersDirectoryQuery>({
   },
   subject: 'users directory',
   decode: decodeUsersDirectoryQuery,
-  // No admin audit event: the directory route has never written one.
-  read: (_app, query) => BuildUsersDirectory(query),
+  // No admin audit event: the directory route has never written one. Roles and
+  // groups are labelled in the operator's console language.
+  read: (app, query, request) =>
+    Effect.gen(function* () {
+      const language = yield* resolveOperatorLanguage(request)
+      return yield* BuildUsersDirectory(query, consoleLabels(app, language))
+    }),
 })
 
 // ─── Invitations ─────────────────────────────────────────────────────────────
@@ -216,7 +225,8 @@ const invitationsList = defineAdminRead<undefined>({
   openapi: {
     summary: 'List the outstanding invitations',
     description:
-      'Every invitation not yet accepted, pending or expired, with its role and issuer. ' +
+      'Every invitation not yet accepted, pending or expired, with its role, the words the ' +
+      'console shows for that role, and its issuer. ' +
       'The bearer token an invitee received is never part of the answer. Admin only.',
     operationIdBase: 'listAdminInvitations',
     responseSchema: adminInvitationsListResponseSchema,
@@ -224,13 +234,18 @@ const invitationsList = defineAdminRead<undefined>({
   },
   subject: 'invitations list',
   decode: () => ({ _tag: 'Ok', input: undefined }),
-  // No admin audit event: the invitations route has never written one.
-  read: () =>
+  // No admin audit event: the invitations route has never written one. Each
+  // role is labelled in the operator's console language, as the directory's.
+  read: (app, _input, request) =>
     Effect.gen(function* () {
       const rows = yield* (yield* InvitationTokenRepository).listPending
       const now = DateTime.toDateUtc(yield* DateTime.now)
+      const labels = consoleLabels(app, yield* resolveOperatorLanguage(request))
       return answerWithSchema(adminInvitationsListResponseSchema, {
-        items: projectInvitations(rows, now),
+        items: projectInvitations(rows, now).map((item) => ({
+          ...item,
+          roleLabel: labels.role(item.role),
+        })),
       })
     }),
 })

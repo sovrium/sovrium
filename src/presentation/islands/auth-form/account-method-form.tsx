@@ -237,6 +237,7 @@ function NextScreen({
       <KeyReveal
         secret={stage.key}
         onDone={() => setStage(FORM_STAGE)}
+        words={strings}
       />
     )
   return undefined
@@ -287,7 +288,7 @@ export function AccountMethodForm(props: AccountMethodFormProps): ReactElement {
             type="checkbox"
             name="trustDevice"
           />
-          Trust this device
+          {props.uiStrings?.['auth.trustDevice'] ?? 'Trust this device'}
         </label>
       ) : undefined}
       <Feedback {...result} />

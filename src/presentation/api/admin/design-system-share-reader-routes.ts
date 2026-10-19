@@ -56,10 +56,12 @@
  */
 
 import { buildDesignSystem } from '@/application/use-cases/admin/design-system'
+import { sharedDesignSystemBundle } from '@/application/use-cases/admin/design-system-bundle-read-operations'
 import { renderDesignSystemMarkdown } from '@/application/use-cases/admin/design-system-markdown'
 import { resolveDesignSystemShare } from '@/application/use-cases/admin/design-system-share'
 import { designSystemDocumentSchema } from '@/domain/models/api/admin/design-system'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { zipResponseHeaders } from '@/presentation/api/admin/design-system-bundle-routes'
 import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import { renderDesignSystemShareDocument } from '../../render/page/design-system-share-document'
 import type { DesignSystemShareRepository } from '@/application/ports/repositories/design-system/design-system-share-repository'
@@ -78,6 +80,24 @@ import type { Context, Hono } from 'hono'
  */
 const runReader = <A, E>(c: Context, program: Effect.Effect<A, E, DesignSystemShareRepository>) =>
   runOnRequest(c, program)
+
+/** The suffix that asks a share link for its bundle zip. */
+const ZIP_SUFFIX = '.zip'
+
+/**
+ * The share's bundle: the same archive an admin downloads, built from the
+ * same config, so a stranger and the operator cannot be handed two design
+ * systems. A build failure is the same 404 as a miss, for the oracle reason
+ * the lookup gives.
+ */
+const answerSharedZip = async (c: Context, app: App): Promise<Response> => {
+  const built = await runOnRequest(c, sharedDesignSystemBundle(app))
+  if (built._tag === 'Failure') return c.notFound()
+  return c.body(built.success.slice().buffer, 200, {
+    ...zipResponseHeaders(app.name),
+    'X-Robots-Tag': 'noindex, nofollow',
+  })
+}
 
 /**
  * The palette the share document paints itself with.
@@ -116,21 +136,28 @@ const shareDocumentColors = (
  */
 export function setupDesignSystemShareRoutes(honoApp: Readonly<Hono>, app: App): Readonly<Hono> {
   return honoApp.get('/s/design-system/:token', async (c) => {
-    const token = c.req.param('token')
+    // `{token}.zip` is the same share's bundle download ([internal ref] A11): one
+    // route, so the zip resolves the share exactly as the page does and dies
+    // with it on revocation.
+    const param = c.req.param('token')
+    const wantsZip = param.endsWith(ZIP_SUFFIX)
+    const token = wantsZip ? param.slice(0, -ZIP_SUFFIX.length) : param
 
     const resolved = await runReader(c, resolveDesignSystemShare(app.name, token))
     // A database failure is answered exactly like a miss. The alternative — a
     // 500 that a valid token does not produce — would turn the reader into an
     // oracle for whether a guessed token exists.
     if (resolved._tag === 'Failure' || resolved.success === undefined) return c.notFound()
+    if (wantsZip) return answerSharedZip(c, app)
 
     // The A2 projection, validated before serialising. The contract is
     // `.strict()` throughout precisely so a field smuggled into the payload is
     // refused here rather than published to a stranger.
     const parsed = decodeSafe(designSystemDocumentSchema)(buildDesignSystem(app))
-    if (!parsed.success) return c.notFound()
+    const parsedDark = decodeSafe(designSystemDocumentSchema)(buildDesignSystem(app, 'dark'))
+    if (!parsed.success || !parsedDark.success) return c.notFound()
 
-    const markdown = renderDesignSystemMarkdown(parsed.data, app.name)
+    const markdown = renderDesignSystemMarkdown(parsed.data, parsedDark.data, app.name)
     return c.html(
       renderDesignSystemShareDocument(markdown, app.name, shareDocumentColors(app)),
       200,

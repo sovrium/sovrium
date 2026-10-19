@@ -9,8 +9,8 @@ import type { ReactElement, ReactNode } from 'react'
 
 /**
  * The lucide glyphs shadcn/ui's controls draw — a clock, a minus and a plus, a
- * check, a grip, a globe, a chevron and a magnifier — as inline SVG: lucide's
- * own geometry on its 24-unit grid at stroke 2.
+ * check, a grip, a globe, a calendar, a chevron and a magnifier — as inline
+ * SVG: lucide's own geometry on its 24-unit grid at stroke 2.
  *
  * Inline rather than imported from `lucide-react` because both the server
  * renderers and the islands draw them: a static named import tree-shakes, but
@@ -125,6 +125,24 @@ export function GlobeGlyph({ className }: GlyphProps): ReactElement {
       />
       <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
       <path d="M2 12h20" />
+    </LucideGlyph>
+  )
+}
+
+/** lucide `calendar`: a button that opens a day grid. */
+export function CalendarGlyph({ className }: GlyphProps): ReactElement {
+  return (
+    <LucideGlyph className={className}>
+      <path d="M8 2v4" />
+      <path d="M16 2v4" />
+      <rect
+        width="18"
+        height="18"
+        x="3"
+        y="4"
+        rx="2"
+      />
+      <path d="M3 10h18" />
     </LucideGlyph>
   )
 }

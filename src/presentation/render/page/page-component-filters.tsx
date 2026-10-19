@@ -43,7 +43,7 @@ import {
   applyVisibilityToComponents,
 } from '@/presentation/render/resolve/visibility-filter'
 import {
-  markPasskeyAutofill,
+  markSignInForms,
   stripAuthActionsIfUnconfigured,
   stripUnconfiguredOAuthForms,
 } from './page-access-gating'
@@ -63,6 +63,7 @@ import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
 import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
+import type { CallerFieldReader } from '@/domain/models/app/tables/field-read-filter-service'
 import type { FormRefReaders } from '@/presentation/render/forms/form-ref-readers'
 
 /**
@@ -94,6 +95,12 @@ interface PageComponentFilterInput {
    * `visibility-filter.ts` for why the POWERS travel and the session does not.
    */
   readonly callerCapabilities?: readonly CallerCapability[]
+  /**
+   * The mounted console caller's role and groups. Like the powers above, the
+   * route layer knows them and the session-less render does not; they decide
+   * only which fields her record sheet shows and lets her edit.
+   */
+  readonly callerFieldReader?: CallerFieldReader | undefined
   /** The table-backed choices of each embedded form, read before this pass. */
   readonly formOptions?: FormRefOptionSets
   /** The table each embedded form writes to, as this reader may see it. */
@@ -144,7 +151,7 @@ export function gatePageComponents(
 ): Page['components'] {
   const { rawPage, app, session, requestQuery } = input
   const authStripped = stripAuthActionsIfUnconfigured(rawPage.components, !!app.auth)
-  const oauthFiltered = markPasskeyAutofill(stripUnconfiguredOAuthForms(authStripped, app), app)
+  const oauthFiltered = markSignInForms(stripUnconfiguredOAuthForms(authStripped, app), app)
   // P10: the CALLER-power gate runs before the three session gates below and
   // EXCLUDES rather than hiding — a CSS-hidden action column would still ship
   // every row action's endpoint to a caller forbidden to call it (S1/S4).
@@ -255,13 +262,15 @@ export function applyPageComponentFilters(input: PageComponentFilterInput): Page
       ),
       app,
       session,
-      { capabilities: input.callerCapabilities, hostApp }
+      { capabilities: input.callerCapabilities, hostApp, fieldReader: input.callerFieldReader }
     ),
     {
       hostApp,
       session,
       mounted: input.hostApp !== undefined && input.hostApp !== app,
+      fieldReader: input.callerFieldReader,
       lang: activeLang,
+      pagesApp: app,
     }
   ) as ReturnType<typeof markDrawerFieldAccess>
   // The platform Cmd+K command palette is appended to every page by default.
@@ -274,7 +283,7 @@ export function applyPageComponentFilters(input: PageComponentFilterInput): Page
   }
   // A page that AUTHORS a palette carries exactly the one it declared. The
   // engine appends nothing on top — see `hasAuthoredPalette`.
-  const synthesized = buildCommandPaletteComponent(app, session)
+  const synthesized = buildCommandPaletteComponent(app, session, hostApp)
   if (hasAuthoredPalette(withDrawerDispatches)) {
     return {
       ...rawPage,

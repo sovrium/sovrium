@@ -23,15 +23,16 @@ import { fieldWidgetOf, type FieldWidget } from '@/presentation/design/field-typ
 import { readsAsTrue } from '../../runtime/cell-value-semantics'
 import { RecordButton } from '../../runtime/record-button'
 import { CodeFieldBoundary } from './code-field-boundary'
+import { DateField } from './date-field'
 import { CONTROL_CLASS, TEXTAREA_CLASS } from './field-chrome-classes'
 import { type FieldDef, labelOf } from './field-def'
 import { FieldHelpText } from './field-help-text'
-import { LabelledControl } from './field-label'
+import { FieldLabelText, LabelledControl } from './field-label'
 import { FileField } from './file-field'
 import { RecordPickerField } from './record-picker-field'
 import { RichTextFieldBoundary } from './rich-text-field-boundary'
+import { SelectField } from './select-field'
 import {
-  DateField,
   DateTimeField,
   MultiSelectField,
   NumberField,
@@ -65,7 +66,7 @@ function TextAreaField({
   return (
     <LabelledControl
       key={field.name}
-      label={labelOf(field)}
+      label={<FieldLabelText field={field} />}
       help={<FieldHelpText field={field} />}
       control={(id) => (
         <textarea
@@ -82,49 +83,6 @@ function TextAreaField({
           {...(invalid && { 'aria-invalid': 'true' })}
           {...fieldDescribedBy(field)}
         />
-      )}
-    />
-  )
-}
-
-function SelectField({
-  field,
-  value,
-  onChange,
-  options,
-  invalid,
-}: FieldInputProps & {
-  readonly field: FieldDef
-  readonly options: NonNullable<FieldDef['options']>
-  readonly invalid?: boolean
-}) {
-  return (
-    <LabelledControl
-      key={field.name}
-      label={labelOf(field)}
-      help={<FieldHelpText field={field} />}
-      control={(id) => (
-        <select
-          id={id}
-          name={field.name}
-          value={value}
-          onChange={(e) => onChange(field.name, e.target.value)}
-          className={CONTROL_CLASS}
-          {...(field.disabled && { disabled: true })}
-          {...(field.required && { required: true })}
-          {...(invalid && { 'aria-invalid': 'true' })}
-          {...fieldDescribedBy(field)}
-        >
-          <option value="">Select...</option>
-          {options.map((opt) => (
-            <option
-              key={opt.value}
-              value={opt.value}
-            >
-              {opt.label}
-            </option>
-          ))}
-        </select>
       )}
     />
   )
@@ -156,7 +114,7 @@ function CheckboxField({ field, value, onChange }: FieldInputProps & { readonly 
         className={CHECKBOX_CLASS}
         {...(field.disabled && { disabled: true })}
       />
-      {labelOf(field)}
+      <FieldLabelText field={field} />
     </label>
   )
 }
@@ -175,7 +133,7 @@ function TypedInputField({
   return (
     <LabelledControl
       key={field.name}
-      label={labelOf(field)}
+      label={<FieldLabelText field={field} />}
       help={<FieldHelpText field={field} />}
       control={(id) => (
         <input
@@ -217,7 +175,8 @@ function renderCodeField(field: FieldDef, value: string, onChange: FieldInputPro
 function renderRichTextField(
   field: FieldDef,
   value: string,
-  onChange: FieldInputProps['onChange']
+  onChange: FieldInputProps['onChange'],
+  words: FieldRenderArgs['uiStrings']
 ) {
   return (
     <RichTextFieldBoundary
@@ -229,6 +188,7 @@ function renderRichTextField(
       maxLength={field.maxLength}
       displayLabel={labelOf(field)}
       imageBucket={field.imageBucket}
+      {...(words !== undefined && { words })}
     />
   )
 }
@@ -282,7 +242,8 @@ const WIDGET_RENDERERS: Record<FieldWidget, (args: FieldRenderArgs) => React.Rea
       />
     ) : undefined,
   code: ({ field, value, onChange }) => renderCodeField(field, value, onChange),
-  'rich-text': ({ field, value, onChange }) => renderRichTextField(field, value, onChange),
+  'rich-text': ({ field, value, onChange, uiStrings }) =>
+    renderRichTextField(field, value, onChange, uiStrings),
   'file-single': ({ field, value, onChange, uiStrings }) => (
     <FileField
       field={field}
@@ -310,18 +271,18 @@ const WIDGET_RENDERERS: Record<FieldWidget, (args: FieldRenderArgs) => React.Rea
       invalid={invalid}
     />
   ),
-  'record-picker': ({ field, value, onChange, invalid }) => (
+  'record-picker': ({ field, value, onChange, invalid, uiStrings }) => (
     <RecordPickerField
       field={field}
       value={value}
       onChange={onChange}
       invalid={invalid}
+      words={uiStrings}
     />
   ),
   select: ({ field, value, onChange, invalid }) => (
     <SelectField
       field={field}
-      name={field.name}
       value={value}
       onChange={onChange}
       options={field.options ?? []}

@@ -7,6 +7,7 @@
 
 import { withDisplayLabels } from '@/domain/models/app/pages/substitute-record-vars'
 import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
+import { formatRecordText } from '@/domain/models/app/tables/record-text-service'
 import {
   KANBAN_FOOTER_AVATAR_CLASSES,
   computeKanbanCardFooterChipClasses,
@@ -89,6 +90,25 @@ function renderBadge(label: string, paint: OptionChipPaint | undefined): ReactNo
   )
 }
 
+/**
+ * A `badge` footer item. An option value draws the grid's chip — its colour,
+ * or the neutral outline, in the app's badge form, painted on the server
+ * (`option-badge-paints.ts`) — and reads its option's label, as the server
+ * translated it, never the stored value.
+ */
+function renderBadgeItem(
+  field: string,
+  stored: unknown,
+  label: string,
+  format: KanbanFormat
+): ReactNode {
+  const text = format.recordText?.[field]
+  return renderBadge(
+    text === undefined ? label : formatRecordText(stored, text, format.locale),
+    format.fieldMeta?.[field]?.paints?.[String(stored)]
+  )
+}
+
 export function renderFooterItem(
   item: KanbanCardFooterItem,
   record: TableRecord,
@@ -117,11 +137,7 @@ export function renderFooterItem(
       </span>
     )
   }
-  if (item.format === 'badge') {
-    // An option value draws the grid's chip: its colour, or the neutral outline,
-    // in the app's badge form — painted on the server (`option-badge-paints.ts`).
-    return renderBadge(label, format.fieldMeta?.[item.field]?.paints?.[String(stored)])
-  }
+  if (item.format === 'badge') return renderBadgeItem(item.field, stored, label, format)
   return (
     <span
       data-footer-format={item.format ?? 'text'}

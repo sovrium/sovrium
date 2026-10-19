@@ -59,6 +59,7 @@ import {
   pageRecordOf,
   type RecordTextContext,
 } from '@/presentation/render/props/record-value-format'
+import { withSystemListText } from '@/presentation/render/props/system-record-list-text'
 import { substituteRecordInCollectionTemplate } from '@/presentation/render/resolve/data-source-rows'
 import { markAddressedDialogs } from '@/presentation/render/resolve/overlay-triggers'
 import {
@@ -68,6 +69,7 @@ import {
 } from '@/presentation/render/resolve/page-collection-resolver'
 import { pageRecordScope } from '@/presentation/render/resolve/record-repeat-expansion'
 import { filterChildrenForRecord } from '@/presentation/render/resolve/record-visibility'
+import { systemRecordWithText } from '@/presentation/render/resolve/system-record-text'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { SystemDetailSource } from '@/domain/models/app/pages/components/system-detail-source'
@@ -233,7 +235,7 @@ async function bindSystemRecord(
   page: Page,
   system: SystemDetailSource,
   routeParams: Readonly<Record<string, string>>,
-  { fetchSystemRecord, translate }: SystemRecordReaders
+  { fetchSystemRecord, translate, recordText }: SystemRecordReaders
 ): Promise<PageRecordBinding> {
   if (fetchSystemRecord === undefined) {
     const marker = buildPageSystemMarker(system, routeParams)
@@ -249,10 +251,15 @@ async function bindSystemRecord(
   // (`parseSystemDetailEnvelope`), from the same shared table: a run page must
   // print the words of the grid that links to it, not the engine's — in the
   // reader's language, from the keys that grid translates its words under.
-  const localized = localizeRunRecordInLanguage(system.endpoint, record, translate)
+  // With its ISO dates (`systemRecordWithText`) and its lists readable at a text site.
+  const dated = systemRecordWithText(
+    localizeRunRecordInLanguage(system.endpoint, record, translate),
+    recordText
+  )
+  const printed = recordText === undefined ? dated : withSystemListText(dated, recordText.locale)
   return {
     kind: 'page',
-    page: { ...page, components: substitutePageComponents(page.components, localized, undefined) },
+    page: { ...page, components: substitutePageComponents(page.components, printed, undefined) },
   }
 }
 

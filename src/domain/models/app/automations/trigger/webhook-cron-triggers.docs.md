@@ -100,7 +100,7 @@ A request whose header is missing or differs is answered `401` and runs nothing;
 trigger: { type: webhook, method: POST, auth: { type: session, requiredRole: member } }
 ```
 
-The caller must present a Sovrium session cookie or a user's API key in `x-api-key` (`auth.apiKeys`). A caller with neither, or without `requiredRole` — judged as for a manual trigger, so an admin satisfies any role — is answered `404`, as if the webhook did not exist, and no run is created. The run knows who called: `{{trigger.user.id}}`, `{{trigger.user.role}}`, `{{trigger.user.email}}` and `{{trigger.user.name}}`, and a record action with `runAs: triggering-user` writes as that person. `session` needs an `auth` block on the app.
+The caller must present a Sovrium session cookie or a user's API key in `x-api-key` (`auth.apiKeys`). A caller with neither, or without `requiredRole` — judged as for a manual trigger, so an admin satisfies any role — is answered `404`, as if the webhook did not exist, and no run is created. The run knows who called: `{{trigger.user.id}}`, `{{trigger.user.role}}`, `{{trigger.user.email}}` and `{{trigger.user.name}}`, and a record action with `runAs: triggering-user` writes as that person. `session` needs an `auth` block on the app. A `session` webhook's run is started by hand by its caller: its record, file and grant steps read and write as that person, exactly as a manual trigger's, and she may read the run. A webhook with any other `auth` runs as the system, and so does a `session` webhook whose answer reveals write-only fields to a caller presenting an API key (`revealWriteOnly`).
 
 ### Signature schemes
 

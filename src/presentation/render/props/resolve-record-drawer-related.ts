@@ -14,6 +14,11 @@ import {
 import { declaredFieldLabel } from '@/presentation/design/field-display'
 import { readableFieldsOf } from './caller-table-inputs'
 import { resolveValueCurrency } from './resolve-chart-field-context'
+import {
+  deriveTableEntries,
+  type DerivedRecordField,
+  type DrawerFieldLocale,
+} from './resolve-record-drawer-fields'
 import type { CallerTableView } from '@/application/ports/services/page-renderer'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -47,7 +52,20 @@ export interface RelatedSectionColumn {
   readonly type: string
   /** The column's declared currency display, so an amount prints as the grid prints it. */
   readonly currency?: CurrencyDisplayOptions
+  /**
+   * What the section's create form draws this column's control from — the very
+   * entry an editable drawer of the related table draws it from (its options,
+   * its link target, its scale…), `readOnly` for a column nobody writes or the
+   * caller may not write. Resolved only for a section the caller may create in.
+   */
+  readonly control?: RelatedColumnControl
 }
+
+/** A column's control settings: a drawer entry without the parts the column itself carries. */
+export type RelatedColumnControl = Omit<
+  DerivedRecordField,
+  'name' | 'type' | 'label' | 'description' | 'paints' | 'valueLabels'
+>
 
 /**
  * One related section, resolved for the island ([internal ref] CAP-8).
@@ -170,25 +188,56 @@ export function callerAccess(
   }
 }
 
-/** The header of one column: its own label, then the field's, then the raw name. */
-function columnFor(
-  field: string,
-  ownLabel: unknown,
-  table: Table,
-  tables: Tables | undefined
-): RelatedSectionColumn {
+/** What every column of one section is resolved against. */
+interface ColumnContext {
+  readonly table: Table
+  readonly tables: Tables | undefined
+  readonly controls: ReadonlyMap<string, RelatedColumnControl> | undefined
+}
+
+/** A column's header: its own label, then the field's, then the raw name. */
+const columnLabel = (field: string, ownLabel: unknown, table: Table): string =>
+  (typeof ownLabel === 'string' && ownLabel !== '' ? ownLabel : undefined) ??
+  declaredFieldLabel(table.fields.find((candidate) => candidate.name === field)) ??
+  field
+
+/** One column: its header, its type, its currency and — for a create — its control. */
+function columnFor(field: string, ownLabel: unknown, context: ColumnContext): RelatedSectionColumn {
+  const { table, tables, controls } = context
   const declared = table.fields.find((candidate) => candidate.name === field)
-  const label =
-    (typeof ownLabel === 'string' && ownLabel !== '' ? ownLabel : undefined) ??
-    declaredFieldLabel(declared) ??
-    field
   const currency = resolveValueCurrency(table, field, tables ?? [])
+  const control = controls?.get(field)
   return {
     field,
-    label,
+    label: columnLabel(field, ownLabel, table),
     type: declared?.type ?? 'single-line-text',
     ...(currency === undefined ? {} : { currency }),
+    ...(control === undefined ? {} : { control }),
   }
+}
+
+/**
+ * Each field's control settings, as an editable drawer of the related table
+ * resolves them — a field the caller may not write marked `readOnly`, so the
+ * create form never offers a value the records API would refuse.
+ */
+function columnControls(
+  table: Table,
+  tables: Tables | undefined,
+  callerTable: CallerTableView | undefined,
+  locale: DrawerFieldLocale
+): ReadonlyMap<string, RelatedColumnControl> {
+  const grants = callerTable?.permissionMap?.fields
+  return new Map(
+    deriveTableEntries(table, tables, locale).map((entry) => {
+      const { name, type: _type, label: _label, description: _description, ...rest } = entry
+      const { paints: _paints, valueLabels: _valueLabels, ...control } = rest
+      return [
+        name,
+        grants?.[name]?.write === false ? { ...control, readOnly: true as const } : control,
+      ] as const
+    })
+  )
 }
 
 /**
@@ -197,16 +246,16 @@ function columnFor(
  */
 function resolveColumns(
   entry: RawEntry,
-  table: Table,
   callerTable: CallerTableView | undefined,
-  tables: Tables | undefined
+  context: ColumnContext
 ): readonly RelatedSectionColumn[] {
+  const { table } = context
   const declared = entry['columns']
   if (Array.isArray(declared)) {
     return declared.flatMap((column: unknown) => {
       const record = column as RawEntry | null
       const field = record?.['field']
-      return typeof field === 'string' ? [columnFor(field, record?.['label'], table, tables)] : []
+      return typeof field === 'string' ? [columnFor(field, record?.['label'], context)] : []
     })
   }
   const readable =
@@ -215,8 +264,20 @@ function resolveColumns(
       : readableFieldsOf(table, callerTable)
   return readable
     .filter((name) => name !== entry['field'])
-    .map((name) => columnFor(name, undefined, table, tables))
+    .map((name) => columnFor(name, undefined, context))
 }
+
+/** A section's sort, row cap, empty state and row click, as its entry declares them. */
+const sectionDisplay = (
+  entry: RawEntry
+): Pick<RelatedSection, 'sort' | 'limit' | 'emptyMessage' | 'onRowClick'> => ({
+  ...(Array.isArray(entry['sort'])
+    ? { sort: entry['sort'] as RelatedSection['sort'] & object }
+    : {}),
+  limit: typeof entry['limit'] === 'number' ? entry['limit'] : DEFAULT_RELATED_LIMIT,
+  ...(typeof entry['emptyMessage'] === 'string' ? { emptyMessage: entry['emptyMessage'] } : {}),
+  ...(entry['onRowClick'] === undefined ? {} : { onRowClick: entry['onRowClick'] }),
+})
 
 /**
  * Resolve a drawer's `related` entries into the sections its island draws.
@@ -236,7 +297,8 @@ function resolveColumns(
 export function resolveRelatedSections(
   related: unknown,
   tables: Tables | undefined,
-  caller: RelatedCaller
+  caller: RelatedCaller,
+  locale: DrawerFieldLocale = {}
 ): readonly RelatedSection[] | undefined {
   if (!Array.isArray(related) || related.length === 0) return undefined
   const sections = related.flatMap((raw: unknown): readonly RelatedSection[] => {
@@ -245,20 +307,15 @@ export function resolveRelatedSections(
     if (table === undefined || typeof entry['field'] !== 'string') return []
     const access = callerAccess(table, tables, caller)
     if (!access.read) return []
+    const callerTable = caller.callerTables?.[table.name]
+    const controls = access.create ? columnControls(table, tables, callerTable, locale) : undefined
     return [
       {
         label: String(entry['label']),
         table: table.name,
         field: entry['field'],
-        columns: resolveColumns(entry, table, caller.callerTables?.[table.name], tables),
-        ...(Array.isArray(entry['sort'])
-          ? { sort: entry['sort'] as RelatedSection['sort'] & object }
-          : {}),
-        limit: typeof entry['limit'] === 'number' ? entry['limit'] : DEFAULT_RELATED_LIMIT,
-        ...(typeof entry['emptyMessage'] === 'string'
-          ? { emptyMessage: entry['emptyMessage'] }
-          : {}),
-        ...(entry['onRowClick'] === undefined ? {} : { onRowClick: entry['onRowClick'] }),
+        columns: resolveColumns(entry, callerTable, { table, tables, controls }),
+        ...sectionDisplay(entry),
         canCreate: access.create,
       },
     ]

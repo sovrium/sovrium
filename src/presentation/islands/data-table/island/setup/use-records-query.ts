@@ -8,6 +8,7 @@
 import { useSystemCursorPages } from '../../../hooks/use-system-cursor-pages'
 import { buildSummaryAggregateParam } from '../../summary-aggregate'
 import { useDataTableQuery } from '../../use-data-table-query'
+import { useAwaitingDefaultView } from '../../view-options/table-views'
 import { buildGroupByParam, buildLabelsParam } from '../island-setup-helpers'
 import { usePageResetOnNarrowing } from './use-page-reset-on-narrowing'
 import type { SetupContext } from './setup-params'
@@ -124,6 +125,7 @@ export function useRecordsQuery(
 
   const query = useDataTableQuery({
     ...requestParams(ctx, effectiveGroupByConfig, loadMoreFeed),
+    enabled: !useHeldForDefaultView(ctx),
     ...(dataSource.system && {
       system: dataSource.system,
       systemQuery: system.systemQuery,
@@ -133,6 +135,9 @@ export function useRecordsQuery(
       // the footer drawing a placeholder under every label.
       summary: summaryConfig,
       cursor: cursorPages.cursor,
+      // A grid that numbers no pages asks for the endpoint's own first page, so
+      // an endpoint paging both ways answers with the cursor Load more follows.
+      unnumbered: ctx.params.paginationConfig === undefined,
     }),
     // DB-table grids merge the shared-filter publisher's value as raw query params.
     ...(!dataSource.system && { sharedFilterParams: system.sharedFilterParams }),
@@ -168,6 +173,23 @@ function sessionGroupBy(
   return session.field === undefined ? undefined : ({ field: session.field } as ViewGroupBy)
 }
 
+/**
+ * A grid opening on its table's default view reads its first page through
+ * that view, once, rather than table-wide and then again through the view.
+ */
+function useHeldForDefaultView(ctx: SetupContext): boolean {
+  return useAwaitingDefaultView({
+    table: ctx.tableKey,
+    hasSwitcher: ctx.params.hasViewSwitcher === true,
+    opensOnDefault: ctx.ui.view === undefined && configuredViewOf(ctx) === undefined,
+  })
+}
+
+/** The view the grid is configured to read through (`dataSource.view` of a view-bound grid). */
+function configuredViewOf(ctx: SetupContext): string | undefined {
+  return ctx.isViewBound ? ctx.params.dataSource.view : undefined
+}
+
 /** The view the rows are read through: the configured one, unless the reader switched. */
 function sessionViewOf(
   session: SetupContext['ui']['view'],
@@ -193,7 +215,7 @@ function requestParams(
   const aggregateParam = buildSummaryAggregateParam(summaryConfig)
   const groupByParam = buildGroupByParam(groupBy)
   const labelsParam = buildLabelsParam(columnConfig)
-  const view = sessionViewOf(ctx.ui.view, ctx.isViewBound ? dataSource.view : undefined)
+  const view = sessionViewOf(ctx.ui.view, configuredViewOf(ctx))
   return {
     table: ctx.tableKey,
     ...(view !== undefined && { view }),

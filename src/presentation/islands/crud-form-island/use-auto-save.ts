@@ -49,7 +49,7 @@ async function persistAutoSave(ctx: SubmitContext, changed: Record<string, strin
   try {
     const updated = await ctx.updateRecord.mutateAsync({
       recordId: ctx.recordId,
-      fields: toWireFields(ctx.fields, changed),
+      fields: toWireFields(ctx.fields, changed, ctx.uiStrings),
     })
     // Auto-save sends no version, but it does produce one. The form's explicit
     // save still declares the version it holds, so it must learn this one — or

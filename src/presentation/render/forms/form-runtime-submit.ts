@@ -16,7 +16,9 @@
  * spinner and the in-flight word — `display.pendingLabel` or the built-in
  * `form.sending` — and a second press or Enter is ignored. A refusal shows the
  * field errors, puts the focus on the first refused field (else on the submit,
- * given back by then), and only then shows `onError`. A refusal before sending
+ * given back by then), and only then shows `onError` — a refusal the engine
+ * names by its `error` slug (`forms.*`) in the page language, any other by the
+ * server's own message. A refusal before sending
  * (a required field left empty) shows the field errors and focuses the first,
  * and announces no generic failure: only an `onError` message the form declares.
  *
@@ -50,6 +52,19 @@ export const FORM_RUNTIME_SUBMIT_SCRIPT = `
     if (idempotencyInput && idempotencyInput.value) headers['Idempotency-Key'] = idempotencyInput.value
     return headers
   }
+  // A refusal the server words by its machine slug, shown in the page language;
+  // the wire keeps its English message for every other client.
+  var REFUSAL_KEYS = {
+    'submission limit reached': 'forms.limitReached',
+    'form closed': 'forms.closed',
+    'form not yet open': 'forms.notYetOpen',
+    'rate limit exceeded': 'forms.rateLimited',
+    'invalid request': 'forms.rejected',
+  }
+  function refusalMessage(body) {
+    var key = body && REFUSAL_KEYS[body.error]
+    return (key && S[key]) || (body && body.message)
+  }
   // A refusal: the field errors, the focus (the first refused field, else the
   // submit, given back by now), then the notice.
   function handleSubmissionResult(result, submitBtn) {
@@ -63,7 +78,7 @@ export const FORM_RUNTIME_SUBMIT_SCRIPT = `
         .filter(Boolean)
       var target = refused[0] || submitBtn
       if (target) target.focus()
-      renderOnError(result.body && result.body.message)
+      renderOnError(refusalMessage(result.body))
       return
     }
     var response = responseOf(result.body)

@@ -45,6 +45,9 @@ export function handleRouteError(c: Context, error: unknown): Response {
   )
 }
 
+/** How a restore's unique conflict opens — read back by `unique-conflict-mask.ts`. */
+export const RESTORE_UNIQUE_CONFLICT_PREFIX = 'Cannot restore: a live record already holds'
+
 /**
  * The `409` of a restore that would leave two live records sharing the value of
  * a unique field, or `undefined` for any other failure. The message names the
@@ -57,7 +60,7 @@ export function restoreUniqueConflict(c: Context, error: unknown): Response | un
   if (typeof fieldName !== 'string' || fieldName.length === 0) return undefined
   return conflict(
     c,
-    `Cannot restore: a live record already holds the same value for "${fieldName}". Change one of the two values, then restore.`
+    `${RESTORE_UNIQUE_CONFLICT_PREFIX} the same value for "${fieldName}". Change one of the two values, then restore.`
   )
 }
 

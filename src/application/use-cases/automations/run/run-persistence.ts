@@ -22,10 +22,14 @@ import {
 import { dropsRunHistory } from '@/domain/models/app/automations/trigger/trigger-history-service'
 import { triggerEntryName } from '@/domain/models/app/automations/trigger-list-validation'
 import { logError } from '@/infrastructure/logging/logger'
+import { devTimelineCreatedAt, onDevTimeline } from '@/infrastructure/process/server-boot-instant'
 import { storedNestedOf } from './nested-step-record'
+import { pausedLedgerOverlay } from './run-ledger-persistence'
 import { toApiStatus, toApiStepStatus, type EngineRunStatus } from './run-status'
+import type { RunLedgers } from './run-ledger-persistence'
 import type { ExecutedStep, RunAccumulator } from './types'
 import type { TriggerData } from '../resolve-trigger-data'
+import type { StorageService } from '@/application/ports/services/storage-service'
 import type { App } from '@/domain/models/app'
 import type { RunRelay } from '@/domain/models/app/automations/run-relay-service'
 import type { Trigger } from '@/domain/models/app/automations/trigger'
@@ -40,12 +44,19 @@ import type { Trigger } from '@/domain/models/app/automations/trigger'
  */
 const runActorOverlay = (
   userId: string | undefined,
-  startedByHand?: boolean
-): { readonly triggeredByUserId?: string; readonly startedByHand?: true } => {
+  startedByHand?: boolean,
+  startedAsGuest?: boolean
+): {
+  readonly triggeredByUserId?: string
+  readonly startedByHand?: true
+  readonly startedAsGuest?: true
+} => {
   const actorId = resolveActorUserId(userId)
   // The marker survives a missing actor: a hand-started run that lost its
-  // caller keeps refusing its writes, through every later approval.
-  const hand = startedByHand === true ? { startedByHand: true as const } : {}
+  // caller keeps refusing its writes, through every later approval. A
+  // visitor's run records nobody, and says it was a visitor's.
+  const guest = startedAsGuest === true ? { startedAsGuest: true as const } : {}
+  const hand = startedByHand === true ? { startedByHand: true as const, ...guest } : {}
   return actorId === undefined ? hand : { triggeredByUserId: actorId, ...hand }
 }
 
@@ -83,6 +94,7 @@ export const persistQueuedRun = (input: {
   readonly triggerData: TriggerData
   readonly userId: string | undefined
   readonly startedByHand?: boolean
+  readonly startedAsGuest?: boolean
   /** The run that handed this one its trigger data, recorded by id. */
   readonly relay?: RunRelay | undefined
 }): Effect.Effect<string | undefined, never, AutomationRunRepository> =>
@@ -94,8 +106,10 @@ export const persistQueuedRun = (input: {
         status: 'queued',
         triggerName: triggerEntryName(input.trigger),
         triggerData: input.triggerData as unknown,
-        ...runActorOverlay(input.userId, input.startedByHand),
+        ...runActorOverlay(input.userId, input.startedByHand, input.startedAsGuest),
         ...(input.relay === undefined ? {} : { relay: input.relay }),
+        // A pinned development host stamps the run on its timeline.
+        ...devTimelineCreatedAt(),
       })
     )
     if (result._tag === 'Failure') {
@@ -118,7 +132,7 @@ export const markRunRunning = (
   Effect.gen(function* () {
     const repo = yield* AutomationRunRepository
     const result = yield* Effect.result(
-      repo.updateStatus({ id: runId, status: 'running', startedAt: admittedAt as Date })
+      repo.updateStatus({ id: runId, status: 'running', startedAt: onDevTimeline(admittedAt) })
     )
     if (result._tag === 'Failure') {
       logError('[automation] failed to mark run as running', result.failure)
@@ -169,6 +183,7 @@ const buildStepsInput = (
     completedAt: finishedAt,
     ...(step.durationMs !== undefined ? { durationMs: step.durationMs } : {}),
     ...(step.error !== undefined ? { error: step.error } : {}),
+    ...(step.clientError !== undefined ? { clientError: step.clientError } : {}),
   }))
 
 /** The row a step record is stored as, at position `stepIndex` of its run. */
@@ -184,6 +199,8 @@ type FinaliseRunInput = {
   readonly engineError: string | undefined
   /** Set when the run parks on a long wait (`waiting-delay`): when and where it resumes. */
   readonly park?: RunAccumulator['park']
+  /** A pausing run's file ledgers as stored (`run-ledger-persistence.ts`); absent, cleared. */
+  readonly filesLedger?: unknown
   /** A resumed segment: the position its first new step row takes, and the active time before it. */
   readonly segment?: { readonly stepIndexBase: number; readonly priorActiveMs: number }
   readonly triggerData: TriggerData
@@ -197,6 +214,10 @@ type FinaliseRunInput = {
    * {@link persistQueuedRun}, and finalisation only touches status + timings.
    */
   readonly userId: string | undefined
+  /** A person started the run by hand: the fallback row keeps the marker, as the queued row did. */
+  readonly startedByHand?: boolean
+  /** That person was a visitor who was not signed in. */
+  readonly startedAsGuest?: boolean
   /**
    * The run as it was started: its app and automation, from which the records
    * it read are indexed (`run-record-refs-service.ts`), and its relay, carried
@@ -207,6 +228,8 @@ type FinaliseRunInput = {
     readonly name: string
     readonly relay?: RunRelay | undefined
     readonly trigger?: Trigger
+    /** The run's file ledgers, stored with it when it pauses (`run-ledger-persistence.ts`). */
+    readonly ledgers?: RunLedgers
   }
 }
 
@@ -288,7 +311,7 @@ const finaliseRunFallback = (input: FinaliseRunInput) =>
         startedAt: input.startedAt,
         completedAt: input.finishedAt,
         durationMs: input.finishedAt.getTime() - input.startedAt.getTime(),
-        ...runActorOverlay(input.userId),
+        ...runActorOverlay(input.userId, input.startedByHand, input.startedAsGuest),
         ...(input.source?.trigger === undefined
           ? {}
           : { triggerName: triggerEntryName(input.source.trigger) }),
@@ -309,7 +332,12 @@ const finaliseRunFallback = (input: FinaliseRunInput) =>
  * The run row's park overlay: a parked run keeps no completion time and stores
  * when and where it resumes; the repository clears both on any other status.
  */
-const parkOverlay = (input: FinaliseRunInput) =>
+const parkOverlay = (input: FinaliseRunInput) => ({
+  ...(input.filesLedger === undefined ? {} : { filesLedger: input.filesLedger }),
+  ...parkedOrCompleted(input),
+})
+
+const parkedOrCompleted = (input: FinaliseRunInput) =>
   input.park === undefined
     ? { completedAt: input.finishedAt }
     : {
@@ -320,10 +348,17 @@ const parkOverlay = (input: FinaliseRunInput) =>
       }
 
 export const finaliseRun = (
-  input: FinaliseRunInput
+  raw: FinaliseRunInput
 ): Effect.Effect<string | undefined, never, AutomationRunRepository> =>
   Effect.gen(function* () {
     const repo = yield* AutomationRunRepository
+    // A pinned development host stamps the finish and the steps on its timeline;
+    // both ends move together, so every duration is unchanged.
+    const input = {
+      ...raw,
+      startedAt: onDevTimeline(raw.startedAt),
+      finishedAt: onDevTimeline(raw.finishedAt),
+    }
     const activeMs = input.finishedAt.getTime() - input.startedAt.getTime()
     const base = input.segment?.stepIndexBase ?? 0
     const finalised = yield* Effect.result(
@@ -348,3 +383,15 @@ export const finaliseRun = (
     yield* dropEndedMinimalHistory(triggerOf(input), input.engineStatus, input.runId)
     return input.runId
   }).pipe(Effect.withSpan('automations.finalise-run'))
+
+/**
+ * {@link finaliseRun} for a run that may pause: one ending its segment waiting
+ * on an approval, a confirmation or a long wait also stores the file ledgers
+ * its `source` holds, so its resume starts with the same standing.
+ */
+export const finalisePausableRun = (
+  input: FinaliseRunInput
+): Effect.Effect<string | undefined, never, AutomationRunRepository | StorageService> =>
+  Effect.flatMap(pausedLedgerOverlay(input.engineStatus, input.source?.ledgers ?? {}), (overlay) =>
+    finaliseRun({ ...input, ...overlay })
+  ).pipe(Effect.withSpan('automations.finalise-pausable-run'))
