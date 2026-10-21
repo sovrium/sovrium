@@ -11,8 +11,10 @@ import { AssetStore } from '@/application/ports/services/asset-store'
 import {
   StorageService,
   UNATTRIBUTED_BUCKET,
+  isStorageObjectTooLarge,
   type BucketBinding,
 } from '@/application/ports/services/storage-service'
+import { storageReadOrUndefined } from '@/application/use-cases/storage/storage-failure-log'
 import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
 import { parseJsonObjectCell } from '@/domain/kernel/sql/sqlite-json-cell'
 import { parseBucketFileUrl } from '@/domain/kernel/url/bucket-file-url'
@@ -102,16 +104,19 @@ const readStored = (
     const { maxBytes } = reader
     const storage = yield* StorageService
     // The catalogued size refuses an oversized file before a byte is buffered;
-    // no catalog row falls through to the download, which the cap re-checks.
-    const meta = yield* Effect.result(storage.getMetadata(key, bucket))
-    if (meta._tag === 'Success' && meta.success.size > maxBytes) {
+    // no catalog row falls through to the bounded download, which stops at the cap.
+    const meta = yield* storageReadOrUndefined(storage.getMetadata(key, bucket), key, 'document')
+    if (meta !== undefined && meta.size > maxBytes) {
       return yield* tooLarge(label, maxBytes)
     }
-    const bytes = yield* storage
-      .download(key, bucket)
-      .pipe(Effect.mapError(() => new FileRefError({ message: `${label} could not be read` })))
-    if (bytes.length > maxBytes) return yield* tooLarge(label, maxBytes)
-    const contentType = meta._tag === 'Success' ? meta.success.contentType : inferMimeFromKey(key)
+    const read = yield* Effect.result(storage.downloadBounded(key, bucket, maxBytes))
+    if (read._tag === 'Failure') {
+      return yield* isStorageObjectTooLarge(read.failure)
+        ? tooLarge(label, maxBytes)
+        : refused(`${label} could not be read`)
+    }
+    const bytes = read.success
+    const contentType = meta !== undefined ? meta.contentType : inferMimeFromKey(key)
     yield* noteStepFileInput({
       label,
       carriesRunBytes: reader.written?.keyHasRunBytes(key) === true,
@@ -261,12 +266,11 @@ const readUrl = (
 ): Effect.Effect<ResolvedFile, FileRefError, StorageService> => {
   if (!isSelfContainedSource(url)) return refused(`URL ${url} could not be fetched`)
   return resolveSource(url).pipe(
-    Effect.mapError(
-      (blocked) =>
-        new FileRefError({
-          message: `URL ${url} was refused by the outbound guard (${blocked.reason})`,
-        })
-    ),
+    Effect.catchTags({
+      OutboundUrlBlockedError: (blocked) =>
+        refused(`URL ${url} was refused by the outbound guard (${blocked.reason})`),
+      StoredSourceTooLargeError: (large) => refused(large.message),
+    }),
     // Judged where the bytes were finally served from, too: a redirect to a stored file counts.
     Effect.tap((source) =>
       Effect.flatMap(fetchedUrlStanding(written, url, source.fetchedFrom), (carriesRunBytes) =>

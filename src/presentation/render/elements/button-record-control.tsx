@@ -21,11 +21,8 @@
 import { type ReactElement, type ReactNode } from 'react'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { CONTROL_ID_KEY, CONTROL_TABLE_KEY } from '@/domain/models/app/pages/record-control-service'
-import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
-import {
-  disabledControlAttributes,
-  renderDisabledControl,
-} from '@/presentation/design/disabled-reason'
+import { verdictAttributes, withVerdict } from '@/presentation/design/disabled-reason'
+import { disabledOnRecord } from '@/presentation/design/disabled-verdict'
 import { omitInternalMarkers } from '../props/internal-marker-props'
 import type { ElementProps } from './html-element-renderer'
 import type { Languages } from '@/domain/models/app/languages'
@@ -42,16 +39,14 @@ export interface ButtonRecordControl {
   readonly disabled: boolean
 }
 
-/** The button's `disabledReason`, in the page language and read from its record. */
-function reasonOf(
+/** The button's `disabledReason` in the page language, still reading `$record.*`. */
+function translatedReasonOf(
   component: Row | undefined,
-  record: Row | undefined,
   lang: { readonly currentLang?: string; readonly languages?: Languages } | undefined
 ): string | undefined {
   const reason = component?.['disabledReason']
   if (typeof reason !== 'string') return undefined
-  const translated = resolveTranslationPattern(reason, lang?.currentLang ?? '', lang?.languages)
-  return record === undefined ? translated : substituteRecordVars(translated, record)
+  return resolveTranslationPattern(reason, lang?.currentLang ?? '', lang?.languages)
 }
 
 /**
@@ -67,9 +62,8 @@ export function buttonRecordControlOf(
   const table = component?.[CONTROL_TABLE_KEY]
   if (typeof id !== 'string' || typeof table !== 'string') return undefined
   const record = (props as { readonly _record?: Row })._record
-  const listed = record?.['_disabled']
-  const disabled = Array.isArray(listed) && listed.includes(id)
-  return { id, table, record, disabled, disabledReason: reasonOf(component, record, lang) }
+  const verdict = disabledOnRecord(record, id, translatedReasonOf(component, lang))
+  return { id, table, record, disabled: verdict !== undefined, disabledReason: verdict?.reason }
 }
 
 /**
@@ -110,17 +104,17 @@ export function renderRecordDisabledButton(
     disabled: _disabled,
     ...rest
   } = omitInternalMarkers(props) as Record<string, unknown>
-  const reason = control.disabledReason
+  const verdict = { reason: control.disabledReason }
   const reasonId = reasonIdOf(control)
   const button = (
     <button
       {...rest}
       type="button"
       data-control-id={control.id}
-      {...disabledControlAttributes(reason ? reasonId : undefined)}
+      {...verdictAttributes(verdict, reasonId)}
     >
       {buttonContent}
     </button>
   )
-  return renderDisabledControl(button, reasonId, reason)
+  return withVerdict(button, verdict, reasonId)
 }

@@ -144,6 +144,12 @@ const SYSTEM_BUCKET_WORDS: Readonly<Record<ConsoleLanguage, string>> = {
 const bucketLabelOf = (name: string, language: ConsoleLanguage): string =>
   name === SYSTEM_BUCKET_NAME ? SYSTEM_BUCKET_WORDS[language] : readableName(name)
 
+/** What a declared bucket says it holds, as a key to spread: none when it declares nothing. */
+const declaredDescription = (app: App, name: string): { readonly description?: string } => {
+  const description = app.buckets?.find((bucket) => bucket.name === name)?.description
+  return description?.trim() ? { description } : {}
+}
+
 /**
  * One item per bucket the app exposes — the built-in `system` first, then every
  * declared bucket — each counting only the objects recorded under it. Empty when
@@ -163,6 +169,7 @@ export const buildBucketItems = (
       id: bucketIdForName(name),
       name,
       label: bucketLabelOf(name, language),
+      ...declaredDescription(app, name),
       provider: meta.provider,
       region: meta.region,
       ...declaredUploadRules(app, name),

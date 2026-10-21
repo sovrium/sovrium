@@ -31,6 +31,11 @@
 
 import { Effect } from 'effect'
 import {
+  AdminAutomationsRepository,
+  type AdminAutomationsDatabaseError,
+  type LatestStepRun,
+} from '@/application/ports/repositories/automations/admin-automations-repository'
+import {
   type ConnectionDatabaseError,
   ConnectionRepository,
 } from '@/application/ports/repositories/connections/connection-repository'
@@ -53,6 +58,68 @@ import {
   deriveTokenStatus,
   soonestExpiryMs,
 } from '@/domain/models/app/admin/connection-status'
+import {
+  connectionUsesOf,
+  latestRunOfUses,
+  type ConnectionUse,
+} from '@/domain/models/app/connections/connection-usage-service'
+import type { App } from '@/domain/models/app'
+
+/** The declared connections and automations a connection's labels and uses are read from. */
+type DeclaredConfig = Pick<App, 'connections' | 'automations'>
+
+/** Where a connection is used and when a call to it last ran. */
+interface ConnectionUsage {
+  readonly uses: readonly ConnectionUse[]
+  readonly lastRun: LatestStepRun | undefined
+}
+
+/** No configuration in hand: a connection read outside a request is used by nothing known. */
+const NO_USAGE: ConnectionUsage = { uses: [], lastRun: undefined }
+
+/**
+ * Read where each of `names` is used, then the newest run of the steps that
+ * call it — the latest run of every such step in ONE grouped read, each
+ * connection then picking its newest among its own steps.
+ */
+const usagesOf = (
+  config: DeclaredConfig,
+  names: readonly string[]
+): Effect.Effect<
+  ReadonlyMap<string, ConnectionUsage>,
+  AdminAutomationsDatabaseError,
+  AdminAutomationsRepository
+> =>
+  Effect.gen(function* () {
+    const usesByName = names.map(
+      (name) => [name, connectionUsesOf(config.automations, name)] as const
+    )
+    const steps = [
+      ...new Map(
+        usesByName.flatMap(([, uses]) =>
+          uses.flatMap((use) =>
+            use.stepNames.map(
+              (stepName) =>
+                [`${use.name}\u0000${stepName}`, { automationName: use.name, stepName }] as const
+            )
+          )
+        )
+      ).values(),
+    ]
+    const runs = yield* (yield* AdminAutomationsRepository).findLatestRunPerStep(steps)
+    return new Map(
+      usesByName.map(
+        ([name, uses]) => [name, { uses, lastRun: latestRunOfUses(uses, runs) }] as const
+      )
+    )
+  })
+
+/** The three usage facts a connection row carries. */
+const usageFields = ({ uses, lastRun }: ConnectionUsage) => ({
+  usedBy: uses.map(({ kind, name, label }) => ({ kind, name, label })),
+  lastUsedAt: expiryToIso(lastRun?.startedAt),
+  lastError: lastRun?.status === 'failed' ? (lastRun.error ?? null) : null,
+})
 
 // ─── Pure coercion + projection helpers ──────────────────────────────────────
 
@@ -114,8 +181,9 @@ function buildConnectionItem(
   row: Readonly<Record<string, unknown>>,
   tokens: readonly ConnectionUserSummary[],
   appToken: Readonly<ConnectionAppTokenSummary> | undefined,
-  declaredLabels: DeclaredConnectionLabels
+  named: { readonly declaredLabels: DeclaredConnectionLabels; readonly usage: ConnectionUsage }
 ): ConnectionListItem {
+  const { declaredLabels, usage } = named
   // The count is the UNION of the two stores, derived from which rows actually
   // exist rather than from the connection's declared `scope`. That matters:
   // these rows are read from `system.connections`, which is also populated by
@@ -148,6 +216,7 @@ function buildConnectionItem(
     // (the compound rule — type + tokenCount + status — stays here, not config).
     rowAction: deriveConnectionRowAction(type, tokenCount, status),
     createdAt: toIso(row['createdAt'] as Date | string),
+    ...usageFields(usage),
   }
 }
 
@@ -176,26 +245,36 @@ export type ConnectionsListOutcome =
   | { readonly _tag: 'Ok'; readonly body: { readonly connections: readonly ConnectionListItem[] } }
   | { readonly _tag: 'ValidationFailed'; readonly error: unknown }
 
+/** The connections' usage, by name: read from the configuration and the run history, or not at all. */
+type UsageReader<E, R> = (
+  names: readonly string[]
+) => Effect.Effect<ReadonlyMap<string, ConnectionUsage>, E, R>
+
+const noUsage: UsageReader<never, never> = () => Effect.succeed(new Map())
+
 /** The list build, naming each connection with `declaredLabels` where it has one. */
-const buildConnectionsList = (
-  declaredLabels: DeclaredConnectionLabels
+const buildConnectionsList = <E = never, R = never>(
+  declaredLabels: DeclaredConnectionLabels,
+  readUsage: UsageReader<E, R>
 ): Effect.Effect<
   ConnectionsListOutcome,
-  ConnectionDatabaseError | ConnectionTokenDatabaseError,
-  ConnectionRepository | ConnectionTokenRepository
+  ConnectionDatabaseError | ConnectionTokenDatabaseError | E,
+  ConnectionRepository | ConnectionTokenRepository | R
 > =>
   Effect.gen(function* () {
     const connRepo = yield* ConnectionRepository
     const tokenRepo = yield* ConnectionTokenRepository
 
     const rows = yield* connRepo.list
+    const usages = yield* readUsage(rows.map((row) => String(row['name'])))
 
     const connections = yield* Effect.forEach(rows, (row) =>
       Effect.gen(function* () {
         const connectionId = String(row['id'])
         const tokens = yield* tokenRepo.listUsersForConnection({ connectionId })
         const appToken = yield* tokenRepo.findAppSummary({ connectionId })
-        return buildConnectionItem(row, tokens, appToken, declaredLabels)
+        const usage = usages.get(String(row['name'])) ?? NO_USAGE
+        return buildConnectionItem(row, tokens, appToken, { declaredLabels, usage })
       })
     )
 
@@ -220,9 +299,25 @@ export const BuildConnectionsListFor = (
   ConnectionDatabaseError | ConnectionTokenDatabaseError,
   ConnectionRepository | ConnectionTokenRepository
 > =>
-  buildConnectionsList(declaredLabelsOf(declared)).pipe(
+  buildConnectionsList(declaredLabelsOf(declared), noUsage).pipe(
     Effect.withSpan('admin.build-connections-list-for')
   )
+
+/**
+ * The connection-list body the admin read answers: each connection named as
+ * declared, with the automations that call it (`usedBy`) and when a call to it
+ * last ran and how (`lastUsedAt`, `lastError`), read from the run history.
+ */
+export const BuildConnectionsListWithUsage = (
+  config: DeclaredConfig
+): Effect.Effect<
+  ConnectionsListOutcome,
+  ConnectionDatabaseError | ConnectionTokenDatabaseError | AdminAutomationsDatabaseError,
+  ConnectionRepository | ConnectionTokenRepository | AdminAutomationsRepository
+> =>
+  buildConnectionsList(declaredLabelsOf(config.connections), (names) =>
+    usagesOf(config, names)
+  ).pipe(Effect.withSpan('admin.build-connections-list-with-usage'))
 
 /**
  * The connection-list body without the app's declared labels in hand, for the
@@ -232,7 +327,9 @@ export const BuildConnectionsList: Effect.Effect<
   ConnectionsListOutcome,
   ConnectionDatabaseError | ConnectionTokenDatabaseError,
   ConnectionRepository | ConnectionTokenRepository
-> = buildConnectionsList(NO_DECLARED_LABELS).pipe(Effect.withSpan('admin.build-connections-list'))
+> = buildConnectionsList(NO_DECLARED_LABELS, noUsage).pipe(
+  Effect.withSpan('admin.build-connections-list')
+)
 
 // ─── Detail use case ──────────────────────────────────────────────────────────
 
@@ -261,11 +358,11 @@ export type ConnectionDetailOutcome =
  */
 export const BuildConnectionDetail = (
   id: string,
-  declared?: ReadonlyArray<{ readonly name: string; readonly label?: string }>
+  config: DeclaredConfig = {}
 ): Effect.Effect<
   ConnectionDetailOutcome,
-  ConnectionDatabaseError | ConnectionTokenDatabaseError,
-  ConnectionRepository | ConnectionTokenRepository
+  ConnectionDatabaseError | ConnectionTokenDatabaseError | AdminAutomationsDatabaseError,
+  ConnectionRepository | ConnectionTokenRepository | AdminAutomationsRepository
 > =>
   Effect.gen(function* () {
     const connRepo = yield* ConnectionRepository
@@ -279,11 +376,16 @@ export const BuildConnectionDetail = (
     const connectionId = String(row['id'])
     const summaries = yield* tokenRepo.listUsersForConnection({ connectionId })
     const appToken = yield* tokenRepo.findAppSummary({ connectionId })
+    const name = String(row['name'])
+    const usage = (yield* usagesOf(config, [name])).get(name) ?? NO_USAGE
     const body = {
       // The `tokens` roster stays per-user only: the shared credential has no
       // user, and inventing one would put a userId in the roster that names
       // nobody. It still contributes to the header's `tokenCount`/`status`.
-      connection: buildConnectionItem(row, summaries, appToken, declaredLabelsOf(declared)),
+      connection: buildConnectionItem(row, summaries, appToken, {
+        declaredLabels: declaredLabelsOf(config.connections),
+        usage,
+      }),
       tokens: summaries.map((summary) => buildUserToken(summary)),
     }
 

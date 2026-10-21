@@ -6,6 +6,7 @@
  */
 
 import { Context, Data } from 'effect'
+import type { LookupReadMask } from './table-repository'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { Effect } from 'effect'
 
@@ -24,6 +25,12 @@ export interface DataSourceQueryOptions {
    * intrinsic `deleted_at` column, so this is safe on any of them.
    */
   readonly liveOnly?: boolean
+  /**
+   * The lookups and counts the reader may not read as stored, each evaluated
+   * as the records list evaluates it for her (`lookupReadMasks`) wherever the
+   * filter or the sort names it. Absent, every column reads as stored.
+   */
+  readonly lookupMasks?: readonly LookupReadMask[]
 }
 
 // ============================================================================
@@ -59,8 +66,11 @@ export class DataSourceRepository extends Context.Service<
     readonly countRecords: (
       tableName: string,
       filter?: readonly DataFilter[],
-      /** `liveOnly`: a soft-deleted row is not counted (`deleted_at IS NULL`). */
-      options?: { readonly liveOnly?: boolean }
+      /**
+       * `liveOnly`: a soft-deleted row is not counted (`deleted_at IS NULL`);
+       * `lookupMasks`: as on {@link DataSourceQueryOptions}.
+       */
+      options?: Pick<DataSourceQueryOptions, 'liveOnly' | 'lookupMasks'>
     ) => Effect.Effect<number, DataSourceDatabaseError>
 
     readonly fetchSingleRecord: (

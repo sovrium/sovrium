@@ -120,6 +120,7 @@
  */
 
 import { Schema } from 'effect'
+import { instanceFactsResponseSchema } from '@/domain/models/api/admin/instance/instance'
 import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
 import { optionalField } from '@/domain/models/api/combinators/optional-field'
 
@@ -307,6 +308,15 @@ export const adminAttentionResponseSchema = Schema.Struct({
   teams: attentionCount(
     'Configured teams — the Roles / teams tile sub-line. `0` when the app declares no organization.'
   ),
+
+  // ---- Instance health: the facts `GET /api/admin/instance` names, under
+  //      its names and with its values, so the overview's one record can
+  //      draw them beside its tiles. Words only — never an address or a key.
+  version: instanceFactsResponseSchema.fields.version,
+  bootedAt: instanceFactsResponseSchema.fields.bootedAt,
+  database: instanceFactsResponseSchema.fields.database,
+  storage: instanceFactsResponseSchema.fields.storage,
+  aiProvider: instanceFactsResponseSchema.fields.aiProvider,
 
   // ---- Freshness + honesty --------------------------------------------
   generatedAt: looseIsoDateTime({

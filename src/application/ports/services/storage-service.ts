@@ -9,10 +9,16 @@ import { Context, Data } from 'effect'
 import type { Effect, Option } from 'effect'
 
 /**
- * Error for storage operations
+ * Error for storage operations.
+ *
+ * `cause` is the failure it wraps, kept as the OBJECT the driver or the file
+ * system raised, never as its text: the code on it is what tells a failure the
+ * operator fixes (an unreachable database) from an engine defect. A wrapper that
+ * has something to add for a human says it in `message`.
  */
 export class StorageError extends Data.TaggedError('StorageError')<{
   readonly cause: unknown
+  readonly message?: string
 }> {}
 
 /**
@@ -40,6 +46,38 @@ export const storageObjectNotFound = (key: string): Readonly<StorageObjectNotFou
 /** Whether a storage failure is the catalog's "no such object" verdict (never an outage). */
 export const isStorageObjectNotFound = (error: Readonly<StorageError>): boolean =>
   error.cause instanceof StorageObjectNotFound
+
+/**
+ * A bounded read found more bytes at the key than the caller's cap: the read
+ * stopped at the cap, and nothing past it was held in memory. Carried as a
+ * `StorageError` `cause`; the message names the caller's key and the cap.
+ */
+export class StorageObjectTooLarge extends Data.TaggedError('StorageObjectTooLarge')<{
+  readonly key: string
+  readonly maxBytes: number
+  readonly message: string
+}> {}
+
+/** The over-the-cap verdict for `key`, with its canonical message. */
+export const storageObjectTooLarge = (
+  key: string,
+  maxBytes: number
+): Readonly<StorageObjectTooLarge> =>
+  new StorageObjectTooLarge({
+    key,
+    maxBytes,
+    message: `The file at ${key} is larger than ${String(maxBytes)} bytes`,
+  })
+
+/**
+ * The most bytes one read of a stored file holds when nothing smaller bounds
+ * it (100 MiB, the default upload cap): a file past it is refused, never read.
+ */
+export const FILE_SOURCE_MAX_BYTES = 104_857_600
+
+/** Whether a storage failure is a bounded read that found more bytes than its cap. */
+export const isStorageObjectTooLarge = (error: Readonly<StorageError>): boolean =>
+  error.cause instanceof StorageObjectTooLarge
 
 /**
  * A key the store would resolve onto an object another stored key already
@@ -140,6 +178,12 @@ export type StoredObjectIdentity =
   | { readonly kind: 'absent' }
   | { readonly kind: 'none' }
 
+/** What {@link StorageService} `hashObject` answers: the object's length and SHA-256 (hex). */
+export interface StoredObjectHash {
+  readonly size: number
+  readonly sha256: string
+}
+
 /** The bucket an operation is attributed to, or an explicit opt-out. */
 export type BucketBinding = string | typeof UNATTRIBUTED_BUCKET
 
@@ -170,10 +214,10 @@ export const uploadTargetParts = (target: UploadTarget): AttributedUpload =>
 /**
  * Storage Service Port
  *
- * Provides file storage operations (upload, download, signed URLs).
+ * Provides file storage operations (upload, bounded download, signed URLs).
  * Implementation lives in infrastructure layer (e.g., S3, local filesystem).
  *
- * `upload`, `download`, `delete` and `getMetadata` each carry a
+ * `upload`, `downloadBounded`, `delete` and `getMetadata` each carry a
  * {@link BucketBinding}: keys are flat, so the bucket is what decides whether
  * a caller naming bucket A may reach an object that belongs to bucket B.
  * `list` and `getTotalBytes` stay deliberately global — they back quota
@@ -204,9 +248,19 @@ export class StorageService extends Context.Service<
       mimeType: string,
       target: UploadTarget
     ) => Effect.Effect<void, StorageError>
-    readonly download: (
+    /**
+     * The bytes stored under `key`, read up to `maxBytes`: the object is read
+     * piece by piece and the read stops at the first byte past the cap, failing
+     * with a {@link StorageObjectTooLarge} cause, so an object larger than the
+     * cap is never held in memory whole. It is the only read of an object's
+     * bytes the port offers: every read names the most it will hold, even one
+     * whose size the catalog already records, because the store can grow past
+     * the recorded size behind the catalog's back.
+     */
+    readonly downloadBounded: (
       key: string,
-      bucket: BucketBinding
+      bucket: BucketBinding,
+      maxBytes: number
     ) => Effect.Effect<Uint8Array, StorageError>
     readonly delete: (key: string, bucket: BucketBinding) => Effect.Effect<void, StorageError>
     /**
@@ -264,6 +318,14 @@ export class StorageService extends Context.Service<
      * missing member a caller has to guess at.
      */
     readonly objectIdentity: (key: string) => Effect.Effect<StoredObjectIdentity, StorageError>
+    /**
+     * The length and SHA-256 of the object stored under `key`, computed while
+     * the object is read as a stream (or by the database itself), so memory
+     * stays constant whatever its size. Like {@link statObject} it takes no
+     * bucket and needs no catalog row. Fails when nothing is stored there or
+     * the store cannot be read.
+     */
+    readonly hashObject: (key: string) => Effect.Effect<StoredObjectHash, StorageError>
     /**
      * The stored object, other than `key` itself and in any bucket, that a
      * write at `key` would land on: a key equal to it after Unicode NFC

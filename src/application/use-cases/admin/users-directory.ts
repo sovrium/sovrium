@@ -25,7 +25,7 @@
  * audit entry — see the route handler note.
  */
 
-import { Effect } from 'effect'
+import { Clock, Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import {
   UsersDirectoryRepository,
@@ -75,15 +75,18 @@ const roleOf = (
   return { role, roleLabel: labels.role(role) }
 }
 
-const projectRow = (
-  row: DirectoryUserRow,
-  labels: ConsoleLabels
-): Readonly<AdminUsersDirectoryResponse['users'][number]> => ({
+/** A dialect timestamp as an ISO 8601 instant; `null` stays `null`. */
+const isoOf = (value: Readonly<Date> | string | null): string | null =>
+  value === null ? null : new Date(value instanceof Date ? value.getTime() : value).toISOString()
+
+const projectRow = (row: DirectoryUserRow, labels: ConsoleLabels): Readonly<ProjectedRow> => ({
   id: row.id,
   email: row.email,
   name: typeof row.name === 'string' ? row.name : '',
   ...roleOf(row, labels),
   banned: row.banned === true,
+  createdAt: isoOf(row.createdAt),
+  twoFactorEnabled: row.twoFactorEnabled === true,
   // `groups` is filled for the page alone, once it is cut (`withGroups`): one
   // read for the rows the response carries rather than for every matching
   // account.
@@ -114,13 +117,25 @@ export interface UsersDirectoryInput {
   readonly order?: 'asc' | 'desc' | undefined
   readonly page?: number | undefined
   readonly limit?: number | undefined
+  /** Only the accounts holding exactly this role (after the default-role fill). */
+  readonly role?: string | undefined
+  /** `banned` keeps the banned accounts, `active` the others. */
+  readonly status?: 'banned' | 'active' | undefined
 }
+
+/** Whether a projected row passes the directory's role and status filters. */
+const passesFilters = (row: Readonly<ProjectedRow>, input: UsersDirectoryInput): boolean =>
+  (input.role === undefined || row.role === input.role) &&
+  (input.status === undefined || row.banned === (input.status === 'banned'))
 
 /** The columns the directory can be ordered by (the closed set the API validates). */
 export type DirectorySortField = 'id' | 'email' | 'name' | 'role' | 'banned'
 
 /** One projected directory row, as the response carries it. */
 type DirectoryRow = AdminUsersDirectoryResponse['users'][number]
+
+/** A row before its session facts are read: they are read for the page alone. */
+type ProjectedRow = Omit<DirectoryRow, 'lastSignInAt' | 'activeSessionCount' | 'signInMethods'>
 
 /**
  * Compare two rows on one column.
@@ -132,8 +147,8 @@ type DirectoryRow = AdminUsersDirectoryResponse['users'][number]
  * punctuation with letters. `banned` sorts false-before-true.
  */
 const compareOn = (
-  a: Readonly<DirectoryRow>,
-  b: Readonly<DirectoryRow>,
+  a: Readonly<ProjectedRow>,
+  b: Readonly<ProjectedRow>,
   field: DirectorySortField
 ): number => {
   if (field === 'banned') return Number(a.banned) - Number(b.banned)
@@ -152,10 +167,10 @@ const compareOn = (
  *
  * An absent `limit` returns everything, which is what the CSV export needs.
  */
-export const orderAndPage = (
-  rows: readonly DirectoryRow[],
+export const orderAndPage = <Row extends ProjectedRow>(
+  rows: readonly Row[],
   input: UsersDirectoryInput
-): readonly DirectoryRow[] => {
+): readonly Row[] => {
   const { sort, order, page, limit } = input
   const ordered = sort
     ? rows.toSorted((a, b) => (order === 'desc' ? -1 : 1) * compareOn(a, b, sort))
@@ -194,6 +209,32 @@ const withGroups = (
     return rows.map((row) => {
       const groups = [...(byUser.get(row.id) ?? [])].toSorted((a, b) => a.localeCompare(b))
       return { ...row, groups, groupLabels: groups.map(labels.group) }
+    })
+  })
+
+/**
+ * Attach to each row what its sessions and sign-in accounts say — when it last
+ * signed in, how many sessions it holds unexpired, and how it signs in — in ONE
+ * read for the whole page. An account that never signed in reads `null`, `0`
+ * and an empty list.
+ */
+const withAccountFacts = (
+  rows: readonly ProjectedRow[]
+): Effect.Effect<readonly DirectoryRow[], UsersDirectoryDatabaseError, UsersDirectoryRepository> =>
+  Effect.gen(function* () {
+    const now = new Date(yield* Clock.currentTimeMillis)
+    const facts = yield* (yield* UsersDirectoryRepository).readAccountFacts(
+      rows.map((row) => row.id),
+      now
+    )
+    return rows.map((row) => {
+      const fact = facts.get(row.id)
+      return {
+        ...row,
+        lastSignInAt: isoOf(fact?.lastSignInAt ?? null),
+        activeSessionCount: fact?.activeSessionCount ?? 0,
+        signInMethods: [...(fact?.signInMethods ?? [])],
+      }
     })
   })
 
@@ -239,8 +280,11 @@ export const BuildUsersDirectory = (
     const matching = rows
       .filter((row) => !pending.has(row.id))
       .map((row) => projectRow(row, labels))
+      .filter((row) => passesFilters(row, input))
     const body = {
-      users: [...(yield* withGroups(orderAndPage(matching, input), labels))],
+      users: [
+        ...(yield* withGroups(yield* withAccountFacts(orderAndPage(matching, input)), labels)),
+      ],
       total: matching.length,
       // `null`, not `undefined`: the KEY's presence is the signal (see
       // `appliedQuerySchema`). An omitted key means "this endpoint does not

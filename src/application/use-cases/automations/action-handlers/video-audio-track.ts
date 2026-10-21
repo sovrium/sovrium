@@ -11,7 +11,11 @@ import {
   type AudioExtractError,
   type ExtractedAudio,
 } from '@/application/ports/services/audio-track-extractor'
-import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
+import {
+  StorageService,
+  UNATTRIBUTED_BUCKET,
+  isStorageObjectTooLarge,
+} from '@/application/ports/services/storage-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { FILE_SOURCE_MAX_BYTES } from './file-support'
 import { authoredActionProps, resolveOwnProp } from './run-context-resolution'
@@ -73,14 +77,20 @@ export const extractionRefusal = (name: string, error: Readonly<AudioExtractErro
   }
 }
 
+/** Why a file filed as a video could not be read as one, in the step's words. */
+export const unreadableVideoRefusal = (name: string, error: Readonly<AudioExtractError>): string =>
+  error.reason === 'malformed'
+    ? extractionRefusal(name, error)
+    : `"${name}" could not be read as a video: it is not an MP4, QuickTime, Matroska or WebM container`
+
 /** A stored source read whole, or why it was not. */
 export type BoundedRead =
   { readonly bytes: Uint8Array } | { readonly refusal: string; readonly missing?: true }
 
 /**
  * Read `key` under the 100 MiB bound: a catalogued size past it is refused
- * before any byte is downloaded, and the downloaded bytes are measured again
- * (a key written out of band has no catalog row).
+ * before any byte is downloaded, and the download stops at the bound (a key
+ * written out of band has no catalog row).
  */
 export const readBoundedSource = Effect.fn('automations.read-bounded-source')(function* (
   key: string,
@@ -94,24 +104,24 @@ export const readBoundedSource = Effect.fn('automations.read-bounded-source')(fu
     const refused: BoundedRead = { refusal: oversizedSourceRefusal(name) }
     return refused
   }
-  // The step fails either way, but its message cannot tell a missing key from
-  // a storage outage — so the cause is logged first.
-  const downloaded = yield* storage.download(key, UNATTRIBUTED_BUCKET).pipe(
-    Effect.tapCause((cause) =>
-      Effect.sync(() => {
-        logError('[automations] a video source could not be read', cause)
-      })
-    ),
-    Effect.result
+  // The bounded download stops at the cap. A step that fails cannot tell a
+  // missing key from a storage outage in its message — so the cause is logged.
+  const downloaded = yield* Effect.result(
+    storage.downloadBounded(key, UNATTRIBUTED_BUCKET, FILE_SOURCE_MAX_BYTES)
   )
-  if (downloaded._tag === 'Failure') {
-    const missing: BoundedRead = { refusal: `file not found: ${key}`, missing: true }
-    return missing
+  if (downloaded._tag === 'Success') {
+    const read: BoundedRead = { bytes: downloaded.success }
+    return read
   }
-  const read: BoundedRead = isOverReadLimit(downloaded.success.length)
-    ? { refusal: oversizedSourceRefusal(name) }
-    : { bytes: downloaded.success }
-  return read
+  if (isStorageObjectTooLarge(downloaded.failure)) {
+    const refused: BoundedRead = { refusal: oversizedSourceRefusal(name) }
+    return refused
+  }
+  yield* Effect.sync(() => {
+    logError('[automations] a video source could not be read', downloaded.failure)
+  })
+  const missing: BoundedRead = { refusal: `file not found: ${key}`, missing: true }
+  return missing
 })
 
 /** The audio track of `bytes`, or the typed reason there is none. */

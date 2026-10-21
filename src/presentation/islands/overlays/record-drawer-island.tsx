@@ -60,6 +60,7 @@
  */
 
 import { DrawerBody } from './record-drawer-body'
+import { DatePickerWordsContext } from './record-drawer-date-words'
 import { DialogSurface, RegionSurface } from './record-drawer-surfaces'
 import { useRecordSheet } from './use-record-drawer-sheet'
 import type { DrawerAction } from './record-drawer-actions'
@@ -129,6 +130,8 @@ export interface RecordDrawerIslandProps extends RelatedSlotProps, DrawerNavigat
   readonly notFoundLabel?: string
   /** What a drawer says of a record whose read failed (`recordDrawer.readFailed`). */
   readonly readFailedLabel?: string
+  /** The button that asks a failed record read again (`recordDrawer.retry`). */
+  readonly retryLabel?: string
   /** The other words the drawer draws on its own (`record-drawer-labels.ts`). */
   readonly builtInLabels?: DrawerBuiltInLabels
   /** The author's `props.className`, added to the surface the reader sees. */
@@ -171,11 +174,13 @@ export default function RecordDrawerIsland(props: RecordDrawerIslandProps): Reac
     // A record stacked over the one it was reached from is not in the list.
     header: sheet.stacked === undefined ? sheet.header : undefined,
     body: (
-      <DrawerBody
-        props={props}
-        labels={labels}
-        sheet={sheet}
-      />
+      <DatePickerWordsContext.Provider value={props.builtInLabels?.datePicker}>
+        <DrawerBody
+          props={props}
+          labels={labels}
+          sheet={sheet}
+        />
+      </DatePickerWordsContext.Provider>
     ),
     closeLabel: labels.close,
     open: sheet.drawer.open,

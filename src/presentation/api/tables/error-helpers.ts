@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { preserveIdType } from '@/application/use-cases/tables/preserve-id-type'
 import { NotFoundError } from '@/domain/errors'
 import { isDriverOriginatedFailure } from '@/domain/errors/driver-failure'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
@@ -143,9 +144,10 @@ export const handleBatchRestoreError = (c: Context, error: unknown) => {
     return notFound(c)
   }
 
-  // A record the validator proved absent. `recordId` is reported as a number
-  // to match the wire shape asserted by `restore-and-query.spec.ts`
-  // (`expect(data.recordId).toBe(9999)`); ids arrive as strings.
+  // A record the validator proved absent, echoed as the caller named it: a
+  // number when the id is one (`restore-and-query.spec.ts` asserts
+  // `data.recordId` is `9999`), the string as sent otherwise. Ids arrive as
+  // strings.
   if (error instanceof NotFoundError) {
     return c.json(
       {
@@ -153,7 +155,7 @@ export const handleBatchRestoreError = (c: Context, error: unknown) => {
         error: 'Not Found',
         message: 'Resource not found',
         code: 'NOT_FOUND',
-        recordId: error.recordId === undefined ? undefined : Number.parseInt(error.recordId),
+        recordId: error.recordId === undefined ? undefined : preserveIdType(error.recordId),
       },
       404
     )

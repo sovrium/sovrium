@@ -17,9 +17,10 @@ import { DynamicPage } from '@/presentation/render/page/dynamic-page'
  *
  * Uses DynamicPage pattern with theme-generated styles for consistency across the application.
  *
+ * @param requestId - The id the request was answered under, shown so it can be quoted
  * @returns React element for 500 error page
  */
-export function ErrorPage(): Readonly<ReactElement> {
-  const pageConfig = createErrorPageConfig()
+export function ErrorPage({ requestId }: { readonly requestId?: string }): Readonly<ReactElement> {
+  const pageConfig = createErrorPageConfig(requestId)
   return <DynamicPage page={pageConfig} />
 }

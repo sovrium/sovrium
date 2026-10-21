@@ -40,6 +40,8 @@ export function handleRouteError(c: Context, error: unknown): Response {
       // a client should not get a narrower error because of which seam caught it.
       ...(sanitized.field ? { field: sanitized.field } : {}),
       ...(sanitized.errors ? { errors: sanitized.errors } : {}),
+      // An internal error names its request, as `runEffect`'s answer does.
+      ...(sanitized.code === 'INTERNAL_ERROR' ? { requestId } : {}),
     },
     statusCode
   )

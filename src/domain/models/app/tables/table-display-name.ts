@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { singleLineDescription } from '@/domain/models/app/description'
 
 /**
  * The names a PERSON reads for a table, beside the identifier a database reads.
@@ -57,3 +58,21 @@ export const TableLabelPluralSchema = displayName(
   ['Invoice lines', 'Lignes de facture', '$t:tables.invoiceLines.other'],
   'labelPlural must not be empty'
 )
+
+/** `tables[].description` — what the table holds, in one line, for the person reading it. */
+export const TableDescriptionSchema = singleLineDescription({
+  title: 'Table Description',
+  description:
+    'What this table holds, in one line (up to 2,000 characters, no line break). The operator console draws it under the table name in its table directory, and the admin tables overview carries it on the table row. Display text only: nothing reads it as a rule.',
+  examples: ['Everyone we have spoken to, client or not.'],
+})
+
+/**
+ * The words a person reads for a table, as `tables[]` declares them, in their
+ * declared order: `label`, `labelPlural`, then `description`.
+ */
+export const TableReaderFields = {
+  label: Schema.optional(TableLabelSchema),
+  labelPlural: Schema.optional(TableLabelPluralSchema),
+  description: Schema.optional(TableDescriptionSchema),
+} as const

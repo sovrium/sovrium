@@ -20,6 +20,7 @@
  * either: a page whose runtime has not loaded still explains a disabled control.
  */
 
+import type { DisabledVerdict } from './disabled-verdict'
 import type { ReactElement, ReactNode } from 'react'
 
 /** The wrapper a disabled control and its reason sit in: the tooltip's anchor. */
@@ -77,3 +78,26 @@ export function renderDisabledControl(
     </span>
   )
 }
+
+/**
+ * The attributes a control adds for its record's verdict
+ * (`disabled-verdict.ts`): {@link disabledControlAttributes} when the record
+ * disables it, nothing when it is usable.
+ */
+export const verdictAttributes = (
+  verdict: DisabledVerdict | undefined,
+  reasonId: string
+): Readonly<Record<string, string>> =>
+  verdict === undefined ? {} : disabledControlAttributes(verdict.reason ? reasonId : undefined)
+
+/**
+ * `control` as its record's verdict draws it: wrapped with its reason
+ * ({@link renderDisabledControl}) when the record disables it, as it is when
+ * usable. `control` carries {@link verdictAttributes} for the same verdict.
+ */
+export const withVerdict = (
+  control: ReactElement,
+  verdict: DisabledVerdict | undefined,
+  reasonId: string
+): ReactElement =>
+  verdict === undefined ? control : renderDisabledControl(control, reasonId, verdict.reason)

@@ -157,6 +157,8 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
           readOnly={isReadOnly}
           layout={props.layout}
           phoneLayout={props.phoneLayout}
+          viewOptions={props.viewOptions}
+          viewChannel={props.dataSource.bindTo ?? props.dataSource.system?.bindTo}
           tableName={tableName}
           allColumns={setup.allColumns}
           totalRecords={setup.totalRecords}

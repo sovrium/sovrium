@@ -54,8 +54,9 @@ async function stampGrid(component: Component, ctx: StampContext): Promise<Compo
   if (table === undefined) return component
   const view = typeof binding?.view === 'string' ? binding.view : undefined
   const callerTable = await ctx.read(ctx.app, table.name, ctx.session, view)
-  // A table whose list admits her no row is drawn as one she may not read.
-  if (view === undefined && callerTable.refused === true) return emptyDataBoundComponent(component)
+  // A table whose list admits her no row is drawn as one she may not read,
+  // through a view or not: the grid bound to the table, naming nothing of the view.
+  if (callerTable.refused === true) return emptyDataBoundComponent(component)
   const { columns } = component as { readonly columns?: readonly unknown[] }
   const readable = view === undefined ? readableColumnsOf(columns, table, callerTable) : columns
   return alternateViewsForReader(
@@ -84,8 +85,9 @@ async function stampRecordView(component: Component, ctx: StampContext): Promise
   if (table === undefined) return component
   const view = typeof binding?.view === 'string' ? binding.view : undefined
   const callerTable = await ctx.read(ctx.app, table.name, ctx.session, view)
-  // Through a view, the view's route decides; else the table's list does.
-  if (view === undefined ? callerTable.refused === true : callerTable.boundView === undefined) {
+  // A table whose list admits her no row is withheld, through a view or not;
+  // else, through a view, the view's route decides.
+  if (callerTable.refused === true || (view !== undefined && callerTable.boundView === undefined)) {
     return withheldComponent(component)
   }
   const forReader = recordViewForReader(component, table, callerTable)

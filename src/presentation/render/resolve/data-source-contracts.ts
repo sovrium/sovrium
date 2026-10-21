@@ -20,8 +20,10 @@
 
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import { resolveSystemSource } from '@/domain/models/app/system-sources'
+import type { LookupReadMask } from '@/application/ports/repositories/tables/table-repository'
 import type {
   LoadRowRuleContext,
+  ReadQueryMasks,
   ReadReaderRows,
   ReadRecordLabels,
   ReadTableAsCaller,
@@ -32,11 +34,15 @@ import type {
   ComponentReference,
   SimpleComponentReference,
 } from '@/domain/models/app/components/reference'
+import type { ViewerIdentity } from '@/domain/models/app/pages/component-session-visibility-service'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { InvitationFacts } from '@/domain/models/app/pages/invitation-vars-service'
 import type { CallerFieldReader } from '@/domain/models/app/tables/field-read-filter-service'
 import type { RecordTextContext } from '@/presentation/render/props/record-value-format'
+
+/** The lookups and counts a read steers on as the reader's records list does (`ReadQueryMasks`). */
+export type QueryLookupMasks = readonly LookupReadMask[]
 
 export const SINGLE_RECORD_NOT_FOUND = Symbol('SINGLE_RECORD_NOT_FOUND')
 export const UNAUTHORIZED = Symbol('UNAUTHORIZED')
@@ -65,13 +71,14 @@ export interface DataSourceDb {
       readonly pageSize?: number
       readonly page?: number
       readonly liveOnly?: boolean
+      readonly lookupMasks?: QueryLookupMasks
     }
   ) => Promise<readonly Record<string, unknown>[]>
 
   readonly countRecords: (
     tableName: string,
     filter?: readonly DataFilter[],
-    options?: { readonly liveOnly?: boolean }
+    options?: { readonly liveOnly?: boolean; readonly lookupMasks?: QueryLookupMasks }
   ) => Promise<number>
 
   readonly fetchSingleRecord: (
@@ -149,6 +156,9 @@ export interface DataSourceDb {
    */
   readonly callerFieldReader?: CallerFieldReader
 
+  /** Optional — that mounted caller's id and email, for a `$user.id` / `$user.email` condition only. */
+  readonly viewerIdentity?: ViewerIdentity
+
   /**
    * Optional — the labels of the record a page is bound to, as the records API
    * answers its reader (`_display`). Absent, a `user` or relationship field of
@@ -165,11 +175,21 @@ export interface DataSourceDb {
   readonly loadRowRuleContext?: LoadRowRuleContext
 
   /**
-   * Optional — the rows of a table the records list admits the page's reader,
-   * with the grants behind them. Absent (a mounted console, a static build, a
-   * unit test), a server-drawn list is not narrowed to them.
+   * The rows of a table the records list admits the page's reader, with the
+   * grants behind them. Required, so every server-drawn read — a list, a feed,
+   * a sitemap — is narrowed to them: the route folds in its request's own
+   * reader, and a render with none answers as a visitor who is not signed in
+   * (`signedOutReaderRows`).
    */
-  readonly readReaderRows?: ReadReaderRows
+  readonly readReaderRows: ReadReaderRows
+
+  /**
+   * Optional — the records list's masks of the lookups and counts a query
+   * names, for the page's reader: a list filtered or sorted on a count she
+   * reads narrowed steers on it as her records list does. Absent (a feed, a
+   * mounted console, a unit test), every column is read as stored.
+   */
+  readonly readQueryMasks?: ReadQueryMasks
 
   /** Optional — the request's download-address signer (`file-preview`). Absent, no preview is drawn. */
   readonly signFileUrl?: SignFileUrl

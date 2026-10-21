@@ -25,10 +25,11 @@
 
 import { Effect } from 'effect'
 import {
-  buildGuestSession,
+  buildSignedOutReader,
   buildSyntheticSession,
 } from '@/application/use-cases/automations/build-guest-session'
 import { relatedReaderOf } from '@/application/use-cases/tables/linked-row-visibility'
+import { lookupReadMasks } from '@/application/use-cases/tables/lookup-read-masks'
 import {
   loadCurrentUserContext,
   rowRuleScopeOf,
@@ -43,12 +44,14 @@ import {
 } from '@/application/use-cases/tables/table-operations'
 import { GUEST_USER_ID, isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { callerReaderFromSession } from '@/domain/models/app/tables/caller-record-gate-service'
+import { fieldsReadOrWritable } from '@/domain/models/app/tables/field-write-permission-service'
 import { decodeUserListValuesIn } from '@/domain/models/app/tables/user-list-field-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import type {
   CallerTableView,
   LoadRowRuleContext,
+  ReadQueryMasks,
   ReadReaderRows,
   ReadRecordLabels,
   ReadTableAsCaller,
@@ -121,11 +124,7 @@ function labelReaderOf(app: Parameters<ReadRecordLabels>[0], session: SessionInf
       groups: reader.groups,
     }
   }
-  return {
-    session: buildGuestSession(),
-    role: app.auth === undefined ? 'admin' : 'guest',
-    groups: [],
-  }
+  return buildSignedOutReader(app)
 }
 
 /**
@@ -234,26 +233,50 @@ const readerRowsReader = (c: Context): ReadReaderRows => {
 }
 
 /**
+ * The masks of the lookups and counts a page's query names, computed by the
+ * records list's own program (`lookupReadMasks`) for the reader it labels a
+ * record for, so a page filtered or sorted on a count she reads narrowed
+ * steers on it exactly as her records list does. A read that cannot be made
+ * fails the render rather than steering on the stored figure.
+ */
+export const queryMasksReader =
+  (c: Context): ReadQueryMasks =>
+  async (app, tableName, session, query) => {
+    const sort = query.sort?.map(({ field, direction }) => `${field}:${direction}`).join(',')
+    const masks = lookupReadMasks(app, tableName, labelReaderOf(app, session), {
+      filter: query.filter,
+      ...(sort === undefined ? {} : { sort }),
+    })
+    const answer = await runOnRequest(c, masks)
+    if (answer._tag === 'Success') return answer.success
+    throw new Error(`the read masks of ${tableName} could not be computed`, {
+      cause: answer.failure,
+    })
+  }
+
+/**
  * The routes' answers for one caller, and — as the views and permissions
  * routes refuse it — a table whose records list admits her no row answered as
- * one that does not exist (`refused`). A view's definition is the view's own
- * route's answer, so it is kept.
+ * one that does not exist (`refused`): no view, no permission map and no
+ * view's definition either, since a view's records route refuses her too.
  */
 const tableAsCallerReader =
   (readerRows: ReadReaderRows): ReadTableAsCaller =>
   async (app, tableName, session, view) => {
+    // A form she may submit on a table answering her no map still offers her the
+    // fields her own field rules let her read or write — never any other.
+    const { role, groups } = labelReaderOf(app, session)
+    const formFields = () => fieldsReadOrWritable(app, tableName, { role, groups })
+    // Both reads, whatever the first answers: a table admitting her no row takes
+    // the same reads as one admitting her some, and neither waits on the other.
     const [answer, rows] = await Promise.all([
       routesAnswerFor(app, tableName, session, view),
       readerRows(app, tableName, session),
     ])
-    if (rows.admission.kind !== 'no-row') return answer
-    const { boundView } = answer
-    return {
-      views: [],
-      permissionMap: undefined,
-      ...(view !== undefined && { boundView }),
-      refused: true,
+    if (rows.admission.kind === 'no-row') {
+      return { views: [], permissionMap: undefined, refused: true, formFields: formFields() }
     }
+    return answer.permissionMap === undefined ? { ...answer, formFields: formFields() } : answer
   }
 
 /** The table API's answers a page render carries for this request. */
@@ -264,5 +287,6 @@ export const callerTableReaders = (c: Context) => {
     readRecordLabels: recordLabelReader(c),
     loadRowRuleContext: rowRuleContextLoader(c),
     readReaderRows,
+    readQueryMasks: queryMasksReader(c),
   }
 }

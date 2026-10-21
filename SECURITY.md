@@ -10,11 +10,16 @@ Only the latest release in the 0.x line receives security updates.
 
 ## Reporting a Vulnerability
 
-Please report security vulnerabilities by emailing **security@sovrium.com**.
+Report a vulnerability **privately**, through a GitHub security advisory:
+**[github.com/sovrium/sovrium/security/advisories/new](https://github.com/sovrium/sovrium/security/advisories/new)**.
+The report is visible to the maintainers only, and lets you give the severity, the affected
+versions and a reproduction in one place. If you cannot use GitHub, email
+**security@sovrium.com** instead.
 
 - You will receive an acknowledgment within **48 hours**.
 - We will provide an initial assessment within **5 business days**.
-- Please do not open public issues for security vulnerabilities.
+- Never open a public issue, discussion or pull request for a vulnerability. The issue forms
+  link to the advisory form for this reason.
 
 We appreciate responsible disclosure and will credit reporters (with permission) in the release notes.
 

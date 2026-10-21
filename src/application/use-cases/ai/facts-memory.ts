@@ -31,6 +31,8 @@ export const extractAndStoreFact = (input: {
   readonly userId: string
   readonly fact: string
   readonly maxFacts: number
+  /** The tables the answer this fact was learned from read. */
+  readonly tables?: ReadonlyArray<string> | undefined
 }): Effect.Effect<void, AiFactsDatabaseError, AiFactsRepository> =>
   Effect.gen(function* () {
     const repo = yield* AiFactsRepository

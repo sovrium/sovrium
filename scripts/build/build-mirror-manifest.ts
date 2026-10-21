@@ -61,6 +61,10 @@ export const KEEP_SCRIPTS = [
   // `Script not found "desktop:check"`; mirror-workflow-scripts.ts now holds the
   // mirrored workflows to this list.
   'desktop:check',
+  // The Figma plugin is mirrored (founder ruling 2026-10-20); a reader of the
+  // public repository builds it and checks it with these two, as its README says.
+  'build:figma-plugin',
+  'typecheck:figma-plugin',
   'start',
   'typecheck',
 ] as const

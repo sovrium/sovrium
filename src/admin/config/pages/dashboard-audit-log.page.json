@@ -1,0 +1,358 @@
+{
+  "id": "dashboard-audit-log",
+  "name": "dashboard-audit-log",
+  "path": "/audit-log",
+  "meta": {
+    "title": "$t:admin.meta.auditLog"
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6 min-h-0"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "audit-log": "$t:admin.crumb.auditLog"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "header",
+          "element": "header",
+          "props": {
+            "className": "flex flex-col gap-1"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "h1",
+              "props": {
+                "className": "text-foreground text-2xl font-semibold tracking-tight"
+              },
+              "content": "$t:admin.auditLog.heading"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "content": "$t:admin.auditLog.blurb"
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "admin-toolbar-row",
+          "element": "div",
+          "props": {
+            "className": "flex min-h-10 flex-wrap items-center gap-2",
+            "data-testid": "admin-toolbar-row"
+          },
+          "children": [
+            {
+              "type": "native-select",
+              "props": {
+                "id": "audit-log-transport-filter",
+                "label": "$t:admin.auditLog.filter.transport",
+                "className": "flex w-fit items-center [&>[data-slot=label]]:sr-only [&_[data-slot=native-select]]:border-dashed [&_[data-slot=native-select]]:font-medium"
+              },
+              "emptyOption": {
+                "label": "$t:admin.auditLog.filter.allTransports"
+              },
+              "publishes": {
+                "bindTo": "audit-log-filter",
+                "param": "transport"
+              },
+              "options": [
+                {
+                  "value": "config-file",
+                  "label": "$t:admin.auditLog.transport.configfile"
+                },
+                {
+                  "value": "env",
+                  "label": "$t:admin.auditLog.transport.env"
+                },
+                {
+                  "value": "api",
+                  "label": "$t:admin.auditLog.transport.api"
+                },
+                {
+                  "value": "mcp",
+                  "label": "$t:admin.auditLog.transport.mcp"
+                },
+                {
+                  "value": "restore",
+                  "label": "$t:admin.auditLog.transport.restore"
+                }
+              ]
+            },
+            {
+              "type": "native-select",
+              "props": {
+                "id": "audit-log-resource-filter",
+                "label": "$t:admin.auditLog.filter.resource",
+                "className": "flex w-fit items-center [&>[data-slot=label]]:sr-only [&_[data-slot=native-select]]:border-dashed [&_[data-slot=native-select]]:font-medium"
+              },
+              "emptyOption": {
+                "label": "$t:admin.auditLog.filter.allResources"
+              },
+              "publishes": {
+                "bindTo": "audit-log-filter",
+                "param": "resourceType"
+              },
+              "options": [
+                {
+                  "value": "user",
+                  "label": "$t:admin.auditLog.resource.user"
+                },
+                {
+                  "value": "config",
+                  "label": "$t:admin.auditLog.resource.config"
+                },
+                {
+                  "value": "table",
+                  "label": "$t:admin.auditLog.resource.table"
+                },
+                {
+                  "value": "table.record",
+                  "label": "$t:admin.auditLog.resource.record"
+                },
+                {
+                  "value": "form",
+                  "label": "$t:admin.auditLog.resource.form"
+                },
+                {
+                  "value": "form.submission",
+                  "label": "$t:admin.auditLog.resource.submission"
+                },
+                {
+                  "value": "automation",
+                  "label": "$t:admin.auditLog.resource.automation"
+                },
+                {
+                  "value": "automation.run",
+                  "label": "$t:admin.auditLog.resource.automationRun"
+                },
+                {
+                  "value": "agent",
+                  "label": "$t:admin.auditLog.resource.agent"
+                },
+                {
+                  "value": "bucket",
+                  "label": "$t:admin.auditLog.resource.bucket"
+                },
+                {
+                  "value": "link",
+                  "label": "$t:admin.auditLog.resource.link"
+                },
+                {
+                  "value": "connection",
+                  "label": "$t:admin.auditLog.resource.connection"
+                },
+                {
+                  "value": "group",
+                  "label": "$t:admin.auditLog.resource.group"
+                },
+                {
+                  "value": "design.share",
+                  "label": "$t:admin.auditLog.resource.designShare"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "component": "console-grid",
+          "key": "grid",
+          "vars": {
+            "id": "admin-audit-log-grid",
+            "ariaLabel": "$t:admin.auditLog.region",
+            "dataSource": {
+              "system": {
+                "endpoint": "/api/admin/audit-log",
+                "rowsKey": "items",
+                "idKey": "id",
+                "query": {
+                  "limit": "200"
+                },
+                "bindTo": "audit-log-filter",
+                "sharedFilter": {
+                  "params": ["transport", "resourceType"]
+                }
+              }
+            },
+            "columns": [
+              {
+                "field": "timestamp",
+                "label": "$t:admin.auditLog.col.time",
+                "format": "day-relative-time",
+                "width": 160
+              },
+              {
+                "field": "actor.email",
+                "label": "$t:admin.auditLog.col.actor",
+                "width": 240,
+                "truncate": true
+              },
+              {
+                "field": "action",
+                "label": "$t:admin.auditLog.col.action",
+                "minWidth": 220,
+                "cellStyle": [
+                  {
+                    "when": {
+                      "isNotEmpty": true
+                    },
+                    "className": "font-mono text-xs"
+                  }
+                ]
+              },
+              {
+                "field": "resource.type",
+                "label": "$t:admin.auditLog.col.resource",
+                "width": 180,
+                "valueLabels": {
+                  "user": "$t:admin.auditLog.resource.user",
+                  "config": "$t:admin.auditLog.resource.config",
+                  "table": "$t:admin.auditLog.resource.table",
+                  "table.record": "$t:admin.auditLog.resource.record",
+                  "form": "$t:admin.auditLog.resource.form",
+                  "form.submission": "$t:admin.auditLog.resource.submission",
+                  "automation": "$t:admin.auditLog.resource.automation",
+                  "automation.run": "$t:admin.auditLog.resource.automationRun",
+                  "agent": "$t:admin.auditLog.resource.agent",
+                  "bucket": "$t:admin.auditLog.resource.bucket",
+                  "link": "$t:admin.auditLog.resource.link",
+                  "connection": "$t:admin.auditLog.resource.connection",
+                  "group": "$t:admin.auditLog.resource.group",
+                  "design.share": "$t:admin.auditLog.resource.designShare"
+                }
+              },
+              {
+                "field": "result",
+                "label": "$t:admin.auditLog.col.result",
+                "width": 120,
+                "valueLabels": {
+                  "success": "$t:admin.auditLog.result.success",
+                  "failure": "$t:admin.auditLog.result.failure"
+                },
+                "cellStyle": [
+                  {
+                    "when": {
+                      "eq": "success"
+                    },
+                    "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-success-solid"
+                  },
+                  {
+                    "when": {
+                      "eq": "failure"
+                    },
+                    "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-destructive [&:is(span)]:before:bg-destructive"
+                  }
+                ]
+              },
+              {
+                "field": "transport",
+                "label": "$t:admin.auditLog.col.transport",
+                "width": 140,
+                "valueLabels": {
+                  "config-file": "$t:admin.auditLog.transport.configfile",
+                  "env": "$t:admin.auditLog.transport.env",
+                  "api": "$t:admin.auditLog.transport.api",
+                  "mcp": "$t:admin.auditLog.transport.mcp",
+                  "restore": "$t:admin.auditLog.transport.restore"
+                }
+              }
+            ],
+            "emptyMessage": "$t:admin.auditLog.empty",
+            "noMatchMessage": "$t:admin.auditLog.noMatch",
+            "layout": "fill",
+            "onRowClick": {
+              "action": "openSheet",
+              "component": "admin-audit-log-entry"
+            }
+          }
+        },
+        {
+          "component": "console-record-sheet",
+          "key": "record-sheet",
+          "vars": {
+            "id": "admin-audit-log-entry",
+            "dataSource": {
+              "system": {
+                "endpoint": "/api/admin/audit-log/:id",
+                "param": "id"
+              }
+            },
+            "canEdit": false,
+            "props": {
+              "title": "$t:admin.auditLog.entry.title"
+            },
+            "recordFields": [
+              {
+                "name": "action",
+                "type": "single-line-text",
+                "label": "$t:admin.auditLog.col.action"
+              },
+              {
+                "name": "timestamp",
+                "type": "datetime",
+                "label": "$t:admin.auditLog.col.time"
+              },
+              {
+                "name": "result",
+                "type": "single-line-text",
+                "label": "$t:admin.auditLog.col.result"
+              },
+              {
+                "name": "transport",
+                "type": "single-line-text",
+                "label": "$t:admin.auditLog.col.transport"
+              },
+              {
+                "name": "actor",
+                "type": "json",
+                "label": "$t:admin.auditLog.col.actor",
+                "renderAs": "key-value"
+              },
+              {
+                "name": "resource",
+                "type": "json",
+                "label": "$t:admin.auditLog.col.resource",
+                "renderAs": "key-value"
+              },
+              {
+                "name": "metadata",
+                "type": "json",
+                "label": "$t:admin.auditLog.entry.details",
+                "renderAs": "key-value"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

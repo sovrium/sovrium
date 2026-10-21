@@ -35,6 +35,7 @@ import {
 } from '@/infrastructure/process/page-cache-telemetry'
 import { isPartialRequest } from '@/presentation/api/runtime/content-partial'
 import { microphonePolicyHeaders } from '@/presentation/api/runtime/microphone-permission'
+import { throwIfPageFaultInjected } from '@/presentation/api/runtime/page-fault-injection'
 import { varyOnPartial } from '@/presentation/api/runtime/vary'
 import { pageCapturesMicrophone } from '@/presentation/render/page/page-microphone-detection'
 import { absolutizeSharingImage } from '@/presentation/render/page/sharing-image-address'
@@ -63,18 +64,6 @@ import type {
   SignFileUrl,
 } from '@/application/ports/services/page-renderer'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
-
-/**
- * Status served by the rendered error page.
- *
- * Declared once and interpolated into BOTH the log line and the response so the
- * two can never drift. A `→ 500` hard-coded into a log message drifts as soon
- * as the response status becomes variable (in `createHonoApp`'s `.onError` an
- * `HTTPException` carries its own), leaving the log claiming 500 for what the
- * wire reported as a 504 — a mismatch that makes a production incident
- * unreadable from logs.
- */
-export const ERROR_PAGE_STATUS = 500
 
 /**
  * Renders an access error page with a visible error message
@@ -244,6 +233,9 @@ const readCachedPage = (c: Context, cacheKey: string): Promise<CachedPage | unde
     })
   )
 
+/** The store holds UTF-8 bytes (see `CachedPage`); a hit is decoded once, here. */
+const cachedPageText = new TextDecoder('utf-8', { ignoreBOM: true })
+
 /** @see readCachedPage */
 const storeRenderedPage = (c: Context, cacheKey: string, html: string): Promise<void> =>
   runDomainPromise(
@@ -275,6 +267,7 @@ export async function renderWithCache(
   c: Context
 ): Promise<Response | undefined> {
   const { app, renderPage } = config
+  throwIfPageFaultInjected(c.req.path)
 
   // P3: the renderer's request-bound readers (and the file signer), built HERE:
   // the one funnel every page passes through and the only place holding the request.
@@ -324,7 +317,8 @@ export async function renderWithCache(
   const onThisHost = (html: string): string => absolutizeSharingImage(html, requestOrigin)
   const cached = await readCachedPage(c, cacheKey)
   if (cached !== undefined) {
-    return send({ html: onThisHost(cached.html) }, 'hit', CACHED_PAGE_CACHE_CONTROL)
+    const html = cachedPageText.decode(cached.body)
+    return send({ html: onThisHost(html) }, 'hit', CACHED_PAGE_CACHE_CONTROL)
   }
 
   const resolved = resolvePageResult(await renderPage(app, path, originFreeCtx))

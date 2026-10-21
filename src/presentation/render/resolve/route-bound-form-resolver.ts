@@ -30,6 +30,8 @@ interface FormResolutionRequest {
    * `administer-accounts` is the session's admin-equivalent role, stated.
    */
   readonly callerCapabilities?: readonly CallerCapability[] | undefined
+  /** A specimen's sample address: a segment naming no declared form is drawn, not refused. */
+  readonly admitUndeclared?: boolean
 }
 
 /** Ambient context one page's resolution reads. */
@@ -92,9 +94,10 @@ export function resolveRouteBoundForms(
 
   const declared = new Set((request.app.forms ?? []).map((form) => form.name))
   const named = collectFormNames(components, request.routeParams)
-  if (named.some((name) => !declared.has(name))) return 'not-found'
+  if (request.admitUndeclared !== true && named.some((name) => !declared.has(name)))
+    return 'not-found'
 
-  const { session, callerCapabilities, ...rest } = request
+  const { session, callerCapabilities, admitUndeclared: _admit, ...rest } = request
   const answersVisible = canReadFormAnswers(request.app, session, callerCapabilities)
   const ctx = { ...rest, answersVisible }
   return { ...page, components: mapNodes(components, ctx) as Page['components'] }

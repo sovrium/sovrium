@@ -39,6 +39,12 @@ export interface AiMemoryMessage {
   readonly elicitation?: AiMessageElicitation | undefined
   /** On a user message sent as parts: the parts, in the order sent, as references. */
   readonly parts?: ReadonlyArray<AiMessagePart> | undefined
+  /**
+   * On an assistant message: one line per call its turn ran — what ran, how it
+   * ended, the table it named — never the call's arguments or result. What a
+   * replay ties an answer to its table by.
+   */
+  readonly toolCalls?: ReadonlyArray<StoredToolCall> | undefined
 }
 
 /**

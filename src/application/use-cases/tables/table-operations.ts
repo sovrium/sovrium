@@ -15,7 +15,6 @@ import {
 import {
   hasCreatePermissionForRoles,
   hasDeletePermissionForRoles,
-  hasReadPermission,
   hasReadPermissionForCaller,
   hasUpdatePermissionForRoles,
 } from '@/domain/models/app/auth/permission-evaluator-service'
@@ -46,17 +45,6 @@ export class TableNotFoundError extends Error {
 }
 
 /* eslint-enable functional/no-expression-statements */
-
-/** One table, in the shape the listing answers. */
-function toListedTable(table: NonNullable<App['tables']>[number]) {
-  return {
-    id: String(table.id),
-    name: table.name,
-    description: undefined, // Domain model doesn't have table description
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }
-}
 
 /**
  * The caller the table read programs answer: a role, its group memberships and
@@ -166,35 +154,6 @@ export function viewReadAdmits(
     view,
     withAdminEquivalence(caller, app),
     tableReadAdmits(app, table, caller)
-  )
-}
-
-export function createListTablesProgram(
-  caller: TableCaller,
-  app: App
-): Effect.Effect<readonly unknown[]> {
-  // An app with no `auth` has no roles to gate the listing on: every visitor is
-  // the guest, and the listing names exactly the tables whose records the guest
-  // may read — the same rule the records route applies.
-  if (app.auth === undefined) {
-    const tables = app.tables ?? []
-    const readable = tables.filter((table) => hasReadPermission(table, caller.role, tables))
-    return Effect.succeed(readable.map(toListedTable)).pipe(
-      Effect.withSpan('tables.create-list-tables-program')
-    )
-  }
-
-  // No role is refused the listing as a whole: a viewer is named the tables
-  // her records serve, and an empty list where none does.
-  // A table is named exactly when its records admit the caller — groups,
-  // `inherit` / `override` and the open-when-undeclared default resolved by the
-  // records route's own gate — so a table declaring no `read` is listed to
-  // every caller its records serve, and to no one else.
-  const tables = app.tables ?? []
-  const accessibleTables = tables.filter((table) => tableReadAdmits(app, table, caller))
-
-  return Effect.succeed(accessibleTables.map(toListedTable)).pipe(
-    Effect.withSpan('tables.create-list-tables-program')
   )
 }
 

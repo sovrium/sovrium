@@ -95,3 +95,18 @@ export const adminEmailWithoutWayIn = (env: Env = process.env): boolean =>
 /** The startup warning for {@link adminEmailWithoutWayIn}, naming what is missing. */
 export const ADMIN_EMAIL_WITHOUT_WAY_IN_WARNING =
   'AUTH_ADMIN_EMAIL is set but no admin was created: set AUTH_ADMIN_PASSWORD, or the SOVRIUM_PLATFORM_SSO_ variables with SOVRIUM_PLATFORM_SSO_ADMIN_SUBJECT, so the first admin has a way to sign in.'
+
+/** The address `AUTH_ADMIN_EMAIL` names, or `undefined` when it is unset or blank. */
+export const configuredAdminEmail = (env: Env = process.env): string | undefined => {
+  const email = env['AUTH_ADMIN_EMAIL']?.trim()
+  return email ? email : undefined
+}
+
+/**
+ * The startup warning for an `AUTH_ADMIN_EMAIL` that names no account while
+ * the database already holds one: the first admin is only seeded into an
+ * empty database, so the address was ignored. Names the variable, the address
+ * and the command that creates that account — never the password.
+ */
+export const adminEmailIgnoredWarning = (email: string): string =>
+  `AUTH_ADMIN_EMAIL (${email}) was ignored: accounts already exist, and the first admin is only created on an empty database. Create this account with \`sovrium admin create ${email}\`.`

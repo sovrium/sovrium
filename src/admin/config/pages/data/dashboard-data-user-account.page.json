@@ -1,0 +1,746 @@
+{
+  "id": "dashboard-data-user-account",
+  "name": "dashboard-data-user-account",
+  "path": "/users/:email",
+  "meta": {
+    "title": "$t:admin.meta.userAccount"
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "users": "$t:admin.crumb.users"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "admin-user-account-header",
+          "element": "header",
+          "props": {
+            "id": "admin-user-account-header",
+            "className": "contents [&>li]:list-none"
+          },
+          "dataSource": {
+            "system": {
+              "endpoint": "/api/admin/users",
+              "rowsKey": "users",
+              "idKey": "id",
+              "query": {
+                "q": "$param.email",
+                "limit": "1"
+              }
+            }
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "identity",
+              "element": "div",
+              "props": {
+                "className": "flex min-w-0 items-center gap-4",
+                "data-testid": "user-account-identity"
+              },
+              "children": [
+                {
+                  "type": "avatar",
+                  "label": "$record.name",
+                  "size": "lg",
+                  "props": {
+                    "className": "size-12"
+                  }
+                },
+                {
+                  "type": "container",
+                  "key": "identity-text",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-w-0 flex-col gap-1"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "identity-title",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-w-0 flex-wrap items-center gap-2"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "h1",
+                          "props": {
+                            "className": "text-foreground text-2xl font-semibold tracking-tight"
+                          },
+                          "content": "$record.name"
+                        },
+                        {
+                          "type": "badge",
+                          "badgeVariant": "secondary",
+                          "content": "$record.roleLabel"
+                        },
+                        {
+                          "type": "badge",
+                          "badgeVariant": "success",
+                          "visibility": {
+                            "record": {
+                              "field": "banned",
+                              "eq": false
+                            }
+                          },
+                          "content": "$t:admin.users.state.active"
+                        },
+                        {
+                          "type": "badge",
+                          "badgeVariant": "destructive",
+                          "visibility": {
+                            "record": {
+                              "field": "banned",
+                              "eq": true
+                            }
+                          },
+                          "content": "$t:admin.users.state.banned"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "text-muted-foreground min-w-0 text-sm break-all"
+                      },
+                      "content": "$record.email"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "admin-surface-content-2-2",
+          "element": "div",
+          "props": {
+            "className": "flex flex-col gap-6"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "admin-user-account-actions",
+              "element": "div",
+              "visibility": {
+                "capability": "administer-accounts"
+              },
+              "props": {
+                "id": "admin-user-account-actions",
+                "className": "contents [&>li]:list-none"
+              },
+              "dataSource": {
+                "system": {
+                  "endpoint": "/api/admin/users",
+                  "rowsKey": "users",
+                  "idKey": "id",
+                  "query": {
+                    "q": "$param.email",
+                    "limit": "1"
+                  }
+                }
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "actions-region",
+                  "element": "div",
+                  "props": {
+                    "role": "group",
+                    "aria-label": "$t:admin.users.account.actions.region",
+                    "className": "flex flex-wrap items-center gap-2"
+                  },
+                  "children": [
+                    {
+                      "type": "button",
+                      "label": "$t:admin.users.changeRole",
+                      "variant": "outline",
+                      "size": "sm",
+                      "props": {
+                        "type": "button"
+                      },
+                      "editSelect": {
+                        "field": "role",
+                        "label": "$t:admin.common.role",
+                        "saveLabel": "$t:admin.common.save",
+                        "optionsSource": {
+                          "system": {
+                            "endpoint": "/api/admin/roles",
+                            "rowsKey": "roles"
+                          },
+                          "valueKey": "name",
+                          "labelKey": "label"
+                        }
+                      },
+                      "action": {
+                        "type": "fetch",
+                        "url": "/api/auth/admin/set-role",
+                        "method": "POST",
+                        "body": {
+                          "userId": "$record.id",
+                          "role": "$record.role"
+                        },
+                        "responseEnvelope": "better-auth",
+                        "onSuccess": {
+                          "type": "toast",
+                          "message": "$t:admin.users.roleUpdated",
+                          "refetch": [
+                            "admin-user-account-header",
+                            "admin-user-account-actions",
+                            "admin-user-account-facts",
+                            "admin-user-account-danger"
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "type": "button",
+                      "label": "$t:admin.users.changeGroups",
+                      "variant": "outline",
+                      "size": "sm",
+                      "props": {
+                        "type": "button"
+                      },
+                      "editSelect": {
+                        "field": "groups",
+                        "label": "$t:admin.common.groups",
+                        "saveLabel": "$t:admin.common.save",
+                        "multiple": true,
+                        "optionsSource": {
+                          "system": {
+                            "endpoint": "/api/admin/groups",
+                            "rowsKey": "groups"
+                          },
+                          "valueKey": "name",
+                          "labelKey": "label"
+                        }
+                      },
+                      "action": {
+                        "type": "fetch",
+                        "url": "/api/admin/users/$record.id/groups",
+                        "method": "PUT",
+                        "body": {
+                          "groups": "$record.groups"
+                        },
+                        "onSuccess": {
+                          "type": "toast",
+                          "message": "$t:admin.users.groupsUpdated",
+                          "refetch": [
+                            "admin-user-account-header",
+                            "admin-user-account-actions",
+                            "admin-user-account-facts",
+                            "admin-user-account-danger"
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "type": "button",
+                      "label": "$t:admin.common.liftBan",
+                      "variant": "outline",
+                      "size": "sm",
+                      "props": {
+                        "type": "button"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "banned",
+                          "eq": true
+                        }
+                      },
+                      "action": {
+                        "type": "fetch",
+                        "url": "/api/auth/admin/unban-user",
+                        "method": "POST",
+                        "body": {
+                          "userId": "$record.id"
+                        },
+                        "responseEnvelope": "better-auth",
+                        "onSuccess": {
+                          "type": "toast",
+                          "message": "$t:admin.users.unbanned",
+                          "refetch": [
+                            "admin-user-account-header",
+                            "admin-user-account-actions",
+                            "admin-user-account-facts",
+                            "admin-user-account-danger"
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "type": "button",
+                      "label": "$t:admin.users.endAll",
+                      "variant": "outline",
+                      "size": "sm",
+                      "props": {
+                        "type": "button"
+                      },
+                      "confirm": {
+                        "title": "$t:admin.users.endConfirm",
+                        "message": "$t:admin.users.endMessage",
+                        "role": "alertdialog",
+                        "confirmLabel": "$t:admin.users.endSessions",
+                        "cancelLabel": "$t:admin.common.cancel"
+                      },
+                      "action": {
+                        "type": "fetch",
+                        "url": "/api/auth/admin/revoke-user-sessions",
+                        "method": "POST",
+                        "body": {
+                          "userId": "$record.id"
+                        },
+                        "responseEnvelope": "better-auth",
+                        "onSuccess": {
+                          "type": "toast",
+                          "message": "$t:admin.users.sessionsEnded"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "facts-region",
+              "element": "section",
+              "props": {
+                "aria-label": "$t:admin.users.account.facts.region",
+                "className": "rounded-xl ring-1 ring-foreground/10"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "admin-user-account-facts",
+                  "element": "div",
+                  "props": {
+                    "id": "admin-user-account-facts",
+                    "className": "contents [&>li]:list-none"
+                  },
+                  "dataSource": {
+                    "system": {
+                      "endpoint": "/api/admin/users",
+                      "rowsKey": "users",
+                      "idKey": "id",
+                      "query": {
+                        "q": "$param.email",
+                        "limit": "1"
+                      }
+                    }
+                  },
+                  "children": [
+                    {
+                      "type": "description-list",
+                      "props": {
+                        "className": "px-4",
+                        "data-testid": "user-account-facts"
+                      },
+                      "items": [
+                        {
+                          "term": "$t:admin.common.email",
+                          "detail": "$record.email"
+                        },
+                        {
+                          "term": "$t:admin.common.role",
+                          "detail": "$record.roleLabel"
+                        },
+                        {
+                          "term": "$t:admin.common.groups",
+                          "detail": "$record.groupLabels"
+                        },
+                        {
+                          "term": "$t:admin.users.account.created",
+                          "detail": "$record.createdAt",
+                          "format": "long-date"
+                        },
+                        {
+                          "term": "$t:admin.users.account.lastSignIn",
+                          "detail": "$record.lastSignInAt",
+                          "format": "day-relative-time"
+                        },
+                        {
+                          "term": "$t:admin.users.account.sessions",
+                          "detail": "$record.activeSessionCount"
+                        },
+                        {
+                          "term": "$t:admin.users.account.twoFactor",
+                          "detail": "$record.twoFactorEnabled",
+                          "format": "yes-no"
+                        },
+                        {
+                          "term": "$t:admin.users.account.signInMethods",
+                          "detail": "$record.signInMethods"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "access-region",
+              "element": "section",
+              "visibility": {
+                "capability": "administer-accounts"
+              },
+              "props": {
+                "aria-label": "$t:admin.users.account.access.region",
+                "className": "flex flex-col gap-3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "h2",
+                  "props": {
+                    "className": "text-foreground text-md font-medium"
+                  },
+                  "content": "$t:admin.users.account.access.heading"
+                },
+                {
+                  "type": "container",
+                  "key": "access-region-2",
+                  "element": "div",
+                  "props": {
+                    "className": "flex flex-wrap items-start justify-between gap-3"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "text-muted-foreground max-w-xl text-sm leading-relaxed"
+                      },
+                      "content": "$t:admin.users.account.access.body"
+                    },
+                    {
+                      "type": "link",
+                      "visibility": {
+                        "declares": "data"
+                      },
+                      "props": {
+                        "href": "/organisation?tab=reach",
+                        "className": "text-foreground border-border hover:bg-muted inline-flex h-8 items-center rounded-md border px-3 text-sm font-medium"
+                      },
+                      "content": "$t:admin.users.account.access.reach"
+                    }
+                  ]
+                },
+                {
+                  "component": "console-ledger",
+                  "key": "ledger",
+                  "vars": {
+                    "ariaLabel": "$t:admin.users.account.access.grid",
+                    "dataSource": {
+                      "system": {
+                        "endpoint": "/api/tables/user_access/records",
+                        "rowsKey": "records",
+                        "idKey": "id",
+                        "query": {
+                          "user_email": "$param.email"
+                        }
+                      }
+                    },
+                    "columns": [
+                      {
+                        "field": "table_slug",
+                        "label": "$t:admin.common.table",
+                        "sortable": false
+                      },
+                      {
+                        "field": "record_labels",
+                        "label": "$t:admin.common.records",
+                        "sortable": false
+                      },
+                      {
+                        "field": "role",
+                        "label": "$t:admin.common.role",
+                        "sortable": false
+                      },
+                      {
+                        "field": "created_at",
+                        "label": "$t:admin.users.granted",
+                        "sortable": false,
+                        "format": "short-date"
+                      }
+                    ],
+                    "emptyMessage": "$t:admin.users.noAccess"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "roles-region",
+              "element": "section",
+              "props": {
+                "aria-label": "$t:admin.users.account.roles.region",
+                "className": "flex flex-col gap-3"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "h2",
+                  "props": {
+                    "className": "text-foreground text-md font-medium"
+                  },
+                  "content": "$t:admin.users.account.roles.heading"
+                },
+                {
+                  "type": "container",
+                  "key": "roles-region-2",
+                  "element": "div",
+                  "props": {
+                    "className": "flex flex-wrap items-center gap-2"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "roles-region-2-1",
+                      "element": "div",
+                      "props": {
+                        "className": "contents [&>li]:list-none"
+                      },
+                      "dataSource": {
+                        "system": {
+                          "endpoint": "/api/admin/roles",
+                          "rowsKey": "roles",
+                          "idKey": "name"
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "badge",
+                          "props": {
+                            "className": "border-border bg-background text-foreground"
+                          },
+                          "content": "$record.label"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "element": "span",
+                      "props": {
+                        "className": "text-muted-foreground text-sm"
+                      },
+                      "content": "$t:admin.users.account.roles.source"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "danger-region",
+              "element": "section",
+              "visibility": {
+                "capability": "administer-accounts"
+              },
+              "props": {
+                "aria-label": "$t:admin.users.account.danger.region",
+                "className": "flex flex-col gap-3"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "admin-user-account-danger",
+                  "element": "div",
+                  "props": {
+                    "id": "admin-user-account-danger",
+                    "className": "contents [&>li]:list-none"
+                  },
+                  "dataSource": {
+                    "system": {
+                      "endpoint": "/api/admin/users",
+                      "rowsKey": "users",
+                      "idKey": "id",
+                      "query": {
+                        "q": "$param.email",
+                        "limit": "1"
+                      }
+                    }
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "danger-card",
+                      "element": "div",
+                      "visibility": {
+                        "condition": {
+                          "field": "$user.email",
+                          "operator": "neq",
+                          "value": "$param.email"
+                        }
+                      },
+                      "props": {
+                        "className": "flex flex-wrap items-center justify-between gap-4 rounded-xl px-4 py-4 ring-1 ring-foreground/10",
+                        "data-testid": "user-account-danger"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "key": "danger-text",
+                          "element": "div",
+                          "props": {
+                            "className": "flex min-w-0 flex-col gap-1"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "h2",
+                              "props": {
+                                "className": "text-foreground text-sm font-medium"
+                              },
+                              "content": "$t:admin.users.account.danger.heading"
+                            },
+                            {
+                              "type": "text",
+                              "element": "p",
+                              "props": {
+                                "className": "text-muted-foreground max-w-xl text-sm"
+                              },
+                              "content": "$t:admin.users.account.danger.body"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "danger-actions",
+                          "element": "div",
+                          "props": {
+                            "className": "flex flex-wrap items-center gap-2"
+                          },
+                          "children": [
+                            {
+                              "type": "button",
+                              "label": "$t:admin.users.ban",
+                              "variant": "outline",
+                              "size": "sm",
+                              "props": {
+                                "type": "button"
+                              },
+                              "confirm": {
+                                "title": "$t:admin.users.confirmBan",
+                                "message": "$t:admin.users.banMessage",
+                                "role": "alertdialog",
+                                "confirmLabel": "$t:admin.users.confirmBan",
+                                "cancelLabel": "$t:admin.common.cancel"
+                              },
+                              "visibility": {
+                                "record": {
+                                  "field": "banned",
+                                  "eq": false
+                                }
+                              },
+                              "action": {
+                                "type": "fetch",
+                                "url": "/api/auth/admin/ban-user",
+                                "method": "POST",
+                                "body": {
+                                  "userId": "$record.id"
+                                },
+                                "responseEnvelope": "better-auth",
+                                "onSuccess": {
+                                  "type": "toast",
+                                  "message": "$t:admin.users.banned",
+                                  "refetch": [
+                                    "admin-user-account-header",
+                                    "admin-user-account-actions",
+                                    "admin-user-account-facts",
+                                    "admin-user-account-danger"
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "type": "button",
+                              "label": "$t:admin.users.delete",
+                              "variant": "outline",
+                              "size": "sm",
+                              "props": {
+                                "type": "button"
+                              },
+                              "confirm": {
+                                "title": "$t:admin.users.deleteConfirm",
+                                "message": "$t:admin.users.deleteMessage",
+                                "role": "alertdialog",
+                                "confirmLabel": "$t:admin.users.delete",
+                                "cancelLabel": "$t:admin.common.cancel"
+                              },
+                              "action": {
+                                "type": "fetch",
+                                "url": "/api/auth/admin/remove-user",
+                                "method": "POST",
+                                "body": {
+                                  "userId": "$record.id"
+                                },
+                                "responseEnvelope": "better-auth",
+                                "onSuccess": {
+                                  "type": "toast",
+                                  "message": "$t:admin.users.deleted",
+                                  "navigate": "/users"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "visibility": {
+                        "condition": {
+                          "field": "$user.email",
+                          "operator": "eq",
+                          "value": "$param.email"
+                        }
+                      },
+                      "props": {
+                        "className": "text-muted-foreground text-sm",
+                        "data-testid": "user-account-self-note"
+                      },
+                      "content": "$t:admin.users.account.danger.self"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

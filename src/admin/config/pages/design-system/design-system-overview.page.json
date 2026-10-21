@@ -1,0 +1,1412 @@
+{
+  "id": "design-system-overview",
+  "name": "design-system-overview",
+  "path": "/design-system",
+  "meta": {
+    "title": "$t:admin.meta.designSystem"
+  },
+  "dataSource": {
+    "system": {
+      "endpoint": "/api/admin/design-system/shares",
+      "idKey": "total"
+    }
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "design-system": "$t:admin.common.designSystem"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "component": "console-page-header",
+          "key": "header",
+          "vars": {
+            "content": "$t:admin.common.designSystem"
+          }
+        },
+        {
+          "type": "container",
+          "key": "common-pages",
+          "element": "section",
+          "props": {
+            "className": "flex flex-col gap-3",
+            "aria-label": "$t:admin.common.pages"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "h2",
+              "props": {
+                "className": "text-lg font-semibold tracking-tight",
+                "data-design-kit-type": "text"
+              },
+              "content": "$t:admin.common.pages"
+            },
+            {
+              "type": "container",
+              "key": "common-pages-2",
+              "element": "div",
+              "props": {
+                "className": "border-border rounded-md border"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "design-system-card-foundations",
+                  "element": "div",
+                  "props": {
+                    "className": "border-border border-b last:border-b-0",
+                    "data-testid": "design-system-card-foundations"
+                  },
+                  "children": [
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/design-system/foundations",
+                        "className": "hover:bg-muted group flex flex-col items-start gap-1.5 px-4 py-3.5 no-underline md:flex-row md:items-center md:gap-4",
+                        "data-design-kit-type": "link"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground text-md font-medium md:w-36 md:shrink-0"
+                          },
+                          "content": "$t:admin.common.foundations"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle min-w-0 text-md md:w-80 md:shrink"
+                          },
+                          "content": "$t:admin.ds.overview.foundations"
+                        },
+                        {
+                          "type": "container",
+                          "key": "design-system-card-foundations-3",
+                          "element": "div",
+                          "props": {
+                            "className": "border-border bg-muted hidden min-h-[4.5rem] min-w-0 flex-1 items-center overflow-hidden justify-center gap-3 rounded-md border px-4 text-base md:flex"
+                          },
+                          "children": [
+                            {
+                              "type": "container",
+                              "key": "design-system-card-foundations-3-1",
+                              "element": "div",
+                              "props": {
+                                "className": "flex w-full items-center gap-1.5 overflow-hidden",
+                                "data-design-overview-preview": "foundations"
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "design-system-card-foundations-3-1-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "contents"
+                                  },
+                                  "dataSource": {
+                                    "system": {
+                                      "endpoint": "/api/admin/design-system/tokens",
+                                      "query": {
+                                        "group": "color"
+                                      },
+                                      "rowsKey": "items",
+                                      "idKey": "path"
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "design-system-card-foundations-3-1-1-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "border-border size-6 shrink-0 rounded-sm border",
+                                        "data-design-preview-swatch": "$record.leaf",
+                                        "title": "$record.leaf",
+                                        "style": {
+                                          "backgroundColor": "$record.value"
+                                        }
+                                      },
+                                      "visibility": {
+                                        "record": {
+                                          "field": "overridden",
+                                          "eq": true
+                                        }
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "design-system-card-foundations-3-1-2",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "contents"
+                                  },
+                                  "dataSource": {
+                                    "system": {
+                                      "endpoint": "/api/admin/design-system/tokens",
+                                      "query": {
+                                        "group": "color"
+                                      },
+                                      "rowsKey": "items",
+                                      "idKey": "path"
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "design-system-card-foundations-3-1-2-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "border-border size-6 shrink-0 rounded-sm border",
+                                        "data-design-preview-swatch": "$record.leaf",
+                                        "title": "$record.leaf",
+                                        "style": {
+                                          "backgroundColor": "$record.value"
+                                        }
+                                      },
+                                      "visibility": {
+                                        "record": {
+                                          "field": "overridden",
+                                          "eq": false
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-muted-foreground hidden shrink-0 text-md md:inline"
+                          },
+                          "content": "›"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "design-system-card-components",
+                  "element": "div",
+                  "props": {
+                    "className": "border-border border-b last:border-b-0",
+                    "data-testid": "design-system-card-components"
+                  },
+                  "children": [
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/design-system/components",
+                        "className": "hover:bg-muted group flex flex-col items-start gap-1.5 px-4 py-3.5 no-underline md:flex-row md:items-center md:gap-4",
+                        "data-design-kit-type": "link"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground text-md font-medium md:w-36 md:shrink-0"
+                          },
+                          "content": "$t:admin.common.components"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle min-w-0 text-md md:w-80 md:shrink"
+                          },
+                          "content": "$t:admin.ds.overview.components"
+                        },
+                        {
+                          "type": "container",
+                          "key": "design-system-card-components-3",
+                          "element": "div",
+                          "props": {
+                            "className": "border-border bg-muted hidden min-h-[4.5rem] min-w-0 flex-1 items-center overflow-hidden justify-center gap-3 rounded-md border px-4 text-base md:flex"
+                          },
+                          "children": [
+                            {
+                              "type": "container",
+                              "key": "design-system-card-components-3-1",
+                              "element": "div",
+                              "props": {
+                                "className": "flex w-full items-center gap-1.5 overflow-hidden",
+                                "data-design-overview-preview": "components"
+                              },
+                              "dataSource": {
+                                "system": {
+                                  "endpoint": "/api/admin/design-system/usage",
+                                  "query": {
+                                    "subject": "component"
+                                  },
+                                  "rowsKey": "items",
+                                  "idKey": "name"
+                                }
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "border-border bg-background text-foreground shrink-0 rounded-sm border px-2 py-1 font-mono text-[11px]"
+                                  },
+                                  "content": "$record.name"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-muted-foreground hidden shrink-0 text-md md:inline"
+                          },
+                          "content": "›"
+                        }
+                      ]
+                    }
+                  ],
+                  "visibility": {
+                    "declares": "components"
+                  }
+                },
+                {
+                  "type": "container",
+                  "key": "design-system-card-brand",
+                  "element": "div",
+                  "props": {
+                    "className": "border-border border-b last:border-b-0",
+                    "data-testid": "design-system-card-brand"
+                  },
+                  "children": [
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/design-system/brand",
+                        "className": "hover:bg-muted group flex flex-col items-start gap-1.5 px-4 py-3.5 no-underline md:flex-row md:items-center md:gap-4",
+                        "data-design-kit-type": "link"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground text-md font-medium md:w-36 md:shrink-0"
+                          },
+                          "content": "$t:admin.common.brand"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle min-w-0 text-md md:w-80 md:shrink"
+                          },
+                          "content": "$t:admin.ds.overview.brand"
+                        },
+                        {
+                          "type": "container",
+                          "key": "design-system-card-brand-3",
+                          "element": "div",
+                          "props": {
+                            "className": "border-border bg-muted hidden min-h-[4.5rem] min-w-0 flex-1 items-center overflow-hidden justify-center gap-3 rounded-md border px-4 text-base md:flex"
+                          },
+                          "children": [
+                            {
+                              "type": "container",
+                              "key": "design-system-card-brand-3-1",
+                              "element": "div",
+                              "props": {
+                                "className": "flex items-center gap-2.5"
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "design-system-card-brand-3-1-1",
+                                  "props": {
+                                    "className": "bg-primary text-primary-foreground flex size-6 items-center justify-center overflow-hidden rounded-md text-xs font-semibold data-[app-mark=logo]:bg-transparent",
+                                    "data-app-mark": "tile"
+                                  }
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "text-foreground text-md font-semibold tracking-tight"
+                                  },
+                                  "content": "$app.label"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-muted-foreground hidden shrink-0 text-md md:inline"
+                          },
+                          "content": "›"
+                        }
+                      ]
+                    }
+                  ],
+                  "visibility": {
+                    "declares": "design.brand"
+                  }
+                },
+                {
+                  "type": "container",
+                  "key": "design-system-card-voice",
+                  "element": "div",
+                  "props": {
+                    "className": "border-border border-b last:border-b-0",
+                    "data-testid": "design-system-card-voice"
+                  },
+                  "children": [
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/design-system/voice",
+                        "className": "hover:bg-muted group flex flex-col items-start gap-1.5 px-4 py-3.5 no-underline md:flex-row md:items-center md:gap-4",
+                        "data-design-kit-type": "link"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground text-md font-medium md:w-36 md:shrink-0"
+                          },
+                          "content": "$t:admin.common.voice"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle min-w-0 text-md md:w-80 md:shrink"
+                          },
+                          "content": "$t:admin.ds.overview.voice"
+                        },
+                        {
+                          "type": "container",
+                          "key": "design-system-card-voice-3",
+                          "element": "div",
+                          "props": {
+                            "className": "border-border bg-muted hidden min-h-[4.5rem] min-w-0 flex-1 items-center overflow-hidden justify-center gap-3 rounded-md border px-4 text-base md:flex"
+                          },
+                          "children": [
+                            {
+                              "type": "container",
+                              "key": "design-system-card-voice-3-1",
+                              "element": "div",
+                              "props": {
+                                "className": "contents"
+                              },
+                              "dataSource": {
+                                "system": {
+                                  "endpoint": "/api/admin/design-system/guidance",
+                                  "rowsKey": "voicePreview"
+                                }
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "design-system-card-voice-3-1-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "text-center",
+                                    "data-design-overview-preview": "voice",
+                                    "data-design-preview-state": "$record.state"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-foreground-subtle text-md italic"
+                                      },
+                                      "visibility": {
+                                        "record": {
+                                          "field": "state",
+                                          "eq": "declared"
+                                        }
+                                      },
+                                      "content": "$record.line"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-muted-foreground text-sm"
+                                      },
+                                      "visibility": {
+                                        "record": {
+                                          "field": "state",
+                                          "eq": "undeclared"
+                                        }
+                                      },
+                                      "content": "$t:admin.ds.overview.voiceUndeclared"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-muted-foreground hidden shrink-0 text-md md:inline"
+                          },
+                          "content": "›"
+                        }
+                      ]
+                    }
+                  ],
+                  "visibility": {
+                    "declares": "design.voice"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "design-system-catalogue-pointer",
+              "element": "div",
+              "props": {
+                "className": "text-muted-foreground text-sm",
+                "data-testid": "design-system-catalogue-pointer"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "span",
+                  "content": "$t:admin.ds.overview.engineTypes"
+                },
+                {
+                  "type": "text",
+                  "element": "code",
+                  "props": {
+                    "className": "bg-muted rounded px-1 py-0.5 font-mono text-xs"
+                  },
+                  "content": "sovrium docs components"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "design-system-coverage",
+          "element": "section",
+          "props": {
+            "className": "flex flex-col gap-4",
+            "aria-label": "$t:admin.ds.overview.declared",
+            "data-testid": "design-system-coverage"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "h2",
+              "props": {
+                "className": "text-lg font-semibold tracking-tight"
+              },
+              "content": "$t:admin.ds.overview.declared"
+            },
+            {
+              "type": "container",
+              "key": "design-system-coverage-2",
+              "element": "div",
+              "props": {
+                "className": "border-border divide-border list-none divide-y rounded-md border"
+              },
+              "dataSource": {
+                "system": {
+                  "endpoint": "/api/admin/design-system/coverage",
+                  "rowsKey": "items",
+                  "idKey": "key"
+                }
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "design-system-coverage-2-1",
+                  "element": "div",
+                  "props": {
+                    "className": "flex flex-wrap items-baseline justify-between gap-3 px-4 py-2.5",
+                    "data-design-coverage": "$record.key",
+                    "data-design-coverage-declared": "$record.declared",
+                    "data-design-coverage-state": "$record.state"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "design-system-coverage-2-1-1",
+                      "element": "div",
+                      "props": {
+                        "className": "flex items-baseline gap-2"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground text-md"
+                          },
+                          "content": "$record.label"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-muted-foreground text-sm tabular-nums"
+                          },
+                          "content": "$record.count"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle text-sm"
+                          },
+                          "visibility": {
+                            "record": {
+                              "field": "summary",
+                              "isNotEmpty": true
+                            }
+                          },
+                          "content": "$record.summary"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "design-system-coverage-2-1-2",
+                      "element": "div",
+                      "props": {
+                        "className": "flex items-baseline gap-3"
+                      },
+                      "children": [
+                        {
+                          "type": "badge",
+                          "props": {
+                            "data-design-kit-type": "badge"
+                          },
+                          "content": "$record.state"
+                        },
+                        {
+                          "type": "container",
+                          "key": "design-system-coverage-2-1-2-2",
+                          "element": "div",
+                          "props": {
+                            "className": "contents"
+                          },
+                          "visibility": {
+                            "record": {
+                              "field": "state",
+                              "eq": "not-declared"
+                            }
+                          },
+                          "children": [
+                            {
+                              "type": "link",
+                              "visibility": {
+                                "record": {
+                                  "field": "key",
+                                  "eq": "principles"
+                                }
+                              },
+                              "props": {
+                                "href": "https://sovrium.com/en/docs/design",
+                                "className": "text-foreground-subtle hover:text-foreground font-mono text-sm",
+                                "data-design-coverage-doc": "design"
+                              },
+                              "content": "$record.configPath"
+                            },
+                            {
+                              "type": "link",
+                              "visibility": {
+                                "record": {
+                                  "field": "key",
+                                  "eq": "writing-rules"
+                                }
+                              },
+                              "props": {
+                                "href": "https://sovrium.com/en/docs/design",
+                                "className": "text-foreground-subtle hover:text-foreground font-mono text-sm",
+                                "data-design-coverage-doc": "design"
+                              },
+                              "content": "$record.configPath"
+                            },
+                            {
+                              "type": "link",
+                              "visibility": {
+                                "record": {
+                                  "field": "key",
+                                  "eq": "logo"
+                                }
+                              },
+                              "props": {
+                                "href": "https://sovrium.com/en/docs/design",
+                                "className": "text-foreground-subtle hover:text-foreground font-mono text-sm",
+                                "data-design-coverage-doc": "design"
+                              },
+                              "content": "$record.configPath"
+                            },
+                            {
+                              "type": "link",
+                              "visibility": {
+                                "record": {
+                                  "field": "key",
+                                  "eq": "color-roles"
+                                }
+                              },
+                              "props": {
+                                "href": "https://sovrium.com/en/docs/design-components",
+                                "className": "text-foreground-subtle hover:text-foreground font-mono text-sm",
+                                "data-design-coverage-doc": "design-components"
+                              },
+                              "content": "$record.configPath"
+                            },
+                            {
+                              "type": "link",
+                              "visibility": {
+                                "record": {
+                                  "field": "key",
+                                  "eq": "component-guidance"
+                                }
+                              },
+                              "props": {
+                                "href": "https://sovrium.com/en/docs/design-components",
+                                "className": "text-foreground-subtle hover:text-foreground font-mono text-sm",
+                                "data-design-coverage-doc": "design-components"
+                              },
+                              "content": "$record.configPath"
+                            },
+                            {
+                              "type": "link",
+                              "visibility": {
+                                "record": {
+                                  "field": "key",
+                                  "eq": "imagery"
+                                }
+                              },
+                              "props": {
+                                "href": "https://sovrium.com/en/docs/design-components",
+                                "className": "text-foreground-subtle hover:text-foreground font-mono text-sm",
+                                "data-design-coverage-doc": "design-components"
+                              },
+                              "content": "$record.configPath"
+                            },
+                            {
+                              "type": "link",
+                              "visibility": {
+                                "record": {
+                                  "field": "key",
+                                  "eq": "types-restyled"
+                                }
+                              },
+                              "props": {
+                                "href": "https://sovrium.com/en/docs/design-components",
+                                "className": "text-foreground-subtle hover:text-foreground font-mono text-sm",
+                                "data-design-coverage-doc": "design-components"
+                              },
+                              "content": "$record.configPath"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "design-system-share",
+          "element": "section",
+          "props": {
+            "className": "flex flex-col gap-4",
+            "aria-label": "$t:admin.common.shareExport",
+            "data-testid": "design-system-share"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "h2",
+              "props": {
+                "className": "text-lg font-semibold tracking-tight"
+              },
+              "content": "$t:admin.common.shareExport"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "visibility": {
+                "capability": "edit-operations"
+              },
+              "props": {
+                "className": "text-foreground-subtle max-w-lg text-md leading-relaxed",
+                "data-testid": "design-system-share-blurb"
+              },
+              "content": "$t:admin.ds.share.blurb"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "visibility": {
+                "unlessCapability": "edit-operations"
+              },
+              "props": {
+                "className": "text-foreground-subtle max-w-lg text-md leading-relaxed",
+                "data-testid": "design-system-share-blurb"
+              },
+              "content": "$t:admin.ds.share.blurbReadOnly"
+            },
+            {
+              "type": "container",
+              "key": "design-system-share-4",
+              "element": "div",
+              "props": {
+                "className": "grid grid-cols-1 items-start gap-6 md:grid-cols-2"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "design-system-share-4-1",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-w-0 flex-col gap-4"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "design-system-share-4-1-1",
+                      "element": "div",
+                      "props": {
+                        "className": "border-border rounded-md border"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "key": "design-system-share-4-1-1-1",
+                          "element": "div",
+                          "props": {
+                            "className": "border-border flex flex-col gap-2 border-b px-4 py-3 last:border-b-0"
+                          },
+                          "children": [
+                            {
+                              "type": "link",
+                              "props": {
+                                "href": "/api/admin/design-system.zip",
+                                "className": "text-foreground self-start text-md font-medium",
+                                "data-testid": "design-system-export-bundle"
+                              },
+                              "content": "$t:admin.ds.share.bundle"
+                            },
+                            {
+                              "type": "container",
+                              "key": "design-system-share-4-1-1-1-2",
+                              "element": "div",
+                              "props": {
+                                "className": "border-border bg-muted flex min-w-0 items-center gap-2 rounded-md border px-3 py-1.5",
+                                "data-code-copy-scope": "true"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "bg-border text-muted-foreground shrink-0 rounded-[2px] px-[7px] font-mono text-[10px]"
+                                  },
+                                  "content": "GET"
+                                },
+                                {
+                                  "type": "link",
+                                  "props": {
+                                    "href": "/api/admin/design-system.zip",
+                                    "className": "text-foreground min-w-0 truncate font-mono text-sm",
+                                    "data-copy-target": "true",
+                                    "data-testid": "design-system-export-bundle-path"
+                                  },
+                                  "content": "/api/admin/design-system.zip"
+                                },
+                                {
+                                  "type": "button",
+                                  "variant": "link",
+                                  "props": {
+                                    "type": "button",
+                                    "className": "text-foreground-subtle hover:text-foreground ml-auto shrink-0 font-mono text-[10px] leading-none",
+                                    "data-copy-code": "true",
+                                    "data-copied-label": "$t:admin.common.copied",
+                                    "aria-label": "$t:admin.common.copy /api/admin/design-system.zip",
+                                    "data-design-kit-type": "button"
+                                  },
+                                  "content": "$t:admin.common.copy"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "design-system-share-4-1-1-2",
+                          "element": "div",
+                          "props": {
+                            "className": "border-border flex flex-col gap-2 border-b px-4 py-3 last:border-b-0"
+                          },
+                          "children": [
+                            {
+                              "type": "link",
+                              "props": {
+                                "href": "/api/admin/design-system.md",
+                                "className": "text-foreground self-start text-md font-medium",
+                                "data-testid": "design-system-export-markdown"
+                              },
+                              "content": "$t:admin.ds.share.brief"
+                            },
+                            {
+                              "type": "container",
+                              "key": "design-system-share-4-1-1-2-2",
+                              "element": "div",
+                              "props": {
+                                "className": "border-border bg-muted flex min-w-0 items-center gap-2 rounded-md border px-3 py-1.5",
+                                "data-code-copy-scope": "true"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "bg-border text-muted-foreground shrink-0 rounded-[2px] px-[7px] font-mono text-[10px]"
+                                  },
+                                  "content": "GET"
+                                },
+                                {
+                                  "type": "link",
+                                  "props": {
+                                    "href": "/api/admin/design-system.md",
+                                    "className": "text-foreground min-w-0 truncate font-mono text-sm",
+                                    "data-copy-target": "true",
+                                    "data-testid": "design-system-overview-export"
+                                  },
+                                  "content": "/api/admin/design-system.md"
+                                },
+                                {
+                                  "type": "button",
+                                  "variant": "link",
+                                  "props": {
+                                    "type": "button",
+                                    "className": "text-foreground-subtle hover:text-foreground ml-auto shrink-0 font-mono text-[10px] leading-none",
+                                    "data-copy-code": "true",
+                                    "data-copied-label": "$t:admin.common.copied",
+                                    "aria-label": "$t:admin.common.copy /api/admin/design-system.md",
+                                    "data-design-kit-type": "button"
+                                  },
+                                  "content": "$t:admin.common.copy"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "design-system-share-4-1-1-3",
+                          "element": "div",
+                          "props": {
+                            "className": "border-border flex flex-col gap-2 border-b px-4 py-3 last:border-b-0"
+                          },
+                          "children": [
+                            {
+                              "type": "link",
+                              "props": {
+                                "href": "/api/admin/design-system.json",
+                                "className": "text-foreground self-start text-md font-medium",
+                                "data-testid": "design-system-export-json"
+                              },
+                              "content": "$t:admin.ds.share.tokens"
+                            },
+                            {
+                              "type": "container",
+                              "key": "design-system-share-4-1-1-3-2",
+                              "element": "div",
+                              "props": {
+                                "className": "border-border bg-muted flex min-w-0 items-center gap-2 rounded-md border px-3 py-1.5",
+                                "data-code-copy-scope": "true"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "bg-border text-muted-foreground shrink-0 rounded-[2px] px-[7px] font-mono text-[10px]"
+                                  },
+                                  "content": "GET"
+                                },
+                                {
+                                  "type": "link",
+                                  "props": {
+                                    "href": "/api/admin/design-system.json",
+                                    "className": "text-foreground min-w-0 truncate font-mono text-sm",
+                                    "data-copy-target": "true",
+                                    "data-testid": "design-system-export-json-path"
+                                  },
+                                  "content": "/api/admin/design-system.json"
+                                },
+                                {
+                                  "type": "button",
+                                  "variant": "link",
+                                  "props": {
+                                    "type": "button",
+                                    "className": "text-foreground-subtle hover:text-foreground ml-auto shrink-0 font-mono text-[10px] leading-none",
+                                    "data-copy-code": "true",
+                                    "data-copied-label": "$t:admin.common.copied",
+                                    "aria-label": "$t:admin.common.copy /api/admin/design-system.json",
+                                    "data-design-kit-type": "button"
+                                  },
+                                  "content": "$t:admin.common.copy"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "design-system-share-4-1-1-4",
+                          "element": "div",
+                          "props": {
+                            "className": "border-border flex flex-col gap-2 border-b px-4 py-3 last:border-b-0"
+                          },
+                          "children": [
+                            {
+                              "type": "link",
+                              "props": {
+                                "href": "/api/admin/design-system.css",
+                                "className": "text-foreground self-start text-md font-medium",
+                                "data-testid": "design-system-export-css"
+                              },
+                              "content": "$t:admin.ds.share.stylesheet"
+                            },
+                            {
+                              "type": "container",
+                              "key": "design-system-share-4-1-1-4-2",
+                              "element": "div",
+                              "props": {
+                                "className": "border-border bg-muted flex min-w-0 items-center gap-2 rounded-md border px-3 py-1.5",
+                                "data-code-copy-scope": "true"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "bg-border text-muted-foreground shrink-0 rounded-[2px] px-[7px] font-mono text-[10px]"
+                                  },
+                                  "content": "GET"
+                                },
+                                {
+                                  "type": "link",
+                                  "props": {
+                                    "href": "/api/admin/design-system.css",
+                                    "className": "text-foreground min-w-0 truncate font-mono text-sm",
+                                    "data-copy-target": "true",
+                                    "data-testid": "design-system-export-css-path"
+                                  },
+                                  "content": "/api/admin/design-system.css"
+                                },
+                                {
+                                  "type": "button",
+                                  "variant": "link",
+                                  "props": {
+                                    "type": "button",
+                                    "className": "text-foreground-subtle hover:text-foreground ml-auto shrink-0 font-mono text-[10px] leading-none",
+                                    "data-copy-code": "true",
+                                    "data-copied-label": "$t:admin.common.copied",
+                                    "aria-label": "$t:admin.common.copy /api/admin/design-system.css",
+                                    "data-design-kit-type": "button"
+                                  },
+                                  "content": "$t:admin.common.copy"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "design-system-share-4-1-2",
+                      "element": "div",
+                      "props": {
+                        "className": "flex flex-col gap-1.5"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                          },
+                          "content": "$t:admin.ds.share.terminal"
+                        },
+                        {
+                          "type": "container",
+                          "key": "design-system-copy-cli",
+                          "element": "div",
+                          "props": {
+                            "data-testid": "design-system-copy-cli"
+                          },
+                          "children": [
+                            {
+                              "type": "container",
+                              "key": "design-system-copy-cli-1",
+                              "element": "div",
+                              "props": {
+                                "className": "border-border bg-muted flex items-center justify-between gap-3 rounded-md border px-3 py-2",
+                                "data-code-copy-scope": "true"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "p",
+                                  "props": {
+                                    "className": "text-foreground min-w-0 break-words font-mono text-sm",
+                                    "data-copy-target": "true",
+                                    "data-testid": "design-system-cli"
+                                  },
+                                  "content": "sovrium design-system app.ts --format md"
+                                },
+                                {
+                                  "type": "button",
+                                  "variant": "link",
+                                  "props": {
+                                    "type": "button",
+                                    "className": "text-foreground-subtle hover:text-foreground shrink-0 font-mono text-[10px] leading-none",
+                                    "data-copy-code": "true",
+                                    "data-copied-label": "$t:admin.common.copied",
+                                    "aria-label": "$t:admin.common.copy sovrium design-system app.ts --format md"
+                                  },
+                                  "content": "$t:admin.common.copy"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "design-system-copy-cli-bundle",
+                          "element": "div",
+                          "props": {
+                            "data-testid": "design-system-copy-cli-bundle"
+                          },
+                          "children": [
+                            {
+                              "type": "container",
+                              "key": "design-system-copy-cli-bundle-1",
+                              "element": "div",
+                              "props": {
+                                "className": "border-border bg-muted flex items-center justify-between gap-3 rounded-md border px-3 py-2",
+                                "data-code-copy-scope": "true"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "p",
+                                  "props": {
+                                    "className": "text-foreground min-w-0 break-words font-mono text-sm",
+                                    "data-copy-target": "true",
+                                    "data-testid": "design-system-cli-bundle"
+                                  },
+                                  "content": "sovrium design-system app.ts --format bundle --output design-system"
+                                },
+                                {
+                                  "type": "button",
+                                  "variant": "link",
+                                  "props": {
+                                    "type": "button",
+                                    "className": "text-foreground-subtle hover:text-foreground shrink-0 font-mono text-[10px] leading-none",
+                                    "data-copy-code": "true",
+                                    "data-copied-label": "$t:admin.common.copied",
+                                    "aria-label": "$t:admin.common.copy sovrium design-system app.ts --format bundle --output design-system"
+                                  },
+                                  "content": "$t:admin.common.copy"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "design-system-share-4-2",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-w-0 flex-col"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "design-system-share-active",
+                      "element": "div",
+                      "props": {
+                        "className": "flex flex-col gap-3",
+                        "data-testid": "design-system-share-active"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "key": "design-system-share-active-1",
+                          "element": "div",
+                          "props": {
+                            "className": "flex flex-wrap items-center justify-between gap-3"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "h3",
+                              "props": {
+                                "className": "text-foreground text-md font-medium"
+                              },
+                              "content": "$t:admin.ds.share.active"
+                            },
+                            {
+                              "type": "button",
+                              "variant": "secondary",
+                              "visibility": {
+                                "capability": "edit-operations"
+                              },
+                              "props": {
+                                "type": "button",
+                                "data-testid": "design-system-share-mint",
+                                "data-design-kit-type": "button"
+                              },
+                              "confirm": {
+                                "title": "$t:admin.ds.share.publishConfirm",
+                                "message": "$t:admin.ds.share.publishMessage",
+                                "confirmLabel": "$t:admin.ds.share.createConfirm",
+                                "cancelLabel": "$t:admin.ds.share.keepPrivate"
+                              },
+                              "action": {
+                                "type": "fetch",
+                                "method": "POST",
+                                "url": "/api/admin/design-system/shares",
+                                "onSuccess": {
+                                  "type": "toast",
+                                  "message": "$t:admin.ds.share.created",
+                                  "status": {
+                                    "target": "design-system-share-url",
+                                    "message": "$response.url"
+                                  },
+                                  "refetch": "design-system-share-list"
+                                }
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "content": "$t:admin.ds.share.create"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "id": "design-system-share-url",
+                            "data-testid": "design-system-share-url",
+                            "className": "text-foreground font-mono text-sm break-all empty:hidden"
+                          }
+                        },
+                        {
+                          "type": "container",
+                          "key": "design-system-share-active-3",
+                          "element": "div",
+                          "props": {
+                            "className": "border-border rounded-md border"
+                          },
+                          "children": [
+                            {
+                              "type": "container",
+                              "key": "design-system-share-list",
+                              "element": "div",
+                              "props": {
+                                "id": "design-system-share-list",
+                                "className": "divide-border list-none divide-y"
+                              },
+                              "dataSource": {
+                                "system": {
+                                  "endpoint": "/api/admin/design-system/shares",
+                                  "rowsKey": "items",
+                                  "idKey": "id"
+                                }
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "design-system-share-list-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-wrap items-center justify-between gap-3 px-4 py-2.5",
+                                    "data-design-share": "$record.id"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "design-system-share-list-1-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex min-w-0 items-baseline gap-3"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "record-field",
+                                          "props": {
+                                            "field": "id",
+                                            "className": "text-foreground max-w-[9ch] truncate font-mono text-sm"
+                                          },
+                                          "format": "truncate"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "container",
+                                      "key": "design-system-share-list-1-2",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex items-baseline gap-2"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-muted-foreground text-sm"
+                                          },
+                                          "content": "created"
+                                        },
+                                        {
+                                          "type": "record-field",
+                                          "props": {
+                                            "field": "createdAt",
+                                            "className": "text-foreground-subtle text-sm"
+                                          },
+                                          "format": "short-date"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "button",
+                                      "variant": "secondary",
+                                      "visibility": {
+                                        "capability": "edit-operations"
+                                      },
+                                      "props": {
+                                        "type": "button",
+                                        "data-testid": "design-system-share-revoke"
+                                      },
+                                      "action": {
+                                        "type": "fetch",
+                                        "method": "DELETE",
+                                        "url": "/api/admin/design-system/shares/$record.id",
+                                        "onSuccess": {
+                                          "type": "toast",
+                                          "message": "$t:admin.ds.share.revoked",
+                                          "refetch": "design-system-share-list"
+                                        },
+                                        "onError": {
+                                          "type": "toast",
+                                          "variant": "error",
+                                          "message": "$t:admin.ds.share.revokeFailed"
+                                        }
+                                      },
+                                      "confirm": {
+                                        "title": "$t:admin.ds.share.revokeConfirm",
+                                        "message": "$t:admin.ds.share.revokeMessage",
+                                        "confirmLabel": "$t:admin.common.revoke",
+                                        "cancelLabel": "$t:admin.ds.share.keep"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "content": "$t:admin.common.revoke"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "element": "p",
+                              "props": {
+                                "className": "text-foreground-subtle px-4 py-2.5 text-sm",
+                                "data-testid": "design-system-share-empty"
+                              },
+                              "visibility": {
+                                "record": {
+                                  "field": "total",
+                                  "eq": 0
+                                }
+                              },
+                              "content": "$t:admin.ds.share.none"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

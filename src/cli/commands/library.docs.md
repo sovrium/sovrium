@@ -58,6 +58,8 @@ An entry that reads data binds to a table your config already has: `library show
 
 `--set key=value` fills a parameter the entry declares, and `--as <name>` installs it under another name. A parameter you leave unset takes the entry's default, except a link to the sign-in page, which follows `auth.loginPage` when your config sets it. `--dry-run` prints the files and the line it would write and writes nothing. `--no-wire` writes the fragment and prints the line for you to place.
 
+A connection installed under another name is a second account of the same service, so it reads its own secrets: the name's suffix goes after the service's prefix in each variable it reads. `sovrium library add connection/stripe --as stripe-2` reads `STRIPE_2_SECRET_KEY`, and `--as billing` reads `STRIPE_BILLING_SECRET_KEY`. That covers API keys, tokens, usernames and passwords, and the address of a self-hosted instance. The one exception is an OAuth connection's client ID and secret: they identify the application you registered with the provider, which every account connects through, so both accounts read the same two variables, and each account's own tokens are obtained when it connects. Declare the renamed variables under `env` first, as for any entry: `add` refuses until you do, and prints the lines to add. A fragment an earlier Sovrium wrote under another name keeps the variables it reads, and stays valid; `--update` rewrites it with its own.
+
 ## What it refuses, and what it leaves alone
 
 The config is decoded before anything changes. If it did not validate to begin with, nothing is written and the existing problem is reported the way `sovrium validate` reports it — fix that first. The edited config is then decoded again, with the new fragment in place, before a byte reaches the disk; a change that would not validate is refused whole.
@@ -81,6 +83,8 @@ sovrium library add lemlist/get-campaigns
 ```
 
 This declares the operation, exactly as the library ships it, under `operations` in `library/connection/lemlist.yaml`, installing and wiring the lemlist connection first when your config does not have it. A second operation is appended after the ones already there; one already declared changes nothing. `--tag <group>` declares a whole group — `sovrium library add lemlist --tag campaigns` — and an unknown group is refused with the list of real ones. `--all` declares every operation of the provider, and asks for `--yes` when there are more than fifty. `--dry-run` prints the operations it would add and writes nothing.
+
+A connection whose operations are written by hand, such as `trello`, is addressed the same way: `sovrium library add trello/create-card` declares that one operation, and an operation the connection does not declare is refused with the address of its article. `--tag` and `--all` apply only to the generated operations.
 
 The connection fragment is rewritten only while it is still exactly what the library wrote. Once you have edited it, it is left byte for byte as it is, and the operations are printed for you to paste under `operations` instead. The whole app is decoded with the new operations in place before anything is written.
 

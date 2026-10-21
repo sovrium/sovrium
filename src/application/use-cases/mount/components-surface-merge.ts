@@ -64,7 +64,10 @@ const isComponentsSurfacePath = (mountPath: string): boolean => {
  * definitions are spread ahead of the operator's at the call site. An operator
  * who names a component after a piece of Sovrium's chrome must not be able to
  * shadow it — the console would then render the operator's template as its own
- * furniture, on a page the operator controls the content of.
+ * furniture, on a page the operator controls the content of. A specimen's
+ * subject resolves the other way round (`indexTemplatesByName`, last match):
+ * the card that draws the operator's template draws the operator's, even when
+ * it is named like one of the console's.
  *
  * CONFIG, not data, in the same class as the `design` tokens: a template is a
  * composition the author wrote. `tables`, `env` and `auth` stay behind, so

@@ -34,7 +34,7 @@ import {
 } from '@/application/use-cases/admin/admin-read-operation'
 import {
   BuildConnectionDetail,
-  BuildConnectionsListFor,
+  BuildConnectionsListWithUsage,
 } from '@/application/use-cases/admin/connections'
 import {
   listLinkCatalog,
@@ -246,7 +246,7 @@ const connectionsList = defineAdminRead<undefined>({
   },
   subject: 'connections list',
   decode: () => ({ _tag: 'Ok', input: undefined }),
-  read: (app) => BuildConnectionsListFor(app.connections),
+  read: (app) => BuildConnectionsListWithUsage(app),
   audit: {
     action: AUDIT_ACTIONS.CONNECTION_LIST_QUERIED,
     resourceId: () => CONNECTION_LIST_RESOURCE_ID,
@@ -285,7 +285,7 @@ const connectionRead = defineAdminRead<string>({
     typeof raw['id'] === 'string' && raw['id'].length > 0
       ? { _tag: 'Ok', input: raw['id'] }
       : { _tag: 'NotFound' },
-  read: (app, id) => BuildConnectionDetail(id, app.connections),
+  read: (app, id) => BuildConnectionDetail(id, app),
   audit: {
     action: AUDIT_ACTIONS.CONNECTION_DETAIL_QUERIED,
     resourceId: (_app, id) => id,

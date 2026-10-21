@@ -148,6 +148,18 @@ export const FLAG_VALUE_OPTIONS = [
   // `sovrium design-system import <path> --from figma`. Both lists: absent here,
   // `figma` would be read as the source path.
   '--from',
+  // `sovrium report --feature <kind> | --request-id <id>`. Both lists: absent
+  // here, the kind or the id would be read as the config path.
+  '--feature',
+  '--request-id',
+  // `sovrium import`. Both lists: absent here, `--only tables` would read
+  // `tables` as the snapshot path, and `--prefix crm_` would read `crm_`.
+  '--only',
+  '--prefix',
+  '--token-env',
+  // `sovrium design-system --format bundle --pages --page dashboard`. Both lists:
+  // absent here, `dashboard` would be read as the config path.
+  '--page',
 ] as const
 
 /** Commands that use two-level noun-verb dispatch (verb in 2nd positional slot). */
@@ -219,6 +231,14 @@ const KNOWN_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   '--redeploy',
   // `sovrium design-system import --write`: write the design instead of printing it.
   '--write',
+  // `sovrium report --security | --last-error`.
+  '--security',
+  '--last-error',
+  // `sovrium import --apply` (write, then seed) and `import fetch --skip-attachments`.
+  '--apply',
+  '--skip-attachments',
+  // `sovrium design-system --format bundle --pages`: add the app's pages to the bundle.
+  '--pages',
 ])
 
 const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
@@ -290,6 +310,15 @@ const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--report',
   // `sovrium design-system import --from <format>`.
   '--from',
+  // `sovrium report --feature <kind> --request-id <id>`.
+  '--feature',
+  '--request-id',
+  // `sovrium import --only <parts> --prefix <p>`, `import fetch --token-env <VAR>`.
+  '--only',
+  '--prefix',
+  '--token-env',
+  // `sovrium design-system --pages --page <name>`, repeatable.
+  '--page',
 ])
 
 /** Strip `=value` from `--flag=value` so the bare flag name can be matched. */

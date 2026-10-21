@@ -33,6 +33,8 @@ Issuing answers `401` when unauthenticated and **`404`** when the caller may not
 
 Accepting answers `400` for an invalid token and `410` for an expired one.
 
+Where the invitee goes next follows the role the invitation granted. The console's invitation page sends an administrator, and any role that can open the console, to the console Overview. Every other role cannot open a console page, so it is sent into your app instead: to `auth.landingPath` when the app declares one, where each role is routed on by its `defaultLanding`, else to the app's root. The accept response carries that address as `landingPath` exactly when the role cannot open the console. An invitation page of your own keeps sending everyone to its own `onSuccess.navigate`.
+
 Declining needs no session: the token from the email is the credential. Once declined, the link stops working. An unknown, already-used or withdrawn token answers `404`.
 
 The accept page sends nothing until its script has run: its Accept button waits for it, so the token and the chosen password never travel in the page address.

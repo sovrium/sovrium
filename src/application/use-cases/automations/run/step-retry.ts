@@ -20,6 +20,8 @@
 
 import { Duration, Effect, Ref } from 'effect'
 import { announceRecordWrites } from '@/application/use-cases/tables/record-change-announcement'
+import { InjectedFaultError } from '@/domain/errors/injected-fault-error'
+import { isActionFaultInjected } from '@/domain/models/process-env/fault-injection'
 import { type ActionHandler, type ActionOutcome } from '../action-handlers'
 import { actionAttributes } from '../action-handlers/shared'
 import { tallyStepFileInputs } from '../action-handlers/step-file-inputs'
@@ -216,6 +218,19 @@ export const dispatchWithRetry = (input: {
 }): Effect.Effect<ActionOutcome, never, StepRequirements> =>
   Effect.gen(function* () {
     const { handler, action, app, automation, runContext, retry } = input
+    // The non-production `SOVRIUM_FAULT_INJECTION=action:<automation>` seam:
+    // the action dies (a defect, not a failure) exactly as a bug in its handler
+    // would, so the run is closed by the defect guard.
+    if (isActionFaultInjected(process.env, automation.name)) {
+      return yield* Effect.die(
+        new InjectedFaultError({
+          value: `action:${automation.name}`,
+          command: 'start',
+          cwd: process.cwd(),
+          detail: process.env['SOVRIUM_FAULT_INJECTION_DETAIL'],
+        })
+      )
+    }
     const timeoutMs = resolveActionTimeoutMs(action)
     // The handler receives a per-attempt runContext so the code action can
     // surface `attempt` via `context.run.attempt`. Other handlers ignore

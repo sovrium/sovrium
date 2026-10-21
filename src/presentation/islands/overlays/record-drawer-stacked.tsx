@@ -17,6 +17,7 @@ import { useCallback, useMemo, useState, type ReactElement } from 'react'
 import { fillPlaceholders } from '@/domain/kernel/format/placeholder-format'
 import { DrawerContent } from './record-drawer-content'
 import { SheetFooter } from './record-drawer-footer'
+import { ReadFailed } from './record-drawer-read-failed'
 import { useTableRecordRead } from './record-drawer-record-read'
 import { useRecordSave } from './record-drawer-save'
 import { holdsLoadedValues, type Values } from './record-drawer-values'
@@ -32,6 +33,10 @@ export interface StackedRecordProps {
   readonly save: { readonly label: string; readonly saving: string }
   /** A button field's run words (`action.*`) in the page language, as the sheet's own fields get. */
   readonly actionStrings?: Readonly<Record<string, string>> | undefined
+  /** What a failed read says (`recordDrawer.readFailed`). */
+  readonly readFailedLabel?: string | undefined
+  /** The button that asks it again (`recordDrawer.retry`). */
+  readonly retryLabel?: string | undefined
   readonly onBack: () => void
 }
 
@@ -48,9 +53,12 @@ function BackButton(props: { readonly label: string; readonly onBack: () => void
   )
 }
 
-/** The stacked record's body — see the module note. */
-export function StackedRecordBody(props: StackedRecordProps): ReactElement {
-  const { pick, words, onBack } = props
+/** The stacked record's read, its draft, its handlers and its Save. */
+function useStackedRecord(
+  pick: LinkedPick,
+  words: Readonly<Record<string, string>>,
+  onBack: () => void
+) {
   const { section, recordId } = pick
   const [values, setValues] = useState<Values>({})
   const read = useTableRecordRead({
@@ -73,13 +81,35 @@ export function StackedRecordBody(props: StackedRecordProps): ReactElement {
     setFieldErrors: handlers.setFieldErrors,
     words: { invalidJson: words['invalidJson'] },
   })
+  return { values, read, handlers, run }
+}
+
+/** The stacked record's body — see the module note. */
+export function StackedRecordBody(props: StackedRecordProps): ReactElement {
+  const { pick, words, onBack } = props
+  const { section } = pick
+  const { values, read, handlers, run } = useStackedRecord(pick, words, onBack)
   const save = useMemo(() => ({ ...props.save, run }), [props.save, run])
+  const backButton = (
+    <BackButton
+      label={fillPlaceholders(words['back'] ?? 'Back to {title}', { title: props.from })}
+      onBack={onBack}
+    />
+  )
+  if (read.readFailed)
+    return (
+      <>
+        {backButton}
+        <ReadFailed
+          label={props.readFailedLabel}
+          retryLabel={props.retryLabel}
+          onRetry={read.retry}
+        />
+      </>
+    )
   return (
     <>
-      <BackButton
-        label={fillPlaceholders(words['back'] ?? 'Back to {title}', { title: props.from })}
-        onBack={onBack}
-      />
+      {backButton}
       <DrawerContent
         fields={section.fields}
         values={values}

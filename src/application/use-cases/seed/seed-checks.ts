@@ -264,21 +264,3 @@ export const resolveMergeOn = (
           `(it has ${unique.length}).`,
       }
 }
-
-/**
- * `--mode upsert` on a table whose seed data writes a `many-to-many` field.
- *
- * `upsertProgram` writes base columns only — it never splits link fields out of
- * the row — so the permissive alternative writes the record, drops every link,
- * and exits `0`. `if-empty` and `replace` go through `createRecordProgram`,
- * which does split them, and are unaffected.
- */
-export const checkUpsertManyToMany = (planned: readonly PlannedSeedTable[]): readonly string[] =>
-  planned
-    .filter((table) => table.inScope && table.manyToManyFields.length > 0)
-    .map(
-      (table) =>
-        `${table.name}: --mode upsert cannot write the many-to-many field(s) ` +
-        `${list(table.manyToManyFields)}. Upsert writes base columns only, so the links ` +
-        `would be silently dropped. Use --mode if-empty or --mode replace for this table.`
-    )

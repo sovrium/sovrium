@@ -45,6 +45,7 @@ import {
   ReadOnlyDetail,
   ReadValueEntry,
 } from './record-drawer-entry'
+import { DrawerError, type DrawerFailedRequest } from './record-drawer-error'
 import { isStructured, readsAsValue } from './record-drawer-field'
 import { useUploadsInFlight } from './record-drawer-uploads'
 import type { RecordDrawerField, Values, RawRecord } from './record-drawer-field'
@@ -81,6 +82,8 @@ export interface DrawerContentProps {
   /** An opened record still holds what it loaded: Save has nothing to send. */
   readonly unchanged?: boolean
   readonly error?: string
+  /** The request a server error failed the save under, on the console. */
+  readonly failedRequest?: DrawerFailedRequest
   readonly actions?: ReadonlyArray<DrawerAction>
   /**
    * CAP-5: the author's composed-content slot, as markup the SSR host rendered.
@@ -267,27 +270,6 @@ function DrawerFieldList({
   )
 }
 
-/** The inline validation banner, or nothing when there is no error. */
-function DrawerError({
-  error,
-  name = 'Validation error',
-}: {
-  readonly error: string | undefined
-  /** The banner's accessible name, in the page language. */
-  readonly name?: string | undefined
-}): ReactElement | undefined {
-  if (!error) return undefined
-  return (
-    <p
-      role="alert"
-      aria-label={name}
-      className="text-error-fg bg-error-bg border-error-border text-md rounded border p-2"
-    >
-      {error}
-    </p>
-  )
-}
-
 /**
  * The save affordance: inert, like the fields, until the record has loaded, and
  * pending — spinner, the in-flight word, busy — from the press until the save
@@ -367,6 +349,7 @@ export function DrawerContent(props: DrawerContentProps): ReactElement {
       <DrawerError
         error={props.error}
         name={labels?.validationError}
+        failedRequest={props.failedRequest}
       />
       <DrawerFields
         {...props}

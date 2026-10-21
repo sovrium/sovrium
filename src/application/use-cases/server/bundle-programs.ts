@@ -10,6 +10,7 @@ import { Data, Effect, Schema } from 'effect'
 import { BackupWorkspace } from '@/application/ports/services/backup-workspace'
 import { requiredEnvNamesOf } from '@/application/use-cases/env/validate-required-env-vars'
 import { deriveAppSlug } from '@/domain/models/app/name-service'
+import { SEED_IMPORT_LAYER } from '@/domain/models/seed/seed-jsonl'
 import {
   BUNDLE_CONFIG_ENTRY,
   BUNDLE_FORMAT,
@@ -173,7 +174,12 @@ const collectBundleEntries = (request: BundleRequest) =>
     }
     const assetEntries = yield* collectAssetEntries(request)
     const publicEntries = yield* collectTree(request.publicDirectory, 'public/')
-    const seedEntries = yield* collectTree(join(dirname(request.configPath), 'seed'), 'seed/')
+    // `seed/import/` holds the records a migration carried in — personal data,
+    // gitignored for that reason — so it never travels in a bundle.
+    const seedEntries = (yield* collectTree(
+      join(dirname(request.configPath), 'seed'),
+      'seed/'
+    )).filter((entry) => !entry.path.startsWith(`seed/${SEED_IMPORT_LAYER}/`))
     return [config, ...assetEntries, ...publicEntries, ...seedEntries]
   })
 

@@ -301,7 +301,11 @@ const runInSession = (input: {
     const start = resumed ?? { index: 0, progress: EMPTY_PROGRESS }
     const submitting = yield* Ref.make(false)
     // Resuming, the step starts with what it had read before its confirmation.
-    const seenOwnApp = yield* startStepReading(automation, resumed !== undefined)
+    const seenOwnApp = yield* startStepReading(
+      automation,
+      resumed !== undefined,
+      options.allowedHosts
+    )
     const scope: BrowserRunScope = {
       session,
       app: input.app,

@@ -38,6 +38,7 @@
 import { getCookie, setCookie } from 'hono/cookie'
 import { resolveFormOptionSources } from '@/application/use-cases/forms/resolve-form-option-sources'
 import { findFormByName } from '@/application/use-cases/forms/submit-form'
+import { withoutWithheldAnswers } from '@/application/use-cases/forms/submit-form-field-shaping'
 import {
   buildConditionValueMap,
   fieldSubmitIdentifier,
@@ -56,7 +57,9 @@ import {
   evaluateFormAccessForRequest,
   resolveFormOptionVisitor,
 } from './access-gate'
+import { formForCaller } from './form-page-context'
 import { generateDraftSessionId, mergeDraft, readDraft, replaceDraft } from './step-draft-store'
+import type { ReadTableAsCaller } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
 import type { Form, FormField } from '@/domain/models/app/forms'
 import type { FormOptionSets } from '@/domain/models/app/forms/form-option-source-service'
@@ -81,6 +84,8 @@ export interface StepFragmentRenderer {
       readonly optionSets?: FormOptionSets
     }
   ) => string
+  /** The table API's answer to what this request's caller may see of a form's table. */
+  readonly readTableAsCaller?: (c: Context) => ReadTableAsCaller
 }
 
 /**
@@ -163,6 +168,8 @@ export async function handleGetStepFragment(
   if (denied !== undefined) return denied
   const step = findStep(form, stepId)
   if (!step) return c.notFound()
+  // The step offers what the whole form page offers this caller, and no other field.
+  const shown = await formForCaller(c, app, form, { session, read: renderer.readTableAsCaller })
   const sessionId = ensureDraftSession(c)
   const draft = readDraft(sessionId, name)
   // A step asking a table-backed question carries the same choices as the
@@ -173,14 +180,14 @@ export async function handleGetStepFragment(
       c,
       resolveFormOptionSources({
         app,
-        form,
+        form: shown,
         visitor: await resolveFormOptionVisitor(c, session),
       })
     )
   )
   // The step speaks the language its page was served in (the runtime forwards it).
   const activeLang = c.req.query('lang')
-  const html = renderer.renderStepFragment(app, form, stepId, {
+  const html = renderer.renderStepFragment(app, shown, stepId, {
     draftValues: draft,
     optionSets,
     ...(activeLang !== undefined && activeLang !== '' ? { activeLang } : {}),
@@ -202,24 +209,30 @@ export async function handleGetStepFragment(
  * read or merged. The response body reveals the flow's step graph, so a
  * denied caller must not reach the resolver.
  */
-export async function handlePostStepAdvance(c: Context, app: App): Promise<Response> {
+export async function handlePostStepAdvance(
+  c: Context,
+  app: App,
+  read: ((c: Context) => ReadTableAsCaller) | undefined
+): Promise<Response> {
   const name = c.req.param('name')
   const stepId = c.req.param('stepId')
   if (!name || !stepId) return c.notFound()
   const form = findFormByName(app, name)
   if (!form) return c.notFound()
-  const { decision } = await evaluateFormAccessForRequest(c, form)
+  const { decision, session } = await evaluateFormAccessForRequest(c, form)
   const denied = denyFormAccess(c, form.name, decision, 'json')
   if (denied !== undefined) return denied
   const step = findStep(form, stepId)
   if (!step) return c.notFound()
 
-  const body = await readJsonBody(c)
+  // The step is checked over the fields the form offers this caller, and a
+  // value for one it does not offer her is kept nowhere.
+  const shown = await formForCaller(c, app, form, { session, read })
+  const body = withoutWithheldAnswers(await readJsonBody(c), form, shown)
   const sessionId = ensureDraftSession(c)
-  const draft = readDraft(sessionId, name)
-  const merged = { ...draft, ...body }
+  const merged = { ...readDraft(sessionId, name), ...body }
 
-  const offending = findFirstStepValidationError(form, step.fields, merged)
+  const offending = findFirstStepValidationError(shown, step.fields, merged)
   if (offending !== undefined) {
     const message = `${offending} is required`
     return c.json(

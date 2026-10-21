@@ -36,12 +36,14 @@
  * a template already being expanded on the same path. Both reach the renderer
  * exactly as before.
  *
- * ─── THE `$children` SLOT ──────────────────────────────────────────────────
+ * ─── THE SLOTS ─────────────────────────────────────────────────────────────
  *
- * A template node may write `children: $children`; the placement's own
- * `children` are put there AFTER the template's vars are substituted, so the
- * vars never reach them, and they are expanded on the placement's path — they
- * are the page's components, in the page's position, for every later pass.
+ * A template node may write `children: $children` (the default slot) or
+ * `children: $slots.<name>` (a named slot); the placement's own `children`
+ * and `slots.<name>` are put there AFTER the template's vars are substituted,
+ * so the vars never reach them, and they are expanded on the placement's path
+ * — they are the page's components, in the page's position, for every later
+ * pass.
  *
  * ─── WHAT IS DESCENDED ─────────────────────────────────────────────────────
  *
@@ -53,6 +55,7 @@
  * draw its template's gated blocks for every reader.
  */
 
+import { EXPORT_NODE_ID_KEY, exportNodeIdOf } from '@/domain/models/app/pages/node-identity'
 import { extractComponentReference } from '@/presentation/render/registry/component-reference-handler'
 import { resolveComponent } from '@/presentation/render/registry/component-resolution'
 import {
@@ -62,6 +65,7 @@ import {
 import {
   fillTemplateSlot,
   placementChildrenOf,
+  placementSlotsOf,
 } from '@/presentation/render/resolve/component-template-slot'
 import type { Components } from '@/domain/models/app/components'
 import type {
@@ -81,17 +85,31 @@ function expandReference(
 ): Item {
   const { refName, vars } = extractComponentReference(item)
   if (path.has(refName)) return item
-  if (!templates.some((template) => template.name === refName)) return item
+  const template = templates.find((candidate) => candidate.name === refName)
+  if (template === undefined) return item
   const resolved = resolveComponent(refName, templates, vars)
   if (resolved === undefined) return item
   const expanded = expandNode(resolved.component, templates, new Set([...path, refName]))
   // The slotted components are the PAGE's: expanded on the placement's own
   // path (not the template's), never given the template's vars.
   const slotted = expandItems(placementChildrenOf(item) as readonly Item[], templates, path)
-  const filled = fillTemplateSlot(expanded, slotted)
+  const named = Object.fromEntries(
+    Object.entries(placementSlotsOf(item)).map(([name, items]) => [
+      name,
+      expandItems(items as readonly Item[], templates, path),
+    ])
+  )
+  const filled = fillTemplateSlot(expanded, slotted, named)
+  // A page export's node id names the PLACEMENT, so the expanded root carries it.
+  const exportNodeId = exportNodeIdOf(item)
   return {
     ...(filled as Component),
-    [EXPANDED_REFERENCE_KEY]: { name: resolved.name, vars },
+    [EXPANDED_REFERENCE_KEY]: {
+      name: resolved.name,
+      vars,
+      ...(template.render === 'transparent' && { transparent: true }),
+    },
+    ...(exportNodeId !== undefined && { [EXPORT_NODE_ID_KEY]: exportNodeId }),
   } as Component
 }
 

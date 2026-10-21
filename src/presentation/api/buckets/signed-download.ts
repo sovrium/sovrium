@@ -11,12 +11,16 @@
  */
 
 import { Effect } from 'effect'
-import { StorageService, type BucketBinding } from '@/application/ports/services/storage-service'
+import { type BucketBinding } from '@/application/ports/services/storage-service'
 import {
   signedLinkDisplay,
   verifiedDownloadBinding,
 } from '@/application/use-cases/buckets/signed-download-binding'
 import { resolveSignBucket } from '@/application/use-cases/buckets/signed-url-minting'
+import {
+  probeStoredFile,
+  readRecordedFile,
+} from '@/application/use-cases/storage/recorded-file-read'
 import {
   inferMimeFromKey,
   isFramablePreviewKey,
@@ -43,20 +47,19 @@ import type { Context } from 'hono'
  * the running server owns, resolved once at boot — see `provideDomain`.
  */
 export function downloadFromStorage(c: Context, path: string, bucket: BucketBinding) {
-  const program = Effect.gen(function* () {
-    const storage = yield* StorageService
-    return yield* storage.download(path, bucket)
-  })
-  return Effect.runPromise(provideDomain(c, program).pipe(Effect.result))
+  return Effect.runPromise(provideDomain(c, readRecordedFile(path, bucket)).pipe(Effect.result))
 }
 
 /**
- * Check whether a stored object exists by attempting a download. A chat
- * attachment answers as absent: no bucket route signs or serves one.
+ * Check whether a stored object exists as a download would find it, reading at
+ * most its first piece. A chat attachment answers as absent: no bucket route
+ * signs or serves one.
  */
 export async function fileExists(c: Context, path: string, bucket: string): Promise<boolean> {
   if (isChatAttachmentKey(path)) return false
-  const result = await downloadFromStorage(c, path, bucket)
+  const result = await Effect.runPromise(
+    provideDomain(c, probeStoredFile(path, bucket)).pipe(Effect.result)
+  )
   return result._tag === 'Success'
 }
 

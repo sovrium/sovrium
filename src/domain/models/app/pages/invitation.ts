@@ -22,6 +22,7 @@
  * | `$invitation.inviter.image`| Their avatar URL, empty when they have none          |
  * | `$invitation.email`        | Address the invitation was sent to                   |
  * | `$invitation.role`         | Role the invitee will hold                           |
+ * | `$invitation.role.isAdminTier` | `true` when that role reaches the operator console |
  * | `$invitation.workspace`    | The app's display name, as `$app.label` reads it     |
  * | `$invitation.expiresAt`    | The deadline as a long date, in the page's language  |
  * | `$invitation.expiresAt.relative` | The time from now: `in 3 days`, `2 days ago`   |
@@ -56,5 +57,5 @@ export const PageInvitationSchema = Schema.Struct({
   identifier: 'PageInvitation',
   title: 'Page Invitation',
   description:
-    "Look up the invitation whose token is in the page address and expose it as $invitation.* (inviter.name, inviter.image, email, role, workspace, expiresAt, expiresAt.relative, expiresAt.iso, accountExists, status). status reads pending, expired or invalid; an invalid token empties every other reference. The app's invitation emails link to the first page declaring it",
+    "Look up the invitation whose token is in the page address and expose it as $invitation.* (inviter.name, inviter.image, email, role, role.isAdminTier, workspace, expiresAt, expiresAt.relative, expiresAt.iso, accountExists, status). status reads pending, expired or invalid; an invalid token empties every other reference. The app's invitation emails link to the first page declaring it",
 })

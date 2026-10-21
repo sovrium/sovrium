@@ -34,8 +34,8 @@ const isRecord = (value: unknown): value is Raw =>
 const reservedNameMessage = (name: string): string =>
   `Step '${name}' uses a name kept for loop items: \`{{loop.*}}\` reads the innermost loop and \`{{loops.<loop name>.*}}\` any loop around a step, so no step may be named 'loop' or 'loops'. Rename the step, and every \`{{${name}.…}}\` that read its output.`
 
-/** The action lists nested in one action, each with its path below the action. */
-const nestedLists = (
+/** The step lists one step holds (a loop's body, a path's branches), each with its path. */
+export const nestedLists = (
   action: Raw
 ): readonly (readonly [unknown, readonly (string | number)[]])[] => {
   const props = isRecord(action['props']) ? action['props'] : {}

@@ -15,20 +15,19 @@ import { provideDomain, runRequestEffect } from '@/infrastructure/logging/reques
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
-import { exportColumns } from './export-columns'
+import {
+  csvCellValue,
+  jsonExportRow,
+  orderExportColumns,
+  relationshipFieldNames,
+  type ExportRecord,
+} from './export-cells'
+import { readerExportColumns } from './export-columns'
 import { validateFilterParam } from './field-permission-validation'
 import { passesTableRoleGate, resolveGuardForTable } from './row-level-guard'
 import { buildListFilter, type FilterStructure } from './row-level-read-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
-
-// Extract raw value from formattedFieldValue (may be plain value or { value, displayValue })
-function getRawValue(fv: unknown): unknown {
-  if (fv !== null && typeof fv === 'object' && 'value' in (fv as object)) {
-    return (fv as { value: unknown }).value
-  }
-  return fv
-}
 
 /**
  * Attachment columns whose read-path value is enriched: the records
@@ -52,39 +51,11 @@ function numberFieldNames(table: ReturnType<NonNullable<App['tables']>['find']>)
   )
 }
 
-/** Names of the table's attachment columns, used to scope {@link unwrapAttachment}. */
+/** Names of the table's attachment columns, used to scope the export's attachment unwrapping. */
 function attachmentFieldNames(table: ReturnType<NonNullable<App['tables']>['find']>): Set<string> {
   return new Set(
     (table?.fields ?? []).filter((f) => ATTACHMENT_FIELD_TYPES.has(f.type)).map((f) => f.name)
   )
-}
-
-/**
- * Collapse an enriched attachment value back to the storage key(s) it wraps.
- *
- * An export is a flat data dump, not an API response: the transient signed-URL
- * capability minted on the read path has no business in a CSV cell (where the
- * object would stringify to `[object Object]`) nor in a downloaded JSON file
- * that outlives the token. Scoped to attachment columns so an unrelated `json`
- * column that happens to carry a `key` property is left alone.
- */
-function unwrapAttachment(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(unwrapAttachment)
-  if (value !== null && typeof value === 'object') {
-    const { key } = value as { readonly key?: unknown }
-    if (typeof key === 'string') return key
-  }
-  return value
-}
-
-/** Read one exportable cell: unwrap the display envelope, then any enrichment. */
-function exportValue(
-  fields: Record<string, unknown>,
-  fieldName: string,
-  attachments: ReadonlySet<string>
-): unknown {
-  const raw = getRawValue(fields[fieldName])
-  return attachments.has(fieldName) ? unwrapAttachment(raw) : raw
 }
 
 /**
@@ -124,21 +95,22 @@ function buildExportFilter(
 }
 
 /**
- * Render a list of records to a CSV `Response` with table-config-ordered columns.
- * When `visibleFields` is provided, only those fields are included in the output.
+ * Render a list of records to a CSV `Response`: columns in table order, or in
+ * the order `visibleFields` names them when it is provided.
  */
 function buildCsvResponse(
-  records: readonly { fields: Record<string, unknown> }[],
+  records: readonly ExportRecord[],
   tableFieldNames: readonly string[],
   tableName: string,
   opts: {
     readonly attachments: ReadonlySet<string>
+    readonly links: ReadonlySet<string>
     readonly numbers: ReadonlySet<string>
     readonly visibleFields?: readonly string[]
     readonly withheld: ReadonlySet<string>
   }
 ): Response {
-  const { attachments, numbers, visibleFields, withheld } = opts
+  const { numbers, visibleFields, withheld } = opts
   // Columns come from EVERY record, never one: a lookup left out of the first
   // row (its linked record hidden from this reader) must not drop the column
   // for the rows that carry it. A readable field the request named in
@@ -155,18 +127,12 @@ function buildCsvResponse(
           ...present.filter((f) => !tableFieldNames.includes(f)),
         ]
       : present
-  // Filter to only visible fields when specified
-  const orderedFields =
-    visibleFields && visibleFields.length > 0
-      ? allOrderedFields.filter((f) => visibleFields.includes(f))
-      : allOrderedFields
+  const orderedFields = orderExportColumns(allOrderedFields, tableFieldNames, visibleFields)
 
   const header = orderedFields.map((f) => escapeCsvCell(f)).join(',')
   const rows = records.map((record) =>
     orderedFields
-      .map((f) =>
-        escapeCsvCell(exportValue(record.fields, f, attachments), { numeric: numbers.has(f) })
-      )
+      .map((f) => escapeCsvCell(csvCellValue(record, f, opts), { numeric: numbers.has(f) }))
       .join(',')
   )
   const csvContent = [header, ...rows].join('\n') + '\n'
@@ -201,18 +167,21 @@ function buildEmptyCsvResponse(tableFieldNames: readonly string[], tableName: st
   })
 }
 
+/**
+ * Render a list of records to a JSON `Response`: each record named by its id,
+ * then its readable fields — those `visibleFields` names, in its order, when
+ * it is provided. A link keeps its ids, for a program to follow.
+ */
 function buildJsonResponse(
-  records: readonly { fields: Record<string, unknown> }[],
+  records: readonly ExportRecord[],
   tableName: string,
-  opts: { readonly attachments: ReadonlySet<string>; readonly withheld: ReadonlySet<string> }
+  opts: {
+    readonly attachments: ReadonlySet<string>
+    readonly visibleFields?: readonly string[]
+    readonly withheld: ReadonlySet<string>
+  }
 ): Response {
-  const data = records.map((record) =>
-    Object.fromEntries(
-      Object.keys(record.fields)
-        .filter((k) => !opts.withheld.has(k))
-        .map((k) => [k, exportValue(record.fields, k, opts.attachments)])
-    )
-  )
+  const data = records.map((record) => jsonExportRow(record, opts))
   const date = new Date().toISOString().slice(0, 10)
   const filename = `${tableName}-${date}.json`
 
@@ -337,7 +306,8 @@ export async function handleExportTableCsv(c: Context, app: App) {
 
   // Column NAMES are a read surface too: the empty export emits this list as
   // its header, and the populated one takes its column ORDER from it.
-  const { withheld, tableFieldNames } = exportColumns(app, table, userRole, userGroups)
+  const reader = { session, role: userRole, groups: userGroups }
+  const { withheld, tableFieldNames } = await readerExportColumns(c, app, table, reader)
 
   // Z-3 read predicate: AND-merge the row-level read clause onto the
   // request-supplied filter. Sentinels short-circuit to an empty response
@@ -365,14 +335,11 @@ export async function handleExportTableCsv(c: Context, app: App) {
   // A table whose reader may read no field fails the list as a table that
   // does not exist, and the export answers it as such — CSV and JSON alike.
   if (either._tag === 'Failure') return toErrorResponse(c, either.failure)
-  const attachments = attachmentFieldNames(table)
-  if (format === 'json') {
-    return buildJsonResponse(either.success.records, tableName, { attachments, withheld })
-  }
+  const shape = { attachments: attachmentFieldNames(table), visibleFields, withheld }
+  if (format === 'json') return buildJsonResponse(either.success.records, tableName, shape)
   return buildCsvResponse(either.success.records, tableFieldNames, tableName, {
-    attachments,
+    ...shape,
+    links: relationshipFieldNames(table),
     numbers: numberFieldNames(table),
-    visibleFields,
-    withheld,
   })
 }

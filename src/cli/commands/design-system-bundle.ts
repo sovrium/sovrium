@@ -32,6 +32,7 @@ import { dirname, join } from 'node:path'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
 import { lazyImportIndex } from './utils'
+import type { PageExportSelection } from '@/application/use-cases/admin/design-system-pages'
 import type { App } from '@/domain/models/app'
 
 /** Whether a path names a directory that exists and holds at least one entry. */
@@ -59,7 +60,7 @@ export const writeDesignSystemBundle = async (
   app: App,
   outputDir: string | undefined,
   force: boolean,
-  source: { readonly publicDir?: string } = {}
+  source: { readonly publicDir?: string; readonly pages?: PageExportSelection } = {}
 ): Promise<void> => {
   if (outputDir === undefined) {
     printStderr(
@@ -97,8 +98,10 @@ export const writeDesignSystemBundle = async (
   const kitPages = bundle.manifest.files.filter(
     (file) => file.role === 'kit' && file.path.endsWith('.html')
   ).length
+  const drawnPages = bundle.manifest.files.filter((file) => file.path.endsWith('.page.html'))
   console.log(
     `Design system bundle written to ${outputDir} ` +
-      `(${bundle.files.length + 1} files, ${kitPages} kit pages, ${seconds}s)`
+      `(${bundle.files.length + 1} files, ${kitPages} kit pages, ` +
+      `${source.pages === undefined ? '' : `${drawnPages.length} app pages, `}${seconds}s)`
   )
 }

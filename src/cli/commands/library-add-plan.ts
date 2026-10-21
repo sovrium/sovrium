@@ -42,18 +42,11 @@ import { basename, dirname, join } from 'node:path'
 import { refuse } from './app-prelude'
 import { definedNames } from './library-add-config'
 import { planBlockForms } from './library-add-forms'
+import { entryEnvFor, renderEntryFragment } from './library-add-fragment'
 import { planOperationFragment } from './library-add-operations'
 import { defaultParams, requirementParams, resolveParams } from './library-add-params'
-import {
-  asOf,
-  editedMessage,
-  placementOf,
-  reinstallOf,
-  renderFragment,
-  updateSets,
-} from './library-add-reinstall'
+import { asOf, editedMessage, placementOf, reinstallOf, updateSets } from './library-add-reinstall'
 import { missingTablesMessage } from './library-add-tables'
-import { bindingName } from './library-wire'
 import type { RootFormat } from './library-add-config'
 import type { OperationsRequest, PlannedOperations } from './library-add-operations'
 import type { Replaced } from './library-add-reinstall'
@@ -97,6 +90,11 @@ export interface PlannedInstall {
   readonly content: string
   /** The identical file is already on disk. */
   readonly present: boolean
+  /**
+   * The variables it reads, under the names it writes: a connection installed
+   * under another name reads its own secrets (`entryEnvFor`).
+   */
+  readonly env: readonly string[]
   /** The entry that pulled this one in, for a requirement. */
   readonly requiredBy?: string
   /** For an operation install, what happens to the connection's `operations`. */
@@ -169,18 +167,17 @@ const buildContent = (
     operations = [],
     recordParams = true,
   }: { readonly operations?: readonly ConnectionOperation[]; readonly recordParams?: boolean } = {}
-): string => {
-  const built = entry.build({ name, params }) as Readonly<Record<string, unknown>>
-  return renderFragment({
-    format: context.format,
-    id: context.request.catalogue.libraryEntryId(entry),
+): string =>
+  renderEntryFragment({
+    catalogue: context.request.catalogue,
     version: context.request.version,
+    format: context.format,
+    entry,
+    name,
     params,
+    operations,
     recordParams,
-    binding: bindingName(name),
-    value: operations.length === 0 ? built : { ...built, operations },
   })
-}
 
 /** The name and parameters one install is built with. */
 interface InstallTarget {
@@ -206,6 +203,7 @@ const planOperationInstall = (
   const { operations, entry } = context.request
   return {
     ...base,
+    env: entryEnvFor({ entry, name: target.name, params: target.params }),
     ...planOperationFragment({
       format: context.format,
       id: base.id,
@@ -300,6 +298,7 @@ const planOne = async (
     relativePath,
     absolutePath,
     content,
+    env: entryEnvFor({ entry, name: target.name, params: target.params }),
     ...placementOf(verdict, onDisk, content, replaceWith),
     ...(target.requiredBy === undefined ? {} : { requiredBy: target.requiredBy }),
     ...(target.paramsNote === undefined ? {} : { paramsNote: target.paramsNote }),

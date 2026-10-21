@@ -22,7 +22,10 @@ const middleRung = (type: string): readonly [string, string] => [
   '`size: md` is now `size: default`, the name shadcn/ui gives the middle rung.',
 ]
 
-/** Retired values, keyed `type.key=value`. */
+/**
+ * Retired values, keyed `type.key=value`. A node with no `type` (a data
+ * source's `system` read) is keyed by the key holding it, `@system.key=value`.
+ */
 const RETIRED_VALUES: ReadonlyMap<string, string> = new Map([
   middleRung('button'),
   middleRung('toggle'),
@@ -41,6 +44,10 @@ const RETIRED_VALUES: ReadonlyMap<string, string> = new Map([
   [
     'search-input.scope=subscribers',
     '`scope: subscribers` has been removed: a search box no longer waits for a component to name its id. Declare `publishes: { bindTo: <channel>, param: q }` on the box instead of `scope`, and subscribe the data components with `dataSource.bindTo: <channel>` and `sharedFilter: {}`.',
+  ],
+  [
+    '@system.refreshMode=realtime',
+    '`refreshMode: realtime` is refused on a system read: an endpoint has no change feed to follow. Use `refreshMode: poll` with `pollIntervalMs` to re-read it on an interval.',
   ],
 ])
 
@@ -83,11 +90,10 @@ export const appendRetiredValueHint = (
   if (typeof key !== 'string' || lines.length === 0) return lines
   const node = segments.slice(0, -1).reduce<unknown>(childAt, document)
   const type = childAt(node, 'type')
-  const hint = migrationHintForRetiredValue(
-    typeof type === 'string' ? type : undefined,
-    key,
-    childAt(node, key)
-  )
+  const holder = segments.at(-2)
+  const discriminant =
+    typeof type === 'string' ? type : typeof holder === 'string' ? `@${holder}` : undefined
+  const hint = migrationHintForRetiredValue(discriminant, key, childAt(node, key))
   return hint === undefined ? lines : [`${lines[0]}. ${hint}`, ...lines.slice(1)]
 }
 

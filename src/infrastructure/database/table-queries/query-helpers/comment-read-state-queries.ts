@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { sql, and, eq, ne, or, gt, isNull } from 'drizzle-orm'
+import { sql, and, eq, ne, or, gt, inArray, isNull } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { DatabaseError } from '@/infrastructure/database'
 import { db } from '@/infrastructure/database/drizzle'
@@ -25,7 +25,8 @@ const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqli
  * Mark every comment on a record read for the current user.
  *
  * Upserts the per-user high-watermark row for `(user_id, table_id, record_id)`
- * to NOW(). Uses Drizzle's `onConflictDoUpdate` against the unique index the
+ * to NOW(), `table_id` being the one key the table's watermark is written
+ * under, whichever spelling of the table the request used. Uses Drizzle's `onConflictDoUpdate` against the unique index the
  * engine DDL created — the write is idempotent, so repeated mark-read calls
  * simply advance the watermark. The timestamp is bound as a JS `Date` and
  * written through Drizzle's typed `timestamp` / `timestamp_ms` column (NOT a
@@ -33,10 +34,10 @@ const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqli
  */
 export function markRecordCommentsRead(config: {
   readonly session: Readonly<Session>
-  readonly tableId: string
+  readonly tableKey: string
   readonly recordId: string
 }): Effect.Effect<void, DatabaseError> {
-  const { session, tableId, recordId } = config
+  const { session, tableKey, recordId } = config
   const now = new Date()
   return Effect.tryPromise({
     try: () =>
@@ -45,7 +46,7 @@ export function markRecordCommentsRead(config: {
         .values({
           id: crypto.randomUUID(),
           userId: session.userId,
-          tableId,
+          tableId: tableKey,
           recordId,
           lastReadAt: now,
         })
@@ -68,49 +69,47 @@ export function markRecordCommentsRead(config: {
  *   - the viewer has no read-state watermark for this record, OR the comment
  *     was created strictly after that watermark.
  *
- * The LEFT JOIN keys on the same `(user_id, table_id, record_id)` unique tuple
- * the mark-read upsert writes, so each comment matches at most one watermark
- * row — `COUNT(*)` is exact. The `created_at > last_read_at` comparison is
+ * The watermark is the latest one the viewer holds for the record under ANY
+ * key of its table (`tableKeys`): a row written before every mark-read used
+ * one key still counts. The `created_at > last_read_at` comparison is
  * column-to-column and unit-consistent across dialects (both stored as
  * TIMESTAMPTZ on pg / epoch-ms on SQLite).
  *
  * The `record_comments.table_id` clause in the WHERE is what confines the
- * count to THIS table's record. With `tableId` only in the watermark JOIN,
- * the counted set would span every same-numbered record in the app (record
- * ids are per-table sequences) and an unrelated table's comments would
- * inflate the badge. See `activeCommentsByRecordId`.
+ * count to THIS table's record: record ids are per-table sequences, so without
+ * it an unrelated table's comments would inflate the badge. See
+ * `activeCommentsByRecordId`.
  */
 export function getUnreadCommentCount(config: {
   readonly session: Readonly<Session>
-  readonly tableId: string
+  readonly tableKeys: readonly string[]
   readonly recordId: string
 }): Effect.Effect<number, DatabaseError> {
-  const { session, tableId, recordId } = config
+  const { session, tableKeys, recordId } = config
   const { userId } = session
+  const watermark = db
+    .select({ lastReadAt: sql`MAX(${commentReadState.lastReadAt})` })
+    .from(commentReadState)
+    .where(
+      and(
+        eq(commentReadState.userId, userId),
+        inArray(commentReadState.tableId, [...tableKeys]),
+        eq(commentReadState.recordId, recordId)
+      )
+    )
   return Effect.tryPromise<Array<{ count: number }>, DatabaseError>({
     try: () =>
       db
         .select({ count: castToInt(sql`COUNT(*)`) })
         .from(recordComments)
-        .leftJoin(
-          commentReadState,
-          and(
-            eq(commentReadState.userId, userId),
-            eq(commentReadState.tableId, tableId),
-            eq(commentReadState.recordId, recordComments.recordId)
-          )
-        )
         .where(
           and(
-            eq(recordComments.tableId, tableId),
+            inArray(recordComments.tableId, [...tableKeys]),
             eq(recordComments.recordId, recordId),
             isNull(recordComments.deletedAt),
             eq(recordComments.status, 'approved'),
             or(isNull(recordComments.userId), ne(recordComments.userId, userId)),
-            or(
-              isNull(commentReadState.lastReadAt),
-              gt(recordComments.createdAt, commentReadState.lastReadAt)
-            )
+            or(sql`(${watermark}) IS NULL`, gt(recordComments.createdAt, sql`(${watermark})`))
           )
         ),
     catch: (error) => new DatabaseError('Failed to count unread comments', error),

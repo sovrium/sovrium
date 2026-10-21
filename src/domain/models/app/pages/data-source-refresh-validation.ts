@@ -19,6 +19,7 @@
  *
  * Both are refused, naming `listDisplay.itemTemplate` as the live way to draw
  * the same rows. `refreshMode: 'none'` is the default spelled out, and passes.
+ * A system read's own `system.refreshMode` is held to the same rule.
  * A list in `search` or `single` mode, or with neither `children` nor an item
  * template, is not refused: it ignores the key, like the other data components
  * that do not follow it yet. Runs inside `decodeAppConfigObject`, so `validate`,
@@ -52,14 +53,18 @@ const serverDrawnReason = (node: Readonly<Record<string, unknown>>): string | un
 const checkNode = (node: Readonly<Record<string, unknown>>, path: string): readonly string[] => {
   const { dataSource } = node
   if (!isRecord(dataSource)) return []
-  const mode = dataSource['refreshMode']
-  if (mode === undefined || mode === 'none') return []
+  const { system } = dataSource
+  const declared = [
+    ['dataSource.refreshMode', dataSource['refreshMode']],
+    ['dataSource.system.refreshMode', isRecord(system) ? system['refreshMode'] : undefined],
+  ].filter(([, mode]) => mode !== undefined && mode !== 'none')
+  if (declared.length === 0) return []
   const reason = serverDrawnReason(node)
   return reason === undefined
     ? []
-    : [
-        `${path}.dataSource.refreshMode: ${reason}, so nothing can refresh them — ${LIVE_ALTERNATIVE}`,
-      ]
+    : declared.map(
+        ([key]) => `${path}.${key}: ${reason}, so nothing can refresh them — ${LIVE_ALTERNATIVE}`
+      )
 }
 
 const walk = (node: unknown, path: string): readonly string[] => {

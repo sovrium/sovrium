@@ -11,9 +11,11 @@
  * edit and regenerate of a stored conversation held with one.
  */
 
+import { requireDomainContext } from '@/infrastructure/logging/request-effect'
 import { mayTriggerAgentNamed } from '@/presentation/api/agents/agent-trigger-guard'
-import { resolveAgentTurnBinding, type AgentTurnBinding } from './agent-chat'
+import { findDeclaredAgent, resolveAgentTurnBinding, type AgentTurnBinding } from './agent-chat'
 import { agentCaller, agentReader, type ChatReader } from './chat-read-scope'
+import { toToolCallTables } from './chat-tool-calling'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -43,20 +45,22 @@ export interface AgentTurnScope {
  * row-level rule hides or a field she may not read. A visitor signed in to
  * nothing, using an agent open to everyone, reads the anonymous reach
  * (`agentCaller`).
+ *
+ * The tables its prompt describes are built here, per turn, from that same
+ * reader: the ones its tools read for her, with the fields both may read. A
+ * table she may not read or whose list admits her no row is named nowhere in
+ * what the model is sent.
  */
 export const resolveDeclaredAgentTurnScope = async (
   c: Context,
   app: App,
   agentName: string
 ): Promise<AgentTurnScope | undefined> => {
-  const binding = resolveAgentTurnBinding(app, agentName)
+  const agent = findDeclaredAgent(app, agentName)
   // Its trigger grant, as on every road into an agent; refused as undeclared.
-  if (binding === undefined || !(await mayTriggerAgentNamed(c, app, agentName))) return undefined
-  const caller = await agentCaller(c, app)
-  return {
-    binding,
-    userRole: binding.role,
-    effectiveRoles: [binding.role],
-    reader: agentReader(binding.role, caller),
-  }
+  if (agent === undefined || !(await mayTriggerAgentNamed(c, app, agentName))) return undefined
+  const reader = agentReader(agent.role, await agentCaller(c, app))
+  const tables = await toToolCallTables(requireDomainContext(c), app, reader)
+  const binding = resolveAgentTurnBinding(app, agent, tables)
+  return { binding, userRole: binding.role, effectiveRoles: [binding.role], reader }
 }

@@ -41,11 +41,12 @@ import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services'
 import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
+import { assetFileName } from '@/domain/models/seed'
 import { db } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { tableIdentifier } from '@/infrastructure/database/table-queries/statement/validation'
 import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
-import { buildUploadStorageKey } from '@/infrastructure/storage/upload-key'
+import { buildSeededStorageKey } from '@/infrastructure/storage/upload-key'
 import type { SeedTableConfig } from '@/application/use-cases/seed/seed-config'
 import type { PlannedSeedTable, SeedPlan } from '@/application/use-cases/seed/seed-plan'
 import type { SeedValue } from '@/application/use-cases/seed/seed-values'
@@ -90,6 +91,11 @@ export interface SeedResolveContext {
   readonly seedDir: string
   /** Account ids by lower-cased email, for `@user:<email>` values. */
   readonly accounts: ReadonlyMap<string, string>
+  /**
+   * `false` to work out each `@asset:` storage key without storing the file:
+   * a replay compares the keys first and stores only the rows it writes.
+   */
+  readonly storeAssets?: boolean | undefined
 }
 
 /** The id behind one `@user:<email>`. Planning already refused an unknown one. */
@@ -122,22 +128,43 @@ const foldSequential = <T, R>(
     Promise.resolve({ value: [], index })
   )
 
+/** Where one seeded file goes: its bucket, its layer folder, and the slot it fills. */
+interface AssetTarget {
+  readonly bucket: string
+  readonly dir: string
+  readonly table: string
+  readonly key: string
+  readonly field: string
+  /** Whether the file is stored, or only its key worked out. */
+  readonly store: boolean
+}
+
 /**
- * Upload one `seed/assets/<file>` into the bucket its field declares — the
+ * Upload one `seed/assets/<path>` into the bucket its field declares — the
  * built-in `system` bucket for a field that names none — and return the bare
  * storage key. The read path resolves the key through the same bucket, so a
  * file stored anywhere else would never be found.
+ *
+ * The key ends with the file's own name, never its folder, and its prefix is
+ * derived from the slot and the bytes (`buildSeededStorageKey`), so a replay of
+ * the same file into the same slot stores the same key.
  */
-const uploadAsset = async (seedDir: string, filename: string, bucket: string): Promise<string> => {
-  const source = Bun.file(`${seedDir}/assets/${filename}`)
+const uploadAsset = async (
+  target: AssetTarget,
+  path: string,
+  position: number
+): Promise<string> => {
+  const source = Bun.file(`${target.dir}/assets/${path}`)
   if (!(await source.exists())) {
-    throw new SeedResolutionError(`asset "${filename}" not found in ${seedDir}/assets`)
+    throw new SeedResolutionError(`asset "${path}" not found in ${target.dir}/assets`)
   }
-  const key = buildUploadStorageKey(filename)
+  const filename = assetFileName(path)
   const bytes = new Uint8Array(await source.arrayBuffer())
+  const key = buildSeededStorageKey({ ...target, position, filename, bytes })
+  if (!target.store) return key
   const program = Effect.gen(function* () {
     const storage = yield* StorageService
-    yield* storage.upload(key, bytes, inferMimeFromKey(filename), bucket)
+    yield* storage.upload(key, bytes, inferMimeFromKey(filename), target.bucket)
   })
   return Effect.runPromise(Effect.provide(program, StorageServiceLive)).then(() => key)
 }
@@ -215,25 +242,36 @@ const resolveReferenceId = async (
   return { value: existing, index: withKey(index, table, key, existing) }
 }
 
+/**
+ * The folder a table's `@asset:` files are read from: the layer its seed file
+ * sits in, so `seed/import/<table>.yaml` reads `seed/import/assets/`.
+ */
+const layerDirOf = (context: SeedResolveContext, tableName: string): string => {
+  const fileName = context.plan.tables.find((table) => table.name === tableName)?.fileName ?? ''
+  const slash = fileName.lastIndexOf('/')
+  return slash === -1 ? context.seedDir : `${context.seedDir}/${fileName.slice(0, slash)}`
+}
+
 /** Resolve one planned value into what the write path stores. */
 const resolveSeedValue = async (
   context: SeedResolveContext,
   index: SeedKeyIndex,
   value: SeedValue,
-  bucket: string
+  target: AssetTarget
 ): Promise<Resolved<unknown>> => {
   if (value.kind === 'literal') return { value: value.value, index }
   if (value.kind === 'asset') {
-    return uploadAsset(context.seedDir, value.filename, bucket).then((key) => ({
-      value: key,
-      index,
-    }))
+    return uploadAsset(target, value.filename, 0).then((key) => ({ value: key, index }))
   }
   if (value.kind === 'assets') {
-    return foldSequential(value.filenames, index, async (carried, filename) => ({
-      value: await uploadAsset(context.seedDir, filename, bucket),
-      index: carried,
-    }))
+    return foldSequential(
+      value.filenames.map((filename, position) => [filename, position] as const),
+      index,
+      async (carried, [filename, position]) => ({
+        value: await uploadAsset(target, filename, position),
+        index: carried,
+      })
+    )
   }
   if (value.kind === 'ref') {
     return resolveReferenceId(context, index, value.ref.table, value.ref.key)
@@ -247,18 +285,28 @@ const resolveSeedValue = async (
   )
 }
 
+/** The row a resolution belongs to: its table and, for a seed record, its `key:`. */
+export interface SeedRowTarget {
+  readonly table: string
+  /** The seed `key:`, which an uploaded file's storage key is derived from. */
+  readonly key?: string
+}
+
 /** Resolve every field of one row, threading the key index through. */
 export const resolveSeedFields = (
   context: SeedResolveContext,
   index: SeedKeyIndex,
   fields: Readonly<Record<string, SeedValue>>,
-  tableName: string
+  row: SeedRowTarget
 ): Promise<Resolved<Record<string, unknown>>> =>
   foldSequential(Object.entries(fields), index, async (carried, [name, value]) => {
     const bucket =
-      findConfig(context.tables, tableName)?.fields.find((field) => field.name === name)?.bucket ??
+      findConfig(context.tables, row.table)?.fields.find((field) => field.name === name)?.bucket ??
       SYSTEM_BUCKET_NAME
-    const resolved = await resolveSeedValue(context, carried, value, bucket)
+    const dir = layerDirOf(context, row.table)
+    const store = context.storeAssets !== false
+    const target = { bucket, dir, table: row.table, key: row.key ?? '', field: name, store }
+    const resolved = await resolveSeedValue(context, carried, value, target)
     return { value: [name, resolved.value] as const, index: resolved.index }
   }).then((resolved) => ({
     value: Object.fromEntries(resolved.value),

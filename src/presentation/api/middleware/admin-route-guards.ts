@@ -157,6 +157,7 @@ export const chainAdminRouteGuards = (
     .use('/api/admin/releases', requireAdminTier(resolveAppForTier))
     .use('/api/admin/releases/*', authMiddleware(auth))
     .use('/api/admin/releases/*', requireAdminTier(resolveAppForTier))
+    .use('/api/admin/reports/*', authMiddleware(auth), requireAdminTier(resolveAppForTier))
     // The four Developers reads: the instance facts, the exposed MCP
     // tools, and the reflection record + declaration rows the Schema page reads.
     // Same A1 gate as the two reflections above, and EXPLICIT rather than left
@@ -313,8 +314,7 @@ export const chainAdminRouteGuards = (
     .use('/api/admin/links', requireAdminTier(resolveAppForTier))
     .use('/api/admin/links/*', authMiddleware(auth))
     .use('/api/admin/links/*', requireAdminTier(resolveAppForTier))
-    // The Organisation page's access-graph read
-    // `/api/admin/organisation` is a
+    // The Organisation page's access-graph read `/api/admin/organisation` is a
     // NEW namespace, so it gets an explicit entry rather than being left to the
     // defense-in-depth catch-all — an ungated sibling inside a guarded
     // namespace is how a gap starts, and the entries above record what that has
@@ -399,8 +399,7 @@ export const chainAdminRouteGuardsWithoutAuth = (
     // Admin read surfaces for agents (conversations) + connections (list/detail).
     .use('/api/admin/agents/*', requireAdminTier(resolveAppForTier))
     .use('/api/admin/connections/*', requireAdminTier(resolveAppForTier))
-    // Bare connection-list path — the
-    // `/*` wildcard does not cover the segment-less list path.
+    // Bare connection-list path — the `/*` wildcard does not cover the bare list.
     .use('/api/admin/connections', requireAdminTier(resolveAppForTier))
     // [internal ref] A6: the decisions register read. The EXACT path, never a `/*`
     // wildcard — Hono needs at least one segment to match `/*`, and
@@ -411,6 +410,7 @@ export const chainAdminRouteGuardsWithoutAuth = (
     // both spellings for the same reason.
     .use('/api/admin/releases', requireAdminTier(resolveAppForTier))
     .use('/api/admin/releases/*', requireAdminTier(resolveAppForTier))
+    .use('/api/admin/reports/*', requireAdminTier(resolveAppForTier))
     // Short-link console — both spellings, as in the auth-enabled branch.
     .use('/api/admin/links', requireAdminTier(resolveAppForTier))
     .use('/api/admin/links/*', requireAdminTier(resolveAppForTier))

@@ -20,7 +20,7 @@ export default {
   'admin.links.search': 'Chercher des liens',
   'admin.links.slug': 'Slug',
   'admin.links.notDeletedDeclared':
-    'Le lien n’a pas été supprimé. Il est peut-être déclaré dans app.links[].',
+    'Le lien n’a pas été supprimé : il est peut-être déclaré dans ton fichier de config, que seul ce fichier peut changer.',
   'admin.links.deleteMessageRow':
     'Quiconque suit ce lien obtiendra désormais une 410. Son historique de clics est conservé, et le slug redevient disponible.',
   'admin.links.deleteMessage':
@@ -49,7 +49,6 @@ export default {
   'admin.links.notDeleted': 'Le lien n’a pas été supprimé.',
   'admin.links.undeclared': 'Ce lien n’est plus déclaré',
   'admin.links.whenExpired': 'À expiration',
-  'admin.buckets.add': 'Ajouter un fichier',
   'admin.buckets.all': 'Tous les buckets',
   'admin.buckets.bucket': 'Bucket',
   'admin.buckets.deleteFile': 'Supprimer le fichier',
@@ -82,10 +81,11 @@ export default {
   'admin.buckets.none': 'Aucun bucket',
   'admin.buckets.noMatch': 'Aucun fichier ne correspond à « {query} »',
   'admin.buckets.emptyFiles':
-    'Aucun fichier pour l’instant. Les documents et images apparaissent ici dès qu’un champ pièce jointe en contient un — ou ajoutes-en un ci-dessus.',
+    'Aucun fichier pour l’instant. Les documents et images apparaissent ici dès qu’un champ pièce jointe en contient un, ou avec Envoyer des fichiers.',
   'admin.buckets.noFiles': 'Aucun fichier',
   'admin.buckets.search': 'Chercher des fichiers',
-  'admin.buckets.totalSize': 'Taille totale',
+  'admin.buckets.thisBucket': 'Ce bucket',
+  'admin.buckets.uploadFiles': 'Envoyer des fichiers',
   'admin.footprint.cpu': 'Temps CPU',
   'admin.footprint.cacheHit': 'Taux de succès du cache',
   'admin.footprint.cacheSize': 'Taille du cache',
@@ -164,7 +164,6 @@ export default {
   'admin.users.roleUpdated': 'Rôle mis à jour',
   'admin.users.banMessage':
     'Ce compte perd l’accès immédiatement. Tu pourras lever le bannissement plus tard.',
-  'admin.users.col.account': 'Compte',
   'admin.users.kpi.accounts': 'Comptes',
   'admin.users.kpi.active': 'Actifs (24 h)',
   'admin.users.invite.email': 'Adresse e-mail',
@@ -186,7 +185,7 @@ export default {
     'Le lien déjà envoyé cesse de fonctionner immédiatement. Tu pourras réinviter cette personne ensuite.',
   'admin.decisions.noMatch': 'Aucune décision ne correspond à « {query} »',
   'admin.decisions.emptyRegister':
-    'Aucune décision déclarée. Ajoute un bloc decisions[] à la config de ton app.',
+    'Aucune décision déclarée pour l’instant. Ajoute-les dans ton fichier de config, sous decisions.',
   'admin.decisions.search': 'Chercher des décisions',
   'admin.decisions.supersededBy': 'Remplacée par',
   'admin.decisions.touches': 'Concerne',
@@ -204,8 +203,8 @@ export default {
   'admin.decisions.state.superseded': 'Remplacée',
   'admin.users.invite.send': 'Envoyer l’invitation',
   'admin.users.invite.failed': 'Impossible d’envoyer l’invitation',
-  'admin.users.state.active': 'actif',
-  'admin.users.state.banned': 'banni',
+  'admin.users.state.active': 'Actif',
+  'admin.users.state.banned': 'Banni',
   'admin.links.source.config': 'Config',
   'admin.links.source.console': 'Console',
   'admin.links.state.active': 'Actif',

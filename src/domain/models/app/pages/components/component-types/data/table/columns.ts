@@ -502,9 +502,16 @@ export const FieldColumnSchema = Schema.Struct({
       description: 'Allow inline editing (default: from table permissions)',
     })
   ),
-  /** Show/hide column */
+  /**
+   * Whether the column is drawn. `false` removes it from the grid altogether;
+   * `'hidden'` starts it hidden but keeps it under Hide fields, unchecked, so a
+   * reader can show it for her visit.
+   */
   visible: Schema.optional(
-    Schema.Boolean.annotate({ description: 'Column visibility (default: true)' })
+    Schema.Union([Schema.Boolean, Schema.Literal('hidden')]).annotate({
+      description:
+        'Whether the column is drawn (default: true). `false` removes it from the grid altogether: it is not drawn and Hide fields does not list it. `hidden` starts it hidden as if the reader had unchecked it under Hide fields, where it stays listed so she can show it for her visit; a reload starts it hidden again. At least one field column of a grid must start drawn.',
+    })
   ),
   /** Display format override */
   format: Schema.optional(ColumnFormatSchema),

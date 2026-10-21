@@ -17,9 +17,11 @@
  * the list's filter is off there. In both, an item's `label` and `href` may
  * carry bare `$query`, the words typed so far: such an item always matches
  * them, and with nothing typed it reads its `emptyLabel`, or is not drawn.
+ * In both, typing matches an item's label OR its group's name, so the words a
+ * group is named by ("help") keep every item of that group.
  */
 
-import { useCallback, useState, type ReactElement } from 'react'
+import { useCallback, useMemo, useState, type ReactElement } from 'react'
 import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { LucideGlyph } from '@/presentation/design/lucide-glyph'
 import {
@@ -32,7 +34,7 @@ import {
   CommandShortcut,
 } from '../parts/command-primitives'
 import { renderToast } from '../runtime/toast'
-import { actionMatchesQuery } from './command-actions-data'
+import { itemForQuery, keptByQuery } from './command-group-match'
 import { CommandHints, type CommandHintWords } from './command-hints'
 
 /** One authored item, as the server serialised it. */
@@ -58,32 +60,6 @@ export interface AuthoredCommandGroup {
   readonly items: readonly AuthoredCommandItem[]
 }
 
-/** Bare `$query`; a page's `$query.<name>` is resolved on the server and never reaches here. */
-const QUERY_TERM = /\$query(?![.\w])/g
-
-/**
- * The item as drawn for the words typed so far, or `undefined` when it is not
- * drawn. `replace` takes a FUNCTION so a `$&` among the words stays literal.
- */
-const itemForQuery = (
-  item: AuthoredCommandItem,
-  query: string
-): AuthoredCommandItem | undefined => {
-  const words = query.trim()
-  const href =
-    item.href === undefined
-      ? {}
-      : { href: item.href.replace(QUERY_TERM, () => encodeURIComponent(words)) }
-  if (item.label.search(QUERY_TERM) === -1) return { ...item, ...href }
-  if (words.length > 0)
-    return { ...item, ...href, label: item.label.replace(QUERY_TERM, () => words) }
-  return item.emptyLabel === undefined ? undefined : { ...item, ...href, label: item.emptyLabel }
-}
-
-/** Whether typing keeps an item: one reading the typed words always matches them. */
-const keptByQuery = (item: AuthoredCommandItem, query: string): boolean =>
-  item.label.search(QUERY_TERM) !== -1 || actionMatchesQuery(item.label, query.trim())
-
 /** Go to a path of this instance, or nowhere. */
 const go = (path: string | undefined): void => {
   const target = toSafeRedirectPath(path)
@@ -101,18 +77,23 @@ const run = (item: AuthoredCommandItem): void => {
 
 function AuthoredItem({
   item,
+  group,
   close,
 }: {
   readonly item: AuthoredCommandItem
+  /** The group's name, which cmdk's own filter matches beside the label. */
+  readonly group: string
   readonly close: () => void
 }): ReactElement {
   const select = useCallback(() => {
     close()
     run(item)
   }, [close, item])
+  const keywords = useMemo(() => [group], [group])
   return (
     <CommandItem
       value={item.label}
+      keywords={keywords}
       onSelect={select}
     >
       {item.iconNode === undefined ? undefined : (
@@ -157,7 +138,7 @@ export function SearchedGroups({
   const drawn = groups.map((group) => ({
     label: group.label,
     items: group.items
-      .filter((item) => !narrow || keptByQuery(item, query))
+      .filter((item) => !narrow || keptByQuery(item, group.label, query))
       .flatMap((item) => itemForQuery(item, query) ?? []),
   }))
   return (
@@ -173,6 +154,7 @@ export function SearchedGroups({
               <AuthoredItem
                 key={`${String(index)}:${item.label}`}
                 item={item}
+                group={group.label}
                 close={close}
               />
             ))}

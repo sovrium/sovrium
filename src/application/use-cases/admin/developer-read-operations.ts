@@ -35,7 +35,10 @@ import {
   buildConfigDeclarations,
   buildConfigReflection,
 } from '@/application/use-cases/admin/config/config-reflection'
-import { buildInstanceFacts } from '@/application/use-cases/admin/config/instance-facts'
+import {
+  buildInstanceFacts,
+  buildInstanceRuntimeFacts,
+} from '@/application/use-cases/admin/config/instance-facts'
 import { buildMcpToolsResponse } from '@/application/use-cases/admin/config/mcp-tool-listing'
 import { resolveOperatorLanguage } from '@/application/use-cases/admin/operator-language'
 import {
@@ -87,7 +90,7 @@ const instanceRead = defineAdminRead<number | undefined>({
   tool: {
     suffix: 'instance_read',
     description:
-      'The facts of this instance — its origin, its declared tables, its key support and its tool counts — as GET /api/admin/instance answers them (admin-only, read-only).',
+      'The facts of this instance — its origin, its declared tables, its key support, its tool counts, when it booted and the database, storage and AI provider it runs on — as GET /api/admin/instance answers them (admin-only, read-only).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -120,15 +123,15 @@ const instanceRead = defineAdminRead<number | undefined>({
         app.languages,
         yield* resolveOperatorLanguage(request)
       )
-      return answerWithSchema(
-        instanceFactsResponseSchema,
-        buildInstanceFacts(
+      return answerWithSchema(instanceFactsResponseSchema, {
+        ...buildInstanceFacts(
           app,
           host.origin,
           limit,
           (table) => tableLabelsFor(table, translate).labelPlural
-        )
-      )
+        ),
+        ...buildInstanceRuntimeFacts(app, host.processStartedAt),
+      })
     }),
 })
 

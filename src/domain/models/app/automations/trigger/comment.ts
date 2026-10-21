@@ -75,7 +75,7 @@ export type CommentTriggerFilter = Schema.Schema.Type<typeof CommentTriggerFilte
  * | `$trigger.comment.body`                      | string       | Comment body (rich text)                           |
  * | `$trigger.comment.author.{id,email,name}`    | string       | Comment author                                     |
  * | `$trigger.comment.parentCommentId`           | UUID \| null | Null for top-level comments; UUID for replies      |
- * | `$trigger.threadParticipants`                | UUID[]       | Unique authors on the thread, EXCLUDING the new author |
+ * | `$trigger.threadParticipants`                | string[]     | Email addresses of the earlier authors whose records list still admits the record, EXCLUDING the new author; on a first comment, the owner while her list still admits it |
  * | `$trigger.mentions`                          | UUID[]       | User ids mentioned in `@<name>` markup             |
  * | `$trigger.mentionedEmails`                   | string[]     | Email addresses of the mentioned users, EXCLUDING the comment's own author |
  *

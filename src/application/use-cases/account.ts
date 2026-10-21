@@ -33,6 +33,7 @@ import { Effect } from 'effect'
 import {
   AccountRepository,
   type AccountAiFootprint,
+  type AccountEntityLists,
   type AuthoredTableCandidate,
   type AccountDatabaseError,
   type AccountAuditEntryRow,
@@ -44,6 +45,8 @@ import {
 } from '@/application/ports/repositories/auth/account-repository'
 import {
   shapeAiSections,
+  shapeAuditEntry,
+  shapeEntityLists,
   shapeAuthoredRecord,
   shapeChatAttachment,
   type AuthoredRecord,
@@ -113,6 +116,7 @@ interface ExportSources {
   readonly auditRows: readonly AccountAuditEntryRow[]
   readonly uploads: readonly AccountChatAttachmentRow[]
   readonly ai: AccountAiFootprint
+  readonly entityLists: AccountEntityLists
 }
 
 /** Assemble the export payload from the caller's rows. Pure shaping logic. */
@@ -168,17 +172,11 @@ function buildExportPayload(sources: Readonly<ExportSources>) {
     // The caller's own acts on the admin audit trail (Art. 15 reaches data
     // about a person's own acts, and a non-admin has no other way to read it).
     // The act only — never the metadata, which can describe somebody else.
-    auditTrail: auditRows.map((row) => ({
-      action: row.action,
-      occurredAt: new Date(row.createdAt).toISOString(),
-      resourceType: row.resourceType,
-      resourceId: row.resourceId,
-      result: row.result,
-    })),
+    auditTrail: auditRows.map(shapeAuditEntry),
     aiChatAttachments: sources.uploads.map(shapeChatAttachment),
-    // Conversations, facts, the AI activity feed and tool calls, each scoped
-    // as erasure scopes it; tool payloads and store metadata stay out.
+    // The AI sections, each scoped as erasure scopes it, without tool payloads or store metadata.
     ...shapeAiSections(sources.ai, sources.uploads),
+    ...shapeEntityLists(sources.entityLists),
   }
 }
 
@@ -237,14 +235,16 @@ export const ExportAccount = (
       return { _tag: 'Unauthorized' } as const
     }
 
-    const [sessionRows, accountRows, submissionRows, auditRows, uploads, ai] = yield* Effect.all([
-      repo.loadSessions(userId),
-      repo.loadAccounts(userId),
-      repo.loadFormSubmissions(userId),
-      repo.loadAuditTrail(userId),
-      repo.loadChatAttachments(userId),
-      repo.loadAiFootprint(userId, user.email),
-    ])
+    const [sessionRows, accountRows, submissionRows, auditRows, uploads, ai, entityLists] =
+      yield* Effect.all([
+        repo.loadSessions(userId),
+        repo.loadAccounts(userId),
+        repo.loadFormSubmissions(userId),
+        repo.loadAuditTrail(userId),
+        repo.loadChatAttachments(userId),
+        repo.loadAiFootprint(userId, user.email),
+        repo.loadEntityLists(userId),
+      ])
 
     const recordTables = yield* repo.tablesWithCreatedBy(tables)
     const readable = readableFieldsOf(tables)
@@ -272,6 +272,7 @@ export const ExportAccount = (
         auditRows,
         uploads,
         ai,
+        entityLists,
       })
     )
     return { _tag: 'Ok', body } as const

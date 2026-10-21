@@ -28,8 +28,10 @@ import {
   readOneToMany,
 } from '@/infrastructure/database/table-queries'
 import { buildFilterCondition } from '@/infrastructure/database/table-queries/data-source-filter-condition'
+import { maskedRelation } from '@/infrastructure/database/table-queries/query-helpers/lookup-read-mask'
 import { readUserListHolders } from '@/infrastructure/database/table-queries/query-helpers/user-list-holders'
 import type { DataSourceQueryOptions } from '@/application/ports/repositories/tables/data-source-repository'
+import type { LookupReadMask } from '@/application/ports/repositories/tables/table-repository'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { SQL } from 'drizzle-orm'
 
@@ -76,7 +78,8 @@ const joinClauses = (clauses: ReadonlyArray<Readonly<SQL> | undefined>): Readonl
 
 export function buildSelectQuery(
   sanitized: string,
-  options: DataSourceQueryOptions
+  options: DataSourceQueryOptions,
+  relation: Readonly<SQL> = sql`${sql.identifier(sanitized)}`
 ): Readonly<SQL> {
   const { fields, filter, sort, pageSize, page, liveOnly } = options
   const columns =
@@ -87,7 +90,7 @@ export function buildSelectQuery(
         )
       : sql.raw('*')
   return joinClauses([
-    sql`SELECT ${columns} FROM ${sql.identifier(sanitized)}`,
+    sql`SELECT ${columns} FROM ${relation}`,
     buildWhereClause(filter ?? [], liveOnly === true),
     sort && sort.length > 0 ? buildOrderByClause(sort) : undefined,
     buildLimitClause(pageSize, page),
@@ -141,6 +144,22 @@ async function executeSqlQuery<T>(query: Readonly<SQL>): Promise<T> {
   return (await executeRaw(db, query)) as T
 }
 
+/**
+ * The relation a read names: the table itself, or — when some of its lookups
+ * and counts read as empty for this reader — the records list's own masked
+ * relation under the same name, so the filter and the sort steer on the value
+ * the reader may read, exactly as her records list does.
+ */
+const relationOf = (
+  tableName: string,
+  masks: readonly LookupReadMask[] | undefined
+): Effect.Effect<Readonly<SQL>, DataSourceDatabaseError> =>
+  masks === undefined || masks.length === 0
+    ? Effect.succeed(sql`${sql.identifier(sanitizeTableName(tableName))}`)
+    : maskedRelation(db, tableName, masks).pipe(
+        Effect.mapError((cause) => new DataSourceDatabaseError({ cause }))
+      )
+
 // ============================================================================
 // Live implementation
 // ============================================================================
@@ -185,22 +204,24 @@ async function executeSqlQuery<T>(query: Readonly<SQL>): Promise<T> {
  */
 export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
   fetchRecords: (tableName, options = {}) =>
-    wrap(async () => {
-      const sanitized = sanitizeTableName(tableName)
-      const query = buildSelectQuery(sanitized, options)
-      return await executeSqlQuery<Record<string, unknown>[]>(query)
-    }),
+    Effect.flatMap(relationOf(tableName, options.lookupMasks), (relation) =>
+      wrap(async () => {
+        const query = buildSelectQuery(sanitizeTableName(tableName), options, relation)
+        return await executeSqlQuery<Record<string, unknown>[]>(query)
+      })
+    ),
 
   countRecords: (tableName, filter, options) =>
-    wrap(async () => {
-      const sanitized = sanitizeTableName(tableName)
-      const query = joinClauses([
-        sql`SELECT COUNT(*) AS count FROM ${sql.identifier(sanitized)}`,
-        buildWhereClause(filter ?? [], options?.liveOnly === true),
-      ])
-      const rows = await executeSqlQuery<Array<{ count: number | string }>>(query)
-      return toFiniteCount(rows[0]?.count)
-    }),
+    Effect.flatMap(relationOf(tableName, options?.lookupMasks), (relation) =>
+      wrap(async () => {
+        const query = joinClauses([
+          sql`SELECT COUNT(*) AS count FROM ${relation}`,
+          buildWhereClause(filter ?? [], options?.liveOnly === true),
+        ])
+        const rows = await executeSqlQuery<Array<{ count: number | string }>>(query)
+        return toFiniteCount(rows[0]?.count)
+      })
+    ),
 
   // eslint-disable-next-line max-params -- implements the port's positional signature; `options` is its optional fifth argument
   fetchSingleRecord: (tableName, paramField, paramValue, fields, options) =>

@@ -35,7 +35,7 @@ export const CountFieldSchema = BaseFieldSchema.pipe(
   Schema.annotate({
     title: 'Count Field',
     description:
-      'Counts the number of linked records from a relationship field. Optionally filters records before counting.',
+      'Counts the linked records from a relationship field that its reader may list in the related table, optionally filtered first. A reader who may list none of them is not given the count.',
     examples: [
       {
         id: 1,

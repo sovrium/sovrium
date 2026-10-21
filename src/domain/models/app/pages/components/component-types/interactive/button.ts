@@ -102,12 +102,15 @@ export const buttonFields = {
    * checking values and pressing `saveLabel` — dispatches `action` with the
    * pick in place of `$record.<field>`. Valid only under a record binding, as
    * `disabledWhen` is: with no record there is nothing to pre-fill or to
-   * replace, so it is refused at startup.
+   * replace, so it is refused at startup. Valid only in front of a `fetch`
+   * action: the pick replaces `$record.<field>` in the request the fetch sends,
+   * so on any other action it would change nothing, and it is refused at
+   * startup too.
    */
   editSelect: Schema.optional(
     EditSelectSchema.annotate({
       description:
-        'A pre-filled picker for a button drawn on a record: pressing the button opens a menu of options with the record’s current field value checked, and picking one (or, with multiple, checking several and pressing the save label) runs the button’s action with the pick in place of $record.<field>. Valid only under a record binding (a list or gallery row template, a single-record container, or a page bound to one record); refused at startup elsewhere.',
+        'A pre-filled picker for a button drawn on a record: pressing the button opens a menu of options with the record’s current field value checked, and picking one (or, with multiple, checking several and pressing the save label) runs the button’s action with the pick in place of $record.<field>. Valid only under a record binding (a list or gallery row template, a single-record container, or a page bound to one record), and only when the button’s action is a fetch, since the pick replaces $record.<field> in the request it sends; refused at startup otherwise.',
     })
   ),
 } as const

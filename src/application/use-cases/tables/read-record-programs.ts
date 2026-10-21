@@ -52,7 +52,7 @@ import { preserveIdType } from './preserve-id-type'
 import { toDisplayFields } from './record-display-fields'
 import { enrichRecordsWithRelatedLabels, mergeManyToManyFields } from './record-link-enrichment'
 import { transformRecord } from './record-transformer'
-import { grantsForReadableRow } from './row-read-admission'
+import { filterToReaderRows, grantsForReadableRow, readerRowsOf } from './row-read-admission'
 import { readManyToManyLinks } from './to-many-link-reads'
 import type { TransformedRecord } from './record-transformer'
 import type { UserSession } from '@/application/ports/contracts/user-session'
@@ -94,30 +94,32 @@ export function createListTrashProgram(
   config: ListTrashConfig
 ): Effect.Effect<
   ListRecordsResponse,
-  DatabaseError,
+  DatabaseError | NotFoundError,
   TableRepository | DataSourceRepository | AuthRepository
 > {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
-    const { session, tableName, app, userRole, filter, sort, limit, offset } = config
-
-    // Query soft-deleted records with session context (RLS policies apply
-    // automatically). A lookup through a linked row the reader may not read is
-    // evaluated as empty wherever the filter or the sort names it.
+    const { session, tableName, app, userRole, sort, limit, offset } = config
+    // Only the removed rows her list would admit; none refuses as a missing table.
     const reader = { session, role: userRole, groups: config.userGroups ?? [] }
+    const { admission, grants } = yield* readerRowsOf(app, tableName, reader)
+    const filter = yield* filterToReaderRows(config.filter, admission)
+    // A lookup through a linked row the reader may not read is evaluated as
+    // empty wherever the filter or the sort names it.
     const lookupMasks = yield* lookupReadMasks(app, tableName, reader, { filter, sort })
     const trashed = yield* repo.listTrash({ session, tableName, filter, sort, lookupMasks })
     // A lookup through a link to a row the reader may not read is left out,
     // on the raw rows as the live list does.
     const records = yield* omitHiddenLookups(app, tableName, trashed, reader)
 
-    // Process records (field-level filtering, transformations)
+    const userGroups = config.userGroups ?? []
     const processedRecords = processRecords({
       records,
       app,
       tableName,
       userRole,
-      userGroups: config.userGroups ?? [],
+      userGroups,
+      grants,
     })
 
     // Attach the deletedBy user from the joined query results. The id stays the
@@ -128,7 +130,6 @@ export function createListTrashProgram(
       return deletedBy ? { ...record, deletedBy } : record
     })
 
-    // Apply pagination
     const { paginatedRecords, pagination } = applyPagination(
       recordsWithDeletedBy,
       records.length,

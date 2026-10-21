@@ -115,12 +115,32 @@ export interface AdminRunsListFilters {
    * combobox selects a name while the box searches for one.
    */
   readonly q?: string | undefined
+  /** Only the runs started by hand from a schedule (`true`), or only the others (`false`). */
+  readonly onDemand?: boolean | undefined
   readonly limit: number
   /**
    * Rows to skip before the page — a NUMBERED page (`?page=`), the alternative
    * to {@link cursorBefore}. The two never meet: a page is asked for by one.
    */
   readonly offset?: number | undefined
+}
+
+/** One top-level step of one automation, as its run records it. */
+export interface AutomationStepRef {
+  readonly automationName: string
+  readonly stepName: string
+}
+
+/** When a recorded step last ran, and how it ended. */
+export interface LatestStepRun {
+  readonly startedAt: Date | string | null
+  readonly status: string
+  readonly error: string | null
+}
+
+/** The latest run of one step: which step, its step-run id, and the run itself. */
+export interface StepLatestRun extends AutomationStepRef, LatestStepRun {
+  readonly id: string
 }
 
 export class AdminAutomationsRepository extends Context.Service<
@@ -177,5 +197,15 @@ export class AdminAutomationsRepository extends Context.Service<
     readonly countStepsByRunIds: (
       runIds: readonly string[]
     ) => Effect.Effect<ReadonlyMap<string, number>, AdminAutomationsDatabaseError>
+
+    /**
+     * For each of `steps`, its newest recorded run that actually ran (finished
+     * or failed, never `skipped`), by when it started, ties by the larger
+     * step-run id — as ONE grouped read, so a list of connections costs one
+     * query, not one per connection. A step that never ran has no entry.
+     */
+    readonly findLatestRunPerStep: (
+      steps: readonly AutomationStepRef[]
+    ) => Effect.Effect<readonly StepLatestRun[], AdminAutomationsDatabaseError>
   }
 >()('AdminAutomationsRepository') {}

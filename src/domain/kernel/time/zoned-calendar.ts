@@ -79,3 +79,34 @@ export const zonedStartOfDayDaysBefore = (now: Readonly<Date>, zoneId: string, d
  */
 export const zonedInstantDaysBefore = (now: Readonly<Date>, zoneId: string, days: number) =>
   DateTime.toDateUtc(DateTime.subtract(zonedAt(now, zoneId), { days }))
+
+/** The calendar day `isoDate` (`YYYY-MM-DD`) at its midnight on the wall clock of `zoneId`. */
+const zonedMidnightOf = (isoDate: string, zoneId: string) => {
+  const [year = 0, month = 1, day = 1] = isoDate.split('-').map(Number)
+  return DateTime.startOf(
+    DateTime.makeZonedUnsafe({ year, month, day }, { timeZone: zoneId, adjustForTimeZone: true }),
+    'day'
+  )
+}
+
+/**
+ * The instant the calendar day `isoDate` (`YYYY-MM-DD`) starts in `zoneId`: its
+ * midnight on that zone's clock, so a summer day in `Europe/Paris` starts at
+ * 22:00 UTC on the day before.
+ *
+ * @param isoDate - a calendar day, `YYYY-MM-DD`.
+ * @param zoneId - an IANA zone identifier.
+ */
+export const zonedStartOfIsoDate = (isoDate: string, zoneId: string) =>
+  DateTime.toDateUtc(zonedMidnightOf(isoDate, zoneId))
+
+/**
+ * The instant the calendar day AFTER `isoDate` starts in `zoneId` — the
+ * exclusive end of `isoDate`, 23 or 25 hours after its start across a DST
+ * change, as on a clock.
+ *
+ * @param isoDate - a calendar day, `YYYY-MM-DD`.
+ * @param zoneId - an IANA zone identifier.
+ */
+export const zonedEndOfIsoDate = (isoDate: string, zoneId: string) =>
+  DateTime.toDateUtc(DateTime.add(zonedMidnightOf(isoDate, zoneId), { days: 1 }))

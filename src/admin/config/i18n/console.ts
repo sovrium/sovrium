@@ -135,12 +135,22 @@ export default {
   // complete sentence at every instant and never corrects itself; it grows
   // sideways on one line, where a bare `$session.name` heading would have
   // arrived empty and filled in.
-  'admin.welcome.heading': 'Welcome[, $session.name]',
-  'admin.welcome.intro': 'What needs you, and what this app declares.',
+  'admin.welcome.intro': 'Welcome[, $session.name]. What needs you, and what this app declares.',
+  'admin.welcome.instance.heading': 'Instance',
+  'admin.welcome.instance.description': 'What this instance runs on',
+  'admin.welcome.instance.booted': 'Started',
+  'admin.welcome.instance.version': 'Version',
+  'admin.welcome.instance.database': 'Database',
+  'admin.welcome.instance.storage': 'File storage',
+  'admin.welcome.instance.ai': 'AI provider',
   'admin.welcome.ask.title': 'Ask about this app',
   'admin.welcome.ask.description':
     'Answers from this app’s data and configuration. Read-only. Also in ⌘K.',
   'admin.invitation.heading': 'Join the console',
+  'admin.invitation.headingMember': 'Join $app.label',
+  'admin.invitation.landsAdmin': 'After you join, you land in the console.',
+  'admin.invitation.landsMember':
+    'After you join, you land in $app.label. The console is for admins.',
   'admin.invitation.invitedYouTo': 'invited you to',
   'admin.invitation.signInAs': 'You will sign in as',
   'admin.invitation.submit': 'Set password and join',
@@ -150,6 +160,9 @@ export default {
   'admin.invitation.unusable.body':
     'It may have expired or already been used. Ask the person who invited you to send a new one.',
   'admin.invitation.unusable.signIn': 'Go to sign in',
+  'admin.internalError.heading': 'This page couldn’t load',
+  'admin.internalError.body':
+    'Sovrium hit an internal error while drawing it. Your data is unchanged. Reload the page; if it fails again, report it so it gets fixed.',
   'admin.notFound.heading': 'Page not found',
   'admin.notFound.body':
     'Nothing in this console answers this address. The section may not exist in this app, or the link is out of date.',
@@ -183,13 +196,12 @@ export default {
   // ── Welcome · the declaration tiles ─────────────────────────────────────
   'admin.welcome.counts.region': 'What this app declares',
   'admin.welcome.counts.heading': 'What this app declares',
-  'admin.welcome.counts.description': 'A row appears when the configuration declares the feature.',
+  'admin.welcome.counts.description': 'A card appears for each feature your config declares.',
   'admin.welcome.figures.region': 'Headline figures',
   'admin.welcome.figures.runs': 'Runs, last 24 h',
   'admin.welcome.figures.runs.sub': 'failed since this instance started',
   'admin.welcome.figures.submissions': 'Submissions',
   'admin.welcome.figures.submissions.sub': 'since this instance started',
-  'admin.welcome.figures.accounts': 'Accounts',
   'admin.welcome.figures.storage': 'Files stored',
   'admin.welcome.runsChart.region': 'Runs, last 7 days',
   'admin.welcome.runsChart.runs': 'Runs',
@@ -272,7 +284,8 @@ export default {
 
   // ── My data / GDPR (`/gdpr`) ────────────────────────────────────────────
   'admin.gdpr.heading': 'My data (GDPR)',
-  'admin.gdpr.blurb': 'What this instance holds about you, and how to take it out or erase it.',
+  'admin.gdpr.blurb': 'Export what this instance holds about you, or erase your account.',
+  'admin.profile.blurb': 'Your name, sign-in and preferences in this console.',
   'admin.gdpr.identity.heading': 'My identity',
   'admin.gdpr.export.heading': 'Export my data',
   'admin.gdpr.export.submit': 'Generate export',
@@ -309,13 +322,61 @@ export default {
   'admin.gdpr.profileLink': 'Open My profile',
 
   // ── API keys (`/api-keys`) ──────────────────────────────────────────────
+  'admin.report.heading': 'Report a problem',
+  'admin.report.description':
+    'Something wrong in Sovrium? Open a prefilled issue on GitHub. Nothing is sent until you submit it there.',
+  'admin.report.installation.heading': 'A new report',
+  'admin.report.installation.body':
+    'A blank bug report with this installation’s version, install channel, database and system filled in. Describe what you saw and what you expected.',
+  'admin.report.latest.heading': 'The last internal error',
+  'admin.report.latest.body':
+    'The most recent fault in Sovrium this server kept, with its details filled in.',
   'admin.apiKeys.heading': 'API keys',
-  'admin.apiKeys.readScope': 'This key reads what you can read.',
   'admin.apiKeys.region': 'Your API keys',
   'admin.apiKeys.loading': 'Loading your API keys…',
 
   // ── Environment (`/env`) ────────────────────────────────────────────────
   'admin.env.heading': 'Environment',
+  'admin.auditLog.heading': 'Audit log',
+  'admin.auditLog.blurb':
+    'Who read or changed what on this instance, when, and through which door. Read-only, newest first.',
+  'admin.auditLog.region': 'Audit log',
+  'admin.auditLog.filter.transport': 'Transport',
+  'admin.auditLog.filter.allTransports': 'All transports',
+  'admin.auditLog.filter.resource': 'Resource',
+  'admin.auditLog.filter.allResources': 'All resources',
+  'admin.auditLog.col.time': 'Time',
+  'admin.auditLog.col.actor': 'Actor',
+  'admin.auditLog.col.action': 'Action',
+  'admin.auditLog.col.resource': 'Resource',
+  'admin.auditLog.col.result': 'Result',
+  'admin.auditLog.col.transport': 'Transport',
+  'admin.auditLog.result.success': 'Success',
+  'admin.auditLog.result.failure': 'Failed',
+  'admin.auditLog.transport.configfile': 'Config file',
+  'admin.auditLog.transport.env': 'Environment',
+  'admin.auditLog.transport.api': 'API',
+  'admin.auditLog.transport.mcp': 'MCP',
+  'admin.auditLog.transport.restore': 'Restore',
+  'admin.auditLog.resource.user': 'Account',
+  'admin.auditLog.resource.config': 'Config',
+  'admin.auditLog.resource.table': 'Table',
+  'admin.auditLog.resource.record': 'Record',
+  'admin.auditLog.resource.form': 'Form',
+  'admin.auditLog.resource.submission': 'Submission',
+  'admin.auditLog.resource.automation': 'Automation',
+  'admin.auditLog.resource.automationRun': 'Run',
+  'admin.auditLog.resource.agent': 'Agent',
+  'admin.auditLog.resource.bucket': 'Bucket',
+  'admin.auditLog.resource.link': 'Link',
+  'admin.auditLog.resource.connection': 'Connection',
+  'admin.auditLog.resource.group': 'Group',
+  'admin.auditLog.resource.designShare': 'Design share',
+  'admin.auditLog.empty':
+    'No audit events yet. Every admin read and change lands here as it happens.',
+  'admin.auditLog.noMatch': 'No audit events match these filters. Clear a filter to see more.',
+  'admin.auditLog.entry.title': 'Audit event',
+  'admin.auditLog.entry.details': 'Details',
   'admin.env.search': 'Search variables',
   'admin.env.filter.status': 'Filter by status',
   'admin.env.filter.allStatuses': 'All statuses',
@@ -355,7 +416,7 @@ export default {
   'admin.decisions.blurb':
     'The architecture decision records this app declares, and what each one was about.',
   'admin.decisions.register.region': 'Decision register',
-  'admin.decisions.provenance': 'Declared in app.ts. Changed there and redeployed, never here.',
+  'admin.decisions.provenance': 'Declared in your config file. Change it there and redeploy.',
   'admin.decisions.one.heading': 'Decision',
   'admin.decisions.one.blurb':
     'One record from the register: the situation, the choice, and what follows from it.',

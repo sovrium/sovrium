@@ -62,6 +62,14 @@ const CLASS_RE = /\bclass="([^"]*)"/
 const SHIKI_LINE_RE = /^<span class="line">([\s\S]*)<\/span>$/
 /** The leading tags of a line, then its first character. */
 const LEADING_CHAR_RE = /^((?:<[^>]+>)*)([ +-])/
+/** One tag, the unit a line's visible text is read between. */
+const TAG_RE = /<[^>]+>/
+
+/**
+ * The text a line shows: the runs between its tags, joined. Read only to tell
+ * what the line starts with; never written back into markup.
+ */
+const visibleTextOf = (content: string): string => content.split(TAG_RE).join('')
 
 /** A line's content with its diff sign taken out, and the sign that was taken. */
 interface DiffLine {
@@ -75,7 +83,7 @@ interface DiffLine {
  * is left as it is written.
  */
 function readDiffLine(content: string): DiffLine | undefined {
-  const text = content.replace(/<[^>]+>/g, '')
+  const text = visibleTextOf(content)
   if (text.startsWith('+++ ') || text.startsWith('--- ')) return undefined
   const match = LEADING_CHAR_RE.exec(content)
   if (match === null) return undefined

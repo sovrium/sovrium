@@ -36,6 +36,11 @@ export const adminTemplateSchema = Schema.Struct({
   kind: Schema.Literals(['html', 'svg', 'partial', 'text', 'docx', 'xlsx', 'pptx']).annotate({
     description: 'What the template is',
   }),
+  label: Schema.String.annotate({
+    description:
+      'The template as a person reads it: its file name without folder or extension, its words split and the first capitalised (`templates/reminder-email.html` reads `Reminder email`). Display text only, whether or not the template declares a description; links and the preview use `path`',
+    examples: ['Reminder email'],
+  }).pipe(Schema.check(Schema.isMinLength(1))),
   description: optionalField(
     Schema.String.annotate({ description: 'The description the config gives it' })
   ),

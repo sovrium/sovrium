@@ -9,6 +9,7 @@ import { Context } from 'effect'
 import type {
   FetchSitemapRecords,
   PageRenderResult,
+  RenderRssFeed,
 } from '@/application/ports/services/page-renderer'
 import type { ServerInstance } from '@/application/ports/services/server-instance'
 import type { App } from '@/domain/models/app'
@@ -127,14 +128,18 @@ export interface ServerFactoryConfig {
     detectedLanguage?: string,
     requestPath?: string
   ) => string | Promise<string>
-  readonly renderErrorPage: (app?: App, detectedLanguage?: string) => string | Promise<string>
+  readonly renderErrorPage: (
+    app?: App,
+    detectedLanguage?: string,
+    requestId?: string
+  ) => string | Promise<string>
   /**
    * RSS feed renderer (the pages access publishing requirement — a pages publishing spec).
    *
    * Optional so callers (eg. SSG) that don't yet wire RSS through still
    * compile — the Hono `/feed.xml` route 404s when undefined.
    */
-  readonly renderRssFeed?: (app: App, baseUrl: string) => Promise<string | undefined>
+  readonly renderRssFeed?: RenderRssFeed
   /** Row reader behind the sitemap's record fan-out (optional, like RSS). */
   readonly fetchSitemapRecords?: FetchSitemapRecords
   /**

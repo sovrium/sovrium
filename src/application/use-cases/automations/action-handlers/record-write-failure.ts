@@ -100,15 +100,18 @@ const isTakenValue = (failure: unknown): boolean =>
 /**
  * The refused write as the agent path may know it: whether the value was
  * taken, and the column the database refused when it can be told — read off
- * the failure's structure, never off its sentence. A taken value carries no
- * column at all.
+ * the failure's structure, never off its sentence. A taken value carries the
+ * column its write path attributed, which the agent sentence names only once
+ * the reader is judged to read every record holding the value.
  */
 export const refusedWriteOf = (
   failure: unknown,
   fields: Readonly<Record<string, unknown>>
 ): RefusedWrite => {
-  if (isTakenValue(failure)) return { unique: true }
   const named = (failure as ErrorNode | null)?.fieldName
+  if (isTakenValue(failure)) {
+    return typeof named === 'string' ? { unique: true, column: named } : { unique: true }
+  }
   const reason = driverReason(failure)
   const column =
     typeof named === 'string'

@@ -37,6 +37,7 @@ export function TableBodyRows({
   emptyMessage,
   noMatchMessage,
   globalFilter,
+  narrowed = false,
   selectionMode,
   gridRole,
   navigable,
@@ -84,16 +85,22 @@ export function TableBodyRows({
     // is announced), DISTINCT from the zero-record empty state. A `{query}`
     // token echoes the active search string.
     //
-    // The ACTIVE SEARCH is the whole test, deliberately: search runs server-side,
-    // so a non-matching term comes back as an empty page and the loaded rows can
-    // no longer witness whether the underlying dataset has records. Of the two
-    // messages, only "nothing matched what you typed" is provably true in that
-    // state — claiming "there is nothing here yet" would assert something this
-    // grid never asked the server. When no search is active (or no
+    // An ACTIVE SEARCH or a NARROWED read is the whole test, deliberately: both
+    // run server-side, so a term or a filter that matches nothing comes back as
+    // an empty page and the loaded rows can no longer witness whether the
+    // underlying dataset has records. Of the two messages, only "nothing
+    // matched" is provably true in that state — claiming "there is nothing here
+    // yet" would assert something this grid never asked the server. When
+    // nothing narrowed the read (or no
     // `noMatchMessage` is configured), the plain `emptyMessage` cell stands — no
     // `role="status"`, fully backward compatible.
+    //
+    // A message that echoes `{query}` is about a search, so a read narrowed by
+    // a control alone keeps the empty message rather than echo nothing.
     const query = globalFilter ?? ''
-    if (query.trim().length > 0 && noMatchMessage !== undefined) {
+    const searched = query.trim().length > 0
+    const filtered = narrowed && noMatchMessage?.includes('{query}') === false
+    if ((searched || filtered) && noMatchMessage !== undefined) {
       const resolved = noMatchMessage.replace(/\{query\}/g, query)
       return (
         <tbody

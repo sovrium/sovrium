@@ -1,0 +1,7 @@
+# Sources
+
+Each entry: title — organisation — URL — date — what was lifted. "Lifted" is a paraphrase; nothing is copied verbatim. URLs were fetched on 2026-10-20.
+
+- **S1 Creating an issue from a URL query** — GitHub Docs — https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/creating-an-issue — fetched 2026-10-20. Lifted: the `title`, `body`, `labels`, `assignees`, `milestone`, `projects` and `template` query parameters; issue form text fields can be filled from the address; setting labels needs the matching permission, an invalid address or missing permission answers `404`, and an address that is too long answers `414`.
+- **S2 Syntax for issue forms** — GitHub Docs — https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/syntax-for-issue-forms — fetched 2026-10-20. Lifted: form fields are declared with an `id`; field types include `input`, `textarea`, `dropdown` and `checkboxes`; the page documents no address prefill for dropdowns or checkboxes, which is why the environment is repeated in a text field.
+- **S3 Privately reporting a security vulnerability** — GitHub Docs — https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability — fetched 2026-10-20. Lifted: a reporter opens the repository's security tab and chooses to report a vulnerability; the advisory form asks for a summary, details, a proof of concept and the impact, and is read by the maintainers only.

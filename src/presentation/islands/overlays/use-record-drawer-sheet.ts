@@ -38,8 +38,10 @@ export interface RecordSheet {
   readonly header: SheetHeaderParts
   readonly stacked: LinkedPick | undefined
   readonly setStacked: (pick: LinkedPick | undefined) => void
-  /** A system detail read failed: there is no record to draw. */
+  /** The record read failed (after its one retry): there is no record to draw. */
   readonly readFailed: boolean
+  /** Ask a failed table-record read again; absent for a system detail read. */
+  readonly retry: (() => void) | undefined
 }
 
 /** The Save of the opened record — or of the new one. */
@@ -95,6 +97,13 @@ function useVisibleEntries(
   return { recordFields, actions }
 }
 
+/** The request a server error failed the save under, as a body prop; absent when none. */
+const failedRequestProp = (
+  id: string | undefined,
+  generic: RecordDrawerIslandProps['generic']
+): Pick<DrawerContentProps, 'failedRequest'> =>
+  id === undefined ? {} : { failedRequest: { id, words: generic?.words } }
+
 /** The drawer's state — see the module note. */
 export function useRecordSheet(props: RecordDrawerIslandProps, labels: DrawerLabels): RecordSheet {
   const { id, table, system } = props
@@ -104,7 +113,12 @@ export function useRecordSheet(props: RecordDrawerIslandProps, labels: DrawerLab
   const { open, recordId, creating } = drawer
   const [stacked, setStacked] = useState<LinkedPick | undefined>()
   useEffect(() => setStacked(undefined), [recordId, open])
-  const { record, readFailed } = useDrawerRecord(system, recordId, drawer.record, props.recordText)
+  const { record, readFailed: systemFailed } = useDrawerRecord(
+    system,
+    recordId,
+    drawer.record,
+    props.recordText
+  )
   const shown = creating ? EMPTY_RECORD : record
   const { recordFields, actions } = useVisibleEntries(props, declaredFields, creating, shown)
   const handlers = useDrawerHandlers(drawer.setValues, drawer.setOpen)
@@ -125,6 +139,7 @@ export function useRecordSheet(props: RecordDrawerIslandProps, labels: DrawerLab
     fieldErrors: handlers.fieldErrors,
     ...(props.actionStrings === undefined ? {} : { actionStrings: props.actionStrings }),
     ...optionalBodyProps(handlers.error, table, props.childrenHtml, creating ? undefined : slot),
+    ...failedRequestProp(handlers.requestId, props.generic),
   }
   const title = sheetTitle(
     {
@@ -136,5 +151,7 @@ export function useRecordSheet(props: RecordDrawerIslandProps, labels: DrawerLab
     },
     shown
   )
-  return { drawer, content, title, header, stacked, setStacked, readFailed }
+  const readFailed = systemFailed || drawer.readFailed
+  const retry = drawer.readFailed ? drawer.retry : undefined
+  return { drawer, content, title, header, stacked, setStacked, readFailed, retry }
 }

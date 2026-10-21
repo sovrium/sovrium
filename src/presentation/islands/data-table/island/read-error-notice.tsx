@@ -6,6 +6,8 @@
  */
 
 import { useContext, useEffect } from 'react'
+import { RETRY_BUTTON_CLASS, reportStringsOf } from '../../parts/report-read'
+import { AlertGlyph, FAILURE_ALERT_CLASS, ReportedFailure } from '../../parts/reported-failure'
 import { dispatch } from '../../runtime/event-bus'
 import {
   isNotFoundRead,
@@ -13,7 +15,23 @@ import {
   isSessionEndedRead,
   RateLimitedNotice,
 } from '../../runtime/read-failure'
+import { consoleRequestIdOfRead } from '../read-failure-request'
 import { GridStringsContext, useGridString } from './grid-strings'
+
+/** The notice's sentence: the refused sort's, else the table's failed or missing read. */
+function useFailureSentence(
+  sortColumnLabel: string | undefined,
+  named: { readonly loadFailed: string; readonly notFound: string } | undefined,
+  notFound: boolean
+): string {
+  const genericFailed = useGridString('datatable.loadFailed', 'Couldn’t load records.')
+  const genericNotFound = useGridString('datatable.notFound', 'These records aren’t available.')
+  const sortFailed = useGridString('datatable.sortFailed', 'Couldn’t sort by {column}.', {
+    column: sortColumnLabel ?? '',
+  })
+  if (sortColumnLabel !== undefined) return sortFailed
+  return notFound ? (named?.notFound ?? genericNotFound) : (named?.loadFailed ?? genericFailed)
+}
 
 /**
  * What the grid says when a records read failed.
@@ -33,6 +51,10 @@ import { GridStringsContext, useGridString } from './grid-strings'
  *  - a refused SORT — names the column, because the sort was undone and the
  *    reader needs to know why the header went back.
  *  - anything else — "Couldn’t load <table>." with a Retry that reads again.
+ *    On the console, a server error whose body named the request it was
+ *    answered under is drawn as a {@link ReportedFailure}: that id with its
+ *    copy control, and "Report on GitHub", the prefilled bug report the
+ *    server answers for it, before the Retry.
  *
  * A grid bound to a table names it (`tableReadFailure`, worded server-side):
  * on a page that may show any of an app's tables, "records" says nothing
@@ -43,36 +65,55 @@ function LoadFailedNotice({
   sortColumnLabel,
   named,
   notFound,
+  requestId,
 }: {
   readonly onRetry: () => void
   readonly sortColumnLabel: string | undefined
   readonly named: { readonly loadFailed: string; readonly notFound: string } | undefined
   readonly notFound: boolean
+  /** The request a console's server error was answered under, when it named one. */
+  readonly requestId: string | undefined
 }) {
-  const genericFailed = useGridString('datatable.loadFailed', 'Couldn’t load records.')
-  const genericNotFound = useGridString('datatable.notFound', 'These records aren’t available.')
-  const loadFailed = notFound
-    ? (named?.notFound ?? genericNotFound)
-    : (named?.loadFailed ?? genericFailed)
-  const sortFailed = useGridString('datatable.sortFailed', 'Couldn’t sort by {column}.', {
-    column: sortColumnLabel ?? '',
-  })
+  const failure = useFailureSentence(sortColumnLabel, named, notFound)
   const retry = useGridString('datatable.retry', 'Retry')
+  const strings = useContext(GridStringsContext)
+  const retryButton = sortColumnLabel === undefined && !notFound && (
+    <button
+      type="button"
+      onClick={onRetry}
+      data-slot="button"
+      className={RETRY_BUTTON_CLASS}
+    >
+      {retry}
+    </button>
+  )
+  const reported = requestId !== undefined && sortColumnLabel === undefined
   return (
     <div
-      role="alert"
+      role={reported ? undefined : 'alert'}
+      data-slot="alert"
+      data-variant="destructive"
       data-read-error="true"
-      className="border-destructive/30 bg-destructive/5 text-foreground flex items-center justify-between gap-4 rounded-md border px-4 py-3 text-sm"
+      className={FAILURE_ALERT_CLASS}
     >
-      <p className="font-medium">{sortColumnLabel === undefined ? loadFailed : sortFailed}</p>
-      {sortColumnLabel === undefined && !notFound && (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="hover:bg-muted shrink-0 rounded-md border px-3 py-1 font-medium"
-        >
-          {retry}
-        </button>
+      <AlertGlyph />
+      {reported ? (
+        <ReportedFailure
+          sentence={failure}
+          requestId={requestId}
+          strings={reportStringsOf(strings)}
+          actions={retryButton}
+        />
+      ) : (
+        <>
+          <p
+            data-slot="alert-title"
+            className="text-destructive col-start-2 font-medium tracking-tight"
+          >
+            {failure}
+          </p>
+          {retryButton !== false && <div className="col-start-2 flex pt-2">{retryButton}</div>}
+        </>
       )}
     </div>
   )
@@ -115,6 +156,7 @@ export function ReadErrorNotice({
       sortColumnLabel={sessionEnded ? undefined : sortColumnLabel}
       named={named}
       notFound={isNotFoundRead(error)}
+      requestId={consoleRequestIdOfRead(error)}
     />
   )
 }

@@ -3,7 +3,7 @@
   "dialect": "sqlite",
   "id": "79908955-3635-4a6f-ac1e-2917a36804eb",
   "prevIds": [
-    "37aae4e3-10fc-4d43-8042-ca5feecff689"
+    "bedf5b2c-aa88-4b5f-a695-40bcc20f5fb8"
   ],
   "ddl": [
     {
@@ -5071,6 +5071,16 @@
       "default": null,
       "generated": null,
       "name": "resume_cursor",
+      "entityType": "columns",
+      "table": "system_automation_runs"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "files_ledger",
       "entityType": "columns",
       "table": "system_automation_runs"
     },

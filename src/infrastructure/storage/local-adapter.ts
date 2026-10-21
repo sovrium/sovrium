@@ -6,10 +6,16 @@
  */
 
 import { constants } from 'node:fs'
-import { access, lstat, mkdir, readdir, stat, unlink, writeFile } from 'node:fs/promises'
+import { access, lstat, mkdir, readdir, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { dirname, join, relative, resolve, sep } from 'node:path'
-import { compareStorageKeys, isCanonicalStorageKey } from '@/domain/kernel/identity/storage-key'
+import {
+  compareStorageKeys,
+  isCanonicalStorageKey,
+  isStagingName,
+} from '@/domain/kernel/identity/storage-key'
 import { listFilesBelow } from '@/infrastructure/filesystem/list-files-below'
+import { hashStream, readStreamWithin } from './bounded-read'
+import type { StoredObjectHash } from '@/application/ports/services/storage-service'
 
 /**
  * Validate that a local storage directory exists and is writable.
@@ -69,6 +75,41 @@ export const localUpload = async (
   await Bun.write(filePath, content)
 }
 
+/** Remove a file that may not be there: absent is what was asked for. */
+const unlinkIfPresent = async (path: string): Promise<void> => {
+  try {
+    await unlink(path)
+  } catch (error) {
+    if ((error as { readonly code?: unknown }).code !== 'ENOENT') throw error
+  }
+}
+
+/**
+ * {@link localUpload} in two steps: the bytes are written to a file of their
+ * own beside the key, under a fresh name, and reach the key only on `commit`,
+ * which renames that file into place in one step; `discard` removes it. A
+ * write that fails part-way removes what it wrote.
+ */
+export const localStageWrite = async (
+  directory: string,
+  key: string,
+  content: Uint8Array
+): Promise<{ readonly commit: () => Promise<void>; readonly discard: () => Promise<void> }> => {
+  const filePath = resolveStoragePath(directory, key)
+  await mkdir(dirname(filePath), { recursive: true })
+  const stagedPath = join(dirname(filePath), `.sovrium-staging-${crypto.randomUUID()}`)
+  try {
+    await writeFile(stagedPath, content, { flag: 'wx' })
+  } catch (error) {
+    await unlinkIfPresent(stagedPath)
+    throw error
+  }
+  return {
+    commit: () => rename(stagedPath, filePath),
+    discard: () => unlinkIfPresent(stagedPath),
+  }
+}
+
 /**
  * {@link localUpload} that replaces nothing: the file is created exclusively
  * (`wx`), so `taken` comes back when anything is already stored at `key`,
@@ -90,11 +131,25 @@ export const localUploadCreateOnly = async (
   }
 }
 
-export const localDownload = async (directory: string, key: string): Promise<Uint8Array> => {
-  const filePath = resolveStoragePath(directory, key)
-  const file = Bun.file(filePath)
-  return new Uint8Array(await file.arrayBuffer())
-}
+/**
+ * The bytes of the file stored under `key`, read at most `maxBytes`: `undefined`
+ * once the file passes the cap, read piece by piece so a larger file is never
+ * buffered whole. Rejects for a file that is not there. The only read of a
+ * stored file's bytes: there is no unbounded one.
+ */
+export const localDownloadWithin = async (
+  directory: string,
+  key: string,
+  maxBytes: number
+): Promise<Uint8Array | undefined> =>
+  readStreamWithin(Bun.file(resolveStoragePath(directory, key)).stream(), maxBytes)
+
+/**
+ * The length and SHA-256 of the file stored under `key`, hashed while it is
+ * read as a stream. Rejects as a download does for a file that is not there.
+ */
+export const localHashObject = async (directory: string, key: string): Promise<StoredObjectHash> =>
+  hashStream(Bun.file(resolveStoragePath(directory, key)).stream())
 
 /**
  * The size of the file stored under `key`, read from the disk itself; `undefined`
@@ -179,6 +234,10 @@ const folderCrossesLink = async (directory: string, keyBase: string): Promise<bo
   return links.includes(true)
 }
 
+/** Whether a path below the storage directory names bytes staged for a write, not a stored object. */
+export const isStagedPath = (path: string): boolean =>
+  isStagingName(path.slice(path.lastIndexOf('/') + 1))
+
 /**
  * The keys of the FILES under `prefix`, in UTF-8 byte order (the order an
  * object store lists in), each the key it was stored at. A directory is never
@@ -192,6 +251,7 @@ export const localList = async (directory: string, prefix: string): Promise<read
   if (await folderCrossesLink(directory, folder.keyBase)) return []
   try {
     return (await listFilesBelow(folder.path))
+      .filter((path) => !isStagedPath(path))
       .map((path) => folder.keyBase + path)
       .filter((key) => key.startsWith(prefix))
       .toSorted(compareStorageKeys)
@@ -236,6 +296,7 @@ const walkInKeyOrder = async (
   const { prefix, after, limit, out } = page
   const items = (await readDir(path))
     .filter((entry) => !entry.isSymbolicLink())
+    .filter((entry) => entry.isDirectory() || !isStagingName(entry.name))
     .map((entry) =>
       entry.isDirectory()
         ? { key: `${keyBase}${entry.name}/`, path: join(path, entry.name) }
@@ -305,8 +366,10 @@ export const localGetTotalBytes = async (directory: string): Promise<number> => 
     if (isAbsentDirectory(error)) return []
     throw error
   })
+  // Bytes staged for a write in progress are no stored object's.
+  const stored = files.filter((path) => !isStagedPath(path))
   const sizes = await Promise.all(
-    files.map(async (path) => {
+    stored.map(async (path) => {
       try {
         return (await stat(join(directory, path))).size
       } catch (error) {

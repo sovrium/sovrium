@@ -20,4 +20,4 @@
  * Raise it by one whenever a change makes the values an earlier binary stored
  * wrong. `0` — what the column's migration leaves — is older than any binary.
  */
-export const FORMULA_ENGINE_VERSION = 1
+export const FORMULA_ENGINE_VERSION = 2

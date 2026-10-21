@@ -79,6 +79,8 @@ async function handleUsersDirectoryFormat(c: Context, next: Next): Promise<Respo
     limit: c.req.query('limit'),
     sort: c.req.query('sort'),
     order: c.req.query('order'),
+    role: c.req.query('role'),
+    status: c.req.query('status'),
   })
   if (decoded._tag !== 'Ok') return badRequest(c, 'Invalid query parameters')
   if (format !== 'csv') return badRequest(c, 'Only csv format is supported')

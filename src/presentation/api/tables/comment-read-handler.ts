@@ -6,6 +6,7 @@
  */
 
 import { markRecordCommentsReadProgram } from '@/application/use-cases/tables/comment-read-state-programs'
+import { commentTableKeysOf } from '@/domain/models/app/tables/comment-address-service'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import { notFoundResponse } from './comment-handler-shared'
@@ -49,7 +50,13 @@ export async function handleMarkCommentsRead(c: Context, app: App) {
 
   const result = await runOnRequest(
     c,
-    markRecordCommentsReadProgram({ session, tableId, recordId, tableName: table.name })
+    // One watermark per table, whichever spelling the request used: the count reads every key.
+    markRecordCommentsReadProgram({
+      session,
+      tableKey: commentTableKeysOf(table)[0]!,
+      recordId,
+      tableName: table.name,
+    })
   )
 
   if (result._tag === 'Failure') {

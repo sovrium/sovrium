@@ -31,6 +31,7 @@ import {
   seriesIntervalSchema,
 } from '@/domain/models/api/admin/envelope/period-preset'
 import { looseIsoDateTime } from '@/domain/models/api/combinators/formats'
+import { optionalField } from '@/domain/models/api/combinators/optional-field'
 import { withDefault } from '../../combinators/schema-defaults'
 
 /**
@@ -66,6 +67,8 @@ export type TablesOverviewQuery = typeof tablesOverviewQuerySchema.Type
  * - `label`            — the name a person reads for the table as a collection
  *                        (`labelPlural` → `label` → the name made readable),
  *                        translated
+ * - `description`      — what the table holds, as its config says it; absent
+ *                        when it declares none
  * - `rowCount`         — live rows; soft-deleted rows excluded
  * - `softDeletedCount` — rows with `deleted_at IS NOT NULL`; cleared on
  *                        force-delete or restore
@@ -83,6 +86,13 @@ export const tableOverviewBreakdownItemSchema = Schema.Struct({
     description:
       'The name a person reads for the table as a collection: its `labelPlural`, else its `label`, with a `$t:` key resolved, else its `name` made readable — hyphens and underscores read as spaces, a camelCase boundary as a space, the first letter capitalised (`site_visits` reads `Site visits`). Display text only; links and lookups use `name`.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
+  description: optionalField(
+    Schema.String.annotate({
+      description:
+        "What the table holds, as its configuration's `description` says it. Absent when the table declares none, never an empty string.",
+      examples: ['Everyone we have spoken to, client or not.'],
+    })
+  ),
   rowCount: Schema.Int.annotate({
     description: 'Live row count. Soft-deleted rows are NOT included here.',
   }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),

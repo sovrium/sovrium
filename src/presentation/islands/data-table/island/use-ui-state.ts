@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useState } from 'react'
+import type { DataTableColumn } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { GridRowHeight } from '@/presentation/design/table-body-default-classes'
 
 /**
@@ -23,6 +24,21 @@ export type SessionGrouping = { readonly field?: string } | undefined
 export type SessionView = { readonly id?: string } | undefined
 
 /**
+ * The visibility a grid opens with: every field column declared
+ * `visible: 'hidden'` starts unchecked, exactly as if the reader had unchecked
+ * it under View › Hide fields, so checking it there draws it. A column declared
+ * `visible: false` is not here: it was never made a column at all.
+ */
+export const startingVisibility = (
+  columns: readonly DataTableColumn[] | undefined
+): Record<string, boolean> =>
+  Object.fromEntries(
+    (columns ?? [])
+      .filter((column) => 'field' in column && column.visible === 'hidden')
+      .map((column) => ['field' in column ? column.field : '', false])
+  )
+
+/**
  * Local UI state for the data-table island: column visibility and order, which
  * groups the reader has collapsed or opened, and the grouping and row height the
  * reader picked from the bottom bar. It lasts for the reader's visit and is
@@ -33,8 +49,10 @@ export type SessionView = { readonly id?: string } | undefined
  * Table's controlled state — sorting/pagination/density) so the orchestrator's
  * hook count and complexity stay below the size limits.
  */
-export function useDataTableUiState() {
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({})
+export function useDataTableUiState(columns: readonly DataTableColumn[] | undefined) {
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() =>
+    startingVisibility(columns)
+  )
   const [columnOrder, setColumnOrder] = useState<string[]>([])
   // Groups whose open/closed state the reader has flipped, keyed by group path.
   // Stored as a readonly array — toggling rewrites the array verbatim.

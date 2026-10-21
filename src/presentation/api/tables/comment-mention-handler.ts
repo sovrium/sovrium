@@ -7,7 +7,7 @@
 
 import { Effect } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
-import { listMentionableUsersProgram } from '@/application/use-cases/tables/comment-mention-programs'
+import { listMentionableUsersProgram } from '@/application/use-cases/tables/comment-mention-picker-programs'
 import { NotFoundError } from '@/domain/errors'
 import { mentionableUsersResponseSchema } from '@/domain/models/api/tables/comments'
 import { isAuthenticatedSession } from '@/domain/models/app/auth/guest-session'

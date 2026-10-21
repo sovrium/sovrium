@@ -7,6 +7,11 @@
 
 import { renderToStaticMarkup } from 'react-dom/server'
 import { idSourceForLabel, localizeChildLabel, slugifyLabel } from './island-child-label'
+import {
+  exportedListAttributes,
+  renderExportedTrigger,
+  type ExportedTabs,
+} from './island-tabs-export'
 import type { Languages } from '@/domain/models/app/languages'
 import type { ReactElement } from 'react'
 
@@ -197,6 +202,46 @@ export function computeSsrTabsRootClasses(
 }
 
 /**
+ * One caption of the pre-hydration strip: a plain `<span>`, a link on an
+ * addressed tab set, or, in a page export, a `tab`.
+ */
+function renderSsrTrigger(
+  item: TabsSsrItem,
+  triggerClass: string,
+  lazyParam: string | undefined,
+  exported: ExportedTabs | undefined
+): ReactElement {
+  const caption =
+    item.description !== undefined && item.description.length > 0 ? (
+      <>
+        <span className="block">{item.label}</span>
+        <span className="text-muted-foreground mt-0.5 block text-sm font-normal">
+          {item.description}
+        </span>
+      </>
+    ) : (
+      item.label
+    )
+  if (exported !== undefined) return renderExportedTrigger(item, triggerClass, caption, exported)
+  return lazyParam === undefined ? (
+    <span
+      key={item.id}
+      className={triggerClass}
+    >
+      {caption}
+    </span>
+  ) : (
+    <a
+      key={item.id}
+      href={`?${lazyParam}=${encodeURIComponent(item.id)}`}
+      className={triggerClass}
+    >
+      {caption}
+    </a>
+  )
+}
+
+/**
  * Trigger strip for the tabs SSR placeholder.
  *
  * Mirrors the hydrated island's LAYOUT so the page does not jump when the
@@ -211,6 +256,13 @@ export function computeSsrTabsRootClasses(
  * description spans deliberately carry no `id`: `aria-describedby` wiring is
  * the hydrated trigger's job, and a duplicate id during the mount window would
  * make the association ambiguous.
+ *
+ * ## `exported`: a page export draws the tabs as tabs
+ *
+ * A page export mounts no island, so its strip IS the tab set a design tool
+ * sees: one `role="tablist"`, each caption a `role="tab"` button whose
+ * `aria-controls` names its panel's id, the shown one selected. Only an
+ * exported tabs node gets them; a served page keeps the plain spans.
  *
  * ## `lazyParam`: the captions become real links
  *
@@ -232,41 +284,14 @@ export function computeSsrTabsRootClasses(
 export function renderTabsSsrTriggerStrip(
   items: readonly TabsSsrItem[],
   orientation: 'horizontal' | 'vertical',
-  lazyParam?: string
+  lazyParam?: string,
+  exported?: ExportedTabs
 ): ReactElement {
   const triggerClass =
     orientation === 'vertical' ? 'text-md px-1 py-2 font-medium' : TABS_SSR_TRIGGER_FLUSH
   const triggers =
     items.length > 0 ? (
-      items.map((item) => {
-        const caption =
-          item.description !== undefined && item.description.length > 0 ? (
-            <>
-              <span className="block">{item.label}</span>
-              <span className="text-muted-foreground mt-0.5 block text-sm font-normal">
-                {item.description}
-              </span>
-            </>
-          ) : (
-            item.label
-          )
-        return lazyParam === undefined ? (
-          <span
-            key={item.id}
-            className={triggerClass}
-          >
-            {caption}
-          </span>
-        ) : (
-          <a
-            key={item.id}
-            href={`?${lazyParam}=${encodeURIComponent(item.id)}`}
-            className={triggerClass}
-          >
-            {caption}
-          </a>
-        )
-      })
+      items.map((item) => renderSsrTrigger(item, triggerClass, lazyParam, exported))
     ) : (
       <>
         <div className="bg-muted h-8 w-20 animate-pulse rounded" />
@@ -282,7 +307,10 @@ export function renderTabsSsrTriggerStrip(
     // author who re-proportioned the track and would move the rail's edge on
     // hydration.
     return (
-      <div className="border-border flex flex-col gap-1 border-b px-4 py-2 md:border-r md:border-b-0">
+      <div
+        className="border-border flex flex-col gap-1 border-b px-4 py-2 md:border-r md:border-b-0"
+        {...exportedListAttributes(exported, orientation)}
+      >
         {triggers}
       </div>
     )
@@ -297,7 +325,12 @@ export function renderTabsSsrTriggerStrip(
         pre-hydration strip painted its first caption 20px in and the hydrated
         one painted it at 0 — a visible slide on mount.
       */}
-      <div className="flex">{triggers}</div>
+      <div
+        className="flex"
+        {...exportedListAttributes(exported, orientation)}
+      >
+        {triggers}
+      </div>
     </div>
   )
 }

@@ -5,7 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { redactSecretPath } from '@/domain/kernel/url/secret-path-redaction'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { internalErrorLogSuffix } from '@/infrastructure/logging/internal-error-report'
+import { logError } from '@/infrastructure/logging/logger'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import type { FieldError } from '@/domain/models/api/combinators/error'
 import type { Context } from 'hono'
@@ -263,9 +266,33 @@ export const conflict = (c: Context, message: string) =>
  * A route that wants an error MAPPED from a tagged failure rather than a
  * hand-written 500 should use `runEffect` or `handleRouteError`, both of which
  * run the full `sanitizeError` table.
+ *
+ * Like every other `500`, it names its request id and keeps the failure under
+ * it, so the operator can report it — or is told its fix. `cause` is the
+ * failure when the route has one; otherwise an error raised here stands for it,
+ * whose frames name the route that answered.
  */
-export const internalError = (c: Context, message = 'Internal server error') =>
-  c.json({ success: false, message, code: ApiErrorCode.INTERNAL_ERROR }, 500)
+export const internalError = (
+  c: Context,
+  message = 'Internal server error',
+  cause: unknown = new Error(message)
+) => {
+  const id: unknown = c.get('requestId')
+  const requestId = typeof id === 'string' ? id : undefined
+  logError(
+    `[API Error] ${c.req.method} ${redactSecretPath(c.req.path)} → 500${internalErrorLogSuffix(cause, requestId)}`,
+    cause
+  )
+  return c.json(
+    {
+      success: false,
+      message,
+      code: ApiErrorCode.INTERNAL_ERROR,
+      ...(requestId === undefined ? {} : { requestId }),
+    },
+    500
+  )
+}
 
 /**
  * Error BODY (not a response) for the storage routes, which emit their own

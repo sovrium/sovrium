@@ -33,6 +33,8 @@ import { ApiErrorCode } from '@/domain/models/api/combinators/error'
 import { logError } from '@/infrastructure/logging/logger'
 import { requireDomainContext, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { checkTriggerPermission } from '@/presentation/api/agents/agent-trigger-guard'
+import { resolveUserPrincipal } from '@/presentation/api/agents/chat-read-scope'
+import { keepListedBy } from '@/presentation/api/agents/chat-replay-scope'
 import { runAgentBoundChatTurn } from '@/presentation/api/agents/chat-routes'
 import { agentNotFound } from '@/presentation/api/runtime/agent-lookup'
 import { errorBody } from '@/presentation/api/runtime/auth-helpers'
@@ -84,17 +86,18 @@ const maybeStoreFact = async (
   services: DomainContext,
   agent: Agent,
   userId: string | undefined,
-  reply: string
+  learned: { readonly reply: string; readonly tables: ReadonlyArray<string> }
 ): Promise<void> => {
   const factsEnabled = agent.memory?.facts?.enabled === true
-  if (!factsEnabled || userId === undefined || reply.length === 0) return
+  if (!factsEnabled || userId === undefined || learned.reply.length === 0) return
   return Effect.runPromise(
     extractAndStoreFact({
       namespace: resolveNamespace(agent),
       agentName: agent.name,
       userId,
-      fact: reply,
+      fact: learned.reply,
       maxFacts: agent.memory?.facts?.maxFacts ?? DEFAULT_MAX_FACTS,
+      tables: learned.tables,
     }).pipe(Effect.provide(services), Effect.result, Effect.asVoid)
   )
 }
@@ -112,19 +115,40 @@ const maybeStoreFact = async (
  * is what keeps fact extraction on the same transport as every other agent
  * turn — it inherits tool calling and provider-aware routing for free.
  */
+/** The distinct tables the envelope's actions name, in their order. */
+const tablesOfActions = (actions: unknown): ReadonlyArray<string> =>
+  Array.isArray(actions)
+    ? [
+        ...new Set(
+          actions.flatMap((action: unknown) => {
+            const table =
+              typeof action === 'object' && action !== null
+                ? (action as { readonly table?: unknown }).table
+                : undefined
+            return typeof table === 'string' ? [table] : []
+          })
+        ),
+      ]
+    : []
+
 /**
  * Persist the assistant reply as an atomic fact when the turn succeeded and the
- * agent has memory enabled. Reads the reply off a CLONE so the envelope the
- * shared turn produced is returned untouched.
+ * agent has memory enabled, with the tables the turn read — one action per
+ * call that ran, naming its table — so recall can judge it against what the
+ * user lists then. Reads the reply off a CLONE so the envelope the shared turn
+ * produced is returned untouched.
  */
 const storeFactFromTurn = async (c: Context, agent: Agent, response: Response): Promise<void> => {
   if (response.status !== 200) return
   const body = (await response
     .clone()
     .json()
-    .catch(() => ({}))) as { readonly reply?: unknown }
+    .catch(() => ({}))) as { readonly reply?: unknown; readonly actions?: unknown }
   if (typeof body.reply !== 'string') return
-  await maybeStoreFact(requireDomainContext(c), agent, resolveUserId(c), body.reply)
+  await maybeStoreFact(requireDomainContext(c), agent, resolveUserId(c), {
+    reply: body.reply,
+    tables: tablesOfActions(body.actions),
+  })
 }
 
 const handleFactsChat = async (c: Context, app?: App): Promise<Response> => {
@@ -166,7 +190,9 @@ const handleFactsChat = async (c: Context, app?: App): Promise<Response> => {
 /**
  * `POST /api/ai/agents/:name/recall` — recall the calling user's stored facts
  * for the agent's namespace. Returns `{ facts: [{ fact, createdAt }] }`,
- * oldest first. Per-user scoped.
+ * oldest first. Per-user scoped, and judged at read time as chat replay is: a
+ * fact learned from a table the user no longer lists is left out (it stays
+ * stored), and a fact naming no table is returned as stored.
  */
 const handleFactsRecall = async (c: Context, app?: App): Promise<Response> => {
   const agentName = c.req.param('name')
@@ -199,7 +225,10 @@ const handleFactsRecall = async (c: Context, app?: App): Promise<Response> => {
       500
     )
   }
-  const facts = result.success.map((f) => ({
+  const { reader } = await resolveUserPrincipal(c)
+  const scope = { services: requireDomainContext(c), app, reader }
+  const listed = await keepListedBy(scope, result.success, (f) => f.tables, 'recalled facts')
+  const facts = listed.map((f) => ({
     fact: f.fact,
     createdAt: f.createdAt.toISOString(),
   }))

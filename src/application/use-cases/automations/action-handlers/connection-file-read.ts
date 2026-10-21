@@ -6,7 +6,11 @@
  */
 
 import { Data, Effect } from 'effect'
-import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
+import {
+  StorageService,
+  UNATTRIBUTED_BUCKET,
+  isStorageObjectTooLarge,
+} from '@/application/ports/services/storage-service'
 import { resolveTranscribeSource } from './ai-transcribe-source'
 import {
   FILE_SOURCE_MAX_BYTES,
@@ -74,11 +78,12 @@ const readSelfContained = (
   fallbackName: string
 ): Effect.Effect<OperationFile, WrittenBodyFileError, StorageService> =>
   resolveSource(source).pipe(
-    Effect.mapError(
-      (blocked) =>
-        new WrittenBodyFileError({
-          message: `file '${source}' is refused: invalid_outbound_url_${blocked.reason}`,
-        })
+    Effect.mapError((blocked) =>
+      blocked._tag === 'StoredSourceTooLargeError'
+        ? tooLarge(source)
+        : new WrittenBodyFileError({
+            message: `file '${source}' is refused: invalid_outbound_url_${blocked.reason}`,
+          })
     ),
     Effect.filterOrFail(
       (resolved) => source.startsWith('data:') || resolved.bytes.length > 0,
@@ -110,7 +115,7 @@ const readStored = (
     const storage = yield* StorageService
     // The catalogued size refuses an oversized file before a byte is buffered.
     // No catalog row (a key written outside the upload routes) is the ordinary
-    // case and falls through to the download, which the cap re-checks.
+    // case and falls through to the bounded download, which stops at the cap.
     const catalogued = yield* Effect.result(storage.getMetadata(located.key, UNATTRIBUTED_BUCKET))
     if (catalogued._tag === 'Success' && catalogued.success.size > FILE_SOURCE_MAX_BYTES) {
       return yield* tooLarge(located.key)
@@ -118,10 +123,12 @@ const readStored = (
     // Unattributed, like the `file` actions: any stored key is readable, so
     // which keys reach a call is the config's to decide.
     const bytes = yield* storage
-      .download(located.key, UNATTRIBUTED_BUCKET)
+      .downloadBounded(located.key, UNATTRIBUTED_BUCKET, FILE_SOURCE_MAX_BYTES)
       .pipe(
-        Effect.mapError(
-          () => new WrittenBodyFileError({ message: `file '${located.key}' could not be read` })
+        Effect.mapError((error) =>
+          isStorageObjectTooLarge(error)
+            ? tooLarge(located.key)
+            : new WrittenBodyFileError({ message: `file '${located.key}' could not be read` })
         )
       )
     return {

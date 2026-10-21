@@ -174,7 +174,7 @@ const resolveAgentTurnScope = async (
 ): Promise<AgentTurnScope | undefined> => {
   if (isSystemAgentName(agentName)) {
     const { userRole, effectiveRoles, reader } = await resolveUserPrincipal(c)
-    const readable = toToolCallTables(app, reader)
+    const readable = await toToolCallTables(requireDomainContext(c), app, reader)
     return {
       binding: resolveSystemAgentTurnBinding(app, readable),
       userRole,
@@ -241,9 +241,9 @@ const runGenericChatTurn = async (
   // Resolve the acting user's role — drives table RBAC and the per-request context.
   const { userRole, effectiveRoles, reader } = await resolveUserPrincipal(c)
 
-  // Build the per-request context block ([internal ref]-*), regenerated on
-  // every turn so it always reflects the caller's current role.
-  const systemPrompt = buildChatContextPrompt(app, userRole, parsed.pageContext)
+  // The per-request context block, rebuilt every turn from the caller's current reach.
+  const caller = { userRole, reader, services: requireDomainContext(c) }
+  const systemPrompt = await buildChatContextPrompt(app, caller, parsed.pageContext)
 
   return runChatTurn(
     c,
@@ -383,7 +383,7 @@ const streamTurn = async (
   const known = await withTurnKnowledge({ ...input, agent: scope.binding })
   const carried = await carriedFiles(known.input)
   return {
-    spec: chatTurnSpec(known.input, { history: [], stream: true, carried }),
+    spec: await chatTurnSpec(known.input, { history: [], stream: true, carried }),
     agentName: agentAttribution(scope.binding),
     passages: known.passages,
   }

@@ -11,6 +11,7 @@ import {
 } from '@/presentation/islands/runtime/rpc-client'
 import {
   buildSystemQueryString,
+  failedReadCause,
   fetchSystemEndpoint,
   readAppliedQuery,
 } from '../hooks/use-system-source-fetch'
@@ -207,10 +208,10 @@ function requestRecordsPage(fetchQuery: FetchQuery) {
 async function fetchTableRecords(fetchQuery: FetchQuery): Promise<DataTableFetchResult> {
   const res = await requestRecordsPage(fetchQuery)
 
-  // The status travels on `cause` and chooses what the grid says; the body is
-  // never read, because nothing in it is for the reader (it names internals).
+  // The status travels on `cause` and chooses what the grid says; of the body
+  // only a 5xx's request id is read (nothing else in it is for the reader).
   if (!res.ok) {
-    throw new Error(`Failed to fetch records: ${res.status}`, { cause: { status: res.status } })
+    throw new Error(`Failed to fetch records: ${res.status}`, { cause: await failedReadCause(res) })
   }
 
   const json = (await res.json()) as {

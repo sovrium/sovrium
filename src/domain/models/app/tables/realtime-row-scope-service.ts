@@ -34,6 +34,8 @@
  * rule hides it from.
  */
 
+import { admitsRow, type RowReadAdmission } from './row-read-admission-service'
+
 type Row = Readonly<Record<string, unknown>>
 
 /** A change event as the table channel carries it. */
@@ -41,6 +43,20 @@ export type ChangeEvent = Readonly<Record<string, unknown>>
 
 /** Whether one row, flattened to `{ id, ...fields }`, is inside the subscriber's read rule. */
 export type RowReadRule = (row: Row) => boolean
+
+/**
+ * A subscriber's read rule held to the rows a list of the table admits her
+ * ({@link RowReadAdmission}): unchanged when she reads every row, otherwise a
+ * row passes only when its id is one she is admitted to AND her rule (if any)
+ * lets it through. Ids are compared as strings, as the records API names them.
+ */
+export const withinAdmittedRows = (
+  reads: RowReadRule | undefined,
+  admission: RowReadAdmission
+): RowReadRule | undefined =>
+  admission.kind === 'every-row'
+    ? reads
+    : (row) => admitsRow(admission, String(row['id'])) && (reads === undefined || reads(row))
 
 /** Flatten a `{ id, fields }` payload back into the row a rule reads. */
 const rowOf = (payload: unknown): Row | undefined => {

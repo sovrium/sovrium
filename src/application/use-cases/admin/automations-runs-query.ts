@@ -14,6 +14,7 @@
  * `BuildAdminRunsList` (`automations-overview.ts`).
  */
 
+import { zonedEndOfIsoDate, zonedStartOfIsoDate } from '@/domain/kernel/time/zoned-calendar'
 import { automationsRunsListQuerySchema } from '@/domain/models/api/admin/automations'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { triggerNameFilterOf } from '@/domain/models/app/automations/trigger-entries-service'
@@ -49,6 +50,26 @@ export function decodeRunsCursor(
 
 // ─── Request decoding ─────────────────────────────────────────────────────────
 
+/** A bound written as a calendar day (`YYYY-MM-DD`) rather than a date-time. */
+const CALENDAR_DAY = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * One bound of the window as the instant the read compares against. A
+ * date-time is kept as written; a calendar day is read on the operator's clock:
+ * a `from` day starts at its midnight, and a `to` day runs through to the next
+ * midnight, so the same day as `from` and `to` is the whole of that day.
+ */
+const windowBound = (
+  bound: string | undefined,
+  edge: 'from' | 'to',
+  timeZone: string
+): string | undefined => {
+  if (bound === undefined || !CALENDAR_DAY.test(bound)) return bound
+  const instant =
+    edge === 'from' ? zonedStartOfIsoDate(bound, timeZone) : zonedEndOfIsoDate(bound, timeZone)
+  return instant.toISOString()
+}
+
 /**
  * Decoding a runs-list request into {@link AdminRunsListInput}.
  *
@@ -62,6 +83,22 @@ export type AdminRunsListQueryDecode =
   | { readonly _tag: 'InvertedWindow' }
 
 /**
+ * Whether the resolved window ends before it starts. A day `to` is resolved to
+ * the next midnight, so a window ending exactly where it starts names a day
+ * before the `from` (a `to` day earlier than the `from` day); a date-time `to`, whose
+ * own instant is excluded, is inverted only when it is earlier than `from`.
+ */
+const endsBeforeItStarts = (
+  from: string | undefined,
+  to: string | undefined,
+  writtenTo: string | undefined
+): boolean => {
+  if (from === undefined || to === undefined) return false
+  const gap = new Date(to).getTime() - new Date(from).getTime()
+  return CALENDAR_DAY.test(writtenTo ?? '') ? gap <= 0 : gap < 0
+}
+
+/**
  * Decode raw runs-list parameters — the HTTP query string or an MCP tool's
  * arguments — into the use case's input.
  *
@@ -70,14 +107,18 @@ export type AdminRunsListQueryDecode =
  * silently dropped by the other. Every knob is forwarded explicitly — including
  * `q`, whose omission at this seam once made the endpoint answer a search it was
  * never asked to run.
+ *
+ * A `from` or `to` written as a calendar day is resolved here, in `timeZone`
+ * (the operator's), before the window is checked: a day `to` equal to a day
+ * `from` is one whole day, never an inverted window.
  */
-export function decodeAdminRunsListQuery(raw: unknown): AdminRunsListQueryDecode {
+export function decodeAdminRunsListQuery(raw: unknown, timeZone: string): AdminRunsListQueryDecode {
   const parsed = decodeSafe(automationsRunsListQuerySchema)(raw)
   if (!parsed.success) return { _tag: 'InvalidQuery' }
   const query = parsed.data
-  if (query.from && query.to && new Date(query.from).getTime() > new Date(query.to).getTime()) {
-    return { _tag: 'InvertedWindow' }
-  }
+  const from = windowBound(query.from, 'from', timeZone)
+  const to = windowBound(query.to, 'to', timeZone)
+  if (endsBeforeItStarts(from, to, query.to)) return { _tag: 'InvertedWindow' }
   return {
     _tag: 'Ok',
     input: {
@@ -85,8 +126,9 @@ export function decodeAdminRunsListQuery(raw: unknown): AdminRunsListQueryDecode
       automationName: query.automationName,
       triggerName: query.triggerName,
       automationId: query.automationId,
-      from: query.from,
-      to: query.to,
+      from,
+      to,
+      onDemand: query.onDemand === undefined ? undefined : query.onDemand === 'true',
       q: query.q,
       cursor: query.cursor,
       page: query.page,
@@ -118,6 +160,7 @@ export function runsListFilters(app: App, input: AdminRunsListInput): AdminRunsL
     automationId: input.automationId,
     from: input.from === undefined ? undefined : new Date(input.from),
     to: input.to === undefined ? undefined : new Date(input.to),
+    onDemand: input.onDemand,
     q: input.q,
     cursorBefore,
     limit: input.limit,

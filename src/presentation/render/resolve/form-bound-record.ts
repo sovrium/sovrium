@@ -25,6 +25,7 @@
 
 import { fieldNamesMatch } from '@/domain/models/app/tables/field-name-matching'
 import { toManyLinksRefusedTo } from '@/domain/models/app/tables/related-field-read-service'
+import { relatedReaderFor } from '@/domain/models/app/tables/row-read-admission-service'
 import { readRowsForCaller } from './record-read-gate'
 import type { DataSourceDb } from './data-source-contracts'
 import type { App } from '@/domain/models/app'
@@ -97,13 +98,7 @@ export function formManyToManyFields(
   if (component.type !== 'form') return []
   const listed = listedFieldNames(component)
   const { plan, app, session } = access
-  const refused = toManyLinksRefusedTo(
-    app,
-    table.name,
-    session === undefined
-      ? { role: 'guest', signedOut: true }
-      : { role: session.role, groups: session.groups ?? [], signedOut: false }
-  )
+  const refused = toManyLinksRefusedTo(app, table.name, relatedReaderFor(session))
   return table.fields.flatMap((field) => {
     const { relationType, relatedTable } = field as {
       readonly relationType?: string

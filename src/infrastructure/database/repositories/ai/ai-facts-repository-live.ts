@@ -48,17 +48,38 @@ const enforceMaxFacts = (namespace: string, maxFacts: number): Promise<void> =>
     })
 
 /**
+ * The tables a stored fact names, read off its `metadata`. A fact stored
+ * before facts recorded their tables, or with any other `metadata` shape,
+ * names none.
+ */
+const tablesOf = (metadata: unknown): ReadonlyArray<string> => {
+  const tables =
+    typeof metadata === 'object' && metadata !== null
+      ? (metadata as { readonly tables?: unknown }).tables
+      : undefined
+  return Array.isArray(tables)
+    ? tables.filter((table): table is string => typeof table === 'string')
+    : []
+}
+
+/**
  * AI Facts Repository Implementation (Drizzle).
  *
  * Persists learned facts to `system.ai_facts`, scoped by namespace, agent,
  * and user so facts never leak across namespaces or users.
  */
 export const AiFactsRepositoryLive = Layer.succeed(AiFactsRepository, {
-  storeFact: ({ namespace, agentName, userId, fact, maxFacts }) =>
+  storeFact: ({ namespace, agentName, userId, fact, maxFacts, tables }) =>
     wrap((): Promise<void> =>
       db
         .insert(aiFacts)
-        .values({ namespace, agentName, userId, fact })
+        .values({
+          namespace,
+          agentName,
+          userId,
+          fact,
+          ...(tables !== undefined && tables.length > 0 && { metadata: { tables: [...tables] } }),
+        })
         .then(() => enforceMaxFacts(namespace, maxFacts))
     ),
 
@@ -71,10 +92,11 @@ export const AiFactsRepositoryLive = Layer.succeed(AiFactsRepository, {
           agentName: aiFacts.agentName,
           userId: aiFacts.userId,
           createdAt: aiFacts.createdAt,
+          metadata: aiFacts.metadata,
         })
         .from(aiFacts)
         .where(and(eq(aiFacts.namespace, namespace), eq(aiFacts.userId, userId)))
         .orderBy(asc(aiFacts.createdAt))
-      return rows
+      return rows.map(({ metadata, ...row }) => ({ ...row, tables: tablesOf(metadata) }))
     }),
 })

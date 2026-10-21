@@ -15,14 +15,12 @@
 import { useCallback, useMemo, type ReactElement } from 'react'
 import { DrawerContent } from './record-drawer-content'
 import { GenericSheetBody } from './record-drawer-generic'
+import { ReadFailed } from './record-drawer-read-failed'
 import { StackedRecordBody } from './record-drawer-stacked'
 import type { DrawerLabels, RecordDrawerIslandProps } from './record-drawer-island'
 import type { RecordSheet } from './use-record-drawer-sheet'
 
 const DEFAULT_NOT_FOUND_LABEL = 'This record could not be found.'
-
-/** The English words a sheet draws when its record read failed and the host named none. */
-const DEFAULT_READ_FAILED_LABEL = 'This record couldn’t be read.'
 
 /**
  * A record the records API answers `404` — missing, or one its reader may not
@@ -57,13 +55,21 @@ export function DrawerBody({
         words={props.generic.words}
         save={save}
         actionStrings={props.actionStrings}
+        readFailedLabel={props.readFailedLabel}
+        retryLabel={props.retryLabel}
         onBack={back}
       />
     )
   }
   if (drawer.notFound) return <NotFound label={props.notFoundLabel} />
   if (sheet.readFailed)
-    return <NotFound label={props.readFailedLabel ?? DEFAULT_READ_FAILED_LABEL} />
+    return (
+      <ReadFailed
+        label={props.readFailedLabel}
+        retryLabel={props.retryLabel}
+        onRetry={sheet.retry}
+      />
+    )
   if (props.generic === undefined || props.table === undefined)
     return <DrawerContent {...content} />
   return (

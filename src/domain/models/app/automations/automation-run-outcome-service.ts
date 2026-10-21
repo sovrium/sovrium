@@ -71,6 +71,23 @@ const ROLLUP_ERROR_MAX_LENGTH = 200
 export const isFinalFailureStatus = (status: string): boolean =>
   FINAL_FAILURE_RUN_STATUSES.includes(status)
 
+/** Whose fault a failed run is: the engine's (`defect`), or one of its own steps' (`step`). */
+export type RunFailureKind = 'defect' | 'step'
+
+/**
+ * Whose fault a run's failure is, read off its status and whether the engine
+ * recorded a defect on it — the same field the run report read answers from.
+ * `undefined` for a run that did not fail for good: there is no failure to
+ * attribute.
+ */
+export const runFailureKindOf = (
+  status: string | null,
+  hasDefect: boolean
+): RunFailureKind | undefined => {
+  if (status === null || !isFinalFailureStatus(status)) return undefined
+  return hasDefect ? 'defect' : 'step'
+}
+
 /** One final failure, as the alert rules read it. */
 export interface FinalFailure {
   readonly id: string

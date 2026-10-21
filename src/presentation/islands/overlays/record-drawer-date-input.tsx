@@ -6,62 +6,57 @@
  */
 
 /**
- * A date field in an editable record sheet: a text box holding the day in the
- * PAGE's date format — `14/10/2026` on an English (UK) page — and reading what
- * the reader types the same way. A native date input would follow the
- * browser's locale instead, so the same page read in another browser would
- * show the month first. The sheet holds, and saves, the day as `YYYY-MM-DD`.
+ * A date field in an editable record sheet: the date picker a form draws
+ * (`parts/date-text-box`) — a box holding the day in the PAGE's date format,
+ * `14/10/2026` on an English (UK) page, read back the same way, with a
+ * "Pick a date" calendar inside its end. A native date input would follow the
+ * browser's locale instead. The box shows the page's date format as its
+ * placeholder (`MM/DD/YYYY` on an English (US) page). The sheet holds, and
+ * saves, the day as `YYYY-MM-DD`.
  */
 
-import { useEffect, useState, type ReactElement } from 'react'
-import { formatPageDate, parsePageDate } from '@/domain/kernel/format/page-date-text'
-import { computeInputDefaultClasses } from '@/presentation/design/input-default-classes'
+import { useCallback, useMemo, type ReactElement } from 'react'
+import { pageDatePattern } from '@/domain/kernel/format/page-date-text'
 import { RequiredMark } from '../parts/crud-form/field-label'
+import { DateTextBox } from '../parts/date-text-box'
 import { resolvePageLocale } from '../runtime/page-locale'
 import { controlStateAttributes } from './record-drawer-control-state'
+import { useDatePickerWords } from './record-drawer-date-words'
 import { RefusalLine } from './record-drawer-refusal-line'
 import type { TypedFieldProps } from './record-drawer-typed-input'
 
-const CONTROL_CLASS = `${computeInputDefaultClasses()} disabled:cursor-not-allowed disabled:opacity-60`
-
-/** The date box — see the module note. */
+/** The date picker — see the module note. */
 export function DateTextField(props: TypedFieldProps): ReactElement {
   const { field, label, value, disabled, onChange, children } = props
   const locale = resolvePageLocale()
-  const [text, setText] = useState(() => formatPageDate(value, locale))
-  // The record landing replaces what the box shows; the reader's own typing,
-  // which reads as the day already held, does not.
-  useEffect(() => {
-    setText((typed) =>
-      parsePageDate(typed, locale) === value ? typed : formatPageDate(value, locale)
-    )
-  }, [value, locale])
+  const placeholder = useMemo(() => pageDatePattern(locale), [locale])
+  const words = useDatePickerWords()
+  const change = useCallback((day: string) => onChange(field.name, day), [onChange, field.name])
+  const state = controlStateAttributes(props)
+  const describedBy = state['aria-describedby']
   return (
-    <label className="text-md flex flex-col gap-1">
+    <div className="text-md flex flex-col gap-1">
       <span className="text-muted-foreground">
         {label}
         <RequiredMark marked={field.requiredMark} />
       </span>
-      <input
-        type="text"
-        data-component-type="date-picker"
-        aria-label={label}
+      <DateTextBox
         name={field.name}
-        value={text}
+        value={value}
+        onChange={change}
+        ariaLabel={label}
+        placeholder={placeholder}
         disabled={disabled}
-        autoComplete="off"
-        onChange={(event) => {
-          setText(event.target.value)
-          onChange(field.name, parsePageDate(event.target.value, locale))
-        }}
-        className={CONTROL_CLASS}
-        {...controlStateAttributes(props)}
+        uiStrings={words}
+        {...(field.required === true && { required: true })}
+        {...(state['aria-invalid'] === undefined ? {} : { invalid: true })}
+        {...(typeof describedBy === 'string' ? { describedBy } : {})}
       />
       <RefusalLine
         name={field.name}
         error={props.error}
       />
       {children}
-    </label>
+    </div>
   )
 }

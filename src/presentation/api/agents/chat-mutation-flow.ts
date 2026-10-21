@@ -33,6 +33,8 @@ import {
   type MutationOutcome,
   type PendingConfirmation,
 } from './chat-mutation'
+import { passesChatTableGate, type ChatReader } from './chat-read-scope'
+import { keepListedTables } from './chat-reader-rows'
 import { projectAppTables } from './chat-table-projection'
 import type { ChatAction } from '@/domain/models/api/ai/chat'
 import type { App } from '@/domain/models/app'
@@ -68,6 +70,11 @@ export interface MutationTurnInput {
   readonly userId: string
   /** The acting user's role — drives table-level RBAC. */
   readonly userRole: string
+  /**
+   * Who the turn reads as: a command may name only a table this reader lists,
+   * every other one reads as a table the app does not have.
+   */
+  readonly reader: ChatReader
   /** A confirmation token from the request body, when re-confirming. */
   readonly confirmationToken?: string | undefined
 }
@@ -79,6 +86,25 @@ export interface MutationTurnInput {
  */
 const toMutationTables = (app: App | undefined): ReadonlyArray<MutationTableWithPerms> =>
   projectAppTables(app, { includeRequired: true })
+
+/**
+ * The tables a write command may name: those `reader` lists — her read grant
+ * passes ({@link passesChatTableGate}) and her records list admits her a row
+ * ({@link keepListedTables}). A table she does not list is left out before the
+ * message is parsed, so a command naming it reads exactly as one naming a
+ * table the app does not have: no command, a plain chat turn. A table she
+ * lists but may not write keeps its refusal.
+ */
+const listedMutationTables = async (
+  input: MutationTurnInput,
+  tables: ReadonlyArray<MutationTableWithPerms>
+): Promise<ReadonlyArray<MutationTableWithPerms>> =>
+  keepListedTables(
+    input.services,
+    input.app,
+    tables.filter((table) => passesChatTableGate(input.app, tables, table, input.reader)),
+    input.reader
+  )
 
 /**
  * Resolve a user's email from the `auth.user` table for activity-log
@@ -148,8 +174,9 @@ export const evaluateMutationTurn = async (
   // ── intent path ────────────────────────────────────────────────────────
   const { app } = input
   const tables = toMutationTables(app)
-  if (app === undefined || tables.length === 0) return { kind: 'none' }
-  const intent = parseMutationIntent(input.message, tables)
+  const listed = await listedMutationTables(input, tables)
+  if (app === undefined || listed.length === 0) return { kind: 'none' }
+  const intent = parseMutationIntent(input.message, listed)
   if (intent === undefined) return { kind: 'none' }
 
   // Group memberships are resolved HERE, on the intent path, because the gap

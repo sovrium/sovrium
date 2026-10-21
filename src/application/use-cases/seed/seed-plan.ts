@@ -32,7 +32,6 @@ import {
   checkRequestedTables,
   checkUndeclaredFields,
   checkUnknownTables,
-  checkUpsertManyToMany,
   resolveMergeOn,
 } from './seed-checks'
 import { findSeedTable, manyToManyFieldNames, seedTablesOf } from './seed-config'
@@ -152,15 +151,32 @@ const resolveUpsertMergeKeys = (
   }
 }
 
-/** Refusals that need the planned values: buckets and links. */
-const semanticErrors = (
-  planned: readonly PlannedSeedTable[],
+/** Refusals that need the planned values: the rows each reference targets. */
+const semanticErrors = (planned: readonly PlannedSeedTable[]): readonly string[] =>
+  checkReferenceTargets(planned)
+
+/**
+ * The tables as far as ordering is concerned: a relationship field orders its
+ * table after the one it points at only when a seed record writes it. The
+ * reciprocal half of a two-sided link is written by nobody — its links are the
+ * other half's junction rows — so counting it would close a cycle out of one
+ * link and refuse a data set with a perfectly good write order.
+ */
+const withWrittenLinksOnly = (
   tables: readonly SeedTableConfig[],
-  mode: SeedMode
-): readonly string[] => [
-  ...(mode === 'upsert' ? checkUpsertManyToMany(planned) : []),
-  ...checkReferenceTargets(planned),
-]
+  planned: readonly PlannedSeedTable[]
+): readonly SeedTableConfig[] =>
+  tables.map((table) => {
+    const seeded = planned.find((one) => one.name === table.name)
+    if (seeded === undefined) return table
+    const written = new Set(seeded.records.flatMap((record) => Object.keys(record.fields)))
+    return {
+      ...table,
+      fields: table.fields.filter(
+        (field) => field.type !== 'relationship' || written.has(field.name)
+      ),
+    }
+  })
 
 /** The dependency order, or the cycle that makes one impossible. */
 const orderScope = (
@@ -201,6 +217,31 @@ const withCreationDate = (
             }
       )
 
+/**
+ * `records` with the `created_at` a row's file writes copied into every
+ * `created-at` field of its table that the row leaves empty, so the field
+ * reads the row's creation instant rather than the moment it was seeded. Like
+ * `created_at`, the copy is written on insert only.
+ */
+const withCreatedAtFields = (
+  records: readonly PlannedSeedRecord[],
+  table: SeedTableConfig | undefined
+): readonly PlannedSeedRecord[] => {
+  const names = (table?.fields ?? [])
+    .filter((field) => field.type === 'created-at' && field.name !== 'created_at')
+    .map((field) => field.name)
+  if (names.length === 0) return records
+  return records.map((record) => {
+    const created = record.fields['created_at']
+    if (created === undefined) return record
+    const missing = names.filter((name) => !Object.hasOwn(record.fields, name))
+    return {
+      ...record,
+      fields: { ...record.fields, ...Object.fromEntries(missing.map((name) => [name, created])) },
+    }
+  })
+}
+
 /** Assemble one `PlannedSeedTable` from a planned file. */
 const toPlannedTable = (
   entry: { readonly file: LoadedSeedFile; readonly records: readonly PlannedSeedRecord[] },
@@ -238,7 +279,13 @@ export const buildSeedPlan = (input: BuildSeedPlanInput): SeedPlanResult => {
 
   const base = planned.map((entry) =>
     toPlannedTable(
-      { ...entry, records: withCreationDate(entry.records, input.createdAt) },
+      {
+        ...entry,
+        records: withCreationDate(
+          withCreatedAtFields(entry.records, findSeedTable(tables, entry.file.table)),
+          input.createdAt
+        ),
+      },
       tables,
       scope
     )
@@ -253,10 +300,10 @@ export const buildSeedPlan = (input: BuildSeedPlanInput): SeedPlanResult => {
     ...table,
     mergeOn: mergeKeys.byTable.get(table.name) ?? [],
   }))
-  const semantic = semanticErrors(plannedTables, tables, input.mode)
+  const semantic = semanticErrors(plannedTables)
   if (semantic.length > 0) return { ok: false, errors: semantic }
 
-  const ordered = orderScope(scope, tables)
+  const ordered = orderScope(scope, withWrittenLinksOnly(tables, plannedTables))
   return ordered.ok
     ? { ok: true, plan: { tables: plannedTables, order: ordered.order } }
     : { ok: false, errors: ordered.errors }

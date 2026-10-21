@@ -7,8 +7,10 @@
 
 import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
+import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { runOnRequest } from '@/presentation/api/runtime/run-effect'
+import { refuseUnlistedRow } from './readable-table-gate'
 import {
   passesTableRoleGate,
   passesUnguardedTableGate,
@@ -63,9 +65,18 @@ function evaluateDeletePredicates(
 /**
  * Z-3 delete gate enforcing read.when before the delete role gate so
  * users who can't see the record always get 404 (enumeration safety),
- * even when their role lacks delete authority.
+ * even when their role lacks delete authority. A record the caller's list of
+ * the table does not admit is then refused as a missing one, and nothing is
+ * deleted.
  */
 export async function checkDeleteGate(input: DeleteGateInput): Promise<Response | undefined> {
+  const refusal = await checkDeleteGrantAndRules(input)
+  if (refusal) return refusal
+  const { c, app, recordId } = input
+  return runDomainPromise(c, refuseUnlistedRow(c, app, recordId))
+}
+
+async function checkDeleteGrantAndRules(input: DeleteGateInput): Promise<Response | undefined> {
   const { c, app, table, session, tableName, userRole, userGroups, recordId, guard } = input
 
   if (!guard) {

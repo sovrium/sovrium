@@ -18,3 +18,6 @@ export type Raw = Readonly<Record<string, unknown>>
 /** Whether a value is a plain object (not `null`, not an array). */
 export const isRecord = (value: unknown): value is Raw =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
+
+/** A value read as a list: itself when it is an array, nothing otherwise. */
+export const arrayOf = (value: unknown): readonly unknown[] => (Array.isArray(value) ? value : [])

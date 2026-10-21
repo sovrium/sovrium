@@ -10,6 +10,7 @@ import { computeChartShellClasses } from '@/presentation/design/chart-default-cl
 import { resolveLucideIconNode } from '@/presentation/render/elements/lucide-resolver'
 import { hostClassName, namedHost } from '@/presentation/render/registry/island-host-attributes'
 import { islandLoadingLabel, islandUiStrings } from './island-loading-label'
+import { islandFallback, specimenEmpty } from './specimen-island-states'
 import type { ComponentRenderer } from './component-dispatch-config'
 
 /**
@@ -151,22 +152,25 @@ export const islandChartComponent: ComponentRenderer = ({
        * which paints the design-system reference app's chart SIMULACRUM (`p-4`
        * on `background`) and is pinned by that file's test — a different surface
        * that happens to share a name. */}
-      <div
-        className={computeChartShellClasses()}
-        data-loading-status=""
-        aria-label={loading.status}
-        role="status"
-      >
-        <div className="bg-muted mb-3 h-4 w-32 animate-pulse rounded" />
-        <div className="flex h-48 items-end gap-3">
-          {CHART_SKELETON_HEIGHTS.map((cls, i) => (
-            <div
-              key={`chart-skeleton-${String(i)}`}
-              className={`bg-muted flex-1 animate-pulse rounded-t ${cls}`}
-            />
-          ))}
-        </div>
-      </div>
+      {islandFallback(
+        <div
+          className={computeChartShellClasses()}
+          data-loading-status=""
+          aria-label={loading.status}
+          role="status"
+        >
+          <div className="bg-muted mb-3 h-4 w-32 animate-pulse rounded" />
+          <div className="flex h-48 items-end gap-3">
+            {CHART_SKELETON_HEIGHTS.map((cls, i) => (
+              <div
+                key={`chart-skeleton-${String(i)}`}
+                className={`bg-muted flex-1 animate-pulse rounded-t ${cls}`}
+              />
+            ))}
+          </div>
+        </div>,
+        () => specimenEmpty('chart.empty', currentLang, languages)
+      )}
     </div>
   )
 }

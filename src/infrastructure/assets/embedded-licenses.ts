@@ -24,7 +24,6 @@ import {
   isEmbeddedLicensesPayload,
   type EmbeddedLicensesPayload,
 } from './embedded-licenses-payload'
-// eslint-disable-next-line import/extensions -- a `with { type: 'file' }` import names one file, and its extension is part of the name
 import RAW_PAYLOAD from './embedded-licenses.generated.json' with { type: 'file' }
 
 export type { EmbeddedLicensesPayload } from './embedded-licenses-payload'

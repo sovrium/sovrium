@@ -265,13 +265,12 @@ ${FORM_RUNTIME_FIELD_ERRORS_SCRIPT}${FORM_RUNTIME_EDIT_LINK_SCRIPT}${FORM_RUNTIM
   // Substitutes the submit-time template variables against the submission
   // response: \`$submission.id\` (ledger row), \`$record.id\` (bound row),
   // \`$record.<column>\` (any submitter-supplied bound-table column), and
-  // \`$form.<field>\` (what was typed). Unresolved refs collapse to ''.
-  // When \`encode\` is set (URL contexts) each substituted VALUE is
-  // percent-encoded so a value like an email's \`@\` rides safely in a query
-  // string; the surrounding template text is left untouched.
-  // The grammar is the shared reader's, interpolated from its source: a
-  // \`|\` fallback chain picks the first non-empty token, and a backslash
-  // directly before a token prints the token itself.
+  // \`$form.<field>\` (what was typed), each a dotted path into an object where
+  // it holds one; unresolved refs collapse to ''. With \`encode\` (URL contexts)
+  // each substituted VALUE is percent-encoded so a value like an email's \`@\`
+  // rides safely in a query string; the template text is untouched. The grammar
+  // is the shared reader's source: a \`|\` chain picks the first non-empty token,
+  // and a backslash directly before a token prints the token itself.
   var TOKEN_CHAIN = /${SCOPED_VAR_CHAIN_SOURCE}/g
   function interpolate(template, response, encode) {
     if (typeof template !== 'string') return ''
@@ -280,8 +279,9 @@ ${FORM_RUNTIME_FIELD_ERRORS_SCRIPT}${FORM_RUNTIME_EDIT_LINK_SCRIPT}${FORM_RUNTIM
     function scopeOf(ns) {
       return Object.prototype.hasOwnProperty.call(scopes, ns) ? scopes[ns] : undefined
     }
-    function text(value) {
-      return value === undefined || value === null ? '' : String(value)
+    function read(v, p) {
+      if (v === undefined || v === null) return ''
+      return !p.length || typeof v !== 'object' ? [String(v)].concat(p).join('.') : read(v[p[0]], p.slice(1))
     }
     return template.replace(TOKEN_CHAIN, function (m, escaped, ns) {
       if (escaped !== undefined) return scopeOf(escaped) ? m.slice(1) : m
@@ -290,7 +290,7 @@ ${FORM_RUNTIME_FIELD_ERRORS_SCRIPT}${FORM_RUNTIME_EDIT_LINK_SCRIPT}${FORM_RUNTIM
       var picked = m
         .split('|')
         .map(function (token) {
-          return text(scope[token.slice(ns.length + 2).replace(/[.]raw$/, '')])
+          return read(scope, token.slice(ns.length + 2).replace(/[.]raw$/, '').split('.'))
         })
         .filter(function (s) {
           return s.length > 0

@@ -12,7 +12,7 @@
  */
 
 import { inArray } from 'drizzle-orm'
-import { Effect, Option, Semaphore } from 'effect'
+import { Clock, Effect, Option, Semaphore } from 'effect'
 import {
   StorageError,
   UNATTRIBUTED_BUCKET,
@@ -104,10 +104,15 @@ export const getMetadataFromCatalog: StorageService['Service']['getMetadata'] = 
 export const findOtherSpellingIn =
   (store: Readonly<SpellingStore>) =>
   (key: string): Effect.Effect<Option.Option<StoredSpelling>, StorageError> =>
-    Effect.tryPromise({
-      try: () => findOtherStoredSpelling(key, store),
-      catch: (e: unknown) => makeError(e),
-    }).pipe(Effect.map(Option.fromNullishOr))
+    Clock.currentTimeMillis.pipe(
+      Effect.flatMap((nowMs) =>
+        Effect.tryPromise({
+          try: () => findOtherStoredSpelling(key, store, nowMs),
+          catch: (e: unknown) => makeError(e),
+        })
+      ),
+      Effect.map(Option.fromNullishOr)
+    )
 
 /**
  * Refuse a write whose key is a second spelling of a stored key, before any

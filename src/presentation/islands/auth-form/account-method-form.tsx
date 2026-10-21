@@ -108,6 +108,24 @@ const noop = (): void => undefined
 const codesOf = (data: Readonly<Record<string, unknown>> | undefined): string[] | undefined =>
   Array.isArray(data?.['backupCodes']) ? data['backupCodes'].map(String) : undefined
 
+/**
+ * Where a successful request sends the reader: the form's own target, except
+ * that an invitee the console cannot admit, about to be sent into it, goes to
+ * the app path the server named instead of a console 404.
+ */
+function landingOf(
+  method: string,
+  data: Readonly<Record<string, unknown>> | undefined,
+  target: string | undefined
+): unknown {
+  const landing = data?.['landingPath']
+  if (method !== 'acceptInvitation' || typeof landing !== 'string') return target
+  // Only a console document carries its mount base (`MOUNT_BASE_PATH_ATTRIBUTE`,
+  // spelled here so this island does not mount the console's link module): its
+  // form's target is a console page, which this invitee's role cannot open.
+  return document.querySelector('[data-admin-base-path]') === null ? target : landing
+}
+
 /** The stage a successful request leads to, from what it answered. */
 function nextStage(method: string, data: Readonly<Record<string, unknown>> | undefined): Stage {
   const codes = codesOf(data)
@@ -154,7 +172,7 @@ function useAccountSubmit(props: AccountMethodFormProps) {
   const succeed = (data: Readonly<Record<string, unknown>> | undefined): void => {
     const changed = CHANGED_ACCOUNT_LIST[method]
     if (changed !== undefined) dispatchIslandEvent('sovrium:refetch', { id: changed })
-    const target = toSafeRedirectPath(props.redirectUrl)
+    const target = toSafeRedirectPath(landingOf(method, data, props.redirectUrl))
     if (NAVIGATES_ON_SUCCESS.has(method) && target !== undefined) {
       globalThis.location.assign(target)
       return
@@ -168,7 +186,7 @@ function useAccountSubmit(props: AccountMethodFormProps) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
     const values = Object.fromEntries(fields.map((f) => [f.name, String(form.get(f.name) ?? '')]))
-    const invalid = validateAllFields(fields, values)
+    const invalid = validateAllFields(fields, values, props.uiStrings)
     setErrors(invalid)
     const request = accountRequest(method, values, {
       factor: props.factor,

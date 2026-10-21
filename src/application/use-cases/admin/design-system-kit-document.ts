@@ -38,13 +38,19 @@
  *     the light values its root computed.
  */
 
-/** Strip every `<script>` element: a kit page is static. */
-const withoutScripts = (html: string): string =>
-  html.replaceAll(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+/**
+ * Every element a kit page does not carry: each `<script>` (a kit page is
+ * static) and each island entry marker (it names a script the kit does not
+ * carry). Removed by an HTML parser, so the end of an element is wherever the
+ * parser ends it, however its closing tag is spelled.
+ */
+const NON_KIT_ELEMENTS = 'script, template[data-island-entry]'
 
-/** Strip every island entry marker: it names a script the kit does not carry. */
-const withoutIslandEntries = (html: string): string =>
-  html.replaceAll(/<template\b[^>]*\bdata-island-entry\b[^>]*>[\s\S]*?<\/template>/gi, '')
+/** The markup with every element a kit page does not carry removed. */
+const withoutNonKitElements = (html: string): string =>
+  new HTMLRewriter()
+    .on(NON_KIT_ELEMENTS, { element: (element) => void element.remove() })
+    .transform(html)
 
 /**
  * The specimen a rendered kit page draws, and nothing of the page around it.
@@ -57,7 +63,7 @@ const withoutIslandEntries = (html: string): string =>
 export const renderedSpecimenOf = (html: string): string => {
   const body = /<body\b[^>]*>([\s\S]*)<\/body>/i.exec(html)?.[1] ?? html
   const main = /<main\b[^>]*>([\s\S]*)<\/main>/i.exec(body)?.[1] ?? body
-  return withoutIslandEntries(withoutScripts(main)).trim()
+  return withoutNonKitElements(main).trim()
 }
 
 /** Where the running server serves the specimens' sample media. */
@@ -94,8 +100,8 @@ export const escapeHtml = (text: string): string =>
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
 
-/** One static kit document: its own head linking `kit.css`, around a body. */
-export const kitDocument = (title: string, body: string): string =>
+/** One static kit document: its own head linking `kit.css` (or `stylesheet`), around a body. */
+export const kitDocument = (title: string, body: string, stylesheet = 'kit.css'): string =>
   [
     '<!doctype html>',
     '<html lang="en">',
@@ -103,7 +109,7 @@ export const kitDocument = (title: string, body: string): string =>
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     `<title>${escapeHtml(title)}</title>`,
-    '<link rel="stylesheet" href="kit.css">',
+    `<link rel="stylesheet" href="${escapeHtml(stylesheet)}">`,
     '</head>',
     '<body class="bg-background text-foreground">',
     body,

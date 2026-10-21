@@ -223,6 +223,9 @@ function resolveButtonConfig(
       ...(tf['url'] === undefined ? {} : { url: tf['url'] }),
       ...(tf['automation'] === undefined ? {} : { automation: tf['automation'] }),
       ...(tf['visibleWhen'] === undefined ? {} : { visibleWhen: tf['visibleWhen'] }),
+      // The `disabledWhen` itself stays on the server: the form draws the
+      // verdict its record carries (`_disabled`), and only the reason is shown.
+      ...(tf['disabledReason'] === undefined ? {} : { disabledReason: tf['disabledReason'] }),
     },
   }
 }

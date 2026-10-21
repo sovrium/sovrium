@@ -59,7 +59,8 @@ export const autoGenerateTableIds = (
  * NOT circular dependencies because the foreign key is always on the "many" side, allowing proper
  * table creation order (create "one" side first, then "many" side with FK).
  *
- * Circular dependencies are ALLOWED when at least one side allows NULL (required: false).
+ * Circular dependencies are ALLOWED when at least one side allows NULL: only a link that says
+ * `required: true` is NOT NULL, so a missing `required` counts as optional, as its column does.
  * This enables the INSERT-UPDATE pattern:
  * 1. INSERT with NULL foreign key
  * 2. INSERT second table with reference to first
@@ -93,7 +94,7 @@ export const detectCircularRelationships = (
             field.relatedTable !== undefined &&
             field.relatedTable !== table.name && // Exclude self-references
             (field.relationType === 'many-to-one' || field.relationType === undefined) && // Only track dependencies from FK side
-            field.required !== false // Track required relationships (undefined = required by default, only false = optional)
+            field.required === true // Only `required: true` is NOT NULL; a missing key is optional
         )
         .map((field) => field.relatedTable as string)
       return [table.name, relatedTables] as const

@@ -13,7 +13,7 @@ import {
   substituteRecordInBody,
 } from './fetch-action-substitution'
 import { refreshServerRenderedRegions } from './refetch-server-rendered-region'
-import type { ToastRetry } from './toast-accessibility'
+import type { ToastControls, ToastRetry } from './toast-accessibility'
 import type {
   FetchAction,
   FetchResponseEnvelope,
@@ -60,8 +60,13 @@ export interface ExecuteFetchActionOptions {
     message: string,
     variant?: string,
     duration?: number,
-    retry?: ToastRetry
+    controls?: ToastControls
   ) => void
+  /**
+   * What a failed request's toast adds after its message, read off the answer
+   * (a console's request id, `runtime/toast-request-id.ts`). Absent, nothing.
+   */
+  readonly failureNote?: (status: number, body: unknown) => ToastControls['decorate']
   /**
    * Row / detail record context for `$record.<field>` substitution in the
    * `navigate` / `download` target `url` (and the `download` `filename`). Supplied
@@ -135,14 +140,13 @@ export function evaluateFetchEnvelope(
 export function renderActionToast(
   slot: ToastSlot,
   options: ExecuteFetchActionOptions,
-  again?: () => void
+  again?: () => void,
+  decorate?: ToastControls['decorate']
 ): void {
   // An `onError` that answers with `status` declares no toast message.
   if (slot?.message !== undefined && options.renderToast) {
     const message = substituteRecord(slot.message, options.record)
-    const retry = retryOf(slot, again)
-    if (retry === undefined) options.renderToast(message, slot.variant)
-    else options.renderToast(message, slot.variant, undefined, retry)
+    options.renderToast(message, slot.variant, undefined, { retry: retryOf(slot, again), decorate })
   }
 }
 

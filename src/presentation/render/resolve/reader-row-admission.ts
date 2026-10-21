@@ -19,6 +19,7 @@
  *    list's template may name a field a grant shows her on every such row.
  */
 
+import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import {
   callerReaderFromSession,
   type CallerReader,
@@ -28,28 +29,30 @@ import {
   admitsRow,
   callersOfRow,
   fieldReadOnEveryAdmittedRow,
+  signedOutRowAdmission,
   type RowGrants,
   type RowReadAdmission,
 } from '@/domain/models/app/tables/row-read-admission-service'
-import type { DataSourceDb } from './data-source-contracts'
+import type { DataSourceDb, QueryLookupMasks } from './data-source-contracts'
 import type { RowLevelReadCheck } from './row-rule-read-check'
+import type { ReadReaderRows } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
-import type { DataFilter } from '@/domain/models/app/pages/components/data-source'
+import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { ReadAccessPlan } from '@/domain/models/app/tables/read-access-plan-service'
 
 type RecordRow = Readonly<Record<string, unknown>>
 
 /**
- * `filter` narrowed to the rows `admission` admits: unchanged for every row
- * (or no answer to apply), `id IN` the granted rows otherwise. A caller has
+ * `filter` narrowed to the rows `admission` admits: unchanged for every row,
+ * `id IN` the granted rows otherwise. A caller has
  * already answered a `no-row` admission with no row.
  */
 const filterToAdmittedRows = (
   filter: readonly DataFilter[],
-  admission: RowReadAdmission | undefined
+  admission: RowReadAdmission
 ): readonly DataFilter[] =>
-  admission?.kind === 'granted-rows'
+  admission.kind === 'granted-rows'
     ? [...filter, { field: 'id', operator: 'in', value: [...admission.ids] }]
     : filter
 
@@ -79,19 +82,51 @@ const withGrantedFields = (
   })
 }
 
+/**
+ * The rows a table admits a render that brings no reader of its own (a feed,
+ * the operator console's mounted surfaces): a visitor who is not signed in
+ * reads the rows the records list admits her (`signedOutRowAdmission`). One
+ * holding a session it cannot judge reads none — it fails closed.
+ */
+export const signedOutReaderRows: ReadReaderRows = async (app, tableName, session) => ({
+  admission:
+    session === undefined || isGuestSession(session.userId)
+      ? signedOutRowAdmission(app, tableName)
+      : { kind: 'no-row' },
+  grants: new Map(),
+})
+
+/**
+ * Whether a read names a field a lookup or count mask could steer it on: a
+ * filter or a sort. A read naming neither reads every admitted row in its
+ * stored order, so its masks are never computed.
+ */
+export const namesSteeringFields = (query: {
+  readonly filter: readonly DataFilter[]
+  readonly sort?: readonly DataSort[]
+}): boolean => query.filter.length > 0 || (query.sort?.length ?? 0) > 0
+
 /** Rows read, and how many match across every page. */
 interface RowsRead {
   readonly rows: readonly RecordRow[]
   readonly total: number
 }
 
+/** What a server-drawn read asks: its filter, its sort, and the masks it steers by. */
+interface AdmittedQuery {
+  readonly filter: readonly DataFilter[]
+  readonly sort?: readonly DataSort[]
+  readonly lookupMasks?: QueryLookupMasks
+}
+
 /**
  * The rows of a server-drawn read its list admits its reader: none when it
  * admits none, else the read narrowed to the admitted rows (`via.read`, which
- * counts them alone), projected for her (`via.project`) and given the fields
- * each row's grants show her.
+ * counts them alone) — steering on each lookup and count it names as her
+ * records list does (`db.readQueryMasks`) — projected for her (`via.project`)
+ * and given the fields each row's grants show her.
  */
-export async function readAdmittedRows<Q extends { readonly filter: readonly DataFilter[] }>(
+export async function readAdmittedRows<Q extends AdmittedQuery>(
   input: {
     readonly app: App
     readonly tableName: string
@@ -106,9 +141,18 @@ export async function readAdmittedRows<Q extends { readonly filter: readonly Dat
   }
 ): Promise<RowsRead> {
   const { app, tableName, session, db, reader } = input
-  const { admission, grants } = (await db.readReaderRows?.(app, tableName, session)) ?? {}
-  if (admission?.kind === 'no-row') return { rows: [], total: 0 }
-  const read = await via.read({ ...query, filter: filterToAdmittedRows(query.filter, admission) })
+  const { admission, grants } = await db.readReaderRows(app, tableName, session)
+  if (admission.kind === 'no-row') return { rows: [], total: 0 }
+  const named = { filter: query.filter, ...(query.sort === undefined ? {} : { sort: query.sort }) }
+  // A read naming no field steers on nothing: no mask to compute.
+  const masks = namesSteeringFields(named)
+    ? ((await db.readQueryMasks?.(app, tableName, session, named)) ?? [])
+    : []
+  const read = await via.read({
+    ...query,
+    filter: filterToAdmittedRows(query.filter, admission),
+    ...(masks.length > 0 && { lookupMasks: masks }),
+  })
   const projected = await via.project(read.rows)
   const rows = withGrantedFields({ app, tableName, reader, grants }, read.rows, projected)
   return { rows, total: read.total }
@@ -124,8 +168,8 @@ interface RecordReadGate {
  * A single-record gate that also answers what the records list admits its
  * reader: a row the list does not admit fails `rowCheck` — so a page answers
  * it exactly as a missing row — and an admitted row is projected with the
- * fields each grant on it shows her, as the list shows them. Unchanged when no
- * reader rows are injected (a render outside the page route funnel).
+ * fields each grant on it shows her, as the list shows them. Unchanged in an
+ * app without auth, where every reader reads every row.
  */
 export const withReaderRowAdmission = (
   input: {
@@ -138,9 +182,8 @@ export const withReaderRowAdmission = (
   gate: RecordReadGate
 ): RecordReadGate => {
   const { app, tableName, session, db, reader } = input
-  const readRows = db.readReaderRows
-  if (readRows === undefined || !app.auth) return gate
-  const rowsOf = () => readRows(app, tableName, session)
+  if (!app.auth) return gate
+  const rowsOf = () => db.readReaderRows(app, tableName, session)
   return {
     rowCheck: async (record) =>
       admitsRow((await rowsOf()).admission, String(record['id'])) &&
@@ -168,9 +211,7 @@ export const restrictedColumnsForReader = async (ctx: {
 }): Promise<ReadonlySet<string>> => {
   const restricted = ctx.plan?.restrictedColumns ?? new Set<string>()
   const reader = callerReaderFromSession(ctx.session, ctx.app)
-  if (restricted.size === 0 || reader === undefined || ctx.db.readReaderRows === undefined) {
-    return restricted
-  }
+  if (restricted.size === 0 || reader === undefined) return restricted
   const rows = await ctx.db.readReaderRows(ctx.app, ctx.tableName, ctx.session)
   if (rows.admission.kind !== 'granted-rows') return restricted
   const related = { role: reader.role, groups: reader.groups, signedOut: false }

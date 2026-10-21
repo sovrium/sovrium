@@ -14,6 +14,7 @@ import {
 import { resolvePasswordPolicy } from '@/domain/models/app/auth/password-policy'
 import { logError } from '@/infrastructure/logging/logger'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
+import { buildPostAcceptResponse } from '@/presentation/api/auth/admin-invitation-accept-response'
 import { requireInviteCaller, resolveBaseURL } from '@/presentation/api/auth/admin-invitation-guard'
 import { chainAdminInvitationLifecycleRoutes } from '@/presentation/api/auth/admin-invitation-lifecycle-routes'
 import { respondToInviteFailure } from '@/presentation/api/auth/admin-invitation-refusal'
@@ -111,12 +112,6 @@ const createInviteUserHandler =
     }
   }
 
-interface AcceptedInvitationUser {
-  readonly id: string
-  readonly email: string
-  readonly name: string
-}
-
 /**
  * Map a non-success accept-invitation result onto an HTTP response.
  *
@@ -139,62 +134,6 @@ const respondToAcceptFailure = (
     return c.json({ success: false, message: result.message, code: 'TOKEN_EXPIRED' }, 410)
   }
   return c.json({ success: false, message: result.message, code: 'INTERNAL_ERROR' }, 500)
-}
-
-/**
- * Forward `Set-Cookie` headers from the Better Auth sign-in response onto a
- * fresh response carrying our own JSON body.
- *
- * Better Auth's `asResponse: true` mode returns a `Response` whose body we
- * don't want (it is the standard sign-in payload), but whose cookies we
- * absolutely DO want — they carry the customer's freshly-minted session.
- */
-const buildResponseWithForwardedCookies = (
-  signInResponse: Readonly<Response>,
-  user: AcceptedInvitationUser
-): Response => {
-  const responseBody = {
-    user: { id: user.id, email: user.email, name: user.name },
-    status: 'accepted',
-  }
-  const headers = new Headers({ 'content-type': 'application/json' })
-  signInResponse.headers.forEach((value, key) => {
-    if (key.toLowerCase() === 'set-cookie') {
-      headers.append('set-cookie', value)
-    }
-  })
-  return new Response(JSON.stringify(responseBody), { status: 200, headers })
-}
-
-/**
- * Sign the freshly-onboarded customer in by delegating to Better Auth.
- *
- * If Better Auth surfaces an error (rare — the password was just set), we
- * soft-fail to a 200 with `sessionEstablished: false` so the customer can
- * proceed via the regular sign-in form rather than seeing a 500.
- */
-const buildPostAcceptResponse = async (
-  authInstance: AuthInstance,
-  user: AcceptedInvitationUser,
-  password: string
-): Promise<Response> => {
-  try {
-    const signInResponse = (await authInstance.api.signInEmail({
-      body: { email: user.email, password, rememberMe: false },
-      asResponse: true,
-    })) as Response
-    return buildResponseWithForwardedCookies(signInResponse, user)
-  } catch (error) {
-    logError('[admin-invitation] post-accept sign-in failed', error)
-    return new Response(
-      JSON.stringify({
-        user: { id: user.id, email: user.email, name: user.name },
-        status: 'accepted',
-        sessionEstablished: false,
-      }),
-      { status: 200, headers: { 'content-type': 'application/json' } }
-    )
-  }
 }
 
 /**
@@ -221,7 +160,7 @@ const createAcceptInvitationHandler =
       }
 
       const password = (body as { readonly password?: string }).password as string
-      return await buildPostAcceptResponse(authInstance, result.user, password)
+      return await buildPostAcceptResponse(authInstance, result, password, authConfig)
     } catch (error) {
       logError('[admin-invitation] accept-invitation handler crashed', error)
       return c.json(

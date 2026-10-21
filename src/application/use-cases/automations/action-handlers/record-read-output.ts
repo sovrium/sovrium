@@ -24,6 +24,7 @@ import {
   type AuthDatabaseError,
 } from '@/application/ports/repositories/auth/auth-repository'
 import { shapeRecordsForReader } from '@/application/use-cases/tables/read-record-programs'
+import { logError } from '@/infrastructure/logging/logger'
 import { buildGuestSession, buildSystemSession } from '../build-guest-session'
 import { singleUserFieldNames, withHydratedId } from '../hydrated-field-reference'
 import { runLinkReader, type RunReadAccess } from './record-caller-gate'
@@ -167,6 +168,27 @@ const keepsWriteOnly = (access: RunReadAccess, automation: AutomationContext): b
   access.kind === 'scoped' || (access.kind === 'system' && automation.writeOnly?.blind !== true)
 
 /**
+ * {@link expandUserFields}, logging a failure with its cause before the step
+ * fails with its fixed message.
+ */
+const expandUserFieldsLogged = (
+  app: App,
+  tableName: string,
+  records: readonly ShapedRecord[]
+): Effect.Effect<readonly ShapedRecord[], AuthDatabaseError, AuthRepository> =>
+  expandUserFields(app, tableName, records).pipe(
+    Effect.tapCause((cause) =>
+      Effect.sync(() =>
+        logError(
+          '[automations] a record read could not expand the people its records name; the step fails',
+          cause,
+          { 'sovrium.table.name': tableName }
+        )
+      )
+    )
+  )
+
+/**
  * Build the canonical read success output, SHARED by `record/read` and
  * `record/list`. Surfaces both `record` (first row or undefined) and `records`
  * (the whole array), so `{{getUser.record.email}}` works for the single-row
@@ -211,7 +233,8 @@ export const buildReadOutput = (
       const { failure } = shaped
       return { status: 'failure', error: failure.message } as const
     }
-    const expanded = yield* Effect.result(expandUserFields(app, tableName, shaped.success))
+    // effect-swallow: the step fails with a fixed message naming what could not be read; the cause is logged on the way.
+    const expanded = yield* Effect.result(expandUserFieldsLogged(app, tableName, shaped.success))
     if (expanded._tag === 'Failure') {
       return { status: 'failure', error: 'Failed to read the people the records name' } as const
     }

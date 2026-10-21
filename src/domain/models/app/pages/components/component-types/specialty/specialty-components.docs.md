@@ -57,6 +57,17 @@ Uploaded files land in a bucket, which is also where the size and type policy is
 
 A label that is not a key is rendered exactly as written, so a literal stays a literal.
 
+**A toolbar's upload is `compact`.** `compact: true` draws only the trigger — an outline button at a toolbar's size, with an upload icon — so it sits on the toolbar's row beside a search box. While the file goes up the trigger is disabled and reads "Uploading…", and the outcome is the `onSuccess` and `onError` toasts: no file chip and no message are drawn under it, so the row keeps its height. When the upload fails, the `onError` toast carries a **Retry** that sends the same file again, and leaves once it does. A file the limits refuse is a toast too. What the upload takes is stated before anyone tries: its types and its size cap — those it declares, else the bucket's it uploads to — read on one line just after the trigger, `PNG, JPEG, PDF · 10 MB each`, and a screen reader reads that line with the button. An upload with no rule to state shows no line. On a phone the line is left unpainted, for the toolbar's room, and is still read out. A compact upload takes no drop zone, and `compact: true` together with `dropZone: true` is refused when the config loads.
+
+```yaml
+- type: file-upload
+  compact: true
+  uploadAction: /api/buckets/contracts/files
+  props: { label: Upload }
+  onSuccess: { type: toast, variant: success, message: Contract uploaded, refetch: contracts-grid }
+  onError: { type: toast, variant: error, message: "Couldn't upload {file}." }
+```
+
 Pointed at `/api/account/avatar`, a `file-upload` sets the signed-in visitor's own profile picture; **Profile Avatars** gives the whole account-page control, with an `avatar` that shows the picture and a button that removes it.
 
 ## `number-input`

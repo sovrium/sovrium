@@ -24,12 +24,9 @@
  * replacement ships in the same release, so its keys went straight to a
  * refusal too.
  *
- * `design.codeBlock` is the first entry, and it is an exception of another
- * kind: the founder ruled it INERT from the release that first warns, rather
- * than honoured until it is refused. Code blocks draw shadcn/ui's default
- * colours — `github-light` in the light scheme, `github-dark` in the dark one —
- * whatever the key names, so the warning tells an author the key does nothing
- * and can go. The schema still accepts it for that one release.
+ * `design.codeBlock` was the first entry (deprecated in 0.40, inert, refused
+ * from 0.41). It has left this table for `design/removed-keys.ts`, so the table
+ * is empty until the next deprecation.
  *
  * ## Why a walk over the raw config rather than the reporter
  *
@@ -75,16 +72,7 @@ export interface DeprecationWarning {
  * Every deprecated key: the keys between their warning release and their
  * removal.
  */
-export const DEPRECATED_KEYS: readonly DeprecatedKey[] = [
-  {
-    node: /^design$/,
-    key: 'codeBlock',
-    replacement:
-      "It is ignored; code blocks use shadcn/ui's default colours. Remove `design.codeBlock`.",
-    deprecatedIn: '0.40',
-    removedIn: '0.41',
-  },
-]
+export const DEPRECATED_KEYS: readonly DeprecatedKey[] = []
 
 type Segment = string | number
 

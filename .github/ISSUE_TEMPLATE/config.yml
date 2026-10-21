@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/sovrium/sovrium/security/advisories/new
+    about: Privately, through a security advisory. Never open a public issue for a vulnerability.
+  - name: Ask a question
+    url: https://github.com/sovrium/sovrium/discussions
+    about: Questions and ideas that are not yet a bug or a feature request go to Discussions.
+  - name: Sovrium Cloud support
+    url: https://sovrium.com
+    about: For an app hosted on Sovrium Cloud, contact support from your account.

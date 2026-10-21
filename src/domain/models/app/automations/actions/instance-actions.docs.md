@@ -55,17 +55,17 @@ No instance action can be granted to an AI agent, whatever the switch says.
 
 ## The units each operator touches
 
-| Operator  | What it runs                                                                                                                                      |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `status`  | `systemctl show --property=ActiveState,SubState,MainPID,NRestarts,MemoryCurrent,Result,ExecMainStatus,InvocationID sovrium-app@<slug>.service`    |
-| `start`   | `systemctl start sovrium-app@<slug>.socket` — the first request wakes the app                                                                     |
-| `stop`    | `systemctl stop sovrium-app@<slug>.socket sovrium-proxy@<slug>.service sovrium-app@<slug>.service`                                                |
-| `restart` | `systemctl stop sovrium-proxy@<slug>.service sovrium-app@<slug>.service`, then `systemctl start sovrium-app@<slug>.service`                       |
-| `remove`  | as `stop`, then with `purge: true` deletes the app's folder under `SOVRIUM_INSTANCES_DIR`                                                         |
-| `logs`    | `journalctl -u sovrium-<unit>@<slug>.service --no-pager -n <lines>` (plus `--since=` when given); `<unit>` is `app` unless the step names another |
-| `backup`  | `systemctl start sovrium-backup@<slug>.service`, then stores the archive it leaves                                                                |
-| `restore` | `stop`, then `systemctl start sovrium-restore@<slug>.service`, then `start`                                                                       |
-| `seed`    | `systemctl start sovrium-seed@<slug>.service`, then returns the report it leaves                                                                  |
+| Operator  | What it runs                                                                                                                                                                    |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `status`  | `systemctl show --property=ActiveState,SubState,MainPID,NRestarts,MemoryCurrent,Result,ExecMainStatus,InvocationID sovrium-app@<slug>.service`                                  |
+| `start`   | `systemctl start sovrium-app@<slug>.socket` — the first request wakes the app                                                                                                   |
+| `stop`    | `systemctl stop sovrium-app@<slug>.socket sovrium-proxy@<slug>.service sovrium-app@<slug>.service`                                                                              |
+| `restart` | `systemctl stop sovrium-app@<slug>.socket sovrium-proxy@<slug>.service sovrium-app@<slug>.service`, then `systemctl start sovrium-app@<slug>.socket sovrium-app@<slug>.service` |
+| `remove`  | as `stop`, then with `purge: true` deletes the app's folder under `SOVRIUM_INSTANCES_DIR`                                                                                       |
+| `logs`    | `journalctl -u sovrium-<unit>@<slug>.service --no-pager -n <lines>` (plus `--since=` when given); `<unit>` is `app` unless the step names another                               |
+| `backup`  | `systemctl start sovrium-backup@<slug>.service`, then stores the archive it leaves                                                                                              |
+| `restore` | `stop`, then `systemctl start sovrium-restore@<slug>.service`, then `start`                                                                                                     |
+| `seed`    | `systemctl start sovrium-seed@<slug>.service`, then returns the report it leaves                                                                                                |
 
 `engineInstall` and `enginePrune` touch no unit: they write the engine store only.
 
@@ -169,7 +169,7 @@ The `journal` of a health step and the `lines` of a logs step are shown only to 
 
 A supervised app runs as its own system user, whose data the agent cannot read. So `backup` starts the one-shot unit `sovrium-backup@<slug>.service`, which runs `sovrium backup` as the app and leaves `backup/backup.tar.gz` in the app's folder; the step stores it at `destination.objectKey` in this app's storage and deletes the local copy. The app keeps running. In a run someone started by hand, a `destination.objectKey` that already holds a file the run did not write, catalogued or not, fails the step with `Resource not found` before the backup unit starts.
 
-`restore` copies the archive from `source.objectKey` — read from the object store, whichever app wrote it — to `restore/restore.tar.gz` — a directory the agent sets to mode 2770 (0770 when its own sandbox refuses the setgid bit), so the app's group, which the restore unit runs in, can write to it — stops the app, starts `sovrium-restore@<slug>.service`, starts the app's socket again and deletes the copy. If the restore unit fails, the step fails and the app stays stopped, so a half-restored app is never served. In a run someone started by hand, `source.objectKey` is read as its starter may read it: a file stored in a table field's bucket, or in a bucket she may not download, fails the step with `Resource not found`, exactly as a key nothing holds does, and the app is not stopped. An archive written to the store with no catalog row is restored as before; a starter with the admin role reads every key.
+`restore` copies the archive from `source.objectKey` — read from the object store, whichever app wrote it — to `restore/restore.tar.gz` — a directory the agent sets to mode 2770 (0770 when its own sandbox refuses the setgid bit), so the app's group, which the restore unit runs in, can write to it — stops the app, starts `sovrium-restore@<slug>.service`, starts the app's socket again and deletes the copy. If the restore unit fails, the step fails and the app stays stopped, so a half-restored app is never served. In a run someone started by hand, `source.objectKey` is read as its starter may read it: a file stored in a table field's bucket, or in a bucket she may not download, fails the step with `Resource not found`, exactly as a key nothing holds does, and the app is not stopped. An archive written to the store with no catalog row is restored as before; a starter with the admin role reads every key. An archive is read up to 1 GiB: a larger one fails the step before the app is stopped, and the read stops at that size.
 
 ## Seeding
 

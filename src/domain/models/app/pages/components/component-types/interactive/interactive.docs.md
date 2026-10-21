@@ -118,7 +118,7 @@ A short status word pinned to a thing, never a sentence. Reference: shadcn/ui Ba
 
 `variant` and `badgeVariant` are two different axes, and both are spelled out because they do different jobs: `variant` changes **what the badge draws**, `badgeVariant` changes **how it is painted**. A key belonging to one mode is inert under the other rather than refused.
 
-`badgeVariant` takes shadcn/ui's six tones: `default`, `secondary`, `destructive`, `outline`, `ghost` (no fill until it is hovered) and `link` (the text of a link). `href` makes the badge a link — meant for `link`, though any tone navigates — so "3 unpaid" can take the reader to the invoices it counts. The same tones apply to a navigation item's badge.
+`badgeVariant` takes shadcn/ui's six tones: `default`, `secondary`, `destructive`, `outline`, `ghost` (no fill until it is hovered) and `link` (the text of a link), and three status tones of Sovrium's: `success`, `warning` and `info`, each tinted in its status colour (green, amber, blue in the default theme) the way `destructive` is tinted red, so a run that completed, one waiting on someone and one still going read apart at a glance. A running state reads `info`. `href` makes the badge a link — meant for `link`, though any tone navigates — so "3 unpaid" can take the reader to the invoices it counts. The same tones apply to a navigation item's badge.
 
 ### `variant: status`
 

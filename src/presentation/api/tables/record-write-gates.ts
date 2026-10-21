@@ -13,6 +13,7 @@ import {
 } from '@/domain/models/app/auth/permission-evaluator-service'
 import { createAllowed } from '@/domain/models/app/tables/row-level-write-decision-service'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
+import { refuseUnlistedRow } from './readable-table-gate'
 import { fieldConditionLock } from './record-update-guards'
 import { checkTableUpdatePermissionWithRole } from './record-update-permissions'
 import { forbiddenCreateResponse, forbiddenCreateScopeResponse } from './response-helpers'
@@ -22,6 +23,7 @@ import {
   formMutationGate,
   guardForTable,
 } from './row-level-guard'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { App, Table } from '@/domain/models/app'
 import type {
@@ -155,13 +157,19 @@ const updateGateAndPredicate = (
  */
 export const updateGates = (
   input: UpdateGateInput
-): Effect.Effect<Response | undefined, never, TableRepository> => {
-  const { c, table, session, tableName, recordId } = input
+): Effect.Effect<Response | undefined, never, TableRepository | DataSourceRepository> => {
+  const { c, app, table, session, tableName, recordId } = input
   return Effect.filterOrElse(
     updateGateAndPredicate(input),
     (refusal) => refusal !== undefined,
-    // Reject updates to records locked by a field `condition` (readOnly: true).
-    () => fieldConditionLock({ c, table, session, tableName, recordId })
+    () =>
+      Effect.filterOrElse(
+        // A record her list of the table does not admit is a missing one.
+        refuseUnlistedRow(c, app, recordId),
+        (refusal) => refusal !== undefined,
+        // Reject updates to records locked by a field `condition` (readOnly: true).
+        () => fieldConditionLock({ c, table, session, tableName, recordId })
+      )
   )
 }
 
@@ -195,7 +203,7 @@ export const formUpdateAuth = (input: {
 }) => {
   const { c, app, tableName, userRole, userGroups, session, recordId, change } = input
   const table = app.tables?.find((t) => t.name === tableName)
-  return Effect.flatMap(
+  const gate = Effect.flatMap(
     guardForTable(session, { userRole, userGroups }, table, app),
     (guard): Effect.Effect<Response | undefined, never, TableRepository> => {
       if (guard) {
@@ -218,5 +226,11 @@ export const formUpdateAuth = (input: {
       )
       return Effect.succeed(permissionCheck.allowed ? undefined : permissionCheck.response)
     }
+  )
+  // A record her list of the table does not admit is a missing one.
+  return Effect.filterOrElse(
+    gate,
+    (refusal) => refusal !== undefined,
+    () => refuseUnlistedRow(c, app, recordId)
   )
 }

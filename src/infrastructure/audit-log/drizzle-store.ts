@@ -260,7 +260,7 @@ function inWhenSet(column: Readonly<Column>, values: readonly string[] | undefin
  * `resourceType` is an equality match on the indexed `resource_type` column, not
  * a prefix match: `form` must exclude the dotted compound `form.submission`.
  */
-function buildAuditWhere(filter: AuditListFilter = {}) {
+export function buildAuditWhere(filter: AuditListFilter = {}) {
   const conditions = [
     eqWhenSet(auditLog.actorId, filter.actorId),
     eqWhenSet(auditLog.action, filter.action),

@@ -32,7 +32,7 @@
  *
  * **Describe; do not argue.** The shell says what a control does, what just
  * happened, and what to do next. It does not say why any of it is good. That is
- * not modesty — the growth record (`[internal ref]`, queried 2026-09-22) holds no
+ * not modesty — the growth record (kept outside this repository, queried 2026-09-22) holds no
  * offer covering Sovrium-the-product, so a benefit claim here would have no
  * record behind it and is refused at review. Three specific refusals came back
  * named, and each one had a plausible sentence attached to it that is not

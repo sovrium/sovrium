@@ -24,19 +24,20 @@ import type { DatabaseError } from '@/domain/errors'
  */
 export function markRecordCommentsReadProgram(config: {
   readonly session: Readonly<UserSession>
-  readonly tableId: string
+  /** The one key the table's watermark is written under (`commentTableKeysOf(table)[0]`). */
+  readonly tableKey: string
   readonly recordId: string
   readonly tableName: string
 }): Effect.Effect<void, DatabaseError | NotFoundError, CommentRepository> {
   return Effect.gen(function* () {
     const comments = yield* CommentRepository
-    const { session, tableId, recordId, tableName } = config
+    const { session, tableKey, recordId, tableName } = config
 
     const hasAccess = yield* comments.checkRecordExists({ session, tableName, recordId })
     if (!hasAccess) {
       return yield* Effect.fail(new NotFoundError('Record not found'))
     }
 
-    yield* comments.markRead({ session, tableId, recordId })
+    yield* comments.markRead({ session, tableKey, recordId })
   }).pipe(Effect.withSpan('tables.mark-record-comments-read-program'))
 }

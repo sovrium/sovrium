@@ -11,7 +11,8 @@
  * viewer's controls, composer and run trail (`agentConversations.*`, beside
  * the list states the components table holds), and the search palette's kind
  * words (`commandPalette.kind.*` for a group, `commandPalette.kindOne.*` for a
- * row). Part of
+ * row), and the bug report link a console offers for the engine's own
+ * failures (`report.*`). Part of
  * {@link INTERPRETER_UI_STRINGS} through the components table; kept apart only
  * so no file outgrows its ceiling. English is today's literal word for word,
  * French is built in, and an author renames any key under `sovrium.<key>`.
@@ -116,4 +117,73 @@ export const CONSOLE_UI_STRINGS: Readonly<Record<string, Readonly<Record<string,
   'commandPalette.kindOne.connection': { en: 'Connection', fr: 'Connexion' },
   'commandPalette.kindOne.design-console': { en: 'Console page', fr: 'Page de la console' },
   'commandPalette.kindOne.component-type': { en: 'Component type', fr: 'Type de composant' },
+
+  // ---- A failure that is the engine's fault: its request id and the bug report link ----
+  // One `report.` family, drawn by the grid's failed read and by a run page alike.
+  'report.problem': { en: 'Report on GitHub', fr: 'Signaler sur GitHub' },
+  'report.opensInNewTab': {
+    en: '(opens GitHub in a new tab)',
+    fr: '(ouvre GitHub dans un nouvel onglet)',
+  },
+  'report.hint': {
+    en: 'Opens a prefilled GitHub issue — nothing is sent until you submit it; review it first.',
+    fr: 'Ouvre un ticket GitHub prérempli, rédigé en anglais — rien n’est envoyé tant que tu ne l’as pas soumis ; relis-le d’abord.',
+  },
+  'report.readFailed': {
+    en: 'Sovrium hit an internal error while reading it. Retry; if it fails again, report it so it gets fixed.',
+    fr: 'Sovrium a rencontré une erreur interne en le lisant. Réessaie ; si ça échoue encore, signale-le pour qu’il soit corrigé.',
+  },
+  'report.preparing': { en: 'Preparing the report…', fr: 'Préparation du signalement…' },
+  'report.unavailable': {
+    en: 'Couldn’t prepare the report. Copy the request ID and include it when you open an issue.',
+    fr: 'Le signalement n’a pas pu être préparé. Copie l’identifiant de la requête et joins-le quand tu ouvres un ticket.',
+  },
+  'report.unavailableRun': {
+    en: 'Couldn’t prepare the report. Copy the run ID and add it to an issue on GitHub.',
+    fr: 'Le signalement n’a pas pu être préparé. Copie l’identifiant de l’exécution et ajoute-le à un ticket sur GitHub.',
+  },
+  'report.blankIssue': { en: 'Open a blank issue', fr: 'Ouvrir un ticket vierge' },
+  'report.expired': {
+    en: 'This error is no longer kept on the server, so the report can’t be prefilled. Copy the request ID; the server log still has it.',
+    fr: 'Cette erreur n’est plus conservée sur le serveur, le signalement ne peut donc pas être prérempli. Copie l’identifiant de la requête ; le journal du serveur l’a encore.',
+  },
+  'report.expiredRun': {
+    en: 'This run’s error details are no longer kept, so it can’t be reported from here. Copy the run ID instead.',
+    fr: 'Les détails de l’erreur de cette exécution ne sont plus conservés, elle ne peut donc pas être signalée d’ici. Copie plutôt l’identifiant de l’exécution.',
+  },
+  'report.requestId': { en: 'Request ID', fr: 'Identifiant de la requête' },
+  'report.copyRequestId': { en: 'Copy request ID', fr: 'Copier l’identifiant de la requête' },
+  'report.runId': { en: 'Run ID', fr: 'Identifiant de l’exécution' },
+  'report.copyRunId': { en: 'Copy run ID', fr: 'Copier l’identifiant de l’exécution' },
+  'report.copied': { en: 'Copied', fr: 'Copié' },
+  'report.reload': { en: 'Reload', fr: 'Recharger' },
+  'report.lastError': {
+    en: 'Report the last internal error',
+    fr: 'Signaler la dernière erreur interne',
+  },
+  'report.noneKept': {
+    en: 'No internal error has been kept. If something looks wrong, describe it in a new report.',
+    fr: 'Aucune erreur interne n’a été conservée. Si quelque chose cloche, décris-le dans un nouveau signalement.',
+  },
+  // A failure the deployment can fix answers its code instead of a report (`report.fix.<code>`).
+  'report.fix.missing-env': {
+    en: 'A required environment variable isn’t set. Set it in the instance environment, then restart.',
+    fr: 'Une variable d’environnement requise n’est pas définie. Définis-la dans l’environnement de l’instance, puis redémarre.',
+  },
+  'report.fix.invalid-env': {
+    en: 'An environment variable has a value Sovrium can’t use. Correct it in the instance environment, then restart.',
+    fr: 'Une variable d’environnement a une valeur que Sovrium ne peut pas utiliser. Corrige-la dans l’environnement de l’instance, puis redémarre.',
+  },
+  'report.fix.database-schema-drift': {
+    en: 'A table this app declares is missing from the database. Restore it, or restart Sovrium so it migrates the schema, then reload.',
+    fr: 'Une table que l’app déclare manque dans la base de données. Restaure-la, ou redémarre Sovrium pour qu’il migre le schéma, puis recharge.',
+  },
+  'report.fix.database-unreachable': {
+    en: 'The database can’t be reached. Check that it’s running and that DATABASE_URL is right, then reload.',
+    fr: 'La base de données est injoignable. Vérifie qu’elle tourne et que DATABASE_URL est correcte, puis recharge.',
+  },
+  'report.fix.database-resources': {
+    en: 'The database ran out of room. Free disk space or connections, or fix the permissions of the database file.',
+    fr: 'La base de données manque de place. Libère de l’espace disque ou des connexions, ou corrige les permissions du fichier de la base.',
+  },
 }

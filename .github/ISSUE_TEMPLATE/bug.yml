@@ -1,0 +1,201 @@
+name: Bug report
+description: Something in Sovrium does not behave as documented.
+title: '<command or area>: <what goes wrong, in one sentence>'
+type: Bug
+labels:
+  - status:needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Security vulnerability?** Do not file it here. Report it privately at https://github.com/sovrium/sovrium/security/advisories/new instead.
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: run `sovrium validate` (a configuration error is not a bug), search the existing issues, and remove secrets and real records from anything you paste. `sovrium report` fills most of this form for you.
+  - type: input
+    id: version
+    attributes:
+      label: Sovrium version
+      description: The output of `sovrium --version`.
+      placeholder: 0.40.0
+    validations:
+      required: true
+  - type: input
+    id: last-good-version
+    attributes:
+      label: Last version that worked
+      description: Needed for a regression. Leave empty if it never worked or you do not know.
+  - type: dropdown
+    id: install-channel
+    attributes:
+      label: Install channel
+      options:
+        - Binary
+        - Desktop app
+        - Docker
+        - Homebrew
+        - Scoop
+        - Built from source
+    validations:
+      required: true
+  - type: dropdown
+    id: database
+    attributes:
+      label: Database
+      options:
+        - SQLite
+        - PostgreSQL
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: macOS 15.4 (arm64)
+    validations:
+      required: true
+  - type: dropdown
+    id: domain
+    attributes:
+      label: Domain
+      description: The part of Sovrium this is about. Pick the closest one; triage can correct it.
+      options:
+        - accessibility
+        - account
+        - admin
+        - ai
+        - analytics
+        - api
+        - assets
+        - authentication
+        - automations
+        - buckets
+        - cli
+        - design
+        - design-system
+        - ecoconception
+        - footprint
+        - forms
+        - infrastructure
+        - internationalization
+        - links
+        - migrations
+        - pages
+        - records-api
+        - security
+        - tables
+        - templates
+        - theming
+        - user-management
+        - desktop
+        - docs
+        - toolchain
+    validations:
+      required: true
+  - type: dropdown
+    id: bug-kind
+    attributes:
+      label: Kind of bug
+      description: 'regression: worked before. crash-or-data-loss: crashes, or loses or corrupts data. wrong-behaviour: does something other than documented. performance: too slow or heavy. ux-a11y: confusing, inaccessible or visually broken. compat: fails on one OS, database, browser or install channel only.'
+      options:
+        - regression
+        - crash-or-data-loss
+        - wrong-behaviour
+        - performance
+        - ux-a11y
+        - compat
+    validations:
+      required: true
+  - type: textarea
+    id: repro-config
+    attributes:
+      label: Minimal configuration
+      description: The smallest app.yaml (or app.ts) that shows the problem. No secrets, no real data.
+      render: yaml
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. sovrium start app.yaml
+        2. Open ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or error text
+      description: The error output, with secrets removed.
+      render: text
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: Frequency
+      options:
+        - Every time
+        - Sometimes
+        - Happened once
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workaround
+      description: Anything that avoids the problem for now.
+  - type: markdown
+    attributes:
+      value: |
+        ## Agent brief (optional)
+
+        Leave these empty if you are unsure: a maintainer completes them during triage. An issue is marked ready only once they are complete, so that anyone, a person or an automated agent, can start work from the issue alone. Write behaviour, not internals.
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: Numbered Given / When / Then lines, in plain behaviour terms.
+      placeholder: |
+        1. Given an app with ..., when I ..., then ...
+  - type: textarea
+    id: affected-paths
+    attributes:
+      label: Affected paths
+      description: Source paths under src/ that are likely involved, when known.
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification
+      description: The CLI commands or HTTP requests that prove it is done.
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: What this issue deliberately does not cover.
+  - type: textarea
+    id: related
+    attributes:
+      label: Related issues
+      description: Dependencies, duplicates or follow-ups, as #numbers.
+  - type: checkboxes
+    id: validated
+    attributes:
+      label: Validation
+      options:
+        - label: I ran `sovrium validate` on my configuration
+  - type: checkboxes
+    id: ai-drafted
+    attributes:
+      label: AI assistance
+      options:
+        - label: This report was drafted with an AI assistant

@@ -3,7 +3,7 @@
   "dialect": "sqlite",
   "id": "6a2d9377-fd33-449e-a6a6-cd1141bf5da0",
   "prevIds": [
-    "bedf5b2c-aa88-4b5f-a695-40bcc20f5fb8"
+    "79908955-3635-4a6f-ac1e-2917a36804eb"
   ],
   "ddl": [
     {
@@ -204,6 +204,10 @@
     },
     {
       "name": "system_automation_state",
+      "entityType": "tables"
+    },
+    {
+      "name": "system_calendar_feed_tokens",
       "entityType": "tables"
     },
     {
@@ -5348,6 +5352,56 @@
       "generated": null,
       "name": "id",
       "entityType": "columns",
+      "table": "system_calendar_feed_tokens"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "table": "system_calendar_feed_tokens"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "table_name",
+      "entityType": "columns",
+      "table": "system_calendar_feed_tokens"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "token_digest",
+      "entityType": "columns",
+      "table": "system_calendar_feed_tokens"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "system_calendar_feed_tokens"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
       "table": "system_connection_app_tokens"
     },
     {
@@ -7927,6 +7981,21 @@
     },
     {
       "columns": [
+        "user_id"
+      ],
+      "tableTo": "auth_user",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_system_calendar_feed_tokens_user_id_auth_user_id_fk",
+      "entityType": "fks",
+      "table": "system_calendar_feed_tokens"
+    },
+    {
+      "columns": [
         "connection_id"
       ],
       "tableTo": "system_connections",
@@ -8558,6 +8627,15 @@
       "nameExplicit": false,
       "name": "system_automation_state_pk",
       "table": "system_automation_state",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "system_calendar_feed_tokens_pk",
+      "table": "system_calendar_feed_tokens",
       "entityType": "pks"
     },
     {
@@ -10229,6 +10307,38 @@
       "name": "automation_state_ttl_idx",
       "entityType": "indexes",
       "table": "system_automation_state"
+    },
+    {
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false
+        },
+        {
+          "value": "table_name",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "name": "calendar_feed_tokens_user_table_unique",
+      "entityType": "indexes",
+      "table": "system_calendar_feed_tokens"
+    },
+    {
+      "columns": [
+        {
+          "value": "token_digest",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "name": "calendar_feed_tokens_digest_unique",
+      "entityType": "indexes",
+      "table": "system_calendar_feed_tokens"
     },
     {
       "columns": [

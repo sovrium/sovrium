@@ -32,6 +32,7 @@ import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { applyProsePartClasses } from '@/presentation/render/markdown/prose-part-classes'
 import { formatRecordValue, storedValueText } from '@/presentation/render/props/record-value-format'
 import { islandLoadingLabel, islandUiStrings } from './island-loading-label'
+import { islandFallback, renderSpecimenDash } from './specimen-island-states'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { ColumnFormat } from '@/domain/models/app/pages/components/component-types/data/table/schema'
@@ -239,12 +240,15 @@ function renderRecordFieldSystemIsland(
     >
       {/* SSR skeleton: a VISIBLE pulse before island hydration so the host has a
           non-zero box. The island replaces this host's children on mount. */}
-      <span
-        role="status"
-        data-loading-status=""
-        aria-label={loading.status}
-        className="bg-muted inline-block h-4 w-16 animate-pulse rounded"
-      />
+      {islandFallback(
+        <span
+          role="status"
+          data-loading-status=""
+          aria-label={loading.status}
+          className="bg-muted inline-block h-4 w-16 animate-pulse rounded"
+        />,
+        () => renderSpecimenDash()
+      )}
     </div>
   )
 }

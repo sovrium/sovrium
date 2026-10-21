@@ -93,39 +93,32 @@ export type SpecimenSubjectMode = 'route' | 'vouched' | 'row'
  * walk is recursive and a linear scan per specimen would be quadratic on a kit
  * page drawing every template an app declares.
  *
- * FIRST DECLARATION WINS, which matters only under the admin mount. There the
+ * LAST DECLARATION WINS, which matters only under the admin mount. There the
  * rendering app's `components` is the console's own followed by the operator's
  * — spread in that order by `routeBoundOperatorComponents` in
- * `application/use-cases/mount/embedded-app-mount.ts`, which owns that
- * ordering — precisely so an
- * operator cannot shadow a piece of Sovrium's chrome by naming a template after
- * it. Building the map
- * front-to-back with a no-overwrite insert preserves that order; `new Map(...)`
- * over the pairs would silently invert it.
+ * `application/use-cases/mount/embedded-app-mount.ts`, so the console's
+ * furniture always resolves to its own template. A SPECIMEN is the other way
+ * round: it draws the operator's template on the Components surface, the one
+ * surface the operator's templates are merged into, so when the operator names
+ * a template like one of the console's, the card must draw the operator's.
+ * Outside the mount one app's names are unique, and the order changes nothing.
  */
 export type SpecimenTemplates = ReadonlyMap<string, Component>
 
 /**
- * Index a component list by name, FIRST declaration winning.
+ * Index a component list by name, LAST declaration winning — see
+ * {@link SpecimenTemplates} for why.
  *
- * Built from the REVERSED pairs, because `new Map(entries)` keeps the LAST value
- * for a repeated key — so applying them back-to-front is what makes the first
- * declaration the one that survives, with no mutation and no loop. The order is
- * the whole point under the admin mount, where the list is the console's own
- * templates followed by the operator's.
+ * `new Map(entries)` keeps the last value for a repeated key, which is exactly
+ * the order wanted.
  */
 export const indexTemplatesByName = (
   components: readonly Component[] | undefined
 ): SpecimenTemplates =>
   new Map(
-    (components ?? []).flatMap((component, index, all) => {
+    (components ?? []).flatMap((component) => {
       const { name } = component as { readonly name?: unknown }
-      if (typeof name !== 'string') return []
-      // Keep only the FIRST declaration of a name. A quadratic scan over a
-      // component list is free at this size, and it says what it means without
-      // a mutation or a reversal the FP rules refuse.
-      const first = all.findIndex((other) => (other as { name?: unknown }).name === name)
-      return first === index ? [[name, component] as const] : []
+      return typeof name === 'string' ? [[name, component] as const] : []
     })
   )
 

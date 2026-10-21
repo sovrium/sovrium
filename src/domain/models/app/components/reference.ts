@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { nodeKeyFields } from '../pages/components/component-types/modules/node-key'
 
 /**
  * Component reference name (kebab-case identifier)
@@ -71,11 +72,22 @@ const ComponentVarKeySchema = Schema.String.pipe(
 
 export const ComponentVarsSchema = Schema.Record(
   Schema.String,
-  Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])
+  Schema.Union([
+    Schema.String,
+    Schema.Finite,
+    Schema.Boolean,
+    Schema.Array(Schema.Unknown).annotate({
+      description: 'A list, for a template input of kind `json`',
+    }),
+    Schema.Record(Schema.String, Schema.Unknown).annotate({
+      description: 'An object, for a template input of kind `json`',
+    }),
+  ])
 ).pipe(
   Schema.annotate({
     title: 'Component Variables',
-    description: 'Variables to substitute in the component template',
+    description:
+      'Variables to substitute in the component template: a string, a number or a boolean, or, for an input the template declares of kind `json`, any JSON list or object.',
   }),
   // Keys: any string in the key position, and the pattern enforced by
   // `isPropertyNames`, so a mistyped key is refused by name at its own path
@@ -150,6 +162,31 @@ const referenceChildrenField = (children: ComponentReferenceChildrenSchema) =>
     })
   )
 
+/** A named slot's name, as `slots` keys it and `$slots.<name>` marks it. */
+const SlotNameSchema = Schema.String.annotate({
+  description: 'A slot the template declares as an input of kind `slot`',
+  examples: ['trail', 'actions'],
+}).check(Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9]*$/))
+
+/** The `slots` key every reference form carries, beside `children`. */
+const referenceSlotsField = (children: ComponentReferenceChildrenSchema) =>
+  Schema.optional(
+    Schema.Record(Schema.String, children).pipe(
+      Schema.annotate({
+        description:
+          "The page's own components for each named slot of the template, by slot name. The template marks a named slot with `children: $slots.<name>` and declares the name as an input of kind `slot`; these components fill it, read in the page's scope, and never receive the template's `vars`. A slot the template does not declare is refused.",
+        examples: [{ trail: [{ type: 'text', content: 'Invoices' }] }],
+      }),
+      Schema.check(
+        Schema.isPropertyNames(SlotNameSchema, {
+          toJsonSchema: () => ({
+            propertyNames: { type: 'string', pattern: '^[a-zA-Z][a-zA-Z0-9]*$' },
+          }),
+        })
+      )
+    )
+  )
+
 /**
  * Component Reference (reference to a reusable component template with variable substitution)
  *
@@ -202,6 +239,8 @@ export const buildComponentReferenceSchema = (children: ComponentReferenceChildr
         )
       ),
       children: referenceChildrenField(children),
+      slots: referenceSlotsField(children),
+      ...nodeKeyFields,
     }).pipe(
       Schema.annotate({
         title: 'Component Reference (Full Syntax)',
@@ -212,6 +251,8 @@ export const buildComponentReferenceSchema = (children: ComponentReferenceChildr
       component: ComponentReferenceNameSchema,
       vars: ComponentVarsSchema,
       children: referenceChildrenField(children),
+      slots: referenceSlotsField(children),
+      ...nodeKeyFields,
     }).pipe(
       Schema.annotate({
         title: 'Component Reference (Hybrid)',
@@ -222,6 +263,8 @@ export const buildComponentReferenceSchema = (children: ComponentReferenceChildr
       component: ComponentReferenceNameSchema,
       variables: ComponentNestedVariablesSchema,
       children: referenceChildrenField(children),
+      slots: referenceSlotsField(children),
+      ...nodeKeyFields,
     }).pipe(
       Schema.annotate({
         title: 'Component Reference (With Variables)',
@@ -231,6 +274,8 @@ export const buildComponentReferenceSchema = (children: ComponentReferenceChildr
     Schema.Struct({
       component: ComponentReferenceNameSchema,
       children: referenceChildrenField(children),
+      slots: referenceSlotsField(children),
+      ...nodeKeyFields,
     }).pipe(
       Schema.annotate({
         title: 'Component Reference (Shorthand)',

@@ -46,6 +46,24 @@ export interface DirectoryUserRow {
   readonly name: string | null
   readonly role: string | null
   readonly banned: boolean | null
+  /** When the account was created, as the dialect returns it. */
+  readonly createdAt: Readonly<Date> | string | null
+  /** The raw nullable second-factor flag (NULL → off). */
+  readonly twoFactorEnabled: boolean | null
+}
+
+/**
+ * What an account's sessions and linked sign-in accounts say about it, read
+ * for the page's accounts in one pass. Facts only: no token, address or agent
+ * string of any session leaves the repository.
+ */
+export interface DirectoryAccountFacts {
+  /** The newest session's creation instant, ever; `null` when it never signed in. */
+  readonly lastSignInAt: Readonly<Date> | string | null
+  /** How many of its sessions have not expired at the read instant. */
+  readonly activeSessionCount: number
+  /** The provider ids of its linked accounts (`credential`, `google`, …), distinct. */
+  readonly signInMethods: readonly string[]
 }
 
 /**
@@ -90,5 +108,13 @@ export class UsersDirectoryRepository extends Context.Service<
     readonly listAllUsers: (
       filters?: DirectoryFilters
     ) => Effect.Effect<readonly DirectoryUserRow[], UsersDirectoryDatabaseError>
+    /**
+     * The session and sign-in facts of `userIds`, keyed by user id, in two
+     * grouped reads. An id with no session and no linked account is absent.
+     */
+    readonly readAccountFacts: (
+      userIds: readonly string[],
+      now: Readonly<Date>
+    ) => Effect.Effect<ReadonlyMap<string, DirectoryAccountFacts>, UsersDirectoryDatabaseError>
   }
 >()('UsersDirectoryRepository') {}

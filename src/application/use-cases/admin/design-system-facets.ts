@@ -205,21 +205,24 @@ const colorRoleLines = (design: Readonly<Record<string, unknown>>): readonly Dec
  * sentences would need a filter in the page to avoid drawing blank ones.
  */
 const componentLines = (components: App['components']): readonly DeclaredLine[] =>
-  (components ?? []).flatMap((component) =>
-    (['usage', 'when', 'dont'] as const).flatMap((register) => {
-      const line = component.guidance?.[register]
-      return typeof line === 'string'
-        ? [
-            {
-              kind: `component.${register}` as GuidanceKind,
-              path: `components[${component.name}].guidance.${register}`,
-              label: component.name,
-              line,
-            },
-          ]
-        : []
-    })
-  )
+  // A transparent template is never listed, so none of its lines are either.
+  (components ?? [])
+    .filter((component) => component.render !== 'transparent')
+    .flatMap((component) =>
+      (['usage', 'when', 'dont'] as const).flatMap((register) => {
+        const line = component.guidance?.[register]
+        return typeof line === 'string'
+          ? [
+              {
+                kind: `component.${register}` as GuidanceKind,
+                path: `components[${component.name}].guidance.${register}`,
+                label: component.name,
+                line,
+              },
+            ]
+          : []
+      })
+    )
 
 /** Each zone's voice override, kept out of the house rules it does not govern. */
 const zoneLines = (design: Readonly<Record<string, unknown>>): readonly DeclaredLine[] =>

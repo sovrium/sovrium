@@ -287,6 +287,9 @@ export function renderButton(options: RenderButtonOptions): ReactElement {
   return renderRecordDisabledButton(props, buttonContent, control)
 }
 
+/** The action verbs that open an overlay by id: the button is that overlay's trigger. */
+const OVERLAY_OPENING_VERBS: ReadonlySet<string> = new Set(['openSheet', 'openDialog'])
+
 /** A button its record does not disable, by what its action is. */
 function renderUsableButton(
   options: RenderButtonOptions,
@@ -309,9 +312,10 @@ function renderUsableButton(
     return renderPlainButton({ ...options, interactions: click && { click } })
   }
 
-  // An `openSheet` button is the sheet's own trigger, as a click interaction naming its id is.
+  // An `openSheet` / `openDialog` button is the overlay's own trigger, as a click
+  // interaction naming its id is.
   const sheet = (action as { action?: unknown; component?: unknown } | undefined) ?? {}
-  if (sheet.action === 'openSheet' && typeof sheet.component === 'string') {
+  if (OVERLAY_OPENING_VERBS.has(String(sheet.action)) && typeof sheet.component === 'string') {
     return renderPlainButton({ ...options, interactions: { click: { modal: sheet.component } } })
   }
 

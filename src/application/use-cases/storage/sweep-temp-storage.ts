@@ -7,6 +7,7 @@
 
 import { Effect, Ref } from 'effect'
 import { UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
+import { logStorageFailure } from '@/application/use-cases/storage/storage-failure-log'
 import { TEMP_STORAGE_PREFIX } from '@/domain/models/app/automations/actions/file/shared'
 import { parseStorageTempCleanupAfter } from '@/domain/models/process-env/storage/storage-temp-cleanup-after'
 import type { StorageService } from '@/application/ports/services/storage-service'
@@ -102,7 +103,14 @@ const reclaimIfAged = (
   cutoff: number
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
-    const metadata = yield* Effect.result(storage.getMetadata(key, UNATTRIBUTED_BUCKET))
+    // effect-swallow: fail-soft — a temp file whose age cannot be read is kept for a later sweep; a failure other than a missing row is logged.
+    const metadata = yield* Effect.result(
+      storage.getMetadata(key, UNATTRIBUTED_BUCKET).pipe(
+        logStorageFailure('[storage] temp sweep could not read a catalog row; keeping the file', {
+          'sovrium.storage.key': key,
+        })
+      )
+    )
     // No catalog row means the age is unknown (or the file is already gone).
     // Keeping it is the safe branch: an unsweepable file is a smaller problem
     // than a file deleted on a guess.
@@ -131,7 +139,14 @@ export const sweepAgedTempFiles = (
     const due = yield* claimSweep(options?.clock ?? processSweepClock, ttlMs, now)
     if (!due) return
 
-    const listed = yield* Effect.result(storage.list(TEMP_LIST_PREFIX))
+    // effect-swallow: fail-soft — a store that cannot be listed gets no sweep this pass, and the next temp write tries again; the cause is logged on the way.
+    const listed = yield* Effect.result(
+      storage
+        .list(TEMP_LIST_PREFIX)
+        .pipe(
+          logStorageFailure('[storage] temp sweep could not list temp files; skipping this pass')
+        )
+    )
     if (listed._tag === 'Failure') return
 
     const cutoff = now - ttlMs

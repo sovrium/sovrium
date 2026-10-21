@@ -17,7 +17,9 @@ import { cva } from 'class-variance-authority'
  * server-rendered.
  *
  * One root, `data-slot="badge"`, with `data-variant` naming the tone. The
- * base string and the six variant strings are base-nova's, unchanged.
+ * base string and the six variant strings are base-nova's, unchanged; the
+ * three status tones (`success`, `warning`, `info`) are Sovrium extensions on
+ * the footing the alert's status tones stand on ([internal ref] D5).
  *
  * `destructive` is base-nova's TINT, not a solid fill: a 10 % destructive
  * ground under destructive ink. A badge is read, not actioned, so it states
@@ -27,8 +29,17 @@ import { cva } from 'class-variance-authority'
  * from `navbar-default-classes.ts`; they move with their own families.
  */
 
-/** The six tones the schema's `badgeVariant` accepts. */
-export type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline' | 'ghost' | 'link'
+/** The tones the schema's `badgeVariant` accepts: base-nova's six and three status tones. */
+export type BadgeVariant =
+  | 'default'
+  | 'secondary'
+  | 'destructive'
+  | 'outline'
+  | 'ghost'
+  | 'link'
+  | 'success'
+  | 'warning'
+  | 'info'
 
 /**
  * base-nova's `badgeVariants` base string, with two departures: the
@@ -52,6 +63,11 @@ const BADGE_VARIANT = cva('', {
       outline: 'border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground',
       ghost: 'hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50',
       link: 'text-primary underline-offset-4 hover:underline',
+      // Sovrium's status tones: a tint of the theme's status solid under the
+      // role's text colour (4.5:1 in both modes), as base-nova tints `destructive`.
+      success: 'border-transparent bg-success-solid/15 text-success-fg',
+      warning: 'border-transparent bg-warning-solid/15 text-warning-fg',
+      info: 'border-transparent bg-info-solid/15 text-info-fg',
     },
   },
 })

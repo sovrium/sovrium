@@ -15,7 +15,9 @@ import cliBody from '@/cli/commands/cli.docs.md' with { type: 'file' }
 import configSnapshotHistoryBody from '@/cli/commands/config-snapshot-history.docs.md' with { type: 'file' }
 import docsBody from '@/cli/commands/docs.docs.md' with { type: 'file' }
 import libraryBody from '@/cli/commands/library.docs.md' with { type: 'file' }
+import reportBody from '@/cli/commands/report.docs.md' with { type: 'file' }
 import skillsBody from '@/cli/commands/skills.docs.md' with { type: 'file' }
+import { importCliArticles } from './cli-api-import'
 import { operateCliArticles } from './cli-api-operate'
 import { cliReferenceArticles } from './cli-reference'
 import { defineArticle, defineSection } from './define'
@@ -220,6 +222,7 @@ export const section = defineSection({
       documents: [],
       stories: ['US-CLI-SEEDING-DATA', 'US-CLI-SEEDING-INVITATIONS'],
     }),
+    ...importCliArticles,
     ...operateCliArticles,
     defineArticle({
       slug: 'cli-flags',
@@ -319,6 +322,26 @@ export const section = defineSection({
       body: skillsBody,
       documents: [],
       stories: ['US-CLI-COMMANDS-SKILLS'],
+    }),
+    defineArticle({
+      slug: 'cli-report',
+      title: 'Reporting a Problem',
+      description:
+        '`sovrium report` prints a new-issue address with the facts maintainers need already filled in and every secret removed, or the private form for a vulnerability. It sends nothing.',
+      keywords: [
+        'sovrium report',
+        'bug report',
+        'issue',
+        'vulnerability',
+        'security advisory',
+        'request id',
+        '--last-error',
+      ],
+      order: 1498,
+      sidebarLabel: 'Reporting a Problem',
+      body: reportBody,
+      documents: [],
+      stories: ['US-CLI-COMMANDS-REPORT'],
     }),
     ...cliReferenceArticles,
     defineArticle({

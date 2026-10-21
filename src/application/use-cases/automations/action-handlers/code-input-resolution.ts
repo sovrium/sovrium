@@ -49,6 +49,24 @@ const referencedValue = (value: string, context: Readonly<Record<string, unknown
 }
 
 /**
+ * The text a lone dotted `{{path}}` names, read straight from the context, or
+ * `undefined` when it names no string. Handlebars cannot compile a numeric path
+ * segment (`{{step.result.tags.1}}` comes back as written), and a lone path
+ * renders to exactly the string it names (`noEscape`), so reading it here
+ * gives the rendered text for every path, list indexes included. A dot-free
+ * name is left to the renderer: it may be a helper (`{{now}}`).
+ */
+const referencedText = (
+  value: string,
+  context: Readonly<Record<string, unknown>>
+): string | undefined => {
+  const path = SINGLE_REFERENCE.exec(value)?.[1]
+  if (path === undefined || !path.includes('.')) return undefined
+  const found = lookupPath(context, path)
+  return typeof found === 'string' ? found : undefined
+}
+
+/**
  * Pattern matching a string that is *exactly* a single `{{...}}` template
  * with no surrounding text. The code action's `inputData` resolver uses
  * this to detect "pure template" values and unwrap them to typed
@@ -134,7 +152,8 @@ export const resolveCodeInputData = (
       if (typeof value === 'string') {
         const referenced = referencedValue(value, context)
         if (referenced !== undefined) return [key, referenced] as const
-        const rendered = resolveTriggerInString(value, context, templates)
+        const rendered =
+          referencedText(value, context) ?? resolveTriggerInString(value, context, templates)
         return [key, reTypeRenderedValue(value, rendered)] as const
       }
       return [key, resolveTriggerInValue(value, context, templates)] as const

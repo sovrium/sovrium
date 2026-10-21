@@ -12,7 +12,11 @@ import {
   invitationLinkTarget,
   type InvitationLinkPage,
 } from '@/domain/models/app/pages/invitation-link-service'
-import { logError } from '@/infrastructure/logging/logger'
+import {
+  claimAndSetPassword,
+  markAcceptedAddressVerified,
+  USED_TOKEN_MESSAGE,
+} from './invitation-acceptance'
 import { validateInviteInput } from './invitation-input'
 import {
   findOrCreateInvitedUser,
@@ -20,7 +24,6 @@ import {
   type InviteUserResult,
 } from './invitation-issuance'
 import type {
-  InvitationAuthEngine,
   InvitationMailer,
   InvitationServices,
   InvitationStore,
@@ -152,6 +155,8 @@ export const inviteUser = async (params: {
 export interface AcceptInvitationSuccess {
   readonly status: 'accepted'
   readonly user: { readonly id: string; readonly email: string; readonly name: string }
+  /** The role the invitation granted, as the account now holds it. */
+  readonly role: string | null
 }
 
 /**
@@ -207,86 +212,14 @@ const resolveTokenUser = async (
   store: InvitationStore,
   rowUserId: string,
   rowId: string
-): Promise<
-  { readonly id: string; readonly email: string; readonly name: string } | AcceptInvitationFailure
-> => {
+): Promise<InvitationUser | AcceptInvitationFailure> => {
   const user = await store.findUserById(rowUserId)
   if (!user) {
     // eslint-disable-next-line functional/no-expression-statements -- best-effort cleanup
     await store.deleteInvitationToken(rowId).catch(() => undefined)
-    return { status: 'invalid-token', message: 'Invitation token is invalid or already used' }
+    return { status: 'invalid-token', message: USED_TOKEN_MESSAGE }
   }
   return user
-}
-
-/**
- * Hash a plain-text password with the auth engine's configured hasher, so the
- * credential row the flow links is verifiable by the engine's own sign-in.
- */
-const hashWithAuthEngine = async (
-  engine: InvitationAuthEngine,
-  password: string
-): Promise<string | undefined> => {
-  try {
-    return await engine.hashPassword(password)
-  } catch (error) {
-    logError('[admin-invitation] Failed to hash password', error)
-    return undefined
-  }
-}
-
-/**
- * Hash + link a credential account row for the invited user. Returns the
- * appropriate failure result when either step fails so the orchestrator
- * can short-circuit without re-implementing error handling.
- */
-const linkPassword = async (
-  { store, engine }: InvitationServices,
-  userId: string,
-  password: string
-): Promise<AcceptInvitationFailure | undefined> => {
-  const hashed = await hashWithAuthEngine(engine, password)
-  if (!hashed) {
-    return { status: 'internal-error', message: 'Failed to set password' }
-  }
-
-  const linkResult = await store
-    .insertCredentialAccount({
-      id: crypto.randomUUID(),
-      userId,
-      hashedPassword: hashed,
-    })
-    .then(
-      () => 'ok' as const,
-      (error: unknown) => {
-        logError('[admin-invitation] Failed to link credential account', error)
-        return 'failed' as const
-      }
-    )
-  if (linkResult === 'failed') {
-    return { status: 'internal-error', message: 'Failed to set password' }
-  }
-  return undefined
-}
-
-/**
- * Best-effort post-acceptance bookkeeping: flip emailVerified=true (proven by
- * following the link) and consume the verification row (single-use). Neither
- * blocks — a failure here does not invalidate the already-set password. Answers
- * whether the address was newly verified.
- */
-const finalizeAcceptedInvitation = async (
-  store: InvitationStore,
-  userId: string,
-  invitationRowId: string
-): Promise<boolean> => {
-  const verified = await store.markUserEmailVerified(userId).catch((error: unknown) => {
-    logError('[admin-invitation] Failed to mark the address verified', error)
-    return false
-  })
-  // eslint-disable-next-line functional/no-expression-statements -- best-effort token consumption
-  await store.deleteInvitationToken(invitationRowId).catch(() => undefined)
-  return verified
 }
 
 /**
@@ -352,7 +285,7 @@ export const acceptInvitation = async (params: {
 
   const row = await params.services.store.findInvitationToken(validated.token)
   if (!row) {
-    return { status: 'invalid-token', message: 'Invitation token is invalid or already used' }
+    return { status: 'invalid-token', message: USED_TOKEN_MESSAGE }
   }
 
   if (row.expiresAt.getTime() <= Date.now()) {
@@ -372,16 +305,20 @@ export const acceptInvitation = async (params: {
   if (await params.services.store.userHasCredentialPassword(user.id)) {
     // eslint-disable-next-line functional/no-expression-statements -- best-effort cleanup
     await params.services.store.deleteInvitationToken(row.id).catch(() => undefined)
-    return { status: 'invalid-token', message: 'Invitation token is invalid or already used' }
+    return { status: 'invalid-token', message: USED_TOKEN_MESSAGE }
   }
 
-  const linkFailure = await linkPassword(params.services, user.id, validated.password)
-  if (linkFailure) return linkFailure
+  const setupFailure = await claimAndSetPassword(params.services, row, user.id, validated.password)
+  if (setupFailure) return setupFailure
 
   await announceAcceptance(params.services, {
     user,
     row,
-    newlyVerified: await finalizeAcceptedInvitation(params.services.store, user.id, row.id),
+    newlyVerified: await markAcceptedAddressVerified(params.services.store, user.id),
   })
-  return { status: 'accepted', user: { id: user.id, email: user.email, name: user.name } }
+  return {
+    status: 'accepted',
+    user: { id: user.id, email: user.email, name: user.name },
+    role: user.role ?? null,
+  }
 }

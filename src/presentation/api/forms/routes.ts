@@ -6,17 +6,12 @@
  */
 
 import { Effect } from 'effect'
-import { findUserEmailById } from '@/application/use-cases/auth/find-user-email'
 import { revalidateInlinePrefillParent } from '@/application/use-cases/forms/inline-prefill-revalidation'
 import { resolveFormOptionSources } from '@/application/use-cases/forms/resolve-form-option-sources'
 import { findFormByName, submitFormProgram } from '@/application/use-cases/forms/submit-form'
 import { evaluateAvailabilityWindow } from '@/domain/models/app/forms/form-availability-flow'
 import { hashIp, resolveIpHashSalt } from '@/infrastructure/forms/ip-hash'
-import {
-  provideDomain,
-  runDomainPromise,
-  runRequestEffect,
-} from '@/infrastructure/logging/request-effect'
+import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import {
   denyFormAccess,
   evaluateFormAccessForRequest,
@@ -42,10 +37,10 @@ import {
   type StepFragmentRenderer,
 } from '@/presentation/api/forms/step-handlers'
 import { getRequestClientIp, getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
-import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { answerOnce, withoutIdempotencyField } from '@/presentation/api/runtime/idempotency'
 import { microphonePolicyHeaders } from '@/presentation/api/runtime/microphone-permission'
 import { formRecordsAudio } from '@/presentation/render/page/page-microphone-detection'
+import { buildPrefillContext, formForCaller } from './form-page-context'
 import { submissionLinkTokens } from './submission-link-tokens'
 import { formNameRequired, formNotFound } from './submission-refusals'
 import {
@@ -54,6 +49,7 @@ import {
   respondSubmissionFailure,
   respondSubmissionSuccess,
 } from './submission-responses'
+import type { ReadTableAsCaller } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 import type { FormOptionSets } from '@/domain/models/app/forms/form-option-source-service'
@@ -114,6 +110,8 @@ export interface FormRenderers {
     reason: 'not-yet-open' | 'closed',
     request?: { readonly activeLang?: string; readonly opensAt?: string }
   ) => string
+  /** The table API's answer to what this request's caller may see of a form's table. */
+  readonly readTableAsCaller?: (c: Context) => ReadTableAsCaller
 }
 
 /**
@@ -161,6 +159,7 @@ async function respondWithForm(
     return c.html(renderers.renderClosedForm(app, form, 'closed', { activeLang }))
   }
   const prefillCtx = await buildPrefillContext(c)
+  const shown = await formForCaller(c, app, form, { session, read: renderers.readTableAsCaller })
   // Choices read from tables with the FORM's authority, on every serve — so a
   // public form lists rows its visitor could never read through the records
   // API, and a row added since the last load is offered on this one.
@@ -170,14 +169,14 @@ async function respondWithForm(
       c,
       resolveFormOptionSources({
         app,
-        form,
+        form: shown,
         visitor: await resolveFormOptionVisitor(c, session),
       })
     )
   )
   // A private link's page: an edit, or a draft reopened from its resume link.
   const link = editLink ?? (await resolveResumeLink(c, form))
-  const html = await renderers.renderForm(app, form, activeLang, {
+  const html = await renderers.renderForm(app, shown, activeLang, {
     ...prefillCtx,
     optionSets,
     ...(link === undefined ? {} : { link }),
@@ -195,27 +194,6 @@ async function handleGetForm(c: Context, app: App, renderers: FormRenderers): Pr
   const form = findFormByName(app, name)
   if (!form) return c.notFound()
   return respondWithForm(c, app, form, { renderers })
-}
-
-/**
- * Assemble the render-time prefill context from the request: all URL query
- * params back `$query.<name>`, and the authenticated user (when a session
- * is present) backs `$user.<prop>`. Anonymous requests yield `user:
- * undefined` so `$user.*` references resolve to empty rather than leaking
- * the literal token.
- */
-async function buildPrefillContext(c: Context): Promise<FormPrefillContext> {
-  const query = c.req.query() as Record<string, string>
-  const session = getSessionContext(c)
-  if (!session) return { query }
-  // Hydrate the user record with the email address so `$user.email` prefills
-  // resolve to the session user's email at render time.
-  // A missing email (auth lookup failure) leaves the entry to render empty
-  // rather than leaking the literal `$user.email` token (S1).
-  const email = await runDomainPromise(c, findUserEmailById(session.userId))
-  const user: Record<string, unknown> =
-    email !== undefined ? { id: session.userId, email } : { id: session.userId }
-  return { query, user }
 }
 
 // (handleGetFormEmbed + buildFrameAncestorsCsp removed: `forms.share` schema
@@ -285,6 +263,8 @@ async function readSubmissionFields(c: Context): Promise<Record<string, unknown>
 const readSubmissionBody = async (c: Context): Promise<Record<string, unknown>> =>
   withoutIdempotencyField(await readSubmissionFields(c))
 
+type TableReader = FormRenderers['readTableAsCaller']
+
 /**
  * `POST /api/forms/:name/submissions` — accept a submission, write to
  * the bound table when configured, then write the ledger row.
@@ -299,7 +279,7 @@ const readSubmissionBody = async (c: Context): Promise<Record<string, unknown>> 
  *   (so the browser's address bar reflects the host page rather than
  *   the JSON endpoint).
  */
-async function handlePostSubmission(c: Context, app: App): Promise<Response> {
+async function handlePostSubmission(c: Context, app: App, read: TableReader): Promise<Response> {
   const name = c.req.param('name')
   const isJsonClient = detectJsonClient(c)
   if (!name) return formNameRequired(c)
@@ -318,16 +298,18 @@ async function handlePostSubmission(c: Context, app: App): Promise<Response> {
       scope: { kind: 'forms', name, userId: session?.userId },
       body: await readSubmissionFields(c),
     },
-    (rawBody) => acceptSubmission({ c, app, form, session, isJsonClient }, rawBody)
+    (rawBody) => acceptSubmission({ c, app, form, session, isJsonClient, read }, rawBody)
   )
 }
 
 /** A submission past the access gate: uploads, the parent check, then the program. */
 async function acceptSubmission(
-  request: Omit<RunSubmitProgramConfig, 'formName' | 'body'> & { readonly form: Form },
+  request: Omit<RunSubmitProgramConfig, 'formName' | 'body'> & { readonly read: TableReader },
   rawBody: Record<string, unknown>
 ): Promise<Response> {
-  const { c, app, form, session, isJsonClient } = request
+  const { c, app, session, isJsonClient } = request
+  // Checked and kept over the fields the form offers this submitter.
+  const form = await formForCaller(c, app, request.form, { session, read: request.read })
   const { name } = form
   // An attachment value that NAMES a stored file must name one in the column's
   // bucket that the submitter can download. Checked on the raw body — before
@@ -377,6 +359,7 @@ async function acceptSubmission(
     c,
     app,
     formName: name,
+    form,
     // Multi-step: the browser only ever submits the LAST step's inputs, so
     // recover the earlier steps' answers from the accumulated draft. No-op for
     // single-page forms and for any caller that posts a complete payload.
@@ -390,6 +373,8 @@ interface RunSubmitProgramConfig {
   readonly c: Context
   readonly app: App
   readonly formName: string
+  /** The form as offered to this submitter (`formForCaller`). */
+  readonly form: Readonly<Form>
   readonly body: Record<string, unknown>
   readonly isJsonClient: boolean
   /**
@@ -406,7 +391,7 @@ interface RunSubmitProgramConfig {
  * functions under the project's complexity caps.
  */
 async function runSubmitProgram(config: Readonly<RunSubmitProgramConfig>): Promise<Response> {
-  const { c, app, formName, body, isJsonClient, session } = config
+  const { c, app, formName, form, body, isJsonClient, session } = config
   const submitterUserId = session?.userId
   const visitor = await resolveFormOptionVisitor(c, session)
   const ipAddress = getRequestClientIp(c)
@@ -426,6 +411,7 @@ async function runSubmitProgram(config: Readonly<RunSubmitProgramConfig>): Promi
   const program = submitFormProgram({
     app,
     formName,
+    form,
     body,
     query,
     processEnv: process.env,
@@ -466,11 +452,17 @@ export function chainFormRoutes<T extends Hono>(
   renderers: Readonly<FormRenderers>
 ): T {
   const forms = app.forms ?? []
+  const submissionBody = {
+    read: readSubmissionBody,
+    readTableAsCaller: renderers.readTableAsCaller,
+  }
   const withCanonical = honoApp
     .get('/forms/:name', (c) => handleGetForm(c, app, renderers))
-    .post('/api/forms/:name/submissions', (c) => handlePostSubmission(c, app))
+    .post('/api/forms/:name/submissions', (c) =>
+      handlePostSubmission(c, app, renderers.readTableAsCaller)
+    )
     // Save and resume: keep a half-filled answer, mail its resume link.
-    .post('/api/forms/:name/drafts', (c) => handlePostDraft(c, app, readSubmissionBody))
+    .post('/api/forms/:name/drafts', (c) => handlePostDraft(c, app, submissionBody))
     // Edit after submit: the edit page, and the save (PUT, or POST from a native form).
     .get('/forms/:name/edit/:token', (c) =>
       handleGetEditPage(c, app, (form, editLink) =>
@@ -478,15 +470,17 @@ export function chainFormRoutes<T extends Hono>(
       )
     )
     .put('/api/forms/:name/submissions/edit/:token', (c) =>
-      handleEditSubmission(c, app, readSubmissionBody)
+      handleEditSubmission(c, app, submissionBody)
     )
     .post('/api/forms/:name/submissions/edit/:token', (c) =>
-      handleEditSubmission(c, app, readSubmissionBody)
+      handleEditSubmission(c, app, submissionBody)
     )
     // Multi-step navigation. Registered alongside the canonical submission
     // endpoint so the cross-validator's step-aware rules and the per-step
     // SSR share the same Hono app instance and access the same `app` payload.
-    .post('/api/forms/:name/steps/:stepId/advance', (c) => handlePostStepAdvance(c, app))
+    .post('/api/forms/:name/steps/:stepId/advance', (c) =>
+      handlePostStepAdvance(c, app, renderers.readTableAsCaller)
+    )
     // Draft reset backs `onSuccess: reset` on a multi-step form. Deliberately
     // NOT under `/steps/` — a form is free to declare a step whose id is
     // literally `reset`, and this must not be reachable by naming a step.
@@ -494,6 +488,9 @@ export function chainFormRoutes<T extends Hono>(
     .get('/api/forms/:name/steps/:stepId', (c) =>
       handleGetStepFragment(c, app, {
         renderStepFragment: renderers.renderStepFragment,
+        ...(renderers.readTableAsCaller === undefined
+          ? {}
+          : { readTableAsCaller: renderers.readTableAsCaller }),
       })
     )
 

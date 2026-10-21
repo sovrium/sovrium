@@ -31,7 +31,7 @@ import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
  * extracting it once a second handler family needed it — `loop` is here).
  *
  * Each handler returns `{ status: 'success', output: { result: <value> } }`
- * (or `{ value }` for `data:set`, mirroring how a `code` action's return
+ * (or `{ value }` / the named fields for `data:set`, mirroring how a `code` action's return
  * value surfaces under `steps.<name>`). The run loop shallow-merges every
  * step's `output` into `lastOutput`, which the manual-trigger response
  * exposes as `output` (a webhook's default answer carries none of it).
@@ -130,7 +130,13 @@ const withRunContext = (
 
 export const handleDataSet: ActionHandler = (_action, _app, _automation, runContext) =>
   Effect.succeed(
-    withRunContext(runContext, (props, resolve) => ok({ value: resolve(props['value']) }))
+    withRunContext(runContext, (props, resolve) =>
+      // `fields`: the resolved map IS the output, read back as `<name>.result.<field>`;
+      // `value`: one value, read back as `steps.<name>.value`. Validation admits exactly one.
+      props['fields'] !== undefined
+        ? ok(resolve(props['fields']) as Readonly<Record<string, unknown>>)
+        : ok({ value: resolve(props['value']) })
+    )
   ).pipe(Effect.withSpan('automations.handle-data-set'))
 
 export const handleDataAggregate: ActionHandler = (_action, _app, _automation, runContext) =>

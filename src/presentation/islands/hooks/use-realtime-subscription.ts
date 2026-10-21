@@ -203,6 +203,24 @@ export interface LiveRefreshSource {
   readonly view?: string
   readonly refreshMode?: RefreshMode
   readonly pollIntervalMs?: number
+  /** A system read refreshes by `poll` only: an endpoint has no change feed. */
+  readonly system?: { readonly refreshMode?: 'none' | 'poll'; readonly pollIntervalMs?: number }
+}
+
+/**
+ * The refresh a binding asks for — the ONE rule every bound component follows,
+ * the grid included: a system read's own `system.refreshMode` / `pollIntervalMs`
+ * (an endpoint has no change feed, and the source-level keys belong to a table
+ * source), else its table's mode, unless it is bound to a view.
+ */
+export function liveRefreshOf(
+  source: LiveRefreshSource | undefined,
+  viewBound = source?.view !== undefined
+): { readonly mode: RefreshMode | undefined; readonly every: number | undefined } {
+  if (source?.system !== undefined)
+    return { mode: source.system.refreshMode, every: source.system.pollIntervalMs }
+  const mode = source?.table !== undefined && !viewBound ? source.refreshMode : undefined
+  return { mode, every: source?.pollIntervalMs }
 }
 
 /**
@@ -215,15 +233,15 @@ export interface LiveRefreshSource {
  * component. A write made straight to the database is therefore seen at the
  * next change or reconnection, not within the fallback interval as on the grid.
  *
- * A view-bound or system-bound binding stays static: a view's rows are not the
- * table's change feed. A hidden tab skips its polls.
+ * A view-bound binding stays static: a view's rows are not the table's change
+ * feed. A system-bound one follows only `system.refreshMode: poll`. A hidden
+ * tab skips its polls.
  *
  * Whatever its mode, a bound component also re-reads when a sibling's
  * `onSuccess.refetch` names it by the `props.id` on its island host.
  */
 export function useLiveRefresh(source: LiveRefreshSource | undefined, reread: () => unknown): void {
-  const mode =
-    source?.table !== undefined && source.view === undefined ? source.refreshMode : undefined
+  const { mode, every: pollIntervalMs } = liveRefreshOf(source)
   const rereadRef = useRef(reread)
   rereadRef.current = reread
   const hostId = useContext(IslandHostIdContext)
@@ -234,8 +252,7 @@ export function useLiveRefresh(source: LiveRefreshSource | undefined, reread: ()
     table: source?.table ?? '',
     onChange: () => void rereadRef.current(),
   })
-  const every =
-    status === 'connected' ? false : resolveRefetchInterval(mode, source?.pollIntervalMs)
+  const every = status === 'connected' ? false : resolveRefetchInterval(mode, pollIntervalMs)
   useEffect(() => {
     if (every === false) return undefined
     const timer = setInterval(() => {

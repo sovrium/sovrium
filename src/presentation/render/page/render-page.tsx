@@ -17,12 +17,12 @@
  * document itself in `page-document-assembly.tsx` — so that this file stays the
  * ORDER those steps run in and nothing else.
  *
- * `renderPage` wraps it with the one fallback the engine owes an app that
- * declares no home page.
+ * `renderPage` wraps it with the one fallback owed to an app with no home page.
  */
 
 import { renderToString } from 'react-dom/server'
 import { frontmatterAccess, isArticleReadable } from '@/domain/models/app/pages/content-dir-access'
+import * as literalTokens from '@/domain/models/app/pages/literal-token-service'
 import { checkPageAccess } from '@/domain/models/app/pages/page-access-check'
 import { findDeclaredPage } from '@/domain/models/app/pages/page-path-resolvability'
 import { findStampedDeclaredPage } from '@/domain/models/app/pages/record-control-service'
@@ -90,15 +90,11 @@ const articleAdmits = (
   isArticleReadable(undefined, frontmatterAccess(markdownPayload.frontmatter), app, session)
 
 /**
- * Renders a page by path to HTML string for server-side rendering
- *
- * Supports both static routes (exact match) and dynamic routes (with :param segments).
- * Enforces page access control before rendering.
- *
- * @param deps - Optional infrastructure dependencies (injected by PageRendererLive)
+ * Renders a page by path to HTML for server-side rendering: static and `:param`
+ * routes, page access enforced before anything renders.
  */
 // eslint-disable-next-line complexity, max-lines-per-function -- composed access guard (page access + formRef gate + landing redirect + collection resolution + permission overlay)
-export async function renderPageByPath(
+async function renderDeclaredPage(
   app: App,
   path: string,
   options?: {
@@ -108,6 +104,14 @@ export async function renderPageByPath(
     readonly db?: DataSourceDb
     readonly islandBuilder?: IslandBuilder
     readonly previewMode?: boolean
+    /**
+     * The path is a SAMPLE address a design-system specimen chose for a page it
+     * names (a routed page drawn at `/records/<sample>`), not one a visitor
+     * asked for. The gates telling a served address from a dead one — the
+     * page's `params` allow-list, a route-bound table or form naming nothing
+     * declared — are not asked of it; every other rule still is.
+     */
+    readonly sampleAddress?: boolean
     /** [internal ref] / a forms spec: host request query for embedded `$query` prefill. */
     readonly requestQuery?: Readonly<Record<string, string>>
     /**
@@ -186,6 +190,7 @@ export async function renderPageByPath(
     db,
     islandBuilder,
     previewMode,
+    sampleAddress,
     requestQuery,
     requestOrigin,
     hostApp,
@@ -218,14 +223,15 @@ export async function renderPageByPath(
   // already refused above never spends the read.
   if (
     evaluateEmbeddedFormRefsAccess(app, matchedPage, session) === 'denied' ||
-    !(await routeParamsAreServed(matchedPage, routeParams, fetchSystemRows))
+    !(
+      sampleAddress === true ||
+      (await routeParamsAreServed(matchedPage, routeParams, fetchSystemRows))
+    )
   )
     return undefined
 
-  // Both redirects that are decided BEFORE any rendering, in one step: the
-  // post-login landing target, and the first-object answer to a bare collection
-  // path. Grouped so this function stays under its statement cap and so the
-  // "does this request render at all?" question reads as one decision.
+  // Both redirects decided BEFORE any rendering, in one step (the post-login landing
+  // target, the first-object answer to a bare collection path): one decision.
   const preRenderRedirect = await resolvePreRenderRedirect({
     app,
     path,
@@ -274,6 +280,7 @@ export async function renderPageByPath(
       requestQuery,
       urlLanguage,
       callerCapabilities,
+      sampleAddress,
       requestPath: requestPathOf(path, options),
     }),
   })
@@ -373,7 +380,13 @@ export async function renderPageByPath(
 }
 
 /** What `renderPage` takes beside the app and the path: exactly `renderPageByPath`'s options. */
-type RenderPageByPathOptions = Parameters<typeof renderPageByPath>[2]
+type RenderPageByPathOptions = Parameters<typeof renderDeclaredPage>[2]
+
+/** {@link renderDeclaredPage}, `\$name` protected before every pass and released after the last. */
+export const renderPageByPath = (app: App, path: string, options?: RenderPageByPathOptions) =>
+  literalTokens.withLiteralTokens(app, (protectedApp) =>
+    renderDeclaredPage(protectedApp, path, options)
+  )
 
 /**
  * Renders any page by path to HTML string for server-side rendering

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { exportNodeIdOf } from '@/domain/models/app/pages/node-identity'
 import { cn } from '@/presentation/design/class-merge'
 import { GripVerticalGlyph } from '@/presentation/design/control-glyphs'
 import {
@@ -297,6 +298,8 @@ export const reorderableListComponent: ComponentRenderer = ({ elementProps, comp
     <li
       key={`reorderable-item-${index}`}
       id={child.props?.id}
+      // A page export's copy of the row's node: the row is the only element it gets.
+      data-sovrium-id={exportNodeIdOf(child)}
       role="listitem"
       data-reorderable-item="true"
       data-slot="item"

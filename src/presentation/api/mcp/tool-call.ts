@@ -22,32 +22,32 @@
  *   -32603 internal error    → role/operation gate denied (RBAC); runtime fault
  */
 
-import { Effect } from 'effect'
-import {
-  listRecordsAsCaller,
-  synthesizeCallerSession,
-} from '@/application/use-cases/tables/list-records-as-caller'
+import { listRecordsAsCaller } from '@/application/use-cases/tables/list-records-as-caller'
 import {
   buildReadListFilter,
   recordPassesReadPredicate,
 } from '@/application/use-cases/tables/permissions/row-level-read-filter'
 import { createGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
-import { getUserAccessRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
-import { isAiAccessEnabled, toolSafeTableName } from '@/domain/models/app/auth/ai-access'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { isRecordKeyShaped } from '@/domain/models/app/tables/record-id-service'
-import { provideTableLive } from '@/infrastructure/layers/table-layer'
-import { runOnDomain } from '@/infrastructure/logging/request-effect'
 import { handleActionCall, resolveActionTemplateTool } from './action-call'
 import { handleAutomationCall, resolveAutomationTool } from './automation-call'
 import {
   findFirstFieldWriteViolation,
   passesTablePermission,
-  resolveCallerAuthority,
   type CallerAuthority,
 } from './caller-authority'
 import { resolveUserContextOrUndefined } from './caller-row-context'
-import { createIsInScope, existingRowIsInScope } from './row-level-write-gate'
+import { callerMayNotList, createIsInScope, existingRowIsInScope } from './row-level-write-gate'
+import {
+  isReadOperation,
+  listedTableFor,
+  resolveTableAuthority,
+  resolveTableTool,
+  synthesizeSession,
+  type ListedTable,
+  type ResolvedTool,
+} from './table-tool-reach'
 import {
   applyMcpFieldExposureToRecord,
   applyMcpFieldExposureToRecords,
@@ -62,25 +62,12 @@ import type { McpCaller } from './auth'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { LinkReader } from '@/application/use-cases/tables/linked-row-visibility'
 import type { App, Table } from '@/domain/models/app'
-import type { AiAccess, AiAccessOperation } from '@/domain/models/app/auth/ai-access'
+import type { AiAccessOperation } from '@/domain/models/app/auth/ai-access'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
-
-const SUPPORTED_OPERATIONS: ReadonlySet<AiAccessOperation> = new Set([
-  'read',
-  'list',
-  'create',
-  'update',
-  'delete',
-])
 
 interface CallEnvelope {
   readonly toolName: string
   readonly args: Record<string, unknown>
-}
-
-interface ResolvedTool {
-  readonly table: Table
-  readonly operation: AiAccessOperation
 }
 
 /**
@@ -121,72 +108,35 @@ export async function handleToolsCall(
     return handleActionCall({ app, caller, template, envelope, domainContext })
   }
 
-  const resolved = resolveTool(app, envelope.toolName)
-  if (resolved === undefined) {
-    return toolFailure(-32_601, `Tool not found: ${envelope.toolName}`)
-  }
+  const resolved = resolveTableTool(app, envelope.toolName)
+  if (resolved === undefined) return toolNotFound(envelope.toolName)
 
   const opGateError = checkOperationGate(resolved.table, resolved.operation, caller.role)
   if (opGateError !== undefined) {
     return toolFailure(-32_603, opGateError)
   }
 
-  // One permission identity for the whole call — the account role plus its
-  // groups — so the table gate, the field-write check, the row-level context
-  // and the programs' field-read filtering all see the role the records API
-  // sees, never the three-tier MCP view `caller.role` holds.
-  const authority = await resolveCallerAuthority({
-    app,
-    caller,
-    lookupGroups: (userId) => runOnDomain(domainContext, getUserGroups(userId)),
-    // Assignment roles count only on a table with row-level rules, as on the
-    // records route, so they are read only there.
-    lookupAccessRoles: (userId) =>
-      resolved.table.rowLevelPermissions === undefined
-        ? Promise.resolve([])
-        : Effect.runPromise(provideTableLive(getUserAccessRoles(userId))),
-  })
+  const authority = await resolveTableAuthority(app, caller, resolved.table, domainContext)
+  // A read tool of a table her records list would answer as one that does not
+  // exist is not offered her, and a call naming it answers as an unknown tool.
+  const listed = isReadOperation(resolved.operation)
+    ? await listedTableFor(app, resolved.table, caller, { domainContext, authority })
+    : undefined
+  if (isReadOperation(resolved.operation) && listed === undefined) {
+    return toolNotFound(envelope.toolName)
+  }
   if (!passesTablePermission(app, resolved.table, resolved.operation, authority)) {
     // The records API's own refusal, byte for byte: a caller the table does not
     // admit learns nothing from MCP that it would not learn from REST.
     return toolFailure(-32_603, 'Resource not found')
   }
 
-  return executeTool({ app, caller, authority, envelope, resolved, domainContext })
+  return executeTool({ app, caller, authority, envelope, resolved, listed, domainContext })
 }
 
-/**
- * Map a tool name like `crm_contacts_list` back to the source table +
- * operation. The split is deterministic because the operation is always the
- * trailing token (one of read/list/create/update/delete) and the appName
- * prefix matches `app.name`.
- */
-function resolveTool(app: App, toolName: string): ResolvedTool | undefined {
-  const prefix = `${app.name}_`
-  if (!toolName.startsWith(prefix)) return undefined
-  const remainder = toolName.slice(prefix.length)
-  const lastUnderscore = remainder.lastIndexOf('_')
-  if (lastUnderscore <= 0) return undefined
-
-  const operation = remainder.slice(lastUnderscore + 1) as AiAccessOperation
-  if (!SUPPORTED_OPERATIONS.has(operation)) return undefined
-
-  const toolTable = remainder.slice(0, lastUnderscore)
-  const table = (app.tables ?? []).find((t) => toolSafeTableName(t.name) === toolTable)
-  if (table === undefined) return undefined
-  if (!isAiAccessEnabled(table.aiAccess)) return undefined
-  if (!isOperationAllowedByAiAccess(table.aiAccess, operation)) return undefined
-  return { table, operation }
-}
-
-function isOperationAllowedByAiAccess(
-  access: AiAccess | undefined,
-  operation: AiAccessOperation
-): boolean {
-  if (access === undefined || typeof access === 'boolean') return true
-  if (access.operations === undefined) return true
-  return access.operations.includes(operation)
-}
+/** The answer to a call naming a tool the caller is not offered or the server does not have. */
+const toolNotFound = (toolName: string): McpToolResult =>
+  toolFailure(-32_601, `Tool not found: ${toolName}`)
 
 /**
  * RBAC role-gate at the operation level. Mirrors `filterToolsForRole` in
@@ -212,6 +162,8 @@ interface ExecuteToolInput {
   readonly authority: CallerAuthority
   readonly envelope: CallEnvelope
   readonly resolved: ResolvedTool
+  /** The read tools' proof that the records list answers the caller ({@link listedTableFor}). */
+  readonly listed: ListedTable | undefined
   readonly domainContext: DomainContext
 }
 
@@ -223,23 +175,32 @@ interface ExecuteToolInput {
  * up as -32602 / -32603 per the user-story spec.
  */
 async function executeTool(input: ExecuteToolInput): Promise<McpToolResult> {
-  const { app, caller, authority, envelope, resolved, domainContext } = input
+  const { app, caller, authority, envelope, resolved, listed, domainContext } = input
   const { operation, table } = resolved
   const session = synthesizeSession(caller.userId)
   const branch = { app, caller, authority, envelope, table, session, domainContext }
 
-  if (operation === 'list') return executeList(branch)
+  // No read runs without the proof: absent, the call answers as an unknown tool.
+  if (isReadOperation(operation)) {
+    if (listed === undefined) return toolNotFound(envelope.toolName)
+    if (operation === 'list') return executeList(branch, listed)
+    refuseUnshapedRecordId(app, table, envelope)
+    return executeRead(branch, listed)
+  }
   if (operation === 'create') return executeCreate(branch)
-  // An id no key of the table could hold names no record, as the records API answers it.
+  refuseUnshapedRecordId(app, table, envelope)
+  if (operation === 'update') return executeUpdate(branch)
+  return executeDelete(branch)
+}
+
+/** An id no key of the table could hold names no record, as the records API answers it. */
+const refuseUnshapedRecordId = (app: App, table: Table, envelope: CallEnvelope): void => {
   const recordId = envelope.args['id']
   const spelled = typeof recordId === 'number' ? String(recordId) : recordId
   const scope = app.auth?.scopeTables
   if (typeof spelled === 'string' && spelled !== '' && !isRecordKeyShaped(spelled, table, scope)) {
-    return toolFailure(-32_603, RECORD_NOT_FOUND)
+    toolFailure(-32_603, RECORD_NOT_FOUND)
   }
-  if (operation === 'read') return executeRead(branch)
-  if (operation === 'update') return executeUpdate(branch)
-  return executeDelete(branch)
 }
 
 interface ExecBranchInput {
@@ -252,8 +213,13 @@ interface ExecBranchInput {
   readonly domainContext: DomainContext
 }
 
-async function executeList(input: ExecBranchInput): Promise<McpToolResult> {
-  const { app, caller, authority, envelope, table, session } = input
+/**
+ * The list tool. `listed` is required: the empty-page answers below are a
+ * table's own answer to a reader its list admits, never a refused table's.
+ */
+async function executeList(input: ExecBranchInput, listed: ListedTable): Promise<McpToolResult> {
+  const { app, caller, authority, envelope, session } = input
+  const { table } = listed
   const limitArg = envelope.args['limit']
   const limit = typeof limitArg === 'number' ? limitArg : undefined
   const offsetArg = envelope.args['offset']
@@ -290,8 +256,9 @@ async function executeList(input: ExecBranchInput): Promise<McpToolResult> {
   })
 }
 
-async function executeRead(input: ExecBranchInput): Promise<McpToolResult> {
-  const { app, caller, authority, envelope, table, session } = input
+async function executeRead(input: ExecBranchInput, listed: ListedTable): Promise<McpToolResult> {
+  const { app, caller, authority, envelope, session } = input
+  const { table } = listed
   const recordId = String(envelope.args['id'] ?? '')
   if (!recordId) {
     return toolFailure(-32_602, "Missing 'id' parameter")
@@ -350,8 +317,13 @@ async function executeUpdate(input: ExecBranchInput): Promise<McpToolResult> {
   // Row scope first, as the records API does: a caller learns nothing about a
   // row it may not write — not its values, not which of its fields it could
   // have touched — nor about any row of a table she may not read.
+  // A record her list of the table does not admit answers as a missing one.
   const change = extractFields(envelope.args)
-  if (!readsTable(input) || !(await rowIsInScope(input, recordId, 'write', change)))
+  if (
+    !readsTable(input) ||
+    (await mayNotList(input, recordId)) ||
+    !(await rowIsInScope(input, recordId, 'write', change))
+  )
     return toolFailure(-32_603, RECORD_NOT_FOUND)
   await refuseLockedRecord(table, session, recordId, app)
   const requested = checkWritePermissions(input, change)
@@ -373,7 +345,8 @@ async function executeDelete(input: ExecBranchInput): Promise<McpToolResult> {
   }
   // A table the caller may not read answers as a record that does not exist.
   if (!readsTable(input)) return toolSuccess(MISSING_RECORD_DELETE)
-  if (!(await rowIsInScope(input, recordId, 'delete')))
+  // A record her list of the table does not admit answers as a missing one.
+  if ((await mayNotList(input, recordId)) || !(await rowIsInScope(input, recordId, 'delete')))
     return toolFailure(-32_603, RECORD_NOT_FOUND)
   return runMcpRecordDelete({
     ...{ app, session, tableName: table.name, recordId, userRole: authority.role },
@@ -386,6 +359,13 @@ const RECORD_NOT_FOUND = 'Resource not found'
 
 /** What a delete answers for a record that does not exist. */
 const MISSING_RECORD_DELETE = { success: false, setNullPerformed: false, restrictViolation: false }
+
+/** Whether the caller's list of the table does not admit the record (`callerMayNotList`). */
+const mayNotList = (input: ExecBranchInput, recordId: string) =>
+  callerMayNotList({
+    ...{ app: input.app, table: input.table, reader: linkReaderOf(input), recordId },
+    domainContext: input.domainContext,
+  })
 
 /**
  * Whether the caller reads the table at all. A write on a stored record of a
@@ -491,14 +471,3 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> => {
   if (value === null) return false
   return !Array.isArray(value)
 }
-
-/** How the sessions an MCP call synthesises are named. */
-const MCP_SESSION_LABEL = { id: 'mcp-session', token: 'mcp-bearer' } as const
-
-/**
- * The synthetic session an MCP call runs the application programs with. Every
- * authenticated caller names a user; `userId` is `undefined` only on the
- * unreachable fail-closed fallback caller.
- */
-const synthesizeSession = (userId: string | undefined): UserSession =>
-  synthesizeCallerSession(userId, MCP_SESSION_LABEL)

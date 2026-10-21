@@ -149,7 +149,8 @@ function renderListStatus(input: {
  * rows the cap then discards, which looks exactly the same to the reader. The
  * cap binds as soon as the drawn rows fill it — including when the page size
  * equals the cap and nothing has been sliced off yet, which is why it asks
- * whether the cap is reached rather than whether it clipped anything.
+ * whether the cap is reached rather than whether it clipped anything. The cap
+ * applies to what is DRAWN, whatever the page boundaries.
  */
 export default function ListIsland({
   dataSource,
@@ -174,7 +175,6 @@ export default function ListIsland({
     retry,
     total,
   } = useListRecords(dataSource)
-  // The cap applies to what is DRAWN, whatever the page boundaries.
   const drawn = maxItems === undefined ? records : records.slice(0, maxItems)
   const onItemEvent = useListRowClick(onRowClick, drawn, dataSource?.table, publishes)
 
@@ -207,6 +207,7 @@ export default function ListIsland({
         loaded={drawn.length}
         total={total}
         onLoadMore={fetchMore}
+        words={uiStrings}
       />
     </>
   )

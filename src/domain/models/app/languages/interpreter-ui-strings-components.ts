@@ -27,6 +27,8 @@ export const COMPONENT_UI_STRINGS: Readonly<Record<string, Readonly<Record<strin
     en: 'This record couldn’t be read.',
     fr: 'Cet enregistrement n’a pas pu être lu.',
   },
+  /** The button that asks that read again. */
+  'recordDrawer.retry': { en: 'Retry', fr: 'Réessayer' },
   // ---- A data component with no record to draw and no authored `emptyMessage` ----
   'chart.empty': { en: 'No data to chart yet.', fr: 'Aucune donnée à afficher pour l’instant.' },
   'chart.emptyHint': {
@@ -115,6 +117,7 @@ export const COMPONENT_UI_STRINGS: Readonly<Record<string, Readonly<Record<strin
 
   // ---- File upload: the button with no `label`, the drop zone, its limits and refusals ----
   'fileUpload.button': { en: 'Upload file', fr: 'Envoyer un fichier' },
+  'fileUpload.uploading': { en: 'Uploading…', fr: 'Envoi en cours…' },
   'fileUpload.dropPrompt': { en: 'Drop files here', fr: 'Déposez des fichiers ici' },
   'fileUpload.browse': { en: 'Browse files', fr: 'Parcourir les fichiers' },
   'fileUpload.maxOneFile': { en: 'up to 1 file', fr: 'jusqu’à 1 fichier' },

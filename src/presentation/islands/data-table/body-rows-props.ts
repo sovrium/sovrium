@@ -45,6 +45,13 @@ export interface TableBodyRowsProps {
    * signal distinguishing a no-match from a genuinely empty dataset.
    */
   readonly globalFilter?: string
+  /**
+   * Whether a control on the page narrowed what the grid asked the server for —
+   * a select, a date range or a filter bar publishing on its channel. An empty
+   * answer to a narrowed read is a no-match, not an empty dataset, exactly as an
+   * empty answer to a search is.
+   */
+  readonly narrowed?: boolean
   readonly selectionMode?: 'none' | 'single' | 'multiple'
   /**
    * When true, the table is rendered as an ARIA grid (`role="grid"`), so each

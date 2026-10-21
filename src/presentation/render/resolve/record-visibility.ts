@@ -42,7 +42,10 @@ import type { FieldCondition } from '@/domain/models/app/tables/condition-operat
  * `visibility-filter.ts` reads). `isComponentHiddenForSession` tolerates both for
  * the same reason.
  */
-function readRecordCondition(node: unknown): FieldCondition | undefined {
+function readRecordCondition(
+  node: unknown,
+  gate: 'record' | 'item' = 'record'
+): FieldCondition | undefined {
   if (typeof node !== 'object' || node === null) return undefined
   const obj = node as {
     readonly visibility?: unknown
@@ -51,8 +54,8 @@ function readRecordCondition(node: unknown): FieldCondition | undefined {
   const fromRoot = obj.visibility
   const fromProps = obj.props?.['visibility']
   const visibility = (typeof fromRoot === 'object' && fromRoot !== null ? fromRoot : fromProps) as
-    { readonly record?: unknown } | undefined
-  const condition = visibility?.record
+    Readonly<Record<string, unknown>> | undefined
+  const condition = visibility?.[gate]
   return typeof condition === 'object' && condition !== null
     ? (condition as FieldCondition)
     : undefined
@@ -86,4 +89,26 @@ export function filterChildrenForRecord(
   record: Readonly<Record<string, unknown>>
 ): readonly (Component | string)[] {
   return children.filter((child) => isVisibleForRecord(child, record))
+}
+
+/**
+ * Drop the children of one repeat copy that `visibility.item` keeps out: the
+ * PER-ELEMENT gate, matched against the element the copy is drawn from, with
+ * the same matcher `visibility.record` spends. A node declaring no item gate is
+ * always kept. Only the binding pass of a page bound to one record expands a
+ * repeat with it; the decode rule refuses the gate everywhere else.
+ */
+export function filterChildrenForElement(
+  children: readonly (Component | string)[],
+  element: unknown
+): readonly (Component | string)[] {
+  const fields =
+    typeof element === 'object' && element !== null && !Array.isArray(element)
+      ? (element as Readonly<Record<string, unknown>>)
+      : {}
+  return children.filter(
+    (child) =>
+      typeof child === 'string' ||
+      satisfiesFieldCondition(readRecordCondition(child, 'item'), fields)
+  )
 }

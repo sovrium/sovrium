@@ -1,0 +1,918 @@
+{
+  "id": "design-system-component-detail",
+  "name": "design-system-component-detail",
+  "path": "/design-system/components/:name",
+  "meta": {
+    "title": "$t:admin.meta.component",
+    "description": "$t:admin.ds.components.detailBlurb"
+  },
+  "requires": ["components"],
+  "scripts": {
+    "inlineScripts": [
+      {
+        "code": "(function(){try{var s=new URLSearchParams(window.location.search).get('scheme');var root=document.documentElement;if(s==='dark'){root.classList.add('dark')}else if(s==='light'){root.classList.remove('dark')}}catch(e){}})();",
+        "position": "head"
+      }
+    ]
+  },
+  "params": {
+    "name": {
+      "system": {
+        "endpoint": "/api/admin/design-system/usage",
+        "rowsKey": "items",
+        "query": {
+          "subject": "component"
+        }
+      },
+      "valueKey": "name"
+    }
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col-reverse items-stretch gap-6 px-4 py-4 lg:px-6 md:py-6 lg:flex-row lg:items-start"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "design-system": "$t:admin.common.designSystem",
+              "components": "$t:admin.common.components"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "admin-surface-content-2-2",
+          "element": "div",
+          "props": {
+            "className": "flex min-w-0 flex-1 flex-col gap-6"
+          },
+          "children": [
+            {
+              "component": "console-page-header",
+              "key": "header",
+              "vars": {
+                "content": "$param.name"
+              }
+            },
+            {
+              "type": "link",
+              "props": {
+                "href": "/design-system/components",
+                "className": "text-foreground-subtle hover:text-foreground text-[11px] font-medium"
+              },
+              "content": "$t:admin.ds.components.back"
+            },
+            {
+              "type": "card",
+              "variant": "scoped",
+              "props": {
+                "data-design-kit-type": "card"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "preview-surface",
+                  "element": "div",
+                  "props": {
+                    "className": "bg-background text-foreground flex list-none flex-col gap-6 p-6",
+                    "data-testid": "preview-surface",
+                    "data-design-kit-type": "container"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "preview-surface-1",
+                      "element": "div",
+                      "props": {
+                        "className": "flex flex-col gap-4"
+                      },
+                      "dataSource": {
+                        "system": {
+                          "endpoint": "/api/admin/design-system/usage",
+                          "rowsKey": "items",
+                          "idKey": "name",
+                          "query": {
+                            "subject": "component",
+                            "name": "$param.name"
+                          }
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "key": "article",
+                          "element": "article",
+                          "props": {
+                            "data-design-component": "$record.name",
+                            "id": "design-system-app-component-$record.name",
+                            "data-design-section": "design-system-app-component-$record.name",
+                            "className": "flex flex-col gap-8"
+                          },
+                          "children": [
+                            {
+                              "type": "container",
+                              "key": "article-1",
+                              "element": "div",
+                              "props": {
+                                "className": "border-border flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b px-4 py-2.5",
+                                "data-code-copy-scope": "true"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "text-foreground font-mono text-sm font-medium"
+                                  },
+                                  "content": "$record.name"
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "text-foreground-subtle text-[11px]"
+                                  },
+                                  "visibility": {
+                                    "record": {
+                                      "field": "count",
+                                      "eq": 0
+                                    }
+                                  },
+                                  "content": "$t:admin.ds.components.unused"
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "article-1-3",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "text-foreground-subtle text-[11px]"
+                                  },
+                                  "visibility": {
+                                    "record": {
+                                      "field": "count",
+                                      "eq": 1
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "content": "$t:admin.ds.components.usedOn"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "content": " "
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "content": "$record.count"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "content": " "
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "content": "$t:admin.ds.components.pageOne"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "article-1-4",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "text-foreground-subtle text-[11px]"
+                                  },
+                                  "visibility": {
+                                    "record": {
+                                      "field": "count",
+                                      "gt": 1
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "content": "$t:admin.ds.components.usedOn"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "content": " "
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "content": "$record.count"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "content": " "
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "content": "$t:admin.ds.components.pageMany"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "sr-only",
+                                    "data-copy-target": "true",
+                                    "aria-hidden": "true"
+                                  },
+                                  "content": "$ref: $record.name"
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "article-1-6",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "ml-auto flex items-baseline gap-3"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "button",
+                                      "variant": "link",
+                                      "props": {
+                                        "type": "button",
+                                        "className": "text-foreground-subtle hover:text-foreground font-mono text-[11px] leading-none",
+                                        "data-copy-code": "true",
+                                        "data-copied-label": "$t:admin.common.copied",
+                                        "aria-label": "$t:admin.ds.components.copyRef",
+                                        "data-design-kit-type": "button"
+                                      },
+                                      "content": "$t:admin.ds.components.copyRef"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "article-2",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-wrap gap-1.5 px-4 pt-3"
+                              },
+                              "dataSource": {
+                                "system": {
+                                  "endpoint": "/api/admin/design-system/usage",
+                                  "rowsKey": "routeRows",
+                                  "query": {
+                                    "subject": "component",
+                                    "name": "$record.name"
+                                  }
+                                }
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "article-2-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "contents"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "border-border bg-muted text-muted-foreground rounded border px-1.5 py-0.5 font-mono text-[11px]",
+                                        "data-design-usage-route": "$record.route"
+                                      },
+                                      "content": "$record.route"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "viewport-desktop",
+                              "element": "section",
+                              "props": {
+                                "className": "flex scroll-mt-6 flex-col gap-3",
+                                "id": "viewport-desktop",
+                                "data-design-section": "viewport-desktop"
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "viewport-desktop-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-wrap items-baseline gap-3"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "h2",
+                                      "props": {
+                                        "className": "text-foreground text-lg font-semibold tracking-tight"
+                                      },
+                                      "content": "$t:admin.ds.viewport.desktop"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-muted-foreground font-mono text-[11px]"
+                                      },
+                                      "content": "1280"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-muted-foreground text-[11px]"
+                                      },
+                                      "content": "$t:admin.ds.viewport.shownAt"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-muted-foreground font-mono text-[11px]",
+                                        "data-design-frame-scale": "desktop"
+                                      },
+                                      "content": "100 %"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "viewport-desktop-2",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "border-border bg-background overflow-hidden rounded-lg border"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "viewport-desktop-2-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "overflow-x-auto",
+                                        "data-design-viewport-frame": "desktop",
+                                        "style": {
+                                          "width": "1280px",
+                                          "maxWidth": "100%"
+                                        }
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "specimen",
+                                          "subject": {
+                                            "component": "$record.name"
+                                          },
+                                          "viewport": {
+                                            "width": 1280
+                                          },
+                                          "props": {
+                                            "data-design-kit-type": "specimen"
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "viewport-tablet",
+                              "element": "section",
+                              "props": {
+                                "className": "flex scroll-mt-6 flex-col gap-3",
+                                "id": "viewport-tablet",
+                                "data-design-section": "viewport-tablet"
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "viewport-tablet-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-wrap items-baseline gap-3"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "h2",
+                                      "props": {
+                                        "className": "text-foreground text-lg font-semibold tracking-tight"
+                                      },
+                                      "content": "$t:admin.ds.viewport.tablet"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-muted-foreground font-mono text-[11px]"
+                                      },
+                                      "content": "768"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-muted-foreground text-[11px]"
+                                      },
+                                      "content": "$t:admin.ds.viewport.shownAt"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-muted-foreground font-mono text-[11px]",
+                                        "data-design-frame-scale": "tablet"
+                                      },
+                                      "content": "100 %"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "viewport-tablet-2",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "border-border bg-background overflow-hidden rounded-lg border"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "viewport-tablet-2-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "overflow-x-auto",
+                                        "data-design-viewport-frame": "tablet",
+                                        "style": {
+                                          "width": "768px",
+                                          "maxWidth": "100%"
+                                        }
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "specimen",
+                                          "subject": {
+                                            "component": "$record.name"
+                                          },
+                                          "viewport": {
+                                            "width": 768
+                                          },
+                                          "props": {
+                                            "data-design-kit-type": "specimen"
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "viewport-mobile",
+                              "element": "section",
+                              "props": {
+                                "className": "flex scroll-mt-6 flex-col gap-3",
+                                "id": "viewport-mobile",
+                                "data-design-section": "viewport-mobile"
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "viewport-mobile-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-wrap items-baseline gap-3"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "h2",
+                                      "props": {
+                                        "className": "text-foreground text-lg font-semibold tracking-tight"
+                                      },
+                                      "content": "$t:admin.ds.viewport.mobile"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-muted-foreground font-mono text-[11px]"
+                                      },
+                                      "content": "375"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-muted-foreground text-[11px]"
+                                      },
+                                      "content": "$t:admin.ds.viewport.shownAt"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-muted-foreground font-mono text-[11px]",
+                                        "data-design-frame-scale": "mobile"
+                                      },
+                                      "content": "100 %"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "viewport-mobile-2",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "border-border bg-background overflow-hidden rounded-lg border"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "viewport-mobile-2-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "overflow-x-auto",
+                                        "data-design-viewport-frame": "mobile",
+                                        "style": {
+                                          "width": "375px",
+                                          "maxWidth": "100%"
+                                        }
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "specimen",
+                                          "subject": {
+                                            "component": "$record.name"
+                                          },
+                                          "viewport": {
+                                            "width": 375
+                                          },
+                                          "props": {
+                                            "data-design-kit-type": "specimen"
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "section",
+                              "element": "section",
+                              "props": {
+                                "className": "flex flex-col gap-3",
+                                "data-design-component-props": "$record.name"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "h2",
+                                  "props": {
+                                    "className": "text-foreground text-lg font-semibold tracking-tight"
+                                  },
+                                  "content": "$t:admin.ds.components.props"
+                                },
+                                {
+                                  "component": "console-ledger",
+                                  "key": "ledger",
+                                  "vars": {
+                                    "ariaLabel": "$t:admin.ds.components.props",
+                                    "dataSource": {
+                                      "system": {
+                                        "endpoint": "/api/admin/design-system/usage",
+                                        "rowsKey": "propRows",
+                                        "query": {
+                                          "subject": "component",
+                                          "name": "$record.name"
+                                        }
+                                      }
+                                    },
+                                    "columns": [
+                                      {
+                                        "field": "prop",
+                                        "label": "$t:admin.ds.components.prop",
+                                        "sortable": false
+                                      },
+                                      {
+                                        "field": "type",
+                                        "label": "$t:admin.common.type",
+                                        "sortable": false
+                                      },
+                                      {
+                                        "field": "sample",
+                                        "label": "$t:admin.ds.components.sample",
+                                        "sortable": false
+                                      }
+                                    ],
+                                    "emptyMessage": "$t:admin.ds.components.noProps"
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "article-7",
+                              "element": "div",
+                              "props": {
+                                "className": "border-border flex flex-col gap-3 border-t px-4 py-3"
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "article-7-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-col gap-1"
+                                  },
+                                  "dataSource": {
+                                    "system": {
+                                      "endpoint": "/api/admin/design-system/guidance",
+                                      "rowsKey": "items",
+                                      "query": {
+                                        "kind": "component.usage",
+                                        "label": "$record.name"
+                                      }
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "article-7-1-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex flex-col gap-1"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "element": "p",
+                                          "props": {
+                                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                          },
+                                          "content": "$t:admin.ds.components.usage"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "p",
+                                          "props": {
+                                            "className": "text-foreground text-md leading-relaxed"
+                                          },
+                                          "content": "$record.instruction"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "p",
+                                          "props": {
+                                            "className": "text-foreground-subtle max-w-sm text-[11px] leading-relaxed"
+                                          },
+                                          "content": "$record.reason"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "article-7-2",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-col gap-1"
+                                  },
+                                  "dataSource": {
+                                    "system": {
+                                      "endpoint": "/api/admin/design-system/guidance",
+                                      "rowsKey": "items",
+                                      "query": {
+                                        "kind": "component.when",
+                                        "label": "$record.name"
+                                      }
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "article-7-2-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex flex-col gap-1"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "element": "p",
+                                          "props": {
+                                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                          },
+                                          "content": "$t:admin.ds.when"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "p",
+                                          "props": {
+                                            "className": "text-foreground text-md leading-relaxed"
+                                          },
+                                          "content": "$record.instruction"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "p",
+                                          "props": {
+                                            "className": "text-foreground-subtle max-w-sm text-[11px] leading-relaxed"
+                                          },
+                                          "content": "$record.reason"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "article-7-3",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-col gap-1"
+                                  },
+                                  "dataSource": {
+                                    "system": {
+                                      "endpoint": "/api/admin/design-system/guidance",
+                                      "rowsKey": "items",
+                                      "query": {
+                                        "kind": "component.dont",
+                                        "label": "$record.name"
+                                      }
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "article-7-3-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex flex-col gap-1"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "element": "p",
+                                          "props": {
+                                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                          },
+                                          "content": "$t:admin.ds.dont"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "p",
+                                          "props": {
+                                            "className": "text-error-fg text-md leading-relaxed"
+                                          },
+                                          "content": "$record.instruction"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "p",
+                                          "props": {
+                                            "className": "text-foreground-subtle max-w-sm text-[11px] leading-relaxed"
+                                          },
+                                          "content": "$record.reason"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "design-system-nav-column",
+          "element": "div",
+          "props": {
+            "className": "flex w-full flex-none flex-col lg:w-52 lg:self-stretch lg:border-l lg:border-border lg:pl-3",
+            "data-testid": "design-system-nav-column"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "design-system-nav-column-scroller",
+              "element": "div",
+              "props": {
+                "className": "flex flex-wrap gap-1 lg:sticky lg:top-16 lg:max-h-[calc(100vh-4rem)] lg:flex-col lg:flex-nowrap lg:overflow-y-auto lg:pb-8 [scrollbar-width:thin]",
+                "data-testid": "design-system-nav-column-scroller"
+              },
+              "children": [
+                {
+                  "type": "link",
+                  "props": {
+                    "href": "/design-system/components",
+                    "className": "flex items-center gap-2 rounded-md px-2 py-1.5 text-md transition-colors text-foreground hover:bg-muted",
+                    "data-testid": "design-system-nav-column-overview"
+                  },
+                  "content": "$t:admin.common.overview"
+                },
+                {
+                  "type": "container",
+                  "key": "design-system-nav-column-scroller-2",
+                  "element": "div",
+                  "props": {
+                    "className": "contents"
+                  },
+                  "dataSource": {
+                    "system": {
+                      "endpoint": "/api/admin/design-system/usage",
+                      "rowsKey": "items",
+                      "idKey": "name",
+                      "query": {
+                        "subject": "component"
+                      }
+                    }
+                  },
+                  "children": [
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/design-system/components/$record.name",
+                        "className": "flex items-center gap-2 rounded-md px-2 py-1.5 text-md transition-colors text-foreground hover:bg-muted bg-muted font-medium",
+                        "data-testid": "design-system-component-nav-$record.name",
+                        "aria-current": "page",
+                        "data-design-kit-type": "link"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "name",
+                          "eq": "$param.name"
+                        }
+                      },
+                      "content": "$record.name"
+                    },
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/design-system/components/$record.name",
+                        "className": "flex items-center gap-2 rounded-md px-2 py-1.5 text-md transition-colors text-foreground hover:bg-muted",
+                        "data-testid": "design-system-component-nav-$record.name",
+                        "data-design-kit-type": "link"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "name",
+                          "neq": "$param.name"
+                        }
+                      },
+                      "content": "$record.name"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -41,6 +41,7 @@ import { evaluateQueryTurn } from '@/presentation/api/agents/chat-query-flow'
 import { respondWithActions } from '@/presentation/api/agents/chat-tool-reply'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import type { App } from '@/domain/models/app'
+import type { StoredToolCall } from '@/domain/models/app/agents/stored-tool-call-service'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
 import type { ChatTurnToPersist } from '@/presentation/api/agents/chat-durable-memory'
 import type { ChatReader } from '@/presentation/api/agents/chat-read-scope'
@@ -115,13 +116,35 @@ const refuseAsNotFound = async (c: Context, input: ChatTurnInput): Promise<Respo
   return notFound(c, 'Resource not found')
 }
 
-const turnToPersist = (input: ChatTurnInput, reply: string): ChatTurnToPersist => ({
-  userId: input.actorName,
-  sessionId: input.sessionId,
-  userMessage: input.message,
-  assistantReply: reply,
-  userParts: input.parts?.stored,
-})
+const turnToPersist = (
+  input: ChatTurnInput,
+  reply: string,
+  read: ReadonlyArray<{ readonly type: string; readonly table?: string | undefined }> = []
+): ChatTurnToPersist => {
+  const assistantToolCalls = readLines(read)
+  return {
+    userId: input.actorName,
+    sessionId: input.sessionId,
+    userMessage: input.message,
+    assistantReply: reply,
+    userParts: input.parts?.stored,
+    ...(assistantToolCalls.length > 0 && { assistantToolCalls }),
+  }
+}
+
+/**
+ * The lines an answer the server composed itself — a record query, a write or
+ * a write awaiting confirmation — is stored with: one per table it read, as a
+ * model's call is, so a later replay can tell which table the answer came from.
+ */
+const readLines = (
+  read: ReadonlyArray<{ readonly type: string; readonly table?: string | undefined }>
+): ReadonlyArray<StoredToolCall> =>
+  read.flatMap(({ type, table }) =>
+    table === undefined
+      ? []
+      : [{ id: crypto.randomUUID(), name: `chat.${type}`, outcome: 'ok' as const, table }]
+  )
 
 /**
  * Complete a chat turn after a successful AI provider response: evaluate the
@@ -181,6 +204,7 @@ export const finishChatTurn = async (
     message: input.message,
     userId: input.actorName,
     userRole: input.userRole,
+    reader: input.reader,
     ...(input.confirmationToken !== undefined && {
       confirmationToken: input.confirmationToken,
     }),
@@ -197,6 +221,18 @@ export const finishChatTurn = async (
   }
 
   return finishMutationTurn(c, input, aiReply, mutation)
+}
+
+/** The tables a write's answer names: those it wrote, or the one awaiting confirmation. */
+const mutationReads = (
+  mutation: Exclude<MutationTurnResult, { kind: 'forbidden' }>
+): ReadonlyArray<{ readonly type: string; readonly table?: string | undefined }> => {
+  if (mutation.kind === 'applied') return mutation.actions
+  if (mutation.kind === 'pending') {
+    const { action, table } = mutation.pendingConfirmation
+    return [{ type: action, table }]
+  }
+  return []
 }
 
 /**
@@ -220,8 +256,8 @@ const finishMutationTurn = async (
   // carries it forward. The in-memory store keeps the
   // sessionless `anonymous` fallback working; durable PostgreSQL persistence
   // makes history survive a restart and powers the conversation endpoints.
-  appendConversationTurn(input.sessionId, input.message, reply)
-  await persistTurnDurably(input.services, turnToPersist(input, reply))
+  appendConversationTurn(c, input, input.message, reply)
+  await persistTurnDurably(input.services, turnToPersist(input, reply, mutationReads(mutation)))
   // Record the interaction in activity monitoring.
   await recordChatActivity(input.services, {
     action: 'ai.chat.message',
@@ -258,8 +294,8 @@ const finishQueryTurn = async (
   reply: string,
   action: ChatAction
 ): Promise<Response> => {
-  appendConversationTurn(input.sessionId, input.message, reply)
-  await persistTurnDurably(input.services, turnToPersist(input, reply))
+  appendConversationTurn(c, input, input.message, reply)
+  await persistTurnDurably(input.services, turnToPersist(input, reply, [action]))
   // Record the read query in activity monitoring with explicit user
   // attribution. Best-effort — a logging failure must
   // never break the chat turn.

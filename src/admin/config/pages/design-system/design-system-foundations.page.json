@@ -1,0 +1,2243 @@
+{
+  "id": "design-system-foundations",
+  "name": "design-system-foundations",
+  "path": "/design-system/foundations",
+  "meta": {
+    "title": "$t:admin.meta.foundations",
+    "description": "$t:admin.ds.found.blurb"
+  },
+  "scripts": {
+    "inlineScripts": [
+      {
+        "code": "(function(){try{var s=new URLSearchParams(window.location.search).get('scheme');var root=document.documentElement;if(s==='dark'){root.classList.add('dark')}else if(s==='light'){root.classList.remove('dark')}}catch(e){}})();",
+        "position": "head"
+      }
+    ]
+  },
+  "dataSource": {
+    "system": {
+      "endpoint": "/api/admin/design-system/tokens",
+      "recordKey": "summary",
+      "idKey": "total"
+    }
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "design-system": "$t:admin.common.designSystem",
+              "foundations": "$t:admin.common.foundations"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "component": "console-page-header",
+          "key": "header",
+          "vars": {
+            "content": "$t:admin.common.foundations"
+          }
+        },
+        {
+          "type": "container",
+          "key": "admin-surface-content-2-2",
+          "element": "div",
+          "props": {
+            "className": "flex flex-row items-start gap-8"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-2-1",
+              "element": "div",
+              "props": {
+                "className": "flex min-w-0 flex-1 flex-col gap-6"
+              },
+              "children": [
+                {
+                  "type": "card",
+                  "variant": "scoped",
+                  "props": {
+                    "data-design-kit-type": "card"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "preview-surface",
+                      "element": "div",
+                      "props": {
+                        "className": "bg-background text-foreground flex list-none flex-col gap-8 p-6",
+                        "data-testid": "preview-surface"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "key": "colour",
+                          "element": "section",
+                          "props": {
+                            "className": "flex scroll-mt-6 flex-col gap-4",
+                            "id": "colour",
+                            "data-design-section": "colour"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "h2",
+                              "props": {
+                                "className": "text-foreground text-lg font-semibold tracking-tight"
+                              },
+                              "content": "$t:admin.ds.found.colour"
+                            },
+                            {
+                              "type": "container",
+                              "key": "design-system-dark-contrast-note",
+                              "element": "div",
+                              "props": {
+                                "className": "max-w-2xl hidden dark:block",
+                                "data-testid": "design-system-dark-contrast-note"
+                              },
+                              "visibility": {
+                                "record": {
+                                  "field": "darkDeclared",
+                                  "eq": false
+                                }
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "p",
+                                  "props": {
+                                    "className": "text-foreground-subtle max-w-lg text-md leading-relaxed"
+                                  },
+                                  "content": "$t:admin.ds.found.noDark"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "design-system-swatches",
+                              "props": {
+                                "className": "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4",
+                                "data-testid": "design-system-swatches",
+                                "data-design-role-table": "true"
+                              },
+                              "dataSource": {
+                                "system": {
+                                  "endpoint": "/api/admin/design-system/tokens",
+                                  "query": {
+                                    "group": "color"
+                                  },
+                                  "rowsKey": "items",
+                                  "idKey": "path"
+                                }
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "design-system-swatches-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "border-border flex h-full min-h-28 flex-col gap-1 rounded-md border p-2 [--swatch-fallback:var(--swatch-light)] [color:var(--swatch-ink)] dark:[--swatch-fallback:var(--swatch-dark)] dark:[color:var(--swatch-ink-dark)]",
+                                    "data-testid": "design-system-swatch-$record.leaf",
+                                    "style": {
+                                      "--swatch-light": "$record.value",
+                                      "--swatch-dark": "$record.darkValue",
+                                      "--swatch-ink": "$record.ink",
+                                      "--swatch-ink-dark": "$record.darkInk",
+                                      "backgroundColor": "var(--color-$record.leaf, var(--swatch-fallback))"
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "font-mono text-sm font-medium"
+                                      },
+                                      "content": "$record.leaf"
+                                    },
+                                    {
+                                      "type": "container",
+                                      "key": "design-system-swatches-1-2",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "dark:hidden flex-col",
+                                        "data-design-scheme": "light",
+                                        "data-design-color-gamut": "$record.gamut"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "container",
+                                          "key": "design-system-swatches-1-2-1",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "flex items-center justify-between gap-2",
+                                            "data-code-copy-scope": "true"
+                                          },
+                                          "visibility": {
+                                            "record": {
+                                              "field": "gamut",
+                                              "eq": "srgb"
+                                            }
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "element": "span",
+                                              "props": {
+                                                "className": "opacity-90 font-mono text-sm",
+                                                "data-copy-target": "true"
+                                              },
+                                              "content": "$record.hex"
+                                            },
+                                            {
+                                              "type": "button",
+                                              "variant": "ghost",
+                                              "size": "icon-xs",
+                                              "icon": "copy",
+                                              "props": {
+                                                "type": "button",
+                                                "className": "text-current opacity-75 hover:bg-current/10 hover:text-current hover:opacity-100 shrink-0",
+                                                "data-copy-code": "true",
+                                                "data-copied-label": "$t:admin.common.copied",
+                                                "aria-label": "$t:admin.ds.found.copyHex $record.leaf ($record.hex)",
+                                                "data-design-kit-type": "button"
+                                              }
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "container",
+                                          "key": "design-system-swatches-1-2-2",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "flex items-center justify-between gap-2",
+                                            "data-code-copy-scope": "true"
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "element": "span",
+                                              "props": {
+                                                "className": "opacity-90 font-mono text-sm",
+                                                "data-copy-target": "true"
+                                              },
+                                              "content": "$record.value"
+                                            },
+                                            {
+                                              "type": "button",
+                                              "variant": "ghost",
+                                              "size": "icon-xs",
+                                              "icon": "copy",
+                                              "props": {
+                                                "type": "button",
+                                                "className": "text-current opacity-75 hover:bg-current/10 hover:text-current hover:opacity-100 shrink-0",
+                                                "data-copy-code": "true",
+                                                "data-copied-label": "$t:admin.common.copied",
+                                                "aria-label": "$t:admin.ds.found.copyValue $record.leaf ($record.value)",
+                                                "data-design-kit-type": "button"
+                                              }
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-[10px] leading-snug opacity-75"
+                                          },
+                                          "visibility": {
+                                            "record": {
+                                              "field": "gamut",
+                                              "eq": "wide"
+                                            }
+                                          },
+                                          "content": "$t:admin.ds.found.outsideSrgb"
+                                        },
+                                        {
+                                          "type": "container",
+                                          "key": "design-system-swatches-1-2-4",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "contents"
+                                          },
+                                          "visibility": {
+                                            "record": {
+                                              "field": "contrastLevel",
+                                              "in": ["fail", "AA", "AAA"]
+                                            }
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "container",
+                                              "key": "design-system-swatches-1-2-4-1",
+                                              "element": "div",
+                                              "props": {
+                                                "className": "bg-muted text-foreground-subtle mt-0.5 self-start rounded px-1 font-mono text-[10px]",
+                                                "data-design-contrast": "$record.leaf",
+                                                "data-design-contrast-level": "$record.contrastLevel",
+                                                "data-design-contrast-against": "$record.contrastAgainst"
+                                              },
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "props": {
+                                                    "className": ""
+                                                  },
+                                                  "content": "$t:admin.ds.found.on $record.contrastAgainst · $record.contrastRatio:1 "
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "props": {
+                                                    "className": ""
+                                                  },
+                                                  "visibility": {
+                                                    "record": {
+                                                      "field": "contrastLevel",
+                                                      "eq": "fail"
+                                                    }
+                                                  },
+                                                  "content": "$t:admin.ds.found.failsAa"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "props": {
+                                                    "className": ""
+                                                  },
+                                                  "visibility": {
+                                                    "record": {
+                                                      "field": "contrastLevel",
+                                                      "in": ["AA", "AAA"]
+                                                    }
+                                                  },
+                                                  "content": "$record.contrastLevel"
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "container",
+                                      "key": "design-system-swatches-1-3",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "hidden dark:flex flex-col",
+                                        "data-design-scheme": "dark",
+                                        "data-design-color-gamut": "$record.darkGamut",
+                                        "data-design-value-source": "$record.darkSource"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "container",
+                                          "key": "design-system-swatches-1-3-1",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "flex items-center justify-between gap-2",
+                                            "data-code-copy-scope": "true"
+                                          },
+                                          "visibility": {
+                                            "record": {
+                                              "field": "darkGamut",
+                                              "eq": "srgb"
+                                            }
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "element": "span",
+                                              "props": {
+                                                "className": "opacity-90 font-mono text-sm",
+                                                "data-copy-target": "true"
+                                              },
+                                              "content": "$record.darkHex"
+                                            },
+                                            {
+                                              "type": "button",
+                                              "variant": "ghost",
+                                              "size": "icon-xs",
+                                              "icon": "copy",
+                                              "props": {
+                                                "type": "button",
+                                                "className": "text-current opacity-75 hover:bg-current/10 hover:text-current hover:opacity-100 shrink-0",
+                                                "data-copy-code": "true",
+                                                "data-copied-label": "$t:admin.common.copied",
+                                                "aria-label": "$t:admin.ds.found.copyHex $record.leaf ($record.darkHex)",
+                                                "data-design-kit-type": "button"
+                                              }
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "container",
+                                          "key": "design-system-swatches-1-3-2",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "flex items-center justify-between gap-2",
+                                            "data-code-copy-scope": "true"
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "element": "span",
+                                              "props": {
+                                                "className": "opacity-90 font-mono text-sm",
+                                                "data-copy-target": "true"
+                                              },
+                                              "content": "$record.darkValue"
+                                            },
+                                            {
+                                              "type": "button",
+                                              "variant": "ghost",
+                                              "size": "icon-xs",
+                                              "icon": "copy",
+                                              "props": {
+                                                "type": "button",
+                                                "className": "text-current opacity-75 hover:bg-current/10 hover:text-current hover:opacity-100 shrink-0",
+                                                "data-copy-code": "true",
+                                                "data-copied-label": "$t:admin.common.copied",
+                                                "aria-label": "$t:admin.ds.found.copyValue $record.leaf ($record.darkValue)",
+                                                "data-design-kit-type": "button"
+                                              }
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-[10px] leading-snug opacity-75"
+                                          },
+                                          "visibility": {
+                                            "record": {
+                                              "field": "darkGamut",
+                                              "eq": "wide"
+                                            }
+                                          },
+                                          "content": "$t:admin.ds.found.outsideSrgb"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-[10px] leading-snug opacity-75"
+                                          },
+                                          "visibility": {
+                                            "record": {
+                                              "field": "darkSource",
+                                              "eq": "platform"
+                                            }
+                                          },
+                                          "content": "$t:admin.ds.found.darkFromPlatform"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-[10px] leading-snug opacity-75"
+                                          },
+                                          "visibility": {
+                                            "record": {
+                                              "field": "darkSource",
+                                              "eq": "light"
+                                            }
+                                          },
+                                          "content": "$t:admin.ds.found.darkKeptLight"
+                                        },
+                                        {
+                                          "type": "container",
+                                          "key": "design-system-swatches-1-3-6",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "contents"
+                                          },
+                                          "visibility": {
+                                            "record": {
+                                              "field": "darkContrastLevel",
+                                              "in": ["fail", "AA", "AAA"]
+                                            }
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "container",
+                                              "key": "design-system-swatches-1-3-6-1",
+                                              "element": "div",
+                                              "props": {
+                                                "className": "bg-muted text-foreground-subtle mt-0.5 self-start rounded px-1 font-mono text-[10px]",
+                                                "data-design-contrast": "$record.leaf",
+                                                "data-design-contrast-level": "$record.darkContrastLevel",
+                                                "data-design-contrast-against": "$record.darkContrastAgainst"
+                                              },
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "props": {
+                                                    "className": ""
+                                                  },
+                                                  "content": "$t:admin.ds.found.on $record.darkContrastAgainst · $record.darkContrastRatio:1 "
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "props": {
+                                                    "className": ""
+                                                  },
+                                                  "visibility": {
+                                                    "record": {
+                                                      "field": "darkContrastLevel",
+                                                      "eq": "fail"
+                                                    }
+                                                  },
+                                                  "content": "$t:admin.ds.found.failsAa"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "props": {
+                                                    "className": ""
+                                                  },
+                                                  "visibility": {
+                                                    "record": {
+                                                      "field": "darkContrastLevel",
+                                                      "in": ["AA", "AAA"]
+                                                    }
+                                                  },
+                                                  "content": "$record.darkContrastLevel"
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "colour-4",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col gap-2",
+                                "data-design-series": "true"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "p",
+                                  "props": {
+                                    "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                  },
+                                  "content": "$t:admin.ds.found.series"
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "colour-4-2",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-wrap gap-4"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "colour-4-2-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex flex-col items-center gap-1.5"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "container",
+                                          "key": "colour-4-2-1-1",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "border-border h-12 w-12 rounded-md border",
+                                            "style": {
+                                              "backgroundColor": "var(--chart-1)"
+                                            },
+                                            "data-design-series-slot": "1"
+                                          },
+                                          "children": []
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground-subtle font-mono text-[11px]"
+                                          },
+                                          "content": "chart-1"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "container",
+                                      "key": "colour-4-2-2",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex flex-col items-center gap-1.5"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "container",
+                                          "key": "colour-4-2-2-1",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "border-border h-12 w-12 rounded-md border",
+                                            "style": {
+                                              "backgroundColor": "var(--chart-2)"
+                                            },
+                                            "data-design-series-slot": "2"
+                                          },
+                                          "children": []
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground-subtle font-mono text-[11px]"
+                                          },
+                                          "content": "chart-2"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "container",
+                                      "key": "colour-4-2-3",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex flex-col items-center gap-1.5"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "container",
+                                          "key": "colour-4-2-3-1",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "border-border h-12 w-12 rounded-md border",
+                                            "style": {
+                                              "backgroundColor": "var(--chart-3)"
+                                            },
+                                            "data-design-series-slot": "3"
+                                          },
+                                          "children": []
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground-subtle font-mono text-[11px]"
+                                          },
+                                          "content": "chart-3"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "container",
+                                      "key": "colour-4-2-4",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex flex-col items-center gap-1.5"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "container",
+                                          "key": "colour-4-2-4-1",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "border-border h-12 w-12 rounded-md border",
+                                            "style": {
+                                              "backgroundColor": "var(--chart-4)"
+                                            },
+                                            "data-design-series-slot": "4"
+                                          },
+                                          "children": []
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground-subtle font-mono text-[11px]"
+                                          },
+                                          "content": "chart-4"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "container",
+                                      "key": "colour-4-2-5",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex flex-col items-center gap-1.5"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "container",
+                                          "key": "colour-4-2-5-1",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "border-border h-12 w-12 rounded-md border",
+                                            "style": {
+                                              "backgroundColor": "var(--chart-5)"
+                                            },
+                                            "data-design-series-slot": "5"
+                                          },
+                                          "children": []
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground-subtle font-mono text-[11px]"
+                                          },
+                                          "content": "chart-5"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "colour-5",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col gap-2",
+                                "data-design-state-vocabulary": "true"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "p",
+                                  "props": {
+                                    "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                  },
+                                  "content": "$t:admin.common.state"
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "colour-5-2",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-wrap gap-3"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "colour-5-2-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "border-border flex items-center gap-2 rounded-md border px-3 py-1.5 text-foreground",
+                                        "data-design-state": "success"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-md leading-none"
+                                          },
+                                          "content": "✓"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-md"
+                                          },
+                                          "content": "success"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "container",
+                                      "key": "colour-5-2-2",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "border-border flex items-center gap-2 rounded-md border px-3 py-1.5 text-foreground",
+                                        "data-design-state": "warning"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-md leading-none"
+                                          },
+                                          "content": "!"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-md"
+                                          },
+                                          "content": "warning"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "container",
+                                      "key": "colour-5-2-3",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "border-border flex items-center gap-2 rounded-md border px-3 py-1.5 text-foreground",
+                                        "data-design-state": "info"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-md leading-none"
+                                          },
+                                          "content": "i"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-md"
+                                          },
+                                          "content": "info"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "container",
+                                      "key": "colour-5-2-4",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "border-border flex items-center gap-2 rounded-md border px-3 py-1.5 border-error-border bg-error-bg text-error-fg",
+                                        "data-design-state": "error"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-md leading-none"
+                                          },
+                                          "content": "×"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-md"
+                                          },
+                                          "content": "error"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "type",
+                          "element": "section",
+                          "props": {
+                            "className": "flex scroll-mt-6 flex-col gap-4",
+                            "id": "type",
+                            "data-design-section": "type"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "h2",
+                              "props": {
+                                "className": "text-foreground text-lg font-semibold tracking-tight"
+                              },
+                              "content": "$t:admin.common.type"
+                            },
+                            {
+                              "type": "text",
+                              "element": "p",
+                              "props": {
+                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                              },
+                              "content": "$t:admin.ds.found.faces"
+                            },
+                            {
+                              "type": "container",
+                              "key": "type-3",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col"
+                              },
+                              "dataSource": {
+                                "system": {
+                                  "endpoint": "/api/admin/design-system/tokens",
+                                  "query": {
+                                    "group": "font"
+                                  },
+                                  "rowsKey": "items",
+                                  "idKey": "path"
+                                }
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "type-3-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "border-border flex flex-col gap-1 border-b py-3 last:border-b-0",
+                                    "data-testid": "design-system-font-$record.leaf",
+                                    "style": {
+                                      "fontFamily": "$record.value"
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-foreground-subtle text-sm"
+                                      },
+                                      "content": "$record.leaf · $record.value"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-foreground max-w-xl text-lg leading-relaxed"
+                                      },
+                                      "content": "$t:admin.ds.found.paragraph"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "element": "p",
+                              "props": {
+                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                              },
+                              "content": "$t:admin.ds.found.ladder"
+                            },
+                            {
+                              "type": "container",
+                              "key": "design-system-type-scale",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col gap-3",
+                                "data-testid": "design-system-type-scale",
+                                "data-design-type-ladder": "true"
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "design-system-type-scale-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-col"
+                                  },
+                                  "dataSource": {
+                                    "system": {
+                                      "endpoint": "/api/admin/design-system/tokens",
+                                      "query": {
+                                        "group": "typography"
+                                      },
+                                      "rowsKey": "items",
+                                      "idKey": "path"
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "design-system-type-scale-1-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "border-border flex flex-col gap-2 border-b py-4 last:border-b-0 md:flex-row md:items-baseline md:gap-6",
+                                        "data-design-type-step": "$record.leaf"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground-subtle w-[90px] shrink-0 font-mono text-sm"
+                                          },
+                                          "content": "$record.leaf"
+                                        },
+                                        {
+                                          "type": "container",
+                                          "key": "design-system-type-scale-1-1-2",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "min-w-0 flex-1"
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "element": "p",
+                                              "props": {
+                                                "className": "text-foreground",
+                                                "data-design-type-specimen": "$record.leaf",
+                                                "style": {
+                                                  "fontSize": "$record.fontSize",
+                                                  "lineHeight": "$record.lineHeight"
+                                                }
+                                              },
+                                              "content": "$t:admin.ds.found.pangram"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground-subtle shrink-0 font-mono text-sm md:text-right"
+                                          },
+                                          "content": "$record.fontSize / $record.lineHeight · text-$record.leaf"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "design-system-type-scale-2",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "contents"
+                                  },
+                                  "dataSource": {
+                                    "system": {
+                                      "endpoint": "/api/admin/design-system/coverage",
+                                      "query": {
+                                        "key": "type-scale"
+                                      },
+                                      "rowsKey": "items",
+                                      "idKey": "key"
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "design-system-type-scale-2-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex flex-col gap-3"
+                                      },
+                                      "visibility": {
+                                        "record": {
+                                          "field": "count",
+                                          "eq": 0
+                                        }
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "element": "p",
+                                          "props": {
+                                            "className": "text-foreground-subtle max-w-md text-sm leading-relaxed"
+                                          },
+                                          "content": "$t:admin.ds.found.noTypeScale"
+                                        },
+                                        {
+                                          "type": "link",
+                                          "props": {
+                                            "href": "https://sovrium.com/en/docs/design-type-scale",
+                                            "className": "text-foreground hover:text-muted-foreground self-start text-sm font-medium"
+                                          },
+                                          "content": "$t:admin.ds.found.declareSteps"
+                                        },
+                                        {
+                                          "type": "container",
+                                          "key": "design-system-type-scale-2-1-3",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "flex flex-col gap-2"
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "element": "p",
+                                              "props": {
+                                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                              },
+                                              "content": "$t:admin.ds.found.platformLadder"
+                                            },
+                                            {
+                                              "type": "container",
+                                              "key": "design-system-type-scale-2-1-3-2",
+                                              "element": "div",
+                                              "props": {
+                                                "className": "flex flex-col"
+                                              },
+                                              "dataSource": {
+                                                "system": {
+                                                  "endpoint": "/api/admin/design-system/type-ladder",
+                                                  "rowsKey": "items",
+                                                  "idKey": "step"
+                                                }
+                                              },
+                                              "children": [
+                                                {
+                                                  "type": "container",
+                                                  "key": "design-system-type-scale-2-1-3-2-1",
+                                                  "element": "div",
+                                                  "props": {
+                                                    "className": "border-border $record.utility flex flex-col gap-1 border-b py-3 last:border-b-0 md:flex-row md:items-baseline md:gap-6",
+                                                    "data-design-platform-step": "$record.step"
+                                                  },
+                                                  "children": [
+                                                    {
+                                                      "type": "text",
+                                                      "element": "span",
+                                                      "props": {
+                                                        "className": "text-foreground-subtle w-[90px] shrink-0 font-mono text-[11px]"
+                                                      },
+                                                      "content": "$record.utility"
+                                                    },
+                                                    {
+                                                      "type": "text",
+                                                      "element": "span",
+                                                      "props": {
+                                                        "className": "text-foreground-subtle w-[70px] shrink-0 font-mono text-[11px]"
+                                                      },
+                                                      "content": "$record.sizePx / $record.leadingPx"
+                                                    },
+                                                    {
+                                                      "type": "text",
+                                                      "element": "span",
+                                                      "props": {
+                                                        "className": "text-foreground min-w-0 flex-1"
+                                                      },
+                                                      "content": "$t:admin.ds.found.pangram"
+                                                    }
+                                                  ]
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "element": "p",
+                              "props": {
+                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                              },
+                              "content": "$t:admin.ds.found.emphasis"
+                            },
+                            {
+                              "type": "container",
+                              "key": "type-7",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col"
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "type-7-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "border-border flex flex-col gap-1 border-b py-2 last:border-b-0"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                      },
+                                      "content": "$t:admin.ds.found.primary"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-foreground text-md font-medium leading-relaxed"
+                                      },
+                                      "content": "$t:admin.ds.found.primaryDesc"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "type-7-2",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "border-border flex flex-col gap-1 border-b py-2 last:border-b-0"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                      },
+                                      "content": "$t:admin.ds.found.muted"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-muted-foreground text-md leading-relaxed"
+                                      },
+                                      "content": "$t:admin.ds.found.mutedDesc"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "type-7-3",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "border-border flex flex-col gap-1 border-b py-2 last:border-b-0"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                      },
+                                      "content": "$t:admin.common.disabled"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-foreground-disabled text-md leading-relaxed"
+                                      },
+                                      "content": "$t:admin.ds.found.disabledDesc"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "space",
+                          "element": "section",
+                          "props": {
+                            "className": "flex scroll-mt-6 flex-col gap-4",
+                            "id": "space",
+                            "data-design-section": "space"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "h2",
+                              "props": {
+                                "className": "text-foreground text-lg font-semibold tracking-tight"
+                              },
+                              "content": "$t:admin.ds.found.space"
+                            },
+                            {
+                              "type": "container",
+                              "key": "space-2",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col gap-3"
+                              },
+                              "dataSource": {
+                                "system": {
+                                  "endpoint": "/api/admin/design-system/tokens",
+                                  "query": {
+                                    "group": "spacing"
+                                  },
+                                  "rowsKey": "items",
+                                  "idKey": "path"
+                                }
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "space-2-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex items-center gap-3"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "space-2-1-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "bg-primary h-2 shrink-0 rounded-sm",
+                                        "data-testid": "design-system-spacing-$record.leaf",
+                                        "style": {
+                                          "width": "$record.value"
+                                        }
+                                      },
+                                      "children": []
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-foreground-subtle font-mono text-sm"
+                                      },
+                                      "content": "$record.leaf · $record.value"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "space-3",
+                              "element": "div",
+                              "props": {
+                                "className": "contents"
+                              },
+                              "dataSource": {
+                                "system": {
+                                  "endpoint": "/api/admin/design-system/coverage",
+                                  "query": {
+                                    "key": "spacing"
+                                  },
+                                  "rowsKey": "items",
+                                  "idKey": "key"
+                                }
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "space-3-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "contents"
+                                  },
+                                  "visibility": {
+                                    "record": {
+                                      "field": "declared",
+                                      "eq": false
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-foreground-subtle max-w-md text-sm leading-relaxed"
+                                      },
+                                      "content": "$t:admin.ds.found.noSpacing"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "space-4",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col gap-2",
+                                "data-design-density-demo": "true"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "p",
+                                  "props": {
+                                    "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                  },
+                                  "content": "$t:admin.ds.found.density"
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "space-4-2",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-wrap items-end gap-4"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "space-4-2-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex flex-col gap-1.5"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "button",
+                                          "variant": "outline",
+                                          "props": {
+                                            "type": "button",
+                                            "disabled": true,
+                                            "className": "border-border text-foreground inline-flex items-center rounded-md border px-3",
+                                            "style": {
+                                              "height": "var(--sv-density-button-h)"
+                                            },
+                                            "data-design-density-slot": "button-h"
+                                          },
+                                          "content": "$t:admin.ds.found.smallButton"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground-subtle font-mono text-[11px]"
+                                          },
+                                          "content": "density.buttonH"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "container",
+                                      "key": "space-4-2-2",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex flex-col gap-1.5"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "container",
+                                          "key": "space-4-2-2-1",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "border-border bg-card text-foreground-subtle flex items-center rounded-md border px-3 text-md",
+                                            "style": {
+                                              "height": "var(--sv-density-control-h)"
+                                            },
+                                            "data-design-density-slot": "control-h"
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "element": "span",
+                                              "props": {
+                                                "className": "text-md"
+                                              },
+                                              "content": "$t:admin.ds.found.fieldSample"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground-subtle font-mono text-[11px]"
+                                          },
+                                          "content": "density.controlH"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "shape",
+                          "element": "section",
+                          "props": {
+                            "className": "flex scroll-mt-6 flex-col gap-4",
+                            "id": "shape",
+                            "data-design-section": "shape"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "h2",
+                              "props": {
+                                "className": "text-foreground text-lg font-semibold tracking-tight"
+                              },
+                              "content": "$t:admin.ds.found.shape"
+                            },
+                            {
+                              "type": "container",
+                              "key": "shape-2",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-wrap gap-4",
+                                "data-design-radius-ladder": "true"
+                              },
+                              "dataSource": {
+                                "system": {
+                                  "endpoint": "/api/admin/design-system/tokens",
+                                  "query": {
+                                    "group": "radius"
+                                  },
+                                  "rowsKey": "items",
+                                  "idKey": "path"
+                                }
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "shape-2-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-col items-center gap-1"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "shape-2-1-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "bg-primary-subtle border-border h-14 w-14 border",
+                                        "data-testid": "design-system-radius-$record.leaf",
+                                        "style": {
+                                          "borderRadius": "$record.value"
+                                        }
+                                      },
+                                      "children": []
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-foreground-subtle font-mono text-sm"
+                                      },
+                                      "content": "$record.leaf"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-foreground-subtle font-mono text-sm"
+                                      },
+                                      "content": "$record.value"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "elevation",
+                          "element": "section",
+                          "props": {
+                            "className": "flex scroll-mt-6 flex-col gap-4",
+                            "id": "elevation",
+                            "data-design-section": "elevation"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "h2",
+                              "props": {
+                                "className": "text-foreground text-lg font-semibold tracking-tight"
+                              },
+                              "content": "$t:admin.ds.found.elevation"
+                            },
+                            {
+                              "type": "container",
+                              "key": "elevation-2",
+                              "element": "div",
+                              "props": {
+                                "className": "bg-muted border-border flex flex-wrap gap-6 rounded-lg border p-5",
+                                "data-design-elevation-stack": "true"
+                              },
+                              "dataSource": {
+                                "system": {
+                                  "endpoint": "/api/admin/design-system/tokens",
+                                  "query": {
+                                    "group": "shadow"
+                                  },
+                                  "rowsKey": "items",
+                                  "idKey": "path"
+                                }
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "elevation-2-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-col gap-2"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "elevation-2-1-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "bg-card border-border h-16 w-32 rounded-md border",
+                                        "data-testid": "design-system-shadow-$record.leaf",
+                                        "style": {
+                                          "boxShadow": "$record.value"
+                                        }
+                                      },
+                                      "children": []
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-foreground-subtle font-mono text-sm"
+                                      },
+                                      "content": "$record.leaf"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-foreground-subtle font-mono text-sm"
+                                      },
+                                      "content": "$record.value"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "elevation-3",
+                              "element": "div",
+                              "props": {
+                                "className": "grid gap-4 md:grid-cols-2"
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "elevation-3-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-col gap-3"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                      },
+                                      "content": "$t:admin.ds.found.cardSample"
+                                    },
+                                    {
+                                      "type": "container",
+                                      "key": "article",
+                                      "element": "article",
+                                      "props": {
+                                        "className": "border-border bg-card flex flex-col gap-2 rounded-lg border p-4"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "element": "p",
+                                          "props": {
+                                            "className": "text-foreground text-md font-medium"
+                                          },
+                                          "content": "$t:admin.ds.found.raised"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "elevation-3-2",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-col gap-3"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                      },
+                                      "content": "$t:admin.ds.found.subtle"
+                                    },
+                                    {
+                                      "type": "container",
+                                      "key": "elevation-3-2-2",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "border-border bg-muted flex flex-col gap-2 rounded-lg border p-4"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "element": "p",
+                                          "props": {
+                                            "className": "text-foreground text-md font-medium"
+                                          },
+                                          "content": "$t:admin.ds.found.subtle"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "motion",
+                          "element": "section",
+                          "props": {
+                            "className": "flex scroll-mt-6 flex-col gap-4",
+                            "id": "motion",
+                            "data-design-section": "motion"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "h2",
+                              "props": {
+                                "className": "text-foreground text-lg font-semibold tracking-tight"
+                              },
+                              "content": "$t:admin.ds.found.motion"
+                            },
+                            {
+                              "type": "container",
+                              "key": "motion-2",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col gap-2",
+                                "data-design-durations": "true"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "p",
+                                  "props": {
+                                    "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                  },
+                                  "content": "$t:admin.ds.found.duration"
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "motion-2-2",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-col"
+                                  },
+                                  "dataSource": {
+                                    "system": {
+                                      "endpoint": "/api/admin/design-system/tokens",
+                                      "query": {
+                                        "group": "duration"
+                                      },
+                                      "rowsKey": "items",
+                                      "idKey": "path"
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "motion-2-2-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "border-border flex items-baseline justify-between gap-4 border-b px-2 py-[5px] last:border-b-0",
+                                        "data-testid": "design-system-duration-$record.leaf"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground font-mono text-[11px]"
+                                          },
+                                          "content": "$record.leaf"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground-subtle font-mono text-[11px]"
+                                          },
+                                          "content": "$record.value"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "motion-3",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col gap-2",
+                                "data-design-easing-curves": "true"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "p",
+                                  "props": {
+                                    "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                  },
+                                  "content": "$t:admin.ds.found.easing"
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "motion-3-2",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-wrap gap-6"
+                                  },
+                                  "dataSource": {
+                                    "system": {
+                                      "endpoint": "/api/admin/design-system/tokens",
+                                      "query": {
+                                        "group": "easing"
+                                      },
+                                      "rowsKey": "items",
+                                      "idKey": "path"
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "motion-3-2-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex flex-col items-center gap-1.5 text-base",
+                                        "data-testid": "design-system-easing-$record.leaf"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "swatch",
+                                          "variant": "curve",
+                                          "token": "$record.leaf",
+                                          "label": "$record.leaf",
+                                          "size": 64,
+                                          "props": {
+                                            "className": "text-foreground m-0 flex flex-col items-center gap-1",
+                                            "data-design-kit-type": "swatch"
+                                          }
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground-subtle font-mono text-[11px]"
+                                          },
+                                          "content": "$record.leaf"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "breakpoints",
+                          "element": "section",
+                          "props": {
+                            "className": "flex scroll-mt-6 flex-col gap-4",
+                            "id": "breakpoints",
+                            "data-design-section": "breakpoints"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "h2",
+                              "props": {
+                                "className": "text-foreground text-lg font-semibold tracking-tight"
+                              },
+                              "content": "$t:admin.ds.found.breakpoints"
+                            },
+                            {
+                              "type": "container",
+                              "key": "breakpoints-2",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col",
+                                "data-design-breakpoint-list": "true"
+                              },
+                              "children": [
+                                {
+                                  "component": "console-ledger",
+                                  "key": "ledger",
+                                  "vars": {
+                                    "ariaLabel": "$t:admin.ds.found.breakpoints",
+                                    "dataSource": {
+                                      "system": {
+                                        "endpoint": "/api/admin/design-system/tokens",
+                                        "rowsKey": "items",
+                                        "idKey": "path",
+                                        "query": {
+                                          "group": "breakpoint"
+                                        }
+                                      }
+                                    },
+                                    "columns": [
+                                      {
+                                        "field": "leaf",
+                                        "label": "$t:admin.ds.found.breakpoint"
+                                      },
+                                      {
+                                        "field": "value",
+                                        "label": "$t:admin.ds.found.switchesAt"
+                                      }
+                                    ],
+                                    "emptyMessage": "$t:admin.ds.found.noBreakpoint"
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "h3",
+                          "props": {
+                            "className": "text-foreground text-md font-semibold tracking-tight"
+                          },
+                          "content": "$t:admin.ds.found.notToken"
+                        },
+                        {
+                          "type": "container",
+                          "key": "preview-surface-9",
+                          "element": "div",
+                          "props": {
+                            "className": "flex flex-col gap-2"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "p",
+                              "props": {
+                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                              },
+                              "content": "$t:admin.ds.found.inert"
+                            },
+                            {
+                              "type": "container",
+                              "key": "preview-surface-9-2",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col"
+                              },
+                              "dataSource": {
+                                "system": {
+                                  "endpoint": "/api/admin/design-system/tokens",
+                                  "rowsKey": "discarded",
+                                  "idKey": "path"
+                                }
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "preview-surface-9-2-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "border-border flex flex-col gap-1 border-b py-2 last:border-b-0"
+                                  },
+                                  "visibility": {
+                                    "record": {
+                                      "field": "kind",
+                                      "eq": "inert"
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "preview-surface-9-2-1-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex items-baseline justify-between gap-4"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground font-mono text-md"
+                                          },
+                                          "content": "$record.path"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground-subtle font-mono text-md"
+                                          },
+                                          "content": "$record.declared"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-foreground-subtle max-w-lg text-md leading-relaxed"
+                                      },
+                                      "content": "$record.reason"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "preview-surface-10",
+                          "element": "div",
+                          "props": {
+                            "className": "flex flex-col gap-2 xl:min-h-[calc(100vh-120px)]"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "p",
+                              "props": {
+                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                              },
+                              "content": "$t:admin.ds.found.noDtcg"
+                            },
+                            {
+                              "type": "container",
+                              "key": "preview-surface-10-2",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col"
+                              },
+                              "dataSource": {
+                                "system": {
+                                  "endpoint": "/api/admin/design-system/tokens",
+                                  "rowsKey": "discarded",
+                                  "idKey": "path"
+                                }
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "preview-surface-10-2-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "border-border flex flex-col gap-1 border-b py-2 last:border-b-0"
+                                  },
+                                  "visibility": {
+                                    "record": {
+                                      "field": "kind",
+                                      "eq": "unmappable"
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "preview-surface-10-2-1-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex items-baseline justify-between gap-4"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground font-mono text-md"
+                                          },
+                                          "content": "$record.path"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground-subtle font-mono text-md"
+                                          },
+                                          "content": "$record.declared"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-foreground-subtle max-w-lg text-md leading-relaxed"
+                                      },
+                                      "content": "$record.reason"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "design-system-rail",
+              "element": "div",
+              "props": {
+                "className": "sticky top-16 hidden w-[210px] flex-none self-start xl:block",
+                "data-testid": "design-system-rail"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "design-system-rail-1",
+                  "element": "div",
+                  "props": {
+                    "className": "border-border flex flex-col gap-0.5 border-l py-1"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "design-system-rail-1-1",
+                      "element": "div",
+                      "props": {
+                        "className": "pb-2 pl-3"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                          },
+                          "content": "$t:admin.ds.onThisPage"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "design-system-rail-1-2",
+                      "element": "div",
+                      "props": {
+                        "className": "flex list-none flex-col"
+                      },
+                      "children": [
+                        {
+                          "type": "link",
+                          "props": {
+                            "href": "#colour",
+                            "className": "text-foreground-subtle hover:text-foreground hover:bg-muted transition-colors border-l-2 border-transparent py-[3px] pl-3 text-sm aria-[current]:border-foreground aria-[current]:text-foreground aria-[current]:font-medium",
+                            "data-design-rail-entry": "colour",
+                            "data-design-kit-type": "link"
+                          },
+                          "content": "$t:admin.ds.found.colour"
+                        },
+                        {
+                          "type": "link",
+                          "props": {
+                            "href": "#type",
+                            "className": "text-foreground-subtle hover:text-foreground hover:bg-muted transition-colors border-l-2 border-transparent py-[3px] pl-3 text-sm aria-[current]:border-foreground aria-[current]:text-foreground aria-[current]:font-medium",
+                            "data-design-rail-entry": "type",
+                            "data-design-kit-type": "link"
+                          },
+                          "content": "$t:admin.common.type"
+                        },
+                        {
+                          "type": "link",
+                          "props": {
+                            "href": "#space",
+                            "className": "text-foreground-subtle hover:text-foreground hover:bg-muted transition-colors border-l-2 border-transparent py-[3px] pl-3 text-sm aria-[current]:border-foreground aria-[current]:text-foreground aria-[current]:font-medium",
+                            "data-design-rail-entry": "space",
+                            "data-design-kit-type": "link"
+                          },
+                          "content": "$t:admin.ds.found.space"
+                        },
+                        {
+                          "type": "link",
+                          "props": {
+                            "href": "#shape",
+                            "className": "text-foreground-subtle hover:text-foreground hover:bg-muted transition-colors border-l-2 border-transparent py-[3px] pl-3 text-sm aria-[current]:border-foreground aria-[current]:text-foreground aria-[current]:font-medium",
+                            "data-design-rail-entry": "shape",
+                            "data-design-kit-type": "link"
+                          },
+                          "content": "$t:admin.ds.found.shape"
+                        },
+                        {
+                          "type": "link",
+                          "props": {
+                            "href": "#elevation",
+                            "className": "text-foreground-subtle hover:text-foreground hover:bg-muted transition-colors border-l-2 border-transparent py-[3px] pl-3 text-sm aria-[current]:border-foreground aria-[current]:text-foreground aria-[current]:font-medium",
+                            "data-design-rail-entry": "elevation",
+                            "data-design-kit-type": "link"
+                          },
+                          "content": "$t:admin.ds.found.elevation"
+                        },
+                        {
+                          "type": "link",
+                          "props": {
+                            "href": "#motion",
+                            "className": "text-foreground-subtle hover:text-foreground hover:bg-muted transition-colors border-l-2 border-transparent py-[3px] pl-3 text-sm aria-[current]:border-foreground aria-[current]:text-foreground aria-[current]:font-medium",
+                            "data-design-rail-entry": "motion",
+                            "data-design-kit-type": "link"
+                          },
+                          "content": "$t:admin.ds.found.motion"
+                        },
+                        {
+                          "type": "link",
+                          "props": {
+                            "href": "#breakpoints",
+                            "className": "text-foreground-subtle hover:text-foreground hover:bg-muted transition-colors border-l-2 border-transparent py-[3px] pl-3 text-sm aria-[current]:border-foreground aria-[current]:text-foreground aria-[current]:font-medium",
+                            "data-design-rail-entry": "breakpoints",
+                            "data-design-kit-type": "link"
+                          },
+                          "content": "$t:admin.ds.found.breakpoints"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-2-3",
+              "element": "div",
+              "props": {
+                "className": "hidden",
+                "data-island": "design-system-rail"
+              },
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

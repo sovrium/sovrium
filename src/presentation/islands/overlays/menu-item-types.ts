@@ -48,6 +48,9 @@ export interface MenuItemAction {
   readonly onError?: MenuActionOutcome
   /** `theme`: the colour theme the row sets — `light`, `dark` or `system`. */
   readonly value?: string
+  /** `openDialog`: the verb, and the id of the dialog the row opens. */
+  readonly action?: string
+  readonly component?: string
 }
 
 export interface MenuItem {

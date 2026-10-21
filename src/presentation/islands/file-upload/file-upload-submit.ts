@@ -33,6 +33,7 @@ import {
   renderActionToast,
 } from '../runtime/fetch-action-effects'
 import { renderToast } from '../runtime/toast'
+import type { ToastRetry } from '../runtime/toast-accessibility'
 import type {
   FetchSuccessResponse,
   FetchToastResponse,
@@ -47,6 +48,12 @@ export interface UploadSubmitConfig {
   readonly onError?: FetchToastResponse
   /** The control the files were picked from: the overlay it sits in is the one `close` closes. */
   readonly origin?: Element
+  /**
+   * A Retry on the failure toast, sending the same files again — set by a
+   * compact upload, whose toast is the only place its failure is drawn. The
+   * config is handed to the toast as its controls, so it is read there.
+   */
+  readonly retry?: ToastRetry | undefined
 }
 
 /**
@@ -54,9 +61,11 @@ export interface UploadSubmitConfig {
  * `{file}` naming the file(s) that did not go up — on a page of many uploads,
  * "an upload failed" leaves the reader to guess which.
  */
-function renderUploadError(onError: FetchToastResponse | undefined, files: readonly File[]): void {
+function renderUploadError(files: readonly File[], config: UploadSubmitConfig): void {
+  const { onError } = config
   const names = files.map((file) => file.name).join(', ')
-  if (onError) renderToast(onError.message.replaceAll('{file}', names), onError.variant)
+  if (onError)
+    renderToast(onError.message.replaceAll('{file}', names), onError.variant, undefined, config)
 }
 
 /**
@@ -90,11 +99,9 @@ export async function submitUpload(
     // toast, no refetch, nothing paints) — log it so console capture in
     // traces records WHICH leg failed instead of leaving a silently stale UI.
     console.warn('[file-upload] upload rejected:', res.status, config.url)
-    renderUploadError(config.onError, files)
-    return false
   } catch (err) {
     console.warn('[file-upload] upload failed:', config.url, err)
-    renderUploadError(config.onError, files)
-    return false
   }
+  renderUploadError(files, config)
+  return false
 }

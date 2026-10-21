@@ -33,6 +33,8 @@ A template with no `$variable` placeholders is placed with `$ref` alone — `var
 
 A name that matches no template in `app.components` is refused when the config is validated or the app starts, in both placement forms — `$ref: plan-card` and `component: plan-card` — so a typo never reaches a page.
 
+A placement may carry a `key` beside `vars`, like any component of the page, which names that placement for the tools that read your pages (see The Component Model). A page export draws a placement expanded, as a visitor sees it, but treats it as one node: its inside belongs to the template, and to every page that places it. The components a page passes to its slots are the exception: they are the page's own nodes, which a design tool may edit.
+
 ## Template properties
 
 | Property   | Description                                                                                              |
@@ -42,6 +44,8 @@ A name that matches no template in `app.components` is refused when the config i
 | `props`    | Component properties. Values may contain `$variable` placeholders.                                       |
 | `content`  | Text content. May contain `$variable` placeholders.                                                      |
 | `children` | Nested child components, which may themselves carry placeholders — or `$children`, the slot (see below). |
+| `render`   | `named` (the default) or `transparent`: draw exactly what the tree draws written inline (see below).     |
+| `inputs`   | The values a placement passes, by name and kind: `text`, `number`, `boolean`, `json` or `slot`.          |
 
 ## Slots: a template around the page's own components
 
@@ -87,7 +91,7 @@ Every placement form takes `children` — `component:` and `$ref:`, with or with
 | Whose components they are | The page's. They are read in the page's scope — the page's record, `$t:` keys and visibility rules — and a template placed among them expands like any other placement.            |
 | The template's `vars`     | Reach the template's own nodes only, never the components in the slot.                                                                                                             |
 | No `children`             | A slotted template placed without `children` draws its slot empty.                                                                                                                 |
-| One slot                  | A template declaring two slots is refused.                                                                                                                                         |
+| One slot of each name     | `$children` is marked once per template, and so is each named slot. A template marking `$children` twice is refused.                                                               |
 | No slot                   | A placement passing `children` to a template without a slot is refused, rather than its components being dropped.                                                                  |
 | Not through a value       | A placement filling the slot with `vars: { children: … }` is refused: the slot takes a list of components.                                                                         |
 | Not inside a data node    | A slot inside a node that reads rows or repeats (`dataSource`, `contentFrom`, `repeat`, the slot's own node included) is refused: there the page's components would read each row. |
@@ -95,15 +99,57 @@ Every placement form takes `children` — `component:` and `$ref:`, with or with
 
 All of these are refused when the config is validated or the app starts. The library's sidebar shell block (`sovrium library add block/shell-sidebar`) is a slotted template of exactly this shape.
 
+## Named slots
+
+A shell often has more than one region a page fills, such as a breadcrumb trail in its header as well as its body. Declare each extra region as an input of kind `slot`, mark it with `children: $slots.<name>`, and fill it from the placement's `slots`:
+
+```yaml
+components:
+  - name: app-shell
+    type: flex
+    inputs: { trail: { kind: slot } }
+    children:
+      - { type: container, element: header, children: $slots.trail }
+      - { type: container, element: main, children: $children }
+
+pages:
+  - name: invoice
+    path: /invoices/:id
+    components:
+      - component: app-shell
+        slots:
+          trail: [{ type: link, props: { href: /invoices }, content: Invoices }]
+        children:
+          - { type: text, element: h1, content: 'Invoice $record.number' }
+```
+
+A named slot follows every rule of `$children`, and a slot left out draws empty. A `slots` entry the template does not declare is refused, and so is a `$slots.<name>` the template marks without declaring it. A design tool shows the components a page passes to any slot as page nodes it may edit, while the template around them stays locked.
+
+## Transparent templates
+
+A placed template is named by its template: its root carries `data-component`, `data-type` and a `component-<name>` test id, which a template you review on the Design System pages needs. An app's own furniture (a shell, a toolbar, a grid it repeats on every page) needs the opposite. `render: transparent` draws exactly what the same tree draws written inline at that position, attribute for attribute:
+
+```yaml
+components:
+  - name: invoice-toolbar
+    type: flex
+    render: transparent
+    children:
+      - { type: text, element: h2, content: Invoices }
+      - { type: button, content: New invoice }
+```
+
+A transparent template is not listed on the Design System pages and has no page of its own there. A design tool still treats it as a template, and an edit made inside it is refused on import. Template names starting `console-` are the operator console's own: `sovrium validate` warns about an app template named that way, which still validates.
+
 ## Variables
 
 A placeholder is a `$` followed by an alphanumeric name (`$title`, `$iconName`). At instantiation, `vars` supplies the values:
 
-| Rule               | Detail                                                                       |
-| ------------------ | ---------------------------------------------------------------------------- |
-| Key format         | Starts with a letter, alphanumeric only — `$titleColor`, not `$title-color`. |
-| Value types        | String, number, or boolean.                                                  |
-| Where they resolve | In `props` values, in `content`, and at any depth inside `children`.         |
+| Rule               | Detail                                                                                                            |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| Key format         | Starts with a letter, alphanumeric only — `$titleColor`, not `$title-color`.                                      |
+| Value types        | String, number, or boolean. For an input of kind `json`, any JSON list or object: see Structured Template Inputs. |
+| Where they resolve | In `props` values, in `content`, and at any depth inside `children`.                                              |
 
 The same template with different vars produces different instances:
 

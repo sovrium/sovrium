@@ -80,6 +80,9 @@ export function toErrorResponse(c: Context, error: unknown): Response {
     // the attribution would vanish between here and the wire.
     ...(sanitized.field ? { field: sanitized.field } : {}),
     ...(sanitized.errors ? { errors: sanitized.errors } : {}),
+    // An internal error names its request, so whoever saw it can quote the id
+    // to whoever runs the server, who reports it with `sovrium report`.
+    ...(sanitized.code === 'INTERNAL_ERROR' ? { requestId } : {}),
   }
 
   const decoded = decodeSafe(errorResponseSchema)(errorData)

@@ -9,6 +9,7 @@ import { Data, Effect } from 'effect'
 import { InstanceSupervisor } from '@/application/ports/services/instance-supervisor'
 import {
   isCreateOnlyRefusal,
+  isStorageObjectTooLarge,
   StorageService,
   UNATTRIBUTED_BUCKET,
   uploadTargetParts,
@@ -123,6 +124,9 @@ export const unitJobTimeout = (action: Readonly<Record<string, unknown>>): numbe
 
 const causeText = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause)
+
+/** The most a restore reads of its archive (1 GiB): it is held in memory to be handed over. */
+const RESTORE_ARCHIVE_MAX_BYTES = 1024 * 1024 * 1024
 
 const storageMessage = (key: string, error: Readonly<StorageError>): string =>
   `instance: could not read ${key} from storage: ${causeText(error.cause)}`
@@ -337,11 +341,17 @@ export const handleInstanceRestore = instanceHandler('restore', (props, action, 
     const refused = yield* starterFileGate(app, automation)(objectKey)
     if (refused !== undefined) return yield* refuse(refused)
     const storage = yield* StorageService
+    // Read up to the cap and no further: another app may have written the object.
     const archive = yield* storage
-      .download(objectKey, UNATTRIBUTED_BUCKET)
+      .downloadBounded(objectKey, UNATTRIBUTED_BUCKET, RESTORE_ARCHIVE_MAX_BYTES)
       .pipe(
         Effect.mapError(
-          (error) => new InstanceRefusal({ message: storageMessage(objectKey, error) })
+          (error) =>
+            new InstanceRefusal({
+              message: isStorageObjectTooLarge(error)
+                ? `instance: the archive at ${objectKey} is larger than 1 GiB, the most a restore reads`
+                : storageMessage(objectKey, error),
+            })
         )
       )
     const supervisor = yield* InstanceSupervisor

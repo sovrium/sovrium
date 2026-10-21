@@ -10,7 +10,10 @@ import { Effect, Console } from 'effect'
 import { getCurrentVersion, checkForUpdatesInBackground } from '@/cli/commands/update'
 import { START_HELP_TEXT } from '@/cli/runtime/command-help'
 import { warnDeprecatedKeys } from '@/cli/runtime/config-deprecation-warnings'
+import { offerFailureReport, withoutSecretValues } from '@/cli/runtime/failure-report'
 import { formatConfigRejection, isConfigRejectedError } from '@/domain/errors/config-rejected'
+import { isEngineFailureError } from '@/domain/errors/engine-failure-error'
+import { OPERATOR_FIX_GUIDANCE, operatorFixOf } from '@/domain/errors/operator-fixable-error'
 import {
   isStrictPortBoot,
   resolveBindHost,
@@ -42,6 +45,29 @@ import { holdReloadPath } from './start-watch'
 import { lazyImportIndex, lazyImportLogger, lazyImportCli, resolveConfigAnchor } from './utils'
 import { collectConfigAttribution } from './validate'
 import type { StartOptions } from '@/application/use-cases/server/start-server-options'
+
+/**
+ * What a start Sovrium could not complete prints: the failure, then the
+ * prefilled bug report it offers — never for a refusal, which the caller
+ * prints as prose instead, and never for a failure the operator can fix (a
+ * missing variable, an unreachable database), which prints its fix instead
+ * and keeps nothing for `--last-error`.
+ */
+const startFailureText = (error: unknown): string => {
+  const failure = isEngineFailureError(error) ? error.failure : error
+  const fix = operatorFixOf(failure)
+  if (fix !== undefined) {
+    return withoutSecretValues(
+      `Failed to start server: ${formatRuntimeError(failure)}\n${OPERATOR_FIX_GUIDANCE[fix]}`
+    )
+  }
+  const report = offerFailureReport({
+    command: 'start',
+    error: failure,
+    text: formatRuntimeError(failure),
+  })
+  return `${withoutSecretValues(`Failed to start server: ${formatRuntimeError(error)}`)}\n\n${report}`
+}
 
 const showStartHelp = (): void => {
   Effect.runSync(Console.log(START_HELP_TEXT))
@@ -233,7 +259,7 @@ export const handleStartCommand = async (
       Effect.runSync(
         isConfigRejectedError(error)
           ? renderStderr(formatConfigRejection(error, 'started'))
-          : renderStderr(`Failed to start server: ${formatRuntimeError(error)}`)
+          : renderStderr(startFailureText(error))
       )
       // Terminate process - imperative statement required for CLI
       process.exit(1)

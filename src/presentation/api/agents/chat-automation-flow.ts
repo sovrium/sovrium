@@ -355,7 +355,7 @@ export const completeTriggerTurn = async (
   }
 
   const { reply } = trigger
-  appendConversationTurn(input.sessionId, input.message, reply)
+  appendConversationTurn(c, input, input.message, reply)
   await persistTurnDurably(input.services, turnToPersist(input, reply))
 
   if (trigger.kind === 'triggered') {

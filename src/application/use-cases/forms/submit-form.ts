@@ -25,7 +25,7 @@ import {
   processSubmissionBody,
 } from './submit-form-body'
 import { FormNotFoundError, missingRowError, refuseAsMissingRow } from './submit-form-errors'
-import { filterTableBoundFields } from './submit-form-field-shaping'
+import { filterTableBoundFields, withoutWithheldAnswers } from './submit-form-field-shaping'
 import { persistSubmission } from './submit-form-persist'
 import type { SubmitFormConfig } from './submit-form-body'
 import type { App } from '@/domain/models/app'
@@ -85,16 +85,26 @@ export interface SubmitFormResult {
 export const findFormByName = (app: Readonly<App>, name: string): Form | undefined =>
   app.forms?.find((form) => form.name === name)
 
+/**
+ * The form as its submitter was offered it (`config.form`, the declared form
+ * when absent) and her answers less every value for a field she was not
+ * offered, which goes no further than one for a field the form does not declare.
+ */
+const offeredSubmission = (config: Readonly<SubmitFormConfig>) =>
+  Effect.suspend(() => {
+    const declared = findFormByName(config.app, config.formName)
+    if (declared === undefined)
+      return Effect.fail(new FormNotFoundError({ formName: config.formName }))
+    const form = config.form ?? declared
+    return Effect.succeed({ form, body: withoutWithheldAnswers(config.body, declared, form) })
+  })
+
 // eslint-disable-next-line max-lines-per-function -- single-pass form-submission generator: 8 sequential gates (validate / honeypot / rate-limit / availability / format-validate / coerce / persist / emit + trigger). Each step needs the prior step's resolved state. [internal ref] added the analytics emit call.
 export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
   // eslint-disable-next-line max-lines-per-function -- see comment on submitFormProgram
   Effect.gen(function* () {
-    const { app, formName, body, submitterIpHash, userAgent, processEnv, query, submitterUserId } =
-      config
-    const form = findFormByName(app, formName)
-    if (form === undefined) {
-      return yield* new FormNotFoundError({ formName })
-    }
+    const { app, submitterIpHash, userAgent, processEnv, query, submitterUserId } = config
+    const { form, body } = yield* offeredSubmission(config)
 
     // Availability window gate — see checkAvailabilityWindow. The cap is
     // enforced atomically inside persistSubmission (see reserveLedgerSlot).

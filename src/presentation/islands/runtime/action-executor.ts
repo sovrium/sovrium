@@ -125,7 +125,7 @@ async function performFetchAction(
     const body = await res.json().catch(emptyBody)
     const ok = evaluateFetchEnvelope(envelope, res.status, body)
     if (ok) runFetchSuccess(action, body, options)
-    else renderActionToast(action.onError, options, again)
+    else renderActionToast(action.onError, options, again, options.failureNote?.(res.status, body))
     return { ok, status: res.status, body }
   } catch {
     renderActionToast(action.onError, options, again)

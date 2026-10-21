@@ -22,6 +22,9 @@
  * late-join capture drifting on what a published value looks like.
  */
 
+import { reloadOnceForStaleChunk } from './stale-chunk-reload'
+import type * as NativeSelectAddress from './native-select-address'
+
 /** The channel name, identical to the island publisher's. */
 const SHARED_FILTER_EVENT = 'island:system-query'
 
@@ -38,6 +41,36 @@ export function publishedSelectValue(select: HTMLSelectElement): string {
 
 /** The declaring `<select>` a `change` must have come from in order to publish. */
 const PUBLISHER_SELECTOR = 'select[data-publishes-bind-to][data-publishes-param]'
+
+/** A declaring `<select>` whose choice is mirrored in the page address. */
+const MIRRORED_SELECTOR = 'select[data-publishes-bind-to][data-publishes-param][data-publishes-url]'
+
+/** Send `value` on `bindTo`'s channel. */
+function publish(bindTo: string, param: string, value: string): void {
+  document.dispatchEvent(
+    new CustomEvent(SHARED_FILTER_EVENT, {
+      detail: { sourceId: bindTo, params: { [param]: value } },
+    })
+  )
+}
+
+/**
+ * Run `use` against the address half (`native-select-address.ts`), a split
+ * chunk fetched only on a page holding a mirrored select: few pages carry one,
+ * and every page loads this runtime. A chunk a newer release replaced reloads
+ * the page once, as the loader's own features do.
+ */
+function withAddress(use: (address: typeof NativeSelectAddress) => void): void {
+  import('./native-select-address').then(use).catch((error: unknown) => {
+    if (!reloadOnceForStaleChunk(error)) throw error
+  })
+}
+
+/** Open the page's mirrored selects on the address, if it holds any. */
+function restoreMirrored(): void {
+  if (document.querySelector(MIRRORED_SELECTOR) !== null)
+    withAddress((address) => address.restoreFromAddress(MIRRORED_SELECTOR, publish))
+}
 
 /**
  * Publish on every `change` from a declaring `<select>`, wherever it came from.
@@ -65,10 +98,11 @@ export function setupNativeSelectPublishers(): void {
     const bindTo = select.getAttribute('data-publishes-bind-to')
     const param = select.getAttribute('data-publishes-param')
     if (bindTo === null || param === null) return
-    document.dispatchEvent(
-      new CustomEvent(SHARED_FILTER_EVENT, {
-        detail: { sourceId: bindTo, params: { [param]: publishedSelectValue(select) } },
-      })
-    )
+    const value = publishedSelectValue(select)
+    publish(bindTo, param, value)
+    if (select.hasAttribute('data-publishes-url'))
+      withAddress((address) => address.mirrorInAddress(bindTo, param, value))
   })
+  restoreMirrored()
+  document.addEventListener('sovrium:navigated', restoreMirrored)
 }

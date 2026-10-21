@@ -32,7 +32,7 @@ A period rather than a date: two calendars side by side, and named presets resol
 
 <!-- sovrium:options type:date-range-picker -->
 
-The ten presets are `today`, `yesterday`, `last-7-days`, `last-30-days`, `this-month`, `last-month`, `this-quarter`, `last-quarter`, `this-year` and `last-year`. The list is closed because each is a computation over the current date rather than a value you could write down — which is also the point of using one. "Last quarter" resolves when the panel opens, so a dashboard bookmarked in March and opened in July shows July's answer rather than March's. Omit `presets` to draw no preset column at all; `months` shows one or two calendars, defaulting to two.
+The ten presets are `today`, `yesterday`, `last-7-days`, `last-30-days`, `this-month`, `last-month`, `this-quarter`, `last-quarter`, `this-year` and `last-year`. The list is closed because each is a computation over the current date rather than a value you could write down — which is also the point of using one. "Last quarter" resolves when the panel opens, so a dashboard bookmarked in March and opened in July shows July's answer rather than March's. Choosing a preset is a whole period, so it closes the panel and puts the reader back on the field. Omit `presets` to draw no preset column at all; `months` shows one or two calendars, defaulting to two.
 
 ```yaml
 components:

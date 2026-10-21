@@ -20,7 +20,10 @@
  */
 
 import { Effect } from 'effect'
-import { downloadDesignSystemBundle } from '@/application/use-cases/admin/design-system-bundle-read-operations'
+import {
+  decodePagesLens,
+  downloadDesignSystemBundle,
+} from '@/application/use-cases/admin/design-system-bundle-read-operations'
 import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
@@ -41,9 +44,15 @@ export const zipResponseHeaders = (appName: string): Readonly<Record<string, str
 const handleZip = async (c: Context, app: App): Promise<Response> => {
   const userId = getSessionContext(c)?.userId
   if (userId === undefined) return notFound(c, 'Not found')
+  // `?pages=true` adds the app's pages ([internal ref] A13); any other value is refused by name.
+  const lens = decodePagesLens(c.req.query('pages'))
+  if (lens._tag === 'InvalidInput') {
+    return c.json({ success: false, message: lens.message, code: lens.code }, 400)
+  }
+  if (lens._tag !== 'Ok') return notFound(c, 'Not found')
   const result = await runRequestEffect(
     c,
-    Effect.result(provideDomain(c, downloadDesignSystemBundle(app, userId)))
+    Effect.result(provideDomain(c, downloadDesignSystemBundle(app, userId, lens.input)))
   )
   if (result._tag === 'Failure') return toErrorResponse(c, result.failure)
   return c.body(result.success.slice().buffer, 200, zipResponseHeaders(app.name))

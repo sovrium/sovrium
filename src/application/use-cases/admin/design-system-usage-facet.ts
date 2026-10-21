@@ -122,11 +122,18 @@ const kindCounts = (rows: readonly UsageRow[]) => {
   }
 }
 
-/** The subjects a usage read answers for, in the order the console draws them. */
+/**
+ * The subjects a usage read answers for, in the order the console draws them.
+ * A transparent template is the app's furniture, drawn as if written inline,
+ * not a part an author browses: it is never a subject, so it is neither listed
+ * nor given a page of its own.
+ */
 const subjectNames = (app: App, subject: UsageSubject): readonly string[] =>
   subject === 'type'
     ? CATALOG_COMPONENT_CATEGORIES.flatMap((category) => catalogedTypesOf(category))
-    : (app.components ?? []).map((component) => component.name)
+    : (app.components ?? [])
+        .filter((component) => component.render !== 'transparent')
+        .map((component) => component.name)
 
 /**
  * How many of the operator's routes write each subject, and which.

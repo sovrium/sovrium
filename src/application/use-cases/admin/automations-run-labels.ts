@@ -63,6 +63,33 @@ export function runTriggerLabel(
 }
 
 /**
+ * Whether an operator started the run by hand from a schedule ("run now"): the
+ * engine writes `invokedOnDemand: true` into the run's own trigger data, beside
+ * the schedule's `type`, and never takes it from a caller's body.
+ */
+export function runInvokedOnDemand(triggerData: unknown): boolean {
+  return (
+    typeof triggerData === 'object' &&
+    triggerData !== null &&
+    (triggerData as { readonly invokedOnDemand?: unknown }).invokedOnDemand === true
+  )
+}
+
+const ON_DEMAND_WORDS: Readonly<Record<ConsoleLanguage, string>> = {
+  en: 'run on demand',
+  fr: 'lancée à la demande',
+}
+
+/** The trigger label of a run started by hand: the schedule's words, then how it was started. */
+export function onDemandTriggerLabel(
+  label: string,
+  invokedOnDemand: boolean,
+  language: ConsoleLanguage
+): string {
+  return invokedOnDemand ? `${label} · ${ON_DEMAND_WORDS[language]}` : label
+}
+
+/**
  * The record a run concerns, by the name its sheet heads itself with — read off
  * the record the run captured when it started, so a run whose captured values
  * were erased reads the record's id. `null` exactly when the run concerns none.

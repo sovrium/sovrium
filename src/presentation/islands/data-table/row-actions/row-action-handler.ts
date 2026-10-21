@@ -10,6 +10,7 @@ import { runSuccessOutcome } from '../../runtime/action-outcome'
 import { dispatch as dispatchIslandEvent } from '../../runtime/event-bus'
 import { substituteRecord } from '../../runtime/fetch-action-substitution'
 import { renderToast } from '../../runtime/toast'
+import { consoleRequestNote } from '../../runtime/toast-request-id'
 import { toastWriteRefusal } from '../../runtime/write-refusal'
 import { runAccountRowAction, type AccountRowAction } from './account-row-actions'
 import { runAutomationRowAction, type AutomationRowAction } from './automation-row-action'
@@ -109,6 +110,7 @@ async function runFetchRowAction(
   const result = await executeFetchAction(fetchAction, {
     renderToast,
     record,
+    failureNote: consoleRequestNote(press.strings),
     ...(origin === undefined ? {} : { origin }),
   })
   if (result?.ok) await press.queryClient.invalidateQueries({ queryKey: press.queryKey })

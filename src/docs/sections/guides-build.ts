@@ -9,6 +9,10 @@ import accessibilityBody from '@/docs/guides/accessibility.md' with { type: 'fil
 import buildACrmBody from '@/docs/guides/build-a-crm.md' with { type: 'file' }
 import guidesBody from '@/docs/guides/guides.md' with { type: 'file' }
 import migrateFromAirtableBody from '@/docs/guides/migrate-from-airtable.md' with { type: 'file' }
+import migrateFromMakeBody from '@/docs/guides/migrate-from-make.md' with { type: 'file' }
+import migrateFromN8nBody from '@/docs/guides/migrate-from-n8n.md' with { type: 'file' }
+import migrateFromNotionBody from '@/docs/guides/migrate-from-notion.md' with { type: 'file' }
+import migrateFromTypeformBody from '@/docs/guides/migrate-from-typeform.md' with { type: 'file' }
 import migrateFromZapierBody from '@/docs/guides/migrate-from-zapier.md' with { type: 'file' }
 import templatesExamplesBody from '@/docs/guides/templates-examples.md' with { type: 'file' }
 import { defineArticle, defineSection } from './define'
@@ -120,14 +124,14 @@ export const section = defineSection({
       slug: 'migrate-from-airtable',
       title: 'Migrate from Airtable to Sovrium',
       description:
-        'Map each Airtable field type to a Sovrium field, define the table in config, and import your CSV export.',
+        'Move an Airtable base with sovrium import: fetch it read-only, preview, read the report, then write and seed its tables, links and files.',
       keywords: [
         'sovrium',
         'migrate from airtable',
         'airtable alternative',
         'self-hosted airtable',
-        'import csv',
-        'field type mapping',
+        'sovrium import',
+        'airtable migration',
       ],
       order: 10_030,
       sidebarLabel: 'From Airtable',
@@ -136,21 +140,97 @@ export const section = defineSection({
       stories: [],
     }),
     defineArticle({
+      slug: 'migrate-from-notion',
+      title: 'Migrate from Notion to Sovrium',
+      description:
+        'Move a Notion database with sovrium import: fetch it read-only, preview, read the report, then write and seed its tables, relations and people.',
+      keywords: [
+        'sovrium',
+        'migrate from notion',
+        'notion alternative',
+        'self-hosted notion',
+        'sovrium import',
+        'notion database',
+      ],
+      order: 10_032,
+      sidebarLabel: 'From Notion',
+      body: migrateFromNotionBody,
+      documents: [],
+      stories: [],
+    }),
+    defineArticle({
       slug: 'migrate-from-zapier',
       title: 'Migrate from Zapier to Sovrium',
       description:
-        'Replace a Zap with a self-hosted automation — map the trigger and action steps and run the workflow on your own server.',
+        'Import your Zapier Tables and your Zaps with sovrium import, finish what the report lists, and switch the automations on one at a time.',
       keywords: [
         'sovrium',
         'migrate from zapier',
         'zapier alternative',
         'self-hosted automation',
-        'workflow',
+        'zapier tables',
         'trigger action mapping',
       ],
       order: 10_040,
       sidebarLabel: 'From Zapier',
       body: migrateFromZapierBody,
+      documents: [],
+      stories: [],
+    }),
+    defineArticle({
+      slug: 'migrate-from-make',
+      title: 'Migrate from Make to Sovrium',
+      description:
+        'Convert Make scenarios into disabled Sovrium automations with sovrium import, finish the TODO list, then switch them on one at a time.',
+      keywords: [
+        'sovrium',
+        'migrate from make',
+        'make alternative',
+        'integromat',
+        'self-hosted automation',
+        'sovrium import',
+      ],
+      order: 10_042,
+      sidebarLabel: 'From Make',
+      body: migrateFromMakeBody,
+      documents: [],
+      stories: [],
+    }),
+    defineArticle({
+      slug: 'migrate-from-n8n',
+      title: 'Migrate from n8n to Sovrium',
+      description:
+        'Convert n8n workflows into disabled Sovrium automations with sovrium import, rewrite the code steps, then switch them on one at a time.',
+      keywords: [
+        'sovrium',
+        'migrate from n8n',
+        'n8n alternative',
+        'self-hosted automation',
+        'workflows',
+        'sovrium import',
+      ],
+      order: 10_044,
+      sidebarLabel: 'From n8n',
+      body: migrateFromN8nBody,
+      documents: [],
+      stories: [],
+    }),
+    defineArticle({
+      slug: 'migrate-from-typeform',
+      title: 'Migrate from Typeform to Sovrium',
+      description:
+        'Move a Typeform form and its responses with sovrium import: fetch it read-only, preview, read the report, then write and seed the form.',
+      keywords: [
+        'sovrium',
+        'migrate from typeform',
+        'typeform alternative',
+        'self-hosted forms',
+        'form responses',
+        'sovrium import',
+      ],
+      order: 10_046,
+      sidebarLabel: 'From Typeform',
+      body: migrateFromTypeformBody,
       documents: [],
       stories: [],
     }),

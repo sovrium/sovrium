@@ -25,6 +25,7 @@ import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
 import {
   isCanonicalStorageKey,
   isChatAttachmentKey,
+  isStagingName,
   STORAGE_KEY_MAX_BYTES,
   STORAGE_KEY_SEGMENT_MAX_BYTES,
   STORAGE_KEY_UUID_PREFIX_LENGTH,
@@ -157,10 +158,19 @@ const checkPathSpelling = (path: string): UploadRejection | undefined => {
  * which falls under the chat attachment prefix: those keys are written by the
  * chat's own route alone, so no bucket upload may create or replace one.
  */
-export const checkUploadPath = (path: string): UploadRejection | undefined =>
-  isChatAttachmentKey(path)
-    ? { reason: 'invalid-path', message: 'Invalid path: this prefix is reserved' }
-    : checkPathSpelling(path)
+export const checkUploadPath = (path: string): UploadRejection | undefined => {
+  if (isChatAttachmentKey(path)) {
+    return { reason: 'invalid-path', message: 'Invalid path: this prefix is reserved' }
+  }
+  // Named before the spelling rules, which refuse it too but would not say why.
+  if (path.split('/').some(isStagingName)) {
+    return {
+      reason: 'invalid-path',
+      message: 'Invalid path: a segment named ".sovrium-staging-<id>" is reserved',
+    }
+  }
+  return checkPathSpelling(path)
+}
 
 /** Whether the bucket's `allowedMimeTypes` admits this type. An absent list admits all. */
 export const isMimeTypeAllowed = (bucket: Readonly<Bucket>, mimeType: string): boolean => {

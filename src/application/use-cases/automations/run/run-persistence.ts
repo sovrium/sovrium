@@ -26,6 +26,7 @@ import { devTimelineCreatedAt, onDevTimeline } from '@/infrastructure/process/se
 import { storedNestedOf } from './nested-step-record'
 import { pausedLedgerOverlay } from './run-ledger-persistence'
 import { toApiStatus, toApiStepStatus, type EngineRunStatus } from './run-status'
+import { stepWindowColumns } from './step-window'
 import type { RunLedgers } from './run-ledger-persistence'
 import type { ExecutedStep, RunAccumulator } from './types'
 import type { TriggerData } from '../resolve-trigger-data'
@@ -179,8 +180,7 @@ const buildStepsInput = (
     ...(step.logs !== undefined ? { logs: step.logs } : {}),
     ...(step.reads !== undefined ? { reads: step.reads } : {}),
     ...nestedColumn(step),
-    startedAt,
-    completedAt: finishedAt,
+    ...stepWindowColumns(step, startedAt, finishedAt, onDevTimeline),
     ...(step.durationMs !== undefined ? { durationMs: step.durationMs } : {}),
     ...(step.error !== undefined ? { error: step.error } : {}),
     ...(step.clientError !== undefined ? { clientError: step.clientError } : {}),
@@ -188,7 +188,7 @@ const buildStepsInput = (
 
 /** The row a step record is stored as, at position `stepIndex` of its run. */
 export const stepRowOf = (step: ExecutedStep, stepIndex: number, at: Readonly<Date>) =>
-  buildStepsInput([step], at, at, stepIndex)[0] as NonNullable<
+  buildStepsInput([step], onDevTimeline(at), onDevTimeline(at), stepIndex)[0] as NonNullable<
     ReturnType<typeof buildStepsInput>[number]
   >
 

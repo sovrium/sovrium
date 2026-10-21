@@ -70,7 +70,7 @@ By default every column takes the same readable width and the board scrolls side
 
 `swimlanes.field` is required. `showEmpty` draws a declared lane option that holds no records, and is `true` by default, matching the column axis. `collapsed` names the lane values that open closed — collapsing is always available, so this is a starting state rather than a capability.
 
-Lanes behave exactly as columns do: one lane per declared option of the field, in the field's own option order; a value present in the data but not declared on the field is appended; records whose lane field is empty collect in one `Uncategorized` lane. The lane field is checked against the bound table, so a typo is refused by `sovrium validate` rather than drawing one lane per record.
+Lanes behave exactly as columns do: one lane per declared option of the field, in the field's own option order; a value present in the data but not declared on the field is appended; records whose lane field is empty collect in one lane headed « Uncategorized » in the page language (`sovrium.kanban.uncategorized` renames it, as it does the column of cards with no group value). The lane field is checked against the bound table, so a typo is refused by `sovrium validate` rather than drawing one lane per record.
 
 **Not yet drawn.** The key validates today and the field check runs, but the board still renders a flat column list — the lane axis is unimplemented. A config declaring `swimlanes` is accepted and forward-compatible; it simply does not change the render yet.
 

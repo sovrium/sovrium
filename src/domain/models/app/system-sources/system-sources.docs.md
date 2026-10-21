@@ -128,6 +128,20 @@ Appending rather than replacing follows from the same shape. A cursor only moves
 
 Changing the search term, the sort or a filter starts a different sequence, so the accumulated rows and the token are both dropped and the feed restarts from the top. Load more carries the active search and sort into the next request, so a continuation never silently widens back to the unfiltered feed.
 
+## Refreshing a system read
+
+An inline `system` read can follow an endpoint that grows while the operator watches — a run list, an audit trail — with `refreshMode: poll`. It re-reads the endpoint every `pollIntervalMs` (1,000 to 300,000, 30,000 by default), keeping the channel's params, so a change made elsewhere shows without a reload:
+
+```yaml
+dataSource:
+  system:
+    endpoint: /api/admin/automations/runs
+    refreshMode: poll
+    pollIntervalMs: 5000
+```
+
+`none`, fetching once, is the default. `realtime` is refused when the config loads: an endpoint has no change feed to follow, so polling is the only refresh a system read has. `poll` is refused on rows the server draws, as it is on a table source.
+
 ## Page size
 
 `query` can set the page size for the endpoint itself:

@@ -94,27 +94,39 @@ const ACTION_DESCRIPTIONS: Readonly<Record<string, string>> = {
   'email.send': 'Send an email. Takes `to`, `subject`, and `body` (plain text or HTML).',
 }
 
-/** The tools an agent is offered: one per allowlisted action, scoped to its tables. */
-export const buildAgentActionTools = (agent: Agent): readonly ChatToolDefinition[] => {
+/**
+ * The tools an agent is offered: one per allowlisted action, scoped to its
+ * tables. `tablesFor` names the tables one action's description lists — by
+ * default the whole allowlist; a turn answering a person narrows it to the
+ * tables she may reach with that action, so no description names one she may
+ * not.
+ */
+export const buildAgentActionTools = (
+  agent: Agent,
+  tablesFor: (action: string) => ReadonlyArray<string> = () => agent.tools?.tables ?? []
+): readonly ChatToolDefinition[] => {
   const { tools } = agent
   if (tools === undefined) return []
-  const tableList = tools.tables.join(', ')
-  return tools.actions.map((action) => ({
-    type: 'function' as const,
-    function: {
-      name: action,
-      description: `${
-        ACTION_DESCRIPTIONS[action] ?? `Perform the "${action}" operation.`
-      } Allowlisted tables: ${tableList}.`,
-      parameters: {
-        type: 'object',
-        properties: {
-          table: { type: 'string', description: `One of the allowlisted tables: ${tableList}.` },
+  return tools.actions.map((action) => {
+    const named = tablesFor(action)
+    const tableList = named.length === 0 ? 'none' : named.join(', ')
+    return {
+      type: 'function' as const,
+      function: {
+        name: action,
+        description: `${
+          ACTION_DESCRIPTIONS[action] ?? `Perform the "${action}" operation.`
+        } Allowlisted tables: ${tableList}.`,
+        parameters: {
+          type: 'object',
+          properties: {
+            table: { type: 'string', description: `One of the allowlisted tables: ${tableList}.` },
+          },
+          additionalProperties: true,
         },
-        additionalProperties: true,
       },
-    },
-  }))
+    }
+  })
 }
 
 /** The table a tool call names, when it names one. */

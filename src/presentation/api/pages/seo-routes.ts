@@ -20,9 +20,11 @@ import {
   resolveRequestBaseUrl,
   trustedForwarding,
 } from '../../../domain/kernel/url/request-base-url'
+import { queryMasksReader } from './caller-table-reader'
 import type { FetchSitemapRecords } from '@/application/ports/services/page-renderer'
 import type { HreflangConfig } from '@/application/use-cases/server/static-content-generators'
 import type { App } from '@/domain/models/app'
+import type { DataFilter } from '@/domain/models/app/pages/components/data-source'
 
 /**
  * Build the multilingual hreflang config from the app's language settings.
@@ -166,13 +168,20 @@ const setupSitemapRoutes = (
     app,
     ...(fetchSitemapRecords !== undefined ? { fetchRecords: fetchSitemapRecords } : {}),
   }
+  // A crawler is a signed-out visitor: her filters steer as her records list's do.
+  const withMasks = (c: Context) => {
+    const readQueryMasks = queryMasksReader(c)
+    const readMasks = (table: string, filter: readonly DataFilter[]) =>
+      readQueryMasks(app, table, undefined, { filter })
+    return { ...sitemapOptions, readMasks }
+  }
   const cached = createSitemapCache()
   const xmlHeaders = { 'Content-Type': 'application/xml; charset=utf-8' }
   return honoApp
     .get('/sitemap.xml', async (c) => {
       const baseUrl = resolveRequestBaseUrl(c)
       const xml = await cached(`${baseUrl}#0`, () =>
-        runDomainPromise(c, generateSitemapContent(pages, baseUrl, sitemapOptions))
+        runDomainPromise(c, generateSitemapContent(pages, baseUrl, withMasks(c)))
       )
       return c.body(xml ?? '', 200, xmlHeaders)
     })
@@ -180,7 +189,7 @@ const setupSitemapRoutes = (
       const index = Number(/\d+/.exec(c.req.param('file'))?.[0] ?? '0')
       const baseUrl = resolveRequestBaseUrl(c)
       const xml = await cached(`${baseUrl}#${String(index)}`, () =>
-        runDomainPromise(c, generateSitemapChildContent(pages, baseUrl, index, sitemapOptions))
+        runDomainPromise(c, generateSitemapChildContent(pages, baseUrl, index, withMasks(c)))
       )
       return xml === undefined ? c.notFound() : c.body(xml, 200, xmlHeaders)
     })

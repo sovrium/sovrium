@@ -32,6 +32,7 @@ import {
   type InvitationVarContext,
 } from '@/domain/models/app/pages/invitation-vars-service'
 import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
+import { renderInstant } from '@/presentation/render/page/render-clock'
 import type { DataSourceDb } from './data-source-contracts'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
@@ -138,9 +139,10 @@ const factsFor = async (
  */
 const varContextFor = (page: Page, app: App): InvitationVarContext => ({
   workspace: appLabelOf(app),
+  roles: app,
   lang: page.meta?.lang ?? app.languages?.default ?? 'en',
   timeZone: parseSovriumTimezone().zoneId,
-  now: new Date(),
+  now: renderInstant() ?? new Date(),
 })
 
 /** Resolve one page's invitation; a page without `invitation` is returned as it was. */

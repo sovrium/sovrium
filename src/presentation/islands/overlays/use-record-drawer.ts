@@ -105,7 +105,7 @@ export function useRecordDrawer(binding: RecordDrawerBinding) {
     // Nothing to save: an opened record whose controls still hold what it loaded.
     unchanged: !creating && holdsLoadedValues(values, read.baseline),
     loading: read.loading,
-    notFound: read.notFound,
+    ...{ notFound: read.notFound, readFailed: read.readFailed, retry: read.retry },
   }
 }
 
@@ -151,13 +151,29 @@ export function useDrawerHandlers(
   setOpen: (open: boolean) => void
 ): {
   readonly error: string | undefined
-  readonly setError: (error: string | undefined) => void
+  /** The request a server error failed the save under, when the console names one. */
+  readonly requestId: string | undefined
+  readonly setError: (error: string | undefined, requestId?: string) => void
   readonly fieldErrors: Readonly<Record<string, string>>
   readonly setFieldErrors: (errors: Readonly<Record<string, string>>) => void
   readonly onChange: (name: string, value: string) => void
   readonly onClose: () => void
 } {
-  const [error, setError] = useState<string | undefined>()
+  const [failure, setFailure] = useState<{ readonly error?: string; readonly requestId?: string }>(
+    {}
+  )
+  const setError = useCallback(
+    (error: string | undefined, requestId?: string) =>
+      setFailure((prev) =>
+        error === prev.error && requestId === prev.requestId
+          ? prev
+          : {
+              ...(error === undefined ? {} : { error }),
+              ...(requestId === undefined ? {} : { requestId }),
+            }
+      ),
+    []
+  )
   const [fieldErrors, setFieldErrors] = useState<Readonly<Record<string, string>>>({})
   const onChange = useCallback(
     (name: string, value: string) => {
@@ -175,6 +191,7 @@ export function useDrawerHandlers(
     setError(undefined)
     setFieldErrors({})
     setOpen(false)
-  }, [setOpen])
-  return { error, setError, fieldErrors, setFieldErrors, onChange, onClose }
+  }, [setOpen, setError])
+  const { error, requestId } = failure
+  return { error, requestId, setError, fieldErrors, setFieldErrors, onChange, onClose }
 }

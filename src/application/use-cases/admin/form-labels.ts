@@ -113,16 +113,33 @@ export const submissionLabelOf = (
   return `${SUBMISSION_WORDS[language].word} · ${when}`
 }
 
-/** An item of the forms read, named for people. */
+/**
+ * What a form says it is for, in `language`: its `description` with a `$t:`
+ * key resolved. `undefined` when it declares none, or only a key no language
+ * resolves — never an empty string a console would draw as a blank line.
+ */
+export const formDescriptionOf = (
+  app: App,
+  form: Form,
+  language: ConsoleLanguage
+): string | undefined => {
+  if (form.description === undefined) return undefined
+  const text = resolveTranslationPattern(form.description, language, app.languages).trim()
+  return text === '' || text.startsWith('$t:') ? undefined : text
+}
+
+/** An item of the forms read, named for people, with what the form says it is for. */
 const labelled = <T extends { readonly name: string }>(
   app: App,
   item: T,
   language: ConsoleLanguage
-): T & { readonly label: string } => {
+): T & { readonly label: string; readonly description?: string } => {
   const form = app.forms?.find((candidate) => candidate.name === item.name)
+  const description = form === undefined ? undefined : formDescriptionOf(app, form, language)
   return {
     ...item,
     label: form === undefined ? readableName(item.name) : formLabelOf(app, form, language),
+    ...(description === undefined ? {} : { description }),
   }
 }
 

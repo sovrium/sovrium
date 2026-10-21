@@ -15,6 +15,8 @@ export default {
   'admin.tables.heading': 'Enregistrements',
   'admin.tables.blurb':
     'Parcours et modifie les enregistrements de tes tables. Choisis une table pour ouvrir sa grille — cherche, trie, filtre, puis ouvre un enregistrement pour le modifier.',
+  'admin.tables.blurbTable':
+    'Cherche, trie et filtre les enregistrements de cette table. Ouvre une ligne pour la modifier.',
   'admin.tables.toolbar': 'Contrôles des enregistrements',
   'admin.tables.search': 'Chercher dans les lignes',
   'admin.tables.export': 'Exporter en CSV',
@@ -23,16 +25,15 @@ export default {
   'admin.buckets.heading': 'Fichiers',
   'admin.buckets.blurb':
     'Parcours les fichiers stockés dans tes buckets. Choisis un bucket pour ouvrir son explorateur — cherche, trie, filtre par type, puis télécharge un fichier.',
-  'admin.buckets.blurbBucket':
-    'Les fichiers stockés dans ce bucket. Cherche, trie ou filtre par type, puis télécharge ou supprime un fichier.',
+  'admin.buckets.blurbBucket': 'Les fichiers rangés dans ce bucket.',
   'admin.buckets.blurbSystem':
-    'Le bucket intégré. Il liste chaque document et chaque image joints à un enregistrement, avec le bucket, la table, l’enregistrement et le champ auxquels ils appartiennent, et stocke les pièces jointes dont le champ ne nomme aucun bucket.',
+    'Les fichiers que Sovrium garde pour ton app : pièces jointes des enregistrements, exports et documents générés.',
 
   'admin.agents.heading': 'Conversations',
   'admin.agents.blurb':
-    'Toutes les conversations que tes utilisateurs ont eues avec cet agent. Ouvres-en une pour lire le fil complet.',
+    'Toutes les conversations que les gens ont eues avec cet agent. Ouvre-en une pour lire le fil complet.',
   'admin.agents.blurbSystem':
-    'Les conversations avec l’agent Système intégré : l’assistant de Bienvenue, et toute discussion qui ne nomme aucun agent déclaré. Il lit les données de ton app sans jamais les modifier. Ouvres-en une pour lire le fil complet.',
+    'L’assistant de Sovrium pour cette app : il lit ta config et tes enregistrements pour répondre aux questions, sans jamais les modifier.',
   'admin.conversations.person': 'Personne',
   'admin.conversations.everyone': 'Tout le monde',
   'admin.conversations.period': 'Période',
@@ -51,6 +52,8 @@ export default {
   'admin.forms.heading': 'Réponses',
   'admin.forms.blurb':
     'Passe en revue les réponses que tu as reçues, formulaire par formulaire. Choisis un formulaire pour parcourir sa boîte de réception, ouvrir une réponse, ou tout exporter en CSV.',
+  'admin.forms.blurbForm':
+    'Ce que les gens ont envoyé par ce formulaire. Ouvre une réponse pour la lire.',
 
   'admin.connections.heading': 'Connexions',
   'admin.connections.blurb':
@@ -66,6 +69,9 @@ export default {
   'admin.connections.col.tokens': 'Jetons',
   'admin.connections.col.expiration': 'Expiration',
   'admin.connections.col.created': 'Créée le',
+  'admin.connections.col.usedBy': 'Utilisée par',
+  'admin.connections.col.lastUsed': 'Dernière utilisation',
+  'admin.connections.col.lastError': 'Dernière erreur',
   'admin.connections.col.actions': 'Actions',
   'admin.connections.type.apiKey': 'Clé d’API',
   'admin.connections.tokens.none': 'Aucun jeton',
@@ -85,10 +91,10 @@ export default {
   // vues : « droit » pour *grant*, « source de droits » pour *grant source*,
   // « barreau ouvert » pour *open rung* (le `*` de la config), « constat » pour
   // *finding*. Un terme par notion, comme en anglais.
-  'admin.organisation.heading': 'Organisation',
+  'admin.organisation.heading': 'Accès',
   'admin.organisation.blurb':
-    'Ce que cette application expose : les chemins d’écriture accessibles sans connexion, les ressources lisibles par tout le monde, et les endroits où une seule personne relie deux parties de l’app. La matrice croise chaque ressource avec chaque source de droits, où une absence se lit aussi nettement qu’un droit. La carte dessine la chaîne elle-même — qui agit, ce qui l’autorise, et ce que cela atteint. Les couloirs dessinent l’autre moitié, celle où personne n’agit : chaque automatisation et les étapes qu’elle exécute seule.',
-  'admin.organisation.tabs.region': 'Vues de l’organisation',
+    'Qui peut atteindre quoi dans cette app, et où l’accès est plus large qu’il ne devrait. Chaque constat nomme la règle à changer dans ta config.',
+  'admin.organisation.tabs.region': 'Vues des accès',
   'admin.organisation.findings.region': 'Constats structurels',
   'admin.organisation.findings.blurb':
     'Trois vérifications structurelles sur la configuration avec laquelle ce serveur tourne, refaites à chaque ouverture de la page. Rien n’est stocké et rien ne s’acquitte — un constat disparaît quand la configuration qui l’a causé change.',
@@ -193,9 +199,25 @@ export default {
     'Un compte\u00a0: son rôle, ses groupes et son statut, les écritures qu’une administratrice peut y faire, et ce qu’il peut lire.',
   'admin.users.account.facts.region': 'Détails du compte',
   'admin.users.account.actions.region': 'Actions sur le compte',
+  'admin.users.col.lastActive': 'Dernière activité',
+  'admin.users.filter.role': 'Filtrer par rôle',
+  'admin.users.filter.allRoles': 'Tous les rôles',
+  'admin.users.filter.status': 'Filtrer par statut',
+  'admin.users.filter.allStatuses': 'Tous les statuts',
+  'admin.users.account.created': 'Créé le',
+  'admin.users.account.lastSignIn': 'Dernière connexion',
+  'admin.users.account.sessions': 'Sessions actives',
+  'admin.users.account.twoFactor': 'Double authentification',
+  'admin.users.account.signInMethods': 'Modes de connexion',
+  'admin.users.account.danger.region': 'Bannir ou supprimer',
+  'admin.users.account.danger.heading': 'Bannir ou supprimer ce compte',
+  'admin.users.account.danger.body':
+    'Bannir déconnecte cette personne et l’empêche de se reconnecter jusqu’à ce que tu lèves le bannissement. Supprimer efface le compte, sans retour possible.',
+  'admin.users.account.danger.self':
+    'C’est ton compte. Pour le bannir ou le supprimer, demande à un autre admin.',
   'admin.users.account.roles.region': 'Rôles assignables',
   'admin.users.account.roles.heading': 'Rôles assignables',
-  'admin.users.account.roles.source': 'depuis auth.roles',
+  'admin.users.account.roles.source': 'depuis ton fichier de config',
   'admin.users.account.access.region': 'Accès',
   'admin.users.account.access.heading': 'Accès',
   'admin.users.account.access.body':
@@ -220,6 +242,7 @@ export default {
   'admin.automations.metrics.automations': 'Automatisations',
   'admin.automations.metrics.runs24h': 'Exécutions (24\u00a0h)',
   'admin.automations.metrics.failures24h': 'Échecs (24\u00a0h)',
+  'admin.automations.metrics.showFailed': 'Voir les exécutions en échec',
   'admin.automations.metrics.successRate': 'Taux de réussite',
   'admin.automations.cancel': 'Annuler',
 
@@ -234,7 +257,6 @@ export default {
   'admin.buckets.layout': 'Affichage',
   'admin.buckets.layout.list': 'Liste',
   'admin.buckets.layout.grid': 'Grille',
-  'admin.buckets.upload.region': 'Envoyer un fichier',
   'admin.buckets.upload.failed': 'Impossible d’envoyer {file}.',
   // The three rules keys keep a space at each end: they sit between other
   // elements of one line, and the spaces are what separate the words for a
@@ -288,6 +310,8 @@ export default {
   'admin.automations.runs.filter.allTriggers': 'Tous les déclencheurs',
   'admin.automations.runs.filter.allStatuses': 'Tous les statuts',
   'admin.automations.runs.filter.status': 'Filtrer par statut',
+  'admin.automations.runs.filter.period': 'Filtrer par période',
+  'admin.automations.runs.filter.anyTime': 'Toute la période',
   'admin.automations.runs.status.success': 'Réussie',
   'admin.automations.runs.status.failed': 'Échouée',
   'admin.automations.runs.status.partial': 'Partielle',
@@ -335,6 +359,20 @@ export default {
   'admin.automations.runs.detail.failure.next': 'Corrige la cause, puis relance cette exécution.',
   'admin.automations.runs.detail.failure.connections': 'Voir les connexions',
   'admin.automations.runs.detail.failure.env': 'Voir l’environnement',
+  'admin.automations.runs.detail.defect.title':
+    'Sovrium a arrêté cette exécution sur une erreur interne',
+  'admin.automations.runs.detail.defect.description':
+    'C’est une panne de Sovrium, pas de la configuration de ton app. Relancer peut échouer de la même façon.',
+  'admin.automations.runs.detail.status.defect': 'Échec · erreur interne',
+  'admin.automations.runs.detail.failure.stepTitle':
+    'Cette exécution a échoué à l’une de ses étapes',
+  'admin.automations.runs.detail.failure.stepTitleNamed':
+    'Étape $record.failedStep.number en échec · $record.failedStep.label',
+  'admin.automations.runs.detail.otherRuns': 'Autres exécutions de',
+  'admin.automations.runs.detail.dataInOut': 'Données en entrée et en sortie',
+  'admin.automations.runs.detail.showTrigger': 'Voir les données du déclencheur',
+  'admin.automations.runs.detail.definedAs': 'Définie dans ta config sous le nom',
+  'admin.automations.runs.detail.changeThere': '. Change-la là-bas, puis redémarre l’app.',
   'admin.automations.runs.detail.log': 'Journal',
   'admin.automations.runs.detail.dataIn': 'Données en entrée',
   'admin.automations.runs.detail.dataOut': 'Données en sortie',
@@ -412,7 +450,7 @@ export default {
   'admin.links.manage.repoint': 'Rediriger ce lien',
   'admin.links.manage.config.heading': 'Déclaré dans la configuration',
   'admin.links.manage.config.body':
-    'Ce lien est déclaré dans app.links[]. Modifie le fichier de configuration et redémarre pour le changer ; la console n’écrit jamais la configuration.',
+    'Ce lien est déclaré dans ton fichier de config. Change-le là-bas et redémarre l’app ; la console ne modifie jamais ta config.',
 
   'admin.templates.heading': 'Modèles',
   'admin.templates.blurb':
@@ -427,7 +465,7 @@ export default {
   'admin.templates.empty.hint':
     'Déclares-en un dans assets, dans la configuration, avec sampleData pour le prévisualiser ici.',
   'admin.templates.preview.blurb':
-    'Ce modèle rendu avec ses données d’exemple, par le même moteur qu’une automatisation.',
+    'rendu avec ses données d’exemple, comme une automatisation l’envoie.',
   'admin.templates.preview.document':
     'Rempli avec ses données d’exemple, comme le rend une automatisation. Les scripts et les images distantes ne se chargent pas ici.',
   'admin.templates.preview.email':

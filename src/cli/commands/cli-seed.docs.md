@@ -45,6 +45,8 @@ records:
       last_contacted: '{{today-3d}}'
 ```
 
+A large table can be written as `seed/<table>.jsonl` instead: a header line, `{"format":"sovrium.seed","version":1}` with an optional `mergeOn`, then one record per line in the shape of a YAML record. The `seed/import/` folder that `sovrium import` writes is read with `seed/` as one set, and a table seeded in both is refused, naming both files; `--dir` reads its one folder only. See [Migrating From Another Tool](/en/docs/cli-import).
+
 Tables are written parents-first. You do not have to order the files yourself — the command reads your relationship fields and works out the order. A genuine cycle is refused by name rather than guessed at.
 
 A relationship to the same table is not a dependency between tables: rows are inserted with that link empty, and the link is written once the row it names exists — so a row may name one defined later in the file, and an `upsert` replay writes the same link again rather than a new row.
@@ -78,7 +80,7 @@ An empty or blank string for a date, datetime or time column seeds as no value.
 ## Modes
 
 - **`if-empty`** — the default. Seeds a table only when it has no rows, so it is safe to run repeatedly. It counts soft-deleted rows as present, so a table you emptied through the app is not silently refilled underneath you.
-- **`upsert`** — matches existing rows on a natural key and updates them; creates the rest. Rows it creates are recorded as written by the system, like every seeded row.
+- **`upsert`** — matches existing rows on a natural key and updates them; creates the rest. A row that already holds every value is left alone and counted as unchanged, so a replay changes nothing. Rows it creates are recorded as written by the system, like every seeded row. A row's many-to-many links become exactly the ones its seed record lists: a link the file no longer lists is removed (the linked row is kept), a link it lists is added, and links that already match are left alone.
 - **`replace`** — deletes the table's rows, then inserts. For demo environments that reset.
 
 ### Choosing what `upsert` matches on
@@ -102,13 +104,13 @@ records:
       created_at: '2023-03-14T12:00:00Z'
 ```
 
-It is written when the row is inserted, in every mode. It is never changed afterwards: when `upsert` matches an existing row, a `created_at` in the file is ignored, because a row is created once. `updated_at`, `deleted_at` and the author columns stay the engine's own. A row the file gives no `created_at` is created at the moment it is seeded, or, when `SOVRIUM_DEV_CLOCK` pins the development clock, at the pinned instant, so a data set drawn for that day reads as created on it.
+It is written when the row is inserted, in every mode, and every `created-at` field of the table the record leaves empty reads the same instant. It is never changed afterwards: when `upsert` matches an existing row, a `created_at` in the file is ignored, because a row is created once. An `autonumber` value in the file works the same way: it is written on insert and never rewritten, and a row added later is numbered after the highest. `updated_at`, `deleted_at` and the author columns stay the engine's own. A row the file gives no `created_at` is created at the moment it is seeded, or, when `SOVRIUM_DEV_CLOCK` pins the development clock, at the pinned instant, so a data set drawn for that day reads as created on it.
 
 ## Accounts and who wrote the rows
 
 By default every row is written by the system, so a `created-by` column reads `system`. `--as <email>` writes the whole run as that account, so `created-by` and `updated-by` carry its id. The account must already exist, or be listed in `seed/users.yaml`; an unknown email is refused before anything is written.
 
-`seed/users.yaml` lists sign-in accounts under a top-level `users:` key — `email`, `name`, `role`, and an optional `password`, else `SOVRIUM_SEED_PASSWORD`. They are created before any table, through the same path as `sovrium admin create`, so they can sign in; an email that already has an account is left unchanged, and an account with no password available, or with a role the app does not define, is refused before any account is created. The accounts are part of every run, including one restricted with `--table`.
+`seed/users.yaml` lists sign-in accounts under a top-level `users:` key — `email`, `name`, `role`, and an optional `password`, else `SOVRIUM_SEED_PASSWORD`. They are created before any table, through the same path as `sovrium admin create`, so they can sign in; an email that already has an account is left unchanged, and an account with no password available, or with a role the app does not define, is refused before any account is created. The accounts are part of every run, including one restricted with `--table`. The `users:` key is what tells this file apart from the seed file of a table named `users`, which uses `records:`. An entry with `unclaimed: true` is a person your data names who has not been asked to join: the account is created with no credential and no invitation, takes no `password`, needs no `SOVRIUM_SEED_PASSWORD`, sends and prints nothing, and is counted as `unclaimed` on the accounts line. Its owner claims it later through the app's own roads — a password reset to that email, or an invitation an admin sends.
 
 ```text
 # seed/users.yaml
@@ -120,8 +122,6 @@ users:
     name: Ahmed Benali
     role: member
 ```
-
-The `users:` key is what tells this file apart from the seed file of a table named `users`, which uses `records:`.
 
 A `user` field takes `'@user:<email>'`, resolved to that account's id. An email with no account is refused with the file, record, field and email.
 
@@ -172,13 +172,11 @@ An account can also carry `grants` — its access to records of the tables liste
 
 Put files in `seed/assets/` and reference them by name as `'@asset:northwind-logo.avif'`. The file is uploaded and the stored key is written to the field. A `multiple-attachments` field takes a list of them — one `'@asset:…'` per file — and stores every file, in the order listed.
 
-An `@asset:` file is uploaded into the bucket its field declares; a `public: true` bucket serves it without a session.
+A reference may name one folder of `seed/assets/` — `'@asset:wall/photo.png'` — to tell apart different files that share a name; the stored file keeps its own name, never the folder's. `..`, absolute paths and deeper folders are refused. An `@asset:` file is uploaded into the bucket its field declares; a `public: true` bucket serves it without a session. Its stored key depends only on the record, the field, the file's position and its bytes, so an `upsert` replay of the same file keeps the same key and leaves the row unchanged, while a changed file gets a new one.
 
 ## What seeding does not do
 
 **It does not run your automations.** Records are written directly, so an automation that reacts to record creation will not have fired. If your app's demo value depends on something an automation produces — an activity log, a derived status — seed that too, written the way the automation would have written it.
-
-**Some fields are refused rather than half-written**, each with a message naming the file and record: `upsert` on a table whose seed data carries many-to-many links. Refusing is deliberate — writing the row and dropping the links would leave you with data that looks complete and is not.
 
 ## When a record is rejected
 

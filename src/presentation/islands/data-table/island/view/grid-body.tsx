@@ -14,6 +14,7 @@ import { LoadMoreButton } from '../../../parts/load-more-button'
 import { GridInfiniteFooter } from '../../pagination/grid-infinite-footer'
 import { PaginationControls } from '../../pagination/pagination-controls'
 import { SessionControls } from '../../view-options/session-controls'
+import { ToolbarViewOptions } from '../../view-options/toolbar-view-options'
 import { SelectionBar } from '../bulk-actions'
 import { TableContent } from '../table-content'
 import { PhoneRows } from './phone-rows'
@@ -66,6 +67,8 @@ function GridPager({ props }: { readonly props: GridBodyProps }) {
  */
 function BottomBar({ props, paged }: { readonly props: GridBodyProps; readonly paged: boolean }) {
   const { selection } = props
+  // On a phone the three menus are one View menu, so the bar stays one line.
+  const phone = usePhoneViewport(true)
   return (
     <PaginationControls
       table={props.table}
@@ -79,7 +82,14 @@ function BottomBar({ props, paged }: { readonly props: GridBodyProps; readonly p
           <SelectionBar {...selection} />
         ) : undefined
       }
-      trailing={<SessionControls {...props.session} />}
+      trailing={
+        props.viewOptions === 'toolbar' ? undefined : (
+          <SessionControls
+            {...props.session}
+            frame={phone ? 'view' : 'bar'}
+          />
+        )
+      }
     />
   )
 }
@@ -104,6 +114,12 @@ export function GridBody(props: GridBodyProps) {
   const phoneRows = usePhoneViewport(props.phoneLayout === 'rows')
   return (
     <>
+      {props.viewOptions === 'toolbar' && (
+        <ToolbarViewOptions
+          session={props.session}
+          channel={props.viewChannel}
+        />
+      )}
       {showsPagerAt(props, 'top') && <GridPager props={props} />}
       {phoneRows ? (
         <PhoneRows

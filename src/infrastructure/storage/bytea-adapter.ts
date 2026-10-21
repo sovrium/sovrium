@@ -113,25 +113,41 @@ export const byteaValidateAndInit = async (): Promise<void> => {
     : db.execute(sql`SELECT 1`))
 }
 
-export const byteaDownload = async (key: string, bucket: BucketBinding): Promise<Uint8Array> => {
+/**
+ * The payload stored under `key`, read at most `maxBytes`: the database
+ * measures the payload and sends it only when it is within the cap, so a
+ * larger payload never leaves the database. `undefined` past the cap. The only
+ * read of a payload's bytes: there is no unbounded one.
+ */
+export const byteaDownloadWithin = async (
+  key: string,
+  bucket: BucketBinding,
+  maxBytes: number
+): Promise<Uint8Array | undefined> => {
   // An unattributed caller compares nothing; a bucket-scoped one must match the
   // recorded binding, and a NULL binding matches no bucket (fail closed).
   const bucketPredicate = bucket === UNATTRIBUTED_BUCKET ? sql`` : sql`AND m.bucket = ${bucket}`
   const result = (await db.execute(sql`
-    SELECT b.content
+    SELECT octet_length(b.content) AS size,
+      CASE WHEN octet_length(b.content) <= ${maxBytes}::bigint THEN b.content END AS content
     FROM system.file_storage_bytea b
     JOIN system.file_storage_metadata m ON m.id = b.metadata_id
     WHERE m.key = ${key} AND m.storage_provider = 'bytea' ${bucketPredicate}
     LIMIT 1
   `)) as readonly Record<string, unknown>[]
+  const row = result[0]
+  if (!row) throw storageObjectNotFound(key)
+  return payloadWithinOf(row)
+}
 
-  const row = result[0] as { content: Uint8Array | Buffer } | undefined
-  if (!row) {
-    throw storageObjectNotFound(key)
-  }
-  return row.content instanceof Uint8Array
-    ? row.content
-    : new Uint8Array(row.content as ArrayBuffer)
+/**
+ * The payload a bounded read answered: its bytes, or `undefined` when the
+ * database held them back as past the cap (a measured size, no content).
+ */
+export const payloadWithinOf = (row: Readonly<Record<string, unknown>>): Uint8Array | undefined => {
+  const { content } = row
+  if (content === null || content === undefined) return undefined
+  return content instanceof Uint8Array ? content : new Uint8Array(content as ArrayBuffer)
 }
 
 /**

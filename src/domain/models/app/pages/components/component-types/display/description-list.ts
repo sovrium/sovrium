@@ -43,6 +43,7 @@
  */
 
 import { Schema } from 'effect'
+import { ColumnFormatSchema } from '../data/table/columns'
 import { coreFields } from '../modules/core'
 import { i18nFields } from '../modules/i18n'
 import { visibilityFields } from '../modules/visibility'
@@ -90,8 +91,16 @@ const DescriptionTextItemSchema = Schema.Struct({
     Schema.annotate({
       title: 'Detail',
       description:
-        'The fact itself — the `<dd>`. Ordinary text, so `$record.<field>` and `$t:<key>` both resolve here. Empty is legal and draws the empty-value placeholder rather than collapsing the row, so a list of facts keeps its shape when one is missing.',
+        'The fact itself — the `<dd>`. Ordinary text, so `$record.<field>` and `$t:<key>` both resolve here. Empty is legal and draws the empty-value placeholder rather than collapsing the row, so a list of facts keeps its shape when one is missing. Inside a `repeat`, `$<as>.<field>` resolves the same way, and with a `format` a detail that is one lone token formats the element’s stored value.',
       examples: ['$record.client', '4,120.00 €'],
+    })
+  ),
+  format: Schema.optional(
+    ColumnFormatSchema.annotate({
+      title: 'Detail Format',
+      description:
+        'How the detail reads: the same formats a grid column takes (`day-relative-time`, `duration`, `short-date`, `bytes`, …), applied to the resolved value exactly as the column applies it. For a detail that is one `$record.<field>` reference — including a value read from an endpoint, which has no field type to format by — the stored value is formatted, so the detail reads as the grid cell beside it does. Omit it to print the detail as written.',
+      examples: ['day-relative-time', 'duration'],
     })
   ),
   action: Schema.optional(DescriptionActionSchema),

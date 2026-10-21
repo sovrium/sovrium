@@ -38,8 +38,8 @@ import { Effect, Option, Schema } from 'effect'
 import {
   isStorageObjectNotFound,
   StorageService,
-  UNATTRIBUTED_BUCKET,
 } from '@/application/ports/services/storage-service'
+import { logStorageFailure } from '@/application/use-cases/storage/storage-failure-log'
 import {
   createParkedStepCell,
   type ParkedStepCell,
@@ -93,12 +93,18 @@ type FingerprintKind = 'identity' | 'sha256'
 export const kindOf = (fingerprint: string): FingerprintKind =>
   fingerprint.startsWith('stat:') || fingerprint === ABSENT_FINGERPRINT ? 'identity' : 'sha256'
 
-/** The hash of the object at `key`, or `absent` / `unknown` when it cannot be read. */
+/**
+ * The hash of the object at `key`, or `absent` / `unknown` when it cannot be
+ * read. The store hashes while it reads, so an object of any size is
+ * fingerprinted in constant memory and never held whole.
+ */
 const hashAt = (key: string): Effect.Effect<string, never, StorageService> =>
   Effect.gen(function* () {
     const storage = yield* StorageService
-    const read = yield* Effect.result(storage.download(key, UNATTRIBUTED_BUCKET))
-    if (read._tag === 'Success') return fingerprintOf(read.success)
+    const hashed = yield* Effect.result(storage.hashObject(key))
+    if (hashed._tag === 'Success') {
+      return `sha256:${String(hashed.success.size)}:${hashed.success.sha256}`
+    }
     const sized = yield* Effect.result(storage.statObject(key))
     return sized._tag === 'Failure' && isStorageObjectNotFound(sized.failure)
       ? ABSENT_FINGERPRINT
@@ -117,7 +123,17 @@ export const fingerprintAt = (
   Effect.gen(function* () {
     const storage = yield* StorageService
     if (kind === 'sha256') return yield* hashAt(key)
-    const identity = yield* Effect.result(storage.objectIdentity(key))
+    // effect-swallow: fail-soft — a store that cannot say what is at the key yields the `unknown` fingerprint, which the ledger already treats as unproven; the cause is logged on the way.
+    const identity = yield* Effect.result(
+      storage
+        .objectIdentity(key)
+        .pipe(
+          logStorageFailure(
+            '[automations] the run ledger could not read an object identity; recording it as unknown',
+            { 'sovrium.storage.key': key }
+          )
+        )
+    )
     if (identity._tag === 'Failure') return UNKNOWN_FINGERPRINT
     const known = identity.success
     if (known.kind === 'absent') return ABSENT_FINGERPRINT

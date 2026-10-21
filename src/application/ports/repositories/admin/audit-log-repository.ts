@@ -15,7 +15,7 @@
  * table is not there yet.
  */
 
-import { Context, type Effect } from 'effect'
+import { Context, type Effect, type Option } from 'effect'
 import type { AuditLogEntry } from '@/domain/models/api/admin/audit-log/entry'
 
 export interface AuditListFilter {
@@ -56,6 +56,28 @@ export interface AuditListFilter {
   readonly actions?: readonly string[] | undefined
 }
 
+/**
+ * A position in the trail's newest-first order: the entry's instant (ISO, to
+ * the millisecond) and its id, which breaks ties on the instant.
+ */
+export interface AuditPagePosition {
+  readonly timestamp: string
+  readonly id: string
+}
+
+/** One page request: the filter, the page size, and the entry the page starts after. */
+export interface AuditPageQuery {
+  readonly filter: AuditListFilter
+  readonly limit: number
+  readonly after?: AuditPagePosition | undefined
+}
+
+/** One page of the trail, and whether any entry follows its last one. */
+export interface AuditPage {
+  readonly entries: readonly AuditLogEntry[]
+  readonly hasMore: boolean
+}
+
 /** One action's count over a window, most frequent first. */
 export interface AuditActionCount {
   readonly action: string
@@ -69,6 +91,14 @@ export class AuditLogRepository extends Context.Service<
     readonly append: (entry: Readonly<AuditLogEntry>) => Effect.Effect<void>
     /** Entries matching the filter, newest first. */
     readonly list: (filter?: AuditListFilter) => Effect.Effect<readonly AuditLogEntry[]>
+    /**
+     * One page of the entries matching the filter, newest first, ties on the
+     * instant broken by the id (descending): the order the cursor names, read
+     * in the database so a page costs its own rows rather than the whole trail.
+     */
+    readonly listPage: (query: Readonly<AuditPageQuery>) => Effect.Effect<AuditPage>
+    /** The entry of this id, if the trail holds one. */
+    readonly get: (id: string) => Effect.Effect<Option.Option<AuditLogEntry>>
     /** Per-action counts inside a half-open window, capped at `limit`. */
     readonly countByAction: (input: {
       readonly since: Readonly<Date>

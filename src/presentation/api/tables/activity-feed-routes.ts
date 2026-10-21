@@ -14,7 +14,6 @@ import {
 } from '@/application/use-cases/list-activity-logs'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
-import { logError } from '@/infrastructure/logging/logger'
 import {
   provideDomain,
   runDomainPromise,
@@ -22,7 +21,7 @@ import {
 } from '@/infrastructure/logging/request-effect'
 import { enrichUserRole } from '@/presentation/api/middleware/table'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
-import { sanitizeError, getStatusCode } from '@/presentation/api/runtime/error-sanitizer'
+import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
 import {
   activityAdmission,
   admitsActivityEntry,
@@ -72,11 +71,9 @@ async function handleGetActivityById(c: Context, app: App) {
       return activityNotFound(c)
     }
 
-    logError('[activity] get-by-id failed', error)
-    return c.json(
-      { success: false, message: 'Failed to fetch activity', code: 'DATABASE_ERROR' },
-      500
-    )
+    // Anything else is the server's own failure: the canonical envelope logs
+    // it with its cause and answers with the request id it can be reported by.
+    return toErrorResponse(c, error)
   }
 
   const activity = result.success
@@ -85,7 +82,7 @@ async function handleGetActivityById(c: Context, app: App) {
   return c.json(
     {
       ...activity,
-      changes: projectActivityChanges(c, app, activity.tableName, activity.changes),
+      changes: await projectActivityChanges(c, app, activity),
       user: projectActivityActor(c, app, activity.user),
     },
     200
@@ -204,7 +201,7 @@ async function validateListActivityRequest(
 }
 
 /**
- * Run the list query, or answer its failure as the sanitized error response.
+ * Run the list query, or answer its failure as the canonical error envelope.
  */
 async function listActivityPage(
   c: Context,
@@ -217,14 +214,7 @@ async function listActivityPage(
     provideDomain(c, ListActivityLogs(query)).pipe(Effect.result)
   )
   if (result._tag === 'Success') return result.success
-  const sanitized = sanitizeError(
-    result.failure,
-    (c.get('requestId') as string | undefined) ?? crypto.randomUUID()
-  )
-  return c.json(
-    { success: false, message: sanitized.message ?? sanitized.error, code: sanitized.code },
-    getStatusCode(sanitized.code)
-  )
+  return toErrorResponse(c, result.failure)
 }
 
 /**

@@ -106,6 +106,7 @@ function drawerControlLabels(
     saveFailedLabel: resolve('form.operationFailed'),
     notFoundLabel: resolve('recordDrawer.notFound'),
     readFailedLabel: resolve('recordDrawer.readFailed'),
+    retryLabel: resolve('recordDrawer.retry'),
     // The words the island draws on its own: a footer question's Cancel, the
     // navigation, the refusal banner's name and a refused footer write's toast.
     builtInLabels: {
@@ -117,6 +118,10 @@ function drawerControlLabels(
       position: resolve('recordDrawer.position'),
       saveRefused: resolve('recordDrawer.saveRefused'),
       validationError: resolve('recordDrawer.validationError'),
+      datePicker: {
+        'datePicker.pick': resolve('datePicker.pick'),
+        'datePicker.choose': resolve('datePicker.choose'),
+      },
       writeRefusal: {
         'rateLimit.retryIn': resolve('rateLimit.retryIn'),
         'form.operationFailed': resolve('form.operationFailed'),

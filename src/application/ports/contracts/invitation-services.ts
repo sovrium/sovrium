@@ -72,7 +72,8 @@ export interface InvitationStore {
   readonly findInvitationToken: (token: string) => Promise<InvitationTokenRow | undefined>
   readonly findInvitationById: (id: string) => Promise<InvitationTokenRow | undefined>
   readonly refreshInvitationExpiry: (id: string, expiresAt: Readonly<Date>) => Promise<void>
-  readonly deleteInvitationToken: (id: string) => Promise<void>
+  /** Consume a token row; answers whether this call removed it (false: already gone). */
+  readonly deleteInvitationToken: (id: string) => Promise<boolean>
   readonly deletePendingInvitationsForUser: (userId: string) => Promise<void>
   readonly listPendingInvitations: () => Promise<readonly PendingInvitationRow[]>
   readonly findUserByEmail: (email: string) => Promise<InvitationUser | undefined>

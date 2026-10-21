@@ -17,7 +17,9 @@ import { PLATFORM_SSO_PROVIDER_ID } from '@/domain/models/process-env/platform-s
 import { Logger } from '@/infrastructure/logging/logger'
 import {
   ADMIN_EMAIL_WITHOUT_WAY_IN_WARNING,
+  adminEmailIgnoredWarning,
   adminEmailWithoutWayIn,
+  configuredAdminEmail,
   parseAdminBootstrapConfig,
   type AdminBootstrap,
   type AdminBootstrapConfig,
@@ -282,6 +284,24 @@ const seedPasswordAdmin = (
   })
 
 /**
+ * Accounts already exist, so `AUTH_ADMIN_EMAIL` seeded nobody: when no account
+ * holds that address either, say so at startup — the operator otherwise
+ * believes the address she set is an admin she can sign in as.
+ */
+const warnWhenAdminEmailIgnored = (): Effect.Effect<
+  void,
+  AuthDatabaseError,
+  AuthRepository | Logger
+> =>
+  Effect.gen(function* () {
+    const email = configuredAdminEmail()
+    if (email === undefined) return
+    const held = yield* (yield* AuthRepository).findUserIdsByEmails([email])
+    if (held.size > 0) return
+    yield* (yield* Logger).warn(adminEmailIgnoredWarning(email))
+  })
+
+/**
  * Bootstrap admin account at application startup
  *
  * This use case seeds the first admin when:
@@ -328,7 +348,7 @@ export const bootstrapAdmin = (
         '[bootstrap-admin] skipped — human user(s) already exist (env-var bootstrap no-op)',
         { humanUsers: String(existingUserCount) }
       )
-      return
+      return yield* warnWhenAdminEmailIgnored()
     }
     if (!config) return yield* logger.warn(ADMIN_EMAIL_WITHOUT_WAY_IN_WARNING)
     return config.kind === 'platform-sso'

@@ -35,6 +35,8 @@ interface ResolutionContext {
   readonly lang: string
   /** The route params this page binds a table to (`table` for `$param.table`). */
   readonly tableParams?: ReadonlySet<string>
+  /** A specimen's sample address: a segment naming no declared table is drawn, not refused. */
+  readonly admitUndeclared?: boolean
 }
 
 /**
@@ -89,7 +91,8 @@ export function resolveRouteBoundTables(
   const declared = new Set((app.tables ?? []).map((table) => table.name))
   const params = collectRouteBoundParams(components)
   const bound = params.map((param) => request.routeParams[param] ?? '')
-  if (bound.some((name) => !declared.has(name))) return 'not-found'
+  if (request.admitUndeclared !== true && bound.some((name) => !declared.has(name)))
+    return 'not-found'
   if (bound.length === 0 && !hasDerivedColumns(components)) return page
 
   const resolved = mapNodes(components, { ...request, app, tableParams: new Set(params) })

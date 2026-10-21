@@ -1,0 +1,457 @@
+{
+  "id": "dashboard-gdpr",
+  "name": "dashboard-gdpr",
+  "path": "/gdpr",
+  "meta": {
+    "title": "$t:admin.meta.gdpr"
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "gdpr": "$t:admin.crumb.gdpr"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "header",
+          "element": "header",
+          "props": {
+            "className": "flex flex-col gap-1"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "h1",
+              "props": {
+                "className": "text-foreground text-2xl font-semibold tracking-tight"
+              },
+              "content": "$t:admin.crumb.gdpr"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "content": "$t:admin.gdpr.blurb"
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "admin-surface-content-2-1",
+          "element": "div",
+          "props": {
+            "className": "flex w-full flex-col"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "identity-region",
+              "element": "div",
+              "props": {
+                "className": "flex items-center gap-4",
+                "role": "group",
+                "aria-label": "$t:admin.profile.identity.region"
+              },
+              "children": [
+                {
+                  "type": "avatar",
+                  "src": "$session.image",
+                  "label": "$session.name",
+                  "size": "lg",
+                  "props": {
+                    "data-testid": "gdpr-avatar",
+                    "className": "size-16 text-lg"
+                  }
+                },
+                {
+                  "type": "container",
+                  "key": "identity-region-2",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-w-0 flex-col gap-0.5"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "text-foreground text-base font-medium"
+                      },
+                      "session": "name"
+                    },
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "text-foreground-subtle text-md",
+                        "data-testid": "gdpr-identity-email"
+                      },
+                      "session": "email"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "gdpr-heading",
+              "element": "section",
+              "props": {
+                "className": "border-border flex flex-col border-t",
+                "aria-label": "$t:admin.gdpr.heading"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "gdpr-heading-1",
+                  "element": "div",
+                  "props": {
+                    "className": "grid grid-cols-1 gap-y-2.5 border-b border-border py-4 sm:grid-cols-[168px_minmax(0,1fr)] sm:gap-x-6 sm:gap-y-0"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "h2",
+                      "props": {
+                        "className": "text-foreground block text-base font-medium sm:leading-8"
+                      },
+                      "content": "$t:admin.gdpr.export.heading"
+                    },
+                    {
+                      "type": "container",
+                      "key": "gdpr-heading-1-2",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-w-0 flex-col gap-2"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "key": "gdpr-heading-1-2-1",
+                          "element": "div",
+                          "props": {
+                            "className": "grid grid-cols-1 items-start gap-x-6 gap-y-2 sm:grid-cols-[minmax(0,26rem)_max-content]"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "p",
+                              "props": {
+                                "className": "text-foreground-subtle text-sm"
+                              },
+                              "content": "$t:admin.locked.audit.gdpr.exportScope"
+                            },
+                            {
+                              "type": "button",
+                              "variant": "secondary",
+                              "content": "$t:admin.gdpr.export.submit",
+                              "props": {
+                                "id": "gdpr-export-btn",
+                                "className": "w-fit"
+                              },
+                              "action": {
+                                "type": "fetch",
+                                "mode": "download",
+                                "url": "/api/account/export",
+                                "filename": "my-account.json",
+                                "onSuccess": {
+                                  "type": "toast",
+                                  "variant": "success",
+                                  "message": "$t:admin.gdpr.export.complete",
+                                  "status": {
+                                    "target": "gdpr-export-status",
+                                    "message": "$t:admin.gdpr.export.generated"
+                                  }
+                                },
+                                "onError": {
+                                  "status": {
+                                    "target": "gdpr-export-status",
+                                    "message": "$t:admin.gdpr.export.failed",
+                                    "retryLabel": "$t:admin.gdpr.export.retry"
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "id": "gdpr-export-status",
+                            "className": "text-foreground-subtle text-sm empty:hidden! [&[role=alert]]:flex [&[role=alert]]:items-center [&[role=alert]]:gap-2.5 [&[role=alert]]:rounded-lg [&[role=alert]]:border [&[role=alert]]:border-destructive/40 [&[role=alert]]:px-3 [&[role=alert]]:py-2.5 [&[role=alert]]:text-foreground [&[role=alert]]:before:content-['!'] [&[role=alert]]:before:inline-flex [&[role=alert]]:before:size-4 [&[role=alert]]:before:shrink-0 [&[role=alert]]:before:items-center [&[role=alert]]:before:justify-center [&[role=alert]]:before:rounded-full [&[role=alert]]:before:border-[1.5px] [&[role=alert]]:before:border-destructive [&[role=alert]]:before:text-[10px] [&[role=alert]]:before:font-bold [&[role=alert]]:before:text-destructive [&[role=alert]>button]:ml-auto [&[role=alert]>button]:inline-flex [&[role=alert]>button]:h-6 [&[role=alert]>button]:shrink-0 [&[role=alert]>button]:items-center [&[role=alert]>button]:rounded-md [&[role=alert]>button]:border [&[role=alert]>button]:border-border [&[role=alert]>button]:bg-background [&[role=alert]>button]:px-2 [&[role=alert]>button]:text-xs [&[role=alert]>button]:no-underline [&[role=alert]>button]:hover:bg-muted",
+                            "data-testid": "gdpr-export-status"
+                          },
+                          "content": ""
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "gdpr-heading-2",
+                  "element": "div",
+                  "props": {
+                    "className": "grid grid-cols-1 gap-y-2.5 border-b border-border py-4 sm:grid-cols-[168px_minmax(0,1fr)] sm:gap-x-6 sm:gap-y-0"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "h2",
+                      "props": {
+                        "className": "text-foreground block text-base font-medium sm:leading-8"
+                      },
+                      "content": "$t:admin.gdpr.erase.heading"
+                    },
+                    {
+                      "type": "container",
+                      "key": "gdpr-heading-2-2",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-w-0 flex-col gap-2"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "key": "gdpr-heading-2-2-1",
+                          "element": "div",
+                          "props": {
+                            "className": "grid grid-cols-1 items-start gap-x-6 gap-y-2 sm:grid-cols-[minmax(0,26rem)_max-content]"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "p",
+                              "props": {
+                                "className": "text-foreground-subtle text-sm"
+                              },
+                              "content": "$t:admin.locked.audit.gdpr.erasureNotice"
+                            },
+                            {
+                              "type": "button",
+                              "variant": "destructive",
+                              "content": "$t:admin.gdpr.erase.submit",
+                              "props": {
+                                "id": "gdpr-erase-btn",
+                                "className": "w-fit"
+                              },
+                              "confirm": {
+                                "title": "$t:admin.gdpr.erase.confirm.title",
+                                "message": "$t:admin.gdpr.erase.confirm.message",
+                                "role": "alertdialog",
+                                "input": {
+                                  "label": "$t:admin.gdpr.erase.confirm.input",
+                                  "matchValue": "$session.email"
+                                },
+                                "confirmLabel": "$t:admin.gdpr.erase.confirm.affirm",
+                                "cancelLabel": "$t:admin.gdpr.erase.confirm.dismiss"
+                              },
+                              "action": {
+                                "type": "fetch",
+                                "url": "/api/account/delete",
+                                "method": "POST",
+                                "body": {
+                                  "confirm": true
+                                },
+                                "onSuccess": {
+                                  "type": "toast",
+                                  "variant": "success",
+                                  "message": "$t:admin.gdpr.erase.scheduled",
+                                  "status": {
+                                    "target": "gdpr-erase-status",
+                                    "message": "$t:admin.gdpr.erase.scheduled"
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "id": "gdpr-erase-status",
+                            "className": "text-foreground-subtle text-sm empty:hidden!",
+                            "data-testid": "gdpr-erase-status"
+                          },
+                          "content": ""
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "gdpr-heading-3",
+                  "element": "div",
+                  "props": {
+                    "className": "grid grid-cols-1 gap-y-2.5 border-b border-border py-4 sm:grid-cols-[168px_minmax(0,1fr)] sm:gap-x-6 sm:gap-y-0"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "h2",
+                      "props": {
+                        "className": "text-foreground block text-base font-medium sm:leading-8"
+                      },
+                      "content": "$t:admin.gdpr.pending.region"
+                    },
+                    {
+                      "type": "container",
+                      "key": "gdpr-heading-3-2",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-w-0 flex-col gap-2"
+                      },
+                      "children": [
+                        {
+                          "component": "console-grid",
+                          "key": "grid",
+                          "vars": {
+                            "id": "gdpr-pending-grid",
+                            "ariaLabel": "$t:admin.gdpr.pending.region",
+                            "dataSource": {
+                              "system": {
+                                "endpoint": "/api/account/pending-erasure",
+                                "rowsKey": "items",
+                                "idKey": "id"
+                              }
+                            },
+                            "columns": [
+                              {
+                                "field": "email",
+                                "label": "$t:admin.gdpr.pending.account"
+                              },
+                              {
+                                "field": "scheduledErasureAt",
+                                "label": "$t:admin.gdpr.pending.due",
+                                "format": "relative-time"
+                              },
+                              {
+                                "type": "actions",
+                                "label": "$t:admin.gdpr.pending.actions",
+                                "actions": [
+                                  {
+                                    "label": "$t:admin.gdpr.pending.cancel",
+                                    "action": {
+                                      "type": "fetch",
+                                      "url": "/api/account/delete",
+                                      "method": "POST",
+                                      "body": {
+                                        "cancel": true
+                                      },
+                                      "onSuccess": {
+                                        "type": "toast",
+                                        "message": "$t:admin.gdpr.pending.cancelled",
+                                        "refetch": "gdpr-pending-grid"
+                                      }
+                                    },
+                                    "confirm": {
+                                      "message": "$t:admin.gdpr.pending.confirm.message",
+                                      "title": "$t:admin.gdpr.pending.confirm.title",
+                                      "role": "alertdialog",
+                                      "confirmLabel": "$t:admin.gdpr.pending.confirm.affirm",
+                                      "cancelLabel": "$t:admin.gdpr.pending.confirm.dismiss"
+                                    }
+                                  }
+                                ]
+                              }
+                            ],
+                            "emptyMessage": "$t:admin.gdpr.pending.empty"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "gdpr-heading-4",
+                  "element": "div",
+                  "props": {
+                    "className": "grid grid-cols-1 gap-y-2.5 border-b border-border py-4 sm:grid-cols-[168px_minmax(0,1fr)] sm:gap-x-6 sm:gap-y-0"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "h2",
+                      "props": {
+                        "className": "text-foreground block text-base font-medium sm:leading-8"
+                      },
+                      "content": "$t:admin.gdpr.account.label"
+                    },
+                    {
+                      "type": "container",
+                      "key": "gdpr-heading-4-2",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-w-0 flex-col gap-2"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "key": "gdpr-heading-4-2-1",
+                          "element": "div",
+                          "props": {
+                            "className": "grid grid-cols-1 items-start gap-x-6 gap-y-2 sm:grid-cols-[minmax(0,26rem)_max-content]"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "p",
+                              "props": {
+                                "className": "text-foreground-subtle text-sm"
+                              },
+                              "content": "$t:admin.gdpr.account.hint"
+                            },
+                            {
+                              "type": "link",
+                              "content": "$t:admin.gdpr.profileLink",
+                              "props": {
+                                "href": "/profile",
+                                "className": "border-border-strong bg-card text-foreground hover:bg-muted inline-flex h-8 w-fit items-center rounded-[var(--radius-base,4px)] border px-3 text-base font-medium",
+                                "data-testid": "gdpr-profile-link"
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

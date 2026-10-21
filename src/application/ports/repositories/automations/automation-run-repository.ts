@@ -48,6 +48,20 @@ export interface PersistedRun {
   readonly resumeAt: string | null
   /** While the run is paused: the files it stored and read (`StoredRunLedgers`, raw), else `null`. */
   readonly filesLedger: unknown
+  /** For a run abandoned on an internal error: what titles its bug report. Absent otherwise. */
+  readonly defect?: RunDefect
+}
+
+/**
+ * The internal error a run was abandoned on, as a bug report names it: the
+ * error's class, its signature and its in-repository frames, scrubbed when
+ * recorded. Never its message.
+ */
+export interface RunDefect {
+  readonly errorClass: string
+  readonly signature: string
+  /** The in-repository frames, one per line; absent for a defect recorded without them. */
+  readonly frames?: string
 }
 
 /**
@@ -259,6 +273,14 @@ export class AutomationRunRepository extends Context.Service<
       /** A run pausing: the files it stored and read so far. Absent, the column is cleared. */
       readonly filesLedger?: unknown
     }) => Effect.Effect<PersistedRun | undefined, AutomationRunDatabaseError>
+    /**
+     * Record on a finalised run the internal error it was abandoned on — its
+     * class and signature, what titles the bug report the run's page offers.
+     */
+    readonly recordDefect: (
+      id: string,
+      defect: RunDefect
+    ) => Effect.Effect<void, AutomationRunDatabaseError>
     /**
      * Drop what a run of a `history: 'minimal'` trigger keeps no longer once it
      * ended: its trigger data (set to NULL) and every step row. The run row —

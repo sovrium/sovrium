@@ -11,9 +11,10 @@ import {
   StorageError,
   uploadTargetParts,
 } from '@/application/ports/services/storage-service'
+import { boundedDownload } from './bounded-read'
 import {
   byteaDelete,
-  byteaDownload,
+  byteaDownloadWithin,
   byteaGetTotalBytes,
   byteaStoredSize,
   byteaValidateAndInit,
@@ -30,7 +31,11 @@ import {
   type SpellingStore,
 } from './catalog-guards'
 import { createOnlyInCatalog } from './create-only-write'
-import { byteaObjectIdentity, storedObjectIdentity } from './stored-object-identity'
+import {
+  byteaHashObject,
+  byteaObjectIdentity,
+  storedObjectIdentity,
+} from './stored-object-identity'
 import { storedObjectSize } from './stored-object-size'
 import type { BucketBinding } from '@/application/ports/services/storage-service'
 
@@ -79,11 +84,15 @@ export const makeByteaStorage: Effect.Effect<StorageService['Service'], StorageE
     yield* Effect.tryPromise({
       try: () => byteaValidateAndInit(),
       catch: (e: unknown) =>
-        new StorageError({ cause: `Bytea storage initialization failed (DATABASE_URL): ${e}` }),
+        new StorageError({
+          message: 'Bytea storage initialization failed (DATABASE_URL)',
+          cause: e,
+        }),
     })
     return StorageService.of({
       upload: byteaStorageUpload,
-      download: (key: string, bucket: BucketBinding) => attempt(() => byteaDownload(key, bucket)),
+      downloadBounded: (key: string, bucket: BucketBinding, maxBytes: number) =>
+        boundedDownload(key, maxBytes, () => byteaDownloadWithin(key, bucket, maxBytes)),
       delete: (key: string, bucket: BucketBinding) => attempt(() => byteaDelete(key, bucket)),
       // The payload is a row cascading off the catalog row, so deleting that row
       // already removed the bytes: nothing is left to delete.
@@ -94,6 +103,7 @@ export const makeByteaStorage: Effect.Effect<StorageService['Service'], StorageE
       findOtherSpelling: findOtherSpellingIn(BYTEA_STORE),
       statObject: (key: string) => storedObjectSize(key, () => byteaStoredSize(key)),
       objectIdentity: (key: string) => storedObjectIdentity(() => byteaObjectIdentity(key)),
+      hashObject: (key: string) => attempt(() => byteaHashObject(key)),
       list: (prefix: string) => attempt(() => byteaList(prefix)),
       listPage: ({ prefix, after, size }) => {
         const pageSize = Math.min(size, BYTEA_LIST_PAGE)

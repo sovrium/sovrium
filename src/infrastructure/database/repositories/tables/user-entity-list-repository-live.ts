@@ -6,12 +6,11 @@
  */
 
 import { and, desc, eq, isNull, sql } from 'drizzle-orm'
-import { Effect, Layer } from 'effect'
+import { Layer } from 'effect'
 import {
   UserEntityListRepository,
   UserEntityListDatabaseError,
 } from '@/application/ports/repositories/tables/user-entity-list-repository'
-import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
@@ -28,6 +27,15 @@ import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite
 
 const userFavorites = resolveDialectSchema(userFavoritesPg, userFavoritesSqlite)
 const userRecentItems = resolveDialectSchema(userRecentItemsPg, userRecentItemsSqlite)
+
+/**
+ * The entry's table, as a condition: a record is kept per table, so the same id
+ * in two tables is two entries; a page names none.
+ */
+const sameTable = (
+  column: typeof userFavorites.tableId | typeof userRecentItems.tableId,
+  tableName: string | null
+) => (tableName === null ? isNull(column) : eq(column, tableName))
 
 /** Wrap a DB promise, adapting failures to UserEntityListDatabaseError. */
 const wrap = makeDbWrap((error) => new UserEntityListDatabaseError({ cause: error }))
@@ -55,7 +63,7 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
         .orderBy(desc(userFavorites.createdAt))
     ),
 
-  findFavoriteId: (userId, entityType, entityId) =>
+  findFavoriteId: (userId, entityType, entityId, tableName) =>
     wrap(async () => {
       const existing = await db
         .select({ id: userFavorites.id })
@@ -64,7 +72,8 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
           and(
             eq(userFavorites.userId, userId),
             eq(userFavorites.entityType, entityType),
-            eq(userFavorites.entityId, entityId)
+            eq(userFavorites.entityId, entityId),
+            sameTable(userFavorites.tableId, tableName)
           )
         )
         .limit(1)
@@ -93,7 +102,7 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
       })
     ),
 
-  softDeleteFavorite: (userId, entityType, entityId) =>
+  softDeleteFavorite: (userId, entityType, entityId, tableName) =>
     wrap(() =>
       db
         .update(userFavorites)
@@ -103,6 +112,7 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
             eq(userFavorites.userId, userId),
             eq(userFavorites.entityType, entityType),
             eq(userFavorites.entityId, entityId),
+            sameTable(userFavorites.tableId, tableName),
             isNull(userFavorites.deletedAt)
           )
         )
@@ -124,7 +134,7 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
         .limit(20)
     ),
 
-  findRecentId: (userId, entityType, entityId) =>
+  findRecentId: (userId, entityType, entityId, tableName) =>
     wrap(async () => {
       const existing = await db
         .select({ id: userRecentItems.id })
@@ -133,7 +143,8 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
           and(
             eq(userRecentItems.userId, userId),
             eq(userRecentItems.entityType, entityType),
-            eq(userRecentItems.entityId, entityId)
+            eq(userRecentItems.entityId, entityId),
+            sameTable(userRecentItems.tableId, tableName)
           )
         )
         .limit(1)
@@ -177,23 +188,5 @@ export const UserEntityListRepositoryLive = Layer.succeed(UserEntityListReposito
       ${offsetClause}
     )`
       )
-    }),
-
-  recordStillExists: (entity) =>
-    // Never fails: any DB failure resolves to `false` so a dead/unreadable
-    // record is hidden rather than throwing. Pages and entities without a known
-    // table are always-present (there is no row to probe).
-    // effect-promise: total -- the only `await` in the thunk sits inside the try/catch three lines below, which returns `false`; the two early returns are pure. That is the "never fails" the comment above states, made checkable.
-    Effect.promise(async () => {
-      if (entity.entityType !== 'record' || entity.tableId === null) return true
-      const physicalName = sanitizeTableName(entity.tableId)
-      try {
-        const rows = (await db.execute(
-          sql`SELECT 1 FROM ${sql.identifier(physicalName)} WHERE id = ${entity.entityId} LIMIT 1`
-        )) as readonly unknown[]
-        return rows.length > 0
-      } catch {
-        return false
-      }
     }),
 })

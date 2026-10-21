@@ -1,0 +1,91 @@
+{
+  "id": "dashboard-data-agents",
+  "name": "dashboard-data-agents",
+  "path": "/conversations",
+  "meta": {
+    "title": "$t:admin.meta.agents"
+  },
+  "requires": ["agents"],
+  "redirectToFirst": {
+    "hrefTemplate": "/conversations/{name}"
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "conversations": "$t:admin.crumb.conversations"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "header",
+          "element": "header",
+          "props": {
+            "className": "flex flex-col gap-1"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "h1",
+              "props": {
+                "className": "text-foreground text-2xl font-semibold tracking-tight"
+              },
+              "content": "$t:admin.agents.heading"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "content": "$t:admin.agents.blurb"
+            }
+          ]
+        },
+        {
+          "type": "list",
+          "props": {
+            "data-testid": "admin-agents-directory",
+            "className": "flex flex-col gap-1"
+          },
+          "dataSource": {
+            "system": {
+              "endpoint": "/api/admin/agents",
+              "rowsKey": "items"
+            }
+          },
+          "listDisplay": {
+            "itemTemplate": {
+              "title": "{name}"
+            },
+            "emptyMessage": "$t:admin.agents.none"
+          }
+        }
+      ]
+    }
+  ]
+}

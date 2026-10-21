@@ -4,7 +4,7 @@
 
 > Generated from the Sovrium schema by scripts/build/generate-skill-references.ts — do not edit. It carries no version on purpose: when it and the binary you run disagree, the binary is right.
 
-Every verb the `sovrium` binary dispatches (30), with its usage line and what it is for. `sovrium <verb> --help` prints the full options of one verb; `sovrium docs cli-api` is the manual section about them.
+Every verb the `sovrium` binary dispatches (32), with its usage line and what it is for. `sovrium <verb> --help` prints the full options of one verb; `sovrium docs cli-api` is the manual section about them.
 
 ## Verbs
 
@@ -16,10 +16,11 @@ Every verb the `sovrium` binary dispatches (30), with its usage line and what it
 | `bundle` | `sovrium bundle [config] [options]` | Package the validated config, public/ and seed/ for deployment |
 | `changelog` | `sovrium changelog [<version>] [--list] [--since <version>] [--format md\|json]` | Read the release notes this binary carries |
 | `deploy` | `sovrium deploy [config] [--app <slug>] [options]` | Ship the app to your Sovrium cloud, follow it until live |
-| `design-system` | `sovrium design-system [config] [options]` | Export the design system as an agent brief or DTCG JSON |
+| `design-system` | `sovrium design-system [config] [options]` | Export the design system as a brief, DTCG JSON or a bundle (--pages) |
 | `docs` | `sovrium docs [address] [options]`<br>`sovrium docs <subcommand> <argument> [options]` | Read the platform manual out of this binary |
 | `env` | `sovrium env push <file> [config] [options]`<br>`sovrium env list [config] [--json]`<br>`sovrium env unset <NAME>… [config] [--yes]` | Set, list or remove the variables of a hosted app |
 | `help` | `sovrium help` | Show this help message |
+| `import` | `sovrium import fetch <source-uri> [options]`<br>`sovrium import <snapshot\|file> [options]` | Migrate tables, records and automations from another tool; --write # Migrate a CSV export into app.yaml |
 | `init` | `sovrium init [dir] [options]` | Scaffold a new project (in [dir], or cwd) |
 | `library` | `sovrium library list [--kind <kind>] [--category <c>] [--format md\|json]`<br>`sovrium library search <query> [--format md\|json]`<br>`sovrium library show <id> [--format md\|json]`<br>`sovrium library add <id> [--set key=value]… [--as <name>] [--into <config>]` | Browse and install ready-made blocks, connections, recipes |
 | `licenses` | `sovrium licenses [--format md\|json] [--output <path>]` | Print the third-party license notices this binary carries |
@@ -28,6 +29,7 @@ Every verb the `sovrium` binary dispatches (30), with its usage line and what it
 | `migrate` | `sovrium migrate [config] [options]` | Bring the database schema forward, without booting |
 | `reload` | `sovrium reload [options]` | Apply the edited config to the running server |
 | `render` | `sovrium render <asset> [options]` | Render a template asset offline, with its sample data or yours |
+| `report` | `sovrium report [--config <path>] [--feature <kind>] [--security] [--last-error] [--request-id <id>] [--open]` | Print a prefilled issue address to report a problem |
 | `restart` | `sovrium restart [config]` | Restart the running server |
 | `restore` | `sovrium restore <file> [options]` | Put a backup back (never over a running server) |
 | `schema` | `sovrium schema [options]` | Print JSON Schema to stdout |

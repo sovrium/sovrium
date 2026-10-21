@@ -23,6 +23,7 @@ import {
   adminTemplatesResponseSchema,
 } from '@/domain/models/api/admin/templates'
 import { resolveAssetKind, type Asset } from '@/domain/models/app/assets/asset'
+import { readableName } from '@/domain/models/app/auth/readable-name-service'
 import { logError } from '@/infrastructure/logging/logger'
 import type { App } from '@/domain/models/app'
 
@@ -74,6 +75,13 @@ const everyStep = (app: App): ReadonlyArray<readonly [string, Raw]> =>
   (app.automations ?? []).flatMap((automation) => stepsOf(automation.name, automation.actions))
 
 /** Whether a step reads the asset at `path` as one of its templates. */
+/** A template as a person reads it: its file name, no folder or extension, made readable. */
+const templateLabelOf = (path: string): string => {
+  const file = path.split('/').at(-1) ?? path
+  const stem = file.replace(/\.[^.]+$/, '')
+  return readableName(stem === '' ? file : stem)
+}
+
 const readsAsset = (step: Raw, path: string): boolean => {
   const props = isRecord(step['props']) ? step['props'] : {}
   return Object.values(props).some((value) => isRecord(value) && value['asset'] === path)
@@ -122,6 +130,7 @@ const templatesList = defineAdminRead<undefined>({
             all.map((candidate) => candidate.path)
           ),
           kind: resolveAssetKind(entry),
+          label: templateLabelOf(entry.path),
           ...(entry.description === undefined ? {} : { description: entry.description }),
           hasSampleData: entry.sampleData !== undefined,
           usedBy: usedBy(app, entry.path),

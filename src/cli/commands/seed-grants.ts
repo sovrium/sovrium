@@ -239,7 +239,7 @@ export const writeSeedGrants = async (input: {
             input.context,
             index,
             { records: { kind: 'refs', refs } },
-            entry.grant.table
+            { table: entry.grant.table }
           )
         )
         const recordIds = (resolved.value['records'] as readonly (string | number)[]).map(String)

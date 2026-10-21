@@ -3,7 +3,7 @@
   "dialect": "postgres",
   "id": "ca19b8ea-8ad2-48ce-90db-e9073f64e2af",
   "prevIds": [
-    "3574e7fb-1160-4ac6-bbd0-4ea438dd2eac"
+    "a714bc9a-ba64-485d-8725-ec4ebe394427"
   ],
   "ddl": [
     {
@@ -311,6 +311,12 @@
     {
       "isRlsEnabled": false,
       "name": "automation_state",
+      "entityType": "tables",
+      "schema": "system"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "calendar_feed_tokens",
       "entityType": "tables",
       "schema": "system"
     },
@@ -7032,6 +7038,71 @@
       "name": "id",
       "entityType": "columns",
       "schema": "system",
+      "table": "calendar_feed_tokens"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "schema": "system",
+      "table": "calendar_feed_tokens"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "table_name",
+      "entityType": "columns",
+      "schema": "system",
+      "table": "calendar_feed_tokens"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "token_digest",
+      "entityType": "columns",
+      "schema": "system",
+      "table": "calendar_feed_tokens"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "system",
+      "table": "calendar_feed_tokens"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "gen_random_uuid()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "system",
       "table": "connection_app_tokens"
     },
     {
@@ -11919,6 +11990,55 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "table_name",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "calendar_feed_tokens_user_table_unique",
+      "entityType": "indexes",
+      "schema": "system",
+      "table": "calendar_feed_tokens"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "token_digest",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "calendar_feed_tokens_digest_unique",
+      "entityType": "indexes",
+      "schema": "system",
+      "table": "calendar_feed_tokens"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "connection_id",
           "isExpression": false,
           "asc": true,
@@ -13581,6 +13701,23 @@
     {
       "nameExplicit": false,
       "columns": [
+        "user_id"
+      ],
+      "schemaTo": "auth",
+      "tableTo": "user",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "calendar_feed_tokens_user_id_user_id_fkey",
+      "entityType": "fks",
+      "schema": "system",
+      "table": "calendar_feed_tokens"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "connection_id"
       ],
       "schemaTo": "system",
@@ -14285,6 +14422,16 @@
       "name": "automation_state_pkey",
       "schema": "system",
       "table": "automation_state",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "calendar_feed_tokens_pkey",
+      "schema": "system",
+      "table": "calendar_feed_tokens",
       "entityType": "pks"
     },
     {

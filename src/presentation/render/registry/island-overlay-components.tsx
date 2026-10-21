@@ -25,6 +25,7 @@ import { computeLinkClasses } from '../../design/interactive-content-default-cla
 import { splitSlots } from '../elements/slot-children'
 import { substitutePropsTranslationTokens } from '../i18n/translation-handler'
 import { renderEnhancerDrivenDialog } from './enhancer-driven-dialog'
+import { isExportedNode, renderExportOnlyMarkup } from './export-only-markup'
 import {
   buildAlertDialogProps,
   buildDialogProps,
@@ -35,6 +36,7 @@ import {
   overlayCloseLabel,
   withResolvedMenuItemIcons,
 } from './island-overlay-props-builders'
+import { withOpenSpecimen } from './open-overlay-components'
 import { buildPopoverProps } from './popover-props-builder'
 import { renderRecordBoundDrawer } from './record-bound-drawer'
 import type {
@@ -106,7 +108,7 @@ const drawnOpenMenu = (
 export const islandOverlayComponents: Partial<
   Record<DispatchableComponentType, ComponentRenderer>
 > = {
-  dialog: (context) => {
+  dialog: withOpenSpecimen('dialog', (context) => {
     const translated = withTranslatedProps(context)
     const { rawProps, elementProps, renderedChildren, component } = translated
     // `formRef` dialogs carry their resolved form-body HTML on a render-time
@@ -154,11 +156,12 @@ export const islandOverlayComponents: Partial<
         >
           <p>Loading...</p>
         </div>
+        {renderExportOnlyMarkup(childrenHtml + footerHtml, isExportedNode(component))}
       </div>
     )
-  },
+  }),
 
-  'alert-dialog': (context) => {
+  'alert-dialog': withOpenSpecimen('alert-dialog', (context) => {
     const { rawProps, elementProps } = withTranslatedProps(context)
     const propsJson = JSON.stringify(buildAlertDialogProps(rawProps, elementProps, context))
 
@@ -179,7 +182,7 @@ export const islandOverlayComponents: Partial<
         </div>
       </div>
     )
-  },
+  }),
 
   tooltip: ({ rawProps, elementProps, component, renderedChildren }) => {
     // `tooltipContent`/`floatingSide`/`tooltipDelay` are normally top-level
@@ -258,7 +261,7 @@ export const islandOverlayComponents: Partial<
   // record island keeps its own registry key and its PRIORITY loading: its
   // `sovrium:open-drawer` listener has to be wired before a data-table row
   // click can fire, and that dispatch arrives synchronously.
-  sheet: (untranslated) => {
+  sheet: withOpenSpecimen('sheet', (untranslated) => {
     const context = withTranslatedProps(untranslated)
     const { rawProps, elementProps, component, renderedChildren } = context
     if ((component as { dataSource?: unknown } | undefined)?.dataSource !== undefined) {
@@ -281,7 +284,7 @@ export const islandOverlayComponents: Partial<
         </div>
       </div>
     )
-  },
+  }),
 
   'dropdown-menu': ({
     rawProps,

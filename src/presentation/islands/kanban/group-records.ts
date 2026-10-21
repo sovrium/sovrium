@@ -25,6 +25,23 @@ export interface KanbanHeaderPaint {
   readonly labels?: Readonly<Record<string, string>>
 }
 
+/** The bucket a card with no group value falls in — its `data-column`, never its words. */
+const UNCATEGORIZED = 'Uncategorized'
+
+/**
+ * A header paint's labels with the unstaged bucket's words in the page
+ * language (`kanban.uncategorized`) — present only where they differ from the
+ * English value, which the header prints by default. A declared option's own
+ * label still wins.
+ */
+export function withUncategorizedLabel(
+  labels: Readonly<Record<string, string>> | undefined,
+  strings: Readonly<Record<string, string>> | undefined
+): Readonly<Record<string, string>> | undefined {
+  const word = strings?.['kanban.uncategorized']
+  return word === undefined ? labels : { [UNCATEGORIZED]: word, ...labels }
+}
+
 /**
  * Groups records into columns by the configured field.
  *
@@ -57,7 +74,7 @@ export function groupRecords(
   // Build a value -> records map preserving insertion order
   const buckets = records.reduce<ReadonlyMap<string, readonly TableRecord[]>>((acc, record) => {
     const raw = record[field]
-    const value = raw === null || raw === undefined || raw === '' ? 'Uncategorized' : String(raw)
+    const value = raw === null || raw === undefined || raw === '' ? UNCATEGORIZED : String(raw)
     const existing = acc.get(value) ?? []
     return new Map([...acc, [value, [...existing, record]]])
   }, new Map())
@@ -73,7 +90,7 @@ export function groupRecords(
     }))
     const undeclared = Array.from(buckets.entries())
       .filter(([value]) => !columnOptions.includes(value))
-      .map(([value, columnRecords]) => ({ value, records: columnRecords }))
+      .map(([value, columnRecords]) => ({ value, records: columnRecords, ...decorate(value) }))
     return [...declared, ...undeclared]
   }
 

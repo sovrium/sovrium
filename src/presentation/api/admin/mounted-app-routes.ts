@@ -59,7 +59,6 @@
  * (`isPageInSitemap`'s `/_` rule), and either one alone would hold.
  */
 
-import { getCookie } from 'hono/cookie'
 import {
   buildComponentFrame,
   componentFramePath,
@@ -67,24 +66,22 @@ import {
 import { COMPONENT_FRAME_BASE, toMountPath } from '@/domain/models/app/admin/mount-hrefs'
 import { consoleAdmits } from '@/domain/models/app/auth/passkeys-service'
 import {
-  LANGUAGE_PREFERENCE_COOKIE,
-  resolvePreferredLanguage,
-} from '@/domain/models/app/languages/language-detection'
-import { grantedCallerCapabilities } from '@/domain/models/app/pages/component-session-visibility-service'
-import { callerFieldReaderOf } from '@/domain/models/app/tables/field-read-filter-service'
-import { logError } from '@/infrastructure/logging/logger'
-import {
   extractSurfaceContent,
   isPartialRequest,
   partialEchoHeaders,
 } from '@/presentation/api/runtime/content-partial'
+import { throwIfPageFaultInjected } from '@/presentation/api/runtime/page-fault-injection'
+import { answerRenderFailure } from '@/presentation/api/runtime/render-failure-answer'
 import { resolveRequestBaseUrl } from '../../../domain/kernel/url/request-base-url'
-import {
-  systemRecordFetcher,
-  systemRowsFetcher,
-} from '../../../infrastructure/egress/system-rows-fetcher'
 import { isPublicMountPath } from './mounted-app-public-paths'
 import { resolveMountedRedirect, signedInDestination } from './mounted-app-redirect'
+import { signedOutConsoleNotFound } from './mounted-not-found'
+import {
+  INTERNAL_ERROR_PATH,
+  mountedPreferredLanguage,
+  mountedRenderOptions,
+  renderMountedErrorPage,
+} from './mounted-render-options'
 import type { HonoAppConfig } from '../../../application/ports/contracts/hono-app-config'
 import type { EmbeddedAppMount } from '@/application/ports/contracts/embedded-app-mount'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'
@@ -94,7 +91,6 @@ import type {
 } from '@/application/use-cases/mount/embedded-app-mount'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
-import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
 import type { Context, Hono } from 'hono'
 
 /**
@@ -113,7 +109,7 @@ export interface MountedAppRoutesDeps {
  * A console caller's posture. `hasAccess` is REACHABILITY (`isAdminTier`, plus
  * a passkey under `requireForAdmin`) — may this caller open the console at all.
  * What the caller may WRITE is not a flag here: it is the capability set
- * {@link grantedCapabilitiesOf} derives from the session, because a read-only
+ * `mountedRenderOptions` derives from the session, because a read-only
  * operational data console admits roles that hold no write power, and
  * a surface must not render an affordance reachability alone would justify.
  */
@@ -151,6 +147,8 @@ const resolveCallerPosture = async (
 /** The granted posture a rendered surface is built with. */
 interface GrantedAccess {
   readonly canEdit: boolean
+  /** Whether the console admits this caller — false for a member on the public carve-out. */
+  readonly hasAccess: boolean
   /** The caller's session — see {@link CallerPosture.session}. */
   readonly session?: SessionInfo
 }
@@ -160,7 +158,8 @@ interface GrantedAccess {
  * redirect) or the granted posture.
  *
  * S1 anti-enumeration: anonymous / non-admin → 404 (never 401/403) on every
- * route outside this mount's exact-match public carve-out.
+ * route outside this mount's exact-match public carve-out — one document for
+ * every such address, carrying the way back to the sign-in page.
  */
 const resolveAccess = async (
   mount: EmbeddedAppMount,
@@ -174,7 +173,7 @@ const resolveAccess = async (
     return c.redirect(signedInDestination(mount, c.req.query('next')), 302)
   }
   if (!hasAccess && !isPublicMountPath(mount, path)) {
-    return c.html(await config.renderNotFoundPage(config.app), 404)
+    return c.html(await signedOutConsoleNotFound(mount, config, c), 404)
   }
   // Single admin guard: every admin reaching the console gets full data access
   // (no config-editing surface exists, so `canEdit` is uniform for admins).
@@ -195,8 +194,11 @@ const resolveAccess = async (
   // The capability set, unlike `canEdit`, is a REAL per-caller value and is
   // empty for that anonymous carve-out caller — so if a public path ever did
   // resolve to a live surface, it would at least not be painted write controls.
-  return { canEdit: true, ...(session ? { session } : {}) }
+  return { canEdit: true, hasAccess, ...(session ? { session } : {}) }
 }
+
+/** Kept by the reader's own browser alone, and asked for again before reuse. */
+const PER_READER = 'private, no-cache'
 
 /**
  * Answer a rendered surface: the SPA partial, or the page.
@@ -209,6 +211,9 @@ const resolveAccess = async (
  * empty partial).
  */
 const respondWithSurface = (c: Context, rendered: string, status: 200 | 404 = 200): Response => {
+  // A console page is drawn for its reader — her powers, and her identity for a
+  // `$user.*` gate — so no shared cache may keep one and hand it to another.
+  c.header('Cache-Control', PER_READER)
   if (isPartialRequest(c)) {
     const content = extractSurfaceContent(rendered)
     if (content !== undefined) {
@@ -240,34 +245,12 @@ interface MountedRenderInput {
   readonly posture: GrantedAccess
 }
 
-/**
- * The caller's powers, as the closed {@link CallerCapability} vocabulary spells
- * them — the ONE thing a mounted page's capability gates need and cannot derive.
- *
- * Derived by the domain's own `grantedCallerCapabilities` — the predicates the
- * admin-route guards apply (`isAdminTier`, `isAdminEquivalent`,
- * `canEditOperations`) — in the shape `visibility.capability` and an action
- * column's `capability` read, so a drawn control and an admitted write agree.
- *
- * A mounted page renders session-less (see `holdsCapability`,
- * `presentation/rendering/visibility-filter.ts`), so passing the POWERS is
- * deliberately narrower than passing the session: a capability set cannot be
- * read as a role, cannot resolve `$user.*`, and cannot reach a row filter.
- *
- * The anonymous public carve-out holds no session and is given nothing.
- */
-const grantedCapabilitiesOf = (posture: GrantedAccess, app: App): readonly CallerCapability[] =>
-  grantedCallerCapabilities(posture.session, app)
-
 /** Render the console surface for an authorized request into a mount. */
 const renderMountedSurface = async (input: MountedRenderInput): Promise<Response> => {
   const { mount, deps, config, c, scopedApp, posture } = input
   const mountPath = toMountPath(mount.basePath, c.req.path)
-  // The operator's language against the MOUNTED app's `languages.supported`: account, then
-  // this browser's cookie. Derived here: a mounted page renders session-less.
-  const preferredLanguage =
-    resolvePreferredLanguage(scopedApp.languages, posture.session?.language) ??
-    resolvePreferredLanguage(scopedApp.languages, getCookie(c, LANGUAGE_PREFERENCE_COOKIE))
+  throwIfPageFaultInjected(c.req.path)
+  const preferredLanguage = mountedPreferredLanguage(scopedApp, posture.session, c)
   const surface = await deps.synthesiseMountSurface({
     mount,
     operatorApp: config.app,
@@ -283,48 +266,17 @@ const renderMountedSurface = async (input: MountedRenderInput): Promise<Response
   // `none` means the path has no synthesized surface (a static preset page such
   // as the sign-in card) — render the mount's own config as authored.
   const surfaceApp = surface.kind === 'app' ? surface.app : scopedApp
-  const renderOptions = {
-    requestQuery: c.req.query(),
-    requestOrigin: resolveRequestBaseUrl(c),
-    // The browser's cookies, as unmounted routes pass them (a folded sidebar).
-    cookies: getCookie(c),
-    // The operator's persisted language, resolved against the MOUNTED app's own
-    // `languages.supported` — never the operator's. A mount is a second app on
-    // the operator's origin and one browser carries one preference, so the
-    // clamp is what keeps a console that declares `en`/`fr` from being served
-    // `lang="es-ES"` over English strings.
-    //
-    // Threaded as `urlLanguage` because that is the rank it needs: every preset
-    // page pins `meta.lang`, and a preference entering BELOW that pin would be
-    // inert, silently. `undefined` leaves the pin deciding, which is the right
-    // answer for an operator who has chosen nothing
-    ...(preferredLanguage ? { urlLanguage: preferredLanguage } : {}),
-    // G1: a mounted console prints the OPERATOR's name and version, never the
-    // preset's own — which is the fact its config cannot reach.
-    hostApp: config.app,
-    // G2: the crumbs derive from the STRIPPED path, so their hrefs hang off the
-    // mount rather than off the operator's own root.
-    basePath: mount.basePath,
-    // G3: the server-side rows reader, WITHOUT which `page.redirectToFirst` is
-    // inert on a mount — and inert SILENTLY. `resolveFirstObjectRedirect`
-    // degrades an absent fetcher to "no first row", which is the same answer as
-    // an empty collection, so a console page that should 302 to its first
-    // object just rendered its own empty state instead.
-    //
-    // A mounted app does not pass through `renderWithCache`, which is where the
-    // operator page funnel builds this. Both funnels now call the ONE
-    // constructor rather than each carrying the borrowed-identity header list.
-    fetchSystemRows: systemRowsFetcher(c),
-    // The SINGLE-RECORD sibling. A page bound to a `{ system }`
-    // detail endpoint is NAMED by its record, so it must be read before the
-    // document ships — as the caller, and 404ing when there is none.
-    fetchSystemRecord: systemRecordFetcher(c),
-    // P10: the caller's POWERS, and her role and groups for her record sheet's
-    // field access — never her session. See `grantedCapabilitiesOf`.
-    callerCapabilities: grantedCapabilitiesOf(posture, config.app),
-    callerFieldReader: callerFieldReaderOf(posture.session),
-  }
-  const result: PageRenderResult = await config.renderPage(surfaceApp, mountPath, renderOptions)
+  const renderOptions = mountedRenderOptions({
+    mount,
+    config,
+    c,
+    session: posture.session,
+    preferredLanguage,
+  })
+  const result: PageRenderResult =
+    mountPath === INTERNAL_ERROR_PATH
+      ? undefined
+      : await config.renderPage(surfaceApp, mountPath, renderOptions)
   if (typeof result === 'string') {
     return respondWithSurface(c, result, statusOf(mountPath))
   }
@@ -335,16 +287,16 @@ const renderMountedSurface = async (input: MountedRenderInput): Promise<Response
 }
 
 /**
- * No page matched: a signed-in operator gets the console's own `/404` drawn
+ * No page matched: an operator the console admits gets its own `/404` drawn
  * like any page, shell included; anyone else, or a console declaring none,
- * the bare not-found (S1 — no console chrome for a caller without a session).
+ * the bare not-found (S1 — no console chrome for a caller it does not admit).
  */
 const renderMissing = async (
   { config, c, scopedApp, posture }: MountedRenderInput,
   options: Parameters<HonoAppConfig['renderPage']>[2],
   language: string | undefined
 ): Promise<Response> => {
-  const page = posture.session
+  const page = posture.hasAccess
     ? await config.renderPage(scopedApp, NOT_FOUND_PATH, options)
     : undefined
   if (typeof page === 'string') return respondWithSurface(c, page, 404)
@@ -426,8 +378,9 @@ const handleComponentFrame =
       }
       return c.html(rendered, 200, SAME_ORIGIN_FRAMING)
     } catch (error) {
-      logError(`[ADMIN-DASHBOARD] ${c.req.method} ${c.req.path} → 500`, error)
-      return c.html(await config.renderErrorPage(config.app), 500)
+      return answerRenderFailure(c, error, (id) =>
+        config.renderErrorPage(config.app, undefined, id)
+      )
     }
   }
 
@@ -456,8 +409,10 @@ const handleMountedApp =
         posture: access,
       })
     } catch (error) {
-      logError(`[ADMIN-DASHBOARD] ${c.req.method} ${c.req.path} → 500`, error)
-      return c.html(await config.renderErrorPage(scopedApp), 500)
+      const { session, hasAccess } = access
+      const preferredLanguage = mountedPreferredLanguage(scopedApp, session, c)
+      const failed = { mount, config, c, scopedApp, session, preferredLanguage, hasAccess }
+      return answerRenderFailure(c, error, (id) => renderMountedErrorPage(failed, id))
     }
   }
 

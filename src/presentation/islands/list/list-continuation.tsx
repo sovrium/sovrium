@@ -17,6 +17,8 @@ const LIST_LOAD_MORE_CLASSES = computeListLoadMoreClasses()
  * How a list reaches its next page: `button` draws a Load more control,
  * `infinite` the end-of-list sentinel with that control kept for the keyboard
  * and a polite count of the items loaded. Nothing once every item is drawn.
+ * Its words are the page language's (`list.loadMore`, `list.loaded`), English
+ * where the host sent none.
  */
 export function ListContinuation({
   mode,
@@ -25,6 +27,7 @@ export function ListContinuation({
   loaded,
   total,
   onLoadMore,
+  words,
 }: {
   readonly mode: string | undefined
   readonly hasMore: boolean
@@ -32,15 +35,21 @@ export function ListContinuation({
   readonly loaded: number
   readonly total: number
   readonly onLoadMore: () => void
+  /** The list's words in the page language, where they differ from English. */
+  readonly words?: Readonly<Record<string, string>> | undefined
 }): ReactElement | undefined {
+  const label = words?.['list.loadMore'] ?? 'Load More'
   if (mode === 'infinite') {
+    const status = (words?.['list.loaded'] ?? '{loaded} of {total} loaded')
+      .replace('{loaded}', String(loaded))
+      .replace('{total}', String(Math.max(total, loaded)))
     return (
       <InfiniteLoadMore
         hasMore={hasMore}
         isLoading={isLoading}
         onLoadMore={onLoadMore}
-        status={`${String(loaded)} of ${String(Math.max(total, loaded))} loaded`}
-        label="Load More"
+        status={status}
+        label={label}
         footerClassName={LIST_LOAD_MORE_CLASSES}
       />
     )
@@ -51,6 +60,7 @@ export function ListContinuation({
       onClick={onLoadMore}
       isLoading={isLoading}
       footerClassName={LIST_LOAD_MORE_CLASSES}
+      label={label}
     />
   )
 }

@@ -43,13 +43,13 @@ import {
 } from '@/presentation/design/dialog-default-classes'
 import { OverlayCloseGlyph } from '@/presentation/design/overlay-close-glyph'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
-import { useHostControls } from './dialog-open-state'
-import { useOverlayPending } from './overlay-pending'
-import { SheetHeader } from './record-drawer-sheet-header'
 import {
   computeSheetClosePositionClasses,
   computeSheetContentClasses,
-} from './sheet-default-classes'
+} from '@/presentation/design/sheet-default-classes'
+import { useHostControls } from './dialog-open-state'
+import { useOverlayPending } from './overlay-pending'
+import { SheetHeader } from './record-drawer-sheet-header'
 import type { SheetHeaderParts } from './record-drawer-navigation-slot'
 import type { ReactElement } from 'react'
 

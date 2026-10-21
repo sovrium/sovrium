@@ -9,6 +9,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { resolveTranslationTokensDeep } from '@/domain/models/app/languages/translation-resolver'
 import { openerProp } from '@/presentation/render/resolve/overlay-triggers'
 import { hostComponentType } from './island-host-attributes'
+import { withOpenSpecimen } from './open-overlay-components'
 import type { ComponentRenderer } from './component-dispatch-config'
 
 const HIDDEN_STYLE = { display: 'none' } as const
@@ -59,5 +60,5 @@ const bottomDrawerComponent: ComponentRenderer = ({
 
 /** The bottom drawer renderer, keyed by type. */
 export const bottomDrawerComponents = {
-  drawer: bottomDrawerComponent,
+  drawer: withOpenSpecimen('drawer', bottomDrawerComponent),
 } as const satisfies Readonly<Record<string, ComponentRenderer>>

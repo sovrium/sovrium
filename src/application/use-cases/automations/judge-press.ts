@@ -25,8 +25,9 @@
  * fourth answers with the control's reason, its `$record.*` read from the
  * fields the presser may read and its `$t:` key in the app's default language.
  *
- * A control with neither condition has nothing to judge: the press passes, as
- * it did before a press could name its record.
+ * A control with neither condition still takes steps 1 and 2: a press naming a
+ * record is never run on one that does not exist or that the presser may not
+ * list, whichever control it names.
  */
 
 import { Effect } from 'effect'
@@ -128,13 +129,15 @@ export const judgePress = Effect.fn('automations.judge-press')(function* (input:
   const unknown = { _tag: 'AutomationNotFound' as const, name }
   const control = findTableControl(app, press.table, press.control)
   if (control === undefined || control.automation !== name) return yield* Effect.fail(unknown)
-  if (control.visibleWhen === undefined && control.disabledWhen === undefined) return
-  // The scope first, then the row, whatever either answers: an unknown row and
-  // an unreadable one take the same reads, so their 404s cannot be told apart.
+  // The scope first, then the row, whatever either answers and whatever the
+  // control declares: an unknown row and an unreadable one take the same reads,
+  // so their 404s cannot be told apart, and nothing runs on either.
   const scope = yield* readerScopeOf(app, press, userId)
   const row = yield* readPressedRow(press)
   const readable = row === null ? undefined : readerProjection(scope, row)
   if (row === null || readable === undefined) return yield* Effect.fail(unknown)
+  // A control with neither condition has nothing more to judge.
+  if (control.visibleWhen === undefined && control.disabledWhen === undefined) return
   const state = controlStateOn(control, row)
   if (state === 'hidden') return yield* Effect.fail(unknown)
   if (state === 'disabled') {

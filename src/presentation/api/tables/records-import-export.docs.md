@@ -53,25 +53,27 @@ GET /api/tables/:tableId/export?format=csv&recordIds=1,2,3
 
 The response streams the file with an attachment disposition, named after the table and the day it was taken.
 
-| Parameter     | Description                                                  |
-| ------------- | ------------------------------------------------------------ |
-| `format`      | `csv`, the default, or `json`                                |
-| `filterField` | The field to filter on                                       |
-| `filterValue` | The value that field must equal                              |
-| `fields`      | Comma-separated columns; omitted means every readable column |
-| `recordIds`   | Export only the named records                                |
+| Parameter     | Description                                                                              |
+| ------------- | ---------------------------------------------------------------------------------------- |
+| `format`      | `csv`, the default, or `json`                                                            |
+| `filterField` | The field to filter on                                                                   |
+| `filterValue` | The value that field must equal                                                          |
+| `fields`      | Comma-separated columns, written in the order named; omitted means every readable column |
+| `recordIds`   | Export only the named records                                                            |
 
 **The export filter is a single field–value pair, not the list grammar.** It is what the grid's own filter bar produces. To export something that bar cannot express, list the records you want through the ordinary list endpoint and pass their ids as `recordIds`.
 
-**Both formats carry RAW values**, not the formatted ones the grid displays: a currency column exports `1250.5`, not `€1,250.50`, and an attachment column exports its storage key rather than the signed URL the read path enriches it with. So a CSV taken out of one table re-imports into another without a translation step, and neither format has to be preferred on those grounds. The difference between them is shape — CSV is one header row and one row per record, JSON an array of objects — and in both the column name is the FIELD NAME as declared, never its `label`.
+**Both formats carry RAW values**, not the formatted ones the grid displays: a currency column exports `1250.5`, not `€1,250.50`, and an attachment column exports its storage key rather than the signed URL the read path enriches it with. So a CSV taken out of one table re-imports into another without a translation step, and neither format has to be preferred on those grounds. The difference between them is shape — CSV is one header row and one row per record, JSON an array of objects, each opening with the record's `id` — and in both the column name is the FIELD NAME as declared, never its `label`. `fields` picks the columns in both formats and sets their order: `fields=amount,reference` writes the amount first. Besides the table's fields, it may name `id`, `createdAt` and `updatedAt`, the columns every record carries; dates there are ISO timestamps.
 
 **One exception to raw values, in CSV only.** A text cell that begins with `=`, `+`, `-`, `@`, a tab or a carriage return is written with a leading `'`, so a spreadsheet opening the file reads it as text rather than running it as a formula; number cells are written unchanged. A number field's value never gains the prefix, even a negative one, so a column of balances still sums. JSON carries every value as stored.
 
+**A link to several records is the other exception, in CSV only.** When the link declares a `displayField`, its cell names the linked records as the grid shows them, `"Scierie du Hainaut, Quincaillerie Morel"`, rather than their ids, because a CSV is read by a person. JSON keeps the ids, for a program to follow.
+
 The file is streamed with an attachment disposition named `<table>-<YYYY-MM-DD>` plus the extension, so a browser saves it under a name that says what it is and when it was taken.
 
-Export honours the caller's read permissions: a column she may not read — a field a rule withholds, a link into a table she may not read, or a count, rollup or lookup read through one — is absent from the file, header included, rather than blank in it, even when `fields` names it.
+Export honours the caller's read permissions: a column she may not read — a field a rule withholds, a link into a table she may not read, or a count, rollup or lookup read through one — is absent from the file, header included, rather than blank in it, even when `fields` names it. A caller who may read no field of the table still exports the rows the list answers her, as the list answers them: the CSV is headed `id,createdAt,updatedAt` with one line per record, and each JSON object carries the record's `id`.
 
-**A caller who may not read the table gets `404`**, with the same body a table that does not exist answers, as everywhere else in the records path: an export never tells a table kept from its caller apart from an absent one.
+**A caller who may not read the table gets `404`**, with the same body a table that does not exist answers, as everywhere else in the records path: an export never tells a table kept from its caller apart from an absent one. So does a caller whose list of the table admits no row — on a table listed in `auth.scopeTables` with no assignment of hers, or under a row rule that matches nothing for her — whatever the export asks, a filter on a field kept from her or on one the table does not have included. One whose list admits only some rows exports those rows alone.
 
 ## Clipboard
 

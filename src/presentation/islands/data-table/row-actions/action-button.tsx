@@ -20,10 +20,7 @@
  */
 
 import { useId, useRef, useState, type ReactElement } from 'react'
-import {
-  disabledControlAttributes,
-  renderDisabledControl,
-} from '@/presentation/design/disabled-reason'
+import { verdictAttributes, withVerdict } from '@/presentation/design/disabled-reason'
 import { pendingControlProps } from '@/presentation/design/pending-state'
 import { renderPendingContent } from '@/presentation/design/spinner-mark'
 import { computeTableActionButtonClasses } from '@/presentation/design/table-default-classes'
@@ -84,18 +81,14 @@ function ActionTriggerButton({
       data-action-type={actionTypeAttr(action)}
       {...(controlId === undefined ? {} : { 'data-control-id': controlId })}
       disabled={!onActionClick}
-      {...(disabledOnRow === undefined
-        ? {}
-        : disabledControlAttributes(disabledOnRow.reason ? reasonId : undefined))}
+      {...verdictAttributes(disabledOnRow, reasonId)}
       {...pendingControlProps(pending)}
       onClick={disabledOnRow === undefined ? onClick : undefined}
     >
       {pending ? renderPendingContent(pendingWord) : action.label}
     </button>
   )
-  return disabledOnRow === undefined
-    ? button
-    : renderDisabledControl(button, reasonId, disabledOnRow.reason)
+  return withVerdict(button, disabledOnRow, reasonId)
 }
 
 interface ActionButtonProps {

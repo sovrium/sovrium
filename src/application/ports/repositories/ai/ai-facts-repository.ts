@@ -32,6 +32,11 @@ export interface AiFact {
   readonly agentName: string
   readonly userId: string
   readonly createdAt: Date
+  /**
+   * The tables the answer this fact was learned from read. Empty for a fact
+   * that read none, and for one stored before facts recorded their tables.
+   */
+  readonly tables: ReadonlyArray<string>
 }
 
 /**
@@ -60,6 +65,8 @@ export class AiFactsRepository extends Context.Service<
       readonly userId: string
       readonly fact: string
       readonly maxFacts: number
+      /** The tables the answer this fact was learned from read. */
+      readonly tables?: ReadonlyArray<string> | undefined
     }) => Effect.Effect<void, AiFactsDatabaseError>
     /**
      * Return the facts stored for a `(namespace, userId)` pair, oldest first.

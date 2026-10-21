@@ -21,6 +21,7 @@ import {
   CONFIRM_AFFIRM_LABEL_ATTR,
   CONFIRM_CANCEL_LABEL_ATTR,
 } from '@/domain/models/app/pages/confirm-gate-labels'
+import { printedLiterally } from '@/domain/models/app/pages/literal-token-service'
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import { confirmWeightAttribute } from '@/presentation/design/confirm-weight'
 import { substituteRecordInInputData } from '@/presentation/render/resolve/record-template-substitution'
@@ -243,6 +244,33 @@ export function buildToastDataAttributes(action: ToastButtonAction): Record<stri
   }
 }
 
+/** A confirm's words the gate prints and never fills. */
+const PRINTED_CONFIRM_KEYS = ['title', 'message', 'confirmLabel', 'cancelLabel'] as const
+
+const printedWord = (value: unknown): unknown =>
+  typeof value === 'string' ? printedLiterally(value) : value
+
+/**
+ * An object confirm with the words its gate prints — title, message, button
+ * and field labels — marked to print an escaped token as written, without its
+ * backslash, while its `matchValue`, which the browser fills, keeps the escape.
+ */
+const withPrintedConfirmWords = (confirm: Readonly<Record<string, unknown>>): object => {
+  const { input } = confirm
+  return {
+    ...confirm,
+    ...Object.fromEntries(
+      PRINTED_CONFIRM_KEYS.filter((key) => key in confirm).map((key) => [
+        key,
+        printedWord(confirm[key]),
+      ])
+    ),
+    ...(input !== null && typeof input === 'object' && 'label' in input
+      ? { input: { ...input, label: printedWord(input.label) } }
+      : {}),
+  }
+}
+
 /**
  * Build the confirm-gate data attribute(s) overlaid onto a button's element
  * props from the schema's top-level `confirm` field. A STRING confirm rides on
@@ -285,7 +313,12 @@ export function buildConfirmAttributes(
   }
   if (rawConfirm !== null && typeof rawConfirm === 'object') {
     return elementProps['data-confirm-config'] === undefined
-      ? { 'data-confirm-config': JSON.stringify(rawConfirm), ...labelAttrs }
+      ? {
+          'data-confirm-config': JSON.stringify(
+            withPrintedConfirmWords(rawConfirm as Readonly<Record<string, unknown>>)
+          ),
+          ...labelAttrs,
+        }
       : {}
   }
   return {}

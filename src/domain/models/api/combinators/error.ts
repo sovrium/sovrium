@@ -63,6 +63,9 @@ export const errorResponseSchema = Schema.Struct({
     // would lose a distinguishable failure ("the encoder ran and failed") — the
     // only signal that separates it from an unreachable object store.
     'TRANSFORM_ERROR',
+    // Declared, never sent: a failed query answers 500 INTERNAL_ERROR through
+    // the canonical envelope. Kept so a client matching on it keeps decoding;
+    // removing a published member goes through deprecation first.
     'DATABASE_ERROR',
     'QUOTA_EXCEEDED',
     // Nine codes, admitted for two distinct reasons.
@@ -119,6 +122,12 @@ export const errorResponseSchema = Schema.Struct({
   errors: optionalField(
     Schema.Array(fieldErrorSchema).annotate({
       description: 'The same attribution in the accumulating field-error shape',
+    })
+  ),
+  requestId: optionalField(
+    Schema.String.annotate({
+      description:
+        'On an internal error, the id the request was answered under (also the X-Request-Id header), to quote to whoever runs the server',
     })
   ),
 }).annotate({ identifier: 'ErrorResponse' })

@@ -41,16 +41,16 @@ const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqli
  */
 export function hasApprovedGuestComment(config: {
   readonly session: Readonly<Session>
-  readonly tableId: string
+  readonly tableKeys: readonly string[]
   readonly guestEmail: string
 }): Effect.Effect<boolean, DatabaseError> {
-  const { tableId, guestEmail } = config
+  const { tableKeys, guestEmail } = config
   return Effect.tryPromise({
     try: async () => {
       const rows = await db
         .select({ one: sql<number>`1` })
         .from(recordComments)
-        .where(approvedGuestCommentByEmail(tableId, guestEmail))
+        .where(approvedGuestCommentByEmail(tableKeys, guestEmail))
         .limit(1)
       return rows.length > 0
     },

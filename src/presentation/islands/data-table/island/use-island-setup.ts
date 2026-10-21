@@ -37,7 +37,7 @@ export type { IslandSetupParams } from './setup/setup-params'
  */
 export function useDataTableIslandSetup(params: IslandSetupParams) {
   const queryClient = useQueryClient()
-  const ui = useDataTableUiState()
+  const ui = useDataTableUiState(params.columnConfig)
   const ctx: SetupContext = {
     params,
     ui,

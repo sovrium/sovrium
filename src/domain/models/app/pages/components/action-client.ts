@@ -178,6 +178,44 @@ export const OpenDrawerActionSchema = Schema.Struct({
 })
 
 /**
+ * Open-dialog action — opens a declared `dialog` on the page, the twin of
+ * `openSheet` for a centred dialog.
+ *
+ * A dialog already opens from a sibling whose `interactions.click.modal` names
+ * it, but a menu item carries an `action` and no `props`, so a dropdown menu's
+ * "Keyboard shortcuts" item had no way to open one. This action is accepted
+ * wherever a component action is — a button, a menu item, a command palette
+ * entry — and `component` must name a `dialog` declared on the page, checked
+ * when the config loads. The dialog counts as addressed, so it mounts closed
+ * until opened.
+ *
+ * @example
+ * ```yaml
+ * menuItems:
+ *   - label: Keyboard shortcuts
+ *     action: { action: openDialog, component: shortcuts-dialog }
+ * ```
+ */
+export const OpenDialogActionSchema = Schema.Struct({
+  action: Schema.Literal('openDialog').annotate({
+    description:
+      'Set to `openDialog` to open the dialog `component` names instead of running one of the `type` actions.',
+  }),
+  component: Schema.String.pipe(
+    Schema.annotate({
+      description:
+        'The `props.id` of a `dialog` declared on the same page. An id no dialog on the page carries is refused when the config loads.',
+      examples: ['shortcuts-dialog'],
+    }),
+    Schema.check(Schema.isMinLength(1))
+  ),
+}).annotate({
+  title: 'Open Dialog Action',
+  description:
+    'Opens a dialog declared on the page, from a button, a menu item or a command palette entry. The dialog mounts closed until then. Discriminated by the `action: openDialog` literal (not `type`).',
+})
+
+/**
  * Open-import action — opens the CSV import dialog for one table.
  *
  * Once a grid's toolbar is composed from page controls, Import is a plain

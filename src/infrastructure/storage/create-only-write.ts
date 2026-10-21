@@ -19,8 +19,9 @@ import {
   storageObjectNotFound,
 } from '@/application/ports/services/storage-service'
 import { bucketBindingPermitsWrite, readFileMetadata, type CatalogWrite } from './bytea-adapter'
-import { releaseStaleClaim } from './catalog-claim'
-import { assertNoOtherSpelling, insertFileMetadataOnly, type SpellingStore } from './catalog-guards'
+import { releaseStaleClaim, settleClaim } from './catalog-claim'
+import { assertNoOtherSpelling, type SpellingStore } from './catalog-guards'
+import { claimThenCheck, releaseClaimQuietly } from './claim-then-check'
 import type { BucketBinding } from '@/application/ports/services/storage-service'
 
 const makeError = (cause: unknown): StorageError => new StorageError({ cause })
@@ -50,11 +51,13 @@ const refuseTaken = (key: string, bucket: BucketBinding): Effect.Effect<never, S
 
 /**
  * Create-only for a provider that keeps the bytes outside the catalog (S3,
- * local): a recorded row refuses first; then the bytes are created only where
- * nothing is stored (`writeBytes`, the store's own conditional write); then the
- * row is inserted, never upserted. A row recorded in between refuses, and the
- * bytes at the key are left as they are: a replacing write stores its bytes
- * before its row, so by then they are that write's, never this one's to remove.
+ * local): the key is claimed with an insert-only row, which refuses when a row
+ * or another writer's claim is there; then the other spellings of the key are
+ * checked (`claim-then-check.ts`); then the bytes are created only where
+ * nothing is stored (`writeBytes`, the store's own conditional write); then
+ * the claim settles into the row. Bytes found at the key release the claim and
+ * are left as they are. A claim released as stale meanwhile refuses, and the
+ * bytes stay: by then the key may be another writer's.
  */
 export const createOnlyOutsideCatalog = (input: {
   readonly catalog: CatalogWrite
@@ -66,12 +69,16 @@ export const createOnlyOutsideCatalog = (input: {
     // A claim whose writer died is released, so a crash never blocks the key.
     const now = yield* Clock.currentTimeMillis
     yield* attempt(() => releaseStaleClaim(key, now))
-    yield* assertNoOtherSpelling(key, bucket, input.store)
-    if ((yield* attempt(() => readFileMetadata(key))) !== undefined) {
+    const claim = yield* claimThenCheck(input.catalog, input.store)
+    if (claim === undefined) return yield* refuseTaken(key, bucket)
+    const bytes = yield* attempt(input.writeBytes).pipe(
+      Effect.tapError(() => releaseClaimQuietly(claim))
+    )
+    if (bytes === 'taken') {
+      yield* releaseClaimQuietly(claim)
       return yield* refuseTaken(key, bucket)
     }
-    if ((yield* attempt(input.writeBytes)) === 'taken') return yield* refuseTaken(key, bucket)
-    if ((yield* attempt(() => insertFileMetadataOnly(input.catalog))) === 'written') return
+    if (yield* attempt(() => settleClaim(claim))) return
     return yield* refuseTaken(key, bucket)
   }).pipe(Effect.withSpan('storage.create-only-outside-catalog'))
 

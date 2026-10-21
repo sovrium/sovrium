@@ -37,6 +37,7 @@ import { resolveOpenDrawerDispatches } from '@/presentation/render/resolve/open-
 import { markAddressedDialogs } from '@/presentation/render/resolve/overlay-triggers'
 import { resolveRuntimeCapabilities } from '@/presentation/render/resolve/runtime-capability-resolver'
 import { resolvePageToc } from '@/presentation/render/resolve/toc-resolver'
+import { applyViewerIdentityConditions } from '@/presentation/render/resolve/viewer-identity-gate'
 import {
   applyCallerCapabilityGate,
   applyOverlayTriggerGate,
@@ -62,6 +63,7 @@ import {
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
+import type { ViewerIdentity } from '@/domain/models/app/pages/component-session-visibility-service'
 import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
 import type { CallerFieldReader } from '@/domain/models/app/tables/field-read-filter-service'
 import type { FormRefReaders } from '@/presentation/render/forms/form-ref-readers'
@@ -101,6 +103,8 @@ interface PageComponentFilterInput {
    * only which fields her record sheet shows and lets her edit.
    */
   readonly callerFieldReader?: CallerFieldReader | undefined
+  /** The mounted console reader's id and email, for a `$user.id` / `$user.email` condition only. */
+  readonly viewerIdentity?: ViewerIdentity | undefined
   /** The table-backed choices of each embedded form, read before this pass. */
   readonly formOptions?: FormRefOptionSets
   /** The table each embedded form writes to, as this reader may see it. */
@@ -178,7 +182,13 @@ export function gatePageComponents(
   // `hostApp`, never the preset — a mounted console must answer about the
   // operator's app, not about itself.
   const hostApp = input.hostApp ?? app
-  const capabilityGated = applyCallerCapabilityGate(oauthFiltered, {
+  // A session-less render (a mounted console) answers its `$user.id` /
+  // `$user.email` conditions from the viewer's identity before the session gates.
+  const identityGated =
+    session === undefined
+      ? applyViewerIdentityConditions(oauthFiltered, input.viewerIdentity)
+      : oauthFiltered
+  const capabilityGated = applyCallerCapabilityGate(identityGated, {
     session,
     app,
     hostApp,

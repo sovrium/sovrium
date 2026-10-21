@@ -11,6 +11,7 @@ import {
   buildCurrentUserDefaults,
   createdByFieldNames,
 } from '@/domain/models/app/tables/authorship-fields'
+import { insertOnlyColumnsOf } from '@/domain/models/app/tables/insert-only-field-service'
 import { storedValuesIn } from '@/domain/models/app/tables/user-list-field-service'
 import type { App } from '@/domain/models/app'
 
@@ -47,9 +48,9 @@ const upsertCurrentUserDefaults = (
  * NAME, as the single-record create does (`write-record-programs.ts`): the
  * infra only fills the literal `created_by`/`updated_by` columns, and the
  * create half of an upsert must satisfy a NOT NULL author column like any
- * other create. The created-by names, plus the intrinsic
- * `created_at`/`created_by`, are insert-only: a matched row keeps its original
- * author and creation date.
+ * other create. The created-by names, the intrinsic `created_at`/`created_by`,
+ * and every `created-at` and `autonumber` field are insert-only: a matched row
+ * keeps its original author, creation date and number.
  */
 export const stampUpsertRows = (
   userId: string,
@@ -69,7 +70,7 @@ export const stampUpsertRows = (
   return {
     recordsData: rows.map((fields) => ({ ...fields, ...overrides, ...defaults })),
     insertOnlyFields: [
-      'created_at',
+      ...insertOnlyColumnsOf(tables, tableName),
       'created_by',
       ...createdByFieldNames(tables, tableName),
       ...Object.keys(defaults),

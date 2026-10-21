@@ -30,7 +30,7 @@ export interface SqliteDropCatalog {
 }
 
 /** How many times `column` appears as an identifier in `sql`, quoted or bare. */
-const identifierOccurrences = (sql: string, column: string): number => {
+export const identifierOccurrences = (sql: string, column: string): number => {
   const escaped = column.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   return (
     sql.match(new RegExp(`(?<![A-Za-z0-9_])["\`]?${escaped}["\`]?(?![A-Za-z0-9_])`, 'gi'))

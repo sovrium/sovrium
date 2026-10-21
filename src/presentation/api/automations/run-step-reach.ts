@@ -47,8 +47,6 @@
 
 import { Effect } from 'effect'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
-import { buildSyntheticSession } from '@/application/use-cases/automations/build-guest-session'
-import { callerReadScope } from '@/application/use-cases/tables/permissions/caller-read-authority'
 import {
   isRelayedTriggerType,
   parseRelay,
@@ -75,6 +73,7 @@ import {
   type AppTable,
   type Reader,
 } from './run-record-reach'
+import { readsEveryRow } from './run-row-reach'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -113,23 +112,6 @@ interface Judge {
   readonly hops: number
 }
 
-/**
- * True when no row-level rule narrows the signed-in reader on `table`. A scope
- * that cannot be read counts as narrowing her (fail closed).
- */
-const readsEveryRow = async (
-  c: Context,
-  app: App,
-  table: AppTable,
-  userId: string
-): Promise<boolean> => {
-  const scope = await runDomainPromise(
-    c,
-    callerReadScope(app, buildSyntheticSession(userId), table.name)
-  ).catch(() => undefined)
-  return scope !== undefined && scope.clause === undefined
-}
-
 /** Sequentially: each item may cost reads on the shared pool. */
 const everyInTurn = <T>(
   items: ReadonlyArray<T>,
@@ -158,7 +140,9 @@ const readsWhole = async (input: {
   const { userId } = reader
   if (userId === undefined) return false
   const behind = rowRuledTablesBehind(app, table.name, columns) as ReadonlyArray<AppTable>
-  return everyInTurn([table, ...behind], (each) => readsEveryRow(c, app, each, userId))
+  return everyInTurn([table, ...behind], (each) =>
+    readsEveryRow(c, app, each, { ...reader, userId })
+  )
 }
 
 /** The tables an agent declared with `role` reads, with the columns it reads in each. */

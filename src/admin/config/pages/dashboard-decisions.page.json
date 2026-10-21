@@ -1,0 +1,202 @@
+{
+  "id": "dashboard-decisions",
+  "name": "dashboard-decisions",
+  "path": "/decisions",
+  "meta": {
+    "title": "$t:admin.meta.decisions"
+  },
+  "requires": ["decisions"],
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6 min-h-0"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "decisions": "$t:admin.crumb.decisions"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "header",
+          "element": "header",
+          "props": {
+            "className": "flex flex-col gap-1"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "h1",
+              "props": {
+                "className": "text-foreground text-2xl font-semibold tracking-tight"
+              },
+              "content": "$t:admin.decisions.heading"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "content": "$t:admin.decisions.blurb"
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "admin-surface-content-2-2",
+          "element": "div",
+          "props": {
+            "className": "flex min-h-0 min-w-0 flex-1 flex-col pt-2 [&>[role=toolbar]]:mb-4"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "admin-toolbar-row",
+              "element": "div",
+              "props": {
+                "className": "flex min-h-10 flex-wrap items-center gap-2",
+                "data-testid": "admin-toolbar-row",
+                "role": "toolbar",
+                "aria-label": "$t:admin.common.gridControls"
+              },
+              "children": [
+                {
+                  "component": "console-toolbar-search",
+                  "key": "toolbar-search",
+                  "vars": {
+                    "ariaLabel": "$t:admin.decisions.search",
+                    "placeholder": "$t:admin.decisions.search",
+                    "publishes": {
+                      "bindTo": "decisions-filter",
+                      "param": "q"
+                    }
+                  }
+                },
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "className": "text-foreground-subtle text-sm"
+                  },
+                  "content": "$t:admin.decisions.provenance"
+                }
+              ]
+            },
+            {
+              "component": "console-grid",
+              "key": "grid",
+              "vars": {
+                "id": "admin-decisions-register",
+                "ariaLabel": "$t:admin.decisions.register.region",
+                "dataSource": {
+                  "system": {
+                    "endpoint": "/api/admin/decisions",
+                    "rowsKey": "decisions",
+                    "idKey": "id",
+                    "bindTo": "decisions-filter",
+                    "sharedFilter": {}
+                  }
+                },
+                "columns": [
+                  {
+                    "field": "id",
+                    "label": "$t:admin.common.id",
+                    "width": 110
+                  },
+                  {
+                    "field": "title",
+                    "label": "$t:admin.common.title"
+                  },
+                  {
+                    "field": "status",
+                    "label": "$t:admin.common.status",
+                    "width": 120,
+                    "cellStyle": [
+                      {
+                        "when": {
+                          "eq": "accepted"
+                        },
+                        "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-success-solid"
+                      },
+                      {
+                        "when": {
+                          "eq": "proposed"
+                        },
+                        "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-info-solid"
+                      },
+                      {
+                        "when": {
+                          "eq": "superseded"
+                        },
+                        "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50"
+                      }
+                    ],
+                    "valueLabels": {
+                      "accepted": "$t:admin.decisions.state.accepted",
+                      "proposed": "$t:admin.decisions.state.proposed",
+                      "superseded": "$t:admin.decisions.state.superseded"
+                    }
+                  },
+                  {
+                    "field": "date",
+                    "label": "$t:admin.common.date",
+                    "width": 120,
+                    "format": "long-date"
+                  },
+                  {
+                    "field": "touches",
+                    "label": "$t:admin.decisions.touches"
+                  },
+                  {
+                    "field": "supersededBy",
+                    "label": "$t:admin.decisions.supersededBy",
+                    "width": 150
+                  },
+                  {
+                    "type": "actions",
+                    "label": "$t:admin.common.actions",
+                    "actions": [
+                      {
+                        "label": "$t:admin.common.open",
+                        "action": {
+                          "type": "fetch",
+                          "url": "/decisions/$record.id",
+                          "mode": "navigate"
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "emptyMessage": "$t:admin.decisions.emptyRegister",
+                "noMatchMessage": "$t:admin.decisions.noMatch",
+                "layout": "fill"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

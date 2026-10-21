@@ -337,14 +337,32 @@ export function filterReadableChanges(
     changes: unknown
   }>
 ): unknown {
-  const { app, tableName, caller, changes } = params
+  const { caller, ...rest } = params
+  return filterChangesReadableByAny({ ...rest, callers: [caller] })
+}
+
+/**
+ * {@link filterReadableChanges} for a reader who reads the changed row under
+ * several roles — her own, and each one a grant gives her on that row
+ * (`callersOfRow`): every field any of them may read, on every side of the
+ * change, as {@link filterFieldsReadableByAny} shows the row itself.
+ */
+export function filterChangesReadableByAny(
+  params: Readonly<{
+    app: App
+    tableName: string
+    callers: readonly PermissionCaller[]
+    changes: unknown
+  }>
+): unknown {
+  const { app, tableName, callers, changes } = params
   if (!isValueMap(changes)) return changes
   const keepsMasked = (name: string, value: unknown): boolean =>
     (value === WRITE_ONLY_MASK || value === '') &&
     isWriteOnlyField(app, tableName, name) &&
-    isFieldReadableUnderFieldRules(app, tableName, caller, name)
+    callers.some((caller) => isFieldReadableUnderFieldRules(app, tableName, caller, name))
   const readable = (record: Readonly<Record<string, unknown>>) => ({
-    ...filterReadableFields({ app, tableName, caller, record }),
+    ...filterFieldsReadableByAny({ app, tableName, callers, record }),
     ...Object.fromEntries(
       Object.entries(record).filter(([name, value]) => keepsMasked(name, value))
     ),

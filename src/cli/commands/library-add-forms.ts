@@ -146,6 +146,7 @@ const planOneForm = (
     relativePath,
     absolutePath,
     content,
+    env: entry.env,
     ...placementOf(verdict, onDisk, content, update ? input.version : undefined),
     ...(target.requiredBy === undefined ? {} : { requiredBy: target.requiredBy }),
   }

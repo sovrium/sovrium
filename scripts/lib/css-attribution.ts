@@ -123,7 +123,8 @@ const rel = (path: string): string => posix.relative(ROOT, toPosixPath(path))
  * stays scanned), the `sovrium library` catalogue (copied into an author's
  * config, where `collectAppCandidates` finds it), the in-binary manual and
  * Agent Skills payloads (markdown rendered by nothing here), a booted
- * preview's data directory, and the co-located unit tests.
+ * preview's data directory, the console's Claude Design reference (export
+ * data and a prototype, never rendered by the binary), and the co-located unit tests.
  */
 export const SCAN_NEGATIONS: readonly string[] = [
   'infrastructure/css/generated-css-assets.ts',
@@ -133,6 +134,7 @@ export const SCAN_NEGATIONS: readonly string[] = [
   'infrastructure/assets/embedded-skills.generated.ts',
   'domain/models/app/design/default-design.generated.ts',
   'library/**',
+  'admin/design/**',
   '**/.sovrium/**',
   '**/.sovrium-wt/**',
   '**/*.test.ts',

@@ -41,6 +41,7 @@ import {
 } from '../../design/display-default-classes'
 import { omitInternalMarkers } from '../props/internal-marker-props'
 import { mergePrestyle } from './interactive-prestyle-builders'
+import { seededTableContent, specimenEmpty, specimenSeedOf } from './specimen-island-states'
 import type { ComponentRenderer } from './component-dispatch-config'
 
 /** How one written column is drawn — `tableColumns[i]`, index-aligned with the headers. */
@@ -196,4 +197,22 @@ export const staticTableComponent: ComponentRenderer = ({
       </table>
     </div>
   )
+}
+
+/**
+ * A bound grid in a design-system specimen, where no island mounts: the seeded
+ * rows of its declared table as a written table would draw them, a column per
+ * field when it names none, else its empty state.
+ */
+export const renderTableSpecimen = (context: Parameters<ComponentRenderer>[0]) => {
+  const { elementProps, tables, currentLang, languages } = context
+  const seed = specimenSeedOf(elementProps['dataSource'], tables)
+  if (seed === undefined) {
+    return specimenEmpty('datatable.noRecords', currentLang, languages)
+  }
+  return staticTableComponent({
+    ...context,
+    elementPropsWithSpacing: {},
+    component: seededTableContent(elementProps['columns'], seed),
+  })
 }

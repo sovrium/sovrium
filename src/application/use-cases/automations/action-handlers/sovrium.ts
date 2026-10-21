@@ -6,7 +6,11 @@
  */
 
 import { Effect, Option, Schema } from 'effect'
-import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
+import {
+  StorageService,
+  UNATTRIBUTED_BUCKET,
+  isStorageObjectTooLarge,
+} from '@/application/ports/services/storage-service'
 import { decodeAppConfigObject } from '@/application/use-cases/config/decode-app-config'
 import {
   readBundleArchive,
@@ -346,12 +350,19 @@ const readStoredArchive = (objectKey: string, gate: StarterFileGate) =>
         `sovrium.validateBundle: the object at "${objectKey}" is larger than 100 MiB`
       )
     }
-    return yield* storage.download(objectKey, UNATTRIBUTED_BUCKET).pipe(
-      Effect.tapCause((cause) =>
-        Effect.logWarning(`sovrium.validateBundle: could not download "${objectKey}"`, cause)
-      ),
-      Effect.mapError(() => `sovrium.validateBundle: no object could be read at "${objectKey}"`)
-    )
+    // Bounded too: the object may have grown between its size and its read.
+    return yield* storage
+      .downloadBounded(objectKey, UNATTRIBUTED_BUCKET, BUNDLE_MAX_STORED_BYTES)
+      .pipe(
+        Effect.tapCause((cause) =>
+          Effect.logWarning(`sovrium.validateBundle: could not download "${objectKey}"`, cause)
+        ),
+        Effect.mapError((error) =>
+          isStorageObjectTooLarge(error)
+            ? `sovrium.validateBundle: the object at "${objectKey}" is larger than 100 MiB`
+            : `sovrium.validateBundle: no object could be read at "${objectKey}"`
+        )
+      )
   })
 
 /**

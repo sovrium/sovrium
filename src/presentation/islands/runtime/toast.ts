@@ -65,7 +65,7 @@ import {
   keepToastsClearOfFocus,
   markToastPoliteness,
   resolveToastDismissLabel,
-  type ToastRetry,
+  type ToastControls,
 } from '@/presentation/islands/runtime/toast-accessibility'
 import {
   markToastTiming,
@@ -82,13 +82,8 @@ function ensureToasterContainer(): Element {
   const container = document.createElement('div')
   container.setAttribute('data-sonner-toaster', '')
   container.setAttribute('data-toast-container', '')
-  const el = container as HTMLElement
-  el.style.position = 'fixed'
-  el.style.right = '16px'
-  el.style.zIndex = '9999'
-  el.style.display = 'flex'
-  el.style.flexDirection = 'column'
-  el.style.gap = '8px'
+  ;(container as HTMLElement).style.cssText =
+    'position:fixed;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px'
   document.body.appendChild(container)
   return container
 }
@@ -117,7 +112,7 @@ export function renderToast(
   message: string,
   variant?: string,
   duration?: number,
-  retry?: ToastRetry
+  { retry, decorate }: ToastControls = {}
 ): void {
   if (typeof document === 'undefined') return
   const container = ensureToasterContainer()
@@ -126,6 +121,7 @@ export function renderToast(
   markToastTiming(toast, { variant, duration })
   markToastPoliteness(toast, variant)
   appendToastMessage(toast, message)
+  decorate?.(toast)
   if (retry !== undefined) appendToastRetry(toast, retry)
 
   const dismissAfter = resolveToastDuration({ duration, variant, hasAction: retry !== undefined })

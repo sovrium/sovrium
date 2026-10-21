@@ -86,11 +86,12 @@ export class UserEntityListRepository extends Context.Service<
       userId: string
     ) => Effect.Effect<readonly FavoriteRow[], UserEntityListDatabaseError>
 
-    /** Find an existing favorite row id for (user, entity), regardless of soft-delete. */
+    /** Find an existing favorite row id for (user, entity, table), regardless of soft-delete. */
     readonly findFavoriteId: (
       userId: string,
       entityType: EntityType,
-      entityId: string
+      entityId: string,
+      tableName: string | null
     ) => Effect.Effect<string | undefined, UserEntityListDatabaseError>
 
     /**
@@ -108,11 +109,12 @@ export class UserEntityListRepository extends Context.Service<
       input: EntityMutation
     ) => Effect.Effect<void, UserEntityListDatabaseError>
 
-    /** Soft-delete the user's favorite for (entityType, entityId). */
+    /** Soft-delete the user's favorite for (entityType, entityId, table). */
     readonly softDeleteFavorite: (
       userId: string,
       entityType: EntityType,
-      entityId: string
+      entityId: string,
+      tableName: string | null
     ) => Effect.Effect<void, UserEntityListDatabaseError>
 
     /** List the user's recent items, most recently viewed first (capped). */
@@ -120,11 +122,12 @@ export class UserEntityListRepository extends Context.Service<
       userId: string
     ) => Effect.Effect<readonly RecentRow[], UserEntityListDatabaseError>
 
-    /** Find an existing recent-item row id for (user, entity). */
+    /** Find an existing recent-item row id for (user, entity, table). */
     readonly findRecentId: (
       userId: string,
       entityType: EntityType,
-      entityId: string
+      entityId: string,
+      tableName: string | null
     ) => Effect.Effect<string | undefined, UserEntityListDatabaseError>
 
     /** Refresh an existing recent-item row's `viewed_at` + `table_id`. */
@@ -147,12 +150,5 @@ export class UserEntityListRepository extends Context.Service<
       userId: string,
       maxItems: number
     ) => Effect.Effect<void, UserEntityListDatabaseError>
-
-    /**
-     * Probe whether a `record` entity still points at a live backing row.
-     * Returns `false` on any DB failure (a dead/unreadable record is hidden,
-     * never throws). Pages and entities without a known table are always-present.
-     */
-    readonly recordStillExists: (entity: EntityRef) => Effect.Effect<boolean, never>
   }
 >()('UserEntityListRepository') {}

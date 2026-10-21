@@ -26,12 +26,14 @@ const ROW_ACTION_PENDING_KEYS = ['form.saving', 'form.deleting', 'form.sending',
 /**
  * The grid's own words — its toolbar, pager, notices, fill handle and editors
  * (`datatable.*`), the rate-limited read, the selection bar's confirmation,
- * the shared filter — and the words of what it opens: its pickers (`picker.*`)
+ * the shared filter, the bug report a console offers beside a server error
+ * (`report.*`) — and the words of what it opens: its pickers (`picker.*`)
  * and a rich-text cell's toolbar (`richText.*`). The new row refuses an empty
  * required column with the form's own sentence (`form.requiredNamed`).
  */
 const GRID_STRING_PREFIXES = [
   'datatable.',
+  'report.',
   'rateLimit.',
   'confirmGate.',
   'sharedFilter.',

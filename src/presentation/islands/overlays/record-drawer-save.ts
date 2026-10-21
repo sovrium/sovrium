@@ -26,6 +26,7 @@
  */
 
 import { useCallback } from 'react'
+import { consoleRequestIdOf } from '@/presentation/islands/runtime/console-request-id'
 import { dispatch } from '@/presentation/islands/runtime/event-bus'
 import { readFieldErrors } from '@/presentation/islands/runtime/write-refusal'
 import { isStructured, type RecordDrawerField } from './record-drawer-field'
@@ -48,7 +49,8 @@ export interface SaveParams {
   /** Opened with no record: Save creates one. */
   readonly creating?: boolean
   readonly setOpen: (open: boolean) => void
-  readonly setError: (error: string | undefined) => void
+  /** The banner, and the request a server error failed the save under (console only). */
+  readonly setError: (error: string | undefined, requestId?: string) => void
   readonly setFieldErrors: (errors: FieldErrors) => void
   /** The words the drawer refuses with, in the page language; English when absent. */
   readonly words: SaveWords
@@ -110,8 +112,13 @@ function refusedBeforeSending(
   return { fields: json, ...(first === undefined ? {} : { banner: requiredMessage(first) }) }
 }
 
-/** What a POST answered: the new id, or the per-field messages, or the one sentence. */
-type CreateOutcome = { readonly id: string } | { readonly refused: FieldErrors | string }
+/**
+ * What a POST answered: the new id, or the per-field messages, or the one
+ * sentence — with the request a console's server error was answered under.
+ */
+type CreateOutcome =
+  | { readonly id: string }
+  | { readonly refused: FieldErrors | string; readonly requestId?: string | undefined }
 
 async function postNewRecord(
   table: string,
@@ -126,7 +133,7 @@ async function postNewRecord(
   const body = (await res.json().catch(() => undefined)) as Record<string, unknown> | undefined
   if (res.ok) return { id: String(body?.['id'] ?? '') }
   const fieldErrors = res.status < 500 ? readFieldErrors(body) : undefined
-  return { refused: fieldErrors ?? failed }
+  return { refused: fieldErrors ?? failed, requestId: consoleRequestIdOf(res.status, body) }
 }
 
 /** One PATCH: the status the records API answered it with. */
@@ -173,7 +180,7 @@ async function createRecord(
   const fields = Object.fromEntries(filled.map((f) => [f.name, toEntryWireValue(f, values)]))
   const outcome = await postNewRecord(table, fields, words.createFailed ?? CREATE_FAILED)
   if ('refused' in outcome) {
-    if (typeof outcome.refused === 'string') params.setError(outcome.refused)
+    if (typeof outcome.refused === 'string') params.setError(outcome.refused, outcome.requestId)
     else params.setFieldErrors(outcome.refused)
     return false
   }

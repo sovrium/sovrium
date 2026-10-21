@@ -7,7 +7,11 @@
 
 import { Effect } from 'effect'
 import { SpeechService } from '@/application/ports/services/speech-service'
-import { StorageService } from '@/application/ports/services/storage-service'
+import {
+  StorageService,
+  isStorageObjectTooLarge,
+} from '@/application/ports/services/storage-service'
+import { storageReadOrUndefined } from '@/application/use-cases/storage/storage-failure-log'
 import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
 import { oversizedRecordingRefusal } from '@/domain/models/process-env/ai/speech'
 import { logError } from '@/infrastructure/logging/logger'
@@ -18,6 +22,7 @@ import {
   resolveTranscribeSource,
   type TranscribeSource,
 } from './ai-transcribe-source'
+import { FILE_SOURCE_MAX_BYTES } from './file-support'
 import { CALLER_REFUSAL } from './record-caller-gate'
 import { actionAttributes, stringProp } from './shared'
 import { starterFileGate, starterStanding, type StarterFileGate } from './starter-file-gate'
@@ -25,6 +30,7 @@ import {
   baseMimeType,
   extractAudioTrack,
   extractionRefusal,
+  unreadableVideoRefusal,
   isOverReadLimit,
   oversizedSourceRefusal,
   rawSource,
@@ -69,17 +75,19 @@ const optionalString = (p: Readonly<Record<string, unknown>>, key: string): stri
  * The recording's catalog row, read ONCE for both its MIME type and its size,
  * or `undefined` when the key has none.
  *
- * A failed lookup is swallowed without a log on purpose: "no catalog row" is
- * the ordinary case for a key written outside the upload route, and the
- * fallbacks answer it — the extension for the MIME type, the speech service's
- * own check on the downloaded bytes for the size. A real storage failure is
- * not lost: the download that follows hits the same store and logs its cause.
+ * A failed lookup falls back: "no catalog row" is the ordinary case for a key
+ * written outside the upload route, and the fallbacks answer it — the
+ * extension for the MIME type, the speech service's own check on the
+ * downloaded bytes for the size. Any other failure is logged with its cause.
  */
 const readCatalogRow = (source: TranscribeSource) =>
   Effect.gen(function* () {
     const storage = yield* StorageService
-    const metadata = yield* Effect.result(storage.getMetadata(source.key, source.bucket))
-    return metadata._tag === 'Success' ? metadata.success : undefined
+    return yield* storageReadOrUndefined(
+      storage.getMetadata(source.key, source.bucket),
+      source.key,
+      'ai.transcribe'
+    )
   })
 
 /** The recording's MIME type: the attachment's own, else the catalog's, else the key's. */
@@ -140,6 +148,16 @@ const preflight = (source: TranscribeSource, gate: StarterFileGate) =>
     return decided
   })
 
+/** The most an audio recording may weigh: the speech limit, or the read bound with none set. */
+const recordingCap = Effect.gen(function* () {
+  const { maxFileBytes } = yield* SpeechService
+  return maxFileBytes ?? FILE_SOURCE_MAX_BYTES
+})
+
+/** The refusal of an audio recording found past `cap` while it was read. */
+const overCap = (cap: number): string =>
+  `the recording is larger than the ${String(cap)}-byte limit (STT_MAX_FILE_BYTES)`
+
 /** What is sent to the speech endpoint: the bytes and the audio type they are announced as. */
 type Recording = { readonly bytes: Uint8Array; readonly mimeType: string }
 
@@ -165,10 +183,14 @@ const audioOfVideo = (bytes: Uint8Array, video: string, name: string) =>
       return sent
     }
     const { error } = extracted
-    // A file whose picture could not be found is sent as it was before extraction existed.
-    if (!error.hadVideo && error.reason !== 'no-audio-track') return asItIs
+    // A file whose container cannot be read at all — cut off mid-upload, or no
+    // container — is refused: the speech endpoint would only fail on it too.
+    // An audio-only file whose codec is not extracted is sent as it was before
+    // extraction existed.
+    const unreadable = error.reason === 'malformed' || error.reason === 'not-a-container'
+    if (!unreadable && !error.hadVideo && error.reason !== 'no-audio-track') return asItIs
     const refused: Refusal | Recording = {
-      refusal: extractionRefusal(name, error),
+      refusal: unreadable ? unreadableVideoRefusal(name, error) : extractionRefusal(name, error),
       content: true,
     }
     return refused
@@ -224,6 +246,37 @@ const transcribeRecording = (
     })
   })
 
+/** What reading the recording gave: its bytes, a refusal, or nothing to read. */
+type Downloaded = { readonly bytes: Uint8Array } | Refusal | { readonly missing: true }
+
+/**
+ * Read the recording no further than it may weigh: the read bound for a video,
+ * the speech limit for audio — a key with no catalog row was not sized yet.
+ */
+const downloadRecording = (
+  source: TranscribeSource,
+  checked: Exclude<Preflight, Refusal>
+): Effect.Effect<Downloaded, never, StorageService | SpeechService> =>
+  Effect.gen(function* () {
+    const storage = yield* StorageService
+    const video = 'video' in checked
+    const cap = video ? FILE_SOURCE_MAX_BYTES : yield* recordingCap
+    const read = yield* Effect.result(storage.downloadBounded(source.key, source.bucket, cap))
+    if (read._tag === 'Success') return { bytes: read.success } satisfies Downloaded
+    if (isStorageObjectTooLarge(read.failure)) {
+      const refusal = video ? oversizedSourceRefusal(source.fileName) : overCap(cap)
+      return { refusal } satisfies Downloaded
+    }
+    // The step's message cannot tell a missing key from a bucket mismatch or a
+    // storage outage — so the cause is logged.
+    yield* Effect.sync(() => {
+      logError('[automations] ai.transcribe could not read the recording', read.failure, {
+        'sovrium.storage.bucket': source.bucket,
+      })
+    })
+    return { missing: true } satisfies Downloaded
+  }).pipe(Effect.withSpan('automations.ai-transcribe-download'))
+
 export const handleAiTranscribe: ActionHandler = (action, app, automation, runContext) =>
   Effect.gen(function* () {
     const p = props(action)
@@ -237,24 +290,13 @@ export const handleAiTranscribe: ActionHandler = (action, app, automation, runCo
     const checked = yield* preflight(source, starterFileGate(app, automation))
     if ('refusal' in checked) return yield* answerRefusal(app, automation, checked)
 
-    const storage = yield* StorageService
-    // The step fails either way, but its message cannot tell a missing key from
-    // a bucket mismatch or a storage outage — so the cause is logged first.
-    const downloaded = yield* storage.download(source.key, source.bucket).pipe(
-      Effect.tapCause((cause) =>
-        Effect.sync(() => {
-          logError('[automations] ai.transcribe could not read the recording', cause, {
-            'sovrium.storage.bucket': source.bucket,
-          })
-        })
-      ),
-      Effect.result
-    )
-    if (downloaded._tag === 'Failure') return failure(`recording not found: ${source.key}`)
+    const downloaded = yield* downloadRecording(source, checked)
+    if ('missing' in downloaded) return failure(`recording not found: ${source.key}`)
+    if ('refusal' in downloaded) return yield* answerRefusal(app, automation, downloaded)
     const recording: Refusal | Recording =
       'video' in checked
-        ? yield* audioOfVideo(downloaded.success, checked.video, source.fileName)
-        : { bytes: downloaded.success, mimeType: checked.audioMime }
+        ? yield* audioOfVideo(downloaded.bytes, checked.video, source.fileName)
+        : { bytes: downloaded.bytes, mimeType: checked.audioMime }
     if ('refusal' in recording) return yield* answerRefusal(app, automation, recording)
 
     const transcribed = yield* Effect.result(transcribeRecording(p, source, recording))

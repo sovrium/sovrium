@@ -145,10 +145,10 @@ export function formatDateTimeJoined(
  * kept to the DAY unit, where it gives the familiar "today" / "yesterday";
  * a month or a year keeps its number ("1 month ago", not "last month").
  */
-function formatRelativeDate(value: unknown, locale: string): string {
+function formatRelativeDate(value: unknown, locale: string, now: Readonly<Date>): string {
   const date = toDate(value)
   if (date === undefined) return String(value)
-  const diffDays = Math.floor((Date.now() - date.getTime()) / 86_400_000)
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / 86_400_000)
   if (diffDays < 30) {
     return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(-diffDays, 'day')
   }
@@ -298,7 +298,7 @@ export function formatCellValue(
       return Number.isNaN(num) ? str : formatByteCount(num, tag)
     },
     duration: () => formatElapsedDuration(value, tag, durationUnit) ?? str,
-    'relative-date': () => formatRelativeDate(value, tag),
+    'relative-date': () => formatRelativeDate(value, tag, now ?? new Date()),
     // Signed counterpart to the past-only `relative-date`, in the largest
     // whole unit: "5 min. ago", "in 3 hr.", « dans 5 j ».
     'relative-time': () => formatRelativeTime(value, tag, now ?? new Date()),

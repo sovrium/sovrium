@@ -29,9 +29,12 @@ export {
   type SeedFile,
 } from './seed-file'
 
+export * from './seed-jsonl'
+
 export {
   SEED_KEY_PATTERN,
   parseSeedReference,
+  assetFileName,
   parseAssetReference,
   parseUserReference,
   looksLikeReference,

@@ -8,10 +8,13 @@
 import { Effect } from 'effect'
 import { ActivityRepository } from '@/application/ports/repositories/analytics/activity-repository'
 import { NotFoundError } from '@/domain/errors'
-import { filterReadableChanges } from '@/domain/models/app/tables/field-read-filter-service'
+import { filterChangesReadableByAny } from '@/domain/models/app/tables/field-read-filter-service'
+import { callersOfRow } from '@/domain/models/app/tables/row-read-admission-service'
+import { readerRowsOf } from './row-read-admission'
 import type { UserMetadataWithImage } from '@/application/ports/contracts/user-metadata'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { ActivityHistoryEntry } from '@/application/ports/repositories/analytics/activity-repository'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { DatabaseError } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
 
@@ -63,8 +66,26 @@ function toHistoryActor(user: UserMetadataWithImage | undefined): HistoryActor |
   return user ? { id: user.id, name: user.name, image: user.image } : undefined
 }
 
-/** A logged change set as the caller may read it (`filterReadableChanges`). */
+/** A logged change set as the caller may read it (`filterChangesReadableByAny`). */
 type ChangesReader = (changes: unknown) => unknown
+
+/**
+ * Every side of a change as a list of the row shows the caller: under her
+ * role and each role a grant gives her on that row. A write-only field stays
+ * named, masked, as the history recorded it.
+ */
+const changesReaderOf = (
+  config: GetRecordHistoryConfig
+): Effect.Effect<ChangesReader, never, DataSourceRepository> => {
+  const { app, tableName, session, recordId } = config
+  const caller = { role: config.userRole, groups: config.userGroups ?? [] }
+  return readerRowsOf(app, tableName, { ...caller, session }).pipe(
+    Effect.map(({ grants }) => {
+      const callers = callersOfRow(caller, grants, recordId)
+      return (changes: unknown) => filterChangesReadableByAny({ app, tableName, callers, changes })
+    })
+  )
+}
 
 /**
  * Format activity history entry for API response
@@ -100,16 +121,12 @@ export function getRecordHistoryProgram(config: GetRecordHistoryConfig): Effect.
     }
   },
   DatabaseError | NotFoundError,
-  ActivityRepository
+  ActivityRepository | DataSourceRepository
 > {
   return Effect.gen(function* () {
     const activityRepo = yield* ActivityRepository
-    const { session, tableName, recordId, limit, offset, app, userRole } = config
-    const caller = { role: userRole, groups: config.userGroups ?? [] }
-    // Every side of a change keeps only what the caller may read; a write-only
-    // field stays named, masked, as the history recorded it.
-    const readable: ChangesReader = (changes) =>
-      filterReadableChanges({ app, tableName, caller, changes })
+    const { session, tableName, recordId, limit, offset } = config
+    const readable = yield* changesReaderOf(config)
 
     // Check if record exists in the table (handles live records)
     const recordExists = yield* activityRepo.checkRecordExists({ session, tableName, recordId })

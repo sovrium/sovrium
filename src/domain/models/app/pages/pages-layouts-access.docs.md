@@ -186,7 +186,7 @@ The set of runtime capabilities is closed and currently has one member, `ai`. A 
 
 ## What a denial returns
 
-An `access` block carrying `redirectTo` answers a visitor who has not signed in with a `302` to that path, with the original path appended as a `redirect` query parameter. A person who is signed in but lacks the role is never redirected: signing in again would not help her, and the redirect would tell her the page exists. She gets `404`, as she does on a page without `redirectTo`, so the page's existence is not disclosed.
+An `access` block carrying `redirectTo` answers a visitor who has not signed in with a `302` to that path, with the original path appended as a `redirect` query parameter, and a sign-in form on that page sends her back to it once she has signed in. Only a path on this app is followed; a `redirect` naming another site, or the sign-in page itself, is ignored and the form's own destination is used, and a `callbackURL` on the same sign-in link wins over it. A person who is signed in but lacks the role is never redirected: signing in again would not help her, and the redirect would tell her the page exists. She gets `404`, as she does on a page without `redirectTo`, so the page's existence is not disclosed.
 
 **`access` never answers `401`.** It redirects or hides. The only source of a `401` on a page is an unresolvable `$currentUser` reference in a data source — two different mechanisms with two different answers.
 

@@ -28,6 +28,7 @@
  */
 
 import { AGENTS_READ_OPERATIONS } from '@/application/use-cases/admin/agents-read-operations'
+import { AUDIT_LOG_READ_OPERATIONS } from '@/application/use-cases/admin/audit-log-read-operations'
 import { AUTOMATIONS_READ_OPERATIONS } from '@/application/use-cases/admin/automations-read-operations'
 import { BUCKETS_READ_OPERATIONS } from '@/application/use-cases/admin/buckets-read-operations'
 import { CONFIG_READ_OPERATIONS } from '@/application/use-cases/admin/config-read-operations'
@@ -43,12 +44,12 @@ import {
   LINKS_READ_OPERATIONS,
 } from '@/application/use-cases/admin/links-connections-read-operations'
 import {
-  AUDIT_LOG_READ_OPERATIONS,
   ORGANISATION_READ_OPERATIONS,
   PEOPLE_READ_OPERATIONS,
   USERS_READ_OPERATIONS,
 } from '@/application/use-cases/admin/people-read-operations'
 import { RELEASE_READ_OPERATIONS } from '@/application/use-cases/admin/release-read-operations'
+import { REPORTS_READ_OPERATIONS } from '@/application/use-cases/admin/reports-read-operations'
 import { SCHEMA_READ_OPERATIONS } from '@/application/use-cases/admin/schema-read-operations'
 import { TEMPLATES_READ_OPERATIONS } from '@/application/use-cases/admin/templates-read-operations'
 import { adminReadToolName } from '@/domain/models/app/admin/admin-mcp-read-tools'
@@ -71,6 +72,7 @@ export const ADMIN_READ_OPERATIONS: ReadonlyArray<AdminReadOperation> = [
   ...FORMS_READ_OPERATIONS,
   ...PEOPLE_READ_OPERATIONS,
   ...TEMPLATES_READ_OPERATIONS,
+  ...REPORTS_READ_OPERATIONS,
 ]
 
 /**
@@ -96,6 +98,7 @@ export {
   DESIGN_SYSTEM_SPECIMEN_SHARE_READ_OPERATIONS,
   DEVELOPER_READ_OPERATIONS,
   RELEASE_READ_OPERATIONS,
+  REPORTS_READ_OPERATIONS,
   SCHEMA_READ_OPERATIONS,
   TEMPLATES_READ_OPERATIONS,
 }

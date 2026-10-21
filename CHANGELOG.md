@@ -1,3 +1,276 @@
+## [0.41.0](https://github.com/sovrium/sovrium/compare/v0.40.0...v0.41.0) (2026-10-21)
+
+### BREAKING CHANGES
+
+- **design**: refuse design.codeBlock, deprecated since 0.40
+
+### Features
+
+- **admin**: name the failed step and time each step on the run page
+- **automations**: number the failed step of a run from 1 in the admin run detail
+- **pages**: read nested paths, description lists and per-element gates in repeated copies
+- **pages**: tell an invitation page whether the invited role reaches the console
+- **admin**: show a sign-in link on the console's not-found page
+- **admin**: let a console page know who is reading it
+- **admin**: redesign the automation run page
+- **admin**: show instance health, object descriptions and audit entries in the console
+- **admin**: filter runs by period, upload from the bucket toolbar and list keyboard shortcuts
+- **pages**: let a grid column start hidden yet stay restorable
+- **auth**: send an invitee whose role cannot open the console into the app
+- **pages**: open a dialog from a menu item or a button with openDialog
+- **pages**: add a compact file upload for toolbars
+- **pages**: poll a system read with dataSource.system.refreshMode
+- **admin**: name the step a failed run stopped on in the run detail
+- **admin**: page the audit trail by cursor and read one audit entry on its own
+- **admin**: filter the account directory by role and by ban status
+- **admin**: name each template by its file name on the template list
+- **admin**: describe a table, a bucket and an agent, and publish descriptions on the admin reads
+- **admin**: the overview read carries the instance health facts
+- **pages**: name the request on a custom 500 page, and draw the console's failures inside its shell
+- **admin**: a console 500 page inside the console shell
+- **pages**: find command palette items by their group's name
+- **admin**: rework the console overview and tighten console copy
+- **admin**: size console grids to their content and show where connections are used
+- **admin**: name each console detail page after its object and rebuild the account page
+- **admin**: add the audit log page and regroup the console sidebar
+- **design-system**: draw sheets, dialogs, alert dialogs and drawers in the component kit
+- **design**: write translated copy and template inputs back from a page drawing, and report every edit it does not carry
+- **admin**: a Report a problem page, and a run page that says whose fault it is
+- **admin**: report a problem with nothing failed on screen
+- **admin**: say whose fault a failed automation run is
+- **design-system**: add success, warning and info badge variants
+- **design-system**: give the success, warning and info colours their own hues
+- **pages**: let a grid put its view options in a View menu in the toolbar
+- **pages**: let a description-list text detail name a display format
+- **admin**: say what the instance runs on in the instance read
+- **admin**: show where each connection is used and when it last worked
+- **admin**: show sign-in facts on each account of the user directory
+- **admin**: tell a schedule started by hand from one that fired
+- **admin**: time each step of an automation run
+- **admin**: offer a prefilled bug report link on the console's internal-error states
+- **admin**: answer the prefilled bug report address of a failed request or run
+- **cli**: report a problem with `sovrium report`, and offer a prefilled bug report when Sovrium fails
+- **library**: add Trello, MeisterTask and Google Sheets connections, and lead and webhook operations for Calendly, Facebook and LinkedIn
+- **import**: map Trello, MeisterTask, Calendly, Facebook and LinkedIn lead forms, and new Sheets rows
+- **import**: migrated form-tool triggers name the webhook registration their connection needs
+- **import**: migrated app steps share library connections, written as library add writes them
+- **library**: add the Webflow connection
+- **import**: bring the pages of a Webflow site export into the app
+- **library**: add the Jotform connection
+- **library**: add the Typeform connection
+- **import**: bring the screens of a Retool classic app into the app
+- **library**: add the Mailjet connection
+- **library**: add the Dropbox connection
+- **automations**: an enabled automation can't hold a todo placeholder
+- **import**: send Webflow and Retool page exports to the page converter
+- **import**: translate Airtable date differences, date additions, weekday and find
+- **tables**: days_between, add_days and date_part_utc formula functions, and strpos on SQLite
+- **import**: bring the pages of a Notion export into the app
+- **import**: translate more date and text formula functions
+- **import**: name the page exports that cannot be imported yet
+- **import**: convert Zapier exports into disabled automations
+- **pages**: let a template take lists and objects as inputs in any field
+- **import**: convert Retool workflow exports into automations
+- **automations**: data set steps can hold named fields
+- **pages**: let a template render as if its content were written inline, with named slots
+- **import**: fetch Jotform and Google Forms forms and their responses, read-only
+- **import**: convert Jotform, Google Forms and Microsoft Forms forms and their responses
+- **import**: import Webflow forms with their submissions
+- **import**: fetch and convert Notion databases and Google spreadsheets
+- **import**: fetch n8n workflows and migrate Webflow form webhooks
+- **import**: fetch Typeform, Tally and Fillout forms and their responses, read-only
+- **import**: convert Typeform, Tally and Fillout forms into table-bound forms with their responses
+- **import**: fetch Webflow CMS collections and Zite databases, and read Zapier Tables and Webflow CSV exports
+- **import**: write migrated links, attachments and collaborators faithfully
+- **import**: migrate Baserow workspaces and Retool Databases
+- **seed**: write many-to-many links in upsert mode
+- **seed**: seed accounts that are left unclaimed
+- **design**: draw an app's pages as a Penpot file and read it back
+- **seed**: reference an asset inside one folder of seed/assets
+- **import**: convert Make scenario blueprints and fetch a Make team's scenarios
+- **import**: map migrated automations' branches, loops, filters, pauses and expressions
+- **import**: translate Airtable and Notion formulas and rollups
+- **import**: convert Airtable snapshots into tables, seed files and a report
+- **design**: bring designed pages back into the app config
+- **design**: draw an app's pages as a Claude Design canvas
+- **import**: migrate tables, records and automations from another tool
+- **design**: export an app's pages for the Figma plugin and read them back
+- **design**: export an app's pages in the design-system bundle
+
+### Bug Fixes
+
+- **server**: keep the page cache within its memory budget and evict least recently served pages
+- **import**: write Notion pages in the same order whichever system packed the export
+- **cli**: stop `start --watch` from missing a quick second save on Linux
+- **cli**: keep a save made right after `start --watch` begins watching inside the reload budget
+- **cli**: no longer lose a save made right after `start --watch` begins watching
+- **admin**: name the overview's headline figures as a group assistive technology can read
+- **tables**: a many-to-one link keeps its foreign key on SQLite when the related table lists it back
+- **admin**: keep the colour scheme toggle the last control of the console header
+- **pages**: offer Retry on a compact upload's failure toast
+- **pages**: read the whole page count to assistive technology on a phone pager
+- **pages**: keep a flowing grid's column heads on screen whichever box the page scrolls in
+- **pages**: print an escaped token as written in a button confirm's title and message
+- **ai**: bound how many anonymous chat conversations are kept in memory
+- **ai**: let an anonymous visitor stop only her own browser's streamed chat turn
+- **ai**: keep an anonymous visitor's chat history to the browser that wrote it
+- **pages**: refresh a system-bound table by its system keys only
+- **admin**: name one boot instant across the admin reads
+- **automations**: read the run history over whole calendar days
+- **pages**: close the date range picker when a preset is chosen
+- **automations**: keep a step's recorded times inside its run on a pinned development clock
+- **pages**: state a compact upload's accepted types and size cap beside its trigger
+- **pages**: draw a social sign-in button with the outline recipe
+- **pages**: open an address-mirrored native select on the value a link carries
+- **pages**: keep the empty message when a search-echoing no-match has no search
+- **pages**: say "no match" when a filter narrows a grid to nothing
+- **pages**: keep a flowing grid's column heads on screen while the page scrolls
+- **pages**: count a date range picker's params as keys its channel publishes
+- **pages**: put a system-source grid's View menu in the toolbar on its channel
+- **pages**: resolve the engine version and session text on the not-found page
+- **import**: write the import report's reasons and TODOs in plain words
+- **pages**: keep an escaped token escaped for the browser in interactive components
+- **import**: keep each record's creation date, autonumber and collaborator name, and re-run without rewriting rows
+- **import**: make the import report read plainly
+- **design**: draw page exports at a fixed instant, with link targets, real tabs and seeded data
+- **import**: resolve a Webflow page's images against its place in the export
+- **design**: keep Claude Design component previews live and inset the cover title
+- **import**: name a form migrated from a page by its readable title, keeping its page reference
+- **import**: install the Trello, MeisterTask and Google Sheets steps and triggers from the connection library
+- **import**: bring another tool's dollar text across as text
+- **pages**: let a backslash print any page token as text
+- **library**: a connection added under another name reads its own secrets
+- **design-system**: keep a page sidecar named by a bundle beside the config
+- **design-system**: refuse a Figma or Penpot page file nested past a bound
+- **import**: convert a long Webflow page in linear time
+- **import**: report a Webflow link with a malformed escape instead of failing
+- **import**: refuse a Retool file the reader could not read to its end
+- **import**: read a Webflow site stylesheet in linear time
+- **import**: convert a long Notion page in linear time
+- **design-system**: read a wide Figma page document in near-linear time
+- **design-system**: read a wide Claude Design board in near-linear time
+- **cli**: keep a YAML value holding a line break and quotes readable
+- **design-system**: refuse a Penpot board that draws a shape twice
+- **import**: bound a wrapped page export by its limits as each part opens
+- **design-system**: never read a drawing's files through a linked folder
+- **design-system**: read large HTML drawings in linear time
+- **import**: read real Notion exports correctly
+- **design**: stamp every console node in the page export
+- **pages**: render a template's structured inputs in the same order as written inline
+- **tables**: date formulas read UTC on PostgreSQL as they do on SQLite
+- **import**: keep a Zapier zap whose trigger names no app
+- **design**: draw the grid specimen in two columns and let grid and spacer specimens be placed on a page
+- **tables**: a relationship without required no longer blocks a loop of links
+- **import**: read Zapier zap dumps that list their steps as nodes, and keep every zap
+- **design**: keep a YAML config's comments and quoting on a page import
+- **design**: export every page and stamp every component it draws
+- **forms**: check a submission against the fields its submitter was offered
+- **ai**: recall only the facts learned from tables the user still lists
+- **import**: rename a migrated view whose name is taken by a link table
+- **forms**: offer a step of a multi-step form only the fields its form page offers
+- **tables**: judge every press naming a record on that record
+- **import**: migrated tables validate when links loop, choices repeat or names run long
+- **tables**: formula validation ignores parentheses inside quoted text
+- **tables**: refuse a button press on a record that does not exist
+- **ai**: name in an agent's action tools only the tables the person chatting may use them on
+- **records**: keep favorites and recent items per table
+- **ai**: describe to the chat model only the fields the person chatting can be shown
+- **realtime**: a live change holds the table's declared fields only, as a listed record does
+- **account**: include favorites and recent items in the personal data export
+- **forms**: offer a reader only the fields she may read or write
+- **import**: set variables and n8n Set nodes keep their names
+- **pages**: steer feeds, sitemaps and record pages on the counts and lookups a visitor reads
+- **ai**: replay only the exchanges a user can still read
+- **activity**: a record history and an activity entry show each reader exactly the fields her list of that row returns
+- **realtime**: a live change shows each reader exactly the fields her list of that row returns
+- **ai**: answer a chat write naming an unlisted table as plain chat
+- **ai**: describe to a declared agent's model only the tables its caller lists
+- **import**: remove credentials from the code kept beside a converted code step
+- **import**: keep a library call missing a required parameter as a stub
+- **import**: note archived n8n workflows read from an export file
+- **import**: read n8n nodes left at their defaults, and say why a mapped node is a stub
+- **import**: read a Make webhook's payload fields under body
+- **import**: repeat a URL argument by its scheme and host only in a refusal
+- **import**: never carry a credential from a migrated automation into the config
+- **import**: keep every snapshot file inside its folder, and out of served folders
+- **import**: judge every redirect of an attachment download
+- **import**: keep credential URLs of migrated HTTP steps out of the config
+- **tables**: count and rollup fields read through many-to-many and many-to-one links
+- **import**: rename an imported table or field whose name is a SQL keyword
+- **seed**: order tables only by the links a seed actually writes
+- **import**: keep authorship fields as text when the app has no accounts
+- **seed**: keep a seeded attachment's storage key stable across replays
+- **records**: echo a missing id in a batch restore as it was sent
+- **pages**: judge a signed-out visitor's related values on a page as her records list does
+- **automations**: name in a comment thread only the people its record still admits
+- **tables**: read a signed-out visitor as one principal on every list, feed and sitemap
+- **automations**: show an approver a run step whole only when her records list admits her every row it read
+- **mcp**: offer and answer the read tools of a table only where the records list answers the caller
+- **tables**: answer a view's records and the export as the table's list does
+- **records**: list favorites and recent items as the reader's list admits them
+- **tables**: answer a table's definitions as its list answers the reader
+- **records**: list the trash to a reader as her list of the table admits
+- **pages**: sort and filter a page list on a narrowed count as the records list does
+- **ai**: describe and offer the chat only the tables a reader's records list admits
+- **pages**: draw a view-bound grid over a table admitting its reader no row as the table-bound grid
+- **pages**: list a feed's and a sitemap's records only as a signed-out reader's records list does
+- **storage**: read a stored file with no catalogue record no further than 100 MiB
+- **automations**: read at most 100 MiB across all the files one compress packs
+- **storage**: clear unfinished local writes and leave them out of the quota
+- **storage**: reserve the name a local write stages its bytes under
+- **buckets**: read a stored file no further than the size its record holds
+- **automations**: fingerprint a paused run's file by hashing it as a stream
+- **automations**: read a stored file in a file action up to 100 MiB
+- **tables**: read a count narrowed to a reader's list as empty wherever a query names it
+- **records**: answer a restore, a delete form, a button press and an assistant's write on a record the writer may not list as on a missing one
+- **tables**: count only the linked records a reader may list
+- **storage**: a staged local write that cannot be moved into place leaves no file and no record
+- **automations**: read a host written with its final dot as the same host in a browser step
+- **records**: offer and keep mentions only for people who can open the record
+- **admin**: drop a kit page's scripts with an HTML parser, however their end tag is written
+- **tables**: close a table whose every field is read from a table its reader may not read
+- **storage**: tell apart two same-second writes of an S3 object when a paused run resumes
+- **records**: answer a write on a record the writer may not list as on a missing one
+- **storage**: a replacing write on local disk places its bytes only once its claim settles
+- **storage**: read a stored file no further than the reader's size limit
+- **realtime**: hold subscriptions and record presence to the rows a list returns its reader
+- **activity**: list only the entries of rows the records list admits
+- **records**: answer comments and history only for rows the records list admits
+- **automations**: a browser step allowed to open the app's own address cannot attach its screenshots in a run nobody started
+- **pages**: draw an edit form's button field disabled on the record it edits
+- **pages**: refuse a button picker in front of an action that is not a fetch
+- **auth**: the replaced-session memory keeps only real session tokens and forgets expired ones
+- **automations**: an approval message holding an env value keeps the earlier rule
+- **admin**: fit the profile's Sovrium Cloud button and the Overview's attention rows
+- **automations**: an approval message whose reads cannot be told apart stays withheld
+- **comments**: keep read state and guest approvals across table id and name
+- **ai**: tell the chat reader a value is taken when she can read who holds it
+- **admin**: speak to the operator in « tu » in the console's AI chat
+- **tables**: answer conflicts on multi-field unique rules like single-field ones
+- **languages**: translate the kanban's unstaged column, Load More and chart months
+- **auth**: say an account form's field messages in the page language
+- **storage**: never store two spellings of one new key written at the same moment by two processes
+- **auth**: a late answer to a replaced session no longer signs the reader out
+- **pages**: keep a date field's calendar inside the window
+- **tables**: honour the requested columns and their order in record exports
+- **pages**: show a grid's record dates in the page language when no field is readable
+- **ai**: transcription refuses a video whose container cannot be read
+- **pages**: draw a drawer's date fields with the forms' date picker
+- **auth**: startup warns when AUTH_ADMIN_EMAIL is ignored because accounts exist
+- **automations**: an approver sees a request's message unless it reads what she may not
+- **pages**: never open a record drawer on empty fields after a failed read
+- **storage**: see keys still being written when checking an upload's key spelling
+- **auth**: an invitation accepted twice at once fires its trigger once
+- **migrations**: keep hand-made indexes and triggers when SQLite rebuilds a table
+- **auth**: sign-in returns a visitor to the protected page she was opening
+- **automations**: keep app restarts from failing when a request arrives mid-restart
+- **database**: make the migration snapshot history linear again
+
+### Performance Improvements
+
+- **admin**: read every connection's last call in one query
+- **admin**: read the audit log one page at a time in the database
+
 ## [0.40.0](https://github.com/sovrium/sovrium/compare/v0.39.1...v0.40.0) (2026-10-19)
 
 ### Features

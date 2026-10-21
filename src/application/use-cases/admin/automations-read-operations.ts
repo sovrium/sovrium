@@ -41,6 +41,7 @@ import {
   automationsRunsListResponseSchema,
 } from '@/domain/models/api/admin/automations'
 import { runStatusSchema } from '@/domain/models/api/automations/automations'
+import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import type { AdminReadOperation } from '@/application/use-cases/admin/admin-read-operation'
 
 const RUNS_LIST_TOOL_PROPERTIES: Readonly<Record<string, unknown>> = {
@@ -95,6 +96,12 @@ const RUNS_LIST_TOOL_PROPERTIES: Readonly<Record<string, unknown>> = {
     description:
       'Read by page number instead of by cursor (1-based); ignored when cursor is given. The response total counts every matching run.',
   },
+  onDemand: {
+    type: 'string',
+    enum: ['true', 'false'],
+    description:
+      'Only the runs an operator started by hand from a schedule (true), or only the others (false).',
+  },
 }
 
 const runsList = defineAdminRead<AdminRunsListInput>({
@@ -116,6 +123,7 @@ const runsList = defineAdminRead<AdminRunsListInput>({
     'to',
     'include_deleted',
     'q',
+    'onDemand',
   ],
   tool: {
     suffix: 'automation_runs_list',
@@ -138,7 +146,7 @@ const runsList = defineAdminRead<AdminRunsListInput>({
   },
   subject: 'runs list',
   decode: (raw) => {
-    const decoded = decodeAdminRunsListQuery(raw)
+    const decoded = decodeAdminRunsListQuery(raw, resolveOperatorTimezone())
     if (decoded._tag === 'InvalidQuery') return { _tag: 'InvalidInput', reason: 'malformed' }
     if (decoded._tag === 'InvertedWindow') {
       return { _tag: 'InvalidInput', reason: 'inverted-window' }

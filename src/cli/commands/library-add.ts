@@ -19,10 +19,10 @@
  */
 
 import { rename, writeFile, mkdir } from 'node:fs/promises'
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname } from 'node:path'
 import { refuse } from './app-prelude'
 import { findConfig, indented, judgeConfig, rootFormatOf } from './library-add-config'
-import { undeclaredEnvMessage } from './library-add-env'
+import { planEnvExample, undeclaredEnvMessage, type EnvPlan } from './library-add-env'
 import { resolveParams } from './library-add-params'
 import { digest, out, planInstalls, readIfExists } from './library-add-plan'
 import { writeLine } from './library-add-reinstall'
@@ -44,14 +44,6 @@ interface WiringPlan {
   readonly manual: readonly ManualLine[]
   /** Why the root was not edited, when it was not and should have been. */
   readonly reason?: string
-}
-
-interface EnvPlan {
-  readonly path: string
-  readonly added: readonly string[]
-  readonly all: readonly string[]
-  /** The new `.env.example`, or `undefined` when nothing is appended. */
-  readonly text?: string
 }
 
 // =============================================================================
@@ -127,29 +119,11 @@ const planWiring = (
 // Secrets
 // =============================================================================
 
-const declaredNames = (text: string): ReadonlySet<string> =>
-  new Set(
-    text
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line !== '' && !line.startsWith('#'))
-      .map((line) => line.split('=')[0]?.trim() ?? '')
+const planEnv = async (configPath: string, installs: readonly PlannedInstall[]): Promise<EnvPlan> =>
+  planEnvExample(
+    configPath,
+    installs.flatMap((install) => install.env)
   )
-
-/** The variable NAMES to append to `.env.example` — never a value, never `.env`. */
-const planEnv = async (
-  configPath: string,
-  installs: readonly PlannedInstall[]
-): Promise<EnvPlan> => {
-  const path = join(dirname(configPath), '.env.example')
-  const all = [...new Set(installs.flatMap((install) => install.entry.env))]
-  const existing = (await readIfExists(path)) ?? ''
-  const declared = declaredNames(existing)
-  const added = all.filter((name) => !declared.has(name))
-  if (added.length === 0) return { path, added, all }
-  const base = existing === '' || existing.endsWith('\n') ? existing : `${existing}\n`
-  return { path, added, all, text: `${base}${added.map((name) => `${name}=`).join('\n')}\n` }
-}
 
 // =============================================================================
 // Judging and writing
@@ -370,7 +344,7 @@ export const runLibraryAdd = async (request: LibraryAddRequest): Promise<void> =
     configName,
     format,
     parsed: before.parsed,
-    reads: installs.flatMap((install) => install.entry.env),
+    reads: installs.flatMap((install) => install.env),
   })
   if (envProblem !== undefined) return refuse(envProblem)
   const wiring = planWiring(rootText, installs, format, request.noWire)

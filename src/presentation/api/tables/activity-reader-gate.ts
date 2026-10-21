@@ -5,29 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
-import { ListActivityGateRecords } from '@/application/use-cases/list-activity-logs'
+import { readerRowsOf } from '@/application/use-cases/tables/row-read-admission'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
-import { filterReadableChanges } from '@/domain/models/app/tables/field-read-filter-service'
-import { singleRecordAddressRefusal } from '@/domain/models/app/tables/single-record-address'
-import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
-import { logError } from '@/infrastructure/logging/logger'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
+import { filterChangesReadableByAny } from '@/domain/models/app/tables/field-read-filter-service'
+import { callersOfRow } from '@/domain/models/app/tables/row-read-admission-service'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
+import { runOnRequest } from '@/presentation/api/runtime/run-effect'
+import { admissionOf, planTables, readableRecordIds, REFUSED } from './activity-table-plan'
 import { checkRecordReadGate } from './record-read-gate'
-import {
-  projectReadPredicateClause,
-  recordPassesPredicate,
-  resolveGuardForTable,
-  type RowLevelGuardContext,
-} from './row-level-guard'
-import { checkGetReadGate } from './row-level-read-helpers'
-import type {
-  ActivityTableAdmission,
-  LiveRecordsQuery,
-} from '@/application/ports/repositories/analytics/activity-log-repository'
-import type { QueryFilterNode } from '@/application/ports/repositories/tables/table-repository'
-import type { App, Table } from '@/domain/models/app'
+import type { ActivityTableAdmission } from '@/application/ports/repositories/analytics/activity-log-repository'
+import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
 /**
@@ -99,112 +86,6 @@ export async function admitsActivityEntry(
   return (await checkRecordReadGate(c, app, table, entry.recordId)) === undefined
 }
 
-type Row = Readonly<Record<string, unknown>>
-
-/**
- * How one table admits the caller's activity, decided ONCE per request — the
- * records read gate (`checkRecordReadGate`) asked of the table rather than of
- * each record:
- *
- * - `refused` — no read grant, a table the app does not declare, a rule that
- *   admits no row, or a table no single record can be read from;
- * - `all` — the grant and no row-level read rule holding the caller;
- * - `rule` — the rule, projected for the caller, judged by the database;
- * - `in-memory` — the rule judged on each fetched row, exactly as the single
- *   record read judges it: a rule comparing a column with a true/false value.
- *   The row is judged as the records API reads it — a boolean field stored as
- *   `1`/`0` on SQLite read as `true`/`false` (`readStoredValues`) — so the
- *   rule admits the same rows on both engines.
- */
-type TablePlan =
-  | { readonly kind: 'refused' }
-  | { readonly kind: 'all' }
-  | { readonly kind: 'rule'; readonly rule: QueryFilterNode }
-  | { readonly kind: 'in-memory'; readonly admits: (row: Row) => boolean }
-
-const REFUSED: TablePlan = { kind: 'refused' }
-const ALL: TablePlan = { kind: 'all' }
-
-/** Whether a projected rule compares anything with a boolean. */
-const comparesBoolean = (node: QueryFilterNode): boolean => {
-  if ('and' in node) return node.and.some(comparesBoolean)
-  if ('or' in node) return node.or.some(comparesBoolean)
-  const values: readonly unknown[] = Array.isArray(node.value) ? node.value : [node.value]
-  return values.some((value) => typeof value === 'boolean')
-}
-
-/** The plan of a table whose row-level read rule holds the caller. */
-function planRule(app: App, table: Table, guard: RowLevelGuardContext): TablePlan {
-  const rlp = table.rowLevelPermissions
-  if (singleRecordAddressRefusal(app, table.name) !== undefined) return REFUSED
-  const clause = projectReadPredicateClause(rlp, guard.current)
-  if (clause === 'bypass' || clause === 'no-rlp') return ALL
-  if (clause === 'empty' || clause === undefined) return REFUSED
-  if (!comparesBoolean(clause)) return { kind: 'rule', rule: clause }
-  return {
-    kind: 'in-memory',
-    admits: (row) =>
-      recordPassesPredicate(rlp, 'read', readStoredValues(table, row), guard.current),
-  }
-}
-
-/** The plan for one table (see {@link TablePlan}). */
-async function planTable(c: Context, app: App, table: Table): Promise<TablePlan> {
-  const { session, userRole, userGroups } = getTableContext(c)
-  const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
-  if (checkGetReadGate({ c, app, table, userRole, userGroups, guard })) return REFUSED
-  if (!guard || !table.rowLevelPermissions?.read?.when || guard.current.isUnrestricted) return ALL
-  return planRule(app, table, guard)
-}
-
-/**
- * The plan of every table named, keyed by name — one table after another, so
- * the guard lookups never fan out over the shared connection pool (the QUERY
- * BUDGET note in `tables-overview-repository-live.ts`). A name the app does
- * not declare is refused.
- */
-const planTables = (
-  c: Context,
-  app: App,
-  tableNames: readonly string[]
-): Promise<ReadonlyMap<string, TablePlan>> =>
-  [...new Set(tableNames)].reduce<Promise<ReadonlyMap<string, TablePlan>>>(async (done, name) => {
-    const planned = await done
-    const table = app.tables?.find((t) => t.name === name)
-    const plan = table === undefined ? REFUSED : await planTable(c, app, table)
-    return new Map([...planned, [name, plan]])
-  }, Promise.resolve(new Map()))
-
-/**
- * The live rows a gate judges, in one statement; none when the read fails —
- * the gate then admits nothing from them, as a failed record read refuses.
- */
-async function gateRecords(c: Context, query: LiveRecordsQuery): Promise<readonly Row[]> {
-  const result = await runRequestEffect(
-    c,
-    provideDomain(c, ListActivityGateRecords(query)).pipe(Effect.result)
-  )
-  if (result._tag === 'Success') return result.success
-  logError('[activity] gate records read failed', result.failure)
-  return []
-}
-
-/** The ids of `rows`, as text — the form the activity log keeps them in. */
-const idsOf = (rows: readonly Row[]): readonly string[] => rows.map((row) => String(row.id))
-
-/** One table's admission to the activity list, from its plan. */
-async function admissionOf(
-  c: Context,
-  tableName: string,
-  plan: TablePlan
-): Promise<readonly ActivityTableAdmission[]> {
-  if (plan.kind === 'refused') return []
-  if (plan.kind === 'all') return [{ tableName, rows: 'all' }]
-  if (plan.kind === 'rule') return [{ tableName, rows: 'rule', rule: plan.rule }]
-  const rows = await gateRecords(c, { tableName, recordIds: 'logged' })
-  return [{ tableName, rows: 'listed', recordIds: idsOf(rows.filter(plan.admits)) }]
-}
-
 /**
  * What of the activity list the caller reads: `everything` for an admin, else
  * the tables (and, under a row-level read rule, the rows) the records API lets
@@ -260,19 +141,25 @@ export function projectEntryActor<E extends { readonly actor: object }>(
   return { ...entry, actor: withoutEmail }
 }
 
-/** An entry's change set, holding only the fields the caller may read. */
-export function projectActivityChanges(
+/**
+ * An entry's change set, holding only the fields a list of its row shows the
+ * caller: under her role, and each role a grant gives her on that row.
+ */
+export async function projectActivityChanges(
   c: Context,
   app: App,
-  tableName: string,
-  changes: unknown
-): unknown {
-  const { userRole, userGroups } = getTableContext(c)
-  return filterReadableChanges({
+  entry: GatedEntry & { readonly changes: unknown }
+): Promise<unknown> {
+  const { session, userRole, userGroups } = getTableContext(c)
+  const caller = { role: userRole, groups: userGroups }
+  const rows = await runOnRequest(c, readerRowsOf(app, entry.tableName, { ...caller, session }))
+  // `readerRowsOf` never fails; without its grants the caller reads under her role alone.
+  const grants = rows._tag === 'Success' ? rows.success.grants : undefined
+  return filterChangesReadableByAny({
     app,
-    tableName,
-    caller: { role: userRole, groups: userGroups },
-    changes,
+    tableName: entry.tableName,
+    callers: callersOfRow(caller, grants, entry.recordId),
+    changes: entry.changes,
   })
 }
 
@@ -296,24 +183,6 @@ type AudienceEntry =
 /** The table and row an agent action is judged on, as one memo key. */
 const actionKey = (table: string, recordId: string | undefined): string =>
   `${table}\u0000${recordId ?? ''}`
-
-/**
- * The record ids of `tableName` among `recordIds` the caller may read under
- * its plan — one statement for the table, however many records it names.
- */
-async function readableRecordIds(
-  c: Context,
-  tableName: string,
-  plan: TablePlan,
-  recordIds: readonly string[]
-): Promise<ReadonlySet<string>> {
-  if (plan.kind === 'refused' || recordIds.length === 0) return new Set()
-  if (plan.kind === 'all') return new Set(recordIds)
-  if (plan.kind === 'rule') {
-    return new Set(idsOf(await gateRecords(c, { tableName, recordIds, rule: plan.rule })))
-  }
-  return new Set(idsOf((await gateRecords(c, { tableName, recordIds })).filter(plan.admits)))
-}
 
 /**
  * Whether the caller may read each agent action, keyed by {@link actionKey}:

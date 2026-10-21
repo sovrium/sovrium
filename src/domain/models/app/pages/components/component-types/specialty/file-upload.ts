@@ -57,6 +57,20 @@ export const fileUploadFields = {
       description: 'Enable drag-and-drop dropzone area for uploads',
     })
   ),
+  /**
+   * A toolbar's upload: only the trigger, at the toolbar's size, with an
+   * upload icon. While the file goes up the trigger is disabled and reads
+   * "Uploading…"; the outcome is the `onSuccess` / `onError` toasts, never a
+   * block under the trigger. Refused with `dropZone: true`, which needs the
+   * area it draws.
+   */
+  compact: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'Draw only the trigger — an outline button at a toolbar\'s size with an upload icon — for an upload that sits in a toolbar. While the file goes up the trigger is disabled and reads "Uploading…"; the outcome, and a file refused by `accept`, `maxFiles` or `maxFileSize`, is a toast (`onSuccess`, `onError`), never a file chip or a message under the trigger. The types it takes and its size cap — `PNG, JPEG, PDF · 10 MB each` — are stated on one line just after the trigger, read with it by a screen reader; with no rule to state, nothing is. Refused together with `dropZone: true`, which needs the area it draws.',
+      defaultNote: 'false',
+    })
+  ),
   maxFiles: Schema.optional(
     Schema.Finite.pipe(
       Schema.annotate({ description: 'Maximum number of files allowed per upload' }),

@@ -138,6 +138,16 @@ export const automationRuns = systemTable(
     durationMs: integer('duration_ms'),
     error: text('error'),
     /**
+     * For a run the engine abandoned on an internal error, the class of the
+     * error and its signature (eight hex digits over the class and its top
+     * frames in Sovrium's own code) — what titles the bug report the run's
+     * page offers. NULL for every other run. Never the message: it can carry
+     * a value the trigger sent. `defect_frames`: its scrubbed in-repository frames.
+     */
+    defectClass: text('defect_class'),
+    defectSignature: text('defect_signature'),
+    defectFrames: text('defect_frames'),
+    /**
      * The run that handed this one its trigger data — a call's caller, a
      * failure handler's failed run — and how many of its steps had run when it
      * did, as `{ run, through }`; `{ outside: true }` for a replay an admin

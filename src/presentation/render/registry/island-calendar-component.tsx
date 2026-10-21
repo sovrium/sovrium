@@ -10,6 +10,7 @@ import { declaredCalendarPartClasses } from '@/presentation/design/calendar-part
 import { hostClassName, namedHost } from '@/presentation/render/registry/island-host-attributes'
 import { calendarDayFloorAttributes } from './calendar-day-floor'
 import { islandLoadingLabel, islandUiStrings } from './island-loading-label'
+import { islandFallback, specimenEmpty } from './specimen-island-states'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { ReactElement } from 'react'
 
@@ -143,7 +144,9 @@ export const islandCalendarComponent: ComponentRenderer = ({
       className={hostClassName(elementProps)}
       {...calendarDayFloorAttributes(elementProps.dayMinHeight)}
     >
-      {renderCalendarSkeleton(loading.status)}
+      {islandFallback(renderCalendarSkeleton(loading.status), () =>
+        specimenEmpty('gallery.empty', currentLang, languages)
+      )}
     </div>
   )
 }

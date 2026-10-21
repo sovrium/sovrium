@@ -50,6 +50,12 @@ const SKIPPED_DIRECTORIES = new Set(['node_modules', '.git'])
 
 const TOKEN_FILE = /\.(?:json|css)$/i
 
+/**
+ * What a page import reads (`--pages`): the token files, plus the HTML a
+ * drawing is made of (a Claude Design board is a `.dc.html`).
+ */
+const PAGE_FILE = /\.(?:json|css|html)$/i
+
 /** `scheme://…` — what a URL looks like, as opposed to a local path. */
 const URL_SOURCE = /^[a-z][a-z0-9+.-]*:\/\//i
 
@@ -89,14 +95,19 @@ interface Walked {
 }
 
 /** One folder's entries added to a walk: token files kept, sub-folders queued, links skipped. */
-const walkFolder = async (root: string, folder: string, walked: Walked): Promise<Walked> => {
+const walkFolder = async (
+  root: string,
+  folder: string,
+  walked: Walked,
+  wanted: RegExp
+): Promise<Walked> => {
   const entries = await readdir(join(root, folder), { withFileTypes: true })
   const pathOf = (name: string): string => (folder === '' ? name : `${folder}/${name}`)
   const next: Walked = {
     files: [
       ...walked.files,
       ...entries
-        .filter((entry) => entry.isFile() && TOKEN_FILE.test(entry.name))
+        .filter((entry) => entry.isFile() && wanted.test(entry.name))
         .map((entry) => pathOf(entry.name)),
     ],
     folders: [
@@ -119,11 +130,11 @@ const walkFolder = async (root: string, folder: string, walked: Walked): Promise
  * A symbolic link is skipped, file or folder (`Dirent` reports a link as a
  * link, never as what it points at); a skipped folder is never entered.
  */
-const listTokenFiles = async (root: string): Promise<readonly string[]> => {
+const listTokenFiles = async (root: string, wanted: RegExp): Promise<readonly string[]> => {
   const step = async (walked: Walked): Promise<Walked> => {
     const [folder, ...rest] = walked.folders
     if (folder === undefined) return walked
-    return step(await walkFolder(root, folder, { ...walked, folders: rest }))
+    return step(await walkFolder(root, folder, { ...walked, folders: rest }, wanted))
   }
   const walked = await step({ files: [], folders: [''], entries: 0 })
   return walked.files.toSorted()
@@ -238,8 +249,8 @@ const countComponents = async (root: string): Promise<number> => {
   return new Set(names).size
 }
 
-const readFolder = async (path: string): Promise<ReadSource> => {
-  const files = await readFiles(path, await listTokenFiles(path))
+const readFolder = async (path: string, wanted: RegExp): Promise<ReadSource> => {
+  const files = await readFiles(path, await listTokenFiles(path, wanted))
   return {
     path,
     source: { entry: undefined, files },
@@ -282,9 +293,12 @@ const readFile = async (path: string): Promise<ReadSource> => {
 
 /**
  * Read the source named on the command line, refusing a URL and a path that
- * holds nothing.
+ * holds nothing. A page import (`pages`) also reads a folder's HTML files.
  */
-export const readImportSourcePath = async (raw: string): Promise<ReadSource> => {
+export const readImportSourcePath = async (
+  raw: string,
+  options: { readonly pages?: boolean } = {}
+): Promise<ReadSource> => {
   if (URL_SOURCE.test(raw)) {
     return refuse(
       `Error: "${raw}" is a URL. design-system import reads a local file or folder only.\n\n` +
@@ -294,5 +308,7 @@ export const readImportSourcePath = async (raw: string): Promise<ReadSource> => 
   const path = resolve(process.cwd(), raw)
   const info = await stat(path).catch(unlessAbsent)
   if (info === undefined) return refuse(`Error: No file or folder at "${raw}".`)
-  return info.isDirectory() ? readFolder(path) : readFile(path)
+  return info.isDirectory()
+    ? readFolder(path, options.pages === true ? PAGE_FILE : TOKEN_FILE)
+    : readFile(path)
 }

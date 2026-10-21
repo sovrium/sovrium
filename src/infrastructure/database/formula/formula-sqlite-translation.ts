@@ -6,6 +6,7 @@
  */
 
 import { UnsupportedInSqliteError } from '@/infrastructure/database/unsupported-in-sqlite'
+import { translatePortableDates } from './formula-portable-dates'
 import { escapeReservedFieldNames } from './formula-utils'
 
 /**
@@ -37,6 +38,10 @@ import { escapeReservedFieldNames } from './formula-utils'
 /**
  * Postgres formula functions that map onto a SQLite built-in.
  *
+ * `strpos(text, part)` is SQLite's `instr(text, part)`: the same argument
+ * order, a 1-based position counted in characters, 0 when absent, blank when
+ * either argument is blank, case-sensitive.
+ *
  * `GREATEST`/`LEAST` map to SQLite's `max`/`min`. Note SQLite overloads those
  * names: with ONE argument they are the AGGREGATE forms, with two or more the
  * SCALAR forms this translation intends. Every real use of `GREATEST`/`LEAST`
@@ -47,6 +52,7 @@ import { escapeReservedFieldNames } from './formula-utils'
 const SQLITE_SCALAR_EQUIVALENTS: Readonly<Record<string, string>> = {
   greatest: 'max',
   least: 'min',
+  strpos: 'instr',
 }
 
 /**
@@ -55,11 +61,11 @@ const SQLITE_SCALAR_EQUIVALENTS: Readonly<Record<string, string>> = {
  * MEASURED against `bun:sqlite` rather than inferred, because the
  * intuitive guesses are wrong in both directions: Bun ships SQLite's math
  * extension, so `power`, `sqrt`, `ceil`, `floor`, `mod`, `exp`, `ln`, `log`,
- * `sign` and `trunc` all resolve and must NOT be listed here; while `repeat`
- * and `strpos`, which look primitive, do not exist.
+ * `sign` and `trunc` all resolve and must NOT be listed here; while `repeat`,
+ * which looks primitive, does not exist.
  *
- * `greatest`/`least` are deliberately absent — they are translated above rather
- * than rejected.
+ * `greatest`/`least`/`strpos` are deliberately absent — they are translated
+ * above rather than rejected.
  *
  * NOT EXHAUSTIVE, on purpose. This is the measured set, and the formula
  * whitelist contains further entries that were never measured (`string_to_array`,
@@ -72,7 +78,6 @@ const SQLITE_UNSUPPORTED_FUNCTIONS: ReadonlySet<string> = new Set([
   // string
   'overlay',
   'repeat',
-  'strpos',
   'chr',
   'ascii',
   'encode',
@@ -186,5 +191,9 @@ export const translateFormulaToSqlite = (
   // Checked against the formula AS WRITTEN so the error names the function the
   // author typed, not one an intermediate pass introduced.
   rejectUnsupportedSqliteFunctions(formula)
-  return escapeReservedFieldNames(castAsDateToDateCall(applyScalarEquivalents(formula)), allFields)
+  const withPortableDates = translatePortableDates(formula, allFields ?? [], 'sqlite')
+  return escapeReservedFieldNames(
+    castAsDateToDateCall(applyScalarEquivalents(withPortableDates)),
+    allFields
+  )
 }

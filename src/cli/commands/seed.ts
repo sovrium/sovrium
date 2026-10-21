@@ -159,7 +159,7 @@ const requireDevClock = (): Readonly<Date> | undefined => {
 }
 
 /** Settle every account question for the run, refusing before anything is written. */
-const requireAccountPlan = async (
+export const requireAccountPlan = async (
   app: Readonly<App>,
   loaded: { readonly accounts: readonly SeedAccount[] },
   plan: SeedPlan,
@@ -195,7 +195,7 @@ const requireAccountPlan = async (
  * `sovrium --help`. It also matters in compiled binary mode, where native
  * .node modules cannot be resolved from Bun's virtual filesystem.
  */
-const writeRun = async (input: {
+export const writeRun = async (input: {
   readonly app: Readonly<App>
   readonly plan: SeedPlan
   readonly accountPlan: AccountPlan
@@ -356,8 +356,9 @@ export const handleSeedCommand = async (given: SeedCommandOptions): Promise<void
   const { app, authoredTableIds } = await requireApp(configFile)
   const seedDir = await requireSeedDir(options.seedDir, configFile)
 
+  // The default folder is read with its `seed/import/` layer; an explicit --dir alone.
   const loaded = await applyDatabaseMigrations(app, { authoredTableIds }).then(() =>
-    loadSeedFiles(seedDir)
+    loadSeedFiles(seedDir, options.seedDir === undefined)
   )
   if (!loaded.ok) return refuse(`Error: seed files could not be read:\n${indent(loaded.errors)}`)
 

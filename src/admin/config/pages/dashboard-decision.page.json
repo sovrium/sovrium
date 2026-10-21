@@ -1,0 +1,468 @@
+{
+  "id": "dashboard-decision",
+  "name": "dashboard-decision",
+  "path": "/decisions/:id",
+  "meta": {
+    "title": "$t:admin.meta.decision"
+  },
+  "requires": ["decisions"],
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "decisions": "$t:admin.crumb.decisions"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "header",
+          "element": "header",
+          "props": {
+            "className": "flex flex-col gap-1"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "h1",
+              "props": {
+                "className": "text-foreground text-2xl font-semibold tracking-tight"
+              },
+              "content": "$t:admin.decisions.one.heading"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "content": "$t:admin.decisions.one.blurb"
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "admin-surface-content-2-2",
+          "element": "div",
+          "props": {
+            "className": "flex flex-col gap-6 pt-2"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "admin-toolbar-row",
+              "element": "div",
+              "props": {
+                "className": "flex min-h-10 flex-wrap items-center gap-2",
+                "data-testid": "admin-toolbar-row"
+              },
+              "children": [
+                {
+                  "type": "link",
+                  "content": "$t:admin.decisions.back",
+                  "props": {
+                    "href": "/decisions",
+                    "className": "text-muted-foreground hover:text-foreground text-sm underline"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-2-2",
+              "element": "div",
+              "props": {
+                "className": "contents list-none"
+              },
+              "dataSource": {
+                "system": {
+                  "endpoint": "/api/admin/decisions",
+                  "rowsKey": "decisions",
+                  "idKey": "id"
+                }
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-2-1",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-w-0 flex-col gap-4"
+                  },
+                  "visibility": {
+                    "record": {
+                      "field": "id",
+                      "eq": "$param.id"
+                    }
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "admin-surface-content-2-2-2-1-1",
+                      "element": "div",
+                      "props": {
+                        "className": "flex flex-wrap items-baseline gap-x-3 gap-y-1"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle font-mono text-sm"
+                          },
+                          "content": "$record.id"
+                        },
+                        {
+                          "type": "text",
+                          "element": "h2",
+                          "props": {
+                            "className": "text-foreground text-lg font-medium"
+                          },
+                          "content": "$record.title"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "admin-surface-content-2-2-2-1-2",
+                      "element": "div",
+                      "props": {
+                        "className": "flex flex-col gap-6 lg:flex-row lg:items-start"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "key": "admin-surface-content-2-2-2-1-2-1",
+                          "element": "div",
+                          "props": {
+                            "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 flex min-w-0 flex-1 flex-col gap-5 p-6"
+                          },
+                          "children": [
+                            {
+                              "type": "container",
+                              "key": "admin-surface-content-2-2-2-1-2-1-1",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col gap-1.5"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "h3",
+                                  "props": {
+                                    "className": "text-foreground text-sm font-medium"
+                                  },
+                                  "content": "$t:admin.decisions.part.context"
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "p",
+                                  "props": {
+                                    "className": "text-muted-foreground max-w-[72ch] text-md leading-relaxed"
+                                  },
+                                  "content": "$record.context"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "admin-surface-content-2-2-2-1-2-1-2",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col gap-1.5"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "h3",
+                                  "props": {
+                                    "className": "text-foreground text-sm font-medium"
+                                  },
+                                  "content": "$t:admin.decisions.part.decision"
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "p",
+                                  "props": {
+                                    "className": "text-muted-foreground max-w-[72ch] text-md leading-relaxed"
+                                  },
+                                  "content": "$record.decision"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "admin-surface-content-2-2-2-1-2-1-3",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col gap-1.5"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "h3",
+                                  "props": {
+                                    "className": "text-foreground text-sm font-medium"
+                                  },
+                                  "content": "$t:admin.decisions.part.consequences"
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "p",
+                                  "props": {
+                                    "className": "text-muted-foreground max-w-[72ch] text-md leading-relaxed"
+                                  },
+                                  "content": "$record.consequences"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "record-region",
+                          "element": "aside",
+                          "props": {
+                            "aria-label": "$t:admin.decisions.record.region",
+                            "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 flex shrink-0 flex-col gap-3 p-4 lg:w-72"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "h3",
+                              "props": {
+                                "className": "text-foreground text-sm font-medium"
+                              },
+                              "content": "$t:admin.decisions.record.heading"
+                            },
+                            {
+                              "type": "container",
+                              "key": "record-region-2",
+                              "element": "div",
+                              "props": {
+                                "className": "flex items-baseline justify-between gap-4"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "text-foreground-subtle shrink-0 text-sm"
+                                  },
+                                  "content": "$t:admin.decisions.field.status"
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "text-foreground capitalize min-w-0 text-right text-sm break-words"
+                                  },
+                                  "content": "$record.status"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "record-region-3",
+                              "element": "div",
+                              "props": {
+                                "className": "flex items-baseline justify-between gap-4"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "text-foreground-subtle shrink-0 text-sm"
+                                  },
+                                  "content": "$t:admin.decisions.field.date"
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "text-foreground font-mono min-w-0 text-right text-sm break-words"
+                                  },
+                                  "content": "$record.date"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "record-region-4",
+                              "element": "div",
+                              "props": {
+                                "className": "flex items-baseline justify-between gap-4"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "text-foreground-subtle shrink-0 text-sm"
+                                  },
+                                  "content": "$t:admin.decisions.field.deciders"
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "text-foreground min-w-0 text-right text-sm break-words"
+                                  },
+                                  "content": "$record.deciders"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "record-region-5",
+                              "element": "div",
+                              "props": {
+                                "className": "flex items-baseline justify-between gap-4"
+                              },
+                              "visibility": {
+                                "record": {
+                                  "field": "supersedes",
+                                  "isNotEmpty": true
+                                }
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "text-foreground-subtle shrink-0 text-sm"
+                                  },
+                                  "content": "$t:admin.decisions.field.supersedes"
+                                },
+                                {
+                                  "type": "link",
+                                  "content": "$record.supersedes",
+                                  "props": {
+                                    "href": "/decisions/$record.supersedes",
+                                    "className": "text-foreground font-mono text-sm underline"
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "record-region-6",
+                              "element": "div",
+                              "props": {
+                                "className": "flex items-baseline justify-between gap-4"
+                              },
+                              "visibility": {
+                                "record": {
+                                  "field": "supersededBy",
+                                  "isNotEmpty": true
+                                }
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "text-foreground-subtle shrink-0 text-sm"
+                                  },
+                                  "content": "$t:admin.decisions.field.supersededBy"
+                                },
+                                {
+                                  "type": "link",
+                                  "content": "$record.supersededBy",
+                                  "props": {
+                                    "href": "/decisions/$record.supersededBy",
+                                    "className": "text-foreground font-mono text-sm underline"
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "record-region-7",
+                              "element": "div",
+                              "props": {
+                                "className": "flex items-baseline justify-between gap-4"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "text-foreground-subtle shrink-0 text-sm"
+                                  },
+                                  "content": "$t:admin.decisions.field.touches"
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "text-foreground min-w-0 text-right text-sm break-words"
+                                  },
+                                  "content": "$record.touches"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "record-region-8",
+                              "element": "div",
+                              "props": {
+                                "className": "flex items-baseline justify-between gap-4"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "text-foreground-subtle shrink-0 text-sm"
+                                  },
+                                  "content": "$t:admin.decisions.field.source"
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "text-foreground-subtle font-mono min-w-0 text-right text-sm break-words"
+                                  },
+                                  "content": "app.ts › decisions[]"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

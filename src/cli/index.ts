@@ -54,7 +54,7 @@
 import { Effect, Console } from 'effect'
 import { getCommandHelp } from '@/cli/runtime/command-help'
 import { parseArgs } from '@/cli/runtime/dispatch'
-import { findUnknownFlag } from '@/cli/runtime/flag-vocabulary'
+import { findUnknownFlag, getFlagValues } from '@/cli/runtime/flag-vocabulary'
 import { printFailure } from '@/infrastructure/logging/cli-output'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
 
@@ -90,10 +90,12 @@ const HELP_TEXT = [
   "  sovrium skills                Write this version's agent skills into .claude/skills/",
   '  sovrium validate <config>     Validate a config file against AppSchema',
   '  sovrium render <asset>        Render a template asset offline, with its sample data or yours',
-  '  sovrium design-system         Export the design system as an agent brief or DTCG JSON',
+  '  sovrium design-system         Export the design system as a brief, DTCG JSON or a bundle (--pages)',
+  '  sovrium import <file|dir>     Migrate tables, records and automations from another tool',
   '  sovrium docs [address]        Read the platform manual out of this binary',
   '  sovrium changelog [version]   Read the release notes this binary carries',
   '  sovrium licenses              Print the third-party license notices this binary carries',
+  '  sovrium report                Print a prefilled issue address to report a problem',
   '  sovrium library <verb>        Browse and install ready-made blocks, connections, recipes',
   '  sovrium seed [config]         Load seed/<table>.yaml data into the tables',
   '  sovrium migrate [config]      Bring the database schema forward, without booting',
@@ -150,11 +152,17 @@ const HELP_TEXT = [
   '  --limit <n>                   The most results to print (library search)',
   '  --host <url>                  The Sovrium cloud (login, deploy, seed)',
   '  --api-key <key>               Sign in with a key you already have (login)',
-  '  --open                        Open the approval page in your browser (login)',
+  '  --open                        Open the page in your browser (login, report)',
   '  --status | --logout           Print or end the stored sign-in (login)',
   '  --app <slug>                  The hosted app (deploy, env, seed)',
   '  --remote                      Seed the app this project is linked to (seed)',
   '  --no-wait                     Return once the deployment is recorded (deploy)',
+  '  --feature <kind>              config-option | engine-primitive | recipe (report)',
+  '  --security                    The private form for a vulnerability (report)',
+  '  --last-error                  Report the last failed command again (report)',
+  '  --request-id <id>             Report a server error by its request id (report)',
+  '  --write | --apply             Write the migration; --apply then seeds it (import)',
+  '  --from <tool> | --only <parts> | --prefix <p> | --config <file>   (import; see import --help)',
   '',
   'Environment variables (all optional — Sovrium runs zero-config):',
   '  DATABASE_URL                  Postgres connection (omit → embedded SQLite)',
@@ -184,6 +192,7 @@ const HELP_TEXT = [
   '  sovrium init ./my-app --template blog              # Scaffold from template',
   '  sovrium init ./my-app --template sovrium/crm-template  # Scaffold from a GitHub repo',
   '  sovrium seed app.yaml --mode replace               # Deterministic full refresh',
+  '  sovrium import ./contacts.csv --write              # Migrate a CSV export into app.yaml',
   '  sovrium migrate app.yaml                           # Migrate without starting the app',
   '  sovrium admin create me@example.com                # Create an admin (prompts)',
   '  sovrium secret generate                            # Print AUTH_SECRET + key',
@@ -292,8 +301,16 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
       sinceRequested: parsed.changelogSinceRequested ?? false,
       since: parsed.changelogSince,
     }),
+  // An EXIT command: a migration converts files once and stops; only `--apply`
+  // opens the database, through the seed path, and it closes with the run.
+  import: async () =>
+    (await import('@/cli/commands/import')).handleImportCommand(
+      rawArgs,
+      parsed.positionalArgs ?? []
+    ),
   // An EXIT command: it renders one template and stops — no server, no database.
   render: async () => (await import('@/cli/commands/render')).handleRenderCommand(rawArgs),
+  report: async () => (await import('@/cli/commands/report')).handleReportCommand(rawArgs),
   licenses: async () =>
     (await import('@/cli/commands/licenses')).handleLicensesCommand({
       format: parsed.format,
@@ -343,6 +360,8 @@ const persistentCommands: Readonly<Record<string, () => Promise<void>>> = {
           format: parsed.format,
           mode: parsed.mode,
           force: parsed.forceFlag,
+          pages: rawArgs.includes('--pages'),
+          pageNames: getFlagValues(rawArgs, '--page'),
         }),
   docs: async () =>
     (await import('@/cli/commands/docs')).handleDocsCommand({
@@ -424,12 +443,28 @@ const rejectUnknownFlag = (): void => {
   if (parsed.command === '--help' || parsed.command === '--version') return
   const unknownFlag = findUnknownFlag(rawArgs)
   if (unknownFlag === undefined) return
+  // `import` refuses a token on the command line itself, naming the variable to use.
+  if (parsed.command === 'import' && /^--token(?:=|$)/.test(unknownFlag)) return
 
   printFailure({
     headline: `Unknown flag "${unknownFlag}".`,
     guidance: "Run 'sovrium --help' to list the accepted flags.",
   })
   process.exit(1)
+}
+
+/** Throw the injected crash when `SOVRIUM_FAULT_INJECTION=crash` asks for one. */
+const failIfCrashInjected = async (): Promise<void> => {
+  const { parseFaultInjection } = await import('@/domain/models/process-env/fault-injection')
+  const fault = parseFaultInjection(process.env)
+  if (fault?.kind !== 'crash') return
+  const { InjectedFaultError } = await import('@/domain/errors/injected-fault-error')
+  throw new InjectedFaultError({
+    value: fault.value,
+    command: parsed.command,
+    cwd: process.cwd(),
+    detail: fault.detail,
+  })
 }
 
 const runCommand = async (): Promise<void> => {
@@ -447,6 +482,10 @@ const runCommand = async (): Promise<void> => {
 
   // Answered ahead of BOTH dispatch tables — see `showCommandHelpIfRequested`.
   if (showCommandHelpIfRequested()) return
+
+  // The non-production `SOVRIUM_FAULT_INJECTION=crash` seam: a failure before
+  // the named command runs, which only the crash handler below catches.
+  await failIfCrashInjected()
 
   const exitHandler = exitCommands[parsed.command]
   if (exitHandler) {
@@ -476,7 +515,7 @@ const runCommand = async (): Promise<void> => {
   process.exit(1)
 }
 
-runCommand().catch((error: unknown) => {
+runCommand().catch(async (error: unknown) => {
   // formatRuntimeError unwraps Effect FiberFailure / Cause / ParseError /
   // TaggedError into actionable diagnostics. Without it, schema decode
   // failures and most Effect-thrown errors surface as "An error has occurred"
@@ -490,13 +529,12 @@ runCommand().catch((error: unknown) => {
   // the refusal side of that boundary is pinned by
   // `commands/start.test.ts` rather than by a string match here.
   const message = formatRuntimeError(error)
+  const { offerFailureReport, withoutSecretValues } = await import('@/cli/runtime/failure-report')
 
   printFailure({
     headline: 'Unexpected failure — Sovrium changed nothing.',
-    detail: [message],
-    guidance:
-      'If this looks like a bug, report it at\n' +
-      '  https://github.com/sovrium/sovrium/issues/new',
+    detail: [withoutSecretValues(message)],
+    guidance: offerFailureReport({ command: parsed.command, error, text: message }),
   })
   process.exit(1)
 })

@@ -15,7 +15,7 @@
  * artefact is a journal line.
  */
 
-import { readdir } from 'node:fs/promises'
+import { readdir, stat } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { Schema } from 'effect'
 import {
@@ -25,11 +25,16 @@ import {
   isSeedUsersFile,
   resolveSeedTableName,
 } from '@/domain/models/seed'
+import {
+  SEED_IMPORT_LAYER,
+  SEED_JSONL_EXTENSION,
+  parseSeedJsonl,
+} from '@/domain/models/seed/seed-jsonl'
 import type { LoadedSeedFile } from '@/application/use-cases/seed/seed-plan'
 import type { SeedAccount } from '@/domain/models/seed'
 
-/** Extensions a seed file may carry — the same set app configs accept. */
-const SEED_EXTENSIONS = ['.yaml', '.yml', '.json'] as const
+/** Extensions a seed file may carry — the app config set, plus JSON Lines for large tables. */
+const SEED_EXTENSIONS = ['.yaml', '.yml', '.json', SEED_JSONL_EXTENSION] as const
 
 /** Every seed file in a directory, sorted, excluding `assets/` and dotfiles. */
 export const discoverSeedFiles = async (seedDir: string): Promise<readonly string[]> => {
@@ -86,9 +91,24 @@ const parseSeedText = (
   }
 }
 
-/** Read, parse and decode one seed file. */
-const loadOne = async (seedDir: string, fileName: string): Promise<LoadOutcome> => {
+/** A `.jsonl` seed file: the header line, then one record per line. */
+const loadJsonl = (fileName: string, text: string): LoadOutcome => {
+  const read = parseSeedJsonl(text)
+  if (!read.ok) return { error: `${fileName}, line ${String(read.line)}: ${read.message}` }
+  return {
+    file: {
+      fileName,
+      table: read.file.table ?? basename(fileName, SEED_JSONL_EXTENSION),
+      mergeOn: read.file.mergeOn,
+      records: read.file.records.map((record) => ({ key: record.key, fields: record.fields })),
+    },
+  }
+}
+
+/** Read, parse and decode one seed file. `prefix` names its layer in every message. */
+const loadOne = async (seedDir: string, fileName: string, prefix = ''): Promise<LoadOutcome> => {
   const text = await Bun.file(join(seedDir, fileName)).text()
+  if (fileName.endsWith(SEED_JSONL_EXTENSION)) return loadJsonl(`${prefix}${fileName}`, text)
   const parsed = parseSeedText(fileName, text)
   if (!parsed.ok) return { error: parsed.error }
   if (isSeedUsersFile(parsed.value)) return loadAccounts(fileName, parsed.value)
@@ -104,7 +124,7 @@ const loadOne = async (seedDir: string, fileName: string): Promise<LoadOutcome> 
 
   return {
     file: {
-      fileName: basename(fileName),
+      fileName: `${prefix}${basename(fileName)}`,
       table: resolveSeedTableName(decoded.success, fileName),
       mergeOn: decoded.success.mergeOn,
       records: decoded.success.records.map((record) => ({
@@ -115,25 +135,50 @@ const loadOne = async (seedDir: string, fileName: string): Promise<LoadOutcome> 
   }
 }
 
-/**
- * Every seed file in `seedDir` — table files and the accounts `users:` files
- * list — or every reason one could not be read.
- */
-export const loadSeedFiles = async (
-  seedDir: string
-): Promise<
+/** What reading a seed folder gave. */
+type SeedLoad =
   | {
       readonly ok: true
       readonly files: readonly LoadedSeedFile[]
       readonly accounts: readonly SeedAccount[]
     }
   | { readonly ok: false; readonly errors: readonly string[] }
-> => {
+
+/**
+ * A table seeded from both layers — `seed/<table>.yaml` and
+ * `seed/import/<table>.yaml` — is refused, naming both files: two files
+ * competing for one table are never merged silently.
+ */
+const seededTwice = (files: readonly LoadedSeedFile[]): readonly string[] =>
+  [...Map.groupBy(files, (file) => file.table).entries()].flatMap(([table, same]) => {
+    const layers = new Set(same.map((file) => file.fileName.startsWith(`${SEED_IMPORT_LAYER}/`)))
+    return layers.size > 1
+      ? [
+          `${same.map((file) => `seed/${file.fileName}`).join(' and ')} both seed the table "${table}". ` +
+            'Keep one of them: the seed/import/ layer holds imported data, seed/ the files you write.',
+        ]
+      : []
+  })
+
+/**
+ * Every seed file in `seedDir` — table files and the accounts `users:` files
+ * list — or every reason one could not be read. With `layered`, the
+ * `seed/import/` layer beside them is read too, as one set.
+ */
+export const loadSeedFiles = async (seedDir: string, layered = false): Promise<SeedLoad> => {
   const names = await discoverSeedFiles(seedDir)
-  const outcomes = await Promise.all(names.map((name) => loadOne(seedDir, name)))
+  const layer = join(seedDir, SEED_IMPORT_LAYER)
+  const withLayer = layered && (await stat(layer).catch(() => undefined))?.isDirectory() === true
+  const layerNames = withLayer ? await discoverSeedFiles(layer) : []
+  const outcomes = await Promise.all([
+    ...names.map((name) => loadOne(seedDir, name)),
+    ...layerNames.map((name) => loadOne(layer, name, `${SEED_IMPORT_LAYER}/`)),
+  ])
+  const files = outcomes.flatMap((outcome) => ('file' in outcome ? [outcome.file] : []))
   const accounts = outcomes.flatMap((outcome) => ('accounts' in outcome ? outcome.accounts : []))
   const errors = [
     ...outcomes.flatMap((outcome) => ('error' in outcome ? [outcome.error] : [])),
+    ...seededTwice(files),
     ...findDuplicateAccountEmails(accounts).map(
       (email) => `accounts: "${email}" is listed more than once. Each email must name one account.`
     ),
@@ -142,7 +187,7 @@ export const loadSeedFiles = async (
     ? { ok: false, errors }
     : {
         ok: true,
-        files: outcomes.flatMap((outcome) => ('file' in outcome ? [outcome.file] : [])),
+        files,
         accounts,
       }
 }

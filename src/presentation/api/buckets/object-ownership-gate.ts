@@ -87,7 +87,10 @@ async function refuseSecondSpelling(
   const stored = other.success
   if (stored === undefined) return undefined
   if (stored.bucket !== input.bucket.name) return notFound(c, 'File not found')
-  const refusal = await refuseUnlessOwnerOrAdminAt(c, { ...input, key: stored.key })
+  // Judged on the uploader the spelling's own row names, claim or settled: a
+  // read of the stored object would find nothing while that upload is still in
+  // flight, and the 409 would then tell a non-owner that someone is writing it.
+  const refusal = await refuseUnlessAllowed(c, input, stored.uploadedBy)
   return refusal ?? spellingTaken(c)
 }
 
@@ -123,10 +126,29 @@ async function refuseUnlessOwnerOrAdminAt(
     return c.json(storageErrorBody('Storage unavailable', 'STORAGE_ERROR'), 500)
   }
   if (!owner.success.stored) return undefined
+  return refuseUnlessAllowed(c, input, owner.success.uploadedBy)
+}
 
+/**
+ * The 404 a caller earns when ownership governs `input.action` and the caller
+ * neither uploaded the object (`uploadedBy`) nor administers the app; else
+ * nothing. The role is only looked up once an object is at stake.
+ */
+async function refuseUnlessAllowed(
+  c: Context,
+  input: ObjectGateInput,
+  uploadedBy: string | undefined
+): Promise<Response | undefined> {
+  const { app, bucket, action, session } = input
+  const governs = ownershipGovernsAction({
+    permissions: bucket.permissions,
+    action,
+    appHasAuth: app.auth !== undefined,
+  })
+  if (!governs || session === undefined) return undefined
   const role = await runDomainPromise(c, getUserRole(session.userId))
   const allowed = mayReplaceOrRemoveObject({
-    uploadedBy: owner.success.uploadedBy,
+    uploadedBy,
     callerId: session.userId,
     callerIsAdmin: isAdminEquivalent(role, app),
   })

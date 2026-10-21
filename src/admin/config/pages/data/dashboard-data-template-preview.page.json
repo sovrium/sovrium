@@ -1,0 +1,488 @@
+{
+  "id": "dashboard-data-template-preview",
+  "name": "dashboard-data-template-preview",
+  "path": "/templates/:path*",
+  "meta": {
+    "title": "$t:admin.meta.templates"
+  },
+  "requires": ["assets.templates"],
+  "dataSource": {
+    "system": {
+      "endpoint": "/api/admin/templates/preview?path=:path",
+      "param": "path"
+    }
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "templates": "$t:admin.crumb.templates"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "header",
+          "element": "header",
+          "props": {
+            "className": "flex flex-col gap-1"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "template-title",
+              "element": "div",
+              "props": {
+                "className": "contents [&>li]:list-none"
+              },
+              "dataSource": {
+                "system": {
+                  "endpoint": "/api/admin/templates",
+                  "rowsKey": "templates",
+                  "idKey": "path"
+                }
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "h1",
+                  "visibility": {
+                    "record": {
+                      "field": "previewPath",
+                      "eq": "$param.path"
+                    }
+                  },
+                  "props": {
+                    "className": "text-foreground text-2xl font-semibold tracking-tight"
+                  },
+                  "content": "$record.label"
+                },
+                {
+                  "type": "container",
+                  "key": "template-title-declared",
+                  "element": "div",
+                  "props": {
+                    "className": "contents"
+                  },
+                  "visibility": {
+                    "record": {
+                      "field": "previewPath",
+                      "neq": "$param.path"
+                    }
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "h1",
+                      "visibility": {
+                        "record": {
+                          "field": "path",
+                          "eq": "$param.path"
+                        }
+                      },
+                      "props": {
+                        "className": "text-foreground text-2xl font-semibold tracking-tight"
+                      },
+                      "content": "$record.label"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "template-subline",
+              "element": "div",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "span",
+                  "props": {
+                    "className": "font-mono"
+                  },
+                  "content": "$record.path"
+                },
+                {
+                  "type": "text",
+                  "element": "span",
+                  "content": " · "
+                },
+                {
+                  "type": "text",
+                  "element": "span",
+                  "content": "$t:admin.templates.preview.blurb"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "admin-surface-content-2-2",
+          "element": "div",
+          "props": {
+            "className": "flex flex-col gap-4 pt-2"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-2-1",
+              "element": "div",
+              "props": {
+                "className": "flex flex-col [&>li:empty]:hidden [&>li:not(:has(>:not(:empty)))]:hidden [&>li]:list-none"
+              },
+              "dataSource": {
+                "system": {
+                  "endpoint": "/api/admin/templates",
+                  "rowsKey": "templates",
+                  "idKey": "path"
+                }
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "template-preview-title",
+                  "element": "div",
+                  "props": {
+                    "data-testid": "template-preview-title",
+                    "className": "flex flex-col gap-0.5"
+                  },
+                  "visibility": {
+                    "record": {
+                      "field": "previewPath",
+                      "eq": "$param.path"
+                    }
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "h2",
+                      "props": {
+                        "className": "text-foreground text-lg font-medium"
+                      },
+                      "content": "$record.description|$record.path"
+                    },
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "text-foreground-subtle font-mono text-sm break-all"
+                      },
+                      "content": "$record.path",
+                      "visibility": {
+                        "record": {
+                          "field": "description",
+                          "isNotEmpty": true
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-1-2",
+                  "element": "div",
+                  "props": {},
+                  "visibility": {
+                    "record": {
+                      "field": "previewPath",
+                      "neq": "$param.path"
+                    }
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "template-preview-title-2",
+                      "element": "div",
+                      "props": {
+                        "data-testid": "template-preview-title",
+                        "className": "flex flex-col gap-0.5"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "path",
+                          "eq": "$param.path"
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "h2",
+                          "props": {
+                            "className": "text-foreground text-lg font-medium"
+                          },
+                          "content": "$record.description|$record.path"
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle font-mono text-sm break-all"
+                          },
+                          "content": "$record.path",
+                          "visibility": {
+                            "record": {
+                              "field": "description",
+                              "isNotEmpty": true
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "template-no-sample",
+              "element": "div",
+              "props": {
+                "data-testid": "template-no-sample",
+                "role": "note",
+                "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 flex flex-col gap-1 p-4"
+              },
+              "visibility": {
+                "record": {
+                  "field": "usedSampleData",
+                  "eq": false
+                }
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "className": "text-foreground text-sm font-medium"
+                  },
+                  "content": "$t:admin.templates.noSample.title"
+                },
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "className": "text-foreground-subtle max-w-2xl text-sm"
+                  },
+                  "content": "$t:admin.templates.noSample.body"
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-2-3",
+              "element": "div",
+              "props": {
+                "className": "flex flex-col gap-2"
+              },
+              "visibility": {
+                "record": {
+                  "field": "rendersAs",
+                  "neq": "none"
+                }
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-3-1",
+                  "element": "div",
+                  "props": {
+                    "className": "flex flex-col gap-0.5"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "text-foreground-subtle text-sm"
+                      },
+                      "content": "$t:admin.templates.preview.email",
+                      "visibility": {
+                        "record": {
+                          "field": "rendersAs",
+                          "eq": "email"
+                        }
+                      }
+                    },
+                    {
+                      "type": "container",
+                      "key": "admin-surface-content-2-2-3-1-2",
+                      "element": "div",
+                      "props": {},
+                      "visibility": {
+                        "record": {
+                          "field": "usedSampleData",
+                          "eq": true
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle text-sm"
+                          },
+                          "content": "$t:admin.templates.preview.document",
+                          "visibility": {
+                            "record": {
+                              "field": "rendersAs",
+                              "in": ["html", "svg", "text"]
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-3-2",
+                  "element": "div",
+                  "props": {
+                    "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10"
+                  },
+                  "children": [
+                    {
+                      "type": "iframe",
+                      "props": {
+                        "data-testid": "template-preview",
+                        "sandbox": "",
+                        "srcDoc": "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:\">$record.content",
+                        "title": "$t:admin.templates.previewOf $record.path",
+                        "className": "block h-[70vh] min-h-80 w-full border-0 bg-white!"
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "template-file-panel",
+              "element": "div",
+              "props": {
+                "data-testid": "template-file-panel",
+                "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 flex flex-col gap-2 p-4"
+              },
+              "visibility": {
+                "record": {
+                  "field": "rendersAs",
+                  "eq": "none"
+                }
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "className": "text-foreground text-sm font-medium"
+                  },
+                  "content": "$t:admin.templates.file.title"
+                },
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "className": "text-foreground-subtle max-w-2xl text-sm"
+                  },
+                  "content": "$t:admin.templates.file.body"
+                },
+                {
+                  "type": "container",
+                  "key": "template-file-panel-3",
+                  "element": "div",
+                  "props": {},
+                  "visibility": {
+                    "record": {
+                      "field": "path",
+                      "contains": ".docx"
+                    }
+                  },
+                  "children": [
+                    {
+                      "type": "code",
+                      "props": {
+                        "language": "bash",
+                        "data-testid": "template-render-command"
+                      },
+                      "content": "sovrium render $record.path --out preview.docx"
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "template-file-panel-4",
+                  "element": "div",
+                  "props": {},
+                  "visibility": {
+                    "record": {
+                      "field": "path",
+                      "contains": ".xlsx"
+                    }
+                  },
+                  "children": [
+                    {
+                      "type": "code",
+                      "props": {
+                        "language": "bash",
+                        "data-testid": "template-render-command"
+                      },
+                      "content": "sovrium render $record.path --out preview.xlsx"
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "template-file-panel-5",
+                  "element": "div",
+                  "props": {},
+                  "visibility": {
+                    "record": {
+                      "field": "path",
+                      "contains": ".pptx"
+                    }
+                  },
+                  "children": [
+                    {
+                      "type": "code",
+                      "props": {
+                        "language": "bash",
+                        "data-testid": "template-render-command"
+                      },
+                      "content": "sovrium render $record.path --out preview.pptx"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

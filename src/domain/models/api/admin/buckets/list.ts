@@ -136,6 +136,13 @@ export const bucketAdminItemSchema = Schema.Struct({
       examples: ['Quote documents'],
     })
   ),
+  description: optionalField(
+    Schema.String.annotate({
+      description:
+        "What the bucket holds, as its configuration's `description` says it. Absent when the bucket declares none, and on the built-in `system` bucket, never an empty string.",
+      examples: ['Signed client contracts, one PDF each.'],
+    })
+  ),
   _admin: Schema.Struct({
     ...adminEnvelopeSchema.fields,
     metadata: Schema.Struct({
@@ -156,7 +163,7 @@ export const bucketAdminItemSchema = Schema.Struct({
     description: 'Canonical `_admin` envelope for the bucket list.',
   }),
 }).annotate({
-  title: 'sovrium:extends=Bucket|own=label,_admin,fileCount,totalBytes',
+  title: 'sovrium:extends=Bucket|own=label,description,_admin,fileCount,totalBytes',
   identifier: 'BucketAdminItem',
 })
 

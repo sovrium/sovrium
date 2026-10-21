@@ -17,11 +17,13 @@ import {
   hasDeletePermissionForRoles,
   hasUpdatePermissionForRoles,
 } from '@/domain/models/app/auth/permission-evaluator-service'
-import { provideDomain } from '@/infrastructure/logging/request-effect'
+import { provideDomain, runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { runEffect } from '@/presentation/api/runtime/run-effect'
 import { formatValidationError } from '@/presentation/api/tables/validation'
+import { refuseUnlistedBatchIds } from './batch-record-ids'
+import { callerUnlistedRows } from './readable-table-gate'
 import {
   sanitizeUpdateRichTextFields,
   validateUpdateFieldValues,
@@ -45,6 +47,25 @@ function parseJsonField<T>(value: unknown, fallback: T): T {
   } catch {
     return fallback
   }
+}
+
+/**
+ * The row gates of a bulk delete: under row-level rules, every id must
+ * individually satisfy the read and delete predicates (atomic-fail on any
+ * miss, so a partial success says nothing); then an id the caller's list of
+ * the table does not admit is refused as a missing id is.
+ */
+async function refuseBulkDeleteRows(
+  input: Omit<Parameters<typeof enforceBulkMutationGate>[0], 'guard' | 'op'> & {
+    readonly app: App
+    readonly guard: Parameters<typeof enforceBulkMutationGate>[0]['guard'] | undefined
+  }
+): Promise<Response | undefined> {
+  const { app, guard, ...rows } = input
+  const ruleError = guard
+    ? await enforceBulkMutationGate({ ...rows, guard, op: 'delete' })
+    : undefined
+  return ruleError ?? refuseUnlistedBatchIds(rows.c, app, rows.ids)
 }
 
 /**
@@ -83,21 +104,9 @@ export async function handleFormBulkDelete(c: Context, app: App) {
     return c.json({ success: false, message: 'No records specified', code: 'BAD_REQUEST' }, 400)
   }
 
-  // Z-3: row-level scoping — every id in the batch must individually
-  // satisfy the read+delete predicates. Atomic-fail on any miss to avoid
-  // the partial-success enumeration oracle.
-  if (guard) {
-    const gateError = await enforceBulkMutationGate({
-      c,
-      table,
-      session,
-      tableName,
-      ids,
-      guard,
-      op: 'delete',
-    })
-    if (gateError) return gateError
-  }
+  // Z-3 row-level scoping, then the caller's list of the table.
+  const gateError = await refuseBulkDeleteRows({ c, app, table, session, tableName, ids, guard })
+  if (gateError) return gateError
 
   // A refused delete answers what the batch delete answers, never the page's success.
   const deleted = await runEffect(
@@ -332,7 +341,11 @@ export async function handleFormBulkUpdate(c: Context, app: App) {
   })
   if ('refusal' in resolved) return resolved.refusal
 
-  const recordsData = ids.map((id) => ({ id, fields: resolved.fields }))
+  // An id her list of the table does not admit is skipped, as a missing id is.
+  const unlisted = new Set(await runDomainPromise(c, callerUnlistedRows(c, app, ids)))
+  const recordsData = ids
+    .filter((id) => !unlisted.has(String(id)))
+    .map((id) => ({ id, fields: resolved.fields }))
 
   // The batch update the records API runs, side effects included: a column the
   // user wrote by hand is no longer reported as a failed computed fallback.

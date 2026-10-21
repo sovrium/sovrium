@@ -33,6 +33,8 @@ Either `trigger` or `triggers` (1 to 10 entries, never both), and at least one e
 
 `name` is the automation's identity everywhere it is referenced: in its webhook URL, and as the target of a call from another automation. `timeout` bounds the whole run, accepts 1000 to 3600000 milliseconds, and defaults to 900000 — fifteen minutes of active execution, since time spent waiting in the queue or for an approval does not count. The `SOVRIUM_AUTOMATION_DEFAULT_TIMEOUT_MS` environment variable changes that default for the whole instance.
 
+**Placeholders keep an automation off.** `sovrium import` writes every required parameter a source step did not give as `{{todo.<name>}}`, and writes the automation with `enabled: false`. While it is off, the placeholders are accepted. Switch it on — set `enabled: true`, or remove `enabled` — and `sovrium validate` and startup refuse it until every placeholder in its trigger, its steps and the action templates it calls holds a real value, naming the automation, the step and the parameter.
+
 `aiAccess` declares an automation invokable through the MCP server, which starts it through its **manual** trigger. One of its triggers must be manual: setting `aiAccess` on an automation with none is a decode error rather than a no-op, because an assistant cannot meaningfully fire a cron.
 
 ## Template variables

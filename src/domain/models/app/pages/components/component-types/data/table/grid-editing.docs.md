@@ -8,7 +8,16 @@ The whole grid is a single tab stop. Tab moves into it once, and from there the 
 
 Shift-clicking from the cursor extends the selection into a rectangle of cells, not a range of whole rows. The cursor cell carries a small square at its bottom-right corner — the fill handle — on an editable column only. Dragging it previews the span without writing anything; releasing writes one record per row in the span, and dragging sideways fills across columns, each destination coercing the value it receives. A value the destination column cannot hold is refused and named, and the rest of the fill still lands: dragging a word into a number column tells you which column refused it and what that column takes. Double-clicking the handle fills down to the end of the neighbouring column.
 
-The last row of the body is a blank trailing row, below the data and above the summary. Typing into it and committing creates a record and grows a fresh trailing row underneath. `Escape` discards an unsaved trailing row and writes nothing; a commit missing a required field is refused, the column is named, and what was typed stays to be corrected. Grouping gives each group its own trailing row, prefilled with that group's value. The trailing row follows the same permission rule as the toolbar's create button: a role that may not create records gets no trailing row at all, rather than a disabled one. Field by field, the trailing row and the create button's dialog offer an input only for a field the reader may write; a column on a field she may read but not write stays empty in the trailing row, and the dialog leaves it out.
+The last row of the body is a blank trailing row, below the data and above the summary. Typing into it and committing creates a record and grows a fresh trailing row underneath. `Escape` discards an unsaved trailing row and writes nothing; a commit missing a required field is refused, the column is named, and what was typed stays to be corrected. Grouping gives each group its own trailing row, prefilled with that group's value. A role that may not create records gets no trailing row at all, rather than a disabled one. Field by field, the trailing row offers an input only for a field the reader may write; a column on a field she may read but not write stays empty in it.
+
+The trailing row is the only create control the grid draws. A **New** button placed above it — one you write, or the one the `data-table-toolbar` block adds when given a sheet to open — is a component of its own: the page draws it for every reader the page admits, and only the records API refuses the create. To offer it only to the roles that may create, give it a `visibility` naming the same roles as the table's `permissions.create`. A reader it leaves out never receives the button:
+
+```yaml
+- type: button
+  label: New quote
+  action: { action: openSheet, component: quote-sheet }
+  visibility: { roles: [admin, member] }
+```
 
 **A grid does not refresh itself by default.** With no `refreshMode` declared on its `dataSource`, a change made elsewhere does not reach an open grid. `refreshMode: realtime` opens a live connection and applies changes as they arrive, and a connection stuck reconnecting says so in the grid rather than leaving a stale table looking current. A live grid that declares no `columns` makes its columns editable in place — each one only for a reader who may write its field.
 

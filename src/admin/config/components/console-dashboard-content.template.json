@@ -1,0 +1,1803 @@
+{
+  "name": "console-dashboard-content",
+  "type": "flex",
+  "render": "transparent",
+  "props": {
+    "className": "@container/main flex flex-1 flex-col gap-4 py-4 md:gap-6 md:py-6"
+  },
+  "children": [
+    {
+      "type": "container",
+      "element": "header",
+      "props": {
+        "className": "flex flex-col gap-1 px-4 lg:px-6"
+      },
+      "children": [
+        {
+          "type": "text",
+          "element": "h1",
+          "props": {
+            "className": "text-2xl font-semibold tracking-tight",
+            "data-testid": "welcome-greeting"
+          },
+          "content": "$t:admin.nav.overview"
+        },
+        {
+          "type": "text",
+          "element": "p",
+          "props": {
+            "className": "text-sm text-muted-foreground"
+          },
+          "content": "$t:admin.welcome.intro"
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "element": "div",
+      "props": {
+        "className": "flex flex-col items-stretch gap-4 px-4 @5xl/main:flex-row lg:px-6"
+      },
+      "children": [
+        {
+          "type": "container",
+          "element": "section",
+          "props": {
+            "className": "min-w-0 @5xl/main:flex-[1.6]",
+            "aria-label": "$t:admin.welcome.pulse.region"
+          },
+          "children": [
+            {
+              "type": "card",
+              "title": "$t:admin.welcome.pulse.heading",
+              "description": "$t:admin.welcome.pulse.since",
+              "action": {
+                "type": "badge",
+                "badgeVariant": "secondary",
+                "visibility": {
+                  "record": {
+                    "field": "attentionItems",
+                    "gt": 0
+                  }
+                },
+                "props": {
+                  "className": "tabular-nums",
+                  "data-testid": "welcome-attention-count"
+                },
+                "content": "$record.attentionItems"
+              },
+              "props": {
+                "className": "h-full",
+                "data-testid": "welcome-attention"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "element": "div",
+                  "visibility": {
+                    "record": {
+                      "field": "attentionItems",
+                      "eq": 0
+                    }
+                  },
+                  "props": {
+                    "className": "flex flex-col gap-0.5",
+                    "data-testid": "welcome-all-clear"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "text-sm font-medium text-foreground"
+                      },
+                      "content": "$t:admin.welcome.pulse.allClear"
+                    },
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "text-sm text-muted-foreground"
+                      },
+                      "content": "$t:admin.welcome.pulse.allClear.body"
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "element": "div",
+                  "props": {
+                    "role": "list",
+                    "className": "-mx-(--card-spacing) -mb-(--card-spacing) divide-y border-t empty:hidden",
+                    "data-testid": "welcome-pulse"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "role": "listitem",
+                        "className": "flex flex-wrap items-start gap-x-3 gap-y-2 px-(--card-spacing) py-3",
+                        "data-testid": "welcome-pulse-failedRuns"
+                      },
+                      "children": [
+                        {
+                          "type": "icon",
+                          "props": {
+                            "name": "circle-alert",
+                            "size": 16,
+                            "className": "mt-0.5 shrink-0 text-destructive",
+                            "aria-hidden": "true"
+                          }
+                        },
+                        {
+                          "type": "container",
+                          "element": "div",
+                          "props": {
+                            "className": "flex min-w-0 flex-1 basis-48 flex-col gap-0.5"
+                          },
+                          "children": [
+                            {
+                              "type": "container",
+                              "element": "div",
+                              "props": {
+                                "className": "flex items-baseline gap-2 text-sm font-medium"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "content": "$t:admin.welcome.pulse.failedRuns"
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "tabular-nums text-destructive",
+                                    "data-role": "attention-count"
+                                  },
+                                  "content": "$record.failedRuns"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "element": "p",
+                              "props": {
+                                "className": "text-sm text-muted-foreground empty:hidden! sm:truncate",
+                                "data-role": "attention-detail"
+                              },
+                              "content": "$record.failedRunsDetail"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "link",
+                          "props": {
+                            "href": "/runs",
+                            "className": "inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-border bg-background px-2.5 text-[0.8rem] font-medium text-foreground no-underline shadow-xs hover:bg-muted max-sm:ml-7"
+                          },
+                          "content": "$t:admin.welcome.pulse.failedRuns.action"
+                        }
+                      ],
+                      "visibility": {
+                        "declares": "automations",
+                        "record": {
+                          "field": "failedRuns",
+                          "gt": 0
+                        }
+                      }
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "role": "listitem",
+                        "className": "flex flex-wrap items-start gap-x-3 gap-y-2 px-(--card-spacing) py-3",
+                        "data-testid": "welcome-pulse-variablesUnset"
+                      },
+                      "children": [
+                        {
+                          "type": "icon",
+                          "props": {
+                            "name": "circle-alert",
+                            "size": 16,
+                            "className": "mt-0.5 shrink-0 text-destructive",
+                            "aria-hidden": "true"
+                          }
+                        },
+                        {
+                          "type": "container",
+                          "element": "div",
+                          "props": {
+                            "className": "flex min-w-0 flex-1 basis-48 flex-col gap-0.5"
+                          },
+                          "children": [
+                            {
+                              "type": "container",
+                              "element": "div",
+                              "props": {
+                                "className": "flex items-baseline gap-2 text-sm font-medium"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "content": "$t:admin.welcome.pulse.variablesUnset"
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "tabular-nums text-destructive",
+                                    "data-role": "attention-count"
+                                  },
+                                  "content": "$record.variablesUnset"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "element": "p",
+                              "props": {
+                                "className": "text-sm text-muted-foreground empty:hidden! sm:truncate",
+                                "data-role": "attention-detail"
+                              },
+                              "content": "$record.variablesUnsetDetail"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "link",
+                          "props": {
+                            "href": "/env",
+                            "className": "inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-border bg-background px-2.5 text-[0.8rem] font-medium text-foreground no-underline shadow-xs hover:bg-muted max-sm:ml-7"
+                          },
+                          "content": "$t:admin.welcome.pulse.variablesUnset.action"
+                        }
+                      ],
+                      "visibility": {
+                        "record": {
+                          "field": "variablesUnset",
+                          "gt": 0
+                        }
+                      }
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "role": "listitem",
+                        "className": "flex flex-wrap items-start gap-x-3 gap-y-2 px-(--card-spacing) py-3",
+                        "data-testid": "welcome-pulse-tokensExpired"
+                      },
+                      "children": [
+                        {
+                          "type": "icon",
+                          "props": {
+                            "name": "circle-alert",
+                            "size": 16,
+                            "className": "mt-0.5 shrink-0 text-destructive",
+                            "aria-hidden": "true"
+                          }
+                        },
+                        {
+                          "type": "container",
+                          "element": "div",
+                          "props": {
+                            "className": "flex min-w-0 flex-1 basis-48 flex-col gap-0.5"
+                          },
+                          "children": [
+                            {
+                              "type": "container",
+                              "element": "div",
+                              "props": {
+                                "className": "flex items-baseline gap-2 text-sm font-medium"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "content": "$t:admin.welcome.pulse.tokensExpired"
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "tabular-nums text-destructive",
+                                    "data-role": "attention-count"
+                                  },
+                                  "content": "$record.tokensExpired"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "element": "p",
+                              "props": {
+                                "className": "text-sm text-muted-foreground empty:hidden! sm:truncate",
+                                "data-role": "attention-detail"
+                              },
+                              "content": "$record.tokensExpiredDetail"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "link",
+                          "props": {
+                            "href": "/connections",
+                            "className": "inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-border bg-background px-2.5 text-[0.8rem] font-medium text-foreground no-underline shadow-xs hover:bg-muted max-sm:ml-7"
+                          },
+                          "content": "$t:admin.welcome.pulse.tokensExpired.action"
+                        }
+                      ],
+                      "visibility": {
+                        "declares": "connections",
+                        "record": {
+                          "field": "tokensExpired",
+                          "gt": 0
+                        }
+                      }
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "role": "listitem",
+                        "className": "flex flex-wrap items-start gap-x-3 gap-y-2 px-(--card-spacing) py-3",
+                        "data-testid": "welcome-pulse-invitationsPending"
+                      },
+                      "children": [
+                        {
+                          "type": "icon",
+                          "props": {
+                            "name": "circle-dot",
+                            "size": 16,
+                            "className": "mt-0.5 shrink-0 text-muted-foreground",
+                            "aria-hidden": "true"
+                          }
+                        },
+                        {
+                          "type": "container",
+                          "element": "div",
+                          "props": {
+                            "className": "flex min-w-0 flex-1 basis-48 flex-col gap-0.5"
+                          },
+                          "children": [
+                            {
+                              "type": "container",
+                              "element": "div",
+                              "props": {
+                                "className": "flex items-baseline gap-2 text-sm font-medium"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "content": "$t:admin.welcome.pulse.invitationsPending"
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "tabular-nums text-muted-foreground",
+                                    "data-role": "attention-count"
+                                  },
+                                  "content": "$record.invitationsPending"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "element": "p",
+                              "props": {
+                                "className": "text-sm text-muted-foreground empty:hidden! sm:truncate",
+                                "data-role": "attention-detail"
+                              },
+                              "content": "$record.invitationsPendingDetail"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "link",
+                          "props": {
+                            "href": "/users",
+                            "className": "inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-border bg-background px-2.5 text-[0.8rem] font-medium text-foreground no-underline shadow-xs hover:bg-muted max-sm:ml-7"
+                          },
+                          "content": "$t:admin.welcome.pulse.invitationsPending.action"
+                        }
+                      ],
+                      "visibility": {
+                        "record": {
+                          "field": "invitationsPending",
+                          "gt": 0
+                        }
+                      }
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "role": "listitem",
+                        "className": "flex flex-wrap items-start gap-x-3 gap-y-2 px-(--card-spacing) py-3",
+                        "data-testid": "welcome-pulse-recentSubmissions"
+                      },
+                      "children": [
+                        {
+                          "type": "icon",
+                          "props": {
+                            "name": "circle-dot",
+                            "size": 16,
+                            "className": "mt-0.5 shrink-0 text-muted-foreground",
+                            "aria-hidden": "true"
+                          }
+                        },
+                        {
+                          "type": "container",
+                          "element": "div",
+                          "props": {
+                            "className": "flex min-w-0 flex-1 basis-48 flex-col gap-0.5"
+                          },
+                          "children": [
+                            {
+                              "type": "container",
+                              "element": "div",
+                              "props": {
+                                "className": "flex items-baseline gap-2 text-sm font-medium"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "content": "$t:admin.welcome.pulse.recentSubmissions"
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "tabular-nums text-muted-foreground",
+                                    "data-role": "attention-count"
+                                  },
+                                  "content": "$record.recentSubmissions"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "element": "p",
+                              "props": {
+                                "className": "text-sm text-muted-foreground empty:hidden! sm:truncate",
+                                "data-role": "attention-detail"
+                              },
+                              "content": "$record.recentSubmissionsDetail"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "link",
+                          "props": {
+                            "href": "/submissions",
+                            "className": "inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-border bg-background px-2.5 text-[0.8rem] font-medium text-foreground no-underline shadow-xs hover:bg-muted max-sm:ml-7"
+                          },
+                          "content": "$t:admin.welcome.pulse.recentSubmissions.action"
+                        }
+                      ],
+                      "visibility": {
+                        "declares": "forms",
+                        "record": {
+                          "field": "recentSubmissions",
+                          "gt": 0
+                        }
+                      }
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "role": "listitem",
+                        "className": "flex flex-wrap items-start gap-x-3 gap-y-2 px-(--card-spacing) py-3",
+                        "data-testid": "welcome-pulse-findingsCount"
+                      },
+                      "children": [
+                        {
+                          "type": "icon",
+                          "props": {
+                            "name": "circle-dot",
+                            "size": 16,
+                            "className": "mt-0.5 shrink-0 text-muted-foreground",
+                            "aria-hidden": "true"
+                          }
+                        },
+                        {
+                          "type": "container",
+                          "element": "div",
+                          "props": {
+                            "className": "flex min-w-0 flex-1 basis-48 flex-col gap-0.5"
+                          },
+                          "children": [
+                            {
+                              "type": "container",
+                              "element": "div",
+                              "props": {
+                                "className": "flex items-baseline gap-2 text-sm font-medium"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "content": "$t:admin.welcome.pulse.findingsCount"
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "tabular-nums text-muted-foreground",
+                                    "data-role": "attention-count"
+                                  },
+                                  "content": "$record.findingsCount"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "element": "p",
+                              "props": {
+                                "className": "text-sm text-muted-foreground empty:hidden! sm:truncate",
+                                "data-role": "attention-detail"
+                              },
+                              "content": "$record.findingsDetail"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "link",
+                          "props": {
+                            "href": "/organisation?tab=map",
+                            "className": "inline-flex h-7 shrink-0 items-center justify-center rounded-md border border-border bg-background px-2.5 text-[0.8rem] font-medium text-foreground no-underline shadow-xs hover:bg-muted max-sm:ml-7"
+                          },
+                          "content": "$t:admin.welcome.pulse.findingsCount.action"
+                        }
+                      ],
+                      "visibility": {
+                        "record": {
+                          "field": "findingsCount",
+                          "gt": 0
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "element": "section",
+          "props": {
+            "className": "min-w-0 @5xl/main:flex-1",
+            "aria-label": "$t:admin.welcome.instance.heading"
+          },
+          "children": [
+            {
+              "type": "card",
+              "title": "$t:admin.welcome.instance.heading",
+              "description": "$t:admin.welcome.instance.description",
+              "props": {
+                "className": "h-full",
+                "data-testid": "welcome-instance"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "element": "div",
+                  "props": {
+                    "className": "-mx-(--card-spacing) -mb-(--card-spacing) divide-y border-t"
+                  },
+                  "children": [
+                    {
+                      "type": "description-list",
+                      "props": {
+                        "className": "px-(--card-spacing) [&_dd]:text-right",
+                        "data-testid": "welcome-instance-facts"
+                      },
+                      "items": [
+                        {
+                          "term": "$t:admin.welcome.instance.booted",
+                          "detail": "$record.bootedAt",
+                          "format": "day-relative-time"
+                        },
+                        {
+                          "term": "$t:admin.welcome.instance.version",
+                          "detail": "Sovrium $app.engineVersion"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-h-10 items-center justify-between gap-3 px-(--card-spacing) py-2 text-sm"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-muted-foreground"
+                          },
+                          "content": "$t:admin.welcome.instance.database"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "min-w-0 truncate text-right font-medium text-foreground"
+                          },
+                          "content": "PostgreSQL"
+                        }
+                      ],
+                      "visibility": {
+                        "record": {
+                          "field": "database",
+                          "eq": "postgresql"
+                        }
+                      }
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-h-10 items-center justify-between gap-3 px-(--card-spacing) py-2 text-sm"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-muted-foreground"
+                          },
+                          "content": "$t:admin.welcome.instance.database"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "min-w-0 truncate text-right font-medium text-foreground"
+                          },
+                          "content": "SQLite"
+                        }
+                      ],
+                      "visibility": {
+                        "record": {
+                          "field": "database",
+                          "eq": "sqlite"
+                        }
+                      }
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-h-10 items-center justify-between gap-3 px-(--card-spacing) py-2 text-sm"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-muted-foreground"
+                          },
+                          "content": "$t:admin.welcome.instance.storage"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "min-w-0 truncate text-right font-medium text-foreground capitalize"
+                          },
+                          "content": "$record.storage"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-h-10 items-center justify-between gap-3 px-(--card-spacing) py-2 text-sm"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-muted-foreground"
+                          },
+                          "content": "$t:admin.welcome.instance.ai"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "min-w-0 truncate text-right font-medium text-foreground capitalize"
+                          },
+                          "content": "$record.aiProvider"
+                        }
+                      ],
+                      "visibility": {
+                        "record": {
+                          "field": "aiProvider",
+                          "isNotEmpty": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "grid",
+      "props": {
+        "className": "grid grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] gap-4 px-4 lg:px-6",
+        "data-testid": "welcome-figures",
+        "role": "group",
+        "aria-label": "$t:admin.welcome.figures.region"
+      },
+      "children": [
+        {
+          "type": "card",
+          "footer": [
+            {
+              "type": "container",
+              "element": "div",
+              "props": {
+                "className": "text-sm text-muted-foreground"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "span",
+                  "content": "$record.failedRuns"
+                },
+                {
+                  "type": "text",
+                  "element": "span",
+                  "content": " "
+                },
+                {
+                  "type": "text",
+                  "element": "span",
+                  "content": "$t:admin.welcome.figures.runs.sub"
+                }
+              ]
+            }
+          ],
+          "children": [
+            {
+              "type": "kpi",
+              "label": "$t:admin.welcome.figures.runs",
+              "dataSource": {
+                "system": {
+                  "endpoint": "/api/admin/overview",
+                  "valuePath": "runs.recent"
+                }
+              },
+              "kpiFormat": {
+                "type": "number"
+              },
+              "props": {
+                "className": "border-0 bg-transparent p-0 shadow-none [--card-spacing:0px]!"
+              }
+            }
+          ],
+          "props": {
+            "className": "*:data-[slot=card-footer]:flex-1 *:data-[slot=card-footer]:items-start",
+            "data-testid": "welcome-figure-runs"
+          },
+          "visibility": {
+            "declares": "automations"
+          }
+        },
+        {
+          "type": "card",
+          "footer": [
+            {
+              "type": "container",
+              "element": "div",
+              "props": {
+                "className": "text-sm text-muted-foreground"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "span",
+                  "content": "$record.recentSubmissions"
+                },
+                {
+                  "type": "text",
+                  "element": "span",
+                  "content": " "
+                },
+                {
+                  "type": "text",
+                  "element": "span",
+                  "content": "$t:admin.welcome.figures.submissions.sub"
+                }
+              ]
+            }
+          ],
+          "children": [
+            {
+              "type": "kpi",
+              "label": "$t:admin.welcome.figures.submissions",
+              "dataSource": {
+                "system": {
+                  "endpoint": "/api/admin/overview",
+                  "valuePath": "submissions.total"
+                }
+              },
+              "kpiFormat": {
+                "type": "number"
+              },
+              "props": {
+                "className": "border-0 bg-transparent p-0 shadow-none [--card-spacing:0px]!"
+              }
+            }
+          ],
+          "props": {
+            "className": "*:data-[slot=card-footer]:flex-1 *:data-[slot=card-footer]:items-start",
+            "data-testid": "welcome-figure-submissions"
+          },
+          "visibility": {
+            "declares": "forms"
+          }
+        },
+        {
+          "type": "card",
+          "footer": [
+            {
+              "type": "container",
+              "element": "div",
+              "props": {
+                "className": "text-sm text-muted-foreground"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "span",
+                  "content": "$record.bucketsLocal"
+                },
+                {
+                  "type": "text",
+                  "element": "span",
+                  "content": " "
+                },
+                {
+                  "type": "text",
+                  "element": "span",
+                  "content": "$t:admin.welcome.sub.local"
+                },
+                {
+                  "type": "text",
+                  "element": "span",
+                  "content": " · "
+                },
+                {
+                  "type": "text",
+                  "element": "span",
+                  "content": "$record.bucketsS3"
+                },
+                {
+                  "type": "text",
+                  "element": "span",
+                  "content": " s3"
+                }
+              ]
+            }
+          ],
+          "children": [
+            {
+              "type": "kpi",
+              "label": "$t:admin.welcome.figures.storage",
+              "dataSource": {
+                "system": {
+                  "endpoint": "/api/admin/overview",
+                  "valuePath": "storage.totalBytes"
+                }
+              },
+              "kpiFormat": {
+                "type": "bytes"
+              },
+              "props": {
+                "className": "border-0 bg-transparent p-0 shadow-none [--card-spacing:0px]!"
+              }
+            }
+          ],
+          "props": {
+            "className": "*:data-[slot=card-footer]:flex-1 *:data-[slot=card-footer]:items-start",
+            "data-testid": "welcome-figure-storage"
+          },
+          "visibility": {
+            "declares": "buckets"
+          }
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "element": "div",
+      "props": {
+        "className": "hidden px-4 md:block lg:px-6"
+      },
+      "children": [
+        {
+          "type": "card",
+          "title": "$t:admin.welcome.ask.title",
+          "description": "$t:admin.welcome.ask.description",
+          "props": {
+            "className": "flex min-h-[24rem] min-w-0",
+            "data-testid": "welcome-composer"
+          },
+          "children": [
+            {
+              "type": "ai-chat",
+              "agent": "system",
+              "placeholder": "$t:admin.common.askApp",
+              "draftParam": "q",
+              "chatHeight": 264,
+              "showHistory": false,
+              "props": {
+                "className": "rounded-none border-0 bg-transparent",
+                "suggestions": [
+                  "$t:admin.welcome.suggest.failed",
+                  "$t:admin.welcome.suggest.unset",
+                  "$t:admin.welcome.suggest.declares"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "visibility": {
+        "runtime": "ai",
+        "capability": "edit-operations"
+      }
+    },
+    {
+      "type": "container",
+      "element": "section",
+      "props": {
+        "className": "px-4 lg:px-6",
+        "data-testid": "welcome-runs-chart",
+        "aria-label": "$t:admin.welcome.runsChart.region"
+      },
+      "children": [
+        {
+          "type": "chart",
+          "dataSource": {
+            "system": {
+              "endpoint": "/api/admin/automations/overview",
+              "rowsKey": "points",
+              "query": {
+                "period": "7d"
+              }
+            }
+          },
+          "chartType": "bar",
+          "xAxis": {
+            "field": "timestamp",
+            "format": "date"
+          },
+          "yAxis": {
+            "field": "runs",
+            "gridLines": true
+          },
+          "series": [
+            {
+              "field": "runs",
+              "label": "$t:admin.welcome.runsChart.runs"
+            },
+            {
+              "field": "failures",
+              "label": "$t:admin.welcome.runsChart.failures"
+            }
+          ]
+        }
+      ],
+      "visibility": {
+        "declares": "automations"
+      }
+    },
+    {
+      "type": "container",
+      "element": "section",
+      "props": {
+        "className": "px-4 lg:px-6",
+        "aria-label": "$t:admin.welcome.counts.region"
+      },
+      "children": [
+        {
+          "type": "container",
+          "element": "section",
+          "props": {
+            "className": "flex flex-col gap-3",
+            "aria-label": "$t:admin.welcome.counts.heading",
+            "data-testid": "welcome-declarations"
+          },
+          "children": [
+            {
+              "type": "container",
+              "element": "div",
+              "props": {
+                "className": "flex flex-col gap-1"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "h2",
+                  "props": {
+                    "className": "text-base font-medium text-foreground"
+                  },
+                  "content": "$t:admin.welcome.counts.heading"
+                },
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "className": "text-sm text-muted-foreground"
+                  },
+                  "content": "$t:admin.welcome.counts.description"
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "element": "div",
+              "props": {
+                "role": "list",
+                "className": "grid grid-cols-[repeat(auto-fit,minmax(14rem,1fr))] gap-4",
+                "data-testid": "welcome-counts"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "element": "div",
+                  "props": {
+                    "role": "listitem",
+                    "className": "flex flex-col gap-2 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10",
+                    "data-testid": "welcome-tile-tables"
+                  },
+                  "children": [
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/records",
+                        "className": "text-muted-foreground no-underline hover:text-foreground hover:underline underline-offset-4"
+                      },
+                      "content": "$t:admin.welcome.counts.tables.where"
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-1 text-muted-foreground"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "element": "div",
+                          "props": {
+                            "className": "order-last basis-full truncate text-sm text-muted-foreground"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "$t:admin.welcome.sub.fields"
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": " "
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "$record.tableFields"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "content": "$t:admin.common.tables"
+                        },
+                        {
+                          "type": "kpi",
+                          "label": "$t:admin.common.tables",
+                          "dataSource": {
+                            "system": {
+                              "endpoint": "/api/admin/config/reflection",
+                              "valuePath": "tableCount"
+                            }
+                          },
+                          "kpiFormat": {
+                            "type": "number"
+                          },
+                          "props": {
+                            "className": "order-first shrink-0 gap-0 [container-type:normal] [&_[data-slot=card-header]]:[container-type:normal] border-0 bg-transparent py-0 shadow-none ring-0 [--card-spacing:0px]! [&_[data-role=kpi-label]]:sr-only [&_[data-role=kpi-value]]:text-2xl [&_[data-role=kpi-value]]:font-semibold [&_[data-role=kpi-value]]:font-medium [&_[data-role=kpi-value]]:text-foreground"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "visibility": {
+                    "declares": "tables"
+                  }
+                },
+                {
+                  "type": "container",
+                  "element": "div",
+                  "props": {
+                    "role": "listitem",
+                    "className": "flex flex-col gap-2 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10",
+                    "data-testid": "welcome-tile-automations"
+                  },
+                  "children": [
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/runs",
+                        "className": "text-muted-foreground no-underline hover:text-foreground hover:underline underline-offset-4"
+                      },
+                      "content": "$t:admin.welcome.counts.automations.where"
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-1 text-muted-foreground"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "element": "div",
+                          "props": {
+                            "className": "order-last basis-full truncate text-sm text-muted-foreground"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "$record.automationsPaused"
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": " "
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "$t:admin.welcome.sub.paused"
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": " · "
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "$record.automationsDisabled"
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": " "
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "$t:admin.welcome.sub.disabled"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "content": "$t:admin.common.automations"
+                        },
+                        {
+                          "type": "kpi",
+                          "label": "$t:admin.common.automations",
+                          "dataSource": {
+                            "system": {
+                              "endpoint": "/api/admin/config/reflection",
+                              "valuePath": "automationCount"
+                            }
+                          },
+                          "kpiFormat": {
+                            "type": "number"
+                          },
+                          "props": {
+                            "className": "order-first shrink-0 gap-0 [container-type:normal] [&_[data-slot=card-header]]:[container-type:normal] border-0 bg-transparent py-0 shadow-none ring-0 [--card-spacing:0px]! [&_[data-role=kpi-label]]:sr-only [&_[data-role=kpi-value]]:text-2xl [&_[data-role=kpi-value]]:font-semibold [&_[data-role=kpi-value]]:font-medium [&_[data-role=kpi-value]]:text-foreground"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "visibility": {
+                    "declares": "automations"
+                  }
+                },
+                {
+                  "type": "container",
+                  "element": "div",
+                  "props": {
+                    "role": "listitem",
+                    "className": "flex flex-col gap-2 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10",
+                    "data-testid": "welcome-tile-forms"
+                  },
+                  "children": [
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/submissions",
+                        "className": "text-muted-foreground no-underline hover:text-foreground hover:underline underline-offset-4"
+                      },
+                      "content": "$t:admin.welcome.counts.forms.where"
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-1 text-muted-foreground"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "content": "$t:admin.common.forms"
+                        },
+                        {
+                          "type": "kpi",
+                          "label": "$t:admin.common.forms",
+                          "dataSource": {
+                            "system": {
+                              "endpoint": "/api/admin/config/reflection",
+                              "valuePath": "formCount"
+                            }
+                          },
+                          "kpiFormat": {
+                            "type": "number"
+                          },
+                          "props": {
+                            "className": "order-first shrink-0 gap-0 [container-type:normal] [&_[data-slot=card-header]]:[container-type:normal] border-0 bg-transparent py-0 shadow-none ring-0 [--card-spacing:0px]! [&_[data-role=kpi-label]]:sr-only [&_[data-role=kpi-value]]:text-2xl [&_[data-role=kpi-value]]:font-semibold [&_[data-role=kpi-value]]:font-medium [&_[data-role=kpi-value]]:text-foreground"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "visibility": {
+                    "declares": "forms"
+                  }
+                },
+                {
+                  "type": "container",
+                  "element": "div",
+                  "props": {
+                    "role": "listitem",
+                    "className": "flex flex-col gap-2 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10",
+                    "data-testid": "welcome-tile-agents"
+                  },
+                  "children": [
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/conversations",
+                        "className": "text-muted-foreground no-underline hover:text-foreground hover:underline underline-offset-4"
+                      },
+                      "content": "$t:admin.welcome.counts.agents.where"
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-1 text-muted-foreground"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "element": "div",
+                          "props": {
+                            "className": "order-last basis-full truncate text-sm text-muted-foreground"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "+ "
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "$record.agentsSystem"
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": " "
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "$t:admin.welcome.sub.builtIn"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "content": "$t:admin.common.agents"
+                        },
+                        {
+                          "type": "kpi",
+                          "label": "$t:admin.common.agents",
+                          "dataSource": {
+                            "system": {
+                              "endpoint": "/api/admin/config/reflection",
+                              "valuePath": "agentCount"
+                            }
+                          },
+                          "kpiFormat": {
+                            "type": "number"
+                          },
+                          "props": {
+                            "className": "order-first shrink-0 gap-0 [container-type:normal] [&_[data-slot=card-header]]:[container-type:normal] border-0 bg-transparent py-0 shadow-none ring-0 [--card-spacing:0px]! [&_[data-role=kpi-label]]:sr-only [&_[data-role=kpi-value]]:text-2xl [&_[data-role=kpi-value]]:font-semibold [&_[data-role=kpi-value]]:font-medium [&_[data-role=kpi-value]]:text-foreground"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "visibility": {
+                    "declares": "agents"
+                  }
+                },
+                {
+                  "type": "container",
+                  "element": "div",
+                  "props": {
+                    "role": "listitem",
+                    "className": "flex flex-col gap-2 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10",
+                    "data-testid": "welcome-tile-buckets"
+                  },
+                  "children": [
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/files",
+                        "className": "text-muted-foreground no-underline hover:text-foreground hover:underline underline-offset-4"
+                      },
+                      "content": "$t:admin.welcome.counts.buckets.where"
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-1 text-muted-foreground"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "element": "div",
+                          "props": {
+                            "className": "order-last basis-full truncate text-sm text-muted-foreground"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "$record.bucketsLocal"
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": " "
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "$t:admin.welcome.sub.local"
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": " · "
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "$record.bucketsS3"
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": " s3 · + "
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "$record.bucketsSystem"
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": " "
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "$t:admin.welcome.sub.builtIn"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "content": "$t:admin.common.buckets"
+                        },
+                        {
+                          "type": "kpi",
+                          "label": "$t:admin.common.buckets",
+                          "dataSource": {
+                            "system": {
+                              "endpoint": "/api/admin/config/reflection",
+                              "valuePath": "bucketCount"
+                            }
+                          },
+                          "kpiFormat": {
+                            "type": "number"
+                          },
+                          "props": {
+                            "className": "order-first shrink-0 gap-0 [container-type:normal] [&_[data-slot=card-header]]:[container-type:normal] border-0 bg-transparent py-0 shadow-none ring-0 [--card-spacing:0px]! [&_[data-role=kpi-label]]:sr-only [&_[data-role=kpi-value]]:text-2xl [&_[data-role=kpi-value]]:font-semibold [&_[data-role=kpi-value]]:font-medium [&_[data-role=kpi-value]]:text-foreground"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "visibility": {
+                    "declares": "buckets"
+                  }
+                },
+                {
+                  "type": "container",
+                  "element": "div",
+                  "props": {
+                    "role": "listitem",
+                    "className": "flex flex-col gap-2 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10",
+                    "data-testid": "welcome-tile-users"
+                  },
+                  "children": [
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/users",
+                        "className": "text-muted-foreground no-underline hover:text-foreground hover:underline underline-offset-4"
+                      },
+                      "content": "$t:admin.welcome.counts.users.where"
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-1 text-muted-foreground"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "element": "div",
+                          "props": {
+                            "className": "order-last basis-full truncate text-sm text-muted-foreground"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "$t:admin.welcome.sub.banned"
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": " "
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "$record.usersBanned"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "content": "$t:admin.common.users"
+                        },
+                        {
+                          "type": "kpi",
+                          "label": "$t:admin.common.users",
+                          "dataSource": {
+                            "system": {
+                              "endpoint": "/api/admin/overview",
+                              "valuePath": "users.total"
+                            }
+                          },
+                          "kpiFormat": {
+                            "type": "number"
+                          },
+                          "props": {
+                            "className": "order-first shrink-0 gap-0 [container-type:normal] [&_[data-slot=card-header]]:[container-type:normal] border-0 bg-transparent py-0 shadow-none ring-0 [--card-spacing:0px]! [&_[data-role=kpi-label]]:sr-only [&_[data-role=kpi-value]]:text-2xl [&_[data-role=kpi-value]]:font-semibold [&_[data-role=kpi-value]]:font-medium [&_[data-role=kpi-value]]:text-foreground"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "element": "div",
+                  "props": {
+                    "role": "listitem",
+                    "className": "flex flex-col gap-2 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10",
+                    "data-testid": "welcome-tile-pages"
+                  },
+                  "children": [
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/analytics",
+                        "className": "text-muted-foreground no-underline hover:text-foreground hover:underline underline-offset-4"
+                      },
+                      "content": "$t:admin.welcome.counts.pages.where",
+                      "visibility": {
+                        "declares": "pages"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "element": "span",
+                      "props": {
+                        "className": "text-muted-foreground font-normal text-foreground"
+                      },
+                      "content": "$t:admin.welcome.counts.pages.where",
+                      "visibility": {
+                        "unlessDeclares": "pages"
+                      }
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-1 text-muted-foreground"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "content": "$t:admin.common.pages"
+                        },
+                        {
+                          "type": "kpi",
+                          "label": "$t:admin.common.pages",
+                          "dataSource": {
+                            "system": {
+                              "endpoint": "/api/admin/config/reflection",
+                              "valuePath": "pageCount"
+                            }
+                          },
+                          "kpiFormat": {
+                            "type": "number"
+                          },
+                          "props": {
+                            "className": "order-first shrink-0 gap-0 [container-type:normal] [&_[data-slot=card-header]]:[container-type:normal] border-0 bg-transparent py-0 shadow-none ring-0 [--card-spacing:0px]! [&_[data-role=kpi-label]]:sr-only [&_[data-role=kpi-value]]:text-2xl [&_[data-role=kpi-value]]:font-semibold [&_[data-role=kpi-value]]:font-medium [&_[data-role=kpi-value]]:text-foreground"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "element": "div",
+                  "props": {
+                    "role": "listitem",
+                    "className": "flex flex-col gap-2 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10",
+                    "data-testid": "welcome-tile-links"
+                  },
+                  "children": [
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/links",
+                        "className": "text-muted-foreground no-underline hover:text-foreground hover:underline underline-offset-4"
+                      },
+                      "content": "$t:admin.welcome.counts.links.where"
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-1 text-muted-foreground"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "element": "div",
+                          "props": {
+                            "className": "order-last basis-full truncate text-sm text-muted-foreground"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "$record.linksConfig"
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": " "
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "$t:admin.welcome.sub.config"
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": " · "
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "$record.linksDb"
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": " "
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "$t:admin.welcome.sub.db"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "content": "$t:admin.common.links"
+                        },
+                        {
+                          "type": "kpi",
+                          "label": "$t:admin.common.links",
+                          "dataSource": {
+                            "system": {
+                              "endpoint": "/api/admin/links",
+                              "valuePath": "total"
+                            }
+                          },
+                          "kpiFormat": {
+                            "type": "number"
+                          },
+                          "props": {
+                            "className": "order-first shrink-0 gap-0 [container-type:normal] [&_[data-slot=card-header]]:[container-type:normal] border-0 bg-transparent py-0 shadow-none ring-0 [--card-spacing:0px]! [&_[data-role=kpi-label]]:sr-only [&_[data-role=kpi-value]]:text-2xl [&_[data-role=kpi-value]]:font-semibold [&_[data-role=kpi-value]]:font-medium [&_[data-role=kpi-value]]:text-foreground"
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "visibility": {
+                    "declares": "links"
+                  }
+                },
+                {
+                  "type": "container",
+                  "element": "div",
+                  "props": {
+                    "role": "listitem",
+                    "className": "flex flex-col gap-2 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10",
+                    "data-testid": "welcome-tile-roles"
+                  },
+                  "children": [
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/organisation",
+                        "className": "text-muted-foreground no-underline hover:text-foreground hover:underline underline-offset-4"
+                      },
+                      "content": "$t:admin.welcome.counts.roles.where",
+                      "visibility": {
+                        "declares": "data"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "element": "span",
+                      "props": {
+                        "className": "text-muted-foreground font-normal text-foreground"
+                      },
+                      "content": "$t:admin.welcome.counts.roles.where",
+                      "visibility": {
+                        "unlessDeclares": "data"
+                      }
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-1 text-muted-foreground"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "element": "div",
+                          "props": {
+                            "className": "order-last basis-full truncate text-sm text-muted-foreground"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "$t:admin.welcome.sub.teams"
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": " "
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "content": "$record.teams"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "content": "$t:admin.common.roles"
+                        },
+                        {
+                          "type": "kpi",
+                          "label": "$t:admin.common.roles",
+                          "dataSource": {
+                            "system": {
+                              "endpoint": "/api/admin/roles",
+                              "valuePath": "total"
+                            }
+                          },
+                          "kpiFormat": {
+                            "type": "number"
+                          },
+                          "props": {
+                            "className": "order-first shrink-0 gap-0 [container-type:normal] [&_[data-slot=card-header]]:[container-type:normal] border-0 bg-transparent py-0 shadow-none ring-0 [--card-spacing:0px]! [&_[data-role=kpi-label]]:sr-only [&_[data-role=kpi-value]]:text-2xl [&_[data-role=kpi-value]]:font-semibold [&_[data-role=kpi-value]]:font-medium [&_[data-role=kpi-value]]:text-foreground"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

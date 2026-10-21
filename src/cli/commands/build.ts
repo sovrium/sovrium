@@ -9,9 +9,12 @@ import { stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { Effect } from 'effect'
 import { warnDeprecatedKeys } from '@/cli/runtime/config-deprecation-warnings'
+import { offerFailureReport } from '@/cli/runtime/failure-report'
 import { formatConfigRejection, isConfigRejectedError } from '@/domain/errors/config-rejected'
+import { isEngineFailureError } from '@/domain/errors/engine-failure-error'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { formatPathForDisplay } from '@/infrastructure/logging/format-path'
+import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
 import {
   isPublicDirOptOut,
   parseBooleanEnv,
@@ -149,6 +152,10 @@ const exitOnBuildFailure = (
     printStderr(formatConfigRejection(error, 'built'))
   } else {
     logError('Failed to build static site', error)
+    const failure = isEngineFailureError(error) ? error.failure : error
+    printStderr(
+      `\n${offerFailureReport({ command: 'build', error: failure, text: formatRuntimeError(failure) })}`
+    )
   }
   // Terminate process - imperative statement required for CLI
   process.exit(1)

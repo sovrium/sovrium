@@ -341,7 +341,7 @@ const TABLE_STICKY_HEADER = [
 ].join(' ')
 
 /**
- * Compute the extra className `<thead>` takes on under `layout: fill`.
+ * Compute the className `<thead>` takes on to stay on screen while rows scroll.
  *
  * The opaque fill is load-bearing rather than decorative, exactly as the pinned
  * column's is: a pinned section paints over rows that keep moving underneath

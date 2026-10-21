@@ -5,13 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useCallback, useMemo, type ReactElement } from 'react'
+import { useCallback, useMemo, useRef, type ReactElement } from 'react'
 import { POPUP_SURFACE } from '@/presentation/design/shared-tokens-default-classes'
 import { Calendar } from './day-picker'
+import { useInViewPlacement } from './in-view-placement'
 
 /**
  * The calendar a date box opens: the shared day grid in a floating
- * panel below the box.
+ * panel below the box — or above it, or shifted, where the window has no room
+ * below (`in-view-placement`).
  *
  * Its own module so the form loads it on demand (`React.lazy` in
  * `date-text-box`): the grid pulls react-day-picker and its date library, which a
@@ -57,8 +59,12 @@ export default function DateTextCalendar({
   // The pressed day, whether or not it was already the selected one: in
   // `single` mode pressing the selected day again would otherwise deselect it.
   const handleSelect = useCallback((_selection: unknown, day: Date) => onPick(isoOf(day)), [onPick])
+  const panel = useRef<HTMLDivElement>(null)
+  const placement = useInViewPlacement(panel)
   return (
     <div
+      ref={panel}
+      style={placement}
       role="dialog"
       aria-label={label}
       data-slot="popover-content"

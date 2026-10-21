@@ -8,23 +8,12 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { resolveTranslationTokensDeep } from '@/domain/models/app/languages/translation-resolver'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
-import {
-  computeTabsFillPanelClasses,
-  computeTabsFillShellClasses,
-  type TabsLayout,
-} from '@/presentation/design/tabs-fill-default-classes'
 import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
-import { LAZY_PANEL_PARAM_KEY } from '@/presentation/render/resolve/tabs-lazy-resolver'
+import { AccordionSkeleton } from './accordion-skeleton'
 import { buildAccordionItems } from './island-accordion-items'
 import { asRecord, baseProps, controlLabel, pickFromComponent } from './island-form-props'
 import { renderSsrNavItem } from './island-nav-ssr'
-import {
-  buildTabsItems,
-  computeSsrTabsRootClasses,
-  renderTabsSsrTriggerStrip,
-  resolveAddressedPanel,
-  stripAddressedPanelContent,
-} from './island-tabs-ssr'
+import { islandTabsComponent } from './island-tabs-component'
 import { recordPickerComponent } from './record-picker-component'
 import { selectComponents } from './select-component'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
@@ -64,163 +53,12 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
         data-island-props={JSON.stringify(props)}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
-        <div className="divide-border border-border divide-y rounded-lg border">
-          <div className="px-4 py-3">
-            <div className="bg-muted h-5 w-48 animate-pulse rounded" />
-          </div>
-          <div className="px-4 py-3">
-            <div className="bg-muted h-5 w-40 animate-pulse rounded" />
-          </div>
-        </div>
+        <AccordionSkeleton rawChildren={c['children']} />
       </div>
     )
   },
 
-  tabs: ({ component, elementProps, renderedChildren, currentLang, languages, designStyles }) => {
-    // The tabs schema places `tabsOrientation` and `defaultTab` at the top
-    // level (siblings of `props`/`children`), not inside `props`, so we read
-    // them from `component` rather than `rawProps`. Items are derived from
-    // `children` — each `tab-panel` contributes one tab.
-    //
-    // PG-04 (PATTERN-REGRESSION): `renderedChildren` carries the pre-rendered
-    // SSR ReactElements for each tab-panel — `buildTabsItems` falls back to
-    // their static HTML when an author uses the React-child form (form,
-    // data-table inside a panel) rather than a `content.body` string.
-    const c = asRecord(component)
-    const items = buildTabsItems(c['panels'], renderedChildren, currentLang, languages)
-    const defaultTab = c['defaultTab'] as string | undefined
-    const addressed = resolveAddressedPanel(items, defaultTab)
-    const tabsOrientation =
-      (c['tabsOrientation'] as 'horizontal' | 'vertical' | undefined) ?? 'horizontal'
-    // `layout` (and `tabsVariant`) sit at the top level beside `tabsOrientation`,
-    // so they are read off `component`, and reach `islandProps` EXPLICITLY: these
-    // props are assembled key by key, so a key that merely decodes never crosses
-    // to the hydrated half.
-    const layout = c['layout'] as TabsLayout | undefined
-    // The DECLARED `page.query` property this tab set's `defaultTab` binds to,
-    // attached by `resolveTabsLazyPanels` before that binding was substituted
-    // away. Present only on a tab set the author made an ADDRESS, which is what
-    // makes deferring its unopened panels free of the three costs
-    // A pages tabs spec priced — see that resolver.
-    //
-    // Read through the resolver's own constant rather than by repeating the
-    // string: the writer spreads a computed key, so a literal here is a second
-    // spelling that `tsc` cannot pair with the first. Renaming the field would
-    // have left this read returning `undefined` — a tab set silently reverting
-    // to shipping every panel, with nothing red to say so.
-    const lazyParam = c[LAZY_PANEL_PARAM_KEY] as string | undefined
-    const fillShell = computeTabsFillShellClasses(layout, tabsOrientation)
-    const islandProps = {
-      // The addressed panel's markup is DROPPED here: it is already in the
-      // document below, and the island reads it back through the `ssrHtml`
-      // capture rather than being handed a second, escaped copy of it
-      // On an ADDRESSED tab set every panel's markup is
-      // dropped — the unopened ones are fetched by address on activation
-      // So a reader of one lens pays for one lens.
-      items: stripAddressedPanelContent(items, addressed?.id, lazyParam !== undefined),
-      defaultTab,
-      lazyParam,
-      tabsOrientation,
-      tabsVariant: c['tabsVariant'] === 'line' ? 'line' : 'default',
-      layout,
-      // The author's `props['aria-label']` (read, like a switch's, off `elementProps`
-      // where `$t:` is resolved) names the island's `role="tablist"`.
-      ariaLabel: elementProps['aria-label'] as string | undefined,
-      ...baseProps(elementProps, designStyles),
-    }
-    return (
-      // The `data-island` host is deliberately LAYOUT-NEUTRAL, and that is the
-      // whole fix behind a pages tabs spec. The island mounts `Tabs.Root`
-      // as this element's single child carrying the same split classes from
-      // `computeTabsRootClasses`, so when the host carried them too the real
-      // tab set became a non-growing item of a clone of its own layout and
-      // shrink-fit to its content — ~950px of a 1400px container handed back,
-      // straight out of the column the config sample is read in.
-      //
-      // The layout lives on ONE element in each state instead: the wrapper
-      // below before hydration, `Tabs.Root` after — the element the wrapper is
-      // replaced by, at the same depth, with the same classes.
-      //
-      // `layout: 'fill'` is the ONE thing the host does carry, and it is not a
-      // second copy of that split: the host is the bounded column and the root
-      // inside it is the item that claims the column's height, so the two are
-      // consecutive links of one chain rather than a layout and its clone. Its
-      // absence is the whole of why a page dressing every OTHER reachable link
-      // still left the grid at its natural height. `flow` — the default —
-      // resolves to the empty string and the host keeps no `className` at all.
-      // The host names the component: it is the one element that
-      // outlives the mount — `Tabs.Root` replaces the wrapper inside it — so the
-      // name sits here, once, before and after hydration.
-      <div
-        data-island="tabs"
-        data-component-type={hostComponentType(elementProps)}
-        data-island-props={JSON.stringify(islandProps)}
-        // Opt in to the pre-mount `ssrHtml` capture in `island-client.tsx`. The
-        // addressed panel's markup is no longer serialised into the props, so
-        // this host's own server-rendered subtree is the ONLY copy of it — and
-        // `createRoot` discards that subtree, so it has to be read before the
-        // mount rather than after. Set only when there IS an addressed panel to
-        // read; a tab set showing the skeleton has nothing to adopt.
-        data-island-ssr={addressed !== undefined ? 'true' : undefined}
-        data-testid={elementProps['data-testid'] as string | undefined}
-        className={fillShell || undefined}
-      >
-        <div
-          // Same `resolveClasses(defaults, author className)` as the island's
-          // root, for the same reason: an author cap or a re-proportioned grid
-          // track that applied only after hydration is a layout jump they never
-          // asked for and cannot see in a screenshot. The
-          // SSR half and the client half must call the SAME pure function or the
-          // page paints one layout and snaps to another on mount.
-          className={
-            resolveClasses(
-              computeSsrTabsRootClasses(tabsOrientation) ?? '',
-              elementProps.className as string | undefined,
-              undefined,
-              fillShell || undefined
-            ) || undefined
-          }
-        >
-          {renderTabsSsrTriggerStrip(items, tabsOrientation, lazyParam)}
-          <div
-            // `py-4`, the pre-hydration twin of `TAB_PANEL_LAYOUT` in
-            // `islands/disclosure/disclosure-default-classes.ts`. The panel
-            // reserves no horizontal gutter, and this half
-            // has to say so too: a `p-4` left here would paint the body 16px in
-            // before hydration and flush after it, which is the repaint
-            // A pages tabs spec exists to forbid.
-            className={
-              resolveClasses(
-                tabsOrientation === 'vertical' ? 'min-w-0 py-4' : 'py-4',
-                fillShell || undefined
-              ) || undefined
-            }
-          >
-            {addressed !== undefined ? (
-              <div
-                data-tab-panel-ssr="true"
-                // Names WHICH panel this markup belongs to, so the island can
-                // pair it back with its own `items` entry after `createRoot`
-                // has discarded the subtree it was read from.
-                data-tab-panel-id={addressed.id}
-                // The panel's own content root, and the second half of the fill
-                // chain: the pre-rendered body is injected INSIDE this box, so
-                // it is the link that re-opens the chain across the wrapper a
-                // panel's content brings with it — the hydrated twin of what
-                // `computeTabsFillPanelClasses` does on `<Tabs.Panel>` one
-                // element up, at the depth the island leaves this one at.
-                className={computeTabsFillPanelClasses(layout) || undefined}
-                // eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value
-                dangerouslySetInnerHTML={{ __html: addressed.html }}
-              />
-            ) : (
-              <div className="bg-muted h-24 animate-pulse rounded" />
-            )}
-          </div>
-        </div>
-      </div>
-    )
-  },
+  tabs: islandTabsComponent,
 
   checkbox: ({ rawProps, elementProps, component }) => {
     const checkboxProps = buildCheckboxProps(rawProps, elementProps, component)

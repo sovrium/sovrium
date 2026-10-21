@@ -1053,7 +1053,10 @@ export type Action =
       readonly type: 'data'
       readonly operator: 'set'
     } & Props<{
-        readonly value: string
+        /** One value, read back as `steps.<name>.value`. Exactly one of `value` and `fields`. */
+        readonly value?: string
+        /** Named values, read back as `{{<name>.result.<field>}}`. Exactly one of `value` and `fields`. */
+        readonly fields?: Readonly<Record<string, unknown>>
       }>)
   | (ActionBase & {
       readonly type: 'data'

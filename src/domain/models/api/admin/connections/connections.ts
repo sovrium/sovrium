@@ -213,6 +213,35 @@ export const connectionListItemSchema = Schema.Struct({
     description:
       'ISO 8601 UTC timestamp the connection row was created (`system.connections.created_at`).',
   }),
+  usedBy: Schema.Array(
+    Schema.Struct({
+      kind: Schema.Literal('automation').annotate({
+        description: 'What uses the connection: an automation.',
+      }),
+      name: Schema.String.annotate({
+        description: 'The automation’s `name`, the identifier its runs are filtered by.',
+      }),
+      label: Schema.String.annotate({
+        description:
+          'The automation as a person reads it: its declared `label`, else its `name` made readable.',
+      }),
+    }).annotate({ strictKeys: true, title: 'sovrium:strict-keys' })
+  ).annotate({
+    description:
+      'The automations whose steps call this connection, sorted by name: a `connection` step naming it, at the top of the automation or nested inside a path or a loop. Read from the configuration as it is today. Empty for a connection nothing calls.',
+  }),
+  lastUsedAt: Schema.NullOr(
+    Schema.String.annotate({
+      description:
+        'When a step that calls this connection last ran, as an ISO 8601 instant: the start of the newest such step, finished or failed, across the automations in `usedBy`. Null when none has run.',
+    })
+  ),
+  lastError: Schema.NullOr(
+    Schema.String.annotate({
+      description:
+        'The error of that newest step when it failed, exactly as the run records it; null when it succeeded or nothing has run, so a later success clears an earlier failure. Carries the failure only, never what the call sent.',
+    })
+  ),
 }).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'ConnectionListItem' })
 
 /**

@@ -62,12 +62,13 @@ import {
   type PeriodPreset,
   type PeriodWindow,
 } from '@/domain/models/api/admin/envelope/period-preset'
-import { stepLogEntrySchema, type RunStatus } from '@/domain/models/api/automations'
+import { type RunStatus } from '@/domain/models/api/automations'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { entityLabelFor } from '@/domain/models/app/auth/readable-name-service'
 import { onDevTimeline } from '@/infrastructure/process/server-boot-instant'
-import { buildAdminRunItem, toIso } from './automations-run-item'
+import { buildAdminRunItem, runFailureAttribution, toIso } from './automations-run-item'
 import { runsResultFacts, tallyRunCounts } from './automations-run-labels'
+import { readStepLogs, stepTimingOf } from './automations-run-step-facts'
 import { encodeRunsCursor, runsListFilters } from './automations-runs-query'
 import type { ConsoleLanguage } from './operator-language'
 import type { App } from '@/domain/models/app'
@@ -233,6 +234,8 @@ export interface AdminRunsListInput {
   readonly automationId?: string | undefined
   readonly from?: string | undefined
   readonly to?: string | undefined
+  /** Only the runs started by hand from a schedule (`true`), or only the others (`false`). */
+  readonly onDemand?: boolean | undefined
   /** Free-text term over the automation name and failure `error`; `undefined` = no search. */
   readonly q?: string | undefined
   readonly cursor?: string | undefined
@@ -330,22 +333,6 @@ export type AdminRunDetailOutcome =
   | { readonly _tag: 'NotFound' }
   | { readonly _tag: 'ValidationFailed'; readonly error: unknown }
 
-const decodeStepLogEntry = decodeSafe(stepLogEntrySchema)
-
-/**
- * Read the persisted `logs` column as the step's log entries. Always an array:
- * an absent or non-array column is a step that logged nothing, and an entry
- * the engine would never write (unknown level, missing message, a bare value)
- * is DROPPED one by one, so one corrupt entry cannot 500 a run.
- */
-function readStepLogs(logs: unknown): AdminRunStep['logs'] {
-  if (!Array.isArray(logs)) return []
-  return logs.flatMap((entry: unknown) => {
-    const decoded = decodeStepLogEntry(entry)
-    return decoded.success ? [{ level: decoded.data.level, message: decoded.data.message }] : []
-  })
-}
-
 /**
  * Project a persisted step row to the admin run-step shape: `input` is the
  * action's resolved `props`, absent values read `null`, and a path or loop
@@ -415,15 +402,24 @@ export const BuildAdminRunDetail = (
     )
     const stepLabel = stepLabels(app, row.automationName)
     const steps = stepRows
-      .map(buildAdminRunStep)
+      .map((stepRow) => ({ ...buildAdminRunStep(stepRow), ...stepTimingOf(stepRow) }))
       .map((step) => ({ ...step, label: stepLabel(step.name) }))
 
     const ran = steps.filter((step) => step.status !== 'skipped').length
     const item = buildAdminRunItem(app, row, ran, language)
-    const parsed = decodeSafe(automationsRunsDetailWithStepsResponseSchema)({
+    const position =
+      row.status === 'failed' ? steps.findIndex((step) => step.status === 'failed') : -1
+    const failed = steps[position]
+    const body = {
       ...item,
       steps,
-    })
+      failedStep:
+        failed === undefined
+          ? null
+          : { index: failed.index, number: position + 1, label: failed.label ?? failed.name },
+      ...(yield* runFailureAttribution(runId, row.status)),
+    }
+    const parsed = decodeSafe(automationsRunsDetailWithStepsResponseSchema)(body)
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
     }

@@ -99,3 +99,14 @@ When there is no pre-compiled stylesheet for the app — no `sovrium build`, or 
 | `SOVRIUM_TAILWIND_CACHE`     | on                                 | Set to `off` to compile the stylesheet on every start and never read or write the cache                                                                     |
 
 Each entry carries its own length and checksum; a damaged entry is ignored, recompiled and replaced. An unwritable directory never stops the server — it compiles as if the cache were off. Entries are grouped per engine build, and a build's group is deleted once nothing has been written to it for 30 days, so upgrades do not accumulate stylesheets. The cache never leaves the machine and holds only compiled CSS, so deleting the directory at any time is safe.
+
+## Failure reports
+
+A failed start, build or command keeps its report in `<data dir>/reports/`, and a running server keeps the internal errors it answered there too, the last 50, each under its request id. That is what `sovrium report --last-error` and `sovrium report --request-id <id>` read. Every copy is redacted before it is written.
+
+To see those reports without waiting for a real bug, development only:
+
+| Variable                         | Default | Description                                                                                                                                                                                                                                                                    |
+| -------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SOVRIUM_FAULT_INJECTION`        | unset   | `start` fails `sovrium start` inside its startup, `crash` fails any command before it runs, `action:<automation>` makes that automation's first action die, `page:<path>` makes the render of a request to that URL path fail with a `500`. Ignored when `NODE_ENV=production` |
+| `SOVRIUM_FAULT_INJECTION_DETAIL` | unset   | Text added to the end of that failure's message                                                                                                                                                                                                                                |

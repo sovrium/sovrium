@@ -26,9 +26,10 @@ import {
   persistChatTurn,
 } from '@/application/use-cases/ai/conversation-memory'
 import { logError } from '@/infrastructure/logging/logger'
-import { getConversationHistory } from '@/presentation/api/agents/chat-conversation-store'
+import { keepListedExchanges, type ReplayScope } from '@/presentation/api/agents/chat-replay-scope'
 import { replayStoredHistory } from '@/presentation/api/agents/chat-turn-parts'
 import type {
+  AiMemoryMessage,
   AiMessageElicitation,
   AiMessagePart,
 } from '@/application/ports/repositories/ai/ai-memory-repository'
@@ -65,34 +66,47 @@ const resolveMemoryMaxAgeDays = (): number | undefined => {
 /**
  * Load the durable conversation history for a `(userId, sessionId)` thread
  * from `system.ai_conversations` / `system.ai_messages`, projected onto the
- * OpenAI chat-completion message shape. Best-effort — a persistence failure
- * yields the in-memory history rather than breaking the turn. Falls back to
- * the in-memory store for the defensive `anonymous` (sessionless) case.
+ * OpenAI chat-completion message shape. The signed-out `anonymous` caller has
+ * none here: her conversation is her browser's, in the in-memory store
+ * (`chat-conversation-store.ts`), read by the turn itself.
+ *
+ * Every exchange whose answer read a table the person chatting no longer lists
+ * is left out ({@link keepListedExchanges}); the stored conversation keeps it.
+ * A history that cannot be read is replayed as none — logged with its cause —
+ * rather than from the in-memory store, which keeps no table to judge an
+ * exchange by.
  *
  * Honours `AI_MEMORY_CONTEXT_MESSAGES` by keeping only the most recent N
  * messages.
  */
 export const loadDurableHistory = async (
-  services: DomainContext,
-  userId: string,
-  sessionId: string
+  scope: ReplayScope,
+  thread: { readonly userId: string; readonly sessionId: string }
 ): Promise<ReadonlyArray<ChatMessage>> => {
-  if (userId === 'anonymous') return getConversationHistory(sessionId)
-  const result = await Effect.runPromise(
-    Effect.provide(loadChatHistory({ userId, sessionId }).pipe(Effect.result), services)
+  const { userId, sessionId } = thread
+  if (userId === 'anonymous') return []
+  const stored = await Effect.runPromise(
+    loadChatHistory({ userId, sessionId }).pipe(
+      Effect.tapCause((cause) =>
+        Effect.sync(() => {
+          logError('[ai-chat] loading the conversation history failed; none is replayed', cause)
+        })
+      ),
+      // effect-swallow: the turn answers without its history rather than failing; the cause is logged above.
+      Effect.orElseSucceed((): ReadonlyArray<AiMemoryMessage> => []),
+      Effect.provide(scope.services)
+    )
   )
-  if (result._tag === 'Failure') return getConversationHistory(sessionId)
-  const all = result.success
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => ({
-      role: m.role as ConversationMessage['role'],
-      content: m.content,
-      parts: m.parts,
-    }))
+  const replayed = stored.filter((m) => m.role === 'user' || m.role === 'assistant')
+  const all = (await keepListedExchanges(scope, replayed)).map((m) => ({
+    role: m.role as ConversationMessage['role'],
+    content: m.content,
+    parts: m.parts,
+  }))
   const limit = resolveMemoryContextLimit()
   const kept = limit !== undefined && all.length > limit ? all.slice(all.length - limit) : all
   // A question sent as parts is rebuilt from them, its files read anew this turn.
-  return replayStoredHistory(services, userId, kept)
+  return replayStoredHistory(scope.services, userId, kept)
 }
 
 /**

@@ -23,14 +23,19 @@
 
 import { Cause, Effect, Exit, Ref } from 'effect'
 import {
+  AutomationRunRepository,
+  type RunDefect,
+} from '@/application/ports/repositories/automations/automation-run-repository'
+import { operatorFixOf } from '@/domain/errors/operator-fixable-error'
+import {
   INTERRUPTED_RUN_ERROR,
   RUN_DEFECT_ERROR,
 } from '@/domain/models/app/automations/automation-run-outcome-service'
+import { describeKeptFailure } from '@/infrastructure/logging/internal-error-report'
 import { logError } from '@/infrastructure/logging/logger'
 import { finaliseRun } from './run-persistence'
 import { releaseSlot, unregisterCancellation } from './scheduler'
 import type { TriggerData } from '../resolve-trigger-data'
-import type { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 
 /** What the guard needs to close a run the normal path did not. */
 export interface AdmittedRun {
@@ -47,6 +52,35 @@ export interface AdmittedRun {
   readonly finalised: Ref.Ref<boolean>
 }
 
+/**
+ * What the bug report a run abandoned on an internal error offers: the error's
+ * class, its signature and its scrubbed in-repository frames. The message is
+ * not kept — it can quote a value the trigger sent. A cause the operator can
+ * fix (their database, their environment) is no defect of the engine, so none
+ * is recorded and the run offers no report.
+ */
+const defectOf = (error: unknown): RunDefect | undefined => {
+  if (operatorFixOf(error) !== undefined) return undefined
+  const { errorClass, signature, frames } = describeKeptFailure(error)
+  return frames === '' ? { errorClass, signature } : { errorClass, signature, frames }
+}
+
+/**
+ * Keep the defect on the run's row. Logged and swallowed: the run is already
+ * closed as failed, and a missing defect only costs its page the report title.
+ */
+const recordDefect = (
+  runId: string,
+  defect: RunDefect
+): Effect.Effect<void, never, AutomationRunRepository> =>
+  AutomationRunRepository.use((repo) => repo.recordDefect(runId, defect)).pipe(
+    Effect.tapCause((cause) =>
+      Effect.sync(() => logError(`[automation] could not record the defect of run ${runId}`, cause))
+    ),
+    // effect-swallow: stated above — the run is closed either way; the defect only titles its report.
+    Effect.ignore
+  )
+
 /** Close an abandoned run as `failed`, then give back its slot and its canceller. */
 const closeAbandonedRun = (
   run: AdmittedRun,
@@ -58,6 +92,7 @@ const closeAbandonedRun = (
     // An interruption is not an internal error: it is the server stopping the
     // run (a shutdown that could not wait for it — the chained-run shutdown and cross-automation cycle rule), and the row says so.
     const interrupted = Cause.hasInterruptsOnly(cause)
+    const defect = interrupted ? undefined : defectOf(Cause.squash(cause))
     logError(
       interrupted
         ? `[automation] run ${run.runId} of "${run.name}" was interrupted; closing it as stopped`
@@ -77,6 +112,7 @@ const closeAbandonedRun = (
       ...(run.startedByHand === true ? { startedByHand: true } : {}),
       ...(run.startedAsGuest === true ? { startedAsGuest: true } : {}),
     })
+    if (defect !== undefined) yield* recordDefect(run.runId, defect)
     releaseSlot(run.name)
     unregisterCancellation(run.runId)
   })

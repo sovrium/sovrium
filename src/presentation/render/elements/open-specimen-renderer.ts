@@ -69,6 +69,7 @@ import { DatePickerPopup } from '@/presentation/islands/date-picker/date-picker-
 import { RangePanel } from '@/presentation/islands/date-range-picker/range-panel'
 import { parseInterval } from '@/presentation/islands/date-range-picker/range-value'
 import { MenuPopupBody } from '@/presentation/islands/overlays/menu-popup-body'
+import { renderInstant } from '@/presentation/render/page/render-clock'
 import type { MenuItem, MenuSurface } from '@/presentation/islands/overlays/menu-item-types'
 
 /**
@@ -89,7 +90,7 @@ const NOOP = (): void => undefined
  * reader comparing the drawing with the control meets the same month.
  */
 const viewMonthFor = (anchor: Date | undefined): Date => {
-  const base = anchor ?? new Date()
+  const base = anchor ?? renderInstant() ?? new Date()
   return new Date(base.getFullYear(), base.getMonth(), 1)
 }
 

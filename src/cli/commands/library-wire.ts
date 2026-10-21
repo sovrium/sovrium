@@ -56,9 +56,11 @@ const headerLines = (header: string | readonly string[], marker: string): string
 
 /**
  * A value that ends a line as one double-quoted scalar whose only escapes are
- * double quotes: the scalar Prettier rewrites in single quotes.
+ * double quotes: the scalar Prettier rewrites in single quotes. The scalar is
+ * the line's first double quote onwards, so a scalar holding another escape
+ * (a `\\n`) is never cut at an inner quote and left as written.
  */
-const DOUBLE_QUOTED_TAIL = /^(.*?)"((?:[^"\\']|\\")*\\"(?:[^"\\']|\\")*)"$/
+const DOUBLE_QUOTED_TAIL = /^([^"]*)"((?:[^"\\']|\\")*\\"(?:[^"\\']|\\")*)"$/
 
 /**
  * A YAML fragment: the provenance comments, then the item, block-style, as
@@ -181,20 +183,23 @@ const documentRefusal = (rootText: string, lines: readonly string[]): string | u
   return undefined
 }
 
-/** Place the line under a key declared on its own line, with nothing inline. */
-const planUnderKey = (lines: readonly string[], index: number, refPath: string): YamlWirePlan => {
+/** The item text at a given indentation: one `- $ref:` line, or a whole rendered item. */
+type ItemAt = (indent: number) => string
+
+/** Place the item under a key declared on its own line, with nothing inline. */
+const planUnderKey = (lines: readonly string[], index: number, item: ItemAt): YamlWirePlan => {
   const first = nextContentIndex(lines, index)
   const firstLine = first === -1 ? undefined : lines[first]
   // `key:` with nothing indented under it is an empty value: the item goes
   // right below — unless the sequence is written indentless, at column 0.
   if (firstLine === undefined || indentOf(firstLine) === 0)
     return firstLine?.startsWith('-') === true
-      ? insertAt(lines, lastLineOfSequence(lines, index, 0), refLine(0, refPath))
-      : insertAt(lines, index, refLine(2, refPath))
+      ? insertAt(lines, lastLineOfSequence(lines, index, 0), item(0))
+      : insertAt(lines, index, item(2))
   if (!firstLine.trimStart().startsWith('-'))
     return { kind: 'unwirable', reason: 'it holds a mapping, not a sequence' }
   const itemIndent = indentOf(firstLine)
-  return insertAt(lines, lastLineOfSequence(lines, index, itemIndent), refLine(itemIndent, refPath))
+  return insertAt(lines, lastLineOfSequence(lines, index, itemIndent), item(itemIndent))
 }
 
 /**
@@ -207,13 +212,23 @@ const planUnderKey = (lines: readonly string[], index: number, refPath: string):
 export const planYamlWire = (rootText: string, key: string, refPath: string): YamlWirePlan => {
   const lines = rootText.split('\n')
   if (lines.some((line) => line.trim() === `- $ref: ${refPath}`)) return { kind: 'already-wired' }
+  return planYamlAppend(rootText, key, (indent) => refLine(indent, refPath))
+}
 
+/**
+ * Plan the insertion of item text at the end of the block sequence under `key`
+ * — the general form of {@link planYamlWire}, used by `sovrium import` to add
+ * whole entries. `item` renders the text at the sequence's indentation; it may
+ * span several lines, each already carrying that indentation.
+ */
+export const planYamlAppend = (rootText: string, key: string, item: ItemAt): YamlWirePlan => {
+  const lines = rootText.split('\n')
   const refusal = documentRefusal(rootText, lines)
   if (refusal !== undefined) return { kind: 'unwirable', reason: refusal }
 
   const { index, count } = findKeyLine(lines, key)
   if (count > 1) return { kind: 'unwirable', reason: `\`${key}\` is declared more than once` }
-  if (index === -1) return appendKey(rootText, key, refLine(2, refPath))
+  if (index === -1) return appendKey(rootText, key, item(2))
 
   const keyLine = lines[index] ?? ''
   const inline = inlineValue(keyLine)
@@ -221,10 +236,10 @@ export const planYamlWire = (rootText: string, key: string, refPath: string): Ya
     return insertAt(
       lines.map((line, at) => (at === index ? dropEmptyFlowSequence(line) : line)),
       index,
-      refLine(2, refPath)
+      item(2)
     )
   return inline === ''
-    ? planUnderKey(lines, index, refPath)
+    ? planUnderKey(lines, index, item)
     : {
         kind: 'unwirable',
         reason: `\`${key}\` is written as \`${inline}\`, not as a block sequence`,

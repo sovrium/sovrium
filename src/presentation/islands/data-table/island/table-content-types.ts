@@ -62,6 +62,8 @@ export interface TableContentProps {
   readonly noMatchMessage?: string
   /** Active search string (TanStack `globalFilter`); echoed by `noMatchMessage`. */
   readonly globalFilter?: string
+  /** Whether a control on the page narrowed the read — see `TableBodyRowsProps`. */
+  readonly narrowed?: boolean
   readonly selectionMode?: 'none' | 'single' | 'multiple'
   readonly groupByConfig?: ViewGroupBy
   /**

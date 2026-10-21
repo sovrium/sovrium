@@ -265,6 +265,18 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
       return updated.length > 0
     }),
 
+  recordDefect: (id, defect) =>
+    wrap(async () => {
+      await db
+        .update(automationRuns)
+        .set({
+          defectClass: defect.errorClass,
+          defectSignature: defect.signature,
+          defectFrames: defect.frames ?? null,
+        })
+        .where(eq(automationRuns.id, id))
+    }),
+
   finaliseRun: (input) =>
     wrap(async () => {
       const [updated] = await db

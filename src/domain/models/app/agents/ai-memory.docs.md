@@ -52,6 +52,10 @@ Facts are partitioned by namespace, defaulting to the agent's own name, so two a
 
 The property that matters in practice: an agent cannot leak one customer's learned facts into another customer's conversation, and it cannot do so by accident, because the partition is not something the prompt can reach across.
 
+### Recall follows what the user lists today
+
+A fact is kept with the tables the answer it came from read. `POST /api/ai/agents/{name}/recall` returns only the facts whose tables the user still lists: a fact learned from a table she no longer lists — her role changed, a grant was withdrawn, or the table's records list no longer admits her a row — is left out, the same judgement a chat turn applies to the exchanges it replays. The fact itself stays stored, and is recalled again if she is given the table back. A fact stored before Sovrium began keeping these tables names none, so it is recalled as it was stored.
+
 ## Composing the tiers
 
 Both are optional and combine freely. A read-only analyst might enable only knowledge; a long-running support agent enables both. With both on, context is assembled from each before the model is invoked — the retrieved documents and the relevant facts, together.
@@ -73,6 +77,10 @@ The list takes `agent` to show one agent's conversations only, and `limit` (up t
 ### How long conversations are kept
 
 A conversation is kept until its user deletes it or their account is erased, unless the operator sets `AI_MEMORY_MAX_AGE_DAYS`. Then, at the start of the user's next turn on `POST /api/ai/chat` or `POST /api/ai/chat/stream`, their conversations with no message for longer than that many days are deleted, together with every file sent in them: the messages, the uploads' records and their stored bytes, all hard-deleted. `AI_MEMORY_CONTEXT_MESSAGES` caps how many of a conversation's most recent messages are sent to the model with each turn. Both are listed in **Env Vars: AI**.
+
+### What a turn replays follows what the user lists today
+
+Each turn sends the model the conversation's earlier questions and answers. An exchange whose answer read a table the user no longer lists — her role changed, a grant was withdrawn, or the table's records list no longer admits her a row — is left out of what is sent, on a chat turn, a System Agent turn, an edit and a regeneration alike; an exchange about a table she still lists is sent as before. The judgement is made on every turn, by table, from the line each answer keeps per call, and an answer the assistant composed itself from a table — a record query, a write, a write awaiting confirmation — keeps such a line too. The stored conversation is unchanged: the exchange stays in it, is still shown when she reads the conversation, and is sent again on a later turn if she is given the table back. An answer stored before Sovrium began keeping these lines carries no record of the tables it read, so it is sent as it was stored, like any message of a conversation she can read herself.
 
 ### Edits and regenerations keep what came before
 

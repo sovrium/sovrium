@@ -1,0 +1,174 @@
+{
+  "id": "dashboard-report",
+  "name": "dashboard-report",
+  "path": "/report",
+  "meta": {
+    "title": "$t:admin.meta.report"
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 p-4 w-full max-w-5xl"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "report": "$t:admin.crumb.report"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "report-content",
+          "element": "div",
+          "props": {
+            "className": "flex flex-col gap-6"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "report-head",
+              "element": "div",
+              "props": {
+                "className": "flex flex-col gap-2"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "h1",
+                  "props": {
+                    "className": "text-foreground text-2xl font-semibold tracking-tight"
+                  },
+                  "content": "$t:admin.report.heading"
+                },
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "className": "text-muted-foreground text-md"
+                  },
+                  "content": "$t:admin.report.description"
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "report-installation",
+              "element": "section",
+              "props": {
+                "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 flex flex-col gap-3 p-6",
+                "aria-labelledby": "report-installation-heading"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "report-installation-head",
+                  "element": "div",
+                  "props": {
+                    "className": "flex flex-col gap-1"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "h2",
+                      "props": {
+                        "id": "report-installation-heading",
+                        "className": "text-foreground text-base font-medium"
+                      },
+                      "content": "$t:admin.report.installation.heading"
+                    },
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "text-muted-foreground text-sm"
+                      },
+                      "content": "$t:admin.report.installation.body"
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "report-installation-island",
+                  "element": "div",
+                  "props": {
+                    "data-island": "admin-report-link",
+                    "data-island-props": "{\"source\": \"installation\"}"
+                  },
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "report-latest",
+              "element": "section",
+              "props": {
+                "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 flex flex-col gap-3 p-6",
+                "aria-labelledby": "report-latest-heading"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "report-latest-head",
+                  "element": "div",
+                  "props": {
+                    "className": "flex flex-col gap-1"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "h2",
+                      "props": {
+                        "id": "report-latest-heading",
+                        "className": "text-foreground text-base font-medium"
+                      },
+                      "content": "$t:admin.report.latest.heading"
+                    },
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "text-muted-foreground text-sm"
+                      },
+                      "content": "$t:admin.report.latest.body"
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "report-latest-island",
+                  "element": "div",
+                  "props": {
+                    "data-island": "admin-report-link",
+                    "data-island-props": "{\"source\": \"latest\"}"
+                  },
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

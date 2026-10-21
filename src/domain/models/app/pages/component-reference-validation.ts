@@ -60,9 +60,10 @@ export interface Placement {
   readonly node: Readonly<Record<string, unknown>>
 }
 
-// `children` rides along on either form: the page components that fill the
-// template's `$children` slot.
-const REF_PLACEMENT_KEYS: ReadonlySet<string> = new Set(['$ref', 'vars', 'children'])
+// `children` and `slots` ride along on either form: the page components that
+// fill the template's slots. So does `key`, the placement's node key.
+const PLACEMENT_EXTRA_KEYS: ReadonlySet<string> = new Set(['children', 'slots', 'key'])
+const REF_PLACEMENT_KEYS: ReadonlySet<string> = new Set(['$ref', 'vars', ...PLACEMENT_EXTRA_KEYS])
 const VALUE_KEYS: ReadonlySet<string> = new Set(['vars', 'variables'])
 
 /** The template name a node places with a bare `$ref`, or `undefined`. */
@@ -80,7 +81,9 @@ const refPlacedName = (record: Readonly<Record<string, unknown>>): string | unde
 const componentPlacedName = (record: Readonly<Record<string, unknown>>): string | undefined => {
   const name = record['component']
   if (typeof name !== 'string') return undefined
-  const others = Object.keys(record).filter((key) => key !== 'component' && key !== 'children')
+  const others = Object.keys(record).filter(
+    (key) => key !== 'component' && !PLACEMENT_EXTRA_KEYS.has(key)
+  )
   return others.length <= 1 && others.every((key) => VALUE_KEYS.has(key)) ? name : undefined
 }
 
@@ -112,11 +115,12 @@ export const collectPlacements = (node: unknown, inArray = false): readonly Plac
   if (node === null || typeof node !== 'object') return []
   const record = node as Readonly<Record<string, unknown>>
   const own = placementOf(record, inArray)
-  // A placement's own `children` are page components for the template's slot,
-  // so a placement written among them is checked where it is written too.
+  // A placement's own `children` and `slots` are page components for the
+  // template's slots, so a placement written among them is checked where it
+  // is written too.
   return own === undefined
     ? Object.values(record).flatMap((value: unknown) => collectPlacements(value))
-    : [own, ...collectPlacements(record['children'])]
+    : [own, ...collectPlacements(record['children']), ...collectPlacements(record['slots'])]
 }
 
 /** The `name` of every declared template. */

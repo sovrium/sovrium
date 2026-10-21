@@ -40,7 +40,32 @@
 // Each `$name` is substituted from the `vars` of the reference that embeds it.
 // A template with no variables is a copy-paste with extra steps; these carry
 // the data each shape actually varies on, and nothing else.
+//
+// ─── AND THE CONSOLE'S OWN FURNITURE ───────────────────────────────────────
+//
+// After the four, the array carries the console's chrome and shared blocks:
+// the shell, the header end, the page header, the grids, the drawers, the
+// cards, the tabs and the sign-in cards. Every page places them from its
+// `*.page.json`, so a shared part is edited here once. They are TRANSPARENT:
+// each draws exactly what the same tree drew written inline, and none is
+// listed on the Design System pages, because they are furniture rather than
+// parts an author reaches for. Every name starts `console-`, the prefix an
+// app's own templates are warned off.
 
+import { consoleDashboardContent } from './console-dashboard-content'
+import { consoleFactsCard } from './console-facts-card'
+import { consoleGrid } from './console-grid'
+import { consoleHeaderEnd } from './console-header-end'
+import { consoleLedger } from './console-ledger'
+import { consoleLogin } from './console-login'
+import { consolePageHeader } from './console-page-header'
+import { consolePasswordCard } from './console-password-card'
+import { consoleRecordSheet } from './console-record-sheet'
+import { consoleRecordsToolbar } from './console-records-toolbar'
+import { consoleSectionCard } from './console-section-card'
+import { consoleShell } from './console-shell'
+import { consoleTabs } from './console-tabs'
+import { consoleToolbarSearch } from './console-toolbar-search'
 import type { AppEncoded as AppConfig } from '@/domain/models/app'
 
 /** One reusable template, as the config type expresses it. */
@@ -133,7 +158,7 @@ const consoleTopbar = {
  * trail: the bar above it already said where this is.
  */
 const dataPageHeader = {
-  name: 'data-page-header',
+  name: 'console-data-page-header',
   type: 'container',
   element: 'div',
   guidance: {
@@ -237,7 +262,7 @@ const dataPageHeader = {
  * renders correctly still fails the person reading it.
  */
 const emptyStateCard = {
-  name: 'empty-state-card',
+  name: 'console-empty-state-card',
   type: 'container',
   element: 'div',
   guidance: {
@@ -288,7 +313,7 @@ const emptyStateCard = {
  * that has no idea what "3 minutes ago" means.
  */
 const auditRow = {
-  name: 'audit-row',
+  name: 'console-audit-row',
   type: 'container',
   element: 'div',
   guidance: {
@@ -356,7 +381,29 @@ const auditRow = {
   ],
 } as unknown as Template
 
-/** The four, in the order the Components index composes them. */
-const templates: readonly Template[] = [consoleTopbar, dataPageHeader, emptyStateCard, auditRow]
+/**
+ * The four, in the order the Components index composes them, then the
+ * transparent furniture the pages place (which the index does not list).
+ */
+const templates: readonly Template[] = [
+  consoleTopbar,
+  dataPageHeader,
+  emptyStateCard,
+  auditRow,
+  consoleShell,
+  consoleHeaderEnd,
+  consolePageHeader,
+  consoleToolbarSearch,
+  consoleLedger,
+  consoleGrid,
+  consoleRecordSheet,
+  consoleSectionCard,
+  consoleFactsCard,
+  consoleTabs,
+  consoleRecordsToolbar,
+  consoleDashboardContent,
+  consoleLogin,
+  consolePasswordCard,
+]
 
 export default templates

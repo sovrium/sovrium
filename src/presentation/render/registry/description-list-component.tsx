@@ -45,9 +45,12 @@ import {
   type DescriptionListLayout,
 } from '../../design/display-default-classes'
 import { omitInternalMarkers } from '../props/internal-marker-props'
+import { formatRecordValue } from '../props/record-value-format'
 import { renderFieldDetail } from './description-list-field-detail'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import type { ComponentRenderer } from './component-dispatch-config'
+import type { Languages } from '@/domain/models/app/languages'
+import type { ColumnFormat } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { Tables } from '@/domain/models/app/tables'
 import type { ReactElement, ReactNode } from 'react'
 
@@ -64,16 +67,48 @@ interface DescriptionItem {
   readonly _recordDisplay?: string
   readonly _recordTable?: string
   readonly action?: { readonly label: string; readonly href: string }
+  /** A text detail's declared format, the grid column vocabulary. */
+  readonly format?: ColumnFormat
+  /** The stored value a formatted text detail reads, stamped by the binding pass. */
+  readonly _formatValue?: unknown
+  readonly _formatField?: string
 }
 
 /** What a row's `<dd>` reads, given the render context a field detail needs. */
 interface DetailContext {
   readonly tables: Tables | undefined
   readonly lang: string
+  readonly languages: Languages | undefined
+}
+
+/**
+ * A text detail through its declared format, as a grid column reads the same
+ * value: the stored value the binding pass stamped, else the detail as written
+ * (a list with no bound record). Empty stays empty, so the row draws its dash.
+ */
+function formattedTextDetail(
+  item: DescriptionItem,
+  format: ColumnFormat,
+  context: DetailContext
+): ReactNode {
+  const value = '_formatValue' in item ? item._formatValue : item.detail
+  if (value === undefined || value === null || value === '') return undefined
+  const text = formatRecordValue(value, {
+    table: context.tables?.find((table) => table.name === item._recordTable),
+    fieldName: item._formatField,
+    format,
+    locale: context.lang,
+    languages: context.languages,
+    tables: context.tables,
+  })
+  return text === undefined || text === '' ? item.detail : text
 }
 
 /** The detail node of a row, or `undefined` when it is empty. */
 function detailOf(item: DescriptionItem, context: DetailContext): ReactNode {
+  if (item.field === undefined && item.format !== undefined) {
+    return formattedTextDetail(item, item.format, context)
+  }
   if (item.field === undefined) return item.detail === '' ? undefined : item.detail
   if (item._recordDisplay !== undefined) return item._recordDisplay
   return renderFieldDetail({
@@ -194,8 +229,9 @@ export const descriptionListComponent: ComponentRenderer = ({
   component,
   tables,
   currentLang,
+  languages,
 }) => {
-  const context: DetailContext = { tables, lang: currentLang ?? 'en-US' }
+  const context: DetailContext = { tables, lang: currentLang ?? 'en-US', languages }
   const source = (component ?? {}) as Readonly<Record<string, unknown>>
   const items = Array.isArray(source['items'])
     ? (source['items'] as readonly DescriptionItem[])

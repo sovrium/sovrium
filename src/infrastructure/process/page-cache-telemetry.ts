@@ -19,11 +19,14 @@
  *
  * ## The occupancy figures are pushed, and that is load-bearing
  *
- * `entries` and `bytes` describe a `Ref<Map>` this module cannot see, so the
- * cache service publishes them. The invariant that keeps the mirror honest is
- * that the cache has exactly TWO state mutators — `setCachedPage` and
- * `clearPageCache` — and both publish from inside the update that produced the
- * new map. A third mutator added without a publish call would leave this panel
+ * `entries` and `bytes` describe a store this module cannot see, so the cache
+ * service publishes them. The invariant that keeps the mirror honest is that
+ * the cache has exactly TWO mutators that change occupancy — `setCachedPage`
+ * and `clearPageCache` — and both publish from inside the update that produced
+ * it. `getCachedPage` mutates too, since a hit moves its entry to the most
+ * recently used end, but a reorder changes neither the entries nor the bytes,
+ * so it publishes nothing. A third occupancy mutator added without a publish
+ * call would leave this panel
  * confidently reporting an occupancy that no longer exists, which is precisely
  * the defect class the footprint surface exists to retire; the cache service
  * carries a comment saying so.
@@ -48,7 +51,7 @@ export interface PageCacheAdmission {
   readonly refused: number
   /** Entries held after the admission settled. */
   readonly entries: number
-  /** Total UTF-8 bytes held after the admission settled. */
+  /** Total bytes held after the admission settled (pages are stored as UTF-8). */
   readonly bytes: number
 }
 
@@ -70,7 +73,7 @@ export interface PageCacheStats {
   readonly hitRate: number | null
   /** Entries currently held. */
   readonly entries: number
-  /** Total UTF-8 bytes of HTML currently held. */
+  /** Total bytes currently held: the UTF-8 size of every stored page. */
   readonly bytes: number
   /** The live `ECO_PAGE_CACHE_MAX_MB` ceiling, in bytes. */
   readonly budgetBytes: number

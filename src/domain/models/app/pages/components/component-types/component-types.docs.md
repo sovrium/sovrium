@@ -28,6 +28,20 @@ A data component drawn by an island — a `kpi`, `chart`, `gallery`, `event-cale
 
 The standard parts an island draws are named with the words the page uses for the same part outside an island: a table cell's status chip, an owner's initials disc and a progress bar are a `badge`, an `avatar` and a `progress`; a kanban card's footer chip and assignee disc a `badge` and an `avatar`; a list row's badge a `badge`; and the buttons of a calendar's toolbar each a `button`. The buttons, chips and form controls that drawers, dialogs, forms and tables draw carry the same `data-component-type` as the components that draw them on a page: a record drawer's tag chips are `badge`s and its actions `button`s, a form control is named after the control drawn — `input`, `select`, `textarea`, `date-picker`, `number-input`, `file-upload`, `checkbox`, or a drawer's `record-picker` — and a table's row actions are `button`s.
 
+## A node `key`
+
+Any component, and any template placement, may carry a `key`: a kebab-case name for that node, unique within its page. It changes nothing on the page a visitor loads. It is for the tools that read your pages: a design tool that drew the page matches each drawn node back to the node it came from by its key first, so a node keeps its identity when a designer moves it or reorders its siblings. A node without a key is matched by its position in the page tree, which a move changes.
+
+```yaml
+components:
+  - type: flex
+    key: kpi-row
+    children:
+      - { component: stat-card, key: kpi-open, vars: { label: Open tickets, value: '42' } }
+```
+
+The same key used twice on one page is refused when the config is validated, naming the page, the key and the two nodes that carry it. The same key on two different pages is fine.
+
 ## Unknown keys are dropped, not rejected
 
 A misspelled module name — `onClick` instead of `interactions.click`, `inline` instead of `inlineScripts` — passes validation and then does nothing. When a declared behaviour silently fails to appear, check the key against the reference page before checking the runtime.

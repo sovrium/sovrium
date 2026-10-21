@@ -61,6 +61,7 @@ export interface RenderFileUploadIslandConfig {
   readonly dropZone?: boolean
   readonly disabled?: boolean
   readonly label?: string
+  readonly triggerIcon?: ReactElement
 }
 
 export function renderFileUploadIsland(config: RenderFileUploadIslandConfig): ReactElement {
@@ -83,10 +84,8 @@ export function renderFileUploadIsland(config: RenderFileUploadIslandConfig): Re
   // input here would race with Playwright's `setInputFiles(...)`, the file set
   // on an input `createRoot.render` then unmounts.
   //
-  // Both branches paint from the recipes the island reads, and say the same
-  // words, so the control does not move or change its text on mount. The
-  // drop zone's Browse files button is drawn disabled until the island takes
-  // over: a press before then would open nothing.
+  // Both branches paint the island's recipes and words (a compact trigger its icon too), so
+  // nothing moves on mount; the drop zone's Browse files stays disabled until the island runs.
   return (
     <div
       id={id}
@@ -117,6 +116,7 @@ export function renderFileUploadIsland(config: RenderFileUploadIslandConfig): Re
           className={computeFileUploadTriggerClasses({ disabled: disabled === true })}
           aria-disabled={ariaDisabled}
         >
+          {config.triggerIcon}
           {buttonText}
         </span>
       )}

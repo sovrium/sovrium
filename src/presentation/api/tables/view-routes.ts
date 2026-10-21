@@ -42,28 +42,36 @@ export function chainViewRoutesMethods<T extends Hono>(honoApp: T, resolveApp: (
 
         return runEffect(c, program)
       })
-      .get('/api/tables/:tableId/views/:viewId', async (c) => {
-        // Session, tableId, and userRole are guaranteed by middleware chain
-        const { session, tableName, tableId, userRole, userGroups } = getTableContext(c)
-        const app = resolveApp()
-        const caller = await resolveTableReadCaller(c, app, {
-          session,
-          tableName,
-          userRole,
-          userGroups,
-        })
+      .get(
+        '/api/tables/:tableId/views/:viewId',
+        refuseTableWithNoReaderRow(resolveApp),
+        async (c) => {
+          // Session, tableId, and userRole are guaranteed by middleware chain
+          const { session, tableName, tableId, userRole, userGroups } = getTableContext(c)
+          const app = resolveApp()
+          const caller = await resolveTableReadCaller(c, app, {
+            session,
+            tableName,
+            userRole,
+            userGroups,
+          })
 
-        return runEffect(
-          c,
-          getViewProgram(tableId, c.req.param('viewId'), app, caller),
-          getViewResponseSchema
-        )
-      })
+          return runEffect(
+            c,
+            getViewProgram(tableId, c.req.param('viewId')!, app, caller),
+            getViewResponseSchema
+          )
+        }
+      )
       // The query is typed by the records list's own schema — the same page,
       // sort, search and filter parameters — so the grid's typed client can
       // read a view the way it reads a table.
       .get(
         '/api/tables/:tableId/views/:viewId/records',
+        // A table whose list admits the caller no row answers as a missing
+        // one before the view is asked anything — a row rule matching nothing
+        // included.
+        refuseTableWithNoReaderRow(resolveApp),
         conditionalRead(),
         effectValidator('query', listRecordsQuerySchema),
         (c) => handleListViewRecords(c, resolveApp())

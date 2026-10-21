@@ -1,0 +1,124 @@
+name: 'Feature: engine primitive'
+description: A new runtime capability that cannot be composed from what exists.
+title: '<area>: <the capability, in one sentence>'
+type: Feature
+labels:
+  - feature:engine-primitive
+  - status:needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Security vulnerability?** Do not file it here. Report it privately at https://github.com/sovrium/sovrium/security/advisories/new instead.
+  - type: dropdown
+    id: domain
+    attributes:
+      label: Domain
+      description: The part of Sovrium this is about. Pick the closest one; triage can correct it.
+      options:
+        - accessibility
+        - account
+        - admin
+        - ai
+        - analytics
+        - api
+        - assets
+        - authentication
+        - automations
+        - buckets
+        - cli
+        - design
+        - design-system
+        - ecoconception
+        - footprint
+        - forms
+        - infrastructure
+        - internationalization
+        - links
+        - migrations
+        - pages
+        - records-api
+        - security
+        - tables
+        - templates
+        - theming
+        - user-management
+        - desktop
+        - docs
+        - toolchain
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What you need to do that Sovrium cannot do today.
+    validations:
+      required: true
+  - type: textarea
+    id: why-not-composable
+    attributes:
+      label: Why existing pieces are not enough
+      description: Which existing options, actions or recipes you tried to combine, and where each falls short. A new primitive has to earn its place.
+    validations:
+      required: true
+  - type: textarea
+    id: runtime-surface
+    attributes:
+      label: Runtime surface
+      description: What it adds at runtime, such as storage, a server route, an API, a background job or a CLI verb.
+  - type: textarea
+    id: security-impact
+    attributes:
+      label: Security and privacy impact
+      description: New data it stores or exposes, who can reach it, and what export or erasure of a user's data must cover.
+  - type: textarea
+    id: performance-impact
+    attributes:
+      label: Performance and footprint impact
+      description: Its cost in memory, CPU, bundle size or network, and whether it can stay off by default.
+  - type: markdown
+    attributes:
+      value: |
+        ## Agent brief (optional)
+
+        Leave these empty if you are unsure: a maintainer completes them during triage. An issue is marked ready only once they are complete, so that anyone, a person or an automated agent, can start work from the issue alone. Write behaviour, not internals.
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: Numbered Given / When / Then lines, in plain behaviour terms.
+      placeholder: |
+        1. Given an app with ..., when I ..., then ...
+  - type: textarea
+    id: affected-paths
+    attributes:
+      label: Affected paths
+      description: Source paths under src/ that are likely involved, when known.
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification
+      description: The CLI commands or HTTP requests that prove it is done.
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: What this issue deliberately does not cover.
+  - type: textarea
+    id: related
+    attributes:
+      label: Related issues
+      description: Dependencies, duplicates or follow-ups, as #numbers.
+  - type: checkboxes
+    id: validated
+    attributes:
+      label: Validation
+      options:
+        - label: I ran `sovrium validate` on my configuration
+  - type: checkboxes
+    id: ai-drafted
+    attributes:
+      label: AI assistance
+      options:
+        - label: This report was drafted with an AI assistant

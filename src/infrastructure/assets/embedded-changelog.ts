@@ -33,7 +33,6 @@ import {
   type EmbeddedChangelogPayload,
   type ReleaseNotes,
 } from '@/domain/kernel/markdown/release-notes'
-// eslint-disable-next-line import/extensions -- a `with { type: 'file' }` import names one file, and its extension is part of the name
 import RAW_PAYLOAD from './embedded-changelog.generated.json' with { type: 'file' }
 
 export type { EmbeddedChangelogPayload, ReleaseNotes } from '@/domain/kernel/markdown/release-notes'

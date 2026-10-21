@@ -1,0 +1,340 @@
+{
+  "id": "dashboard-config-env",
+  "name": "dashboard-config-env",
+  "path": "/env",
+  "meta": {
+    "title": "$t:admin.meta.env"
+  },
+  "dataSource": {
+    "system": {
+      "endpoint": "/api/admin/env",
+      "idKey": "generatedAt"
+    }
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "env": "$t:admin.crumb.env"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "admin-surface-content-2-1",
+          "element": "div",
+          "props": {
+            "className": "flex min-w-0 flex-col gap-4"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "header",
+              "element": "header",
+              "props": {
+                "className": "flex flex-col gap-1"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "h1",
+                  "props": {
+                    "className": "text-foreground text-2xl font-semibold tracking-tight"
+                  },
+                  "content": "$t:admin.env.heading"
+                },
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "className": "text-muted-foreground max-w-3xl text-sm"
+                  },
+                  "content": "$t:admin.env.blurb"
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "config-env-required-unset",
+              "element": "div",
+              "props": {
+                "className": "border-destructive/40 bg-destructive/5 text-destructive flex flex-col gap-1 rounded-lg border px-4 py-3 text-sm [&_li]:list-none",
+                "role": "alert",
+                "data-testid": "config-env-required-unset"
+              },
+              "visibility": {
+                "record": {
+                  "field": "requiredUnset",
+                  "isNotEmpty": true
+                }
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "config-env-required-unset-1",
+                  "element": "div",
+                  "props": {
+                    "className": "contents"
+                  },
+                  "dataSource": {
+                    "system": {
+                      "endpoint": "/api/admin/env",
+                      "rowsKey": "variables",
+                      "idKey": "key"
+                    }
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "config-env-required-unset-1-1",
+                      "element": "div",
+                      "props": {
+                        "className": "contents"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "required",
+                          "eq": true
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "key": "config-env-required-unset-1-1-1",
+                          "element": "div",
+                          "props": {
+                            "className": ""
+                          },
+                          "visibility": {
+                            "record": {
+                              "field": "isSet",
+                              "eq": false
+                            }
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "props": {
+                                "className": "font-mono font-medium"
+                              },
+                              "content": "$record.key"
+                            },
+                            " ",
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "props": {
+                                "className": ""
+                              },
+                              "content": "$t:admin.env.requiredUnset"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-1-3",
+              "element": "div",
+              "props": {
+                "className": "flex flex-wrap items-center gap-2",
+                "role": "toolbar",
+                "aria-label": "$t:admin.common.gridControls"
+              },
+              "children": [
+                {
+                  "component": "console-toolbar-search",
+                  "key": "toolbar-search",
+                  "vars": {
+                    "ariaLabel": "$t:admin.env.search",
+                    "placeholder": "$t:admin.env.search",
+                    "publishes": {
+                      "bindTo": "env-filter",
+                      "param": "q"
+                    }
+                  }
+                },
+                {
+                  "type": "select",
+                  "props": {
+                    "id": "env-status-filter",
+                    "aria-label": "$t:admin.env.filter.status",
+                    "className": "h-8"
+                  },
+                  "emptyOption": {
+                    "label": "$t:admin.env.filter.allStatuses"
+                  },
+                  "defaultValue": "",
+                  "options": [
+                    {
+                      "value": "true",
+                      "label": "$t:admin.env.set"
+                    },
+                    {
+                      "value": "false",
+                      "label": "$t:admin.env.notSet"
+                    }
+                  ],
+                  "publishes": {
+                    "bindTo": "env-filter",
+                    "field": "isSet",
+                    "operator": "eq"
+                  }
+                },
+                {
+                  "type": "select",
+                  "props": {
+                    "id": "env-required-filter",
+                    "aria-label": "$t:admin.env.filter.required",
+                    "className": "h-8"
+                  },
+                  "emptyOption": {
+                    "label": "$t:admin.env.filter.allRequirements"
+                  },
+                  "defaultValue": "",
+                  "options": [
+                    {
+                      "value": "true",
+                      "label": "$t:admin.env.required"
+                    },
+                    {
+                      "value": "false",
+                      "label": "$t:admin.env.optional"
+                    }
+                  ],
+                  "publishes": {
+                    "bindTo": "env-filter",
+                    "field": "required",
+                    "operator": "eq"
+                  }
+                }
+              ],
+              "visibility": {
+                "record": {
+                  "field": "variables",
+                  "isNotEmpty": true
+                }
+              }
+            },
+            {
+              "component": "console-grid",
+              "key": "grid",
+              "vars": {
+                "id": "config-env-list",
+                "ariaLabel": "$t:admin.env.declared.region",
+                "dataSource": {
+                  "system": {
+                    "endpoint": "/api/admin/env",
+                    "rowsKey": "variables",
+                    "idKey": "key",
+                    "bindTo": "env-filter",
+                    "sharedFilter": {
+                      "params": ["q"]
+                    }
+                  }
+                },
+                "columns": [
+                  {
+                    "field": "key",
+                    "label": "$t:admin.env.col.variable",
+                    "cellStyle": [
+                      {
+                        "when": {
+                          "isNotEmpty": true
+                        },
+                        "className": "font-mono"
+                      }
+                    ]
+                  },
+                  {
+                    "field": "usedBy",
+                    "label": "$t:admin.env.usedBy",
+                    "sortable": false
+                  },
+                  {
+                    "field": "required",
+                    "label": "$t:admin.env.col.required",
+                    "valueLabels": {
+                      "true": "$t:admin.env.required",
+                      "false": "$t:admin.env.optional"
+                    }
+                  },
+                  {
+                    "field": "isSet",
+                    "label": "$t:admin.env.col.status",
+                    "cellStyle": [
+                      {
+                        "when": {
+                          "eq": true
+                        },
+                        "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-success-solid"
+                      },
+                      {
+                        "when": {
+                          "eq": false
+                        },
+                        "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50"
+                      }
+                    ],
+                    "valueLabels": {
+                      "true": "$t:admin.env.set",
+                      "false": "$t:admin.env.notSet"
+                    }
+                  },
+                  {
+                    "field": "source",
+                    "label": "$t:admin.env.col.source",
+                    "valueLabels": {
+                      "environment": "$t:admin.env.fromEnvironment",
+                      "default": "$t:admin.env.fromDefault",
+                      "unset": "—"
+                    }
+                  }
+                ],
+                "emptyMessage": "$t:admin.env.empty",
+                "noMatchMessage": "$t:admin.env.noMatch"
+              }
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground text-sm",
+                "data-testid": "config-env-provenance"
+              },
+              "content": "$t:admin.locked.audit.env.secrecyNotice"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,689 @@
+{
+  "id": "dashboard-data-automations",
+  "name": "dashboard-data-automations",
+  "path": "/runs",
+  "meta": {
+    "title": "$t:admin.meta.automations"
+  },
+  "query": {
+    "tab": {
+      "default": "history",
+      "enum": ["history", "automations"]
+    }
+  },
+  "requires": ["automations"],
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6 min-h-0"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "runs": "$t:admin.crumb.runs"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "header",
+          "element": "header",
+          "props": {
+            "className": "flex flex-col gap-1"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "h1",
+              "props": {
+                "className": "text-foreground text-2xl font-semibold tracking-tight"
+              },
+              "content": "$t:admin.automations.heading"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "content": "$t:admin.automations.blurb"
+            }
+          ]
+        },
+        {
+          "type": "tabs",
+          "tabsVariant": "line",
+          "defaultTab": "$query.tab",
+          "props": {
+            "aria-label": "$t:admin.automations.tabs.region",
+            "data-testid": "admin-subview-tabs"
+          },
+          "panels": [
+            {
+              "id": "history",
+              "label": "$t:admin.automations.tabs.history"
+            },
+            {
+              "id": "automations",
+              "label": "$t:admin.automations.tabs.automations"
+            }
+          ],
+          "layout": "fill",
+          "children": [
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-1",
+              "element": "div",
+              "props": {
+                "className": "flex min-w-0 flex-col gap-6 flex-none!"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "metrics-region",
+                  "element": "div",
+                  "props": {
+                    "role": "region",
+                    "aria-label": "$t:admin.automations.metrics.region",
+                    "className": "grid grid-cols-2 gap-4 lg:grid-cols-4"
+                  },
+                  "children": [
+                    {
+                      "component": "console-section-card",
+                      "key": "section-card",
+                      "vars": {
+                        "label": "$t:admin.automations.metrics.automations",
+                        "dataSource": {
+                          "system": {
+                            "endpoint": "/api/admin/automations/overview",
+                            "valuePath": "totals.automations"
+                          }
+                        },
+                        "kpiFormat": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    {
+                      "component": "console-section-card",
+                      "key": "section-card-2",
+                      "vars": {
+                        "label": "$t:admin.automations.metrics.runs24h",
+                        "dataSource": {
+                          "system": {
+                            "endpoint": "/api/admin/automations/overview",
+                            "valuePath": "totals.runs_24h"
+                          }
+                        },
+                        "kpiFormat": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    {
+                      "component": "console-section-card",
+                      "key": "section-card-3",
+                      "vars": {
+                        "label": "$t:admin.automations.metrics.failures24h",
+                        "dataSource": {
+                          "system": {
+                            "endpoint": "/api/admin/automations/overview",
+                            "valuePath": "totals.failures_24h"
+                          }
+                        },
+                        "kpiFormat": {
+                          "type": "number"
+                        },
+                        "footer": [
+                          {
+                            "type": "link",
+                            "props": {
+                              "href": "/runs?automation-runs-filter.status=failed",
+                              "className": "text-sm font-medium text-foreground underline-offset-4 hover:underline",
+                              "data-testid": "runs-show-failed"
+                            },
+                            "content": "$t:admin.automations.metrics.showFailed"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "component": "console-section-card",
+                      "key": "section-card-4",
+                      "vars": {
+                        "label": "$t:admin.automations.metrics.successRate",
+                        "dataSource": {
+                          "system": {
+                            "endpoint": "/api/admin/automations/overview",
+                            "valuePath": "totals.success_rate"
+                          }
+                        },
+                        "kpiFormat": {
+                          "type": "percentage",
+                          "options": {
+                            "scale": "100"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "admin-toolbar-row",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-h-10 flex-wrap items-center gap-2",
+                    "data-testid": "admin-toolbar-row",
+                    "role": "toolbar",
+                    "aria-label": "$t:admin.common.gridControls"
+                  },
+                  "children": [
+                    {
+                      "component": "console-toolbar-search",
+                      "key": "toolbar-search",
+                      "vars": {
+                        "ariaLabel": "$t:admin.automations.runs.search",
+                        "placeholder": "$t:admin.automations.runs.search",
+                        "publishes": {
+                          "bindTo": "automation-runs-filter",
+                          "param": "q"
+                        }
+                      }
+                    },
+                    {
+                      "type": "native-select",
+                      "props": {
+                        "id": "automation-filter",
+                        "label": "$t:admin.automations.runs.filter.automation",
+                        "className": "flex w-fit items-center [&>[data-slot=label]]:sr-only [&_[data-slot=native-select]]:border-dashed [&_[data-slot=native-select]]:font-medium"
+                      },
+                      "emptyOption": {
+                        "label": "$t:admin.automations.runs.filter.allAutomations"
+                      },
+                      "publishes": {
+                        "bindTo": "automation-runs-filter",
+                        "param": "automationName",
+                        "url": true
+                      },
+                      "dataSource": {
+                        "system": {
+                          "endpoint": "/api/admin/automations",
+                          "rowsKey": "items",
+                          "idKey": "name"
+                        },
+                        "valueKey": "name",
+                        "labelKey": "label"
+                      }
+                    },
+                    {
+                      "type": "native-select",
+                      "props": {
+                        "id": "trigger-filter",
+                        "label": "$t:admin.automations.runs.filter.trigger",
+                        "className": "flex w-fit items-center [&>[data-slot=label]]:sr-only [&_[data-slot=native-select]]:border-dashed [&_[data-slot=native-select]]:font-medium"
+                      },
+                      "emptyOption": {
+                        "label": "$t:admin.automations.runs.filter.allTriggers"
+                      },
+                      "publishes": {
+                        "bindTo": "automation-runs-filter",
+                        "param": "triggerName"
+                      },
+                      "dataSource": {
+                        "system": {
+                          "endpoint": "/api/admin/automations",
+                          "rowsKey": "triggerNames",
+                          "idKey": "name"
+                        },
+                        "valueKey": "name",
+                        "labelKey": "label"
+                      }
+                    },
+                    {
+                      "type": "native-select",
+                      "props": {
+                        "id": "status-filter",
+                        "label": "$t:admin.automations.runs.filter.status",
+                        "className": "flex w-fit items-center [&>[data-slot=label]]:sr-only [&_[data-slot=native-select]]:border-dashed [&_[data-slot=native-select]]:font-medium"
+                      },
+                      "emptyOption": {
+                        "label": "$t:admin.automations.runs.filter.allStatuses"
+                      },
+                      "publishes": {
+                        "bindTo": "automation-runs-filter",
+                        "param": "status",
+                        "url": true
+                      },
+                      "options": [
+                        {
+                          "value": "completed",
+                          "label": "$t:admin.automations.runs.status.success"
+                        },
+                        {
+                          "value": "failed",
+                          "label": "$t:admin.automations.runs.status.failed"
+                        },
+                        {
+                          "value": "completed-with-errors",
+                          "label": "$t:admin.automations.runs.status.partial"
+                        },
+                        {
+                          "value": "waiting-approval",
+                          "label": "$t:admin.automations.runs.status.waitingApproval"
+                        },
+                        {
+                          "value": "waiting-delay",
+                          "label": "$t:admin.automations.runs.status.waitingDelay"
+                        },
+                        {
+                          "value": "rejected",
+                          "label": "$t:admin.automations.runs.status.rejected"
+                        },
+                        {
+                          "value": "cancelled",
+                          "label": "$t:admin.automations.runs.status.cancelled"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "date-range-picker",
+                      "props": {
+                        "id": "runs-period-filter",
+                        "className": "[&>div>span:first-child]:sr-only [&_button]:h-8! [&_button]:py-0! [&_button]:text-sm!"
+                      },
+                      "label": "$t:admin.automations.runs.filter.period",
+                      "placeholder": "$t:admin.automations.runs.filter.anyTime",
+                      "presets": ["today", "last-7-days", "this-month", "last-month"],
+                      "publishes": {
+                        "bindTo": "automation-runs-filter",
+                        "params": {
+                          "from": "from",
+                          "to": "to"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "component": "console-grid",
+                  "key": "grid",
+                  "vars": {
+                    "id": "automation-runs-grid",
+                    "ariaLabel": "$t:admin.automations.runs.heading",
+                    "dataSource": {
+                      "system": {
+                        "endpoint": "/api/admin/automations/runs",
+                        "rowsKey": "items",
+                        "idKey": "id",
+                        "totalKey": "total",
+                        "bindTo": "automation-runs-filter",
+                        "sharedFilter": {
+                          "params": ["q", "automationName", "triggerName", "status", "from", "to"]
+                        },
+                        "refreshMode": "poll",
+                        "pollIntervalMs": 15000
+                      }
+                    },
+                    "columns": [
+                      {
+                        "field": "automationLabel",
+                        "label": "$t:admin.automations.runs.col.automation",
+                        "minWidth": 200
+                      },
+                      {
+                        "field": "triggerLabel",
+                        "label": "$t:admin.automations.runs.col.trigger",
+                        "width": 160
+                      },
+                      {
+                        "field": "status",
+                        "label": "$t:admin.automations.runs.col.status",
+                        "cellStyle": [
+                          {
+                            "when": {
+                              "eq": "Success"
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-success-solid"
+                          },
+                          {
+                            "when": {
+                              "eq": "Failed"
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-destructive [&:is(span)]:before:bg-destructive"
+                          },
+                          {
+                            "when": {
+                              "eq": "Partial"
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-warning-solid"
+                          },
+                          {
+                            "when": {
+                              "eq": "Waiting for approval"
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-info-solid"
+                          },
+                          {
+                            "when": {
+                              "in": ["Rejected", "Cancelled"]
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50"
+                          },
+                          {
+                            "when": {
+                              "eq": "Retries exhausted"
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-destructive [&:is(span)]:before:bg-destructive"
+                          },
+                          {
+                            "when": {
+                              "eq": "Timed out"
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-warning-solid"
+                          },
+                          {
+                            "when": {
+                              "in": ["Queued", "Waiting to resume"]
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50"
+                          },
+                          {
+                            "when": {
+                              "eq": "Running"
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-info-solid"
+                          },
+                          {
+                            "when": {
+                              "eq": "Skipped"
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50"
+                          }
+                        ],
+                        "valueLabels": {
+                          "Success": "$t:admin.automations.runs.status.success",
+                          "Failed": "$t:admin.automations.runs.status.failed",
+                          "Partial": "$t:admin.automations.runs.status.partial",
+                          "Waiting for approval": "$t:admin.automations.runs.status.waitingApproval",
+                          "Waiting to resume": "$t:admin.automations.runs.status.waitingDelay",
+                          "Rejected": "$t:admin.automations.runs.status.rejected",
+                          "Cancelled": "$t:admin.automations.runs.status.cancelled",
+                          "Retries exhausted": "$t:admin.automations.runs.status.retriesExhausted",
+                          "Timed out": "$t:admin.automations.runs.status.timedOut",
+                          "Queued": "$t:admin.automations.runs.status.queued",
+                          "Running": "$t:admin.automations.runs.status.running",
+                          "Skipped": "$t:admin.automations.runs.status.skipped"
+                        },
+                        "width": 150
+                      },
+                      {
+                        "field": "startedAt",
+                        "label": "$t:admin.automations.runs.col.started",
+                        "format": "day-relative-time",
+                        "width": 140
+                      },
+                      {
+                        "field": "recordLabel",
+                        "label": "$t:admin.automations.runs.col.record",
+                        "width": 180,
+                        "truncate": true
+                      },
+                      {
+                        "field": "durationMs",
+                        "label": "$t:admin.automations.runs.col.duration",
+                        "align": "right",
+                        "format": "duration",
+                        "width": 100
+                      },
+                      {
+                        "field": "stepsLabel",
+                        "label": "$t:admin.automations.runs.col.stepCount",
+                        "align": "right",
+                        "width": 90,
+                        "visible": "hidden"
+                      },
+                      {
+                        "field": "attempt",
+                        "label": "$t:admin.automations.runs.col.attempt",
+                        "align": "right",
+                        "width": 90,
+                        "visible": "hidden"
+                      },
+                      {
+                        "field": "error",
+                        "label": "$t:admin.automations.runs.col.error",
+                        "format": "truncate",
+                        "minWidth": 220,
+                        "truncate": true
+                      },
+                      {
+                        "type": "actions",
+                        "label": "",
+                        "actions": [
+                          {
+                            "label": "$t:admin.automations.runs.action.view",
+                            "action": {
+                              "type": "fetch",
+                              "url": "/runs/$record.id",
+                              "mode": "navigate"
+                            }
+                          },
+                          {
+                            "label": "$t:admin.automations.runs.action.record",
+                            "action": {
+                              "type": "fetch",
+                              "url": "/records/$record.recordTable?record=$record.recordId",
+                              "mode": "navigate"
+                            },
+                            "visibleWhen": {
+                              "field": "recordId",
+                              "isNotEmpty": true
+                            }
+                          }
+                        ]
+                      }
+                    ],
+                    "emptyMessage": "$t:admin.automations.runs.empty",
+                    "noMatchMessage": "$t:admin.automations.runs.noMatch",
+                    "pagination": {
+                      "pageSize": 25
+                    },
+                    "phoneLayout": "rows",
+                    "onRowClick": {
+                      "type": "navigate",
+                      "path": "/runs/$record.id"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-2",
+              "element": "div",
+              "props": {
+                "className": "flex min-h-0 min-w-0 flex-col gap-6 overflow-y-auto"
+              },
+              "children": [
+                {
+                  "component": "console-grid",
+                  "key": "grid-2",
+                  "vars": {
+                    "id": "automations-catalog-grid",
+                    "ariaLabel": "$t:admin.automations.region",
+                    "dataSource": {
+                      "system": {
+                        "endpoint": "/api/admin/automations",
+                        "rowsKey": "items",
+                        "idKey": "name"
+                      }
+                    },
+                    "columns": [
+                      {
+                        "field": "label",
+                        "label": "$t:admin.automations.catalog.col.automation"
+                      },
+                      {
+                        "field": "triggers",
+                        "label": "$t:admin.automations.catalog.col.trigger"
+                      },
+                      {
+                        "field": "state",
+                        "label": "$t:admin.automations.catalog.col.state",
+                        "cellStyle": [
+                          {
+                            "when": {
+                              "eq": "active"
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-success-solid"
+                          },
+                          {
+                            "when": {
+                              "eq": "paused"
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-warning-solid"
+                          },
+                          {
+                            "when": {
+                              "eq": "disabled"
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50"
+                          }
+                        ],
+                        "valueLabels": {
+                          "active": "$t:admin.automations.catalog.state.active",
+                          "paused": "$t:admin.automations.catalog.state.paused",
+                          "disabled": "$t:admin.automations.catalog.state.disabled"
+                        }
+                      },
+                      {
+                        "field": "pausedLabel",
+                        "label": "$t:admin.automations.catalog.col.paused"
+                      },
+                      {
+                        "type": "actions",
+                        "label": "",
+                        "capability": "edit-operations",
+                        "actions": [
+                          {
+                            "label": "$t:admin.automations.catalog.action.pause",
+                            "action": {
+                              "type": "fetch",
+                              "url": "/api/admin/automations/$record.name/pause",
+                              "method": "POST",
+                              "onSuccess": {
+                                "type": "toast",
+                                "message": "$t:admin.automations.catalog.pause.toast",
+                                "variant": "success",
+                                "refetch": "automations-catalog-grid"
+                              },
+                              "onError": {
+                                "type": "toast",
+                                "message": "$t:admin.automations.catalog.pause.failed",
+                                "variant": "destructive",
+                                "actionLabel": "$t:admin.automations.catalog.pause.retry"
+                              }
+                            },
+                            "confirm": {
+                              "message": "$t:admin.automations.catalog.pause.message",
+                              "title": "$t:admin.automations.catalog.pause.title",
+                              "confirmLabel": "$t:admin.automations.catalog.action.pause",
+                              "cancelLabel": "$t:admin.automations.cancel"
+                            },
+                            "visibleWhen": {
+                              "field": "state",
+                              "eq": "active"
+                            }
+                          },
+                          {
+                            "label": "$t:admin.automations.catalog.action.resume",
+                            "action": {
+                              "type": "fetch",
+                              "url": "/api/admin/automations/$record.name/resume",
+                              "method": "POST",
+                              "onSuccess": {
+                                "type": "toast",
+                                "message": "$t:admin.automations.catalog.resume.toast",
+                                "refetch": "automations-catalog-grid"
+                              }
+                            },
+                            "visibleWhen": {
+                              "field": "state",
+                              "eq": "paused"
+                            }
+                          }
+                        ]
+                      }
+                    ],
+                    "emptyMessage": "$t:admin.automations.catalog.empty"
+                  }
+                }
+              ]
+            }
+          ],
+          "visibility": {
+            "declares": "automations"
+          }
+        },
+        {
+          "type": "container",
+          "key": "empty-heading",
+          "element": "section",
+          "props": {
+            "aria-label": "$t:admin.automations.empty.heading",
+            "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 flex min-h-64 flex-col items-center justify-center gap-2 p-10 text-center"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-foreground text-md font-medium"
+              },
+              "content": "$t:admin.automations.empty.heading"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-md text-md leading-relaxed"
+              },
+              "content": "$t:admin.automations.empty.body"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-foreground-subtle mt-1 max-w-md text-md italic"
+              },
+              "content": "$t:admin.automations.empty.hint"
+            }
+          ],
+          "visibility": {
+            "unlessDeclares": "automations"
+          }
+        }
+      ]
+    }
+  ]
+}

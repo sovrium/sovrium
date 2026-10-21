@@ -66,7 +66,9 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, resolveApp:
         conditionalRead(),
         (c) => handleAggregateRecords(c, resolveApp())
       )
-      .get('/api/tables/:tableId/trash', (c) => handleListTrash(c, resolveApp()))
+      .get('/api/tables/:tableId/trash', refuseUnreadableTable(resolveApp), (c) =>
+        handleListTrash(c, resolveApp())
+      )
       // The four HTML-form verbs: the only routes here that take a form post
       // (every other body must be JSON — `refuseNonJsonBody`).
       .post(

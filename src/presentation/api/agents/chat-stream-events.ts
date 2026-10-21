@@ -14,6 +14,7 @@
 
 import { Deferred, Effect, Exit } from 'effect'
 import { ASK_USER_TOOL_NAME } from '@/domain/models/app/agents/ask-user-service'
+import { chatCallerKey } from '@/presentation/api/agents/chat-conversation-store'
 import { turnCitations } from '@/presentation/api/agents/chat-knowledge-citations'
 import {
   readerArguments,
@@ -34,6 +35,7 @@ import type {
 } from '@/domain/models/api/ai/chat'
 import type { KnowledgePassage } from '@/domain/models/app/agents/knowledge-citation-service'
 import type { EncodedChunk } from '@/presentation/api/runtime/effect-sse'
+import type { Context } from 'hono'
 
 /** One event on the wire: a turn event, or the closing sentinel. */
 export type WireEvent = AgentTurnEvent | { readonly type: 'sentinel' }
@@ -342,12 +344,16 @@ export const stopChatTurn = (userId: string, sessionId: string): boolean => {
   return true
 }
 
-/** Register a turn's stop signal; `release` forgets it once the turn is over. */
-export const registerStop = (input: {
-  readonly userId: string
-  readonly sessionId: string
-}): { readonly stop: Deferred.Deferred<void>; readonly release: () => void } => {
-  const key = turnKey(input.userId, input.sessionId)
+/**
+ * Register a turn's stop signal; `release` forgets it once the turn is over.
+ * It is keyed by {@link chatCallerKey} — a signed-out caller by her browser —
+ * which is how `chat-stop-route.ts` looks it up.
+ */
+export const registerStop = (
+  c: Context,
+  input: { readonly userId: string; readonly sessionId: string }
+): { readonly stop: Deferred.Deferred<void>; readonly release: () => void } => {
+  const key = turnKey(chatCallerKey(c, input.userId), input.sessionId)
   const stop = Deferred.makeUnsafe<void>()
   inFlight.set(key, stop)
   return {

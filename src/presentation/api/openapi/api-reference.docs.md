@@ -37,7 +37,9 @@ Every 4xx and 5xx response uses one JSON shape, so a single decoder covers all o
 }
 ```
 
-`code` is drawn from a stable enum of twenty-four values. Sixteen are general-purpose: `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION_ERROR`, `BAD_REQUEST`, `METHOD_NOT_ALLOWED`, `CONFLICT`, `PAYLOAD_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE`, `RATE_LIMITED`, `INTERNAL_ERROR`, `BAD_GATEWAY`, `SERVICE_UNAVAILABLE`, `GATEWAY_TIMEOUT`, `DATABASE_ERROR` and `QUOTA_EXCEEDED`. Eight more name a situation whose repair differs from the nearest general code — which is the whole reason they exist.
+`code` is drawn from a stable enum of twenty-six values. Fifteen are general-purpose: `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION_ERROR`, `BAD_REQUEST`, `METHOD_NOT_ALLOWED`, `CONFLICT`, `PAYLOAD_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE`, `RATE_LIMITED`, `INTERNAL_ERROR`, `BAD_GATEWAY`, `SERVICE_UNAVAILABLE`, `GATEWAY_TIMEOUT` and `QUOTA_EXCEEDED`. Ten more name a situation whose repair differs from the nearest general code — which is the whole reason they exist.
+
+The last one, `DATABASE_ERROR`, is declared but no route sends it. A query that fails answers `500` with `INTERNAL_ERROR` and a `requestId`, like any other unexpected failure, so treat the two alike. The value stays in the enum so a client that already matches on it keeps decoding.
 
 | Code                         | Status | What it means, and what to do about it                                         |
 | ---------------------------- | ------ | ------------------------------------------------------------------------------ |
@@ -49,6 +51,8 @@ Every 4xx and 5xx response uses one JSON shape, so a single decoder covers all o
 | `EMAIL_ALREADY_REGISTERED`   | `422`  | The invitee already has an account. Sign them in rather than re-inviting       |
 | `INVALID_TOKEN`              | `400`  | The invitation token is not one this server issued                             |
 | `TOKEN_EXPIRED`              | `410`  | The invitation token has expired. Ask for a fresh invitation                   |
+| `IDEMPOTENCY_MISMATCH`       | `422`  | The idempotency key was already used with a different body. Use a fresh key    |
+| `ACTION_DISABLED`            | `409`  | The record disables this action. Change the record; retrying will not help     |
 
 ### When a field is named
 
@@ -99,7 +103,7 @@ Every 404 the API answers is `{ success: false, error: "Not Found", message, cod
 | `415`  | `UNSUPPORTED_MEDIA_TYPE` | The body is not declared `application/json`. Send it with that `Content-Type`                      |
 | `429`  | `RATE_LIMITED`           | Rate limit exceeded                                                                                |
 | `500`  | `INTERNAL_ERROR`         | Unexpected server error, details redacted                                                          |
-| `500`  | `DATABASE_ERROR`         | A query failed. Distinguished from the generic 500 so a client can retry once                      |
+| `500`  | `DATABASE_ERROR`         | Declared but never sent: a failed query answers `INTERNAL_ERROR`                                   |
 | `502`  | `BAD_GATEWAY`            | An upstream answered badly. Retrying may work                                                      |
 | `503`  | `SERVICE_UNAVAILABLE`    | The service is temporarily down. Wait and retry                                                    |
 | `504`  | `GATEWAY_TIMEOUT`        | An upstream did not answer in time                                                                 |

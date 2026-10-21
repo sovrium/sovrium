@@ -68,8 +68,24 @@ const inLanguage = (raw: unknown, localized: unknown, translate: RunStatusTransl
 }
 
 /**
+ * The key a relabelled record keeps the engine's own status under: the `.raw`
+ * convention of the token grammar, so `$record.status.raw` prints `completed`
+ * and a gate on `field: 'status.raw'` matches in every language.
+ */
+const RAW_STATUS_KEY = 'status.raw'
+
+/** `localized` carrying `raw`'s engine status under {@link RAW_STATUS_KEY}, when it has one. */
+const withRawStatus = (raw: unknown, localized: unknown): unknown => {
+  const status = typeof raw === 'object' && raw !== null ? (raw as RunRecord)['status'] : undefined
+  return typeof status === 'string' && typeof localized === 'object' && localized !== null
+    ? { ...(localized as RunRecord), [RAW_STATUS_KEY]: status }
+    : localized
+}
+
+/**
  * One run read from `endpoint`, its own status and each step's in the reader's
- * language — the English labels without a translator. Any other endpoint's
+ * language — the English labels without a translator — with the engine's
+ * status kept beside each under {@link RAW_STATUS_KEY}. Any other endpoint's
  * record is returned as it arrived.
  */
 export const localizeRunRecordInLanguage = <R extends RunRecord>(
@@ -79,13 +95,11 @@ export const localizeRunRecordInLanguage = <R extends RunRecord>(
 ): R => {
   if (!isRunsEndpoint(endpoint)) return record
   const english = localizeRun(record)
-  if (translate === undefined) return english
-  const run = inLanguage(record, english, translate) as R
+  const word = (raw: unknown, step: unknown): unknown =>
+    withRawStatus(raw, translate === undefined ? step : inLanguage(raw, step, translate))
+  const run = word(record, english) as R
   const rawSteps = record['steps']
   const { steps } = english
   if (!Array.isArray(rawSteps) || !Array.isArray(steps)) return run
-  return {
-    ...run,
-    steps: steps.map((step: unknown, index) => inLanguage(rawSteps[index], step, translate)),
-  }
+  return { ...run, steps: steps.map((step: unknown, index) => word(rawSteps[index], step)) }
 }

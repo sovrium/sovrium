@@ -9,7 +9,7 @@ import { useCallback, useMemo } from 'react'
 import { computeFormLayoutClasses } from '@/presentation/design/form-layout-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { pressWhilePending } from '@/presentation/islands/runtime/pending-control'
-import { type FieldDef } from '../parts/crud-form/fields'
+import { type FieldDef, type FormRecordBinding } from '../parts/crud-form/fields'
 import { FormBody } from '../parts/crud-form/layout'
 import { type SaveBarState } from '../parts/crud-form/save-bar'
 import { SideLabelsContext } from '../parts/crud-form/side-labels-context'
@@ -107,6 +107,24 @@ const formNameOf = (island: CrudFormIslandProps): string =>
   island.formName ?? `Edit ${island.table}`
 
 /**
+ * The record the form edits, as its button fields see it: a button runs
+ * against the edited row and is drawn on it (the server's `_disabled` verdict,
+ * its `visibleWhen`). Memoized so the field subtree does not re-render on every
+ * keystroke.
+ */
+function useFormRecordBinding(island: CrudFormIslandProps): FormRecordBinding {
+  const { table, recordId, record } = island
+  return useMemo(
+    () => ({
+      table,
+      ...(recordId === undefined ? {} : { recordId }),
+      ...(record === undefined ? {} : { record }),
+    }),
+    [table, recordId, record]
+  )
+}
+
+/**
  * Renders the `<form>` element + body for an update CRUD form. Split out
  * of `CreateUpdateForm` so the latter stays within the size/complexity caps
  * once the auto-save and success-page branches are both present.
@@ -126,11 +144,7 @@ function CrudFormElement(props: {
   const formAction = useNativeForm ? buildNativeFormAction(table, island.recordId!) : undefined
   const submitLabel = island.buttonLabel ?? defaultSubmitLabelFor(operation, island.uiStrings)
   const onSubmit = buildSubmitHandler(useNativeForm, fields, values, ctx)
-  // A button field runs against the edited row. Memoized so the field subtree does not re-render on every keystroke.
-  const binding = useMemo(
-    () => ({ table, ...(island.recordId === undefined ? {} : { recordId: island.recordId }) }),
-    [table, island.recordId]
-  )
+  const binding = useFormRecordBinding(island)
 
   return (
     <form

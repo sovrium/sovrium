@@ -51,6 +51,10 @@ import {
   type ReadAccessPlan,
   type TableLike,
 } from '@/domain/models/app/tables/read-access-plan-service'
+import {
+  countsNarrowedFor,
+  relatedReaderFor,
+} from '@/domain/models/app/tables/row-read-admission-service'
 import { readFilterOf } from '@/domain/models/app/tables/user-list-field-service'
 import { admittedWindow, visitorRowRule } from '@/domain/models/app/tables/visitor-row-rule-service'
 import { readAdmittedRows, withReaderRowAdmission } from './reader-row-admission'
@@ -60,7 +64,7 @@ import {
   withRowRuledLookupsHidden,
   type RowLevelReadCheck,
 } from './row-rule-read-check'
-import type { DataSourceDb } from './data-source-contracts'
+import type { DataSourceDb, QueryLookupMasks } from './data-source-contracts'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
@@ -81,13 +85,13 @@ function projectionOf(
   reader: CallerReader | undefined,
   ctx: { readonly plan: ReadAccessPlan | undefined; readonly db: DataSourceDb }
 ): (rows: readonly RecordRow[]) => Promise<readonly RecordRow[]> {
-  const refused = relatedValuesRefusedTo(
-    app,
-    tableName,
-    reader === undefined
-      ? { role: 'guest', signedOut: true }
-      : { role: reader.role, groups: reader.groups, signedOut: false }
-  )
+  const related = relatedReaderFor(reader)
+  // A count her list of the related table narrows is withheld too, with every
+  // formula over one: a page cannot recount it from the rows she may list.
+  const refused = new Set([
+    ...relatedValuesRefusedTo(app, tableName, related),
+    ...countsNarrowedFor(app, tableName, related),
+  ])
   const { plan, db } = ctx
   return async (rows) => {
     const judged = await withRowRuledLookupsHidden(app, tableName, withoutLookups(rows, refused), {
@@ -209,6 +213,8 @@ export interface CallerRowsQuery {
    * must see the trash on purpose.
    */
   readonly liveOnly?: boolean
+  /** The lookups and counts read as her records list reads them where the query names them. */
+  readonly lookupMasks?: QueryLookupMasks
 }
 
 /** The rows a visitor may read, and how many she may read in all. */
@@ -231,11 +237,8 @@ async function readCheckedRows(
   query: CallerRowsQuery,
   ctx: { readonly db: DataSourceDb; readonly check: RowLevelReadCheck }
 ): Promise<CallerRows> {
-  const matching = await ctx.db.fetchRecords(tableName, {
-    ...(query.filter !== undefined ? { filter: query.filter } : {}),
-    ...(query.sort !== undefined ? { sort: query.sort } : {}),
-    ...(query.liveOnly !== undefined ? { liveOnly: query.liveOnly } : {}),
-  })
+  const { filter, sort, liveOnly, lookupMasks } = query // every column, every page
+  const matching = await ctx.db.fetchRecords(tableName, { filter, sort, liveOnly, lookupMasks })
   const verdicts = await Promise.all(matching.map((row) => ctx.check(row)))
   return admittedWindow(matching, verdicts, query)
 }
@@ -253,7 +256,7 @@ async function readUncheckedRows(
       ...(query.pageSize !== undefined ? { page: query.page ?? 1 } : {}),
     }),
     ctx.withTotal
-      ? ctx.db.countRecords(tableName, query.filter, { liveOnly: query.liveOnly === true })
+      ? ctx.db.countRecords(tableName, query.filter, query) // its `liveOnly` and `lookupMasks`
       : Promise.resolve(0),
   ])
   return { rows, total }

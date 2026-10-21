@@ -50,6 +50,7 @@ import {
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { pressDisabledResponse } from '@/presentation/api/runtime/press-disabled-response'
+import { refuseUnlistedRow } from './readable-table-gate'
 import {
   enforceFormMutationGate,
   passesUnguardedTableGate,
@@ -97,8 +98,19 @@ function resolveButtonAutomation(table: Table | undefined, fieldName: string): s
   return isInvocableButton(field) ? field.automation : undefined
 }
 
-/** Object-level write gate. Returns a 404 response to refuse, `undefined` to proceed. */
-async function enforceButtonWriteGate(input: {
+/**
+ * Object-level write gate. Returns a 404 response to refuse, `undefined` to
+ * proceed. A record the presser's list of the table does not admit is refused
+ * as a missing one is.
+ */
+async function enforceButtonWriteGate(input: Parameters<typeof enforceButtonRoleGate>[0]) {
+  const refusal = await enforceButtonRoleGate(input)
+  if (refusal) return refusal
+  return runDomainPromise(input.c, refuseUnlistedRow(input.c, input.app, input.context.recordId))
+}
+
+/** The table's write grant and row-level rules on the pressed record. */
+async function enforceButtonRoleGate(input: {
   readonly c: Context
   readonly app: App
   readonly table: Table | undefined

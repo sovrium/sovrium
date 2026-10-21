@@ -51,7 +51,8 @@ export const resolveConversationTurnInput = async (
   }
   if (request.agentName === null) {
     const { userRole, effectiveRoles, reader } = await resolveUserPrincipal(c)
-    const systemPrompt = buildChatContextPrompt(app, userRole, undefined)
+    const caller = { userRole, reader, services: turn.services }
+    const systemPrompt = await buildChatContextPrompt(app, caller, undefined)
     return { ...turn, systemPrompt, userRole, effectiveRoles, reader }
   }
   const scope = await resolveDeclaredAgentTurnScope(c, app, request.agentName)

@@ -170,6 +170,24 @@ export const instanceFactsResponseSchema = Schema.Struct({
     description:
       'ISO 8601 UTC timestamp of the read. Per-request, because the resolved origin depends on the request that asked.',
   }),
+  bootedAt: looseIsoDateTime({
+    description:
+      'ISO 8601 UTC instant this instance last started. The same on every read until it starts again, so a later value means a restart.',
+  }),
+  database: Schema.Literals(['postgresql', 'sqlite']).annotate({
+    description:
+      'The database engine the instance runs on: `postgresql` when `DATABASE_URL` names a PostgreSQL server, `sqlite` otherwise. The engine only, never its address or credentials.',
+  }),
+  storage: Schema.String.annotate({
+    description:
+      'The file storage provider, the same word `GET /api/admin/storage/status` reads: `local`, `s3`, `bytea`, or `disabled` when none is configured. The provider only, never a bucket key or secret.',
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  aiProvider: Schema.NullOr(
+    Schema.String.annotate({
+      description:
+        'The AI provider the instance would call, as the provider precedence (`ECO_AI_PROVIDER_PRECEDENCE`) resolves it from the environment, a configured Ollama taken as reachable: `ollama`, `openai`, `anthropic`, … Null when the app declares nothing that calls an AI model, or when no provider is configured. Never a key or an address.',
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
 }).annotate({ identifier: 'InstanceFactsResponse' })
 
 /** @public */

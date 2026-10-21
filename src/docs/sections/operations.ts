@@ -38,7 +38,7 @@ export const section = defineSection({
       slug: 'database-infrastructure',
       title: 'Database Infrastructure',
       description:
-        'SQLite as the zero-config default, PostgreSQL through DATABASE_URL, the data directory, the page-render cache, and the standalone binary.',
+        'SQLite as the zero-config default, PostgreSQL through DATABASE_URL, the data directory, the page-render cache, memory sizing in a container, and the standalone binary.',
       keywords: [
         'sovrium',
         'database',
@@ -49,6 +49,10 @@ export const section = defineSection({
         'SOVRIUM_DATA_DIR',
         'page cache',
         'ECO_PAGE_CACHE',
+        'ECO_PAGE_CACHE_MAX_MB',
+        'memory',
+        'container',
+        'BUN_JSC_forceRAMSize',
         'binary',
         'distribution',
         'embedded',

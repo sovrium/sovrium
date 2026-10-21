@@ -20,6 +20,7 @@ import { validateAllRoleReferences, validateTableRoleReferences } from './auth/r
 import { validateAllAuthActionReferences } from './auth/roles/invite-role-validation'
 import { type Action, AutomationsSchema } from './automations'
 import { validateAllCalendarImports } from './automations/actions/calendar/import-ics-validation'
+import { findAppTodoPlaceholders } from './automations/todo-placeholder-validation'
 import { validateWebhookTriggersAgainstApp } from './automations/trigger/webhook-app-validation'
 import { entriesOfType, hasTriggerOfType } from './automations/trigger-entries-service'
 import { BadgeSchema } from './badge'
@@ -822,7 +823,6 @@ export const AppSchema = Schema.Struct({
   Schema.check(
     Schema.makeFilter((app) => {
       if (!app.automations) return true
-
       const templateNames = new Set(app.actions?.map((t) => t.name) ?? [])
 
       const refError = app.automations
@@ -844,8 +844,8 @@ export const AppSchema = Schema.Struct({
             : '. No action templates are defined in app.actions[]'
         return `Automation '${refError.automation}' action '${refError.action.name}' references template '${refError.action.$ref}' which does not exist${available}`
       }
-
-      return true
+      // A live automation's trigger, or a template it calls, may not hold a `{{todo.*}}`.
+      return findAppTodoPlaceholders(app)
     })
   ),
   // NOTE: `automation:call` references are validated at RUNTIME (not at

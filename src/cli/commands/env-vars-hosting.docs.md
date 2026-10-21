@@ -41,6 +41,10 @@ The `listening on` line prints as soon as the port is held, suffixed `(degraded:
 
 `SOVRIUM_IDLE_EXIT_SECONDS` lets an instance give its memory back when nobody is using it. Once that many seconds pass with no request in flight or recently finished, no automation running, and no scheduled automation or agent due within the window, the server stops exactly as it does on `SIGTERM` and exits `0`. A socket-activation proxy in front of it then starts it again on the next connection, which takes a few seconds. The engine's own maintenance schedules do not keep an instance awake; they catch up at the next start. An automation waiting on a delay is not running, and resumes then too. The value is a whole number of at least `30`; anything else refuses to start.
 
+## A memory limit
+
+On Linux the runtime sizes its heap against the limit of the container or the systemd unit (`MemoryMax=`) it runs in, but that limit covers the whole process, not only the heap. On a small limit, lower `ECO_PAGE_CACHE_MAX_MB` (default `64`), and leave headroom for the database and the native buffers by setting `BUN_JSC_forceRAMSize` to about three quarters of the limit, in bytes (`402653184` under 512 MiB): the heap is then sized against that figure instead. The operations manual's **Database Infrastructure** article, under "Running in a small container", explains the trade-offs.
+
 ## JSON logs
 
 `SOVRIUM_LOG_FORMAT=json` is for a log collector — journald with a JSON reader, Loki, Vector, a platform's log drain. Every line the server writes becomes one object, the startup banner included, with `time` (ISO 8601), `level`, `message` and the record's structured attributes as further keys — the access log's `request.id`, for one — after the same secret redaction the telemetry export applies. A multi-line block, such as the banner or an error's cause chain, stays one object, its line breaks escaped inside `message`. Debug and info go to stdout, warnings and errors to stderr, exactly as in text mode. It changes how a record is written, never which records are written: `LOG_LEVEL` still decides that.

@@ -1,0 +1,1705 @@
+{
+  "id": "dashboard-data-pages",
+  "name": "dashboard-data-pages",
+  "path": "/analytics",
+  "meta": {
+    "title": "$t:admin.meta.pages"
+  },
+  "window": {
+    "default": "30d",
+    "presets": [
+      {
+        "id": "30d"
+      }
+    ]
+  },
+  "query": {
+    "tab": {
+      "default": "pages",
+      "enum": ["pages", "footprint"]
+    }
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "analytics": "$t:admin.crumb.analytics"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "admin-surface-content-2-1",
+          "element": "div",
+          "children": [
+            {
+              "type": "container",
+              "key": "header",
+              "element": "header",
+              "props": {
+                "className": "flex flex-col gap-1"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "h1",
+                  "props": {
+                    "className": "text-foreground text-2xl font-semibold tracking-tight"
+                  },
+                  "content": "$t:admin.pages.heading"
+                },
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "className": "text-muted-foreground max-w-3xl text-sm"
+                  },
+                  "content": "$t:admin.pages.blurb"
+                }
+              ],
+              "visibility": {
+                "declares": "analytics"
+              }
+            },
+            {
+              "type": "container",
+              "key": "header-2",
+              "element": "header",
+              "props": {
+                "className": "flex flex-col gap-1"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "h1",
+                  "props": {
+                    "className": "text-foreground text-2xl font-semibold tracking-tight"
+                  },
+                  "content": "$t:admin.pages.heading"
+                },
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "className": "text-muted-foreground max-w-3xl text-sm"
+                  },
+                  "content": "$t:admin.pages.blurbDisabled"
+                }
+              ],
+              "visibility": {
+                "unlessDeclares": "analytics"
+              }
+            }
+          ]
+        },
+        {
+          "type": "tabs",
+          "tabsVariant": "line",
+          "defaultTab": "$query.tab",
+          "props": {
+            "aria-label": "$t:admin.pages.tabs.region",
+            "data-testid": "admin-subview-tabs"
+          },
+          "panels": [
+            {
+              "id": "pages",
+              "label": "$t:admin.common.pages"
+            },
+            {
+              "id": "footprint",
+              "label": "$t:admin.analytics.footprint"
+            }
+          ],
+          "children": [
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-1-2",
+              "element": "div",
+              "props": {
+                "className": "flex min-w-0 flex-col gap-6"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-1-2-1",
+                  "element": "div",
+                  "visibility": {
+                    "declares": "analytics"
+                  },
+                  "props": {
+                    "className": "flex flex-col gap-8 pt-2"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "metrics-region",
+                      "element": "div",
+                      "props": {
+                        "role": "region",
+                        "aria-label": "$t:admin.pages.metrics.region",
+                        "className": "grid grid-cols-1 gap-4 sm:grid-cols-3"
+                      },
+                      "children": [
+                        {
+                          "component": "console-section-card",
+                          "key": "section-card",
+                          "vars": {
+                            "label": "$t:admin.analytics.pageViews",
+                            "dataSource": {
+                              "system": {
+                                "endpoint": "/api/analytics/overview",
+                                "valuePath": "summary.pageViews",
+                                "query": {
+                                  "from": "$window.start",
+                                  "to": "$window.end",
+                                  "granularity": "$window.granularity"
+                                }
+                              }
+                            },
+                            "kpiFormat": {
+                              "type": "number"
+                            }
+                          }
+                        },
+                        {
+                          "component": "console-section-card",
+                          "key": "section-card-2",
+                          "vars": {
+                            "label": "$t:admin.analytics.uniqueVisitors",
+                            "dataSource": {
+                              "system": {
+                                "endpoint": "/api/analytics/overview",
+                                "valuePath": "summary.uniqueVisitors",
+                                "query": {
+                                  "from": "$window.start",
+                                  "to": "$window.end",
+                                  "granularity": "$window.granularity"
+                                }
+                              }
+                            },
+                            "kpiFormat": {
+                              "type": "number"
+                            }
+                          }
+                        },
+                        {
+                          "component": "console-section-card",
+                          "key": "section-card-3",
+                          "vars": {
+                            "label": "$t:admin.analytics.sessions",
+                            "dataSource": {
+                              "system": {
+                                "endpoint": "/api/analytics/overview",
+                                "valuePath": "summary.sessions",
+                                "query": {
+                                  "from": "$window.start",
+                                  "to": "$window.end",
+                                  "granularity": "$window.granularity"
+                                }
+                              }
+                            },
+                            "kpiFormat": {
+                              "type": "number"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "chart",
+                      "props": {
+                        "aria-label": "$t:admin.pages.trend.region"
+                      },
+                      "dataSource": {
+                        "system": {
+                          "endpoint": "/api/analytics/overview",
+                          "rowsKey": "timeSeries",
+                          "query": {
+                            "from": "$window.start",
+                            "to": "$window.end",
+                            "granularity": "$window.granularity"
+                          }
+                        }
+                      },
+                      "chartType": "area",
+                      "xAxis": {
+                        "field": "period",
+                        "format": "date"
+                      },
+                      "yAxis": {
+                        "field": "pageViews",
+                        "gridLines": true
+                      },
+                      "series": [
+                        {
+                          "field": "pageViews",
+                          "label": "$t:admin.analytics.pageViews"
+                        },
+                        {
+                          "field": "uniqueVisitors",
+                          "label": "$t:admin.analytics.uniqueVisitors"
+                        },
+                        {
+                          "field": "sessions",
+                          "label": "$t:admin.analytics.sessions"
+                        }
+                      ],
+                      "emptyState": {
+                        "role": "region",
+                        "name": "$t:admin.common.noData",
+                        "title": "$t:admin.analytics.noVisits"
+                      }
+                    },
+                    {
+                      "component": "console-grid",
+                      "key": "grid",
+                      "vars": {
+                        "ariaLabel": "$t:admin.pages.top.region",
+                        "dataSource": {
+                          "system": {
+                            "endpoint": "/api/analytics/pages",
+                            "rowsKey": "pages",
+                            "idKey": "path",
+                            "query": {
+                              "from": "$window.start",
+                              "to": "$window.end"
+                            }
+                          }
+                        },
+                        "columns": [
+                          {
+                            "field": "path",
+                            "label": "$t:admin.analytics.page"
+                          },
+                          {
+                            "field": "pageViews",
+                            "label": "$t:admin.analytics.views",
+                            "align": "right"
+                          },
+                          {
+                            "field": "uniqueVisitors",
+                            "label": "$t:admin.analytics.visitors",
+                            "align": "right"
+                          }
+                        ],
+                        "emptyMessage": "$t:admin.analytics.noPages"
+                      }
+                    },
+                    {
+                      "type": "container",
+                      "key": "acquisition-heading",
+                      "element": "section",
+                      "props": {
+                        "className": "flex flex-col gap-3",
+                        "aria-label": "$t:admin.pages.acquisition.heading"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "h3",
+                          "props": {
+                            "className": "text-foreground text-md font-medium"
+                          },
+                          "content": "$t:admin.pages.acquisition.heading"
+                        },
+                        {
+                          "type": "container",
+                          "key": "acquisition-heading-2",
+                          "props": {
+                            "className": "grid grid-cols-1 gap-4 lg:grid-cols-2"
+                          },
+                          "children": [
+                            {
+                              "component": "console-grid",
+                              "key": "grid-2",
+                              "vars": {
+                                "ariaLabel": "$t:admin.pages.referrers.region",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/analytics/referrers",
+                                    "rowsKey": "referrers",
+                                    "idKey": "domain",
+                                    "query": {
+                                      "from": "$window.start",
+                                      "to": "$window.end"
+                                    }
+                                  }
+                                },
+                                "columns": [
+                                  {
+                                    "field": "domain",
+                                    "label": "$t:admin.analytics.referrer"
+                                  },
+                                  {
+                                    "field": "pageViews",
+                                    "label": "$t:admin.analytics.views",
+                                    "align": "right"
+                                  },
+                                  {
+                                    "field": "uniqueVisitors",
+                                    "label": "$t:admin.analytics.visitors",
+                                    "align": "right"
+                                  }
+                                ],
+                                "emptyMessage": "$t:admin.pages.noReferrers"
+                              }
+                            },
+                            {
+                              "component": "console-grid",
+                              "key": "grid-3",
+                              "vars": {
+                                "ariaLabel": "$t:admin.pages.campaigns.region",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/analytics/campaigns",
+                                    "rowsKey": "campaigns",
+                                    "idKey": "campaign",
+                                    "query": {
+                                      "from": "$window.start",
+                                      "to": "$window.end"
+                                    }
+                                  }
+                                },
+                                "columns": [
+                                  {
+                                    "field": "campaign",
+                                    "label": "$t:admin.analytics.campaign"
+                                  },
+                                  {
+                                    "field": "source",
+                                    "label": "$t:admin.common.source"
+                                  },
+                                  {
+                                    "field": "medium",
+                                    "label": "$t:admin.analytics.medium"
+                                  },
+                                  {
+                                    "field": "pageViews",
+                                    "label": "$t:admin.analytics.views",
+                                    "align": "right"
+                                  }
+                                ],
+                                "emptyMessage": "$t:admin.pages.noCampaigns"
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "technology-heading",
+                      "element": "section",
+                      "props": {
+                        "className": "flex flex-col gap-3",
+                        "aria-label": "$t:admin.pages.technology.heading"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "h3",
+                          "props": {
+                            "className": "text-foreground text-md font-medium"
+                          },
+                          "content": "$t:admin.pages.technology.heading"
+                        },
+                        {
+                          "type": "container",
+                          "key": "technology-heading-2",
+                          "props": {
+                            "className": "grid grid-cols-1 gap-4 lg:grid-cols-3"
+                          },
+                          "children": [
+                            {
+                              "component": "console-grid",
+                              "key": "grid-4",
+                              "vars": {
+                                "ariaLabel": "$t:admin.pages.devices.region",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/analytics/devices",
+                                    "rowsKey": "deviceTypes",
+                                    "idKey": "name",
+                                    "query": {
+                                      "from": "$window.start",
+                                      "to": "$window.end"
+                                    }
+                                  }
+                                },
+                                "columns": [
+                                  {
+                                    "field": "name",
+                                    "label": "$t:admin.common.name"
+                                  },
+                                  {
+                                    "field": "count",
+                                    "label": "$t:admin.analytics.visits",
+                                    "align": "right"
+                                  },
+                                  {
+                                    "field": "percentage",
+                                    "label": "$t:admin.analytics.share",
+                                    "align": "right"
+                                  }
+                                ],
+                                "emptyMessage": "$t:admin.analytics.noDevices"
+                              }
+                            },
+                            {
+                              "component": "console-grid",
+                              "key": "grid-5",
+                              "vars": {
+                                "ariaLabel": "$t:admin.pages.browsers.region",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/analytics/devices",
+                                    "rowsKey": "browsers",
+                                    "idKey": "name",
+                                    "query": {
+                                      "from": "$window.start",
+                                      "to": "$window.end"
+                                    }
+                                  }
+                                },
+                                "columns": [
+                                  {
+                                    "field": "name",
+                                    "label": "$t:admin.common.name"
+                                  },
+                                  {
+                                    "field": "count",
+                                    "label": "$t:admin.analytics.visits",
+                                    "align": "right"
+                                  },
+                                  {
+                                    "field": "percentage",
+                                    "label": "$t:admin.analytics.share",
+                                    "align": "right"
+                                  }
+                                ],
+                                "emptyMessage": "$t:admin.analytics.noBrowsers"
+                              }
+                            },
+                            {
+                              "component": "console-grid",
+                              "key": "grid-6",
+                              "vars": {
+                                "ariaLabel": "$t:admin.pages.os.region",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/analytics/devices",
+                                    "rowsKey": "operatingSystems",
+                                    "idKey": "name",
+                                    "query": {
+                                      "from": "$window.start",
+                                      "to": "$window.end"
+                                    }
+                                  }
+                                },
+                                "columns": [
+                                  {
+                                    "field": "name",
+                                    "label": "$t:admin.common.name"
+                                  },
+                                  {
+                                    "field": "count",
+                                    "label": "$t:admin.analytics.visits",
+                                    "align": "right"
+                                  },
+                                  {
+                                    "field": "percentage",
+                                    "label": "$t:admin.analytics.share",
+                                    "align": "right"
+                                  }
+                                ],
+                                "emptyMessage": "$t:admin.analytics.noOs"
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "events-heading",
+                      "element": "section",
+                      "props": {
+                        "className": "flex flex-col gap-3",
+                        "aria-label": "$t:admin.pages.events.heading"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "h3",
+                          "props": {
+                            "className": "text-foreground text-md font-medium"
+                          },
+                          "content": "$t:admin.pages.events.heading"
+                        },
+                        {
+                          "component": "console-grid",
+                          "key": "grid-7",
+                          "vars": {
+                            "ariaLabel": "$t:admin.pages.events.heading",
+                            "dataSource": {
+                              "system": {
+                                "endpoint": "/api/analytics/events",
+                                "rowsKey": "events",
+                                "idKey": "id",
+                                "query": {
+                                  "from": "$window.start",
+                                  "to": "$window.end"
+                                }
+                              }
+                            },
+                            "columns": [
+                              {
+                                "field": "event_name",
+                                "label": "$t:admin.analytics.event"
+                              },
+                              {
+                                "field": "event_type",
+                                "label": "$t:admin.common.type"
+                              },
+                              {
+                                "field": "timestamp",
+                                "label": "$t:admin.analytics.recorded",
+                                "format": "datetime"
+                              }
+                            ],
+                            "emptyMessage": "$t:admin.analytics.noEvents"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-2",
+              "element": "div",
+              "props": {
+                "className": "flex min-w-0 flex-col gap-6"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-1",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-w-0 flex-col gap-8"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "measured-heading",
+                      "element": "section",
+                      "props": {
+                        "aria-label": "$t:admin.footprint.measured.heading"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "h2",
+                          "props": {
+                            "className": "pb-4 text-xl font-semibold tracking-tight"
+                          },
+                          "content": "$t:admin.footprint.measured.heading"
+                        },
+                        {
+                          "type": "container",
+                          "key": "measured-heading-2",
+                          "props": {
+                            "className": "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+                          },
+                          "children": [
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-4",
+                              "vars": {
+                                "label": "$t:admin.footprint.lastGraded",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valueTemplate": "{ecoIndexHeader.currentGrade}"
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-5",
+                              "vars": {
+                                "label": "$t:admin.footprint.graded",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valuePath": "ecoIndexHeader.graded"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "number"
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-6",
+                              "vars": {
+                                "label": "$t:admin.footprint.meanSize",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valuePath": "ecoIndexHeader.meanBytes"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "bytes"
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-7",
+                              "vars": {
+                                "label": "$t:admin.footprint.cacheHit",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valuePath": "pageCache.hitRate"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "percentage",
+                                  "options": {
+                                    "scale": "100"
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-8",
+                              "vars": {
+                                "label": "$t:admin.footprint.cacheSize",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valuePath": "pageCache.bytes"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "bytes"
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-9",
+                              "vars": {
+                                "label": "$t:admin.footprint.memory",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valuePath": "runtime.rssBytes"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "bytes"
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-10",
+                              "vars": {
+                                "label": "$t:admin.footprint.cpu",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valuePath": "runtime.cpuSeconds"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "duration",
+                                  "options": {
+                                    "unit": "s"
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-11",
+                              "vars": {
+                                "label": "$t:admin.footprint.uptime",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valuePath": "runtime.uptimeSeconds"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "duration",
+                                  "options": {
+                                    "unit": "s"
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle max-w-3xl pt-3 text-md"
+                          },
+                          "content": "$t:admin.locked.audit.footprint.measuredProvenance"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "storage-heading",
+                      "element": "section",
+                      "props": {
+                        "aria-label": "$t:admin.footprint.storage.heading"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "h2",
+                          "props": {
+                            "className": "pb-4 text-xl font-semibold tracking-tight"
+                          },
+                          "content": "$t:admin.footprint.storage.heading"
+                        },
+                        {
+                          "component": "console-grid",
+                          "key": "grid-8",
+                          "vars": {
+                            "id": "admin-footprint-storage",
+                            "ariaLabel": "$t:admin.footprint.storage.region",
+                            "dataSource": {
+                              "system": {
+                                "endpoint": "/api/admin/footprint/overview",
+                                "rowsKey": "topStorageConsumers",
+                                "idKey": "name"
+                              }
+                            },
+                            "columns": [
+                              {
+                                "field": "name",
+                                "label": "$t:admin.footprint.resource"
+                              },
+                              {
+                                "field": "type",
+                                "label": "$t:admin.common.type",
+                                "valueLabels": {
+                                  "table": "$t:admin.footprint.kind.table",
+                                  "bucket": "$t:admin.footprint.kind.bucket"
+                                }
+                              },
+                              {
+                                "field": "bytes",
+                                "label": "$t:admin.common.size",
+                                "align": "right",
+                                "format": "bytes"
+                              },
+                              {
+                                "field": "measurement",
+                                "label": "$t:admin.footprint.measuredBy",
+                                "valueLabels": {
+                                  "pg_total_relation_size": "$t:admin.footprint.by.postgres",
+                                  "sqlite_dbstat": "SQLite dbstat",
+                                  "storage_adapter": "$t:admin.footprint.by.storage",
+                                  "unavailable": "$t:admin.footprint.by.unavailable"
+                                }
+                              }
+                            ],
+                            "emptyMessage": "$t:admin.footprint.nothing"
+                          }
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle max-w-3xl pt-3 text-md"
+                          },
+                          "content": "$t:admin.locked.audit.footprint.storageProvenance"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "configuration-heading",
+                      "element": "section",
+                      "props": {
+                        "aria-label": "$t:admin.footprint.configuration.heading"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "h2",
+                          "props": {
+                            "className": "pb-4 text-xl font-semibold tracking-tight"
+                          },
+                          "content": "$t:admin.footprint.configuration.heading"
+                        },
+                        {
+                          "component": "console-grid",
+                          "key": "grid-9",
+                          "vars": {
+                            "id": "admin-footprint-levers",
+                            "ariaLabel": "$t:admin.footprint.levers.region",
+                            "dataSource": {
+                              "system": {
+                                "endpoint": "/api/admin/footprint/overview",
+                                "rowsKey": "levers",
+                                "idKey": "name"
+                              }
+                            },
+                            "columns": [
+                              {
+                                "field": "name",
+                                "label": "$t:admin.footprint.lever"
+                              },
+                              {
+                                "field": "effective",
+                                "label": "$t:admin.footprint.inForce"
+                              },
+                              {
+                                "field": "source",
+                                "label": "$t:admin.footprint.decidedBy",
+                                "valueLabels": {
+                                  "explicit": "$t:admin.footprint.source.explicit",
+                                  "eco-mode": "ECO_MODE",
+                                  "default": "$t:admin.footprint.source.default"
+                                }
+                              }
+                            ],
+                            "emptyMessage": "$t:admin.footprint.noLevers"
+                          }
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle max-w-3xl pt-3 text-md"
+                          },
+                          "content": "$t:admin.locked.audit.footprint.configurationProvenance"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "admin-surface-content-2-2-1-4",
+                      "element": "div",
+                      "props": {
+                        "className": "flex flex-col gap-2"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle max-w-3xl text-md"
+                          },
+                          "content": "$t:admin.footprint.rgesn.blurb"
+                        },
+                        {
+                          "type": "link",
+                          "props": {
+                            "href": "https://sovrium.com/en/docs/rgesn-parity",
+                            "target": "_blank",
+                            "rel": "noopener noreferrer",
+                            "data-testid": "admin-footprint-rgesn-link",
+                            "className": "text-foreground-subtle hover:text-foreground inline-flex w-fit items-center gap-2 text-md underline underline-offset-4"
+                          },
+                          "content": "$t:admin.footprint.rgesn.link"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "visibility": {
+            "declares": "analytics",
+            "capability": "administer-accounts"
+          }
+        },
+        {
+          "type": "tabs",
+          "tabsVariant": "line",
+          "defaultTab": "footprint",
+          "props": {
+            "aria-label": "$t:admin.pages.tabs.region",
+            "data-testid": "admin-subview-tabs"
+          },
+          "panels": [
+            {
+              "id": "footprint",
+              "label": "$t:admin.analytics.footprint"
+            }
+          ],
+          "children": [
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-1-3",
+              "element": "div",
+              "props": {
+                "className": "flex min-w-0 flex-col gap-6"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-1-3-1",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-w-0 flex-col gap-8"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "measured-heading-3",
+                      "element": "section",
+                      "props": {
+                        "aria-label": "$t:admin.footprint.measured.heading"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "h2",
+                          "props": {
+                            "className": "pb-4 text-xl font-semibold tracking-tight"
+                          },
+                          "content": "$t:admin.footprint.measured.heading"
+                        },
+                        {
+                          "type": "container",
+                          "key": "measured-heading-3-2",
+                          "props": {
+                            "className": "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+                          },
+                          "children": [
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-12",
+                              "vars": {
+                                "label": "$t:admin.footprint.lastGraded",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valueTemplate": "{ecoIndexHeader.currentGrade}"
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-13",
+                              "vars": {
+                                "label": "$t:admin.footprint.graded",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valuePath": "ecoIndexHeader.graded"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "number"
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-14",
+                              "vars": {
+                                "label": "$t:admin.footprint.meanSize",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valuePath": "ecoIndexHeader.meanBytes"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "bytes"
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-15",
+                              "vars": {
+                                "label": "$t:admin.footprint.cacheHit",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valuePath": "pageCache.hitRate"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "percentage",
+                                  "options": {
+                                    "scale": "100"
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-16",
+                              "vars": {
+                                "label": "$t:admin.footprint.cacheSize",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valuePath": "pageCache.bytes"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "bytes"
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-17",
+                              "vars": {
+                                "label": "$t:admin.footprint.memory",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valuePath": "runtime.rssBytes"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "bytes"
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-18",
+                              "vars": {
+                                "label": "$t:admin.footprint.cpu",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valuePath": "runtime.cpuSeconds"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "duration",
+                                  "options": {
+                                    "unit": "s"
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-19",
+                              "vars": {
+                                "label": "$t:admin.footprint.uptime",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valuePath": "runtime.uptimeSeconds"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "duration",
+                                  "options": {
+                                    "unit": "s"
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle max-w-3xl pt-3 text-md"
+                          },
+                          "content": "$t:admin.locked.audit.footprint.measuredProvenance"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "storage-heading-2",
+                      "element": "section",
+                      "props": {
+                        "aria-label": "$t:admin.footprint.storage.heading"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "h2",
+                          "props": {
+                            "className": "pb-4 text-xl font-semibold tracking-tight"
+                          },
+                          "content": "$t:admin.footprint.storage.heading"
+                        },
+                        {
+                          "component": "console-grid",
+                          "key": "grid-10",
+                          "vars": {
+                            "id": "admin-footprint-storage",
+                            "ariaLabel": "$t:admin.footprint.storage.region",
+                            "dataSource": {
+                              "system": {
+                                "endpoint": "/api/admin/footprint/overview",
+                                "rowsKey": "topStorageConsumers",
+                                "idKey": "name"
+                              }
+                            },
+                            "columns": [
+                              {
+                                "field": "name",
+                                "label": "$t:admin.footprint.resource"
+                              },
+                              {
+                                "field": "type",
+                                "label": "$t:admin.common.type",
+                                "valueLabels": {
+                                  "table": "$t:admin.footprint.kind.table",
+                                  "bucket": "$t:admin.footprint.kind.bucket"
+                                }
+                              },
+                              {
+                                "field": "bytes",
+                                "label": "$t:admin.common.size",
+                                "align": "right",
+                                "format": "bytes"
+                              },
+                              {
+                                "field": "measurement",
+                                "label": "$t:admin.footprint.measuredBy",
+                                "valueLabels": {
+                                  "pg_total_relation_size": "$t:admin.footprint.by.postgres",
+                                  "sqlite_dbstat": "SQLite dbstat",
+                                  "storage_adapter": "$t:admin.footprint.by.storage",
+                                  "unavailable": "$t:admin.footprint.by.unavailable"
+                                }
+                              }
+                            ],
+                            "emptyMessage": "$t:admin.footprint.nothing"
+                          }
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle max-w-3xl pt-3 text-md"
+                          },
+                          "content": "$t:admin.locked.audit.footprint.storageProvenance"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "configuration-heading-2",
+                      "element": "section",
+                      "props": {
+                        "aria-label": "$t:admin.footprint.configuration.heading"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "h2",
+                          "props": {
+                            "className": "pb-4 text-xl font-semibold tracking-tight"
+                          },
+                          "content": "$t:admin.footprint.configuration.heading"
+                        },
+                        {
+                          "component": "console-grid",
+                          "key": "grid-11",
+                          "vars": {
+                            "id": "admin-footprint-levers",
+                            "ariaLabel": "$t:admin.footprint.levers.region",
+                            "dataSource": {
+                              "system": {
+                                "endpoint": "/api/admin/footprint/overview",
+                                "rowsKey": "levers",
+                                "idKey": "name"
+                              }
+                            },
+                            "columns": [
+                              {
+                                "field": "name",
+                                "label": "$t:admin.footprint.lever"
+                              },
+                              {
+                                "field": "effective",
+                                "label": "$t:admin.footprint.inForce"
+                              },
+                              {
+                                "field": "source",
+                                "label": "$t:admin.footprint.decidedBy",
+                                "valueLabels": {
+                                  "explicit": "$t:admin.footprint.source.explicit",
+                                  "eco-mode": "ECO_MODE",
+                                  "default": "$t:admin.footprint.source.default"
+                                }
+                              }
+                            ],
+                            "emptyMessage": "$t:admin.footprint.noLevers"
+                          }
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle max-w-3xl pt-3 text-md"
+                          },
+                          "content": "$t:admin.locked.audit.footprint.configurationProvenance"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "admin-surface-content-2-1-3-1-4",
+                      "element": "div",
+                      "props": {
+                        "className": "flex flex-col gap-2"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle max-w-3xl text-md"
+                          },
+                          "content": "$t:admin.footprint.rgesn.blurb"
+                        },
+                        {
+                          "type": "link",
+                          "props": {
+                            "href": "https://sovrium.com/en/docs/rgesn-parity",
+                            "target": "_blank",
+                            "rel": "noopener noreferrer",
+                            "data-testid": "admin-footprint-rgesn-link",
+                            "className": "text-foreground-subtle hover:text-foreground inline-flex w-fit items-center gap-2 text-md underline underline-offset-4"
+                          },
+                          "content": "$t:admin.footprint.rgesn.link"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "visibility": {
+            "unlessDeclares": "analytics"
+          }
+        },
+        {
+          "type": "tabs",
+          "tabsVariant": "line",
+          "defaultTab": "footprint",
+          "props": {
+            "aria-label": "$t:admin.pages.tabs.region",
+            "data-testid": "admin-subview-tabs"
+          },
+          "panels": [
+            {
+              "id": "footprint",
+              "label": "$t:admin.analytics.footprint"
+            }
+          ],
+          "children": [
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-1-4",
+              "element": "div",
+              "props": {
+                "className": "flex min-w-0 flex-col gap-6"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-1-4-1",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-w-0 flex-col gap-8"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "measured-heading-4",
+                      "element": "section",
+                      "props": {
+                        "aria-label": "$t:admin.footprint.measured.heading"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "h2",
+                          "props": {
+                            "className": "pb-4 text-xl font-semibold tracking-tight"
+                          },
+                          "content": "$t:admin.footprint.measured.heading"
+                        },
+                        {
+                          "type": "container",
+                          "key": "measured-heading-4-2",
+                          "props": {
+                            "className": "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+                          },
+                          "children": [
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-20",
+                              "vars": {
+                                "label": "$t:admin.footprint.lastGraded",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valueTemplate": "{ecoIndexHeader.currentGrade}"
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-21",
+                              "vars": {
+                                "label": "$t:admin.footprint.graded",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valuePath": "ecoIndexHeader.graded"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "number"
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-22",
+                              "vars": {
+                                "label": "$t:admin.footprint.meanSize",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valuePath": "ecoIndexHeader.meanBytes"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "bytes"
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-23",
+                              "vars": {
+                                "label": "$t:admin.footprint.cacheHit",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valuePath": "pageCache.hitRate"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "percentage",
+                                  "options": {
+                                    "scale": "100"
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-24",
+                              "vars": {
+                                "label": "$t:admin.footprint.cacheSize",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valuePath": "pageCache.bytes"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "bytes"
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-25",
+                              "vars": {
+                                "label": "$t:admin.footprint.memory",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valuePath": "runtime.rssBytes"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "bytes"
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-26",
+                              "vars": {
+                                "label": "$t:admin.footprint.cpu",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valuePath": "runtime.cpuSeconds"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "duration",
+                                  "options": {
+                                    "unit": "s"
+                                  }
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-27",
+                              "vars": {
+                                "label": "$t:admin.footprint.uptime",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/footprint/overview",
+                                    "valuePath": "runtime.uptimeSeconds"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "duration",
+                                  "options": {
+                                    "unit": "s"
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle max-w-3xl pt-3 text-md"
+                          },
+                          "content": "$t:admin.locked.audit.footprint.measuredProvenance"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "storage-heading-3",
+                      "element": "section",
+                      "props": {
+                        "aria-label": "$t:admin.footprint.storage.heading"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "h2",
+                          "props": {
+                            "className": "pb-4 text-xl font-semibold tracking-tight"
+                          },
+                          "content": "$t:admin.footprint.storage.heading"
+                        },
+                        {
+                          "component": "console-grid",
+                          "key": "grid-12",
+                          "vars": {
+                            "id": "admin-footprint-storage",
+                            "ariaLabel": "$t:admin.footprint.storage.region",
+                            "dataSource": {
+                              "system": {
+                                "endpoint": "/api/admin/footprint/overview",
+                                "rowsKey": "topStorageConsumers",
+                                "idKey": "name"
+                              }
+                            },
+                            "columns": [
+                              {
+                                "field": "name",
+                                "label": "$t:admin.footprint.resource"
+                              },
+                              {
+                                "field": "type",
+                                "label": "$t:admin.common.type",
+                                "valueLabels": {
+                                  "table": "$t:admin.footprint.kind.table",
+                                  "bucket": "$t:admin.footprint.kind.bucket"
+                                }
+                              },
+                              {
+                                "field": "bytes",
+                                "label": "$t:admin.common.size",
+                                "align": "right",
+                                "format": "bytes"
+                              },
+                              {
+                                "field": "measurement",
+                                "label": "$t:admin.footprint.measuredBy",
+                                "valueLabels": {
+                                  "pg_total_relation_size": "$t:admin.footprint.by.postgres",
+                                  "sqlite_dbstat": "SQLite dbstat",
+                                  "storage_adapter": "$t:admin.footprint.by.storage",
+                                  "unavailable": "$t:admin.footprint.by.unavailable"
+                                }
+                              }
+                            ],
+                            "emptyMessage": "$t:admin.footprint.nothing"
+                          }
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle max-w-3xl pt-3 text-md"
+                          },
+                          "content": "$t:admin.locked.audit.footprint.storageProvenance"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "configuration-heading-3",
+                      "element": "section",
+                      "props": {
+                        "aria-label": "$t:admin.footprint.configuration.heading"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "h2",
+                          "props": {
+                            "className": "pb-4 text-xl font-semibold tracking-tight"
+                          },
+                          "content": "$t:admin.footprint.configuration.heading"
+                        },
+                        {
+                          "component": "console-grid",
+                          "key": "grid-13",
+                          "vars": {
+                            "id": "admin-footprint-levers",
+                            "ariaLabel": "$t:admin.footprint.levers.region",
+                            "dataSource": {
+                              "system": {
+                                "endpoint": "/api/admin/footprint/overview",
+                                "rowsKey": "levers",
+                                "idKey": "name"
+                              }
+                            },
+                            "columns": [
+                              {
+                                "field": "name",
+                                "label": "$t:admin.footprint.lever"
+                              },
+                              {
+                                "field": "effective",
+                                "label": "$t:admin.footprint.inForce"
+                              },
+                              {
+                                "field": "source",
+                                "label": "$t:admin.footprint.decidedBy",
+                                "valueLabels": {
+                                  "explicit": "$t:admin.footprint.source.explicit",
+                                  "eco-mode": "ECO_MODE",
+                                  "default": "$t:admin.footprint.source.default"
+                                }
+                              }
+                            ],
+                            "emptyMessage": "$t:admin.footprint.noLevers"
+                          }
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle max-w-3xl pt-3 text-md"
+                          },
+                          "content": "$t:admin.locked.audit.footprint.configurationProvenance"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "admin-surface-content-2-1-4-1-4",
+                      "element": "div",
+                      "props": {
+                        "className": "flex flex-col gap-2"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle max-w-3xl text-md"
+                          },
+                          "content": "$t:admin.footprint.rgesn.blurb"
+                        },
+                        {
+                          "type": "link",
+                          "props": {
+                            "href": "https://sovrium.com/en/docs/rgesn-parity",
+                            "target": "_blank",
+                            "rel": "noopener noreferrer",
+                            "data-testid": "admin-footprint-rgesn-link",
+                            "className": "text-foreground-subtle hover:text-foreground inline-flex w-fit items-center gap-2 text-md underline underline-offset-4"
+                          },
+                          "content": "$t:admin.footprint.rgesn.link"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "visibility": {
+            "declares": "analytics",
+            "unlessCapability": "administer-accounts"
+          }
+        }
+      ]
+    }
+  ]
+}

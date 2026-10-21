@@ -156,6 +156,17 @@ function wordsOf(locale: DrawerFieldLocale): Readonly<Record<string, string>> {
   )
 }
 
+/**
+ * On the console, the `report.*` words a save failed by a server error is told
+ * in (its request id, the copy control, the report link), only where the page
+ * language differs from the English the island is written in.
+ */
+function consoleReportWords(input: GenericSheetInput): Readonly<Record<string, string>> {
+  if (input.host?.console === undefined) return {}
+  const { currentLang, languages } = input.locale
+  return resolveInterpreterStringOverrides(['report.'], currentLang, languages) ?? {}
+}
+
 /** The Comments tab's thread props, when the table declares comments and the reader is signed in — a console caller included. */
 function commentsTab(table: Table, input: GenericSheetInput) {
   if (table.comments === undefined || !isSignedIn(input)) return undefined
@@ -251,7 +262,7 @@ function newRecordLabel(table: Table, locale: GenericSheetInput['locale']): stri
 export function resolveGenericSheet(input: GenericSheetInput): GenericSheet | undefined {
   const table = genericSheetTable(input)
   if (table === undefined) return undefined
-  const words = wordsOf(input.locale)
+  const words = { ...wordsOf(input.locale), ...consoleReportWords(input) }
   const comments = commentsTab(table, input)
   const stamps = stampsOf(table)
   return {

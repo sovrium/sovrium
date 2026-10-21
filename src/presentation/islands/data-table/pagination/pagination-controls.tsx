@@ -115,6 +115,11 @@ function usePagerLabels(input: {
       page: pageIndex + 1,
       count: pageCount || 1,
     }),
+    // A phone's own readout otherwise: `1/6`, so the bar stays one line.
+    pageCompact: useGridString('datatable.pagination.pageCompact', '{page}/{count}', {
+      page: pageIndex + 1,
+      count: pageCount || 1,
+    }),
     previous: useGridString('datatable.pagination.previous', 'Previous'),
     previousLabel: useGridString('datatable.pagination.previousLabel', 'Previous page'),
     next: useGridString('datatable.pagination.next', 'Next'),
@@ -124,10 +129,90 @@ function usePagerLabels(input: {
   }
 }
 
+/** lucide's `chevron-left` / `chevron-right`: a phone's previous and next steps. */
+const STEP_GLYPH: Readonly<Record<'previous' | 'next', string>> = {
+  previous: 'm15 18-6-6 6-6',
+  next: 'm9 18 6-6-6-6',
+}
+
+/**
+ * A previous or next step: its word, or on a phone its chevron — the button
+ * keeps its name either way.
+ */
+function StepButton({
+  step,
+  word,
+  label,
+  phone,
+  disabled,
+  onClick,
+}: {
+  readonly step: 'previous' | 'next'
+  readonly word: string
+  readonly label: string
+  readonly phone: boolean
+  readonly disabled: boolean
+  readonly onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={computeTablePagerButtonClasses({ disabled })}
+      aria-label={label}
+    >
+      {phone ? (
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          className="size-4"
+        >
+          <path d={STEP_GLYPH[step]} />
+        </svg>
+      ) : (
+        word
+      )}
+    </button>
+  )
+}
+
+/**
+ * A phone's page readout. The compact `1/6` is for the eye; assistive tech reads
+ * the full "Page 1 of 6", since a generic span's own aria-label is not
+ * announced. The readout is a block, so it is exactly one line tall, and the
+ * hidden sentence is pinned to its top, so neither leaves the bar's one line.
+ */
+function PhoneReadout({
+  readout,
+  sentence,
+}: {
+  readonly readout: string
+  readonly sentence: string
+}) {
+  return (
+    <span className="relative whitespace-nowrap">
+      <span
+        className="block"
+        aria-hidden="true"
+      >
+        {readout}
+      </span>
+      <span className="sr-only top-0">{sentence}</span>
+    </span>
+  )
+}
+
 /**
  * The pager's steps, shadcn/ui's `DataTablePagination` controls: first page,
  * previous, the page readout, next, last page. Each is disabled where there is
- * nowhere to go.
+ * nowhere to go. On a phone the steps are chevrons around a compact readout
+ * (`1/6`), so the bottom bar keeps one line.
  */
 function PagerSteps({
   table,
@@ -138,7 +223,8 @@ function PagerSteps({
 }) {
   const canBack = table.getCanPreviousPage()
   const canOn = table.getCanNextPage()
-  const short = usePhoneViewport(labels.pageShort !== '')
+  const short = usePhoneViewport(true)
+  const readout = labels.pageShort === '' ? labels.pageCompact : labels.pageShort
   return (
     <>
       <PagerEdgeButton
@@ -147,34 +233,30 @@ function PagerSteps({
         disabled={!canBack}
         onClick={() => table.firstPage()}
       />
-      <button
-        type="button"
-        onClick={() => table.previousPage()}
+      <StepButton
+        step="previous"
+        word={labels.previous}
+        label={labels.previousLabel}
+        phone={short}
         disabled={!canBack}
-        className={computeTablePagerButtonClasses({ disabled: !canBack })}
-        aria-label={labels.previousLabel}
-      >
-        {labels.previous}
-      </button>
+        onClick={() => table.previousPage()}
+      />
       {short ? (
-        <span
-          className="whitespace-nowrap"
-          aria-label={labels.page}
-        >
-          {labels.pageShort}
-        </span>
+        <PhoneReadout
+          readout={readout}
+          sentence={labels.page}
+        />
       ) : (
         <span className="whitespace-nowrap">{labels.page}</span>
       )}
-      <button
-        type="button"
-        onClick={() => table.nextPage()}
+      <StepButton
+        step="next"
+        word={labels.next}
+        label={labels.nextLabel}
+        phone={short}
         disabled={!canOn}
-        className={computeTablePagerButtonClasses({ disabled: !canOn })}
-        aria-label={labels.nextLabel}
-      >
-        {labels.next}
-      </button>
+        onClick={() => table.nextPage()}
+      />
       <PagerEdgeButton
         edge="last"
         label={labels.lastLabel}

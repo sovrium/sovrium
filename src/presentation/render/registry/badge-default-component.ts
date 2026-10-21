@@ -19,6 +19,9 @@ const BADGE_VARIANTS = new Set<BadgeVariant>([
   'outline',
   'ghost',
   'link',
+  'success',
+  'warning',
+  'info',
 ])
 
 /** The tone a badge's `badgeVariant` names; base-nova's `default` when unset or unknown. */

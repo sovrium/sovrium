@@ -130,6 +130,7 @@ export type IslandLoader = () => Promise<{
  */
 
 const loadAdminAgentConversations = () => import('./admin/agents/admin-agent-conversations-island')
+const loadAdminReportLink = () => import('./admin/admin-report-link-island')
 const loadAiChat = () => import('./ai-chat-island')
 const loadCommand = () => import('./command/command-island')
 const loadAuthForm = () => import('./auth-form/auth-form-island')
@@ -517,6 +518,11 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // straight after `page.goto`. Mounted via a `data-island` marker on a generic
   // container.
   'admin-agent-conversations': lazy(loadAdminAgentConversations),
+  // `admin-report-link` — "Report on GitHub" on a run page the engine closed
+  // as a defect, and the two reports of the Report a problem page: asks a
+  // report read and links what it answers. Lazy and not PRIORITY: it owns no first gesture, and the run page
+  // reads in full without it. Mounted via a `data-island` marker.
+  'admin-report-link': lazy(loadAdminReportLink),
   // (`design-system-share` used to sit here — the mint / revoke affordance on
   // `/_admin/design-system`, [internal ref] amendment A3 Part 2. It is GONE rather
   // than moved: the panel is now declared as CONFIGURATION in

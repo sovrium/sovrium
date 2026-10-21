@@ -5,15 +5,20 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { and, type SQL } from 'drizzle-orm'
+import { and, count, gt, inArray, max, type SQL } from 'drizzle-orm'
 import { Layer } from 'effect'
 import {
   UsersDirectoryRepository,
   UsersDirectoryDatabaseError,
+  type DirectoryAccountFacts,
   type DirectoryFilters,
 } from '@/application/ports/repositories/tables/users-directory-repository'
 import { db } from '@/infrastructure/database'
-import { authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  authAccountsTable,
+  authSessionsTable,
+  authUsersTable,
+} from '@/infrastructure/database/drizzle/dialect-schema'
 import { notAnAgentAccount } from '@/infrastructure/database/sql/auth-user-predicates'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { searchAnyColumn } from '@/infrastructure/database/sql/dialect-sql-helpers'
@@ -42,6 +47,54 @@ const buildSearchConditions = (filters: DirectoryFilters | undefined): ReadonlyA
   // hand this helper a mutable upstream Drizzle object.
   const usersTable = authUsersTable()
   return searchAnyColumn(filters?.q, usersTable.email, usersTable.name)
+}
+
+/**
+ * The page's session and sign-in facts: the newest session ever and the count
+ * of unexpired ones per account, then the distinct providers of its linked
+ * accounts. Two grouped reads for the whole page, whatever its size; only
+ * aggregates and provider ids are selected, never a token, address or agent.
+ */
+const readAccountFactsImpl = async (
+  userIds: readonly string[],
+  now: Readonly<Date>
+): Promise<ReadonlyMap<string, DirectoryAccountFacts>> => {
+  if (userIds.length === 0) return new Map()
+  const sessions = authSessionsTable()
+  const accounts = authAccountsTable()
+  const ids = [...userIds]
+  // Three reads in sequence: one pooled connection at a time, whatever the page.
+  const lastSignIns = await db
+    .select({ userId: sessions.userId, lastSignInAt: max(sessions.createdAt) })
+    .from(sessions)
+    .where(inArray(sessions.userId, ids))
+    .groupBy(sessions.userId)
+  const activeCounts = await db
+    .select({ userId: sessions.userId, active: count() })
+    .from(sessions)
+    .where(and(inArray(sessions.userId, ids), gt(sessions.expiresAt, new Date(now.getTime()))))
+    .groupBy(sessions.userId)
+  const providers = await db
+    .selectDistinct({ userId: accounts.userId, providerId: accounts.providerId })
+    .from(accounts)
+    .where(inArray(accounts.userId, ids))
+  const active = new Map(activeCounts.map((row) => [row.userId, Number(row.active)] as const))
+  const last = new Map(lastSignIns.map((row) => [row.userId, row.lastSignInAt] as const))
+  return new Map(
+    ids
+      .filter((id) => last.has(id) || providers.some((row) => row.userId === id))
+      .map((id) => [
+        id,
+        {
+          lastSignInAt: last.get(id) ?? null,
+          activeSessionCount: active.get(id) ?? 0,
+          signInMethods: providers
+            .filter((row) => row.userId === id)
+            .map((row) => row.providerId)
+            .toSorted(),
+        },
+      ])
+  )
 }
 
 /**
@@ -82,6 +135,8 @@ export const UsersDirectoryRepositoryLive = Layer.succeed(UsersDirectoryReposito
           name: usersTable.name,
           role: usersTable.role,
           banned: usersTable.banned,
+          createdAt: usersTable.createdAt,
+          twoFactorEnabled: usersTable.twoFactorEnabled,
         })
         .from(usersTable)
         .where(and(...conditions))) as ReadonlyArray<{
@@ -90,6 +145,10 @@ export const UsersDirectoryRepositoryLive = Layer.succeed(UsersDirectoryReposito
         name: string | null
         role: string | null
         banned: boolean | null
+        createdAt: Date | null
+        twoFactorEnabled: boolean | null
       }>
     }),
+
+  readAccountFacts: (userIds, now) => wrap(async () => readAccountFactsImpl(userIds, now)),
 })

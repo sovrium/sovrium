@@ -7,9 +7,24 @@
 
 import { Context, type Effect } from 'effect'
 
-/** A cached page render plus the time it was stored (for diagnostics). */
-export interface CachedPage {
+/** A rendered page offered to the store, plus the time it was rendered. */
+export interface PageRender {
   readonly html: string
+  readonly timestamp: number
+}
+
+/**
+ * A page as the store holds it: the render's UTF-8 bytes, plus the time it was
+ * stored (for diagnostics).
+ *
+ * Bytes, not a string, because the byte budget has to count what the process
+ * actually holds. A JavaScript string keeps two bytes per character as soon as
+ * it carries one character outside Latin-1, so a budget measured in UTF-8 while
+ * the store held strings let the cache occupy close to twice its ceiling. A
+ * reader decodes the body with a `TextDecoder` (UTF-8), which is lossless.
+ */
+export interface CachedPage {
+  readonly body: Uint8Array<ArrayBuffer>
   readonly timestamp: number
 }
 
@@ -22,7 +37,7 @@ export interface CachedPage {
  * {@link ../../../domain/models/app/pages/page-cache-key.getPageCacheKey} is a
  * pure concatenation of values the caller already holds, so it went to the
  * domain and every layer may call it directly. These two touch a process-global
- * `Ref`, read `ECO_PAGE_CACHE_MAX_MB` per insert, and publish occupancy
+ * module-level store, read `ECO_PAGE_CACHE_MAX_MB` per insert, and publish occupancy
  * telemetry on every admission. An area-level allowance cannot tell the two
  * apart, so opening `infrastructure-server` to the HTTP surface to get the key
  * builder would have opened the whole server tree — the listener, the Bun
@@ -31,7 +46,7 @@ export interface CachedPage {
  * ### Two methods, because two things cross
  *
  * Eviction, the byte budget, the admission rule and the occupancy counters stay
- * inside the implementation. A route asks whether this key has HTML and offers
+ * inside the implementation. A route asks whether this key has a page and offers
  * HTML for a key; whether the offer is accepted, and what it displaces, is the
  * store's business and is not observable here. `clearPageCache` is deliberately
  * NOT on the port: its callers are the test harness and the hot-reload path,
@@ -46,17 +61,23 @@ export interface CachedPage {
 export class PageCache extends Context.Service<
   PageCache,
   {
-    /** The HTML stored under `cacheKey`, or `undefined` when there is none. */
+    /**
+     * The page stored under `cacheKey`, or `undefined` when there is none.
+     *
+     * A hit counts as a use: it makes the entry the most recently used, so the
+     * pages visitors keep returning to are the last to be evicted. A miss
+     * changes nothing.
+     */
     readonly get: (cacheKey: string) => Effect.Effect<CachedPage | undefined>
 
     /**
      * Offer a render for `cacheKey`.
      *
      * Admission is the store's decision: an entry larger than the whole budget
-     * is refused outright, and admitting one may evict insertion-order-oldest
+     * is refused outright, and admitting one may evict the least recently used
      * entries until the total fits. The caller is told neither, because neither
      * changes the response it is about to send.
      */
-    readonly set: (cacheKey: string, page: CachedPage) => Effect.Effect<void>
+    readonly set: (cacheKey: string, page: PageRender) => Effect.Effect<void>
   }
 >()('PageCache') {}

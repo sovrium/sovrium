@@ -27,6 +27,7 @@ import {
 } from './auth-middleware'
 import { readErrorCode, rewritesForbiddenToNotFound } from './forbidden-to-not-found'
 import { chainOrganizationTeamRoutes } from './organization-team-routes'
+import { applyReplacedSessionGuard } from './replaced-session-guard'
 import type { InvitationServices } from '@/application/ports/contracts/invitation-services'
 import type { App } from '@/domain/models/app'
 // Both type-only. The OAuth metadata handlers and the auth instance are the
@@ -212,7 +213,12 @@ export function setupAuthRoutes(
 
   // Apply authentication check middleware (admin features always enabled when auth is configured)
   // This ensures 401 is returned before any parameter validation, preventing information leakage
-  const appWithAuthCheck = applyAuthCheckMiddleware(honoApp, authInstance)
+  // Ahead of every auth route: a late answer to a session the 2FA change
+  // replaced must not clear the new session cookie (`replaced-session-guard`).
+  const appWithAuthCheck = applyAuthCheckMiddleware(
+    applyReplacedSessionGuard(honoApp),
+    authInstance
+  )
 
   // Apply admin-role check middleware. Per S1 anti-enumeration, non-admin
   // callers hitting `/api/auth/admin/*` receive 404 here (BEFORE Better Auth's

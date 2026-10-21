@@ -1,0 +1,438 @@
+{
+  "id": "dashboard-data-buckets-bucket",
+  "name": "dashboard-data-buckets-bucket",
+  "path": "/files/:bucket",
+  "meta": {
+    "title": "$t:admin.meta.buckets"
+  },
+  "requires": ["buckets"],
+  "dataSource": {
+    "system": {
+      "endpoint": "/api/admin/buckets/:bucket",
+      "param": "bucket"
+    }
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6 min-h-0"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "files": "$t:admin.crumb.files"
+            },
+            "currentLabel": "$record.label"
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "header",
+          "element": "header",
+          "props": {
+            "className": "flex flex-col gap-1"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "h1",
+              "props": {
+                "className": "text-foreground text-2xl font-semibold tracking-tight"
+              },
+              "content": "$record.label"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "visibility": {
+                "record": {
+                  "field": "description",
+                  "isNotEmpty": true
+                }
+              },
+              "content": "$record.description"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "visibility": {
+                "record": {
+                  "field": "description",
+                  "isEmpty": true
+                }
+              },
+              "content": "$t:admin.buckets.blurbBucket"
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "admin-surface-content-2-2",
+          "element": "div",
+          "props": {
+            "className": "flex min-h-0 min-w-0 flex-1 flex-col pt-2 [&>[role=toolbar]]:mb-4"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-2-1",
+              "element": "div",
+              "props": {
+                "className": "flex min-h-0 flex-1 flex-col gap-4"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-1-1",
+                  "element": "div",
+                  "props": {
+                    "className": "grid grid-cols-2 gap-4"
+                  },
+                  "children": [
+                    {
+                      "component": "console-section-card",
+                      "key": "section-card",
+                      "vars": {
+                        "label": "$t:admin.buckets.thisBucket",
+                        "dataSource": {
+                          "system": {
+                            "endpoint": "/api/admin/buckets/$param.bucket/files",
+                            "valuePath": "totalBytes"
+                          }
+                        },
+                        "kpiFormat": {
+                          "type": "bytes"
+                        }
+                      }
+                    },
+                    {
+                      "component": "console-section-card",
+                      "key": "section-card-2",
+                      "vars": {
+                        "label": "$t:admin.buckets.all",
+                        "dataSource": {
+                          "system": {
+                            "endpoint": "/api/admin/buckets/overview",
+                            "valuePath": "totals.totalBytes"
+                          }
+                        },
+                        "kpiFormat": {
+                          "type": "bytes"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-1-3",
+                  "element": "div",
+                  "props": {
+                    "className": "contents list-none [&>li:has(>:empty)]:hidden"
+                  },
+                  "dataSource": {
+                    "system": {
+                      "endpoint": "/api/admin/buckets",
+                      "rowsKey": "items",
+                      "idKey": "name"
+                    }
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "admin-bucket-rules",
+                      "element": "div",
+                      "props": {
+                        "data-testid": "admin-bucket-rules",
+                        "className": "text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-1 px-1 text-sm"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "name",
+                          "eq": "$param.bucket"
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "data-testid": "admin-bucket-public",
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50"
+                          },
+                          "content": "$t:admin.buckets.public",
+                          "visibility": {
+                            "record": {
+                              "field": "public",
+                              "eq": true
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "browser-region",
+                  "element": "section",
+                  "props": {
+                    "aria-label": "$t:admin.buckets.browser.region",
+                    "className": "flex min-h-0 flex-1 flex-col gap-2"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "admin-toolbar-row",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-h-10 flex-wrap items-center gap-2",
+                        "data-testid": "admin-toolbar-row",
+                        "role": "toolbar",
+                        "aria-label": "$t:admin.common.gridControls"
+                      },
+                      "children": [
+                        {
+                          "component": "console-toolbar-search",
+                          "key": "toolbar-search",
+                          "vars": {
+                            "ariaLabel": "$t:admin.buckets.search",
+                            "placeholder": "$t:admin.buckets.search",
+                            "publishes": {
+                              "bindTo": "files-filter",
+                              "param": "q"
+                            }
+                          }
+                        },
+                        {
+                          "type": "file-upload",
+                          "visibility": {
+                            "capability": "edit-operations"
+                          },
+                          "props": {
+                            "id": "admin-bucket-upload",
+                            "aria-label": "$t:admin.buckets.uploadFiles",
+                            "label": "$t:admin.buckets.uploadFiles"
+                          },
+                          "uploadAction": "/api/admin/buckets/$param.bucket/files",
+                          "onSuccess": {
+                            "type": "toast",
+                            "variant": "success",
+                            "message": "$t:admin.buckets.added",
+                            "refetch": "admin-bucket-files-grid"
+                          },
+                          "onError": {
+                            "type": "toast",
+                            "variant": "destructive",
+                            "message": "$t:admin.buckets.upload.failed"
+                          },
+                          "compact": true
+                        }
+                      ]
+                    },
+                    {
+                      "component": "console-tabs",
+                      "key": "tabs",
+                      "vars": {
+                        "defaultTab": "list",
+                        "ariaLabel": "$t:admin.buckets.layout",
+                        "className": "[&_[role=tabpanel]]:pt-2 [&_[role=tabpanel]]:pb-0",
+                        "panels": [
+                          {
+                            "id": "list",
+                            "label": "$t:admin.buckets.layout.list"
+                          },
+                          {
+                            "id": "grid",
+                            "label": "$t:admin.buckets.layout.grid"
+                          }
+                        ],
+                        "layout": "fill"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "key": "browser-region-1",
+                          "element": "div",
+                          "props": {
+                            "className": "flex min-w-0 flex-col gap-6 flex-none!"
+                          },
+                          "children": [
+                            {
+                              "component": "console-grid",
+                              "key": "grid",
+                              "vars": {
+                                "id": "admin-bucket-files-grid",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/buckets/$param.bucket/files",
+                                    "rowsKey": "items",
+                                    "idKey": "key",
+                                    "bindTo": "files-filter",
+                                    "sharedFilter": {}
+                                  }
+                                },
+                                "columns": [
+                                  {
+                                    "field": "filename",
+                                    "label": "$t:admin.buckets.file"
+                                  },
+                                  {
+                                    "field": "mimeType",
+                                    "label": "$t:admin.common.type",
+                                    "valueLabels": {
+                                      "application/pdf": "$t:admin.buckets.mime.pdf",
+                                      "image/png": "$t:admin.buckets.mime.png",
+                                      "image/jpeg": "$t:admin.buckets.mime.jpeg",
+                                      "image/webp": "$t:admin.buckets.mime.webp",
+                                      "image/avif": "$t:admin.buckets.mime.avif",
+                                      "image/gif": "$t:admin.buckets.mime.gif",
+                                      "image/svg+xml": "$t:admin.buckets.mime.svg",
+                                      "image/heic": "$t:admin.buckets.mime.heic",
+                                      "text/plain": "$t:admin.buckets.mime.text",
+                                      "text/csv": "$t:admin.buckets.mime.csv",
+                                      "application/json": "$t:admin.buckets.mime.json",
+                                      "application/zip": "$t:admin.buckets.mime.zip",
+                                      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "$t:admin.buckets.mime.docx",
+                                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "$t:admin.buckets.mime.xlsx",
+                                      "application/vnd.openxmlformats-officedocument.presentationml.presentation": "$t:admin.buckets.mime.pptx",
+                                      "video/mp4": "$t:admin.buckets.mime.mp4",
+                                      "audio/mpeg": "$t:admin.buckets.mime.mp3"
+                                    }
+                                  },
+                                  {
+                                    "field": "size",
+                                    "label": "$t:admin.common.size",
+                                    "align": "right",
+                                    "format": "bytes"
+                                  },
+                                  {
+                                    "field": "createdAt",
+                                    "label": "$t:admin.buckets.modified",
+                                    "format": "short-date"
+                                  },
+                                  {
+                                    "type": "actions",
+                                    "label": "",
+                                    "actions": [
+                                      {
+                                        "label": "$t:admin.buckets.download",
+                                        "icon": "download",
+                                        "action": {
+                                          "type": "fetch",
+                                          "url": "/api/buckets/$param.bucket/files/$record.key",
+                                          "mode": "download",
+                                          "filename": "$record.filename"
+                                        }
+                                      },
+                                      {
+                                        "label": "$t:admin.common.delete",
+                                        "action": {
+                                          "type": "fetch",
+                                          "url": "/api/buckets/$param.bucket/files/$record.key",
+                                          "method": "DELETE"
+                                        },
+                                        "confirm": {
+                                          "message": "$t:admin.buckets.deleteMessage",
+                                          "title": "$t:admin.buckets.deleteConfirm",
+                                          "confirmLabel": "$t:admin.buckets.deleteFile",
+                                          "cancelLabel": "$t:admin.common.cancel"
+                                        }
+                                      }
+                                    ]
+                                  }
+                                ],
+                                "emptyMessage": "$t:admin.buckets.noFiles",
+                                "noMatchMessage": "$t:admin.buckets.noMatch"
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "browser-region-2",
+                          "element": "div",
+                          "props": {
+                            "className": "flex min-h-0 min-w-0 flex-col gap-6 overflow-y-auto"
+                          },
+                          "children": [
+                            {
+                              "type": "gallery",
+                              "dataSource": {
+                                "system": {
+                                  "endpoint": "/api/admin/buckets/$param.bucket/files",
+                                  "rowsKey": "items",
+                                  "idKey": "key",
+                                  "bindTo": "files-filter",
+                                  "sharedFilter": {}
+                                }
+                              },
+                              "gridColumns": {
+                                "mobile": 2,
+                                "md": 3,
+                                "lg": 4,
+                                "xl": 5
+                              },
+                              "classes": {
+                                "parts": {
+                                  "body": "gap-2 pt-(--card-spacing) [&_img]:aspect-square [&_img]:w-full [&_img]:rounded-md [&_img]:object-cover"
+                                }
+                              },
+                              "galleryCard": {
+                                "children": [
+                                  {
+                                    "type": "image",
+                                    "src": "$record.file",
+                                    "alt": "$record.filename"
+                                  },
+                                  {
+                                    "type": "text",
+                                    "element": "p",
+                                    "content": "$record.filename",
+                                    "props": {
+                                      "className": "truncate text-sm font-medium"
+                                    }
+                                  }
+                                ]
+                              },
+                              "emptyMessage": "$t:admin.buckets.noFiles"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

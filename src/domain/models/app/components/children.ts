@@ -35,11 +35,23 @@ import { buildComponentUnion } from '../pages/components/component-types'
  * }
  * ```
  */
-export const ComponentSlotSchema = Schema.Literal('$children').pipe(
+export const ComponentSlotSchema = Schema.Union([
+  Schema.Literal('$children'),
+  Schema.String.annotate({
+    title: 'Named Component Slot',
+    description:
+      'A named slot, `$slots.<name>`, for a template that declares `<name>` as an input of kind `slot`. The placement fills it from `slots.<name>`.',
+    examples: ['$slots.trail'],
+  }).check(
+    Schema.isPattern(/^\$slots\.[a-zA-Z][a-zA-Z0-9]*$/, {
+      message: 'A named slot is written `$slots.<name>`, the name a letter then letters and digits',
+    })
+  ),
+]).pipe(
   Schema.annotate({
     title: 'Component Slot',
     description:
-      "Marks the template's slot: written as `children: $children` on one node, it is replaced by the `children` the placing reference passes — the page's own components, read in the page's scope. At most one per template; the template's `vars` never reach the slotted components.",
+      "Marks a slot of the template. `$children` is the default slot, filled by the `children` the placing reference passes; `$slots.<name>` is a named slot, filled by its `slots.<name>`. Either is replaced by the page's own components, read in the page's scope, and the template's `vars` never reach them. Each slot is marked once per template.",
   })
 )
 

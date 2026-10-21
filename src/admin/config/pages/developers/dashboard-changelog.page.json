@@ -1,0 +1,1075 @@
+{
+  "id": "dashboard-changelog",
+  "name": "dashboard-changelog",
+  "path": "/changelog",
+  "meta": {
+    "title": "$t:admin.meta.changelog"
+  },
+  "query": {
+    "view": {
+      "default": "list",
+      "enum": ["list", "current"]
+    },
+    "family": {
+      "default": "overview",
+      "enum": [
+        "overview",
+        "tables",
+        "pages",
+        "forms",
+        "automations",
+        "agents",
+        "buckets",
+        "connections"
+      ]
+    }
+  },
+  "dataSource": {
+    "system": {
+      "endpoint": "/api/admin/config/reflection"
+    }
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "changelog": "$t:admin.crumb.changelog"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "header",
+          "element": "header",
+          "props": {
+            "className": "flex flex-col gap-1"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "h1",
+              "props": {
+                "className": "text-foreground text-2xl font-semibold tracking-tight"
+              },
+              "content": "$t:admin.changelog.heading"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "content": "$t:admin.changelog.blurb"
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "admin-surface-content-2-2",
+          "element": "div",
+          "props": {
+            "className": "flex flex-col gap-6"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "ledger-region",
+              "element": "section",
+              "visibility": {
+                "query": {
+                  "name": "view",
+                  "eq": "list"
+                }
+              },
+              "props": {
+                "aria-label": "$t:admin.changelog.ledger.region",
+                "className": "flex flex-col gap-4"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "className": "text-muted-foreground text-sm tabular-nums",
+                    "data-testid": "changelog-starts"
+                  },
+                  "content": "$record.startsLabel"
+                },
+                {
+                  "type": "container",
+                  "key": "admin-toolbar-row",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-h-10 flex-wrap items-center gap-2",
+                    "data-testid": "admin-toolbar-row",
+                    "role": "toolbar",
+                    "aria-label": "$t:admin.common.gridControls"
+                  },
+                  "children": [
+                    {
+                      "component": "console-toolbar-search",
+                      "key": "toolbar-search",
+                      "vars": {
+                        "ariaLabel": "$t:admin.changelog.ledger.search",
+                        "placeholder": "$t:admin.changelog.ledger.search",
+                        "publishes": {
+                          "bindTo": "changelog-filter",
+                          "param": "q"
+                        }
+                      }
+                    },
+                    {
+                      "type": "link",
+                      "content": "$t:admin.changelog.toCurrent",
+                      "props": {
+                        "href": "/changelog?view=current",
+                        "data-testid": "changelog-to-current",
+                        "className": "text-muted-foreground hover:text-foreground text-sm underline sm:ml-auto"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "component": "console-grid",
+                  "key": "grid",
+                  "vars": {
+                    "id": "admin-changelog-ledger",
+                    "ariaLabel": "$t:admin.changelog.ledger.region",
+                    "dataSource": {
+                      "system": {
+                        "endpoint": "/api/admin/releases",
+                        "rowsKey": "releases",
+                        "idKey": "id",
+                        "bindTo": "changelog-filter",
+                        "sharedFilter": {}
+                      }
+                    },
+                    "columns": [
+                      {
+                        "field": "current",
+                        "label": "",
+                        "width": 90,
+                        "sortable": false,
+                        "cellStyle": [
+                          {
+                            "when": {
+                              "eq": true
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-success-solid"
+                          }
+                        ],
+                        "valueLabels": {
+                          "true": "$t:admin.changelog.current",
+                          "false": ""
+                        }
+                      },
+                      {
+                        "field": "version",
+                        "label": "$t:admin.changelog.field.version"
+                      },
+                      {
+                        "field": "bootedAt",
+                        "label": "$t:admin.changelog.field.bootedAt",
+                        "format": "day-relative-time"
+                      },
+                      {
+                        "field": "bootedBy",
+                        "label": "$t:admin.changelog.field.bootedBy"
+                      },
+                      {
+                        "field": "engineLabel",
+                        "label": "$t:admin.changelog.field.engine"
+                      },
+                      {
+                        "field": "engineMigrationsLabel",
+                        "label": "$t:admin.changelog.migrations.heading"
+                      },
+                      {
+                        "field": "schemaChangeCount",
+                        "label": "$t:admin.changelog.ddl.heading",
+                        "align": "right",
+                        "valueLabels": {
+                          "0": "—"
+                        }
+                      },
+                      {
+                        "field": "configHash",
+                        "label": "$t:admin.changelog.field.config"
+                      },
+                      {
+                        "type": "actions",
+                        "label": "",
+                        "actions": [
+                          {
+                            "label": "$t:admin.common.open",
+                            "action": {
+                              "type": "fetch",
+                              "url": "/changelog/$record.configHash",
+                              "mode": "navigate"
+                            }
+                          }
+                        ]
+                      }
+                    ],
+                    "emptyMessage": "$t:admin.changelog.ledger.empty",
+                    "noMatchMessage": "$t:admin.changelog.ledger.noMatch"
+                  }
+                },
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "className": "text-foreground-subtle text-sm"
+                  },
+                  "content": "$t:admin.changelog.ledger.blurb"
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-2-2",
+              "element": "div",
+              "visibility": {
+                "query": {
+                  "name": "view",
+                  "eq": "current"
+                }
+              },
+              "props": {
+                "className": "flex flex-col gap-6"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "admin-toolbar-row-2",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-h-10 flex-wrap items-center gap-2",
+                    "data-testid": "admin-toolbar-row"
+                  },
+                  "children": [
+                    {
+                      "type": "link",
+                      "content": "$t:admin.changelog.back",
+                      "props": {
+                        "href": "/changelog",
+                        "data-testid": "changelog-back",
+                        "className": "text-muted-foreground hover:text-foreground text-sm underline"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-2-2",
+                  "element": "div",
+                  "props": {
+                    "className": "flex flex-wrap items-baseline gap-x-3 gap-y-1"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "h2",
+                      "props": {
+                        "className": "text-foreground text-lg font-medium"
+                      },
+                      "content": "$t:admin.changelog.current.heading"
+                    },
+                    {
+                      "type": "text",
+                      "element": "span",
+                      "props": {
+                        "className": "text-foreground-subtle font-mono text-sm"
+                      },
+                      "content": "$record.declarationCount"
+                    },
+                    {
+                      "type": "text",
+                      "element": "span",
+                      "props": {
+                        "className": "text-foreground-subtle text-sm"
+                      },
+                      "content": "$t:admin.changelog.current.declarations"
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "config-schema-nav-rail",
+                  "element": "nav",
+                  "props": {
+                    "aria-label": "$t:admin.schema.nav.region",
+                    "data-testid": "config-schema-nav-rail",
+                    "className": "border-border flex flex-wrap gap-1 border-b pb-3"
+                  },
+                  "children": [
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/changelog?view=current&family=overview",
+                        "className": "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                        "data-testid": "config-schema-rail-overview"
+                      },
+                      "activeWhen": {
+                        "value": "$query.family",
+                        "equals": "overview"
+                      },
+                      "activeProps": {
+                        "aria-current": "page",
+                        "className": "flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1 text-sm font-medium text-foreground"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "content": "$t:admin.schema.nav.overview"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/changelog?view=current&family=tables",
+                        "className": "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                        "data-testid": "config-schema-rail-tables"
+                      },
+                      "activeWhen": {
+                        "value": "$query.family",
+                        "equals": "tables"
+                      },
+                      "activeProps": {
+                        "aria-current": "page",
+                        "className": "flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1 text-sm font-medium text-foreground"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "tableCount",
+                          "gt": 0
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "content": "$t:admin.schema.counts.tables"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle font-mono text-sm"
+                          },
+                          "content": "$record.tableCount"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/changelog?view=current&family=pages",
+                        "className": "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                        "data-testid": "config-schema-rail-pages"
+                      },
+                      "activeWhen": {
+                        "value": "$query.family",
+                        "equals": "pages"
+                      },
+                      "activeProps": {
+                        "aria-current": "page",
+                        "className": "flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1 text-sm font-medium text-foreground"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "pageCount",
+                          "gt": 0
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "content": "$t:admin.schema.counts.pages"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle font-mono text-sm"
+                          },
+                          "content": "$record.pageCount"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/changelog?view=current&family=forms",
+                        "className": "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                        "data-testid": "config-schema-rail-forms"
+                      },
+                      "activeWhen": {
+                        "value": "$query.family",
+                        "equals": "forms"
+                      },
+                      "activeProps": {
+                        "aria-current": "page",
+                        "className": "flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1 text-sm font-medium text-foreground"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "formCount",
+                          "gt": 0
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "content": "$t:admin.schema.counts.forms"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle font-mono text-sm"
+                          },
+                          "content": "$record.formCount"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/changelog?view=current&family=automations",
+                        "className": "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                        "data-testid": "config-schema-rail-automations"
+                      },
+                      "activeWhen": {
+                        "value": "$query.family",
+                        "equals": "automations"
+                      },
+                      "activeProps": {
+                        "aria-current": "page",
+                        "className": "flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1 text-sm font-medium text-foreground"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "automationCount",
+                          "gt": 0
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "content": "$t:admin.schema.counts.automations"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle font-mono text-sm"
+                          },
+                          "content": "$record.automationCount"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/changelog?view=current&family=agents",
+                        "className": "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                        "data-testid": "config-schema-rail-agents"
+                      },
+                      "activeWhen": {
+                        "value": "$query.family",
+                        "equals": "agents"
+                      },
+                      "activeProps": {
+                        "aria-current": "page",
+                        "className": "flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1 text-sm font-medium text-foreground"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "agentCount",
+                          "gt": 0
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "content": "$t:admin.schema.counts.agents"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle font-mono text-sm"
+                          },
+                          "content": "$record.agentCount"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/changelog?view=current&family=buckets",
+                        "className": "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                        "data-testid": "config-schema-rail-buckets"
+                      },
+                      "activeWhen": {
+                        "value": "$query.family",
+                        "equals": "buckets"
+                      },
+                      "activeProps": {
+                        "aria-current": "page",
+                        "className": "flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1 text-sm font-medium text-foreground"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "bucketCount",
+                          "gt": 0
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "content": "$t:admin.schema.counts.buckets"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle font-mono text-sm"
+                          },
+                          "content": "$record.bucketCount"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "link",
+                      "props": {
+                        "href": "/changelog?view=current&family=connections",
+                        "className": "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                        "data-testid": "config-schema-rail-connections"
+                      },
+                      "activeWhen": {
+                        "value": "$query.family",
+                        "equals": "connections"
+                      },
+                      "activeProps": {
+                        "aria-current": "page",
+                        "className": "flex items-center gap-1.5 rounded-md bg-muted px-2.5 py-1 text-sm font-medium text-foreground"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "connectionCount",
+                          "gt": 0
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "content": "$t:admin.schema.counts.connections"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle font-mono text-sm"
+                          },
+                          "content": "$record.connectionCount"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "text-foreground-subtle px-2 py-1 text-sm"
+                      },
+                      "content": "$t:admin.schema.declared.empty",
+                      "visibility": {
+                        "record": {
+                          "field": "declarationCount",
+                          "eq": 0
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "config-schema-overview",
+                  "element": "section",
+                  "visibility": {
+                    "query": {
+                      "name": "family",
+                      "eq": "overview"
+                    }
+                  },
+                  "props": {
+                    "aria-label": "$t:admin.schema.nav.overview",
+                    "data-testid": "config-schema-overview",
+                    "className": "flex flex-col gap-6"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "config-schema-provenance",
+                      "element": "div",
+                      "props": {
+                        "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 flex flex-col gap-1 p-4",
+                        "data-testid": "config-schema-provenance"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground text-md font-medium"
+                          },
+                          "content": "$t:admin.schema.readOnly.heading"
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle max-w-2xl text-md leading-relaxed"
+                          },
+                          "content": "$t:admin.locked.audit.schema.readOnlyNotice"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "text-muted-foreground max-w-2xl text-md leading-relaxed"
+                      },
+                      "content": "$t:admin.schema.overview.body"
+                    },
+                    {
+                      "component": "console-facts-card",
+                      "key": "facts-card",
+                      "vars": {
+                        "dataTestid": "config-schema-summary"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "key": "config-schema-overview-1",
+                          "props": {
+                            "className": "border-b border-border p-6"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "h2",
+                              "props": {
+                                "className": "text-xl font-semibold text-foreground"
+                              },
+                              "content": "$t:admin.schema.raw.heading"
+                            },
+                            {
+                              "type": "text",
+                              "element": "p",
+                              "props": {
+                                "className": "mt-1 text-sm text-muted-foreground"
+                              },
+                              "content": "$t:admin.schema.raw.summary"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "config-schema-overview-2",
+                          "element": "div",
+                          "props": {
+                            "className": "flex flex-col gap-3 px-6 pb-6"
+                          },
+                          "children": [
+                            {
+                              "type": "container",
+                              "key": "config-schema-overview-2-1",
+                              "element": "div",
+                              "props": {
+                                "className": "divide-border flex flex-col divide-y"
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "config-schema-summary-tables",
+                                  "element": "div",
+                                  "visibility": {
+                                    "record": {
+                                      "field": "tableCount",
+                                      "gt": 0
+                                    }
+                                  },
+                                  "props": {
+                                    "data-testid": "config-schema-summary-tables",
+                                    "className": "flex items-baseline justify-between gap-4 py-2 text-sm"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-foreground"
+                                      },
+                                      "content": "$t:admin.schema.counts.tables"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "font-mono text-muted-foreground"
+                                      },
+                                      "content": "$record.tableCount"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "config-schema-summary-pages",
+                                  "element": "div",
+                                  "visibility": {
+                                    "record": {
+                                      "field": "pageCount",
+                                      "gt": 0
+                                    }
+                                  },
+                                  "props": {
+                                    "data-testid": "config-schema-summary-pages",
+                                    "className": "flex items-baseline justify-between gap-4 py-2 text-sm"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-foreground"
+                                      },
+                                      "content": "$t:admin.schema.counts.pages"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "font-mono text-muted-foreground"
+                                      },
+                                      "content": "$record.pageCount"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "config-schema-summary-forms",
+                                  "element": "div",
+                                  "visibility": {
+                                    "record": {
+                                      "field": "formCount",
+                                      "gt": 0
+                                    }
+                                  },
+                                  "props": {
+                                    "data-testid": "config-schema-summary-forms",
+                                    "className": "flex items-baseline justify-between gap-4 py-2 text-sm"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-foreground"
+                                      },
+                                      "content": "$t:admin.schema.counts.forms"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "font-mono text-muted-foreground"
+                                      },
+                                      "content": "$record.formCount"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "config-schema-summary-automations",
+                                  "element": "div",
+                                  "visibility": {
+                                    "record": {
+                                      "field": "automationCount",
+                                      "gt": 0
+                                    }
+                                  },
+                                  "props": {
+                                    "data-testid": "config-schema-summary-automations",
+                                    "className": "flex items-baseline justify-between gap-4 py-2 text-sm"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-foreground"
+                                      },
+                                      "content": "$t:admin.schema.counts.automations"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "font-mono text-muted-foreground"
+                                      },
+                                      "content": "$record.automationCount"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "config-schema-summary-agents",
+                                  "element": "div",
+                                  "visibility": {
+                                    "record": {
+                                      "field": "agentCount",
+                                      "gt": 0
+                                    }
+                                  },
+                                  "props": {
+                                    "data-testid": "config-schema-summary-agents",
+                                    "className": "flex items-baseline justify-between gap-4 py-2 text-sm"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-foreground"
+                                      },
+                                      "content": "$t:admin.schema.counts.agents"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "font-mono text-muted-foreground"
+                                      },
+                                      "content": "$record.agentCount"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "config-schema-summary-buckets",
+                                  "element": "div",
+                                  "visibility": {
+                                    "record": {
+                                      "field": "bucketCount",
+                                      "gt": 0
+                                    }
+                                  },
+                                  "props": {
+                                    "data-testid": "config-schema-summary-buckets",
+                                    "className": "flex items-baseline justify-between gap-4 py-2 text-sm"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-foreground"
+                                      },
+                                      "content": "$t:admin.schema.counts.buckets"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "font-mono text-muted-foreground"
+                                      },
+                                      "content": "$record.bucketCount"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "config-schema-summary-connections",
+                                  "element": "div",
+                                  "visibility": {
+                                    "record": {
+                                      "field": "connectionCount",
+                                      "gt": 0
+                                    }
+                                  },
+                                  "props": {
+                                    "data-testid": "config-schema-summary-connections",
+                                    "className": "flex items-baseline justify-between gap-4 py-2 text-sm"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-foreground"
+                                      },
+                                      "content": "$t:admin.schema.counts.connections"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "font-mono text-muted-foreground"
+                                      },
+                                      "content": "$record.connectionCount"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "config-schema-overview-2-2",
+                              "element": "div",
+                              "props": {
+                                "className": "flex justify-end"
+                              },
+                              "children": [
+                                {
+                                  "type": "button",
+                                  "label": "$t:admin.common.exportJson",
+                                  "variant": "secondary",
+                                  "props": {
+                                    "type": "button",
+                                    "data-testid": "config-schema-export"
+                                  },
+                                  "action": {
+                                    "type": "fetch",
+                                    "mode": "download",
+                                    "url": "/api/admin/config/schema",
+                                    "filename": "app-config.json"
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "config-schema-tree",
+                  "element": "section",
+                  "visibility": {
+                    "query": {
+                      "name": "family",
+                      "in": [
+                        "tables",
+                        "pages",
+                        "forms",
+                        "automations",
+                        "agents",
+                        "buckets",
+                        "connections"
+                      ]
+                    }
+                  },
+                  "props": {
+                    "aria-label": "$t:admin.schema.declared.region",
+                    "data-testid": "config-schema-tree",
+                    "className": "flex flex-col gap-3"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "h2",
+                      "props": {
+                        "className": "text-foreground-subtle text-sm font-medium tracking-wide uppercase"
+                      },
+                      "content": "$t:admin.schema.declared.heading"
+                    },
+                    {
+                      "type": "list",
+                      "props": {
+                        "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 divide-border divide-y"
+                      },
+                      "dataSource": {
+                        "system": {
+                          "endpoint": "/api/admin/config/declarations",
+                          "rowsKey": "declarations",
+                          "idKey": "label",
+                          "query": {
+                            "family": "$query.family"
+                          }
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "key": "config-schema-tree-1",
+                          "element": "div",
+                          "props": {
+                            "className": "flex flex-col gap-0.5 px-3 py-2"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "props": {
+                                "className": "text-foreground font-mono text-sm"
+                              },
+                              "content": "$record.label"
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "props": {
+                                "className": "text-foreground-subtle font-mono text-sm"
+                              },
+                              "content": "$record.detail"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

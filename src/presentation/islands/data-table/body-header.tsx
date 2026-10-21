@@ -10,6 +10,7 @@ import {
   computeTableStickyHeaderClasses,
 } from '@/presentation/design/table-default-classes'
 import { HeaderCell } from './column-header/header-cell'
+import { useFlowingHeaderPin } from './flowing-header-pin'
 import { NO_FROZEN_OFFSETS, type FrozenOffsets } from './frozen-columns'
 import type { DataTableHeaderGroup } from './island/table-features'
 import type { ReactElement } from 'react'
@@ -21,9 +22,10 @@ interface TableHeaderProps {
   /**
    * Pin the whole section to the top of the grid's scroll region — set only
    * under `layout: fill`, which is what creates a scroll region for it to pin
-   * to. Left off, the column labels leave with the rows, which is what a grid
-   * at its natural height has always done and what the page's own scroll makes
-   * correct.
+   * to. Left off, the grid flows in its page and the page's scroll is what
+   * would carry the labels away, so the section is carried down with a
+   * transform instead (`flowing-header-pin.ts`) and wears the same opaque fill
+   * and rule, which is what keeps the rows from showing through it.
    *
    * The pin goes on the SECTION, not on its cells: the two pin on different
    * axes here (a frozen column pins sideways, the labels pin upward), and only
@@ -41,12 +43,12 @@ export function TableHeader({
   frozenOffsets = NO_FROZEN_OFFSETS,
   sticky = false,
 }: TableHeaderProps): ReactElement {
+  const headRef = useFlowingHeaderPin(!sticky)
   return (
     <thead
+      ref={headRef}
       data-slot="table-header"
-      className={`${computeTableHeaderRowClasses()}${
-        sticky ? ` ${computeTableStickyHeaderClasses()}` : ''
-      }`}
+      className={`${computeTableHeaderRowClasses()} ${computeTableStickyHeaderClasses()}`}
     >
       {headerGroups.map((headerGroup) => (
         <tr

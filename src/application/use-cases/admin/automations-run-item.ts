@@ -11,18 +11,33 @@
  * glance — the record the run concerns, and how far it got.
  */
 
+import { Effect } from 'effect'
+import {
+  AdminAutomationsDatabaseError,
+  type AdminAutomationRunRow,
+} from '@/application/ports/repositories/automations/admin-automations-repository'
+import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import { withWriteOnlyValuesMasked } from '@/application/use-cases/automations/run/write-only-values'
 import { formatElapsedDuration } from '@/domain/kernel/format/duration-format'
 import { runStatusSchema, type RunStatus } from '@/domain/models/api/automations'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { entityLabelFor } from '@/domain/models/app/auth/readable-name-service'
+import {
+  isFinalFailureStatus,
+  runFailureKindOf,
+  type RunFailureKind,
+} from '@/domain/models/app/automations/automation-run-outcome-service'
 import { redactRunTriggerData } from '@/domain/models/app/automations/trigger/webhook-credential-headers-service'
 import {
   runRecordRefOf,
   runTriggerOf,
 } from '@/domain/models/app/automations/trigger-entries-service'
-import { runRecordLabel, runTriggerLabel } from './automations-run-labels'
-import type { AdminAutomationRunRow } from '@/application/ports/repositories/automations/admin-automations-repository'
+import {
+  onDemandTriggerLabel,
+  runInvokedOnDemand,
+  runRecordLabel,
+  runTriggerLabel,
+} from './automations-run-labels'
 import type { ConsoleLanguage } from '@/application/use-cases/admin/operator-language'
 import type { AutomationRunAdminItem } from '@/domain/models/api/admin/automations'
 import type { App } from '@/domain/models/app'
@@ -103,6 +118,7 @@ export function buildAdminRunItem(
   const valuesErasedAt = toIso(row.valuesErasedAt)
   const stepCount = def === undefined ? null : def.actions.length
   const durationLabel = formatElapsedDuration(row.durationMs, language)
+  const invokedOnDemand = runInvokedOnDemand(row.triggerData)
   return {
     id: row.id,
     automationName: row.automationName,
@@ -122,7 +138,13 @@ export function buildAdminRunItem(
     ...(valuesErasedAt === null ? {} : { valuesErasedAt }),
     ...runRecordRefOf(def, row.triggerName, row.triggerData),
     recordLabel: runRecordLabel(app, def, row),
-    triggerLabel: runTriggerLabel(app, def, row, language),
+    // A schedule started by hand reads its schedule, then that it was started by hand.
+    invokedOnDemand,
+    triggerLabel: onDemandTriggerLabel(
+      runTriggerLabel(app, def, row, language),
+      invokedOnDemand,
+      language
+    ),
     stepsRun,
     stepCount,
     stepsLabel: runStepsLabel(stepsRun, stepCount, language),
@@ -132,3 +154,26 @@ export function buildAdminRunItem(
     },
   }
 }
+
+/**
+ * Whose fault a run's failure is, as the run detail carries it: `{ failureKind }`
+ * on a run that failed for good, read off the very `defect` the run report read
+ * answers from — so the detail says `defect` exactly when a report exists — and
+ * nothing on a run that did not fail.
+ */
+export const runFailureAttribution = (
+  runId: string,
+  status: string | null
+): Effect.Effect<
+  { readonly failureKind?: RunFailureKind },
+  AdminAutomationsDatabaseError,
+  AutomationRunRepository
+> =>
+  Effect.gen(function* () {
+    if (!isFinalFailureStatus(status ?? '')) return {}
+    const run = yield* AutomationRunRepository.use((repo) => repo.findById(runId)).pipe(
+      Effect.mapError((cause) => new AdminAutomationsDatabaseError({ cause }))
+    )
+    const failureKind = runFailureKindOf(status, run?.defect !== undefined)
+    return failureKind === undefined ? {} : { failureKind }
+  }).pipe(Effect.withSpan('admin.run-failure-attribution'))

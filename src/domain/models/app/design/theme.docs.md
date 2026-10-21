@@ -42,7 +42,7 @@ Every page is painted in the theme's `background` colour (`darkColors.background
 - **Baseline & Dark Mode** — `baseline`, `colorScheme`, `darkColors`.
 - **Typography** — `typeScale.families`, the faces.
 - **Type Scale** — `typeScale.steps`, the ladder each face is set on.
-- **Spacing, Radius & Elevation** — `spacing`, `radius`, `elevation`, `codeBlock` (deprecated).
+- **Spacing, Radius & Elevation** — `spacing`, `radius`, `elevation`, and how code blocks are coloured.
 - **Responsive Design** — `breakpoints`.
 - **Animations** — `motion`.
 - **Density** — `density`.

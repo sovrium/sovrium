@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { allComponents } from './component-type-union-definitions'
+import { nodeKeyFields } from './modules/node-key'
 import { refusesUndrawableType } from './specialty/specimen-refusal'
 
 export { ComponentTypeSchema } from './component-type-union-definitions'
@@ -313,8 +314,15 @@ export function buildComponentUnion(
           )
         : {}
 
+    // `key` is spread FIRST after `type`, so a fields record declaring its own
+    // top-level `key` would win; none does (the one `key` in the tree,
+    // `file-preview`'s, is nested in its `file`). Every consumer — page
+    // components, templates, child elements, specimens — inherits it from
+    // this one line, which is the point: a node identity that some branches
+    // lacked would make a drawn page unmatchable exactly where it had them.
     return Schema.Struct({
       type: typeLiteral,
+      ...nodeKeyFields,
       ...(isContainer ? childrenField : {}),
       ...slots,
       ...(isSpecimen ? specimenComponentField : {}),

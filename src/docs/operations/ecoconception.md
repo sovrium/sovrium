@@ -19,16 +19,16 @@ This direction was reversed deliberately. Sovrium was originally frugal by defau
 
 Every variable below has an enforcement point in the binary — that is the entry criterion for this table. A setting that is only read and echoed back is not a lever, and several such names were removed rather than documented.
 
-| Variable                     | Default       | Options                                    | Purpose                                                                                    |
-| ---------------------------- | ------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `ECO_MODE`                   | `balanced`    | `strict`, `balanced`, `lenient`            | Master eco posture. `strict` turns on the low-data default when you have not set it.       |
-| `ECO_PAGE_CACHE`             | `on`          | `on`, `off`                                | In-memory cache of page HTML — request-invariant pages and `contentDir` collections alike. |
-| `ECO_PAGE_CACHE_MAX_MB`      | `64`          | integer (MB)                               | Byte budget for that cache; oversized entries are refused and the newest are kept.         |
-| `ECO_INDEX_HEADER`           | `on`          | `on`, `off`                                | Emit the `X-Eco-Index` response header graded from transfer size.                          |
-| `ECO_LOW_DATA_DEFAULT`       | `off`         | `on`, `off`, `respect-client`              | End-user low-data posture: down-shift assets when on, or on the client hint.               |
-| `ECO_AI_PROVIDER_PRECEDENCE` | `local-first` | `local-first`, `cloud-first`, `local-only` | Routing precedence for AI calls; pairs with `AI_PROVIDER`.                                 |
-| `ECO_DESIGN_LAYER`           | `on`          | `on`, `off`                                | Emit the design-token override layer. `off` falls back to inline defaults.                 |
-| `ECO_FORM_ANALYTICS`         | `on`          | `on`, `off`                                | Set `off` to stop recording form analytics events.                                         |
+| Variable                     | Default       | Options                                    | Purpose                                                                                          |
+| ---------------------------- | ------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `ECO_MODE`                   | `balanced`    | `strict`, `balanced`, `lenient`            | Master eco posture. `strict` turns on the low-data default when you have not set it.             |
+| `ECO_PAGE_CACHE`             | `on`          | `on`, `off`                                | In-memory cache of page HTML — request-invariant pages and `contentDir` collections alike.       |
+| `ECO_PAGE_CACHE_MAX_MB`      | `64`          | integer (MB)                               | Byte budget for that cache; oversized entries are refused and the most recently served are kept. |
+| `ECO_INDEX_HEADER`           | `on`          | `on`, `off`                                | Emit the `X-Eco-Index` response header graded from transfer size.                                |
+| `ECO_LOW_DATA_DEFAULT`       | `off`         | `on`, `off`, `respect-client`              | End-user low-data posture: down-shift assets when on, or on the client hint.                     |
+| `ECO_AI_PROVIDER_PRECEDENCE` | `local-first` | `local-first`, `cloud-first`, `local-only` | Routing precedence for AI calls; pairs with `AI_PROVIDER`.                                       |
+| `ECO_DESIGN_LAYER`           | `on`          | `on`, `off`                                | Emit the design-token override layer. `off` falls back to inline defaults.                       |
+| `ECO_FORM_ANALYTICS`         | `on`          | `on`, `off`                                | Set `off` to stop recording form analytics events.                                               |
 
 `ECO_MODE` recognises those three values and nothing else. If you previously ran `ECO_MODE=off`, write `lenient` to keep the relaxed posture; `on` and `auto` already meant `balanced` and can be dropped. Carry that migration out before you upgrade rather than after: those retired spellings are no longer ignored, they stop the boot.
 

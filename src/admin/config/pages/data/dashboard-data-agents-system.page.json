@@ -1,0 +1,321 @@
+{
+  "id": "dashboard-data-agents-system",
+  "name": "dashboard-data-agents-system",
+  "path": "/conversations/system",
+  "meta": {
+    "title": "$t:admin.meta.agents"
+  },
+  "requires": ["agents"],
+  "dataSource": {
+    "system": {
+      "endpoint": "/api/admin/agents/system"
+    }
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "conversations": "$t:admin.crumb.conversations"
+            },
+            "currentLabel": "$record.label"
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "header",
+          "element": "header",
+          "props": {
+            "className": "flex flex-col gap-1"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "h1",
+              "props": {
+                "className": "text-foreground text-2xl font-semibold tracking-tight"
+              },
+              "content": "$record.label"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "content": "$t:admin.agents.blurbSystem"
+            },
+            {
+              "type": "container",
+              "key": "agent-facts",
+              "element": "div",
+              "props": {
+                "className": "text-muted-foreground flex flex-wrap items-baseline gap-x-4 gap-y-1 pt-1 text-sm",
+                "data-testid": "agent-header"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "agent-facts-count",
+                  "element": "div",
+                  "props": {
+                    "className": "flex items-baseline gap-1.5"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "span",
+                      "props": {
+                        "className": "text-foreground tabular-nums",
+                        "data-testid": "agent-conversation-count"
+                      },
+                      "content": "$record.conversationCount"
+                    },
+                    {
+                      "type": "text",
+                      "element": "span",
+                      "content": "$t:admin.agents.header.conversations"
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "agent-facts-model",
+                  "element": "div",
+                  "props": {
+                    "className": "flex items-baseline gap-1.5"
+                  },
+                  "visibility": {
+                    "record": {
+                      "field": "model",
+                      "isNotEmpty": true
+                    }
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "span",
+                      "content": "$t:admin.agents.header.model"
+                    },
+                    {
+                      "type": "text",
+                      "element": "span",
+                      "props": {
+                        "className": "text-foreground"
+                      },
+                      "content": "$record.model"
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "agent-facts-tools",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-w-0 max-w-full items-baseline gap-1.5"
+                  },
+                  "visibility": {
+                    "record": {
+                      "field": "toolLabels",
+                      "isNotEmpty": true
+                    }
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "span",
+                      "props": {
+                        "className": "shrink-0"
+                      },
+                      "content": "$t:admin.agents.header.tools"
+                    },
+                    {
+                      "type": "text",
+                      "element": "span",
+                      "props": {
+                        "className": "text-foreground min-w-0 truncate",
+                        "title": "$record.toolLabels"
+                      },
+                      "content": "$record.toolLabels"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "admin-surface-content-2-2",
+          "element": "div",
+          "props": {
+            "className": "flex min-w-0 flex-1 flex-col pt-2"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "agents-viewer",
+              "element": "section",
+              "props": {
+                "aria-label": "$t:admin.agents.viewer",
+                "className": "flex min-w-0 flex-col gap-4"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "admin-toolbar-row",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-h-10 flex-wrap items-center gap-2",
+                    "data-testid": "admin-toolbar-row",
+                    "role": "toolbar",
+                    "aria-label": "$t:admin.conversations.toolbar"
+                  },
+                  "children": [
+                    {
+                      "component": "console-toolbar-search",
+                      "key": "toolbar-search",
+                      "vars": {
+                        "ariaLabel": "$t:admin.conversations.searchLabel",
+                        "placeholder": "$t:admin.conversations.search",
+                        "publishes": {
+                          "bindTo": "conversations-filter",
+                          "param": "q"
+                        }
+                      }
+                    },
+                    {
+                      "type": "native-select",
+                      "props": {
+                        "id": "conversations-person-filter",
+                        "label": "$t:admin.conversations.person",
+                        "className": "flex w-fit items-center [&>[data-slot=label]]:sr-only [&_[data-slot=native-select]]:border-dashed [&_[data-slot=native-select]]:font-medium"
+                      },
+                      "emptyOption": {
+                        "label": "$t:admin.conversations.everyone"
+                      },
+                      "publishes": {
+                        "bindTo": "conversations-filter",
+                        "param": "userId"
+                      },
+                      "dataSource": {
+                        "system": {
+                          "endpoint": "/api/admin/users",
+                          "rowsKey": "users",
+                          "idKey": "id",
+                          "query": {
+                            "limit": 200,
+                            "sort": "name",
+                            "order": "asc"
+                          }
+                        },
+                        "valueKey": "id",
+                        "labelKey": "name"
+                      }
+                    },
+                    {
+                      "type": "native-select",
+                      "props": {
+                        "id": "conversations-period-filter",
+                        "label": "$t:admin.conversations.period",
+                        "className": "flex w-fit items-center [&>[data-slot=label]]:sr-only [&_[data-slot=native-select]]:border-dashed [&_[data-slot=native-select]]:font-medium"
+                      },
+                      "emptyOption": {
+                        "label": "$t:admin.conversations.allTime"
+                      },
+                      "publishes": {
+                        "bindTo": "conversations-filter",
+                        "param": "period"
+                      },
+                      "options": [
+                        {
+                          "value": "7d",
+                          "label": "$t:admin.conversations.last7"
+                        },
+                        {
+                          "value": "30d",
+                          "label": "$t:admin.conversations.last30"
+                        },
+                        {
+                          "value": "90d",
+                          "label": "$t:admin.conversations.last90"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "button",
+                      "label": "$t:admin.common.exportCsv",
+                      "variant": "outline",
+                      "action": {
+                        "type": "fetch",
+                        "mode": "download",
+                        "url": "/api/admin/agents/system/conversations?format=csv",
+                        "filename": "conversations.csv"
+                      },
+                      "props": {
+                        "className": "sm:ml-auto"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "agents-viewer-2",
+                  "element": "div",
+                  "props": {
+                    "className": "flex flex-col gap-4",
+                    "data-island": "admin-agent-conversations",
+                    "data-island-props": "{\"agentNames\":[\"system\"],\"agentLabel\":\"$record.label\",\"agentModel\":\"$record.model\",\"dataSource\":{\"bindTo\":\"conversations-filter\",\"sharedFilter\":{\"params\":[\"userId\",\"q\",\"period\"]}}}"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "agents-region",
+                      "element": "section",
+                      "props": {
+                        "aria-label": "$t:admin.agents.region",
+                        "className": "flex flex-col gap-2"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle px-1 py-2 text-md"
+                          },
+                          "content": "$t:admin.agents.loading"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

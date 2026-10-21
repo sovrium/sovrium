@@ -64,3 +64,5 @@ export const isOpenSpecimen = (rawProps: Record<string, unknown> | undefined): b
   rawProps?.['specimenOpen'] === true
 
 export { renderOpenDatePickerPopup, renderOpenDateRangePanel, renderOpenMenuPopup }
+export { renderOpenOverlay } from '../elements/open-overlay-specimen'
+export type { OpenOverlayContent, OpenOverlayKind } from '../elements/open-overlay-specimen'

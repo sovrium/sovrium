@@ -61,7 +61,7 @@ const FLATTENED_MEMBERS: readonly string[] = [
   'breakpoints   → `design.breakpoints`',
   'colorScheme   → `design.colorScheme`',
   'baseline      → `design.baseline`',
-  'codeBlock     → `design.codeBlock`',
+  "codeBlock     → removed: delete it (code blocks use shadcn/ui's default colours)",
   'animations    → `design.motion` — its reserved keys become members:',
   '                duration  → `design.motion.durations`',
   '                easing    → `design.motion.easings`',
@@ -122,6 +122,21 @@ const ACCENT_BUDGET_REMOVED =
   '`accentBudget` has been removed from `design.zones[]`: a zone is now `pattern`, `zone` and `voice`. Delete the key; no replacement is needed.'
 
 /**
+ * `design.codeBlock` named the Shiki theme of every code block. Deprecated and
+ * ignored in 0.40, refused from 0.41: code blocks draw shadcn/ui's default pair
+ * whatever it named, so the remedy is to delete it.
+ */
+const CODE_BLOCK_REMOVED =
+  "`design.codeBlock` has been removed: code blocks use shadcn/ui's default colours, `github-light` in the light colour scheme and `github-dark` in the dark one. Delete the key; no replacement is needed."
+
+/** The keys removed from `design` itself, each with the message that says where it went. */
+const REMOVED_ON_DESIGN: ReadonlyMap<string, string> = new Map([
+  ['theme', DESIGN_THEME_REMOVED],
+  ['scales', SCALES_REMOVED],
+  ['codeBlock', CODE_BLOCK_REMOVED],
+])
+
+/**
  * The migration message for a removed key at a given config path, or
  * `undefined` when this module has nothing to say about it.
  *
@@ -132,11 +147,7 @@ const ACCENT_BUDGET_REMOVED =
  */
 export const migrationHintForRemovedKey = (path: string, key: string): string | undefined => {
   if (path === '' && key === 'theme') return THEME_REMOVED
-  if (path === 'design') {
-    if (key === 'theme') return DESIGN_THEME_REMOVED
-    if (key === 'scales') return SCALES_REMOVED
-    return RENAMED_ON_DESIGN.get(key)
-  }
+  if (path === 'design') return REMOVED_ON_DESIGN.get(key) ?? RENAMED_ON_DESIGN.get(key)
   if (key === 'accentBudget' && /^design\.zones\[\d+\]$/.test(path)) return ACCENT_BUDGET_REMOVED
   if (path === 'design.typeScale' && TYPE_SCALE_RUNGS.has(key)) {
     return `\`design.typeScale.${key}\` is now \`design.typeScale.steps.${key}\`. Every rung lives under \`steps\`; \`families\` names the faces.`

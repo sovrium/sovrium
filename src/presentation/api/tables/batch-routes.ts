@@ -29,7 +29,6 @@ import {
   hasUpdatePermissionForRoles,
   hasDeletePermissionForRoles,
 } from '@/domain/models/app/auth/permission-evaluator-service'
-import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { provideDomain } from '@/infrastructure/logging/request-effect'
 import { notFound, payloadTooLarge } from '@/presentation/api/runtime/auth-helpers'
@@ -45,10 +44,11 @@ import {
   validateStrippedRecordsNotEmpty,
 } from './batch-permission-helpers'
 import {
+  addressableBatchItems,
   batchUpdateTargets,
-  keyShapedBatchItems,
   refuseNonKeyBatchDelete,
-  refuseNonKeyBatchRestore,
+  refuseBatchDeleteTargets,
+  refuseBatchRestoreIds,
 } from './batch-record-ids'
 import { guardBatchCreate } from './batch-write-guards'
 import { handleBatchRestoreError } from './error-helpers'
@@ -127,8 +127,11 @@ async function handleBatchRestore(c: Context, app: App) {
 
   const result = await validateRequest(c, batchRestoreRecordsRequestSchema)
   if (!result.success) return result.response
-  const nonKeyRefusal = refuseNonKeyBatchRestore(c, app, table, result.data.ids)
-  if (nonKeyRefusal !== undefined) return nonKeyRefusal
+  // An id no key could hold, or that her list of the table does not admit, is
+  // refused as a missing id is — before the row-level gate, which would answer
+  // a missing id on its own.
+  const idRefusal = await refuseBatchRestoreIds(c, app, table, result.data.ids)
+  if (idRefusal !== undefined) return idRefusal
 
   // A batch naming one row the caller's rules exclude is refused whole, as a
   // missing row is, and restores nothing.
@@ -262,7 +265,6 @@ async function handleBatchCreate(c: Context, app: App) {
 async function handleBatchUpdate(c: Context, app: App) {
   // Session, tableName, userRole and userGroups are guaranteed by middleware chain
   const { session, tableName, userRole, userGroups } = getTableContext(c)
-  const effectiveRoles = buildEffectiveRoles(userRole, userGroups)
   const writer = { role: userRole, groups: userGroups }
   // A viewer the table does not name in its update grant is refused BEFORE validation.
   const viewerCheck = checkViewerPermission(c, app, ['update'])
@@ -273,16 +275,17 @@ async function handleBatchUpdate(c: Context, app: App) {
 
   const table = app.tables?.find((t) => t.name === tableName)
   const { records } = result.data
+  const addressable = await addressableBatchItems(c, app, table, records)
   const authError = await resolveBatchMutationAuth({
     ...{ c, app, tableName, userRole, userGroups, session, table },
-    // An item whose id no key could hold is skipped, as a missing id is.
-    ...batchUpdateTargets(app, tableName, writer, keyShapedBatchItems(app, table, records)),
+    ...batchUpdateTargets(app, tableName, writer, addressable(records)),
     op: 'write',
     // Effective roles, not a bare role: a `group:<name>` permission entry lives
     // only in the resolved set `buildEffectiveRoles` produces, so a bare string
     // could never match one and every `group:` update grant was silently inert
     // on this path while the sibling create gate (`:225`) honoured it.
-    canonicalCheck: () => hasUpdatePermissionForRoles(table, effectiveRoles, app),
+    canonicalCheck: () =>
+      hasUpdatePermissionForRoles(table, buildEffectiveRoles(userRole, userGroups), app),
     forbiddenAction: 'update',
   })
   if (authError) return authError
@@ -301,7 +304,7 @@ async function handleBatchUpdate(c: Context, app: App) {
   })
   if (strippedValidation) return strippedValidation
 
-  const recordsData = keyShapedBatchItems(app, table, strippedRecords).map((record) => ({
+  const recordsData = addressable(strippedRecords).map((record) => ({
     id: record.id,
     fields: record.fields,
   }))
@@ -377,9 +380,13 @@ async function handleBatchDelete(c: Context, app: App) {
   // The validated body is the only source for the `permanent` flag. A
   // permanent delete is an admin-equivalent role's, exactly as the
   // single-record `?permanent=true` is; anyone else gets its 404 and nothing
-  // is destroyed.
+  // is destroyed. An id her list of the table does not admit is refused as a
+  // missing id is.
   const permanent = result.data.permanent === true
-  if (permanent && !isAdminEquivalent(userRole, app)) return notFound(c)
+  const idRefusal = await refuseBatchDeleteTargets(c, app, {
+    ...{ ids: result.data.ids, permanent, role: userRole },
+  })
+  if (idRefusal) return idRefusal
   const program = batchDeleteWithSideEffects({
     ...{ session, tableName, app, permanent, processEnv: process.env },
     requester: recordWriteRequester(session.userId, userRole),

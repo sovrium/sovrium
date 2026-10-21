@@ -8,7 +8,7 @@
 import { Data, Effect, Result } from 'effect'
 import { InvitationIssuer } from '@/application/ports/services/invitation-issuer'
 import { buildAcceptInvitationUrl } from './admin-invitation'
-import { issueInvitation } from './invitation-issuance'
+import { findOrCreateInvitedUser, issueInvitation } from './invitation-issuance'
 import type { App } from '@/domain/models/app'
 
 /** The issuance itself rejected — the store or the engine was unreachable. */
@@ -78,3 +78,51 @@ export const issueSeedInvitations = (input: {
       )
     )
   }).pipe(Effect.withSpan('auth.issue-seed-invitations'))
+
+/** One unclaimed account a seed run creates: who it is, never a credential. */
+export interface SeedUnclaimedAccount {
+  readonly email: string
+  readonly name: string
+  readonly role: string
+}
+
+/** What became of one unclaimed account: created, or why not. */
+export type SeedUnclaimedOutcome =
+  | { readonly ok: true; readonly email: string }
+  | { readonly ok: false; readonly email: string; readonly message: string }
+
+/**
+ * Create the unclaimed accounts a seed run lists: each gets the account an
+ * invitation would create — no credential — but no invitation token, so
+ * nothing is sent, printed or acceptable. Its owner claims it later through
+ * the app's ordinary roads: a password reset to that email (which links the
+ * credential on first use), or an invitation an admin sends.
+ */
+export const createSeedUnclaimedAccounts = (input: {
+  readonly accounts: readonly SeedUnclaimedAccount[]
+}): Effect.Effect<readonly SeedUnclaimedOutcome[], never, InvitationIssuer> =>
+  Effect.gen(function* () {
+    const services = yield* InvitationIssuer
+    return yield* Effect.forEach(input.accounts, (account) =>
+      Effect.tryPromise({
+        try: () => findOrCreateInvitedUser(services, account),
+        catch: (cause) => new InvitationIssueError({ cause }),
+      }).pipe(
+        Effect.result,
+        Effect.map((created): SeedUnclaimedOutcome => {
+          if (Result.isFailure(created)) {
+            const { cause } = created.failure
+            return {
+              ok: false,
+              email: account.email,
+              message: cause instanceof Error ? cause.message : String(cause),
+            }
+          }
+          const result = created.success
+          return 'outcome' in result
+            ? { ok: true, email: account.email }
+            : { ok: false, email: account.email, message: result.message }
+        })
+      )
+    )
+  }).pipe(Effect.withSpan('auth.create-seed-unclaimed-accounts'))

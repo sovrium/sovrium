@@ -68,5 +68,7 @@ export async function handleUpsert(c: Context, app: App) {
     provideDomain(c, filteredProgram),
     upsertRecordsResponseSchema
   )
-  return maskUnreadableUniqueConflict(c, app, { written: flatRecordsData }, response)
+  // A matched record is the one its write updates: never a holder of the value.
+  const match = { fields: result.data.fieldsToMergeOn, hiddenIds: validation.hiddenIds }
+  return maskUnreadableUniqueConflict(c, app, { written: flatRecordsData, match }, response)
 }

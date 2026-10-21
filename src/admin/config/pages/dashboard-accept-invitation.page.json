@@ -1,0 +1,301 @@
+{
+  "id": "dashboard-accept-invitation",
+  "name": "dashboard-accept-invitation",
+  "path": "/accept-invitation",
+  "invitation": {},
+  "meta": {
+    "title": "$t:admin.meta.acceptInvitation",
+    "noindex": true
+  },
+  "components": [
+    {
+      "type": "container",
+      "key": "section",
+      "element": "section",
+      "props": {
+        "className": "flex min-h-svh w-full flex-col items-center justify-center gap-6 p-6 md:p-10 bg-muted",
+        "data-admin-base-path": "/"
+      },
+      "children": [
+        {
+          "type": "flex",
+          "props": {
+            "className": "flex w-full max-w-sm flex-col gap-6"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "section-1",
+              "element": "div",
+              "props": {
+                "className": "flex items-center gap-2 self-center text-sm font-medium text-foreground"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "section-1-1",
+                  "props": {
+                    "className": "flex size-6 items-center justify-center overflow-hidden rounded-md bg-primary text-xs font-semibold text-primary-foreground data-[app-mark=logo]:bg-transparent",
+                    "data-app-mark": "tile"
+                  }
+                },
+                {
+                  "type": "text",
+                  "element": "span",
+                  "content": "$app.label"
+                }
+              ]
+            },
+            {
+              "type": "card",
+              "visibility": {
+                "condition": {
+                  "field": "$invitation.status",
+                  "operator": "eq",
+                  "value": "pending"
+                }
+              },
+              "props": {
+                "data-slot": "card",
+                "className": "flex flex-col gap-4 overflow-hidden px-0 py-4 text-sm"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "card-header",
+                  "props": {
+                    "data-slot": "card-header",
+                    "className": "grid auto-rows-min gap-1 px-4 text-center"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "h1",
+                      "props": {
+                        "className": "font-medium leading-snug text-foreground text-xl",
+                        "data-slot": "card-title"
+                      },
+                      "content": "$t:admin.invitation.heading",
+                      "visibility": {
+                        "condition": {
+                          "field": "$invitation.role.isAdminTier",
+                          "operator": "eq",
+                          "value": "true"
+                        }
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "element": "h1",
+                      "props": {
+                        "className": "font-medium leading-snug text-foreground text-xl",
+                        "data-slot": "card-title"
+                      },
+                      "content": "$t:admin.invitation.headingMember",
+                      "visibility": {
+                        "condition": {
+                          "field": "$invitation.role.isAdminTier",
+                          "operator": "neq",
+                          "value": "true"
+                        }
+                      }
+                    },
+                    {
+                      "type": "container",
+                      "key": "invitation-blurb",
+                      "element": "div",
+                      "props": {
+                        "className": "flex flex-wrap justify-center gap-x-1 text-sm text-muted-foreground",
+                        "data-testid": "invitation-blurb"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "font-medium text-foreground"
+                          },
+                          "content": "$invitation.inviter.name"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "content": "$t:admin.invitation.invitedYouTo"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "font-medium text-foreground"
+                          },
+                          "content": "$invitation.workspace"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "content": "$t:admin.invitation.asRole"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "font-medium text-foreground capitalize"
+                          },
+                          "content": "$invitation.role"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "flex flex-wrap justify-center gap-x-1 text-sm text-muted-foreground",
+                        "data-testid": "invitation-landing"
+                      },
+                      "visibility": {
+                        "condition": {
+                          "field": "$invitation.role.isAdminTier",
+                          "operator": "eq",
+                          "value": "true"
+                        }
+                      },
+                      "content": "$t:admin.invitation.landsAdmin"
+                    },
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "flex flex-wrap justify-center gap-x-1 text-sm text-muted-foreground",
+                        "data-testid": "invitation-landing"
+                      },
+                      "visibility": {
+                        "condition": {
+                          "field": "$invitation.role.isAdminTier",
+                          "operator": "neq",
+                          "value": "true"
+                        }
+                      },
+                      "content": "$t:admin.invitation.landsMember"
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "section-2",
+                  "element": "div",
+                  "props": {
+                    "className": "flex flex-col gap-4 px-4"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "invitation-email",
+                      "element": "div",
+                      "props": {
+                        "className": "flex flex-wrap justify-center gap-x-1 text-sm text-muted-foreground",
+                        "data-testid": "invitation-email"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "content": "$t:admin.invitation.signInAs"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "font-medium text-foreground"
+                          },
+                          "content": "$invitation.email"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "form",
+                      "action": {
+                        "type": "auth",
+                        "method": "acceptInvitation",
+                        "submitLabel": "$t:admin.invitation.submit",
+                        "onSuccess": {
+                          "navigate": "/"
+                        }
+                      },
+                      "props": {
+                        "id": "admin-accept-invitation-form"
+                      }
+                    },
+                    {
+                      "type": "container",
+                      "key": "invitation-expiry",
+                      "element": "div",
+                      "props": {
+                        "className": "flex flex-wrap justify-center gap-x-1 text-sm text-muted-foreground",
+                        "data-testid": "invitation-expiry"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "content": "$t:admin.invitation.worksUntil"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "font-medium text-foreground"
+                          },
+                          "content": "$invitation.expiresAt"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "card",
+              "visibility": {
+                "condition": {
+                  "field": "$invitation.status",
+                  "operator": "neq",
+                  "value": "pending"
+                }
+              },
+              "props": {
+                "className": "flex flex-col items-center gap-2 px-6 py-8 text-center text-sm",
+                "data-testid": "invitation-unusable"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "h1",
+                  "props": {
+                    "className": "text-lg font-medium text-foreground"
+                  },
+                  "content": "$t:admin.invitation.unusable.heading"
+                },
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "className": "text-muted-foreground text-balance"
+                  },
+                  "content": "$t:admin.invitation.unusable.body"
+                },
+                {
+                  "type": "link",
+                  "props": {
+                    "href": "/login",
+                    "className": "mt-2 inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground no-underline shadow-xs hover:bg-muted"
+                  },
+                  "content": "$t:admin.invitation.unusable.signIn"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

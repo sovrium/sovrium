@@ -25,7 +25,8 @@ import { KanbanSkeleton } from './island-kanban-skeleton'
 import { islandKpiComponent } from './island-kpi-component'
 import { islandLoadingLabel, islandUiStrings } from './island-loading-label'
 import { RowExpandDrawerHost } from './row-expand-drawer-host'
-import { staticTableComponent } from './static-table-component'
+import { islandFallback, renderKanbanSpecimen, specimenEmpty } from './specimen-island-states'
+import { renderTableSpecimen, staticTableComponent } from './static-table-component'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
 
 /**
@@ -67,6 +68,8 @@ function extractDataTableProps(elementProps: Record<string, unknown>): Record<st
     // pinned heads and the phone rows are all drawn by the island.
     layout: elementProps.layout,
     phoneLayout: elementProps.phoneLayout,
+    // Where the reader's view options sit: beside the pager, or in the toolbar.
+    viewOptions: elementProps.viewOptions,
     bulkActions: elementProps.bulkActions,
     publishes: elementProps.publishes,
     autoSave: elementProps.autoSave,
@@ -216,21 +219,24 @@ export const recordBoundTimelineComponent: ComponentRenderer = ({
     >
       {/* Loading skeleton — preserved as Suspense fallback, inside the frame
           the host draws, so nothing re-draws as the island mounts. */}
-      <div
-        data-loading-status=""
-        aria-label={loading.status}
-        role="status"
-      >
-        <div className="bg-muted mb-3 h-4 w-40 animate-pulse rounded-md" />
-        <div className="space-y-2">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div
-              key={`timeline-skeleton-${String(i)}`}
-              className="bg-muted h-6 animate-pulse rounded-md"
-            />
-          ))}
-        </div>
-      </div>
+      {islandFallback(
+        <div
+          data-loading-status=""
+          aria-label={loading.status}
+          role="status"
+        >
+          <div className="bg-muted mb-3 h-4 w-40 animate-pulse rounded-md" />
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={`timeline-skeleton-${String(i)}`}
+                className="bg-muted h-6 animate-pulse rounded-md"
+              />
+            ))}
+          </div>
+        </div>,
+        () => specimenEmpty('timeline.empty', currentLang, languages)
+      )}
     </div>
   )
 }
@@ -259,10 +265,13 @@ export const islandDataComponents: Partial<Record<DispatchableComponentType, Com
         className={hostClassName(elementProps)}
       >
         {/* Loading skeleton — preserved as Suspense fallback */}
-        <KanbanSkeleton
-          elementProps={elementProps}
-          label={loading.status}
-        />
+        {islandFallback(
+          <KanbanSkeleton
+            elementProps={elementProps}
+            label={loading.status}
+          />,
+          () => renderKanbanSpecimen(elementProps, tables, text)
+        )}
       </div>
     )
   },
@@ -349,9 +358,12 @@ export const islandDataComponents: Partial<Record<DispatchableComponentType, Com
           }`
         )}
       >
-        <DataTableSkeleton
-          label={islandLoadingLabel('datatable.loadingTable', currentLang, languages).status}
-        />
+        {islandFallback(
+          <DataTableSkeleton
+            label={islandLoadingLabel('datatable.loadingTable', currentLang, languages).status}
+          />,
+          () => renderTableSpecimen(ctx)
+        )}
       </div>
     )
     if (!expandDrawer) return grid

@@ -9,6 +9,7 @@ import { Effect, Layer } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import { PageRenderer } from '@/application/ports/services/page-renderer'
+import { SPECIMEN_INSTANT } from '@/domain/models/app/pages/specimen-sample-service'
 import {
   resolveClientRuntimePreloads,
   resolveClientScriptPaths,
@@ -17,9 +18,12 @@ import { readInvitationFacts } from '@/infrastructure/auth/better-auth/invitatio
 import { readTwoFactorAttempt } from '@/infrastructure/auth/better-auth/two-factor-attempt-reader'
 import { getSovriumVersion } from '@/infrastructure/process/version'
 import { buildIslands } from '@/infrastructure/server/route-setup/island-assets'
+import { atRenderInstant } from '@/presentation/render/page/render-clock'
 import { renderErrorPage, renderNotFoundPage } from '@/presentation/render/page/render-error-pages'
 import { renderPage } from '@/presentation/render/page/render-page'
 import { renderRssFeed } from '@/presentation/render/page/render-rss-feed'
+import { asSpecimenDrawing } from '@/presentation/render/page/specimen-drawing'
+import { signedOutReaderRows } from '@/presentation/render/resolve/reader-row-admission'
 import {
   SPECIMEN_SESSION,
   specimenSampleDb,
@@ -57,6 +61,10 @@ function createDataSourceDbAdapter(
     readInvitation: readInvitationFacts,
     // A code page's lookup of the sign-in waiting for its code.
     readTwoFactorAttempt,
+    // The rows a render bringing no reader of its own may list — a feed, a
+    // mounted console surface: a signed-out visitor's. The page route folds its
+    // request's own reader over it.
+    readReaderRows: signedOutReaderRows,
   }
 }
 
@@ -94,23 +102,28 @@ const splitCallerReaders = (db: DataSourceDb, requestContext: RenderRequestConte
   const {
     readTableAsCaller,
     callerFieldReader,
+    viewerIdentity,
     readRecordLabels,
     loadRowRuleContext,
     readReaderRows,
+    readQueryMasks,
     signFileUrl,
     specimen,
+    drawnAt,
     ...context
   } = requestContext ?? {}
   const callerDb: DataSourceDb = {
     ...db,
     ...(readTableAsCaller !== undefined && { readTableAsCaller }),
     ...(callerFieldReader !== undefined && { callerFieldReader }),
+    ...(viewerIdentity !== undefined && { viewerIdentity }),
     ...(readRecordLabels !== undefined && { readRecordLabels }),
     ...(loadRowRuleContext !== undefined && { loadRowRuleContext }),
     ...(readReaderRows !== undefined && { readReaderRows }),
+    ...(readQueryMasks !== undefined && { readQueryMasks }),
     ...(signFileUrl !== undefined && { signFileUrl }),
   }
-  return { specimen, context, callerDb }
+  return { specimen, drawnAt, context, callerDb }
 }
 
 export const PageRendererLive = Layer.effect(
@@ -140,26 +153,45 @@ export const PageRendererLive = Layer.effect(
 
     return {
       renderPage: (app, path, requestContext) => {
-        const { specimen, context, callerDb } = splitCallerReaders(db, requestContext)
+        const { specimen, drawnAt, context, callerDb } = splitCallerReaders(db, requestContext)
         // A specimen reads nothing of the instance: sample readers only, none of
-        // the caller's own readers, and the sample person as its viewer.
+        // the caller's own readers, and the sample person as its viewer, at the
+        // specimen instant rather than at whatever the clock says.
         if (specimen === true) {
-          return renderPage(app, path, {
-            ...context,
-            session: SPECIMEN_SESSION,
-            db: specimenSampleDb(app),
-            fetchSystemRows: specimenSystemRows,
-            islandBuilder,
-            engineVersion,
-            // Nor anything the hosting environment adds around a page: no demo notice.
-            demoNotice: false,
-          })
+          return atRenderInstant(SPECIMEN_INSTANT, () =>
+            asSpecimenDrawing(() =>
+              renderPage(app, path, {
+                ...context,
+                session: SPECIMEN_SESSION,
+                db: specimenSampleDb(app),
+                fetchSystemRows: specimenSystemRows,
+                islandBuilder,
+                engineVersion,
+                // Nor anything the hosting environment adds around a page: no demo notice.
+                demoNotice: false,
+                // The address is the caller's sample, never a visitor's request.
+                sampleAddress: true,
+              })
+            )
+          )
         }
-        return renderPage(app, path, { ...context, db: callerDb, islandBuilder, engineVersion })
+        const render = () =>
+          renderPage(app, path, { ...context, db: callerDb, islandBuilder, engineVersion })
+        return drawnAt === undefined ? render() : atRenderInstant(drawnAt, render)
       },
-      renderNotFound: renderNotFoundPage,
+      // The `/404` page is a page: it gets the same process facts a page render
+      // does, so `$app.engineVersion` resolves and `$session.*` text is filled.
+      renderNotFound: (app, detectedLanguage, requestPath) =>
+        renderNotFoundPage(app, detectedLanguage, requestPath, {
+          db,
+          islandBuilder,
+          engineVersion,
+        }),
       renderError: renderErrorPage,
-      renderRssFeed: (app, baseUrl) => renderRssFeed(app, baseUrl, db),
+      // The route's masks reader steers the feed's filter as a signed-out
+      // reader's records list steers it, on the counts and lookups it names.
+      renderRssFeed: (app, baseUrl, readQueryMasks) =>
+        renderRssFeed(app, baseUrl, readQueryMasks === undefined ? db : { ...db, readQueryMasks }),
       fetchSitemapRecords: (tableName, options) => db.fetchRecords(tableName, options),
     }
   })

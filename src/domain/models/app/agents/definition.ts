@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { singleLineDescription } from '@/domain/models/app/description'
 
 /**
  * AgentDefinitionSchema defines the core identity and configuration of an AI agent.
@@ -52,6 +53,16 @@ export const AgentDefinitionSchema = Schema.Struct({
     Schema.annotate({
       description: 'Unique kebab-case identifier for this agent',
       examples: ['support-agent', 'data-enrichment-bot', 'content-moderator'],
+    })
+  ),
+
+  /** What the agent is for, in one line — drawn under its name in the operator console. */
+  description: Schema.optional(
+    singleLineDescription({
+      title: 'Agent Description',
+      description:
+        'What this agent is for, in one line (up to 2,000 characters, no line break). The operator console draws it under the agent name, and the admin agents list carries it on the agent item. Display text only: the agent never reads it, so it is not a prompt; write instructions in `systemPrompt`.',
+      examples: ['Answers customers from the help centre, hands over to a person.'],
     })
   ),
 

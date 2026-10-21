@@ -12,9 +12,11 @@ import { InstanceSlugSchema } from './instance-slug'
 /**
  * Instance restart Action (type: instance, operator: restart)
  *
- * Stops `sovrium-proxy@<slug>.service` and `sovrium-app@<slug>.service` in one
- * call, then starts the app: a plain restart is cancelled by the proxy's own
- * stop of the app while the proxy runs. Its socket is left as it is.
+ * Stops `sovrium-app@<slug>.socket`, `sovrium-proxy@<slug>.service` and
+ * `sovrium-app@<slug>.service` in one call, then starts the socket and the app
+ * in one call: a plain restart is cancelled by the proxy's own stop of the app
+ * while the proxy runs, and a socket left listening lets a request arriving
+ * during the stop wake the app and cancel the stop.
  */
 export const InstanceRestartActionSchema = Schema.Struct({
   ...ActionBaseFields,
@@ -39,7 +41,7 @@ export const InstanceRestartActionSchema = Schema.Struct({
     identifier: 'InstanceRestartAction',
     title: 'Instance Restart Action',
     description:
-      'Restart a supervised app so it reads its current release and environment again: its proxy and the app stop in one call, then the app starts',
+      'Restart a supervised app so it reads its current release and environment again: its socket, its proxy and the app stop in one call, then the socket and the app start, so requests arriving meanwhile wait for the new release',
   })
 )
 

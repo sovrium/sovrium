@@ -1,0 +1,137 @@
+{
+  "id": "dashboard-not-found",
+  "name": "dashboard-not-found",
+  "path": "/404",
+  "meta": {
+    "title": "$t:admin.meta.notFound"
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "404": "$t:admin.notFound.heading"
+            },
+            "unlinked": ["404"]
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "empty",
+          "element": "section",
+          "props": {
+            "aria-labelledby": "admin-not-found-heading",
+            "data-slot": "empty",
+            "className": "flex min-h-[60svh] w-full min-w-0 flex-1 flex-col items-center justify-center gap-4 rounded-xl p-6 text-center text-balance"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "empty-header",
+              "element": "div",
+              "props": {
+                "data-slot": "empty-header",
+                "className": "flex max-w-sm flex-col items-center gap-2"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "span",
+                  "props": {
+                    "data-slot": "empty-media",
+                    "data-variant": "icon",
+                    "aria-hidden": "true",
+                    "className": "mb-2 flex h-8 min-w-8 shrink-0 items-center justify-center rounded-lg bg-muted px-2 text-sm font-medium tabular-nums text-foreground"
+                  },
+                  "content": "404"
+                },
+                {
+                  "type": "text",
+                  "element": "h1",
+                  "props": {
+                    "id": "admin-not-found-heading",
+                    "data-slot": "empty-title",
+                    "className": "text-lg font-medium tracking-tight text-foreground"
+                  },
+                  "content": "$t:admin.notFound.heading"
+                },
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "data-slot": "empty-description",
+                    "className": "text-sm/relaxed text-muted-foreground"
+                  },
+                  "content": "$t:admin.notFound.body"
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "empty-content",
+              "element": "div",
+              "props": {
+                "data-slot": "empty-content",
+                "className": "flex w-full max-w-sm min-w-0 flex-wrap items-center justify-center gap-2"
+              },
+              "children": [
+                {
+                  "type": "link",
+                  "props": {
+                    "href": "/",
+                    "className": "inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground no-underline hover:bg-primary/80"
+                  },
+                  "content": "$t:admin.notFound.back"
+                },
+                {
+                  "type": "button",
+                  "variant": "outline",
+                  "size": "sm",
+                  "props": {
+                    "type": "button",
+                    "data-command-palette-trigger": "true",
+                    "aria-label": "$t:admin.shell.search",
+                    "className": "gap-2"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "span",
+                      "content": "$t:admin.shell.search"
+                    },
+                    {
+                      "type": "kbd",
+                      "keys": ["⌘", "K"]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

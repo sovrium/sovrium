@@ -12,8 +12,10 @@
  * The cache is bounded by BYTES, not by entry count: 200 marketing pages and
  * 200 long-form docs articles differ by an order of magnitude in size, so an
  * entry cap either starves a docs zone or blows the memory ceiling of a small
- * deployment. Entries are admitted until the budget is reached, after which
- * insertion-order-oldest entries are evicted until the new entry fits.
+ * deployment. The budget counts the UTF-8 bytes the store holds, which are
+ * exactly what it keeps for each page. Entries are admitted until the budget
+ * is reached, after which the least recently served entries are evicted until
+ * the new entry fits.
  *
  * Operator infrastructure: it lives in the environment only, never in the app
  * schema — same contract as `ECO_PAGE_CACHE`.

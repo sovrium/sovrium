@@ -21,6 +21,7 @@ import {
   DESIGN_SYSTEM_SPECIMEN_SHARE_READ_OPERATIONS,
   DEVELOPER_READ_OPERATIONS,
   RELEASE_READ_OPERATIONS,
+  REPORTS_READ_OPERATIONS,
   SCHEMA_READ_OPERATIONS,
   TEMPLATES_READ_OPERATIONS,
 } from '@/application/use-cases/admin/admin-read-registry'
@@ -128,6 +129,8 @@ export const chainAdminApiRoutes = <T extends Hono>(
         ...SCHEMA_READ_OPERATIONS,
         // The template catalogue and its read-only preview (rendered, never the raw file).
         ...TEMPLATES_READ_OPERATIONS,
+        // The bug report addresses of a failed request and of a run that stopped on a defect.
+        ...REPORTS_READ_OPERATIONS,
       ]),
       resolveLiveApp
     ),

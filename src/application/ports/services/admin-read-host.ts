@@ -7,6 +7,8 @@
 
 import { Context, type Effect } from 'effect'
 import type { StorageService } from '@/application/ports/services/storage-service'
+import type { KeptServerFailureReport } from '@/domain/kernel/url/issue-report-address'
+import type { IssueReportFacts } from '@/domain/kernel/url/issue-report-failure'
 import type { ConfigVersionResponse } from '@/domain/models/api/admin/config/version'
 import type { App } from '@/domain/models/app'
 
@@ -17,7 +19,7 @@ import type { App } from '@/domain/models/app'
  * An admin read is described once in the read registry and answered on two
  * surfaces (HTTP and MCP). Most reads are functions of the app and the store.
  * A few are functions of the SERVING PROCESS instead: the origin the caller
- * reached it at, the frozen boot instant, the engine build, and the live
+ * reached it at, the boot instant, the engine build, and the live
  * footprint telemetry. Those live in infrastructure or in the render tree,
  * which the application layer may not import — so each surface's adapter provides this service per call, built by
  * one presentation helper, and both surfaces answer from the same values.
@@ -32,10 +34,11 @@ export class AdminReadHost extends Context.Service<
     /** The public origin, with no trailing slash, the caller reached this instance at. */
     readonly origin: string
     /**
-     * When this instance started: the process boot, frozen at module load, or on
-     * a host pinned with `SOVRIUM_DEV_CLOCK` that boot on the development
-     * timeline. The config version reports it as `startedAt`, and the attention
-     * report is byte-identical to it.
+     * When this instance started — the ONE boot instant every admin read names:
+     * the running server's boot, on the development timeline when the host is
+     * pinned with `SOVRIUM_DEV_CLOCK` (the timeline its runs are stamped on).
+     * The config version reports it as `startedAt`; the attention report counts
+     * from it and, with the instance read, reports it as `bootedAt`.
      */
     readonly processStartedAt: string
     /** The engine build and runtime facts the config version answers. */
@@ -55,6 +58,17 @@ export class AdminReadHost extends Context.Service<
       rows: ReadonlyArray<Readonly<Record<string, unknown>>>,
       columns: ReadonlyArray<string>
     ) => string
+    /** The installation facts a bug report carries: version, platform, install channel, database. */
+    readonly issueReportFacts: Effect.Effect<IssueReportFacts>
+    /** The internal error this server kept under `requestId`, already scrubbed, if any. */
+    readonly findServerFailure: (
+      requestId: string
+    ) => Effect.Effect<KeptServerFailureReport | undefined>
+    /**
+     * The most recent internal error this server kept that is Sovrium's to fix,
+     * already scrubbed, if any — counting the ones answered a moment ago.
+     */
+    readonly findLatestServerFailure: Effect.Effect<KeptServerFailureReport | undefined>
   }
 >()('AdminReadHost') {}
 

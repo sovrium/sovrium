@@ -14,8 +14,8 @@
  * class="tok-XXXXXX tok-dark-XXXXXX">…</span>…</code></pre>` markup with NO
  * inline `style` attribute (the canonical sanitiser strips `style`, so colors
  * are delivered via classes only). Every app draws shadcn/ui's default pair,
- * `github-light` and `github-dark`; `design.codeBlock` is deprecated and
- * ignored, so every app gets this same stylesheet. It emits:
+ * `github-light` and `github-dark`; no config key chooses them, so every app
+ * gets this same stylesheet. It emits:
  *
  *  - Container chrome on `pre.shiki` (background, padding, radius, font): a
  *    LIGHT chrome (the `--color-muted` token) for `github-light`, and under the

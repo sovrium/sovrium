@@ -1,0 +1,1486 @@
+{
+  "id": "design-system-brand",
+  "name": "design-system-brand",
+  "path": "/design-system/brand",
+  "requires": ["design.brand"],
+  "meta": {
+    "title": "$t:admin.meta.brand",
+    "description": "$t:admin.ds.brand.blurb"
+  },
+  "dataSource": {
+    "system": {
+      "endpoint": "/api/admin/design-system/brand",
+      "idKey": "state"
+    }
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "design-system": "$t:admin.common.designSystem",
+              "brand": "$t:admin.common.brand"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "component": "console-page-header",
+          "key": "header",
+          "vars": {
+            "content": "$t:admin.common.brand"
+          }
+        },
+        {
+          "type": "container",
+          "key": "admin-surface-content-2-2",
+          "element": "div",
+          "props": {
+            "className": "flex flex-row items-start gap-8"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-2-1",
+              "element": "div",
+              "props": {
+                "className": "flex min-w-0 flex-1 flex-col gap-6"
+              },
+              "children": [
+                {
+                  "type": "card",
+                  "variant": "scoped",
+                  "props": {
+                    "data-design-kit-type": "card"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "preview-surface",
+                      "element": "div",
+                      "props": {
+                        "className": "bg-background text-foreground flex list-none flex-col gap-8 p-6",
+                        "data-testid": "preview-surface"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "key": "design-system-brand-mark",
+                          "element": "section",
+                          "props": {
+                            "className": "flex scroll-mt-6 flex-col gap-4",
+                            "id": "design-system-brand-mark",
+                            "data-design-section": "design-system-brand-mark"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "h2",
+                              "props": {
+                                "className": "text-foreground text-lg font-semibold tracking-tight"
+                              },
+                              "content": "$t:admin.ds.brand.mark"
+                            },
+                            {
+                              "type": "container",
+                              "key": "design-system-logo",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col gap-4",
+                                "data-testid": "design-system-logo"
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "design-system-mark-states",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex items-center gap-3",
+                                    "data-testid": "design-system-mark-states"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "link",
+                                      "props": {
+                                        "href": "?mark=config",
+                                        "className": "text-foreground text-sm font-medium",
+                                        "aria-current": "true"
+                                      },
+                                      "visibility": {
+                                        "record": {
+                                          "field": "declared",
+                                          "eq": true
+                                        }
+                                      },
+                                      "content": "$t:admin.ds.brand.yourConfig"
+                                    },
+                                    {
+                                      "type": "link",
+                                      "props": {
+                                        "href": "?mark=example",
+                                        "className": "text-foreground-subtle hover:text-foreground text-sm"
+                                      },
+                                      "visibility": {
+                                        "record": {
+                                          "field": "declared",
+                                          "eq": false
+                                        }
+                                      },
+                                      "content": "$t:admin.ds.brand.yourConfig"
+                                    },
+                                    {
+                                      "type": "link",
+                                      "props": {
+                                        "href": "?mark=config",
+                                        "className": "text-foreground-subtle hover:text-foreground text-sm"
+                                      },
+                                      "visibility": {
+                                        "record": {
+                                          "field": "declared",
+                                          "eq": true
+                                        }
+                                      },
+                                      "content": "$t:admin.ds.brand.example"
+                                    },
+                                    {
+                                      "type": "link",
+                                      "props": {
+                                        "href": "?mark=example",
+                                        "className": "text-foreground text-sm font-medium",
+                                        "aria-current": "true"
+                                      },
+                                      "visibility": {
+                                        "record": {
+                                          "field": "declared",
+                                          "eq": false
+                                        }
+                                      },
+                                      "content": "$t:admin.ds.brand.example"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "design-system-logo-2",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-col gap-4"
+                                  },
+                                  "visibility": {
+                                    "record": {
+                                      "field": "declared",
+                                      "eq": true
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "design-system-logo-2-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "grid gap-4 md:grid-cols-2"
+                                      },
+                                      "dataSource": {
+                                        "system": {
+                                          "endpoint": "/api/admin/design-system/brand",
+                                          "rowsKey": "items",
+                                          "idKey": "configPath"
+                                        }
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "container",
+                                          "key": "design-system-logo-2-1-1",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "border-border bg-background flex flex-col gap-2 rounded-lg border p-4"
+                                          },
+                                          "visibility": {
+                                            "record": {
+                                              "field": "variant",
+                                              "eq": "light"
+                                            }
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "element": "p",
+                                              "props": {
+                                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                              },
+                                              "content": "src · light"
+                                            },
+                                            {
+                                              "type": "container",
+                                              "key": "design-system-logo-2-1-1-2",
+                                              "element": "div",
+                                              "props": {
+                                                "className": "flex h-[140px] items-center justify-center p-4",
+                                                "data-design-logo": "light"
+                                              },
+                                              "children": [
+                                                {
+                                                  "type": "image",
+                                                  "props": {
+                                                    "src": "$record.src",
+                                                    "alt": "$record.alt",
+                                                    "className": "max-h-full max-w-full"
+                                                  }
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "text",
+                                              "element": "p",
+                                              "props": {
+                                                "className": "text-foreground-subtle font-mono text-[11px]"
+                                              },
+                                              "content": "$record.configPath"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "container",
+                                          "key": "design-system-logo-2-1-2",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "border-border bg-foreground flex flex-col gap-2 rounded-lg border p-4"
+                                          },
+                                          "visibility": {
+                                            "record": {
+                                              "field": "variant",
+                                              "eq": "dark"
+                                            }
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "element": "p",
+                                              "props": {
+                                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                              },
+                                              "content": "srcDark · dark"
+                                            },
+                                            {
+                                              "type": "container",
+                                              "key": "design-system-logo-2-1-2-2",
+                                              "element": "div",
+                                              "props": {
+                                                "className": "flex h-[140px] items-center justify-center p-4",
+                                                "data-design-logo": "dark"
+                                              },
+                                              "children": [
+                                                {
+                                                  "type": "image",
+                                                  "props": {
+                                                    "src": "$record.src",
+                                                    "alt": "$record.alt",
+                                                    "className": "max-h-full max-w-full"
+                                                  }
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "text",
+                                              "element": "p",
+                                              "props": {
+                                                "className": "text-foreground-subtle font-mono text-[11px]"
+                                              },
+                                              "content": "$record.configPath"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "container",
+                                      "key": "design-system-logo-2-2",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex flex-col"
+                                      },
+                                      "dataSource": {
+                                        "system": {
+                                          "endpoint": "/api/admin/design-system/brand",
+                                          "rowsKey": "facts",
+                                          "idKey": "key"
+                                        }
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "container",
+                                          "key": "design-system-logo-2-2-1",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "border-border flex flex-col gap-1 border-b py-2 last:border-b-0"
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "element": "p",
+                                              "props": {
+                                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                              },
+                                              "visibility": {
+                                                "record": {
+                                                  "field": "key",
+                                                  "eq": "alt"
+                                                }
+                                              },
+                                              "content": "$t:admin.ds.brand.accessibleName"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "element": "p",
+                                              "props": {
+                                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                              },
+                                              "visibility": {
+                                                "record": {
+                                                  "field": "key",
+                                                  "eq": "clearSpace"
+                                                }
+                                              },
+                                              "content": "$t:admin.ds.brand.clearSpace"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "element": "p",
+                                              "props": {
+                                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                              },
+                                              "visibility": {
+                                                "record": {
+                                                  "field": "key",
+                                                  "eq": "minWidth"
+                                                }
+                                              },
+                                              "content": "$t:admin.ds.brand.minWidth"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "element": "p",
+                                              "props": {
+                                                "className": "text-foreground max-w-lg text-md leading-relaxed"
+                                              },
+                                              "visibility": {
+                                                "record": {
+                                                  "field": "declared",
+                                                  "eq": true
+                                                }
+                                              },
+                                              "content": "$record.value"
+                                            },
+                                            {
+                                              "type": "container",
+                                              "key": "design-system-logo-2-2-1-5",
+                                              "element": "div",
+                                              "props": {
+                                                "className": "text-foreground-subtle max-w-md text-sm leading-relaxed"
+                                              },
+                                              "visibility": {
+                                                "record": {
+                                                  "field": "declared",
+                                                  "eq": false
+                                                }
+                                              },
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "content": "$t:admin.ds.brand.notDeclared"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "content": " "
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "content": "$record.configPath"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "content": " "
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "content": "$t:admin.ds.brand.toRecordIt"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "text",
+                                              "element": "p",
+                                              "props": {
+                                                "className": "text-foreground-subtle max-w-md text-sm leading-relaxed"
+                                              },
+                                              "visibility": {
+                                                "record": {
+                                                  "field": "key",
+                                                  "eq": "minWidth"
+                                                }
+                                              },
+                                              "content": "$t:admin.ds.brand.minWidthHint"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "container",
+                                      "key": "design-system-logo-2-3",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex flex-col gap-1"
+                                      },
+                                      "dataSource": {
+                                        "system": {
+                                          "endpoint": "/api/admin/design-system/guidance",
+                                          "query": {
+                                            "kind": "logo.misuse"
+                                          },
+                                          "rowsKey": "items",
+                                          "idKey": "path"
+                                        }
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "container",
+                                          "key": "design-system-logo-2-3-1",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "flex flex-col gap-1"
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "element": "p",
+                                              "props": {
+                                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                              },
+                                              "visibility": {
+                                                "record": {
+                                                  "field": "index",
+                                                  "eq": 0
+                                                }
+                                              },
+                                              "content": "$t:admin.ds.brand.misuse"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "element": "p",
+                                              "props": {
+                                                "className": "text-error-fg max-w-lg text-md leading-relaxed"
+                                              },
+                                              "content": "$record.instruction "
+                                            },
+                                            {
+                                              "type": "text",
+                                              "element": "p",
+                                              "props": {
+                                                "className": "text-foreground-subtle max-w-md text-sm leading-relaxed"
+                                              },
+                                              "content": "$record.reason"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "design-system-logo-3",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-col gap-3"
+                                  },
+                                  "visibility": {
+                                    "record": {
+                                      "field": "declared",
+                                      "eq": false
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "design-system-logo-3-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "border-border flex w-full flex-col items-start gap-2.5 rounded-md border p-4",
+                                        "data-design-not-configured": "design.logo"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "element": "p",
+                                          "props": {
+                                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                          },
+                                          "content": "$t:admin.ds.notConfigured"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "p",
+                                          "props": {
+                                            "className": "text-foreground-subtle max-w-lg text-md leading-relaxed"
+                                          },
+                                          "content": "$t:admin.ds.brand.noMark"
+                                        },
+                                        {
+                                          "type": "link",
+                                          "props": {
+                                            "href": "https://sovrium.com/en/docs/design",
+                                            "className": "border-border text-foreground hover:bg-muted rounded-md border px-2.5 py-1 text-[11px] font-medium no-underline",
+                                            "data-design-kit-type": "link"
+                                          },
+                                          "content": "$t:admin.ds.declare design.logo →"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "container",
+                                      "key": "design-system-logo-3-2",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex flex-col gap-3"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "container",
+                                          "key": "design-system-mark-lockup",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "border-border bg-card flex flex-col gap-2 rounded border p-4",
+                                            "data-testid": "design-system-mark-lockup"
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "container",
+                                              "key": "design-system-mark-lockup-1",
+                                              "element": "div",
+                                              "props": {
+                                                "className": "border-border border border-dashed p-4"
+                                              },
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "props": {
+                                                    "className": "text-foreground text-md font-semibold tracking-tight"
+                                                  },
+                                                  "content": "$app.label"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "text",
+                                              "element": "span",
+                                              "props": {
+                                                "className": "text-foreground-subtle max-w-sm text-[11px] leading-relaxed"
+                                              },
+                                              "content": "$t:admin.ds.brand.clearSpaceNote"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "container",
+                                          "key": "design-system-logo-3-2-2",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "grid gap-3 sm:grid-cols-2"
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "container",
+                                              "key": "design-system-logo-3-2-2-1",
+                                              "element": "div",
+                                              "props": {
+                                                "className": "border-border flex flex-col gap-2 rounded-md border p-3",
+                                                "data-design-mark-example": "do"
+                                              },
+                                              "children": [
+                                                {
+                                                  "type": "container",
+                                                  "key": "design-system-logo-3-2-2-1-1",
+                                                  "element": "div",
+                                                  "props": {
+                                                    "className": "bg-card border-border flex h-16 items-center justify-center rounded border"
+                                                  },
+                                                  "children": [
+                                                    {
+                                                      "type": "text",
+                                                      "element": "span",
+                                                      "props": {
+                                                        "className": "text-foreground text-md font-semibold tracking-tight"
+                                                      },
+                                                      "content": "$app.label"
+                                                    }
+                                                  ]
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "props": {
+                                                    "className": "text-foreground-subtle text-[11px]"
+                                                  },
+                                                  "content": "$t:admin.ds.brand.ownGround"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "container",
+                                              "key": "design-system-logo-3-2-2-2",
+                                              "element": "div",
+                                              "props": {
+                                                "className": "border-error-border flex flex-col gap-2 rounded-md border p-3",
+                                                "data-design-mark-example": "dont"
+                                              },
+                                              "children": [
+                                                {
+                                                  "type": "container",
+                                                  "key": "design-system-logo-3-2-2-2-1",
+                                                  "element": "div",
+                                                  "props": {
+                                                    "className": "bg-card border-border flex h-16 items-center justify-center rounded border"
+                                                  },
+                                                  "children": [
+                                                    {
+                                                      "type": "text",
+                                                      "element": "span",
+                                                      "props": {
+                                                        "className": "text-foreground text-md font-semibold tracking-tight italic"
+                                                      },
+                                                      "content": "$app.label"
+                                                    }
+                                                  ]
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "props": {
+                                                    "className": "text-error-fg text-[11px]"
+                                                  },
+                                                  "content": "$t:admin.ds.brand.never"
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "link",
+                                  "props": {
+                                    "href": "https://sovrium.com/en/docs/design",
+                                    "className": "text-foreground hover:text-muted-foreground self-start text-sm font-medium"
+                                  },
+                                  "content": "$t:admin.ds.brand.howPlacement"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "design-system-brand-color-roles",
+                          "element": "section",
+                          "props": {
+                            "className": "flex scroll-mt-6 flex-col gap-4",
+                            "id": "design-system-brand-color-roles",
+                            "data-design-section": "design-system-brand-color-roles"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "h2",
+                              "props": {
+                                "className": "text-foreground text-lg font-semibold tracking-tight"
+                              },
+                              "content": "$t:admin.ds.brand.colourRoles"
+                            },
+                            {
+                              "type": "container",
+                              "key": "design-system-color-roles",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col gap-3",
+                                "data-testid": "design-system-color-roles"
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "design-system-color-roles-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-col"
+                                  },
+                                  "dataSource": {
+                                    "system": {
+                                      "endpoint": "/api/admin/design-system/guidance",
+                                      "query": {
+                                        "kind": "colorRole"
+                                      },
+                                      "rowsKey": "items",
+                                      "idKey": "path"
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "design-system-color-roles-1-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "border-border grid grid-cols-1 items-start gap-3 border-b py-3 last:border-b-0 sm:grid-cols-[17rem_minmax(0,1fr)]"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "swatch",
+                                          "token": "$record.label",
+                                          "contrastAgainst": "$record.pairsWith",
+                                          "showHex": true,
+                                          "props": {
+                                            "className": "flex min-w-0 flex-wrap items-center gap-2 font-mono text-sm",
+                                            "data-design-kit-type": "swatch"
+                                          }
+                                        },
+                                        {
+                                          "type": "container",
+                                          "key": "design-system-color-roles-1-1-2",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "flex min-w-0 flex-col gap-1"
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "element": "p",
+                                              "props": {
+                                                "className": "text-foreground max-w-lg text-md leading-relaxed"
+                                              },
+                                              "content": "$record.instruction "
+                                            },
+                                            {
+                                              "type": "text",
+                                              "element": "p",
+                                              "props": {
+                                                "className": "text-foreground-subtle max-w-md text-sm leading-relaxed"
+                                              },
+                                              "content": "$record.reason"
+                                            },
+                                            {
+                                              "type": "container",
+                                              "key": "design-system-color-roles-1-1-2-3",
+                                              "element": "div",
+                                              "props": {
+                                                "className": "text-foreground-subtle max-w-md text-sm leading-relaxed"
+                                              },
+                                              "visibility": {
+                                                "record": {
+                                                  "field": "pairsWith",
+                                                  "isNotEmpty": true
+                                                }
+                                              },
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "content": "$t:admin.ds.brand.pairsWith"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "content": " "
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "content": "$record.pairsWith"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "content": "."
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "design-system-color-roles-2",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-col gap-3"
+                                  },
+                                  "dataSource": {
+                                    "system": {
+                                      "endpoint": "/api/admin/design-system/coverage",
+                                      "query": {
+                                        "key": "color-roles"
+                                      },
+                                      "rowsKey": "items",
+                                      "idKey": "key"
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "design-system-color-roles-2-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex flex-col gap-3"
+                                      },
+                                      "visibility": {
+                                        "record": {
+                                          "field": "declared",
+                                          "eq": false
+                                        }
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "container",
+                                          "key": "design-system-color-roles-2-1-1",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "border-border flex w-full flex-col items-start gap-2.5 rounded-md border p-4",
+                                            "data-design-not-configured": "design.colorRoles"
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "element": "p",
+                                              "props": {
+                                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                              },
+                                              "content": "$t:admin.ds.notConfigured"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "element": "p",
+                                              "props": {
+                                                "className": "text-foreground-subtle max-w-lg text-md leading-relaxed"
+                                              },
+                                              "content": "$t:admin.ds.brand.noColourRoles"
+                                            },
+                                            {
+                                              "type": "link",
+                                              "props": {
+                                                "href": "https://sovrium.com/en/docs/design-components",
+                                                "className": "border-border text-foreground hover:bg-muted rounded-md border px-2.5 py-1 text-[11px] font-medium no-underline",
+                                                "data-design-kit-type": "link"
+                                              },
+                                              "content": "$t:admin.ds.declare design.colorRoles →"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "design-system-brand-imagery",
+                          "element": "section",
+                          "props": {
+                            "className": "flex scroll-mt-6 flex-col gap-4",
+                            "id": "design-system-brand-imagery",
+                            "data-design-section": "design-system-brand-imagery"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "h2",
+                              "props": {
+                                "className": "text-foreground text-lg font-semibold tracking-tight"
+                              },
+                              "content": "$t:admin.ds.brand.imagery"
+                            },
+                            {
+                              "type": "container",
+                              "key": "design-system-imagery",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col gap-4",
+                                "data-testid": "design-system-imagery"
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "design-system-imagery-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "grid gap-6 md:grid-cols-2"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "design-system-imagery-1-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex flex-col gap-2",
+                                        "data-design-imagery-verdict": "prefer"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "element": "p",
+                                          "props": {
+                                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                          },
+                                          "content": "$t:admin.common.prefer"
+                                        },
+                                        {
+                                          "type": "container",
+                                          "key": "design-system-imagery-1-1-2",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "flex flex-col gap-1"
+                                          },
+                                          "dataSource": {
+                                            "system": {
+                                              "endpoint": "/api/admin/design-system/guidance",
+                                              "rowsKey": "items",
+                                              "idKey": "path"
+                                            }
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "container",
+                                              "key": "design-system-imagery-1-1-2-1",
+                                              "element": "div",
+                                              "props": {
+                                                "className": "flex flex-col gap-0.5"
+                                              },
+                                              "visibility": {
+                                                "record": {
+                                                  "field": "verdict",
+                                                  "eq": "prefer"
+                                                }
+                                              },
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "element": "p",
+                                                  "props": {
+                                                    "className": "text-foreground max-w-lg text-md leading-relaxed"
+                                                  },
+                                                  "content": "$record.instruction "
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "element": "p",
+                                                  "props": {
+                                                    "className": "text-foreground-subtle max-w-md text-sm leading-relaxed"
+                                                  },
+                                                  "content": "$record.reason"
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "container",
+                                      "key": "design-system-imagery-1-2",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex flex-col gap-2",
+                                        "data-design-imagery-verdict": "never"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "element": "p",
+                                          "props": {
+                                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                          },
+                                          "content": "$t:admin.ds.brand.neverLabel"
+                                        },
+                                        {
+                                          "type": "container",
+                                          "key": "design-system-imagery-1-2-2",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "flex flex-col gap-1"
+                                          },
+                                          "dataSource": {
+                                            "system": {
+                                              "endpoint": "/api/admin/design-system/guidance",
+                                              "rowsKey": "items",
+                                              "idKey": "path"
+                                            }
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "container",
+                                              "key": "design-system-imagery-1-2-2-1",
+                                              "element": "div",
+                                              "props": {
+                                                "className": "flex flex-col gap-0.5"
+                                              },
+                                              "visibility": {
+                                                "record": {
+                                                  "field": "verdict",
+                                                  "eq": "never"
+                                                }
+                                              },
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "element": "p",
+                                                  "props": {
+                                                    "className": "text-error-fg max-w-lg text-md leading-relaxed"
+                                                  },
+                                                  "content": "$record.instruction "
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "element": "p",
+                                                  "props": {
+                                                    "className": "text-foreground-subtle max-w-md text-sm leading-relaxed"
+                                                  },
+                                                  "content": "$record.reason"
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "design-system-imagery-2",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-col gap-3"
+                                  },
+                                  "dataSource": {
+                                    "system": {
+                                      "endpoint": "/api/admin/design-system/coverage",
+                                      "query": {
+                                        "key": "imagery"
+                                      },
+                                      "rowsKey": "items",
+                                      "idKey": "key"
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "design-system-imagery-2-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex flex-col gap-3"
+                                      },
+                                      "visibility": {
+                                        "record": {
+                                          "field": "declared",
+                                          "eq": true
+                                        }
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "container",
+                                          "key": "design-system-imagery-2-1-1",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "grid gap-3 sm:grid-cols-2"
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "container",
+                                              "key": "design-system-imagery-2-1-1-1",
+                                              "element": "div",
+                                              "props": {
+                                                "className": "border-border flex flex-col gap-2 rounded-md border p-3",
+                                                "data-design-imagery-example": "do"
+                                              },
+                                              "children": [
+                                                {
+                                                  "type": "container",
+                                                  "key": "design-system-imagery-2-1-1-1-1",
+                                                  "element": "div",
+                                                  "props": {
+                                                    "className": "bg-muted flex h-20 items-center justify-center rounded"
+                                                  },
+                                                  "children": [
+                                                    {
+                                                      "type": "text",
+                                                      "element": "span",
+                                                      "props": {
+                                                        "className": "text-foreground-subtle font-mono text-[11px]"
+                                                      },
+                                                      "content": "$t:admin.ds.brand.runningApp"
+                                                    }
+                                                  ]
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "props": {
+                                                    "className": "text-foreground-subtle text-[11px]"
+                                                  },
+                                                  "content": "$t:admin.ds.brand.imageryDo"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "container",
+                                              "key": "design-system-imagery-2-1-1-2",
+                                              "element": "div",
+                                              "props": {
+                                                "className": "border-error-border flex flex-col gap-2 rounded-md border p-3",
+                                                "data-design-imagery-example": "dont"
+                                              },
+                                              "children": [
+                                                {
+                                                  "type": "container",
+                                                  "key": "design-system-imagery-2-1-1-2-1",
+                                                  "element": "div",
+                                                  "props": {
+                                                    "className": "bg-muted border-border flex h-20 items-center justify-center rounded border-4"
+                                                  },
+                                                  "children": [
+                                                    {
+                                                      "type": "text",
+                                                      "element": "span",
+                                                      "props": {
+                                                        "className": "text-foreground-subtle font-mono text-[11px]"
+                                                      },
+                                                      "content": "$t:admin.ds.brand.bezel"
+                                                    }
+                                                  ]
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "props": {
+                                                    "className": "text-error-fg text-[11px]"
+                                                  },
+                                                  "content": "$t:admin.ds.brand.imageryDont"
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "container",
+                                      "key": "design-system-imagery-2-2",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex flex-col gap-3"
+                                      },
+                                      "visibility": {
+                                        "record": {
+                                          "field": "declared",
+                                          "eq": false
+                                        }
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "container",
+                                          "key": "design-system-imagery-2-2-1",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "border-border flex w-full flex-col items-start gap-2.5 rounded-md border p-4",
+                                            "data-design-not-configured": "design.imagery"
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "element": "p",
+                                              "props": {
+                                                "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                                              },
+                                              "content": "$t:admin.ds.notConfigured"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "element": "p",
+                                              "props": {
+                                                "className": "text-foreground-subtle max-w-lg text-md leading-relaxed"
+                                              },
+                                              "content": "$t:admin.ds.brand.noImagery"
+                                            },
+                                            {
+                                              "type": "link",
+                                              "props": {
+                                                "href": "https://sovrium.com/en/docs/design-components",
+                                                "className": "border-border text-foreground hover:bg-muted rounded-md border px-2.5 py-1 text-[11px] font-medium no-underline",
+                                                "data-design-kit-type": "link"
+                                              },
+                                              "content": "$t:admin.ds.declare design.imagery →"
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "design-system-brand-zones",
+                          "element": "section",
+                          "props": {
+                            "className": "flex scroll-mt-6 flex-col gap-4 xl:min-h-[calc(100vh-120px)]",
+                            "id": "design-system-brand-zones",
+                            "data-design-section": "design-system-brand-zones"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "h2",
+                              "props": {
+                                "className": "text-foreground text-lg font-semibold tracking-tight"
+                              },
+                              "content": "$t:admin.common.zones"
+                            },
+                            {
+                              "type": "container",
+                              "key": "design-system-zones",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col gap-3",
+                                "data-testid": "design-system-zones"
+                              },
+                              "children": [
+                                {
+                                  "component": "console-ledger",
+                                  "key": "ledger",
+                                  "vars": {
+                                    "ariaLabel": "$t:admin.common.zones",
+                                    "dataSource": {
+                                      "system": {
+                                        "endpoint": "/api/admin/design-system/zones",
+                                        "rowsKey": "items",
+                                        "idKey": "pattern"
+                                      }
+                                    },
+                                    "columns": [
+                                      {
+                                        "field": "pattern",
+                                        "label": "$t:admin.common.routePattern"
+                                      },
+                                      {
+                                        "field": "zone",
+                                        "label": "$t:admin.common.zone"
+                                      },
+                                      {
+                                        "field": "hasVoiceOverride",
+                                        "label": "$t:admin.common.voice",
+                                        "valueLabels": {
+                                          "true": "$t:admin.ds.brand.zoneOverride",
+                                          "false": "$t:admin.ds.brand.appVoice"
+                                        }
+                                      }
+                                    ],
+                                    "emptyMessage": "$t:admin.ds.brand.noZones"
+                                  }
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "design-system-zones-2",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-col gap-2"
+                                  },
+                                  "dataSource": {
+                                    "system": {
+                                      "endpoint": "/api/admin/design-system/coverage",
+                                      "query": {
+                                        "key": "zones"
+                                      },
+                                      "rowsKey": "items",
+                                      "idKey": "key"
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "design-system-zones-2-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex flex-wrap items-baseline gap-x-2 gap-y-1"
+                                      },
+                                      "visibility": {
+                                        "record": {
+                                          "field": "declared",
+                                          "eq": true
+                                        }
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "link",
+                                          "visibility": {
+                                            "declares": "design.voice"
+                                          },
+                                          "props": {
+                                            "href": "/design-system/voice",
+                                            "className": "text-foreground hover:text-muted-foreground text-md font-medium"
+                                          },
+                                          "content": "$t:admin.ds.brand.openVoice"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "design-system-rail",
+              "element": "div",
+              "props": {
+                "className": "sticky top-16 hidden w-[210px] flex-none self-start xl:block",
+                "data-testid": "design-system-rail"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "design-system-rail-1",
+                  "element": "div",
+                  "props": {
+                    "className": "border-border flex flex-col gap-0.5 border-l py-1"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "design-system-rail-1-1",
+                      "element": "div",
+                      "props": {
+                        "className": "pb-2 pl-3"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle text-[11px] font-medium tracking-[0.04em] uppercase"
+                          },
+                          "content": "$t:admin.ds.onThisPage"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "design-system-rail-1-2",
+                      "element": "div",
+                      "props": {
+                        "className": "flex list-none flex-col"
+                      },
+                      "children": [
+                        {
+                          "type": "link",
+                          "props": {
+                            "href": "#design-system-brand-mark",
+                            "className": "text-foreground-subtle hover:text-foreground hover:bg-muted transition-colors border-l-2 border-transparent py-[3px] pl-3 text-sm aria-[current]:border-foreground aria-[current]:text-foreground aria-[current]:font-medium",
+                            "data-design-rail-entry": "design-system-brand-mark",
+                            "data-design-kit-type": "link"
+                          },
+                          "content": "$t:admin.ds.brand.mark"
+                        },
+                        {
+                          "type": "link",
+                          "props": {
+                            "href": "#design-system-brand-color-roles",
+                            "className": "text-foreground-subtle hover:text-foreground hover:bg-muted transition-colors border-l-2 border-transparent py-[3px] pl-3 text-sm aria-[current]:border-foreground aria-[current]:text-foreground aria-[current]:font-medium",
+                            "data-design-rail-entry": "design-system-brand-color-roles",
+                            "data-design-kit-type": "link"
+                          },
+                          "content": "$t:admin.ds.brand.colourRoles"
+                        },
+                        {
+                          "type": "link",
+                          "props": {
+                            "href": "#design-system-brand-imagery",
+                            "className": "text-foreground-subtle hover:text-foreground hover:bg-muted transition-colors border-l-2 border-transparent py-[3px] pl-3 text-sm aria-[current]:border-foreground aria-[current]:text-foreground aria-[current]:font-medium",
+                            "data-design-rail-entry": "design-system-brand-imagery",
+                            "data-design-kit-type": "link"
+                          },
+                          "content": "$t:admin.ds.brand.imagery"
+                        },
+                        {
+                          "type": "link",
+                          "props": {
+                            "href": "#design-system-brand-zones",
+                            "className": "text-foreground-subtle hover:text-foreground hover:bg-muted transition-colors border-l-2 border-transparent py-[3px] pl-3 text-sm aria-[current]:border-foreground aria-[current]:text-foreground aria-[current]:font-medium",
+                            "data-design-rail-entry": "design-system-brand-zones",
+                            "data-design-kit-type": "link"
+                          },
+                          "content": "$t:admin.common.zones"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-2-3",
+              "element": "div",
+              "props": {
+                "className": "hidden",
+                "data-island": "design-system-rail"
+              },
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

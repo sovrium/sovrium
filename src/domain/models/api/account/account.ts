@@ -389,6 +389,55 @@ export const accountExportAiToolCallSchema = Schema.Struct({
 }).annotate({ identifier: 'AccountExportAiToolCall' })
 
 /**
+ * Account export — one entity the caller keeps among her favorites
+ *
+ * A `system.user_favorites` row of the caller that she has not removed: what
+ * she starred, as she starred it. `entityType` and `entityId` are the values
+ * her own request sent, and `tableName` the table she named for a record (null
+ * for a page). Nothing about the entity itself is copied: a starred record is
+ * read, under today's permissions, through the records API.
+ */
+export const accountExportFavoriteSchema = Schema.Struct({
+  entityType: Schema.Literals(['record', 'page']).annotate({
+    description: 'What the favorite points at: a `record` of a table, or a `page`',
+  }),
+  tableName: Schema.NullOr(
+    Schema.String.annotate({
+      description: 'The table the record belongs to, or null for a page',
+    })
+  ),
+  entityId: Schema.String.annotate({
+    description: 'Identifier of the record, or path of the page',
+  }),
+  createdAt: looseIsoDateTime({
+    description: 'ISO 8601 timestamp the entity was added to the favorites',
+  }),
+}).annotate({ identifier: 'AccountExportFavorite' })
+
+/**
+ * Account export — one entity the caller opened recently
+ *
+ * A `system.user_recent_items` row of the caller: the same three values as a
+ * favorite, with the moment she last opened it.
+ */
+export const accountExportRecentItemSchema = Schema.Struct({
+  entityType: Schema.Literals(['record', 'page']).annotate({
+    description: 'What was opened: a `record` of a table, or a `page`',
+  }),
+  tableName: Schema.NullOr(
+    Schema.String.annotate({
+      description: 'The table the record belongs to, or null for a page',
+    })
+  ),
+  entityId: Schema.String.annotate({
+    description: 'Identifier of the record, or path of the page',
+  }),
+  viewedAt: looseIsoDateTime({
+    description: 'ISO 8601 timestamp the entity was last opened',
+  }),
+}).annotate({ identifier: 'AccountExportRecentItem' })
+
+/**
  * Account export response schema
  *
  * The complete personal-data footprint of the authenticated caller, returned by
@@ -435,6 +484,16 @@ export const accountExportResponseSchema = Schema.Struct({
   }),
   aiToolCalls: Schema.Array(accountExportAiToolCallSchema).annotate({
     description: 'Every AI tool call the caller made, newest first — without what it read or wrote',
+  }),
+  // REQUIRED, like every section above. They were declared optional while the
+  // export did not write them, so the published contract would not promise a
+  // section the binary did not return; the reads that fill them and this
+  // tightening landed together.
+  favorites: Schema.Array(accountExportFavoriteSchema).annotate({
+    description: 'Every record or page the caller keeps among her favorites, newest first',
+  }),
+  recentItems: Schema.Array(accountExportRecentItemSchema).annotate({
+    description: 'Every record or page the caller opened recently, most recent first',
   }),
 }).annotate({ identifier: 'AccountExportResponse' })
 

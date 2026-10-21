@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { singleLineDescription } from '@/domain/models/app/description'
 import { BucketPermissionsSchema } from './permissions'
 
 // ---------------------------------------------------------------------------
@@ -83,6 +84,16 @@ export type BucketName = Schema.Schema.Type<typeof BucketNameSchema>
 export const BucketSchema = Schema.Struct({
   /** Unique bucket name (kebab-case). `system` is reserved for the built-in System Bucket. */
   name: BucketNameSchema,
+
+  /** What the bucket holds, in one line — drawn under its name in the operator console. */
+  description: Schema.optional(
+    singleLineDescription({
+      title: 'Bucket Description',
+      description:
+        'What this bucket holds, in one line (up to 2,000 characters, no line break). The operator console draws it under the bucket name, and the admin buckets list carries it on the bucket item. Display text only: it changes no permission and no upload rule.',
+      examples: ['Signed client contracts, one PDF each.'],
+    })
+  ),
 
   /** Whether files in this bucket are publicly accessible without authentication.
    *  Defaults to false (private). Public buckets serve files without signed URLs. */

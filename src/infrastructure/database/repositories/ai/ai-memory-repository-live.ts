@@ -17,6 +17,12 @@ import {
   type BranchNode,
 } from '@/domain/models/app/agents/conversation-branch-service'
 import { db } from '@/infrastructure/database'
+import {
+  elicitationOf,
+  partsOf,
+  storedCallsOf,
+  toToolCalls,
+} from '@/infrastructure/database/ai-message-codec'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
   aiConversations as aiConversationsPg,
@@ -38,50 +44,6 @@ import type { StoredToolCall } from '@/domain/models/app/agents/stored-tool-call
 
 const aiConversations = resolveDialectSchema(aiConversationsPg, aiConversationsSqlite)
 const aiMessages = resolveDialectSchema(aiMessagesPg, aiMessagesSqlite)
-
-/**
- * A question an agent asked (`ask_user`) rides in the assistant message's
- * `tool_calls` column, as the one call that message made — the column the
- * schema already holds for a message's tool calls, so no migration is needed.
- */
-const ASK_USER_CALL = 'ask_user'
-
-/** An answer's `tool_calls`: the question first ({@link elicitationOf}), then its calls. */
-const toToolCalls = (
-  elicitation: AiMessageElicitation | undefined,
-  calls: ReadonlyArray<StoredToolCall> = []
-) => {
-  const asked = elicitation === undefined ? [] : [{ name: ASK_USER_CALL, elicitation }]
-  const toolCalls = [...asked, ...calls]
-  return toolCalls.length === 0 ? {} : { toolCalls }
-}
-
-/** The question a stored message asked, read back from its `tool_calls`. */
-const elicitationOf = (toolCalls: unknown): { readonly elicitation?: AiMessageElicitation } => {
-  const call: unknown = Array.isArray(toolCalls) ? toolCalls[0] : undefined
-  if (typeof call !== 'object' || call === null) return {}
-  const { name, elicitation } = call as { readonly name?: unknown; readonly elicitation?: unknown }
-  if (name !== ASK_USER_CALL || typeof elicitation !== 'object' || elicitation === null) return {}
-  const { message, state, server } = elicitation as Readonly<Record<string, unknown>>
-  return typeof message === 'string' && state === 'cancelled'
-    ? { elicitation: { message, state, ...(typeof server === 'string' && { server }) } }
-    : {}
-}
-
-/** One stored part read back, or nothing when the stored value is not one. */
-const partOf = (raw: unknown): readonly AiMessagePart[] => {
-  if (typeof raw !== 'object' || raw === null) return []
-  const { type, text, attachmentId, name } = raw as Record<string, unknown>
-  if (type === 'text' && typeof text === 'string') return [{ type, text }]
-  if ((type === 'file' || type === 'image') && typeof attachmentId === 'string') {
-    return [{ type, attachmentId, name: typeof name === 'string' ? name : '' }]
-  }
-  return []
-}
-
-/** A stored message's `parts` column read back; absent for a message sent as text alone. */
-const partsOf = (raw: unknown): { readonly parts?: readonly AiMessagePart[] } =>
-  Array.isArray(raw) ? { parts: raw.flatMap(partOf) } : {}
 
 /** A new conversation's stamps on a pinned host; the columns' defaults otherwise. */
 const openedOnDevTimeline = () => {
@@ -185,6 +147,7 @@ const messagesOf = async (conversationId: string): Promise<ReadonlyArray<AiMemor
       rows.map(({ toolCalls, parts, ...row }) => ({
         ...row,
         ...elicitationOf(toolCalls),
+        ...storedCallsOf(toolCalls),
         ...partsOf(parts),
       }))
     )

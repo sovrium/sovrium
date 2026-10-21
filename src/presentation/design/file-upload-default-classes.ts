@@ -96,6 +96,20 @@ export const computeFileUploadTriggerClasses = ({
 }: { readonly disabled?: boolean } = {}): string =>
   `${computePartButtonClasses({ variant: 'outline' })} cursor-pointer${disabled ? ' pointer-events-none opacity-50' : ''}`
 
+/**
+ * The id of a compact upload's hint, from the id of the upload it sits beside:
+ * the server draws the hint, and the island's file input names it in
+ * `aria-describedby`, so both derive it the same way.
+ */
+export const fileUploadCompactHintId = (uploadId: string): string => `${uploadId}-hint`
+
+/**
+ * The line beside a compact trigger: muted and on one line, kept for assistive
+ * technology on a phone, where the toolbar has no room to paint it.
+ */
+export const computeFileUploadCompactHintClasses = (): string =>
+  'text-xs whitespace-nowrap text-muted-foreground max-sm:sr-only'
+
 /** The validation message under the control. */
 export const computeFileUploadErrorClasses = (): string => 'text-sm text-destructive'
 

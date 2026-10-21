@@ -21,6 +21,13 @@
 
 import { oauthApplicationTypeFor } from '@/domain/kernel/url/oauth-loopback'
 import { listMcpTools } from '@/domain/models/app/admin/admin-mcp-tool-listing'
+import { appRequiresAi } from '@/domain/models/app/requires-ai'
+import {
+  resolveAiEcoRouting,
+  resolveOllamaBaseUrl,
+} from '@/domain/models/process-env/ai/ai-eco-routing'
+import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
+import { parseStorageEnvConfig } from '@/domain/models/process-env/storage/storage'
 import type { InstanceFactsResponse } from '@/domain/models/api/admin/instance'
 import type { McpToolCategory } from '@/domain/models/api/admin/mcp'
 import type { App } from '@/domain/models/app'
@@ -48,7 +55,7 @@ export function buildInstanceFacts(
   origin: string,
   limit: number | undefined,
   labelOf: (table: Table) => string
-): InstanceFactsResponse {
+): Omit<InstanceFactsResponse, keyof InstanceRuntimeFacts> {
   const tables = app.tables ?? []
   const example = tables[0]
   const mcpTools = listMcpTools(app)
@@ -80,5 +87,35 @@ export function buildInstanceFacts(
     mcpToolCountAction: countOf('action'),
     mcpToolCountAutomation: countOf('automation'),
     generatedAt: new Date().toISOString(),
+  }
+}
+
+/** What the instance runs on, as the instance read adds them to its facts. */
+type InstanceRuntimeFacts = Pick<
+  InstanceFactsResponse,
+  'bootedAt' | 'database' | 'storage' | 'aiProvider'
+>
+
+/**
+ * What this instance runs on, read from the process: when it started (the
+ * host's one boot instant, handed in by the read, so every read naming the
+ * boot names the same one), its database engine and its storage provider by
+ * their words, and the AI provider routing would pick — `null` for an app that
+ * declares nothing calling a model. Words only: no address, key or credential
+ * of any of them.
+ */
+export function buildInstanceRuntimeFacts(
+  app: App,
+  bootedAt: string,
+  processEnv: Readonly<Record<string, string | undefined>> = process.env
+): InstanceRuntimeFacts {
+  const routing = appRequiresAi(app)
+    ? resolveAiEcoRouting(processEnv, resolveOllamaBaseUrl(processEnv) !== undefined)
+    : undefined
+  return {
+    bootedAt,
+    database: parseDatabaseDialectConfig().dialect === 'postgres' ? 'postgresql' : 'sqlite',
+    storage: parseStorageEnvConfig()?.provider ?? 'disabled',
+    aiProvider: routing?.resolvedProvider ?? null,
   }
 }

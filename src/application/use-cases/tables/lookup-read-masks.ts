@@ -45,6 +45,7 @@ import {
   withRelatedTextRules,
 } from '@/domain/models/app/tables/related-text-filter-service'
 import { projectWhenToFilter } from '@/domain/models/app/tables/row-level-evaluator-service'
+import { countsNarrowedFor } from '@/domain/models/app/tables/row-read-admission-service'
 import { relatedReaderOf, type LinkReader } from './linked-row-visibility'
 import { loadCurrentUserContext, rowRuleScopeOf } from './permissions/row-level-enforcement'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
@@ -103,6 +104,9 @@ const maskLinkOf = (link: LookupLink): LookupReadMask['link'] => {
  * rule (`readable: undefined`) the repository reads it as empty on every row
  * and never reads its link, so the column names itself throughout.
  */
+/** The field a mask reads as empty. */
+const maskField = (mask: LookupReadMask): string => mask.lookup
+
 const refusedMask = (field: string): LookupReadMask => ({
   lookup: field,
   relatedTable: field,
@@ -308,7 +312,13 @@ export const lookupReadMasks = (
     const chainedMasks = yield* Effect.forEach(chains, ([, chain]) =>
       chainMaskOf(app, chain, reader)
     )
-    return [...refusedMasks, ...formulaMasks, ...ruledMasks, ...chainedMasks]
+    // A count narrowed to the rows her list admits is read as empty wherever
+    // the query names it, and so is every formula over one.
+    const masked = new Set([...refused, ...ruledLookups, ...judged, ...formulaMasks.map(maskField)])
+    const countMasks = [...countsNarrowedFor(app, tableName, relatedReaderOf(reader))]
+      .filter((field) => named.has(field) && !masked.has(field))
+      .map(refusedMask)
+    return [...refusedMasks, ...formulaMasks, ...ruledMasks, ...chainedMasks, ...countMasks]
   }).pipe(Effect.withSpan('tables.lookup-read-masks', { attributes: { 'table.name': tableName } }))
 
 /**

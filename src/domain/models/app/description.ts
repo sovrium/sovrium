@@ -15,6 +15,32 @@ import { Schema } from 'effect'
 const DESCRIPTION_MAX_LENGTH = 2000
 
 /**
+ * The single-line description rule, carrying the annotations of the node that
+ * uses it: no line break, at most 2,000 characters.
+ *
+ * The annotations go on the string BEFORE the checks, so the published
+ * `app.json` carries each node's own description rather than the check's. The
+ * app's own `description` and the `description` of a table, a bucket and an
+ * agent all read this one rule, each saying what it describes.
+ */
+export const singleLineDescription = (annotations: {
+  readonly title?: string
+  readonly description: string
+  readonly examples?: readonly [string, ...string[]]
+}) =>
+  Schema.String.pipe(
+    Schema.annotate(annotations),
+    Schema.check(
+      Schema.isPattern(/^[^\r\n]*$/, {
+        message: 'Description must be a single line (line breaks are not allowed)',
+      }),
+      Schema.isMaxLength(DESCRIPTION_MAX_LENGTH, {
+        message: `Description must be ${DESCRIPTION_MAX_LENGTH} characters or less (current length exceeds limit)`,
+      })
+    )
+  )
+
+/**
  * DescriptionSchema defines validation rules for application descriptions.
  *
  * Application descriptions must be single-line strings:
@@ -43,26 +69,16 @@ const DESCRIPTION_MAX_LENGTH = 2000
  * const validated = Schema.decodeUnknownSync(DescriptionSchema)(desc1)
  * ```
  */
-export const DescriptionSchema = Schema.String.pipe(
-  Schema.annotate({
-    title: 'Application Description',
-    description: `A single-line description of the application (max ${DESCRIPTION_MAX_LENGTH} characters, no line breaks)`,
-    examples: [
-      'A simple application',
-      'My app - with special characters!@#$%',
-      'Très bien! 你好 🎉',
-      'Full-featured e-commerce platform with cart, checkout & payment processing',
-    ],
-  }),
-  Schema.check(
-    Schema.isPattern(/^[^\r\n]*$/, {
-      message: 'Description must be a single line (line breaks are not allowed)',
-    }),
-    Schema.isMaxLength(DESCRIPTION_MAX_LENGTH, {
-      message: `Description must be ${DESCRIPTION_MAX_LENGTH} characters or less (current length exceeds limit)`,
-    })
-  )
-)
+export const DescriptionSchema = singleLineDescription({
+  title: 'Application Description',
+  description: `A single-line description of the application (max ${DESCRIPTION_MAX_LENGTH} characters, no line breaks)`,
+  examples: [
+    'A simple application',
+    'My app - with special characters!@#$%',
+    'Très bien! 你好 🎉',
+    'Full-featured e-commerce platform with cart, checkout & payment processing',
+  ],
+})
 
 /**
  * TypeScript type inferred from DescriptionSchema.

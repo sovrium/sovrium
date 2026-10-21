@@ -15,7 +15,7 @@
  * and the survivors are compared exactly here.
  */
 
-import { and, eq, ne, sql } from 'drizzle-orm'
+import { and, gte, ne, or, sql } from 'drizzle-orm'
 import {
   isSecondStorageKeySpelling,
   storageKeyCollisionForm,
@@ -23,6 +23,7 @@ import {
 } from '@/domain/kernel/identity/storage-key'
 import { db } from '@/infrastructure/database'
 import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
+import { CLAIM_PROVIDER_PREFIX, CLAIM_STALE_AFTER_MS } from './catalog-claim'
 import type { StoredSpelling } from '@/application/ports/services/storage-service'
 
 /**
@@ -53,20 +54,50 @@ export const secondSpellingPattern = (key: string): string =>
     .replace(/%+/g, '%')
 
 /**
+ * The two lower-cased `storage_provider` values a row of `provider` may carry:
+ * the provider's own name, and the `LIKE` pattern of a claim a writer holds
+ * for it (`claim:<provider>:<token>`, see `catalog-claim.ts`) while its bytes
+ * are on their way. A claim is a key being written right now, so it is a
+ * spelling a second write would land on just as much as a stored row. The
+ * name is matched without regard to case or surrounding space; `\` escapes
+ * the `LIKE` metacharacters a provider name could hold.
+ */
+export const providerSpellings = (
+  provider: string
+): { readonly name: string; readonly claimPattern: string } => {
+  const name = provider.trim().toLowerCase()
+  const escaped = name.replace(/[\\%_]/g, (character) => `\\${character}`)
+  return { name, claimPattern: `${CLAIM_PROVIDER_PREFIX}${escaped}:%` }
+}
+
+/**
  * The catalog row, other than `key` itself, that names the object a write at
  * `key` would land on for this provider; `undefined` when none does.
+ *
+ * A claim counts only while its writer may still be alive: one older than
+ * {@link CLAIM_STALE_AFTER_MS} as of `nowMs` was left by a writer that died,
+ * and is released only by the next write to its OWN key, so counting it here
+ * would hold every other spelling of that key for good.
  */
 export const findOtherStoredSpelling = async (
   key: string,
-  store: Readonly<StorageKeyComparison & { readonly provider: string }>
+  store: Readonly<StorageKeyComparison & { readonly provider: string }>,
+  nowMs: number
 ): Promise<StoredSpelling | undefined> => {
   const files = fileStorageMetadataTable()
+  const provider = providerSpellings(store.provider)
   const rows = await db
     .select({ key: files.key, bucket: files.bucket, uploadedBy: files.uploadedById })
     .from(files)
     .where(
       and(
-        eq(files.storageProvider, store.provider),
+        or(
+          sql`lower(trim(${files.storageProvider})) = ${provider.name}`,
+          and(
+            sql`lower(${files.storageProvider}) like ${provider.claimPattern} escape '\\'`,
+            gte(files.createdAt, new Date(nowMs - CLAIM_STALE_AFTER_MS))
+          )
+        ),
         ne(files.key, key),
         sql`lower(${files.key}) like ${secondSpellingPattern(key)}`
       )

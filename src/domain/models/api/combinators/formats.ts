@@ -64,6 +64,26 @@ export const looseIsoDateTime = formatted(
 )
 
 /**
+ * EITHER a calendar day (`YYYY-MM-DD`) OR the loose ISO 8601 date-time
+ * {@link looseIsoDateTime} accepts — the shape a period bound takes when a
+ * reader may pick whole days (a date-range picker) or an exact instant.
+ *
+ * What a day MEANS is the reader's to resolve, not this schema's: a range
+ * filter typically reads a day `from` as that day's first instant and a day
+ * `to` as through its last, in the operator timezone. This combinator only
+ * guarantees one of the two shapes arrives.
+ *
+ * The OpenAPI `format` is `date-or-date-time`: JSON Schema has no keyword for
+ * "date or date-time", `format` is an open vocabulary, and claiming
+ * `date-time` would mislead a generated client into refusing a day.
+ */
+export const looseIsoDateOrDateTime = formatted(
+  'date-or-date-time',
+  /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)?$/,
+  'a calendar day (YYYY-MM-DD) or an ISO 8601 date-time'
+)
+
+/**
  * RFC 4122 UUID. Deliberately the LOOSE hex-dashed shape Zod's `.uuid()`
  * accepted — Effect's own `isUUID()` additionally demands a version nibble of
  * 1-8, which would reject identifiers this API has always taken.

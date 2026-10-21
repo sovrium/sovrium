@@ -343,6 +343,22 @@ export const tableFields = {
     })
   ),
   /**
+   * Where the reader's view options sit: Group by, Hide fields and Row height.
+   * `bottom-bar` (the default) keeps them beside the pager, where every grid
+   * written before this key drew them; `toolbar` gathers them into one `View`
+   * menu at the right end of the toolbar above the grid — the row holding the
+   * search box that publishes on the grid's `dataSource.bindTo` channel, else a
+   * row of the grid's own — and leaves the bottom bar to the range, the pager and
+   * the selection.
+   */
+  viewOptions: Schema.optional(
+    Schema.Literals(['bottom-bar', 'toolbar']).annotate({
+      defaultNote: 'bottom-bar',
+      description:
+        'Where Group by, Hide fields and Row height sit: bottom-bar (default, beside the pager) or toolbar (one View menu at the right end of the toolbar above the grid, on the row of the search box publishing on the grid’s bindTo channel, else on a row of its own). Either way they change the grid for the visit only. On a phone the bottom bar always folds them into one View menu.',
+    })
+  ),
+  /**
    * Expand a row into its full record — the grid's own record panel, replacing
    * the `onRowClick: openSheet` + sibling record-bound `drawer` hand-wiring.
    *

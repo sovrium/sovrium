@@ -1,0 +1,173 @@
+{
+  "id": "dashboard-data-tables-table",
+  "name": "dashboard-data-tables-table",
+  "path": "/records/:table",
+  "meta": {
+    "title": "$t:admin.meta.tables"
+  },
+  "requires": ["tables"],
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6 min-h-0"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "records": "$t:admin.crumb.records"
+            },
+            "currentLabel": "$param.table"
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "header",
+          "element": "header",
+          "props": {
+            "className": "flex flex-col gap-1"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "table-title",
+              "element": "div",
+              "props": {
+                "className": "contents [&>li]:list-none"
+              },
+              "dataSource": {
+                "system": {
+                  "endpoint": "/api/admin/tables/overview",
+                  "rowsKey": "by_table",
+                  "idKey": "name"
+                }
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "element": "div",
+                  "props": {
+                    "className": "flex flex-col gap-1"
+                  },
+                  "visibility": {
+                    "record": {
+                      "field": "name",
+                      "eq": "$param.table"
+                    }
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "h1",
+                      "props": {
+                        "className": "text-foreground text-2xl font-semibold tracking-tight"
+                      },
+                      "content": "$record.label"
+                    },
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "text-muted-foreground max-w-3xl text-sm"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "description",
+                          "isNotEmpty": true
+                        }
+                      },
+                      "content": "$record.description"
+                    },
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "text-muted-foreground max-w-3xl text-sm"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "description",
+                          "isEmpty": true
+                        }
+                      },
+                      "content": "$t:admin.tables.blurbTable"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "admin-surface-content-2-2",
+          "element": "div",
+          "props": {
+            "className": "flex min-h-0 min-w-0 flex-1 flex-col pt-2 [&>[role=toolbar]]:mb-4"
+          },
+          "children": [
+            {
+              "component": "console-records-toolbar",
+              "key": "tables-toolbar"
+            },
+            {
+              "component": "console-grid",
+              "key": "grid",
+              "vars": {
+                "ariaLabel": "$t:admin.common.records $param.table",
+                "dataSource": {
+                  "table": "$param.table",
+                  "bindTo": "records-filter",
+                  "sharedFilter": {}
+                },
+                "noMatchMessage": "$t:admin.tables.noMatch",
+                "pagination": {
+                  "pageSize": 25,
+                  "pageSizeOptions": [25, 50, 100]
+                },
+                "onRowClick": {
+                  "action": "openSheet",
+                  "component": "record-detail-drawer"
+                },
+                "columnsFrom": "table",
+                "selection": {
+                  "mode": "multiple"
+                },
+                "layout": "fill"
+              }
+            },
+            {
+              "component": "console-record-sheet",
+              "key": "record-sheet",
+              "vars": {
+                "id": "record-detail-drawer",
+                "dataSource": {
+                  "table": "$param.table"
+                },
+                "canEdit": true
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

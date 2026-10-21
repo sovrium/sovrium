@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
+import { StorageService } from '@/application/ports/services/storage-service'
 import {
   autoDelimiter,
   csvCell,
@@ -18,7 +18,10 @@ import {
   extOf,
   isSelfContainedSource,
   mimeByExt,
+  readStoredSource,
   resolveSource,
+  sourceRefusalMessage,
+  storedReadMessage,
   storeArtifact,
   tempKey,
   uploadArtifact,
@@ -97,11 +100,10 @@ export const handleFileUpload: ActionHandler = (action, app, automation) =>
     if (!source) return { status: 'failure', error: 'file.upload requires a source' } as const
 
     // `resolveSource`'s SSRF block: a private or loopback `http(s)://` source fails before
-    // any fetch, surfaced as `invalid_outbound_url_<reason>`; nothing is stored.
+    // any fetch, surfaced as `invalid_outbound_url_<reason>`; a stored file past the
+    // 100 MiB limit is refused by name. Nothing is stored either way.
     const resolved = yield* Effect.result(resolveSource(source, stringRecord(p['headers'])))
-    if (resolved._tag === 'Failure') {
-      return errorOutcome(`invalid_outbound_url_${resolved.failure.reason}`)
-    }
+    if (resolved._tag === 'Failure') return errorOutcome(sourceRefusalMessage(resolved.failure))
     const { bytes, detectedMime } = resolved.success
     const mime =
       explicitContentType || detectedMime || mimeByExt(path) || 'application/octet-stream'
@@ -141,8 +143,8 @@ export const handleFileDownload: ActionHandler = (action, _app, automation) =>
     if (!key) return errorOutcome('file.download requires a key')
 
     const storage = yield* StorageService
-    const downloaded = yield* Effect.result(storage.download(key, UNATTRIBUTED_BUCKET))
-    if (downloaded._tag === 'Failure') return errorOutcome(`file not found: ${key}`)
+    const downloaded = yield* Effect.result(readStoredSource(key))
+    if (downloaded._tag === 'Failure') return errorOutcome(storedReadMessage(downloaded.failure))
 
     const bytes = downloaded.success
     const mime = mimeByExt(key) ?? 'application/octet-stream'
@@ -306,7 +308,7 @@ type CsvBytes =
  * Load the bytes to parse from a `data:` URI, an `http(s)://` URL or a storage
  * key — the same three shapes the sibling `file:upload` already accepts.
  *
- * Plain storage keys keep going through `storage.download` rather than
+ * Plain storage keys keep going through `readStoredSource` rather than
  * `resolveSource` on purpose: `resolveSource` degrades a missing key to empty
  * bytes, which would turn "file not found" into a silent empty parse.
  */
@@ -315,13 +317,12 @@ const loadCsvBytes = (ref: string): Effect.Effect<CsvBytes, never, StorageServic
     if (isSelfContainedSource(ref)) {
       const resolved = yield* Effect.result(resolveSource(ref))
       return resolved._tag === 'Failure'
-        ? ({ ok: false, message: `invalid_outbound_url_${resolved.failure.reason}` } as const)
+        ? ({ ok: false, message: sourceRefusalMessage(resolved.failure) } as const)
         : ({ ok: true, bytes: resolved.success.bytes } as const)
     }
-    const storage = yield* StorageService
-    const downloaded = yield* Effect.result(storage.download(ref, UNATTRIBUTED_BUCKET))
+    const downloaded = yield* Effect.result(readStoredSource(ref))
     return downloaded._tag === 'Failure'
-      ? ({ ok: false, message: `file not found: ${ref}` } as const)
+      ? ({ ok: false, message: storedReadMessage(downloaded.failure) } as const)
       : ({ ok: true, bytes: downloaded.success } as const)
   })
 

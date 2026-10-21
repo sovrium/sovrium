@@ -54,3 +54,25 @@ export const forbiddenWriteFields = (
     return !isFieldReadableUnderFieldRules(app, tableName, writer, fieldName)
   })
 }
+
+/**
+ * The fields of `tableName` the caller may read or write under the table's
+ * field rules — what a form she may submit offers her where her records list
+ * admits her no row. Every other field is one she may neither read nor write,
+ * and so one the form never names to her.
+ */
+export const fieldsReadOrWritable = (
+  app: App,
+  tableName: string,
+  caller: FieldWriter
+): readonly string[] => {
+  const table = app.tables?.find((t) => t.name === tableName)
+  if (table === undefined) return []
+  return table.fields
+    .map((field) => field.name)
+    .filter(
+      (name) =>
+        isFieldReadableUnderFieldRules(app, tableName, caller, name) ||
+        forbiddenWriteFields(app, tableName, caller, { [name]: true }).length === 0
+    )
+}

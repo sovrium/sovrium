@@ -30,6 +30,8 @@ export interface AdmissionReader {
   readonly userId?: string | undefined
   /** True for a declared agent, which reads under its declared role. */
   readonly agent?: boolean | undefined
+  /** The person a declared agent answers, whose list narrows what it names. */
+  readonly answering?: AdmissionReader | undefined
 }
 
 /** True for a visitor signed in to nothing: no role, no identity, not an agent. */
@@ -59,4 +61,37 @@ export const chatReaderRows = async (
       Effect.provide(services)
     )
   )
+}
+
+/**
+ * True unless the records list admits `reader` no row of `tableName` — or, for
+ * an agent answering a person, admits her none. The chat names no such table:
+ * not in its context, not among the tools it offers the model, since the list
+ * answers her as one that does not exist.
+ */
+export const chatReaderListsTable = async (
+  services: DomainContext,
+  app: App | undefined,
+  tableName: string,
+  reader: AdmissionReader
+): Promise<boolean> => {
+  const rows = await chatReaderRows(services, app, tableName, reader)
+  if (rows?.admission.kind === 'no-row') return false
+  return (
+    reader.answering === undefined ||
+    chatReaderListsTable(services, app, tableName, reader.answering)
+  )
+}
+
+/** The `tables` {@link chatReaderListsTable} keeps, in their order. */
+export const keepListedTables = async <T extends { readonly name: string }>(
+  services: DomainContext,
+  app: App | undefined,
+  tables: ReadonlyArray<T>,
+  reader: AdmissionReader
+): Promise<ReadonlyArray<T>> => {
+  const listed = await Promise.all(
+    tables.map((table) => chatReaderListsTable(services, app, table.name, reader))
+  )
+  return tables.filter((_, index) => listed[index] === true)
 }

@@ -11,9 +11,10 @@ import {
   RemoveFavorite,
 } from '@/application/use-cases/user-entity-lists'
 import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
-import { badRequest, unauthorized } from '@/presentation/api/runtime/auth-helpers'
+import { badRequest, notFound, unauthorized } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { parseEntityMutationBody } from '@/presentation/api/search/entity-list-parsers'
+import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
 /**
@@ -35,14 +36,16 @@ import type { Context, Hono } from 'hono'
 /**
  * GET /api/favorites — list the caller's favorites, newest first.
  *
- * Soft-deleted favorites are excluded, and any favorite whose backing record
- * has since been deleted is filtered out of the response.
+ * Soft-deleted favorites are excluded, and so is any favorite whose record the
+ * caller's list of its table no longer admits — removed, missing, not hers to
+ * list, or of a table the app does not declare.
  */
-const handleList = async (c: Context) => {
+const handleList = async (c: Context, app: App) => {
   const session = getSessionContext(c)
   if (!session) return unauthorized(c)
 
-  const visible = await runRequestEffect(c, provideDomain(c, ListFavorites(session.userId)))
+  const caller = { app, userId: session.userId }
+  const visible = await runRequestEffect(c, provideDomain(c, ListFavorites(caller)))
 
   return c.json(visible, 200)
 }
@@ -51,9 +54,11 @@ const handleList = async (c: Context) => {
  * POST /api/favorites — add an entity to the caller's favorites.
  *
  * Reviving a soft-deleted row keeps a single row per (user, entity) pair and
- * resets `created_at` so the favorite sorts to the top of the list.
+ * resets `created_at` so the favorite sorts to the top of the list. A record of
+ * a table the app does not declare, or whose list admits the caller no row, is
+ * refused with the unknown table's 404.
  */
-const handleAdd = async (c: Context) => {
+const handleAdd = async (c: Context, app: App) => {
   const session = getSessionContext(c)
   if (!session) return unauthorized(c)
 
@@ -61,7 +66,10 @@ const handleAdd = async (c: Context) => {
   const input = parseEntityMutationBody(body)
   if (!input) return badRequest(c, 'Invalid favorite payload')
 
-  await runRequestEffect(c, provideDomain(c, AddFavorite(session.userId, input)))
+  const caller = { app, userId: session.userId }
+  const kept = await runRequestEffect(c, provideDomain(c, AddFavorite(caller, input)))
+  // A table she may not list answers as a table that does not exist.
+  if (!kept) return notFound(c)
   return c.json({ success: true }, 201)
 }
 
@@ -89,9 +97,9 @@ const handleRemove = async (c: Context) => {
  * resolve the caller. Each handler returns 401 itself when no session is
  * attached, so the routes behave consistently whether or not auth is wired.
  */
-export function chainFavoriteRoutes<T extends Hono>(honoApp: T): T {
+export function chainFavoriteRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
   return honoApp
-    .get('/api/favorites', handleList)
-    .post('/api/favorites', handleAdd)
+    .get('/api/favorites', (c) => handleList(c, resolveApp()))
+    .post('/api/favorites', (c) => handleAdd(c, resolveApp()))
     .delete('/api/favorites', handleRemove) as T
 }

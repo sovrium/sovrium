@@ -33,7 +33,7 @@ import {
   isLookupDefault,
   lookupDefaultOf,
 } from '@/domain/models/app/forms/form-lookup-default-service'
-import { serverNow } from '@/domain/models/process-env/dev-clock'
+import { renderNow } from '@/presentation/render/page/render-clock'
 import type { FormOptionSets } from '@/domain/models/app/forms/form-option-source-service'
 
 type PrefillValue = string | number | boolean | readonly string[] | readonly number[]
@@ -98,7 +98,7 @@ function resolveReference(
   value: string,
   ctx: FormPrefillContext
 ): PrefillValue | undefined {
-  if (value === NOW_TOKEN) return resolveNowToken(ctx.now ?? serverNow(), ctx.columns?.[key])
+  if (value === NOW_TOKEN) return resolveNowToken(ctx.now ?? renderNow(), ctx.columns?.[key])
   if (value.startsWith('$query.')) return resolveQueryReference(value.slice('$query.'.length), ctx)
   if (value.startsWith('$user.')) return resolveUserReference(value.slice('$user.'.length), ctx)
   // Any other `$`-rooted token (or plain literal string) passes through

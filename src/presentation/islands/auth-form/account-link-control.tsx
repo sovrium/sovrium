@@ -18,7 +18,10 @@
  */
 
 import { useCallback, useEffect, useState, type FormEvent, type ReactElement } from 'react'
-import { computeSubmitButtonClasses } from '@/presentation/design/button-default-classes'
+import {
+  computeSubmitButtonClasses,
+  type ButtonVariant,
+} from '@/presentation/design/button-default-classes'
 import { computeFormLayoutClasses } from '@/presentation/design/form-layout-classes'
 import { pendingControlProps } from '@/presentation/design/pending-state'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
@@ -34,6 +37,8 @@ export interface AccountLinkControlProps {
   readonly provider: string
   readonly submitLabel: string
   readonly pendingLabel: string
+  /** The action's `submitVariant`: the button's weight, the primary fill when absent. */
+  readonly submitVariant?: ButtonVariant
   /** The refusal's fallback (`accountLink.failed`), in the page language, resolved server-side. */
   readonly uiStrings?: Readonly<Record<string, string>>
   readonly className?: string
@@ -119,7 +124,7 @@ export function AccountLinkControl(props: AccountLinkControlProps): ReactElement
           type="submit"
           data-component-type="button"
           {...pendingControlProps(pending)}
-          className={computeSubmitButtonClasses(undefined)}
+          className={computeSubmitButtonClasses(props.submitVariant)}
         >
           {pending ? props.pendingLabel : props.submitLabel}
         </button>

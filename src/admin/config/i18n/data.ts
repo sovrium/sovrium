@@ -70,10 +70,10 @@ export default {
   // findings are a lens of their own, addressable at `?tab=findings` and
   // readable without opening the map at all. Borrowing the caption would name
   // one lens after another.
-  'admin.organisation.heading': 'Organisation',
+  'admin.organisation.heading': 'Access',
   'admin.organisation.blurb':
-    'What this application exposes: write paths reachable without signing in, resources readable by everyone, and places where one person is the only connection between two parts of the app. The matrix crosses every resource with every grant source, where an absence reads as plainly as a grant. The map draws the chain itself — who acts, what authorises them, and what they reach. The lanes draw the other half, where nobody acts: each automation and the steps it runs on its own.',
-  'admin.organisation.tabs.region': 'Organisation lenses',
+    'Who can reach what in this app, and where it is open wider than it should be. Each finding names the rule to change in your config.',
+  'admin.organisation.tabs.region': 'Access views',
   'admin.organisation.findings.region': 'Structural findings',
   'admin.organisation.findings.blurb':
     'Three structural checks against the configuration this server is running, re-derived every time this page is opened. Nothing is stored and nothing is acknowledged — a finding disappears when the configuration that caused it changes.',
@@ -237,8 +237,7 @@ export default {
     'This app ships no template. A template is an HTML, SVG, text, Word, Excel or PowerPoint file an automation fills with data — an invoice, a sheet of labels, a reminder email.',
   'admin.templates.empty.hint':
     'Declare one under assets in the config, with sampleData to preview it here.',
-  'admin.templates.preview.blurb':
-    'This template rendered with its sample data, by the same engine an automation uses.',
+  'admin.templates.preview.blurb': 'rendered with its sample data, the way an automation sends it.',
   'admin.templates.preview.document':
     'Filled with its sample data, as an automation renders it. Scripts and remote images do not load here.',
   'admin.templates.preview.email':
@@ -256,6 +255,8 @@ export default {
   'admin.tables.heading': 'Records',
   'admin.tables.blurb':
     'Browse and edit the records in your tables. Choose a table to open its grid — search, sort, filter, then open a record to edit it.',
+  'admin.tables.blurbTable':
+    'Search, sort and filter the records of this table. Open a row to edit it.',
   'admin.tables.toolbar': 'Record controls',
   'admin.tables.search': 'Search rows',
   'admin.tables.export': 'Export CSV',
@@ -269,10 +270,9 @@ export default {
   'admin.buckets.heading': 'Files',
   'admin.buckets.blurb':
     'Browse the files stored in your buckets. Choose a bucket to open its browser — search, sort, filter by type, then download a file.',
-  'admin.buckets.blurbBucket':
-    'The files stored in this bucket. Search, sort or filter by type, then download or delete a file.',
+  'admin.buckets.blurbBucket': 'The files stored in this bucket.',
   'admin.buckets.blurbSystem':
-    'The built-in bucket. It lists every document and image attached to a record, with the bucket, table, record and field it belongs to, and stores the attachments whose field names no bucket.',
+    'Files Sovrium keeps for your app: record attachments, exports and generated documents.',
 
   // ── Conversations (`/conversations`, `/conversations/:agent`) ─────────────────────────
   //
@@ -282,9 +282,9 @@ export default {
   // `pages/data/agents.ts`.
   'admin.agents.heading': 'Conversations',
   'admin.agents.blurb':
-    'Every conversation your users had with this agent. Open one to read the full thread.',
+    'Every conversation people had with this agent. Open one to read the full thread.',
   'admin.agents.blurbSystem':
-    'Conversations with the built-in System agent: the Welcome assistant, and every chat that names no declared agent. It reads your app’s data and never changes it. Open one to read the full thread.',
+    'Sovrium’s own assistant for this app: it reads your config and records to answer questions about them, and never changes them.',
   // The Person facet above the viewer: the caption IS the control's accessible
   // name, and the empty choice is the unfiltered list.
   'admin.conversations.person': 'Person',
@@ -306,6 +306,7 @@ export default {
   'admin.forms.heading': 'Submissions',
   'admin.forms.blurb':
     'Review the submissions you have received, form by form. Choose a form to browse its inbox, open a submission, or export everything to CSV.',
+  'admin.forms.blurbForm': 'What people sent through this form. Open a submission to read it.',
 
   // ── Connections (`/connections`) ────────────────────────────────────────
   'admin.connections.heading': 'Connections',
@@ -323,6 +324,9 @@ export default {
   'admin.connections.col.tokens': 'Tokens',
   'admin.connections.col.expiration': 'Expiration',
   'admin.connections.col.created': 'Created',
+  'admin.connections.col.usedBy': 'Used by',
+  'admin.connections.col.lastUsed': 'Last used',
+  'admin.connections.col.lastError': 'Last error',
   'admin.connections.col.actions': 'Actions',
   'admin.connections.type.apiKey': 'API key',
   'admin.connections.tokens.none': 'No tokens',
@@ -351,9 +355,25 @@ export default {
     'One account: its role, groups and status, the writes an administrator may make on it, and what it can read.',
   'admin.users.account.facts.region': 'Account details',
   'admin.users.account.actions.region': 'Account actions',
+  'admin.users.col.lastActive': 'Last active',
+  'admin.users.filter.role': 'Filter by role',
+  'admin.users.filter.allRoles': 'All roles',
+  'admin.users.filter.status': 'Filter by status',
+  'admin.users.filter.allStatuses': 'All statuses',
+  'admin.users.account.created': 'Created',
+  'admin.users.account.lastSignIn': 'Last sign-in',
+  'admin.users.account.sessions': 'Active sessions',
+  'admin.users.account.twoFactor': 'Two-factor',
+  'admin.users.account.signInMethods': 'Sign-in methods',
+  'admin.users.account.danger.region': 'Ban or delete',
+  'admin.users.account.danger.heading': 'Ban or delete this account',
+  'admin.users.account.danger.body':
+    'Banning signs this person out and stops them signing in until you lift it. Deleting removes the account and cannot be undone.',
+  'admin.users.account.danger.self':
+    'This is your account. To ban or delete it, ask another admin.',
   'admin.users.account.roles.region': 'Assignable roles',
   'admin.users.account.roles.heading': 'Assignable roles',
-  'admin.users.account.roles.source': 'from auth.roles',
+  'admin.users.account.roles.source': 'from your config file',
   // Access — the scope-table grants this account holds, read-only, beside the
   // way to Organisation › Reach, where every path to a table is drawn.
   'admin.users.account.access.region': 'Access',
@@ -395,6 +415,7 @@ export default {
   'admin.automations.metrics.automations': 'Automations',
   'admin.automations.metrics.runs24h': 'Runs (24h)',
   'admin.automations.metrics.failures24h': 'Failures (24h)',
+  'admin.automations.metrics.showFailed': 'Show failed runs',
   'admin.automations.metrics.successRate': 'Success rate',
   // Both confirm gates on this surface (Pause, Retry) spell their cancel label
   // out: the gate's own default is French, whatever the console's language.
@@ -424,7 +445,6 @@ export default {
   'admin.buckets.layout': 'Layout',
   'admin.buckets.layout.list': 'List',
   'admin.buckets.layout.grid': 'Grid',
-  'admin.buckets.upload.region': 'Upload file',
   'admin.buckets.upload.failed': 'Couldn’t upload {file}.',
   // The three rules keys keep a space at each end: they sit between other
   // elements of one line, and the spaces are what separate the words for a
@@ -491,6 +511,8 @@ export default {
   'admin.automations.runs.filter.allTriggers': 'All triggers',
   'admin.automations.runs.filter.allStatuses': 'All statuses',
   'admin.automations.runs.filter.status': 'Filter by status',
+  'admin.automations.runs.filter.period': 'Filter by period',
+  'admin.automations.runs.filter.anyTime': 'Any time',
   // The operator's words for the engine's three terminal statuses — the status
   // filter's options AND the grid's status cells, so both read one vocabulary.
   'admin.automations.runs.status.success': 'Success',
@@ -548,6 +570,18 @@ export default {
   'admin.automations.runs.detail.failure.next': 'Fix the cause, then retry this run.',
   'admin.automations.runs.detail.failure.connections': 'Open connections',
   'admin.automations.runs.detail.failure.env': 'Open environment',
+  'admin.automations.runs.detail.defect.title': 'Sovrium stopped this run with an internal error',
+  'admin.automations.runs.detail.defect.description':
+    'This is a fault in Sovrium, not in your app config. Retrying may fail the same way.',
+  'admin.automations.runs.detail.status.defect': 'Failed · internal error',
+  'admin.automations.runs.detail.failure.stepTitle': 'This run failed on one of its steps',
+  'admin.automations.runs.detail.failure.stepTitleNamed':
+    'Step $record.failedStep.number failed · $record.failedStep.label',
+  'admin.automations.runs.detail.otherRuns': 'Other runs of',
+  'admin.automations.runs.detail.dataInOut': 'Data in and out',
+  'admin.automations.runs.detail.showTrigger': 'Show trigger data',
+  'admin.automations.runs.detail.definedAs': 'Defined in your app config as',
+  'admin.automations.runs.detail.changeThere': '. Change it there, then restart the app.',
   'admin.automations.runs.detail.log': 'Log',
   'admin.automations.runs.detail.dataIn': 'Data in',
   'admin.automations.runs.detail.dataOut': 'Data out',
@@ -638,7 +672,7 @@ export default {
   'admin.links.manage.repoint': 'Re-point this link',
   'admin.links.manage.config.heading': 'Declared in configuration',
   'admin.links.manage.config.body':
-    'This link is declared in app.links[]. Edit the configuration file and restart to change it; the console never writes configuration.',
+    'This link is declared in your config file. Change it there and restart the app; the console never changes your config.',
 
   // ── Footprint (`/analytics?tab=footprint`) ────────────────────────────────────────────
   'admin.footprint.measured.heading': 'Measured',

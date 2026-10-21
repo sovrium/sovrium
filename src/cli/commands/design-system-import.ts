@@ -29,7 +29,6 @@
  * to do instead. Each would otherwise exit 0 with a diff that misleads.
  */
 
-import { resolve } from 'node:path'
 import {
   IMPORT_FORMATS,
   type ImportFormat,
@@ -41,6 +40,8 @@ import {
 import { planDesignImport } from '@/domain/models/app/design/design-import-service'
 import { getFlagValue } from '../runtime/flag-vocabulary'
 import { refuse } from './app-prelude'
+import { loadValidConfig, resolveConfig } from './design-system-import-config'
+import { isPageDrawingFile } from './design-system-import-pages-source'
 import { readImportSourcePath, type ReadSource } from './design-system-import-source'
 import {
   designCommentLines,
@@ -49,9 +50,7 @@ import {
   writeDesignSidecar,
   type WrittenDesign,
 } from './design-system-import-write'
-import { indented, rootFormatOf } from './library-add-config'
-import { lazyImportSchema } from './utils'
-import { loadConfigForValidationWithSources, validateParsedConfig } from './validate'
+import { rootFormatOf } from './library-add-config'
 import type {
   DesignSystemImportReport,
   DesignSystemImportFormat,
@@ -72,6 +71,10 @@ const FORMAT_LIST = IMPORT_FORMATS.join(', ')
 const USAGE =
   'Usage:\n  sovrium design-system import <file|folder> --config <app.yaml|app.json|app.ts> ' +
   '[--from <format>] [--dry-run | --write] [--json]'
+
+const PAGES_USAGE =
+  '  sovrium design-system import <file|folder> --pages --config <app.yaml|app.json|app.ts> ' +
+  '[--from claude-design|figma|penpot] [--page <name>] [--write]'
 
 const readFrom = (raw: string | undefined): ImportFormat | undefined => {
   if (raw === undefined) return undefined
@@ -96,31 +99,6 @@ const readRequest = (argv: readonly string[], positional: readonly string[]): Im
     write,
     json: argv.includes('--json'),
   }
-}
-
-/** The config to import into: `--config`, else the one discovered in the working directory. */
-const resolveConfig = async (config: string | undefined): Promise<string> => {
-  if (config !== undefined) {
-    const path = resolve(process.cwd(), config)
-    return (await Bun.file(path).exists()) ? path : refuse(`Error: No config file at "${config}".`)
-  }
-  const { discoverDefaultConfigFile } = await lazyImportSchema()
-  const discovered = await discoverDefaultConfigFile(process.cwd())
-  return discovered === undefined
-    ? refuse(`Error: No app config found in ${process.cwd()}. Name one with --config.\n\n${USAGE}`)
-    : resolve(process.cwd(), discovered)
-}
-
-/** Load and judge the config, refusing with the verdict `sovrium validate` gives. */
-const loadValidConfig = async (configPath: string) => {
-  const loaded = await loadConfigForValidationWithSources(configPath)
-  const outcome = await validateParsedConfig(loaded.parsed, loaded.refSources)
-  if (outcome.errors.length > 0) {
-    return refuse(
-      `Error: The config does not validate, so the import changed nothing.\n\n${indented(outcome.errors)}`
-    )
-  }
-  return loaded
 }
 
 /** The format to read the source as: `--from`, or the one its shape matches. */
@@ -284,16 +262,28 @@ const write = async (
 }
 
 /**
- * Handle `sovrium design-system import`.
- *
- * @param argv - the raw arguments after the binary name.
- * @param positional - the positional arguments after `design-system` (`import`, the path).
+ * Refuse what only the page import reads: `--page` without `--pages`, and a
+ * page drawing, which holds no token and would otherwise print "no change".
  */
-export const handleDesignSystemImportCommand = async (
+const refusePageFlagsAndDrawings = async (argv: readonly string[], source: string) => {
+  if (argv.includes('--page')) {
+    return refuse(`Error: \`--page\` narrows a page import, so it needs --pages.\n\n${PAGES_USAGE}`)
+  }
+  if (await isPageDrawingFile(source)) {
+    return refuse(
+      `Error: "${source}" is a page drawing, which the import reads with --pages.\n\n${PAGES_USAGE}`
+    )
+  }
+  return undefined
+}
+
+/** The token import: a token file into the `design` key. */
+const importTokens = async (
   argv: readonly string[],
   positional: readonly string[]
 ): Promise<void> => {
   const request = readRequest(argv, positional)
+  await refusePageFlagsAndDrawings(argv, request.source)
   const read = await readImportSourcePath(request.source)
   const configPath = await resolveConfig(request.config)
   const loaded = await loadValidConfig(configPath)
@@ -326,4 +316,20 @@ export const handleDesignSystemImportCommand = async (
       ? `${JSON.stringify(report, undefined, 2)}\n`
       : renderText(report, !request.write, droppedComments)
   )
+}
+
+/**
+ * Handle `sovrium design-system import`: the token import, or with `--pages`
+ * the page import (`design-system-import-pages.ts`).
+ *
+ * @param argv - the raw arguments after the binary name.
+ * @param positional - the positional arguments after `design-system` (`import`, the path).
+ */
+export const handleDesignSystemImportCommand = async (
+  argv: readonly string[],
+  positional: readonly string[]
+): Promise<void> => {
+  if (!argv.includes('--pages')) return importTokens(argv, positional)
+  const { handleDesignSystemPagesImportCommand } = await import('./design-system-import-pages')
+  return handleDesignSystemPagesImportCommand(argv, positional)
 }

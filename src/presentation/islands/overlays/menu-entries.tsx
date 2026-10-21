@@ -25,8 +25,10 @@ function isExternalPath(path: string): boolean {
 
 /**
  * A plain menu item — label/icon/shortcut. Picking it runs its `toast`,
- * `automation` or `fetch` action when it declares one (`menu-item-actions.ts`);
- * an item with no action, or one of another type, only closes the menu.
+ * `automation` or `fetch` action when it declares one (`menu-item-actions.ts`),
+ * and an `openDialog` one is the dialog's trigger (`data-click-modal`, as a
+ * button's click interaction is); an item with no action, or one of another
+ * type, only closes the menu.
  */
 export function PlainMenuItem({
   item,
@@ -49,6 +51,7 @@ export function PlainMenuItem({
       data-variant={item.variant ?? 'default'}
       disabled={item.disabled}
       onClick={isRunnableMenuAction(item.action) ? run : undefined}
+      data-click-modal={item.action?.action === 'openDialog' ? item.action.component : undefined}
       className={computeMenuItemClasses({ variant: item.variant ?? 'default', surface })}
     >
       <MenuItemBody item={item} />

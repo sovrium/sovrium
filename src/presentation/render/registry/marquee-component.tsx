@@ -52,6 +52,7 @@
 
 import { renderToStaticMarkup } from 'react-dom/server'
 import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
+import { withoutExportStamps } from '@/domain/models/app/pages/export-node-stamp-service'
 import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { CSSProperties, ReactElement } from 'react'
@@ -75,7 +76,8 @@ const CLONE_IDENTITY_ATTRS_RE = /\s(?:id|data-testid|data-island[\w-]*)="[^"]*"/
 
 /** Strip identity attributes from the cloned group's static markup. */
 function stripCloneIdentity(html: string): string {
-  return html.replace(CLONE_IDENTITY_ATTRS_RE, '')
+  // A page export's node ids too, so the clone is never tied back as the node.
+  return withoutExportStamps(html).replace(CLONE_IDENTITY_ATTRS_RE, '')
 }
 
 /**

@@ -107,6 +107,22 @@ export interface StorageKeyPlatform {
  *
  * Dots inside a segment (`report..final.pdf`) are ordinary characters.
  */
+/**
+ * The name the local provider stages a write's bytes under, beside its key,
+ * until one rename moves them into place: `.sovrium-staging-<uuid>`. Read in
+ * any letter case, since a disk that folds case would resolve either spelling
+ * onto the staged file.
+ */
+const STAGING_NAME =
+  /^\.sovrium-staging-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Whether a key segment is the name of bytes staged for a write, not a stored
+ * object. Such a name is reserved: no key may hold it as a segment, so a write
+ * can never land on, or read, bytes another write is still staging.
+ */
+export const isStagingName = (segment: string): boolean => STAGING_NAME.test(segment)
+
 export const isCanonicalStorageKey = (
   key: string,
   platform: Readonly<StorageKeyPlatform> = {}
@@ -123,6 +139,7 @@ export const isCanonicalStorageKey = (
         segment !== '.' &&
         segment !== '..' &&
         utf8Bytes(segment) <= STORAGE_KEY_SEGMENT_MAX_BYTES &&
+        !isStagingName(segment) &&
         !(platform.windows === true && isWindowsAliasSegment(segment))
     )
 

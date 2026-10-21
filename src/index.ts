@@ -29,10 +29,17 @@ import { Cause, Effect, Exit, Result } from 'effect'
 import { ServerFactory } from '@/application/ports/services/server-factory'
 import { buildDesignSystemBundle as buildDesignSystemBundleUseCase } from '@/application/use-cases/admin/design-system-bundle'
 import {
+  buildDesignSystemBundleWithPages,
+  type PageExportSelection,
+} from '@/application/use-cases/admin/design-system-pages'
+import {
   createAdminAccount,
   describeBootstrapDatabaseError,
 } from '@/application/use-cases/auth/bootstrap-admin'
-import { issueSeedInvitations } from '@/application/use-cases/auth/seed-invitations'
+import {
+  createSeedUnclaimedAccounts,
+  issueSeedInvitations,
+} from '@/application/use-cases/auth/seed-invitations'
 import { decodeAppConfigObject } from '@/application/use-cases/config/decode-app-config'
 import {
   extractCodeActionRefusal,
@@ -46,9 +53,12 @@ import { startServer } from '@/application/use-cases/server/start-server'
 import { refuseUndersizedDatabaseBudget } from '@/application/use-cases/server/validate-boot-environment'
 import { ConfigRejectedError, isConfigRejectedError } from '@/domain/errors/config-rejected'
 import { isDatabaseUnreachable } from '@/domain/errors/driver-failure'
+import { EngineFailureError } from '@/domain/errors/engine-failure-error'
+import { InjectedFaultError } from '@/domain/errors/injected-fault-error'
 import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
 import { getPublicPagePaths } from '@/domain/models/app/pages/public-pages'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
+import { parseFaultInjection } from '@/domain/models/process-env/fault-injection'
 import { resolveIdleExitSeconds } from '@/domain/models/process-env/server-lifecycle'
 import { provisionRootSecret } from '@/infrastructure/crypto/root-secret'
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
@@ -61,6 +71,7 @@ import { formatRuntimeError, logDebug } from '@/infrastructure/logging'
 import { armIdleExit } from '@/infrastructure/server/idle-exit'
 import { installShutdownHandlers, requestGracefulStop } from '@/infrastructure/server/lifecycle'
 import type { AuthDatabaseError } from '@/application/ports/repositories/auth/auth-repository'
+import type { InvitationIssuer } from '@/application/ports/services/invitation-issuer'
 import type { ServerInstance } from '@/application/ports/services/server-instance'
 import type { DesignSystemBundle } from '@/application/use-cases/admin/design-system-bundle'
 import type {
@@ -71,6 +82,8 @@ import type {
 import type {
   SeedInvitationOutcome,
   SeedInvitee,
+  SeedUnclaimedAccount,
+  SeedUnclaimedOutcome,
 } from '@/application/use-cases/auth/seed-invitations'
 import type {
   DecodeAppConfigOptions,
@@ -164,6 +177,22 @@ const decodeOrThrow = (
 }
 
 /**
+ * The non-production `SOVRIUM_FAULT_INJECTION=start` seam: fail the start here,
+ * inside its startup and after the configuration validated, with an error
+ * Sovrium has no handling for — the path that offers a bug report.
+ */
+const failStartIfInjected = (): void => {
+  const fault = parseFaultInjection(process.env)
+  if (fault?.kind !== 'start') return
+  throw new InjectedFaultError({
+    value: fault.value,
+    command: 'start',
+    cwd: process.cwd(),
+    detail: fault.detail,
+  })
+}
+
+/**
  * Start a Sovrium server. Used internally by the CLI start command.
  */
 export const start = async (
@@ -173,6 +202,7 @@ export const start = async (
 ): Promise<SimpleServer> => {
   try {
     const { raw: rawApp, app: validatedApp } = decodeOrThrow(app, attribution)
+    failStartIfInjected()
 
     // Resolve the root secret before anything derives from it. Every later
     // consumer (the auth signing secret, token encryption, signed storage URLs)
@@ -238,13 +268,9 @@ export const start = async (
     // Re-raise it as the refusal it is.
     const codeActionRefusal = extractCodeActionRefusal(error)
     if (codeActionRefusal !== undefined) throw new ConfigRejectedError(codeActionRefusal)
-    const message = formatRuntimeError(error)
-    throw new Error(
-      `Sovrium failed to start: ${message}\n\n` +
-        `If this looks like a bug, please open an issue:\n` +
-        `  https://github.com/sovrium/sovrium/issues/new`,
-      { cause: error }
-    )
+    // Anything else is a failure Sovrium did not foresee. The CLI offers the
+    // prefilled bug report for it, built from `failure` (its class and stack).
+    throw new EngineFailureError(`Sovrium failed to start: ${formatRuntimeError(error)}`, error)
   }
 }
 
@@ -332,13 +358,11 @@ export const build = async (
     // Same reasoning as `start`: a refusal is the author's to read, not a bug
     // report about Sovrium.
     if (isConfigRejectedError(error)) throw error
-    const message = formatRuntimeError(error)
-    // eslint-disable-next-line preserve-caught-error -- re-throw with enriched message; the message already embeds the inner error, and a cause would make logError render the inner chain (and any query parameters it carries) on every failed build
-    throw new Error(
-      `Sovrium failed to build: ${message}\n\n` +
-        `If this looks like a bug, please open an issue:\n` +
-        `  https://github.com/sovrium/sovrium/issues/new`
-    )
+    // No `cause`: the message already embeds the inner error, and a cause would
+    // make logError render the inner chain (and any query parameters it
+    // carries) on every failed build. The original rides as `failure`, which
+    // the logger does not render, for the bug report the CLI offers.
+    throw new EngineFailureError(`Sovrium failed to build: ${formatRuntimeError(error)}`, error)
   }
 }
 
@@ -388,14 +412,16 @@ export const prebuildSearchIndex = async (app: AppConfig, publicDir: string): Pr
  */
 export const buildDesignSystemBundle = (
   app: App,
-  options: { readonly publicDir?: string } = {}
+  options: { readonly publicDir?: string; readonly pages?: PageExportSelection } = {}
 ): Promise<DesignSystemBundle> =>
   Effect.runPromise(
     // The app's own logo files are read from its public directory, when the
-    // caller names one; everything else comes from the binary.
-    buildDesignSystemBundleUseCase(app).pipe(
-      Effect.provide(createDesignBundleLayer(options.publicDir))
-    )
+    // caller names one; everything else comes from the binary. The pages are
+    // added only when asked for (`--pages`).
+    (options.pages === undefined
+      ? buildDesignSystemBundleUseCase(app)
+      : buildDesignSystemBundleWithPages(app, options.pages)
+    ).pipe(Effect.provide(createDesignBundleLayer(options.publicDir)))
   )
 
 /** Credentials for `createAdmin`. */
@@ -530,6 +556,29 @@ export const createAccounts = async (
   }
 }
 
+/** One account a seed run could not create or invite. */
+type SeedAccountFailure = { readonly ok: false; readonly email: string; readonly message: string }
+
+/**
+ * Run a seed program listing one outcome per email in the app layer. Expected
+ * failures are the program's own outcomes; with no auth, or on a defect (an
+ * unreachable database bypasses the typed channel), every email fails alike.
+ */
+const runSeedAccounts = async <O>(
+  app: Readonly<App>,
+  emails: readonly { readonly email: string }[],
+  program: Effect.Effect<readonly O[], never, InvitationIssuer>
+): Promise<readonly (O | SeedAccountFailure)[]> => {
+  const failAll = (message: string) =>
+    emails.map(({ email }): SeedAccountFailure => ({ ok: false, email, message }))
+  if (!app.auth || emails.length === 0) return failAll('Auth is not configured for this app.')
+  try {
+    return await Effect.runPromise(program.pipe(Effect.provide(createAppLayer(app.auth))))
+  } catch (error) {
+    return failAll(formatRuntimeError(error))
+  }
+}
+
 /**
  * Issue pending invitations against an already-decoded app, sending nothing:
  * the path `sovrium seed` takes for a `seed/users.yaml` entry with
@@ -537,31 +586,24 @@ export const createAccounts = async (
  * stored token; each outcome carries the invitation link under `origin`, for
  * the caller to print once. Expected failures are returned, not thrown.
  */
-export const inviteAccounts = async (
+export const inviteAccounts = (
   app: Readonly<App>,
   invitees: readonly SeedInvitee[],
   origin: string
-): Promise<readonly SeedInvitationOutcome[]> => {
-  if (!app.auth || invitees.length === 0) {
-    return invitees.map((invitee) => ({
-      ok: false as const,
-      email: invitee.email,
-      message: 'Auth is not configured for this app.',
-    }))
-  }
-  try {
-    return await Effect.runPromise(
-      issueSeedInvitations({ app, invitees, origin }).pipe(Effect.provide(createAppLayer(app.auth)))
-    )
-  } catch (error) {
-    // Defects (an unreachable database) bypass the typed channel.
-    return invitees.map((invitee) => ({
-      ok: false as const,
-      email: invitee.email,
-      message: formatRuntimeError(error),
-    }))
-  }
-}
+): Promise<readonly SeedInvitationOutcome[]> =>
+  runSeedAccounts(app, invitees, issueSeedInvitations({ app, invitees, origin }))
+
+/**
+ * Create unclaimed accounts against an already-decoded app: the path
+ * `sovrium seed` takes for a `seed/users.yaml` entry with `unclaimed: true`.
+ * Each gets an account with no credential and no invitation; nothing is sent
+ * and nothing is printed. Expected failures are returned, not thrown.
+ */
+export const createUnclaimedAccounts = (
+  app: Readonly<App>,
+  accounts: readonly SeedUnclaimedAccount[]
+): Promise<readonly SeedUnclaimedOutcome[]> =>
+  runSeedAccounts(app, accounts, createSeedUnclaimedAccounts({ accounts }))
 
 // ============================================================================
 // Type Exports (consumed by scripts/build/build-types.ts → the shipped sovrium.d.ts)

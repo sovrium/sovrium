@@ -12,8 +12,9 @@ import { getCachedPage, setCachedPage } from './page-cache-service'
 /**
  * The process-local page store behind the read/write port.
  *
- * A two-line adapter, and deliberately nothing more: the `Ref`, the byte
- * budget, the eviction order and the occupancy telemetry stay in
+ * A two-line adapter, and deliberately nothing more: the store, the byte
+ * budget, the least-recently-used eviction order (a `get` hit refreshes an
+ * entry's recency) and the occupancy telemetry stay in
  * `page-cache-service.ts`, which the static build and the hot-reload path also
  * call directly. A second store with its own copy of the admission rule is how
  * two surfaces start disagreeing about what is cached.

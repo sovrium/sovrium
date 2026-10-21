@@ -18,7 +18,7 @@
 import { ProtocolError } from '@modelcontextprotocol/server'
 import { Effect } from 'effect'
 import { provideTableLive, type TableServices } from '@/infrastructure/layers/table-layer'
-import { sanitizeError } from '@/presentation/api/runtime/error-sanitizer'
+import { sanitizeError, type SanitizedError } from '@/presentation/api/runtime/error-sanitizer'
 import type { Table } from '@/domain/models/app'
 
 /**
@@ -61,16 +61,36 @@ export async function runProgramAsToolResult<A>(input: RunProgramInput<A>): Prom
   const provided = provideTableLive(input.program)
   const outcome = await Effect.runPromise(Effect.result(provided))
 
-  if (outcome._tag === 'Failure') {
-    const sanitized = sanitizeError(outcome.failure)
-    return toolFailure(-32_603, sanitized.message ?? sanitized.error)
-  }
+  if (outcome._tag === 'Failure') return sanitizedToolFailure(outcome.failure)
 
   const formatted = input.formatSuccess ? input.formatSuccess(outcome.success) : outcome.success
   if (formatted === undefined) {
     return toolSuccess(input.notFoundResult ?? { error: 'Record not in scope' })
   }
   return toolSuccess(formatted)
+}
+
+/**
+ * The records API's sanitised answer for `failure`, as a `-32603` tool failure
+ * keyed by a fresh request id. An internal error — the one failure whose cause
+ * is Sovrium's — is kept under that id, and its text tells the AI to follow
+ * the `sovrium-report-issue` skill and names the id, so the operator can run
+ * `sovrium report --request-id`. No issue address and no driver text, ever.
+ */
+export function sanitizedToolFailure(failure: unknown): never {
+  const requestId = crypto.randomUUID()
+  return answeredToolFailure(sanitizeError(failure, requestId), requestId)
+}
+
+/** {@link sanitizedToolFailure} for a failure already sanitised under `requestId`. */
+export function answeredToolFailure(sanitized: SanitizedError, requestId: string): never {
+  const message = sanitized.message ?? sanitized.error
+  return toolFailure(
+    -32_603,
+    sanitized.code === 'INTERNAL_ERROR'
+      ? `${message} This is an internal error in Sovrium (request id: ${requestId}). Do not retry the same call: follow the sovrium-report-issue skill to report it.`
+      : message
+  )
 }
 
 /** Wrap a value in the MCP `content[0].text` success slot. */

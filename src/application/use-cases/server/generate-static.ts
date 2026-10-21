@@ -35,7 +35,7 @@ import {
   generateGitHubPagesFiles,
   type FileSystemLike,
 } from './generate-static-helpers'
-import { enumerateCollectionRecords, type CollectionRecordIndex } from './sitemap-record-fan-out'
+import { enumerateSignedOutRecords, type CollectionRecordIndex } from './sitemap-record-fan-out'
 import {
   generateMultiLanguageFiles,
   generateSingleLanguageFiles,
@@ -147,20 +147,18 @@ function enumerateListedRecords(
   app: App,
   options: GenerateStaticOptions,
   pageRenderer: PageRendererService['Service']
-): Effect.Effect<CollectionRecordIndex, StaticGenerationError, never> {
-  if (!(options.generateSitemap ?? false)) return Effect.succeed(new Map())
-  return Effect.tryPromise({
-    try: () =>
-      enumerateCollectionRecords(app.pages ?? [], {
-        app,
-        fetchRecords: pageRenderer.fetchSitemapRecords,
-      }),
-    catch: (error) =>
+) {
+  if (!(options.generateSitemap ?? false)) return Effect.succeed<CollectionRecordIndex>(new Map())
+  const records = { app, fetchRecords: pageRenderer.fetchSitemapRecords }
+  return enumerateSignedOutRecords(
+    app.pages ?? [],
+    records,
+    (error) =>
       new StaticGenerationError({
         message: 'Failed to read the collection records the sitemap lists',
         cause: error,
-      }),
-  }).pipe(Effect.withSpan('server.enumerate-listed-records'))
+      })
+  ).pipe(Effect.withSpan('server.enumerate-listed-records'))
 }
 
 /**

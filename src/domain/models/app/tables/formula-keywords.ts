@@ -160,6 +160,10 @@ export const DATE_FUNCTIONS: ReadonlySet<string> = new Set([
   'hour',
   'minute',
   'second',
+  // Portable date functions: the same answer on SQLite and PostgreSQL, in UTC.
+  'days_between',
+  'add_days',
+  'date_part_utc',
 ])
 
 /**

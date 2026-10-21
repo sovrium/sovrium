@@ -6,8 +6,8 @@
  */
 
 import { Effect, Schema } from 'effect'
+import { createListTablesProgram } from '@/application/use-cases/tables/list-tables-program'
 import {
-  createListTablesProgram,
   createGetTableProgram,
   createGetPermissionsProgram,
 } from '@/application/use-cases/tables/table-operations'
@@ -18,7 +18,7 @@ import {
   getTableResponseSchema,
   getTablePermissionsResponseSchema,
 } from '@/domain/models/api/tables/tables'
-import { runDomainPromise } from '@/infrastructure/logging/request-effect'
+import { provideDomain, runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { getSessionContext, getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { runEffect } from '@/presentation/api/runtime/run-effect'
 import { handleExportTableCsv } from './export-handlers'
@@ -52,15 +52,17 @@ async function handleListTables(c: Context, app: App) {
   // rules, so the list names exactly the tables those records admit.
   const accessRoles = await resolveAccessRolesFor(c, session, app.tables ?? [])
 
+  const reader = session === undefined ? undefined : { session, role: userRole, groups: userGroups }
   const program = Effect.gen(function* () {
     const result = yield* createListTablesProgram(
       { role: userRole, groups: userGroups, accessRoles },
-      app
+      app,
+      reader
     )
     return decodeOrThrow(Schema.Array(Schema.Unknown))(result)
   })
 
-  return runEffect(c, program)
+  return runEffect(c, provideDomain(c, program))
 }
 
 // Handler for GET /api/tables/:tableId
@@ -114,24 +116,33 @@ async function handleGetPermissions(c: Context, app: App) {
 }
 
 export function chainTableRoutesMethods<T extends Hono>(honoApp: T, resolveApp: () => App) {
-  return honoApp
-    .get('/api/tables', (c) => handleListTables(c, resolveApp()))
-    .get('/api/tables/:tableId', (c) => handleGetTable(c, resolveApp()))
-    .get('/api/tables/:tableId/permissions', refuseTableWithNoReaderRow(resolveApp), (c) =>
-      handleGetPermissions(c, resolveApp())
-    )
-    .get('/api/tables/:tableId/webhooks', (c) => handleListWebhooks(c, resolveApp()))
-    .get('/api/tables/:tableId/webhooks/:webhookName/deliveries', (c) =>
-      handleListDeliveries(c, resolveApp())
-    )
-    .get('/api/tables/:tableId/webhooks/:webhookName/deliveries/:deliveryId', (c) =>
-      handleGetDelivery(c, resolveApp())
-    )
-    .post('/api/tables/:tableId/webhooks/:webhookName/deliveries/:deliveryId/retry', (c) =>
-      handleRetryDelivery(c, resolveApp())
-    )
-    .post('/api/tables/:tableId/webhooks/:webhookName/test', (c) =>
-      handleTestWebhook(c, resolveApp())
-    )
-    .get('/api/tables/:tableId/export', (c) => handleExportTableCsv(c, resolveApp()))
+  return (
+    honoApp
+      .get('/api/tables', (c) => handleListTables(c, resolveApp()))
+      .get('/api/tables/:tableId', refuseTableWithNoReaderRow(resolveApp), (c) =>
+        handleGetTable(c, resolveApp())
+      )
+      .get('/api/tables/:tableId/permissions', refuseTableWithNoReaderRow(resolveApp), (c) =>
+        handleGetPermissions(c, resolveApp())
+      )
+      .get('/api/tables/:tableId/webhooks', (c) => handleListWebhooks(c, resolveApp()))
+      .get('/api/tables/:tableId/webhooks/:webhookName/deliveries', (c) =>
+        handleListDeliveries(c, resolveApp())
+      )
+      .get('/api/tables/:tableId/webhooks/:webhookName/deliveries/:deliveryId', (c) =>
+        handleGetDelivery(c, resolveApp())
+      )
+      .post('/api/tables/:tableId/webhooks/:webhookName/deliveries/:deliveryId/retry', (c) =>
+        handleRetryDelivery(c, resolveApp())
+      )
+      .post('/api/tables/:tableId/webhooks/:webhookName/test', (c) =>
+        handleTestWebhook(c, resolveApp())
+      )
+      // A table whose list admits the caller no row answers as a missing one
+      // whatever the export asks — before its query, or a row rule matching
+      // nothing, shapes an empty file.
+      .get('/api/tables/:tableId/export', refuseTableWithNoReaderRow(resolveApp), (c) =>
+        handleExportTableCsv(c, resolveApp())
+      )
+  )
 }

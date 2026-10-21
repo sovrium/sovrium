@@ -218,7 +218,8 @@ export const commandPaletteFields = {
   search: Schema.optional(CommandPaletteSearchSchema),
   /**
    * Authored groups of commands, in place of the built-in quick actions:
-   * typing narrows the items across groups, and hides a group left empty.
+   * typing narrows the items across groups, matching an item's label or its
+   * group's name, and hides a group left empty.
    *
    * In search mode they are KEPT, drawn above the endpoint's result groups and
    * narrowed by typing exactly as without `search`, so a searching palette can
@@ -228,7 +229,7 @@ export const commandPaletteFields = {
     Schema.Array(CommandGroupSchema).pipe(
       Schema.annotate({
         description:
-          'Named groups of authored commands shown in place of the built-in quick actions; typing narrows the items across groups. With `search`, they are drawn above the result groups and narrowed the same way.',
+          "Named groups of authored commands shown in place of the built-in quick actions; typing narrows the items across groups, keeping an item when the words match its label or its group's name. With `search`, they are drawn above the result groups and narrowed the same way.",
       }),
       Schema.check(Schema.isMinLength(1))
     )

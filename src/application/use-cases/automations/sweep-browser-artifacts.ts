@@ -38,6 +38,7 @@ import {
   type BucketBinding,
   type StorageError,
 } from '@/application/ports/services/storage-service'
+import { logStorageFailure } from '@/application/use-cases/storage/storage-failure-log'
 import {
   BROWSER_ARTIFACT_PREFIX,
   runIdOfArtifactKey,
@@ -91,7 +92,17 @@ type Catalog =
 const catalogOf = (key: string) =>
   Effect.gen(function* () {
     const storage = yield* StorageService
-    const meta = yield* Effect.result(storage.getMetadata(key, UNATTRIBUTED_BUCKET))
+    // effect-swallow: fail-soft — a screenshot whose catalog row cannot be read is left for a later sweep, as one with no row is; a failure other than a missing row is logged.
+    const meta = yield* Effect.result(
+      storage
+        .getMetadata(key, UNATTRIBUTED_BUCKET)
+        .pipe(
+          logStorageFailure(
+            '[browser-artifacts] a screenshot catalog row could not be read; keeping the file',
+            { 'sovrium.storage.key': key }
+          )
+        )
+    )
     if (meta._tag === 'Failure') return undefined satisfies Catalog
     const { bucket, lastModified, generatedBy, uploadedBy } = meta.success
     const catalog: Catalog = {

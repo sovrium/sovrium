@@ -11,7 +11,8 @@
  * `auth.scopeTables` holds for her, then the field rules.
  *
  * A row in which a reader may read no field — on a table whose own field
- * rules, scope or write-only fields decide what she reads, judged from what
+ * rules, scope or write-only fields decide what she reads, or whose every field
+ * is read through a table she may not read — judged from what
  * she would receive once every trim has run — is not a row she may read: it
  * is not listed
  * nor counted, it answers as a row that does not exist, and a link to many
@@ -22,12 +23,14 @@
  * that row.
  */
 
+import { SIGNED_OUT_VISITOR_ROLE } from '@/domain/models/app/auth/permission-evaluation'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import {
   declaresFieldRules,
   isFieldReadableByCaller,
   isSystemField,
 } from './field-read-filter-service'
-import { relatedFieldsWithheldFrom } from './lookup-link-service'
+import { countLinksOf, relatedFieldsWithheldFrom, withFormulasOver } from './lookup-link-service'
 import { declaresWriteOnly } from './write-only-field-service'
 import type { RelatedReader } from './related-field-read-service'
 import type { App } from '@/domain/models/app'
@@ -61,23 +64,83 @@ export const recordFieldsReadableBy = (
     .filter((name) => isFieldReadableByCaller(app, tableName, caller, name))
 }
 
+/** The fields of `tableName` a record could show: every declared field but the system columns. */
+const userFieldsOf = (app: App, tableName: string): readonly { readonly name: string }[] =>
+  (app.tables?.find((candidate) => candidate.name === tableName)?.fields ?? []).filter(
+    (field) => !isSystemField(field.name)
+  )
+
+/**
+ * Whether `tableName` itself decides, for every reader alike, that a record
+ * is judged from the fields she would receive: it declares field rules
+ * (`permissions.fields`), is a scope table, or holds a write-only field.
+ */
+const declaresReadTrim = (app: App, tableName: string): boolean => {
+  const table = app.tables?.find((candidate) => candidate.name === tableName)
+  return (
+    declaresFieldRules(app, tableName) ||
+    isScopeTable(app, tableName) ||
+    (table?.fields ?? []).some(declaresWriteOnly)
+  )
+}
+
+/** Field types whose value is read from another table: a lookup, a rollup or a count. */
+const RELATED_VALUE_TYPES: ReadonlySet<string> = new Set(['lookup', 'rollup', 'count'])
+
+/** Whether `field` is a link to many records: one-to-many or many-to-many. */
+const isToManyLink = (field: { readonly type: string }): boolean => {
+  const { relationType } = field as { readonly relationType?: unknown }
+  return (
+    field.type === 'relationship' &&
+    (relationType === 'one-to-many' || relationType === 'many-to-many')
+  )
+}
+
+/**
+ * The fields of `tableName` a related-value rule could withhold from SOME
+ * reader: each link to many records, each lookup, rollup and count, and every
+ * formula built over one. Judged on the schema alone — a superset of what
+ * {@link relatedFieldsWithheldFrom} withholds from any one reader.
+ */
+const relatedValueFieldsOf = (app: App, tableName: string): ReadonlySet<string> => {
+  const table = app.tables?.find((candidate) => candidate.name === tableName)
+  const names = (table?.fields ?? [])
+    .filter((field) => RELATED_VALUE_TYPES.has(field.type) || isToManyLink(field))
+    .map((field) => field.name)
+  return withFormulasOver(app, tableName, new Set(names))
+}
+
+/**
+ * Whether a row of `tableName` could be closed to ANY reader for showing her
+ * no field ({@link emptyRowCloses} for some reader) — decided on the schema
+ * alone. When it is false every reader the table's read rule lets in reads
+ * every row, so a question about many readers at once needs no reader's
+ * answer.
+ */
+export const emptyRowMayClose = (app: App, tableName: string): boolean => {
+  const fields = userFieldsOf(app, tableName)
+  if (fields.length === 0) return false
+  if (declaresReadTrim(app, tableName)) return true
+  const related = relatedValueFieldsOf(app, tableName)
+  return fields.every((field) => related.has(field.name))
+}
+
 /**
  * Whether a row of `tableName` with no field its reader may read is closed to
  * her: the table declares a field a record could show, and something beyond
  * the built-in role defaults decides what she reads — its own field rules
- * (`permissions.fields`), a scope grant, or a write-only field. Once it does,
- * the record is judged from what she would receive after every trim, the
- * defaults included. The defaults alone trim a record; they never hide it.
+ * (`permissions.fields`), a scope grant, a write-only field, or a rule on a
+ * related value that withholds every field from her (a table whose fields are
+ * all read through a table she may not read: the link to it, and the counts,
+ * rollups, lookups and formulas over it). Once it does, the record is judged
+ * from what she would receive after every trim, the defaults included. The
+ * defaults alone trim a record; they never hide it.
  */
-const emptyRowCloses = (app: App, tableName: string): boolean => {
-  const table = app.tables?.find((candidate) => candidate.name === tableName)
-  const fields = (table?.fields ?? []).filter((field) => !isSystemField(field.name))
-  if (fields.length === 0) return false
-  return (
-    declaresFieldRules(app, tableName) ||
-    isScopeTable(app, tableName) ||
-    fields.some(declaresWriteOnly)
-  )
+const emptyRowCloses = (app: App, tableName: string, reader: RelatedReader): boolean => {
+  if (!emptyRowMayClose(app, tableName)) return false
+  if (declaresReadTrim(app, tableName)) return true
+  const withheld = relatedFieldsWithheldFrom(app, tableName, reader)
+  return userFieldsOf(app, tableName).every((field) => withheld.has(field.name))
 }
 
 /** Whether `tableName` is listed in `auth.scopeTables`. */
@@ -102,7 +165,7 @@ export const rowReadAdmission = (
   reader: RelatedReader,
   grants: RowGrants
 ): RowReadAdmission => {
-  if (!emptyRowCloses(app, tableName)) return { kind: 'every-row' }
+  if (!emptyRowCloses(app, tableName, reader)) return { kind: 'every-row' }
   if (recordFieldsReadableBy(app, tableName, reader).length > 0) return { kind: 'every-row' }
   const reads = (role: string): boolean =>
     recordFieldsReadableBy(app, tableName, asGrantRole(reader, role)).length > 0
@@ -134,6 +197,41 @@ export const fieldReadOnEveryAdmittedRow = (
   )
 }
 
+/**
+ * A visitor who is not signed in, as a read judges her: the signed-out visitor
+ * principal the records API judges her as (`SIGNED_OUT_VISITOR_ROLE`), in no
+ * group — never the `guest` role name, which an app may declare and which
+ * would satisfy an `'authenticated'` field rule.
+ */
+export const SIGNED_OUT_READER: RelatedReader = {
+  role: SIGNED_OUT_VISITOR_ROLE,
+  groups: [],
+  signedOut: true,
+}
+
+/**
+ * The reader a related-value rule judges for a caller holding `caller`'s role
+ * and groups, or — with none — the visitor who is not signed in
+ * ({@link SIGNED_OUT_READER}).
+ */
+export const relatedReaderFor = (
+  caller: { readonly role: string; readonly groups?: readonly string[] } | undefined
+): RelatedReader =>
+  caller === undefined
+    ? SIGNED_OUT_READER
+    : { role: caller.role, groups: caller.groups ?? [], signedOut: false }
+
+/**
+ * The rows of `tableName` a visitor who is not signed in may read: every row
+ * in an app without auth, else {@link rowReadAdmission} for her — she holds no
+ * grant, so a table showing her no field admits her no row. The one answer for
+ * her: the records list (`readerRowsOf`) returns it for every signed-out reader.
+ */
+export const signedOutRowAdmission = (app: App, tableName: string): RowReadAdmission =>
+  app.auth === undefined
+    ? { kind: 'every-row' }
+    : rowReadAdmission(app, tableName, SIGNED_OUT_READER, new Map())
+
 /** Whether a row with this id is one {@link rowReadAdmission} admits. */
 export const admitsRow = (admission: RowReadAdmission, id: string): boolean =>
   admission.kind === 'every-row' ||
@@ -151,3 +249,35 @@ export const callersOfRow = <Caller extends { readonly role: string }>(
   caller,
   ...(grants?.get(String(id)) ?? []).map((role) => ({ ...caller, role })),
 ]
+
+/**
+ * Whether `reader`'s list of `tableName` admits every row whatever grants she
+ * holds — an app without auth, an admin-equivalent role, or a table where she
+ * reads a field of her own or an empty row does not close. Judged on the
+ * schema alone: only a reader for whom this is false has her grants read.
+ */
+export const readsEveryRow = (app: App, tableName: string, reader: RelatedReader): boolean =>
+  app.auth === undefined ||
+  isAdminEquivalent(reader.role, app) ||
+  rowReadAdmission(app, tableName, reader, new Map()).kind === 'every-row'
+
+/**
+ * The counts of `tableName` — with every formula built over one — that
+ * `reader` does not read as the database counts them: each over a related
+ * table whose list admits her less than every row, whatever grants she holds
+ * there (with no grant it admits her none, with one only the granted rows).
+ * Judged on the schema alone, so a change stream can withhold them in memory
+ * and a query can read them as empty wherever it names them.
+ */
+export const countsNarrowedFor = (
+  app: App,
+  tableName: string,
+  reader: RelatedReader
+): ReadonlySet<string> => {
+  const counts = new Set(
+    countLinksOf(app, tableName)
+      .filter((link) => !readsEveryRow(app, link.relatedTable.name, reader))
+      .map((link) => link.lookup)
+  )
+  return counts.size === 0 ? counts : withFormulasOver(app, tableName, counts)
+}

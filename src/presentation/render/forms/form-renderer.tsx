@@ -23,6 +23,7 @@
 import { renderToString } from 'react-dom/server'
 import { markdownToText } from '@/domain/kernel/markdown/markdown-to-text'
 import { findDeclaredDirection } from '@/domain/models/app/languages/language-detection'
+import * as literalTokens from '@/domain/models/app/pages/literal-token-service'
 import { getVersionedCssPath } from '@/infrastructure/css/versioned-css-path'
 import { resolveBadge } from '@/presentation/render/page/badge-placement'
 import { DemoNotice } from '@/presentation/render/page/demo-notice'
@@ -229,7 +230,10 @@ function renderFormDocument(opts: {
   readonly activeLang: string | undefined
   readonly prefillCtx: FormPrefillContext | undefined
 }): string {
-  const { app, form, embed, activeLang, prefillCtx } = opts
+  const { embed, activeLang, prefillCtx } = opts
+  // `\$name` in the form's text prints as text: protected before, released after the render.
+  const app = literalTokens.protectLiteralTokensInApp(opts.app as App)
+  const form = literalTokens.protectLiteralTokensDeep(opts.form)
   const html = renderToString(
     <FormPage
       app={app as App}
@@ -242,7 +246,7 @@ function renderFormDocument(opts: {
       islandEntryFile={prefillCtx?.islandEntryFile}
     />
   )
-  return `<!DOCTYPE html>\n${html}`
+  return literalTokens.releaseLiteralTokens(`<!DOCTYPE html>\n${html}`)
 }
 
 export function renderFormPage(
@@ -292,11 +296,13 @@ export interface StepFragmentState {
 }
 
 export function renderFormStepFragment(
-  app: Readonly<App>,
-  form: Readonly<Form>,
+  authoredApp: Readonly<App>,
+  authoredForm: Readonly<Form>,
   stepId: string,
   { draftValues, optionSets = {}, activeLang }: StepFragmentState
 ): string {
+  const app = literalTokens.protectLiteralTokensInApp(authoredApp as App)
+  const form = literalTokens.protectLiteralTokensDeep(authoredForm)
   const steps = form.steps ?? []
   if (steps.length === 0) return ''
   const stepIndex = steps.findIndex((s) => s.id === stepId)
@@ -314,18 +320,20 @@ export function renderFormStepFragment(
   const totalVisible = steps.length
   const isFirst = stepIndex === 0
   const isLast = stepIndex === totalVisible - 1
-  return renderToString(
-    <FormBodyStep
-      step={step}
-      stepIndex={stepIndex}
-      isFirst={isFirst}
-      isLast={isLast}
-      stepFields={stepItems(resolvedFields, step.fields)}
-      prefillMap={prefillMap}
-      lockPrefill={false}
-      descriptionHtml={stepDescriptionsHtml([step], app.languages, activeLang)[step.id] ?? ''}
-      labels={resolveStepNavLabels(resolveDocumentLang(app.languages, activeLang), app.languages)}
-    />
+  return literalTokens.releaseLiteralTokens(
+    renderToString(
+      <FormBodyStep
+        step={step}
+        stepIndex={stepIndex}
+        isFirst={isFirst}
+        isLast={isLast}
+        stepFields={stepItems(resolvedFields, step.fields)}
+        prefillMap={prefillMap}
+        lockPrefill={false}
+        descriptionHtml={stepDescriptionsHtml([step], app.languages, activeLang)[step.id] ?? ''}
+        labels={resolveStepNavLabels(resolveDocumentLang(app.languages, activeLang), app.languages)}
+      />
+    )
   )
 }
 

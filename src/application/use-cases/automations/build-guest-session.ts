@@ -6,7 +6,9 @@
  */
 
 import { GUEST_USER_ID, SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
+import { SIGNED_OUT_VISITOR_ROLE } from '@/domain/models/app/auth/permission-evaluation'
 import type { UserSession } from '@/application/ports/contracts/user-session'
+import type { App } from '@/domain/models/app'
 
 /**
  * Build a synthetic server-side session with the given actor id. Structurally
@@ -50,3 +52,14 @@ export const buildGuestSession = (): UserSession => buildSyntheticSession(GUEST_
  * stamps `updated_by` with the system actor instead of silently wiping it.
  */
 export const buildSystemSession = (): UserSession => buildSyntheticSession(SYSTEM_USER_ID)
+
+/**
+ * The reader the records API reads a signed-out visitor as: a guest session
+ * under the visitor role, or — in an app without sign-in, where every caller is
+ * alike — the admin role every page reads with.
+ */
+export const buildSignedOutReader = (app: Pick<App, 'auth'>) => ({
+  session: buildGuestSession(),
+  role: app.auth === undefined ? 'admin' : SIGNED_OUT_VISITOR_ROLE,
+  groups: [] as readonly string[],
+})

@@ -118,7 +118,7 @@ Read: `sovrium docs automation-actions`
 | `pdf` | `fillForm` | Fill the form fields of a PDF from data, optionally flattening them |
 | `pdf` | `inspect` | Read the page count, page sizes, metadata, encryption and form fields of a PDF |
 | `pdf` | `fromImages` | Make a PDF of JPEG, PNG or WebP pictures, one page each |
-| `data` | `set` | Compute a value and expose it for downstream actions |
+| `data` | `set` | Compute a value, or named fields, and expose them for downstream actions |
 | `data` | `aggregate` | Compute sum/avg/min/max/count over a numeric field of an array |
 | `data` | `sort` | Reorder an array of records by a specified field and direction |
 | `data` | `limit` | Truncate an array to the first N items |
@@ -154,7 +154,7 @@ Read: `sovrium docs automation-actions`
 | `instance` | `status` | Read a supervised app's unit state, restart count, memory use, how its last run ended, current revision and the engine it runs |
 | `instance` | `start` | Start a supervised app's socket, so the next request wakes the app |
 | `instance` | `stop` | Suspend a supervised app: stop its socket, its proxy and the app |
-| `instance` | `restart` | Restart a supervised app so it reads its current release and environment again: its proxy and the app stop in one call, then the app starts |
+| `instance` | `restart` | Restart a supervised app so it reads its current release and environment again: its socket, its proxy and the app stop in one call, then the socket and the app start, so requests arriving meanwhile wait for the new release |
 | `instance` | `apply` | Verify a signed bundle, write it as a new release of a supervised app, and restart the app |
 | `instance` | `rollback` | Point a supervised app back at its previous release and restart it |
 | `instance` | `remove` | Stop a supervised app for good, optionally deleting every release it has on this host |

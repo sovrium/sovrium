@@ -1,0 +1,975 @@
+{
+  "id": "dashboard-data-automation-run",
+  "name": "dashboard-data-automation-run",
+  "path": "/runs/:id",
+  "meta": {
+    "title": "$t:admin.meta.automationRun"
+  },
+  "requires": ["automations"],
+  "dataSource": {
+    "system": {
+      "endpoint": "/api/admin/automations/runs/:id",
+      "param": "id"
+    }
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "runs": "$t:admin.crumb.runs"
+            },
+            "currentLabel": "$t:admin.crumb.run"
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "admin-surface-content-2-1",
+          "element": "div",
+          "props": {
+            "className": "flex min-w-0 flex-col gap-6 pb-8"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-1-2",
+              "element": "div",
+              "props": {
+                "className": "flex flex-col gap-1"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "run-header-row",
+                  "element": "div",
+                  "props": {
+                    "className": "flex flex-wrap items-center justify-between gap-3"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "run-header-title",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-w-0 flex-wrap items-center gap-2"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "h1",
+                          "props": {
+                            "className": "text-foreground text-2xl font-semibold tracking-tight"
+                          },
+                          "content": "$record.automationLabel"
+                        },
+                        {
+                          "type": "badge",
+                          "badgeVariant": "destructive",
+                          "visibility": {
+                            "record": {
+                              "field": "failureKind",
+                              "eq": "defect"
+                            }
+                          },
+                          "content": "$t:admin.automations.runs.detail.status.defect"
+                        },
+                        {
+                          "type": "badge",
+                          "badgeVariant": "destructive",
+                          "visibility": {
+                            "record": {
+                              "field": "failureKind",
+                              "eq": "step"
+                            }
+                          },
+                          "content": "$t:admin.automations.runs.status.failed"
+                        },
+                        {
+                          "type": "badge",
+                          "badgeVariant": "success",
+                          "visibility": {
+                            "record": {
+                              "field": "status.raw",
+                              "eq": "completed"
+                            }
+                          },
+                          "content": "$t:admin.automations.runs.status.success"
+                        },
+                        {
+                          "type": "badge",
+                          "badgeVariant": "warning",
+                          "visibility": {
+                            "record": {
+                              "field": "status.raw",
+                              "eq": "completed-with-errors"
+                            }
+                          },
+                          "content": "$t:admin.automations.runs.status.partial"
+                        },
+                        {
+                          "type": "badge",
+                          "badgeVariant": "info",
+                          "visibility": {
+                            "record": {
+                              "field": "status.raw",
+                              "eq": "cancelled"
+                            }
+                          },
+                          "content": "$t:admin.automations.runs.status.cancelled"
+                        },
+                        {
+                          "type": "badge",
+                          "badgeVariant": "secondary",
+                          "visibility": {
+                            "record": {
+                              "field": "status.raw",
+                              "notIn": [
+                                "completed",
+                                "completed-with-errors",
+                                "cancelled",
+                                "failed",
+                                "exhausted",
+                                "timed-out"
+                              ]
+                            }
+                          },
+                          "content": "$record.status"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "button",
+                      "label": "$t:admin.automations.runs.detail.retry",
+                      "variant": "outline",
+                      "visibility": {
+                        "capability": "edit-operations",
+                        "record": {
+                          "field": "failureKind",
+                          "eq": "step"
+                        }
+                      },
+                      "confirm": {
+                        "title": "$t:admin.automations.runs.detail.retry.title",
+                        "message": "$t:admin.automations.runs.detail.retry.message",
+                        "role": "alertdialog",
+                        "confirmLabel": "$t:admin.automations.runs.detail.retry",
+                        "cancelLabel": "$t:admin.automations.cancel"
+                      },
+                      "action": {
+                        "type": "fetch",
+                        "method": "POST",
+                        "url": "/api/admin/automations/runs/$param.id/retry",
+                        "onSuccess": {
+                          "type": "toast",
+                          "message": "$t:admin.automations.runs.detail.retry.toast"
+                        },
+                        "onError": {
+                          "type": "toast",
+                          "variant": "destructive",
+                          "message": "$t:admin.automations.runs.detail.retry.error"
+                        }
+                      },
+                      "size": "sm"
+                    },
+                    {
+                      "type": "button",
+                      "label": "$t:admin.automations.runs.detail.retry",
+                      "variant": "outline",
+                      "visibility": {
+                        "capability": "edit-operations",
+                        "record": {
+                          "field": "status.raw",
+                          "in": ["completed-with-errors", "cancelled"]
+                        }
+                      },
+                      "confirm": {
+                        "title": "$t:admin.automations.runs.detail.retry.title",
+                        "message": "$t:admin.automations.runs.detail.retry.message",
+                        "role": "alertdialog",
+                        "confirmLabel": "$t:admin.automations.runs.detail.retry",
+                        "cancelLabel": "$t:admin.automations.cancel"
+                      },
+                      "action": {
+                        "type": "fetch",
+                        "method": "POST",
+                        "url": "/api/admin/automations/runs/$param.id/retry",
+                        "onSuccess": {
+                          "type": "toast",
+                          "message": "$t:admin.automations.runs.detail.retry.toast"
+                        },
+                        "onError": {
+                          "type": "toast",
+                          "variant": "destructive",
+                          "message": "$t:admin.automations.runs.detail.retry.error"
+                        }
+                      },
+                      "size": "sm"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "className": "text-muted-foreground max-w-3xl text-sm"
+                  },
+                  "content": "$t:admin.automations.runs.detail.blurb"
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "run-facts-strip",
+              "element": "div",
+              "props": {
+                "className": "flex flex-wrap items-start gap-x-8 gap-y-3",
+                "data-testid": "run-facts-strip"
+              },
+              "children": [
+                {
+                  "type": "description-list",
+                  "layout": "stacked",
+                  "props": {
+                    "className": "[&_dt]:text-xs [&_dd]:text-sm [&_dd]:font-medium [&_dd]:tabular-nums",
+                    "data-testid": "run-facts"
+                  },
+                  "items": [
+                    {
+                      "term": "$t:admin.automations.runs.detail.field.started",
+                      "detail": "$record.startedAt",
+                      "format": "day-relative-time"
+                    },
+                    {
+                      "term": "$t:admin.automations.runs.detail.field.duration",
+                      "detail": "$record.durationMs",
+                      "format": "duration"
+                    },
+                    {
+                      "term": "$t:admin.automations.runs.detail.field.trigger",
+                      "detail": "$record.triggerLabel"
+                    },
+                    {
+                      "term": "$t:admin.automations.runs.detail.field.attempt",
+                      "detail": "$record.attempt"
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "run-fact-id",
+                  "element": "div",
+                  "props": {
+                    "className": "min-w-0",
+                    "data-island": "admin-report-link",
+                    "data-island-props": "{\"runId\":\"$param.id\",\"part\":\"id\"}"
+                  },
+                  "children": []
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "run-links",
+              "element": "div",
+              "props": {
+                "className": "flex flex-wrap items-center gap-x-4 gap-y-1 text-sm",
+                "data-testid": "run-links"
+              },
+              "children": [
+                {
+                  "type": "link",
+                  "visibility": {
+                    "record": {
+                      "field": "recordId",
+                      "isNotEmpty": true
+                    }
+                  },
+                  "props": {
+                    "href": "/records/$record.recordTable?record=$record.recordId",
+                    "className": "text-foreground underline-offset-4 hover:underline",
+                    "data-testid": "run-link-record"
+                  },
+                  "content": "$record.recordLabel"
+                },
+                {
+                  "type": "link",
+                  "props": {
+                    "href": "/runs?automation-runs-filter.automationName=$record.automationName",
+                    "className": "text-muted-foreground hover:text-foreground underline-offset-4 hover:underline",
+                    "data-testid": "run-link-other-runs"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "span",
+                      "content": "$t:admin.automations.runs.detail.otherRuns"
+                    },
+                    {
+                      "type": "text",
+                      "element": "span",
+                      "content": " $record.automationLabel"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "run-failure",
+              "element": "div",
+              "props": {
+                "className": "flex flex-col gap-3 empty:hidden",
+                "data-testid": "run-failure"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "run-failure-defect",
+                  "element": "div",
+                  "visibility": {
+                    "record": {
+                      "field": "failureKind",
+                      "eq": "defect"
+                    }
+                  },
+                  "props": {
+                    "role": "alert",
+                    "data-slot": "alert",
+                    "data-variant": "destructive",
+                    "className": "relative grid w-full grid-cols-[0_1fr] items-start gap-y-0.5 rounded-lg border bg-card px-4 py-3 text-left text-sm text-destructive has-[>svg]:grid-cols-[calc(var(--spacing)*4)_1fr] has-[>svg]:gap-x-3 *:[svg]:row-span-2 *:[svg]:translate-y-0.5 *:[svg]:text-current *:[svg:not([class*='size-'])]:size-4"
+                  },
+                  "children": [
+                    {
+                      "type": "icon",
+                      "props": {
+                        "name": "circle-alert",
+                        "size": 16,
+                        "aria-hidden": "true"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "data-slot": "alert-title",
+                        "className": "text-destructive col-start-2 font-medium tracking-tight"
+                      },
+                      "content": "$t:admin.automations.runs.detail.defect.title"
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "data-slot": "alert-description",
+                        "className": "text-muted-foreground col-start-2 flex flex-col gap-1 text-sm"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "content": "$t:admin.automations.runs.detail.defect.description"
+                        },
+                        {
+                          "type": "container",
+                          "key": "run-failure-defect-actions",
+                          "element": "div",
+                          "props": {
+                            "className": "flex flex-wrap items-center gap-2 pt-2"
+                          },
+                          "children": [
+                            {
+                              "type": "container",
+                              "element": "div",
+                              "props": {
+                                "className": "contents",
+                                "data-island": "admin-report-link",
+                                "data-island-props": "{\"runId\":\"$param.id\"}"
+                              },
+                              "children": []
+                            },
+                            {
+                              "type": "button",
+                              "label": "$t:admin.automations.runs.detail.retry",
+                              "variant": "outline",
+                              "visibility": {
+                                "capability": "edit-operations"
+                              },
+                              "confirm": {
+                                "title": "$t:admin.automations.runs.detail.retry.title",
+                                "message": "$t:admin.automations.runs.detail.retry.message",
+                                "role": "alertdialog",
+                                "confirmLabel": "$t:admin.automations.runs.detail.retry",
+                                "cancelLabel": "$t:admin.automations.cancel"
+                              },
+                              "action": {
+                                "type": "fetch",
+                                "method": "POST",
+                                "url": "/api/admin/automations/runs/$param.id/retry",
+                                "onSuccess": {
+                                  "type": "toast",
+                                  "message": "$t:admin.automations.runs.detail.retry.toast"
+                                },
+                                "onError": {
+                                  "type": "toast",
+                                  "variant": "destructive",
+                                  "message": "$t:admin.automations.runs.detail.retry.error"
+                                }
+                              },
+                              "size": "sm",
+                              "props": {
+                                "className": "text-foreground"
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "run-failure-step",
+                  "element": "div",
+                  "visibility": {
+                    "record": {
+                      "field": "failureKind",
+                      "eq": "step"
+                    }
+                  },
+                  "props": {
+                    "role": "alert",
+                    "data-slot": "alert",
+                    "data-variant": "destructive",
+                    "className": "relative grid w-full grid-cols-[0_1fr] items-start gap-y-0.5 rounded-lg border bg-card px-4 py-3 text-left text-sm text-destructive has-[>svg]:grid-cols-[calc(var(--spacing)*4)_1fr] has-[>svg]:gap-x-3 *:[svg]:row-span-2 *:[svg]:translate-y-0.5 *:[svg]:text-current *:[svg:not([class*='size-'])]:size-4"
+                  },
+                  "children": [
+                    {
+                      "type": "icon",
+                      "props": {
+                        "name": "circle-alert",
+                        "size": 16,
+                        "aria-hidden": "true"
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "data-slot": "alert-title",
+                        "className": "text-destructive col-start-2 font-medium tracking-tight"
+                      },
+                      "content": "$t:admin.automations.runs.detail.failure.stepTitleNamed"
+                    },
+                    {
+                      "type": "container",
+                      "element": "div",
+                      "props": {
+                        "data-slot": "alert-description",
+                        "className": "text-muted-foreground col-start-2 flex flex-col gap-1 text-sm"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "font-mono text-xs break-words whitespace-pre-wrap text-foreground"
+                          },
+                          "content": "$record.error"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {},
+                          "content": "$t:admin.automations.runs.detail.failure.next"
+                        },
+                        {
+                          "type": "container",
+                          "key": "run-outcome-2-3",
+                          "element": "div",
+                          "props": {
+                            "className": "flex flex-wrap items-center gap-2 pt-2"
+                          },
+                          "children": [
+                            {
+                              "type": "link",
+                              "visibility": {
+                                "declares": "connections"
+                              },
+                              "props": {
+                                "href": "/connections",
+                                "className": "inline-flex h-7 items-center rounded-md border border-border bg-background px-2.5 text-[0.8rem] font-medium text-foreground no-underline shadow-xs hover:bg-muted"
+                              },
+                              "content": "$t:admin.automations.runs.detail.failure.connections"
+                            },
+                            {
+                              "type": "link",
+                              "props": {
+                                "href": "/env",
+                                "className": "inline-flex h-7 items-center rounded-md border border-border bg-background px-2.5 text-[0.8rem] font-medium text-foreground no-underline shadow-xs hover:bg-muted"
+                              },
+                              "content": "$t:admin.automations.runs.detail.failure.env"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "detail-steps",
+              "element": "section",
+              "props": {
+                "aria-label": "$t:admin.automations.runs.detail.steps",
+                "className": "flex flex-col gap-2"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "h2",
+                  "props": {
+                    "className": "text-foreground text-sm font-medium"
+                  },
+                  "content": "$t:admin.automations.runs.detail.steps"
+                },
+                {
+                  "type": "container",
+                  "key": "detail-steps-2",
+                  "element": "div",
+                  "repeat": {
+                    "record": "steps",
+                    "as": "step"
+                  },
+                  "props": {
+                    "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 divide-border divide-y [counter-reset:run-step]"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "run-step",
+                      "element": "div",
+                      "props": {
+                        "className": "flex flex-col gap-3 px-4 py-3 [counter-increment:run-step]",
+                        "data-testid": "run-step",
+                        "data-step-index": "$step.index",
+                        "data-step-status": "$step.status.raw"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "key": "run-step-1",
+                          "element": "div",
+                          "props": {
+                            "className": "flex items-center gap-3"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "props": {
+                                "aria-hidden": "true",
+                                "className": "text-muted-foreground w-5 shrink-0 text-right text-xs tabular-nums before:content-[counter(run-step)]"
+                              },
+                              "content": ""
+                            },
+                            {
+                              "type": "container",
+                              "element": "div",
+                              "props": {
+                                "className": "hidden shrink-0 text-success-solid in-data-[step-status=completed]:flex"
+                              },
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "props": {
+                                    "name": "circle-check",
+                                    "size": 16,
+                                    "aria-hidden": "true"
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "element": "div",
+                              "props": {
+                                "className": "hidden shrink-0 text-destructive in-data-[step-status=failed]:flex"
+                              },
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "props": {
+                                    "name": "circle-x",
+                                    "size": 16,
+                                    "aria-hidden": "true"
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "element": "div",
+                              "props": {
+                                "className": "hidden shrink-0 text-muted-foreground in-data-[step-status=skipped]:flex"
+                              },
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "props": {
+                                    "name": "circle-dashed",
+                                    "size": 16,
+                                    "aria-hidden": "true"
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "element": "div",
+                              "props": {
+                                "className": "flex shrink-0 text-muted-foreground in-data-[step-status=completed]:hidden in-data-[step-status=failed]:hidden in-data-[step-status=skipped]:hidden"
+                              },
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "props": {
+                                    "name": "circle",
+                                    "size": 16,
+                                    "aria-hidden": "true"
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "props": {
+                                "className": "text-foreground min-w-0 flex-1 text-sm font-medium"
+                              },
+                              "content": "$step.label"
+                            },
+                            {
+                              "type": "description-list",
+                              "layout": "stacked",
+                              "props": {
+                                "className": "w-auto! shrink-0 [&_dt]:sr-only [&_[data-description-row]]:min-w-0 [&_dd]:text-xs [&_dd]:font-normal [&_dd]:text-muted-foreground [&_dd]:tabular-nums"
+                              },
+                              "items": [
+                                {
+                                  "term": "$t:admin.automations.runs.detail.field.duration",
+                                  "detail": "$step.durationMs",
+                                  "format": "duration"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "props": {
+                                "className": "text-muted-foreground shrink-0 text-xs"
+                              },
+                              "content": "$step.status"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-error-fg text-xs break-words empty:hidden"
+                          },
+                          "content": "$step.error"
+                        },
+                        {
+                          "type": "container",
+                          "key": "detail-log",
+                          "element": "div",
+                          "repeat": {
+                            "record": "logs",
+                            "as": "log"
+                          },
+                          "props": {
+                            "role": "list",
+                            "aria-label": "$t:admin.automations.runs.detail.log",
+                            "className": "peer border-border divide-border flex max-h-64 flex-col divide-y overflow-y-auto rounded border empty:hidden"
+                          },
+                          "children": [
+                            {
+                              "type": "container",
+                              "key": "run-log",
+                              "element": "div",
+                              "props": {
+                                "role": "listitem",
+                                "data-testid": "run-log",
+                                "data-log-level": "$log.level",
+                                "className": "text-foreground flex items-baseline gap-3 px-3 py-1.5 data-[log-level=error]:text-error-fg"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "text-foreground-subtle in-data-[log-level=error]:text-error-fg w-12 shrink-0 font-mono text-xs uppercase"
+                                  },
+                                  "content": "$log.level"
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "min-w-0 font-mono text-xs break-words whitespace-pre-wrap"
+                                  },
+                                  "content": "$log.message"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle hidden text-sm peer-empty:block"
+                          },
+                          "content": "$t:admin.automations.runs.detail.noLogs"
+                        },
+                        {
+                          "type": "collapsible",
+                          "triggerLabel": "$t:admin.automations.runs.detail.dataInOut",
+                          "children": [
+                            {
+                              "type": "container",
+                              "key": "run-step-3-open",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col gap-3 *:max-h-56 *:overflow-y-auto"
+                              },
+                              "children": [
+                                {
+                                  "type": "code",
+                                  "filename": "$t:admin.automations.runs.detail.dataIn",
+                                  "props": {
+                                    "language": "json"
+                                  },
+                                  "content": "$step.input"
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "run-step-output-open",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "group/step-output [&:has([data-slot=code-block-line]:only-child>[data-slot=code-block-line-content]:empty)>figure]:hidden",
+                                    "data-testid": "run-step-output"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "code",
+                                      "filename": "$t:admin.automations.runs.detail.dataOut",
+                                      "props": {
+                                        "language": "json"
+                                      },
+                                      "content": "$step.output"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-foreground-subtle hidden text-sm group-has-[[data-slot=code-block-line]:only-child>[data-slot=code-block-line-content]:empty]/step-output:block"
+                                      },
+                                      "content": "$t:admin.automations.runs.detail.noOutput"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ],
+                          "defaultOpen": true,
+                          "visibility": {
+                            "item": {
+                              "field": "status.raw",
+                              "eq": "failed"
+                            }
+                          }
+                        },
+                        {
+                          "type": "collapsible",
+                          "triggerLabel": "$t:admin.automations.runs.detail.dataInOut",
+                          "children": [
+                            {
+                              "type": "container",
+                              "key": "run-step-3",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col gap-3 *:max-h-56 *:overflow-y-auto"
+                              },
+                              "children": [
+                                {
+                                  "type": "code",
+                                  "filename": "$t:admin.automations.runs.detail.dataIn",
+                                  "props": {
+                                    "language": "json"
+                                  },
+                                  "content": "$step.input"
+                                },
+                                {
+                                  "type": "container",
+                                  "key": "run-step-output",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "group/step-output [&:has([data-slot=code-block-line]:only-child>[data-slot=code-block-line-content]:empty)>figure]:hidden",
+                                    "data-testid": "run-step-output"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "code",
+                                      "filename": "$t:admin.automations.runs.detail.dataOut",
+                                      "props": {
+                                        "language": "json"
+                                      },
+                                      "content": "$step.output"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-foreground-subtle hidden text-sm group-has-[[data-slot=code-block-line]:only-child>[data-slot=code-block-line-content]:empty]/step-output:block"
+                                      },
+                                      "content": "$t:admin.automations.runs.detail.noOutput"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ],
+                          "visibility": {
+                            "item": {
+                              "field": "status.raw",
+                              "neq": "failed"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "run-trigger",
+              "element": "section",
+              "props": {
+                "aria-label": "$t:admin.automations.runs.detail.trigger",
+                "className": "flex flex-col gap-2",
+                "data-testid": "run-trigger"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "h2",
+                  "props": {
+                    "className": "text-foreground text-sm font-medium"
+                  },
+                  "content": "$t:admin.automations.runs.detail.trigger"
+                },
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "className": "text-foreground-subtle text-sm"
+                  },
+                  "content": "$t:admin.automations.runs.detail.trigger.description"
+                },
+                {
+                  "type": "collapsible",
+                  "triggerLabel": "$t:admin.automations.runs.detail.showTrigger",
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "run-trigger-3",
+                      "element": "div",
+                      "props": {
+                        "className": "max-h-64 overflow-y-auto"
+                      },
+                      "children": [
+                        {
+                          "type": "code",
+                          "filename": "$t:admin.automations.runs.detail.triggerData",
+                          "props": {
+                            "language": "json"
+                          },
+                          "content": "$record.triggerData"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-1-6",
+              "element": "div",
+              "props": {
+                "className": "border-border flex flex-col gap-1 border-t pt-3"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "element": "div",
+                  "props": {
+                    "className": "text-muted-foreground text-sm"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "span",
+                      "content": "$t:admin.automations.runs.detail.definedAs"
+                    },
+                    {
+                      "type": "text",
+                      "element": "span",
+                      "props": {
+                        "className": "font-mono"
+                      },
+                      "content": " $record.automationName"
+                    },
+                    {
+                      "type": "text",
+                      "element": "span",
+                      "content": "$t:admin.automations.runs.detail.changeThere"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

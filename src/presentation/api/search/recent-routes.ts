@@ -11,9 +11,10 @@ import {
   RecordRecent,
 } from '@/application/use-cases/user-entity-lists'
 import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
-import { unauthorized } from '@/presentation/api/runtime/auth-helpers'
+import { notFound, unauthorized } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { parseEntityMutationBody } from '@/presentation/api/search/entity-list-parsers'
+import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
 /**
@@ -45,16 +46,17 @@ const resolveLimit = (c: Context): number => {
 /**
  * GET /api/recent — list the caller's recent items, most recently viewed first.
  *
- * Any recent item whose backing record has since been deleted is filtered out
- * of the response.
+ * Any recent item whose record the caller's list of its table no longer
+ * admits — removed, missing, not hers to list, or of a table the app does not
+ * declare — is filtered out of the response.
  */
-const handleList = async (c: Context) => {
+const handleList = async (c: Context, app: App) => {
   const session = getSessionContext(c)
   if (!session) return unauthorized(c)
 
   const limit = resolveLimit(c)
-
-  const visible = await runRequestEffect(c, provideDomain(c, ListRecent(session.userId, limit)))
+  const caller = { app, userId: session.userId }
+  const visible = await runRequestEffect(c, provideDomain(c, ListRecent(caller, limit)))
 
   return c.json(visible, 200)
 }
@@ -64,9 +66,11 @@ const handleList = async (c: Context) => {
  *
  * Re-visiting an entity refreshes the existing row's `viewed_at` so the recent
  * list keeps a single row per (user, entity) pair and the entity sorts to the
- * top of the list. Inserting also prunes rows beyond `MAX_RECENT_ITEMS`.
+ * top of the list. Inserting also prunes rows beyond `MAX_RECENT_ITEMS`. A
+ * record of a table the app does not declare, or whose list admits the caller
+ * no row, is refused with the unknown table's 404.
  */
-const handleAdd = async (c: Context) => {
+const handleAdd = async (c: Context, app: App) => {
   const session = getSessionContext(c)
   if (!session) return unauthorized(c)
 
@@ -76,8 +80,10 @@ const handleAdd = async (c: Context) => {
     return c.json({ success: false, message: 'Invalid recent payload', code: 'BAD_REQUEST' }, 400)
   }
 
-  await runRequestEffect(c, provideDomain(c, RecordRecent(session.userId, input)))
-
+  const caller = { app, userId: session.userId }
+  const kept = await runRequestEffect(c, provideDomain(c, RecordRecent(caller, input)))
+  // A table she may not list answers as a table that does not exist.
+  if (!kept) return notFound(c)
   return c.json({ success: true }, 201)
 }
 
@@ -89,6 +95,8 @@ const handleAdd = async (c: Context) => {
  * resolve the caller. Each handler returns 401 itself when no session is
  * attached, so the routes behave consistently whether or not auth is wired.
  */
-export function chainRecentRoutes<T extends Hono>(honoApp: T): T {
-  return honoApp.get('/api/recent', handleList).post('/api/recent', handleAdd) as T
+export function chainRecentRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
+  return honoApp
+    .get('/api/recent', (c) => handleList(c, resolveApp()))
+    .post('/api/recent', (c) => handleAdd(c, resolveApp())) as T
 }

@@ -17,10 +17,10 @@
  * (`caller-table-stamp.ts`) — and narrowed with the same predicate
  * (`readableFieldsOf`).
  *
- * A table the reader may not read at all answers no map. That is the public
- * intake case: a visitor who may not read `leads` still fills the contact form
- * writing to it. The form is drawn as its author declared it there; only a map
- * that exists can narrow it.
+ * A table the reader may not read, or whose list admits her no row, answers
+ * no map. That is the public intake case: a visitor who may not read `leads` still fills the
+ * contact form writing to it. The form then offers her the fields her own
+ * field rules let her read or write (`formFields`), and names no other.
  */
 
 import { readableFieldsOf } from '@/presentation/render/props/caller-table-inputs'
@@ -62,18 +62,24 @@ export async function resolveFormRefReaders(
 
 /**
  * The form as `reader` may see it: every table-bound field on a column she may
- * not read is left out — neither drawn nor named. The same form back when
- * nothing is dropped, without a reader, or when she reads no map at all.
+ * not read is left out — neither drawn nor named; on a table answering her no
+ * map, every one she may neither read nor write. The same form back when
+ * nothing is dropped, or without a reader.
  */
 export function formForReader(
   form: Readonly<Form>,
   app: Readonly<App>,
   reader: CallerTableView | undefined
 ): Readonly<Form> {
-  if (reader?.permissionMap === undefined) return form
+  if (reader === undefined) return form
   const table = app.tables?.find((t) => t.name === form.submitTo.table)
   if (table === undefined) return form
-  const readable = new Set(readableFieldsOf(table, reader))
+  // Her permission map's readable fields; with no map, those her field rules
+  // let her read or write. Nothing to narrow by: the form as declared.
+  const shown =
+    reader.permissionMap === undefined ? reader.formFields : readableFieldsOf(table, reader)
+  if (shown === undefined) return form
+  const readable = new Set(shown)
   const fields = form.fields.filter((field) => {
     const { kind, column } = field as { readonly kind?: unknown; readonly column?: unknown }
     return kind !== 'table-field' || typeof column !== 'string' || readable.has(column)

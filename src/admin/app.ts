@@ -58,6 +58,7 @@ import frStrings from './config/i18n/fr'
 import surfaceStrings from './config/i18n/surfaces'
 import acceptInvitation from './config/pages/accept-invitation'
 import apiKeys from './config/pages/api-keys'
+import auditLog from './config/pages/audit-log'
 import { dataPages } from './config/pages/data/data-pages'
 import { decisionPages } from './config/pages/decisions'
 import { designSystemPages } from './config/pages/design-system/design-system-pages'
@@ -66,9 +67,11 @@ import env from './config/pages/env'
 import forgotPassword from './config/pages/forgot-password'
 import gdpr from './config/pages/gdpr'
 import home from './config/pages/home'
+import internalError from './config/pages/internal-error'
 import login from './config/pages/login'
 import notFound from './config/pages/not-found'
 import profile from './config/pages/profile'
+import report from './config/pages/report'
 import resetPassword from './config/pages/reset-password'
 import { consoleRedirects } from './config/redirects'
 import type { AppEncoded as AppConfig } from '@/domain/models/app'
@@ -178,6 +181,9 @@ export default {
     gdpr,
     apiKeys,
     env,
+    auditLog,
+    // Report a problem: reached from the palette's Help group, never the sidebar.
+    report,
     // The register and its one document. A PAIR rather than a single page
     // because the ids in `app.decisions[]` belong to the host app, and
     // `page.query` needs a closed `enum` it could never be given — so the
@@ -192,6 +198,7 @@ export default {
     acceptInvitation,
     // Inside the shell, for a signed-in operator on an address no page answers.
     notFound,
+    internalError,
   ],
 
   // The addresses the console retired when its sections took the names the

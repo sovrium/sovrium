@@ -8,8 +8,10 @@
 import { BACKUP_HELP_TEXT, RESTORE_HELP_TEXT } from './backup-help'
 import { CLOUD_COMMAND_HELP } from './cloud-help'
 import { DESIGN_SYSTEM_HELP_TEXT } from './design-system-help'
+import { IMPORT_HELP_TEXT } from './import-help'
 import { REFERENCE_HELP } from './reference-help'
 import { RENDER_HELP_TEXT } from './render-help'
+import { REPORT_HELP_TEXT } from './report-help'
 import { SEED_HELP_TEXT } from './seed-help'
 import { UPDATE_HELP_TEXT } from './update-help'
 
@@ -361,6 +363,7 @@ const COMMAND_HELP: Readonly<Record<string, string>> = {
   types: TYPES_HELP_TEXT,
   skills: SKILLS_HELP_TEXT,
   'design-system': DESIGN_SYSTEM_HELP_TEXT,
+  import: IMPORT_HELP_TEXT,
   ...REFERENCE_HELP,
   validate: VALIDATE_HELP_TEXT,
   mcp: MCP_HELP_TEXT,
@@ -377,6 +380,7 @@ const COMMAND_HELP: Readonly<Record<string, string>> = {
   ...CLOUD_COMMAND_HELP,
   restore: RESTORE_HELP_TEXT,
   render: RENDER_HELP_TEXT,
+  report: REPORT_HELP_TEXT,
 }
 
 /**

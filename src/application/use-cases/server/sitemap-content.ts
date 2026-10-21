@@ -22,10 +22,11 @@ import {
 } from '@/domain/models/app/pages/sitemap-builder'
 import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import {
-  expandCollectionRecords,
+  recordResolverFor,
   toSitemapLastmod,
   type CollectionRecordIndex,
   type RecordPath,
+  type SitemapReadMasks,
 } from './sitemap-record-fan-out'
 import { renderUrlset } from './sitemap-urlset'
 import {
@@ -287,23 +288,14 @@ export interface SitemapOptions {
    */
   readonly app?: App
   readonly fetchRecords?: FetchSitemapRecords
+  /** The masks a collection filter steers by, as a signed-out visitor's list reads them. */
+  readonly readMasks?: SitemapReadMasks
   /**
    * The records a static build already enumerated. When given it wins over
    * `fetchRecords`: the build lists exactly the records it writes pages for,
    * read once, so the sitemap and the pages cannot disagree.
    */
   readonly collectionRecords?: CollectionRecordIndex
-}
-
-/** How the entries read a page's records, given the options. */
-const recordResolver = (options: SitemapOptions | undefined): ResolveRecordPaths => {
-  const index = options?.collectionRecords
-  if (index !== undefined) return (page) => Promise.resolve(index.get(page.path))
-  const records =
-    options?.fetchRecords !== undefined && options.app !== undefined
-      ? { app: options.app, fetchRecords: options.fetchRecords }
-      : undefined
-  return (page) => expandCollectionRecords(page, records)
 }
 
 /** Every `<url>` entry, plus whether the `xhtml` namespace is needed. */
@@ -320,7 +312,7 @@ const collectSitemapEntries = (
     const contentEntries = yield* readContentEntries(pages)
     const expandedPages = yield* collectExpandedPages(
       pages,
-      recordResolver(options),
+      recordResolverFor(options),
       contentEntries
     )
     const languages = options?.languages

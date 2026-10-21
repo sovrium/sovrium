@@ -117,6 +117,17 @@ export const releaseClaim = async (claim: CatalogClaim): Promise<void> => {
     .where(and(eq(files.key, claim.key), eq(files.storageProvider, claim.marker)))
 }
 
+/**
+ * Remove the row a claim settled into: its bytes were staged but could not be
+ * moved to the key, so the row would describe a file that is not there.
+ */
+export const withdrawSettledClaim = async (claim: CatalogClaim): Promise<void> => {
+  const files = fileStorageMetadataTable()
+  await db
+    .delete(files)
+    .where(and(eq(files.key, claim.key), eq(files.storageProvider, claim.provider)))
+}
+
 /** How many keys one claim lookup binds: well under every dialect's parameter limit. */
 const CLAIM_LOOKUP_CHUNK = 500
 

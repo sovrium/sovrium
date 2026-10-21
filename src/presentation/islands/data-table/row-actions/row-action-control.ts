@@ -13,7 +13,7 @@
  * the record's `_disabled`.
  */
 
-import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
+import { disabledOnRecord, type DisabledVerdict } from '@/presentation/design/disabled-verdict'
 import type { TableRecord } from '../../runtime/types'
 import type { ActionColumnItem } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
@@ -31,14 +31,8 @@ export function controlIdOf(item: ActionColumnItem): string | undefined {
 export function rowActionDisabledOn(
   item: ActionColumnItem,
   record: TableRecord
-): { readonly reason: string | undefined } | undefined {
-  const id = controlIdOf(item)
-  const disabled = record['_disabled']
-  if (id === undefined || !Array.isArray(disabled) || !disabled.includes(id)) return undefined
-  const { disabledReason } = item
-  return {
-    reason: disabledReason === undefined ? undefined : substituteRecordVars(disabledReason, record),
-  }
+): DisabledVerdict | undefined {
+  return disabledOnRecord(record, controlIdOf(item), item.disabledReason)
 }
 
 /** The record a row action's press names, for the server to judge it on; `undefined` when none. */

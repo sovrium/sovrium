@@ -89,6 +89,12 @@ const checkFormRequiredFields = (
 export interface SubmitFormConfig {
   readonly app: Readonly<App>
   readonly formName: string
+  /**
+   * The form as offered to this submitter (`formName` narrowed to the fields
+   * she may read or write): the required check and every later step run over
+   * it alone. The form as declared when absent.
+   */
+  readonly form?: Readonly<Form>
   readonly body: Readonly<Record<string, unknown>>
   /**
    * SHA-256(salt + raw IP) computed at the route boundary, over a salt derived

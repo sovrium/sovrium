@@ -25,6 +25,7 @@ import {
   defineAdminRead,
 } from '@/application/use-cases/admin/admin-read-operation'
 import { buildAdminAttention } from '@/application/use-cases/admin/attention'
+import { buildInstanceRuntimeFacts } from '@/application/use-cases/admin/config/instance-facts'
 import { resolveOperatorLanguage } from '@/application/use-cases/admin/operator-language'
 import { buildAdminOverview } from '@/application/use-cases/admin/overview'
 import { SearchAdminGlobal } from '@/application/use-cases/admin/search'
@@ -124,10 +125,17 @@ const attention = defineAdminRead<undefined>({
     Effect.gen(function* () {
       const host = yield* AdminReadHost
       const language = yield* resolveOperatorLanguage(request)
-      // The boot instant is the one the config version reports as `startedAt`:
-      // one value shared by two reads, not two clocks that happen to agree.
+      // The boot instant is the host's one: the config version's `startedAt`,
+      // this report's `since` and its `bootedAt` are the same value, not
+      // clocks that happen to agree.
       const body = yield* buildAdminAttention(app, host.processStartedAt, language)
-      return answerWithSchema(adminAttentionResponseSchema, body)
+      // The Instance health card's facts, from the instance read's own
+      // use-case: the same names and the same values as GET /api/admin/instance.
+      return answerWithSchema(adminAttentionResponseSchema, {
+        ...body,
+        version: app.version ?? null,
+        ...buildInstanceRuntimeFacts(app, host.processStartedAt),
+      })
     }),
 })
 
@@ -317,6 +325,7 @@ const tablesOverview = defineAdminRead<Period>({
               dbName: sanitizeTableName(table.name),
               label: tableLabelsFor(table, readerLanguageTranslator(app.languages, language))
                 .labelPlural,
+              ...(table.description?.trim() ? { description: table.description } : {}),
             })),
           period,
           now: new Date(),

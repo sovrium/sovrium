@@ -1,0 +1,127 @@
+{
+  "id": "dashboard-data-tables",
+  "name": "dashboard-data-tables",
+  "path": "/records",
+  "meta": {
+    "title": "$t:admin.meta.tables"
+  },
+  "requires": ["tables"],
+  "redirectToFirst": {
+    "hrefTemplate": "/records/{name}"
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "records": "$t:admin.crumb.records"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "header",
+          "element": "header",
+          "props": {
+            "className": "flex flex-col gap-1"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "h1",
+              "props": {
+                "className": "text-foreground text-2xl font-semibold tracking-tight"
+              },
+              "content": "$t:admin.tables.heading"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "content": "$t:admin.tables.blurb"
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "empty-heading",
+          "element": "section",
+          "props": {
+            "aria-label": "$t:admin.tables.empty.heading",
+            "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 flex min-h-64 flex-col items-center justify-center gap-2 p-10 text-center"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-foreground text-md font-medium"
+              },
+              "content": "$t:admin.tables.empty.heading"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-md text-md leading-relaxed"
+              },
+              "content": "$t:admin.tables.empty.body"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-foreground-subtle mt-1 max-w-md text-md italic"
+              },
+              "content": "$t:admin.tables.empty.hint"
+            }
+          ]
+        },
+        {
+          "type": "list",
+          "props": {
+            "data-testid": "admin-tables-directory",
+            "className": "flex flex-col gap-1"
+          },
+          "dataSource": {
+            "system": {
+              "endpoint": "/api/admin/tables/overview",
+              "rowsKey": "by_table"
+            }
+          },
+          "listDisplay": {
+            "itemTemplate": {
+              "title": "{label}",
+              "subtitle": "$t:admin.tables.rowCount"
+            },
+            "emptyMessage": "$t:admin.tables.none"
+          }
+        }
+      ]
+    }
+  ]
+}

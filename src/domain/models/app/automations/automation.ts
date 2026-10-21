@@ -11,6 +11,7 @@ import { PermissionValueSchema } from '@/domain/models/app/auth/permissions'
 import { type Action, ActionSchema } from './actions'
 import { findReservedStepNames } from './reserved-step-name-validation'
 import { RetryConfigSchema } from './retry'
+import { findTodoPlaceholders } from './todo-placeholder-validation'
 import { type Trigger, TriggerSchema } from './trigger'
 import { validateWebhookSignatureScheme } from './trigger/webhook-signature-validation'
 import { validateWebhookTelemetryTrigger } from './trigger/webhook-telemetry-validation'
@@ -92,7 +93,8 @@ const automationHeadFields = {
     Schema.Boolean.pipe(
       Schema.annotate({
         defaultNote: 'true',
-        description: 'Whether this automation is active (default: true)',
+        description:
+          'Whether this automation is active (default: true). An active automation may not hold a {{todo.*}} placeholder.',
       })
     )
   ),
@@ -284,7 +286,10 @@ export const AutomationInputSchema = Schema.Struct({
       return findReservedStepNames(automation.actions)
     })
   ),
-  Schema.check(Schema.makeFilter((automation) => validateTriggerList(automation)))
+  Schema.check(Schema.makeFilter((automation) => validateTriggerList(automation))),
+  // An automation switched on may not keep a `{{todo.*}}` placeholder the
+  // import left: one issue per name per step, at its own path.
+  Schema.check(Schema.makeFilter((automation) => findTodoPlaceholders(automation)))
 )
 
 /**

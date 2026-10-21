@@ -22,9 +22,13 @@ import type { SovriumDesignExtension } from '@/domain/models/api/admin/design-sy
  * - `design-system.json`, the index the page reads first. It carries no clock:
  *   its one date is the Unix epoch and it names no last change, which the page
  *   writes on its first save, so a second export is byte-identical;
- * - `README.md`, the brand book, opening with the `# <app>` heading the
- *   artifact titles its Overview with;
+ * - `README.md`, the brand book. The page shows the cover directly above it,
+ *   and the cover carries the system's name and identity sentence, so the
+ *   brand book opens with neither: no `# <app>` heading, straight into its
+ *   intro;
  * - `tokens.json`, see `claude-design-tokens-export.ts`;
+ * - `components/bundle.js`, the script the index's `namespace` promises (see
+ *   AN OFFLINE CARD below);
  * - `components/bundle.css`, when the kit stylesheet is supplied: the one
  *   stylesheet the supplied previews are drawn with, which the page preloads
  *   into every card, so no card links it. Its `@font-face` rules are dropped:
@@ -45,6 +49,17 @@ import type { SovriumDesignExtension } from '@/domain/models/api/admin/design-sy
  * (`tokens.css`), and nothing else: no network URL, no `data:` payload. A card
  * must render the day a CDN moves. A caller-supplied fragment that reaches the
  * network or embeds base64 is refused for the generated card.
+ *
+ * ─── A LIVE CARD ───────────────────────────────────────────────────────────
+ *
+ * An index that declares a `namespace` promises a `components/bundle.js`
+ * assigning `window.<namespace>`. Without that file the page draws every card
+ * static, and a static row is clipped at its marker height. So the project
+ * ships the script: a `@ds-bundle` header on line 1 naming the namespace and
+ * every drawn component, then one classic script that loads no library,
+ * imports nothing and reaches no network. The previews are already rendered
+ * HTML, so each component it names is a placeholder that draws nothing; what
+ * the script buys is a card that runs live and grows to fit its preview.
  */
 
 /** Where the adapter writes, inside the bundle. */
@@ -63,7 +78,11 @@ const KIT_STYLESHEET = 'components/bundle.css'
 /** The Unix epoch, the reproducible-build spelling of "no date". */
 const NO_DATE = '1970-01-01T00:00:00Z'
 
-/** The row height the card asks for; the artifact grows a row to fit. */
+/**
+ * The row height a card asks for. It is the row's starting height: a live
+ * card (one the bundle script names) grows to fit its preview, while a static
+ * one would be clipped at it.
+ */
 const CARD_HEIGHT = 160
 
 /** What the Claude Design adapter reads. */
@@ -211,17 +230,18 @@ const voiceLines = (voice: SovriumDesignExtension['voice']): readonly string[] =
         ),
       ]
 
-/** The brand book: what the design system says about itself, then where its parts are. */
+/**
+ * The brand book: what the design system says about itself, then where its
+ * parts are. No name heading and no identity sentence: the cover above it
+ * carries both.
+ */
 const brandBook = (input: ClaudeDesignExportInput, drawn: readonly DrawnEntry[]): string => {
   const extension = input.light.$extensions[SOVRIUM_EXTENSION_KEY]
   const roles = Object.entries(extension.colorRoles ?? {}).filter(
     ([, role]) => role.usage !== undefined || role.pairsWith !== undefined
   )
   const lines = [
-    `# ${input.appName}`,
-    '',
-    `The design system of ${input.appName}, exported from its Sovrium config. ` +
-      'Colours have two themes, Light and Dark; every token in `tokens.json` says what it is for.',
+    'Colours have two themes, Light and Dark; every token in `tokens.json` says what it is for.',
     '',
     ...section('Principles', bulletList(extension.principles ?? [])),
     ...section('Voice', voiceLines(extension.voice)),
@@ -306,6 +326,37 @@ const componentPreview = (entry: DrawnEntry, fragment: string | undefined): stri
   ].join('\n')
 }
 
+/** Where the bundle script goes, relative to the project: the path the format gives it. */
+const BUNDLE_SCRIPT = 'components/bundle.js'
+
+/**
+ * `components/bundle.js`: the `@ds-bundle` header, then a classic script
+ * assigning `window[namespace]` one placeholder per drawn component. Every
+ * name is an ASCII identifier written through `JSON.stringify`, so the script
+ * holds no `</script` and no `<!--`.
+ */
+const bundleScript = (namespace: string, drawn: readonly DrawnEntry[]): string => {
+  const names = drawn.map((entry) => componentFolderName(entry.type))
+  const header = JSON.stringify({
+    format: 4,
+    namespace,
+    components: names.map((name) => ({ name })),
+  })
+  return [
+    `/* @ds-bundle: ${header} */`,
+    '(function () {',
+    '  // Each preview is server-rendered HTML; the component draws nothing over it.',
+    '  var placeholder = function () {',
+    '    return null',
+    '  }',
+    `  window[${JSON.stringify(namespace)}] = {`,
+    ...names.map((name) => `    ${JSON.stringify(name)}: placeholder,`),
+    '  }',
+    '})()',
+    '',
+  ].join('\n')
+}
+
 /** The index the page reads first: the system's name, and nothing the page owns. */
 export const claudeDesignIndex = (appName: string): ClaudeDesignIndex => ({
   v: 3,
@@ -323,7 +374,7 @@ export const claudeDesignIndex = (appName: string): ClaudeDesignIndex => ({
 
 /**
  * The Claude Design subtree: the index, the brand book, the tokens, the
- * stylesheet, the cover, then one guideline and one preview per drawn
+ * bundle script, the stylesheet, the cover, then one guideline and one preview per drawn
  * component, in catalogue order.
  */
 export const exportClaudeDesign = (input: ClaudeDesignExportInput): readonly AdapterFile[] => {
@@ -341,6 +392,10 @@ export const exportClaudeDesign = (input: ClaudeDesignExportInput): readonly Ada
     {
       path: `${PROJECT_DIR}/tokens.json`,
       content: jsonFileContent(claudeDesignTokens(input.appName, input, input.fonts)),
+    },
+    {
+      path: `${PROJECT_DIR}/${BUNDLE_SCRIPT}`,
+      content: bundleScript(componentFolderName(input.appName), drawn),
     },
     ...(stylesheet === undefined
       ? []

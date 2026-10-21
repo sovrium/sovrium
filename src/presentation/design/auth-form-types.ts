@@ -167,11 +167,13 @@ const ENGINE_STRING_PREFIXES: Readonly<Record<string, readonly string[]>> = {
 
 /**
  * The catalogue key prefixes an auth form of `method` resolves for its island:
- * its own, and the error summary's sentence every form can show.
+ * its own, the error summary's sentence and the field messages every form can show.
  */
 export const authFormStringPrefixes = (method: string): readonly string[] => [
   ...(ENGINE_STRING_PREFIXES[method] ?? []),
   'auth.fixErrors',
+  'auth.required',
+  'auth.invalidEmail',
 ]
 
 /** Whether a form's method is one of the account methods. */

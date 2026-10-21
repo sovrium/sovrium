@@ -15,10 +15,14 @@ Get a Sovrium app into production.
 
 ## Migrate to Sovrium
 
-Bring an existing tool in-house — self-hosted and config-as-code.
+Bring an existing tool in-house — self-hosted and config-as-code. Each guide walks through `sovrium import`, which converts the tool you are leaving into Sovrium config and seed files.
 
-- **Migrate from Airtable** — map a base to a Sovrium table.
-- **Migrate from Zapier** — turn a Zap into an automation.
+- **Migrate from Airtable** — import a base with its links, formulas and files.
+- **Migrate from Notion** — import a database with its relations and people.
+- **Migrate from Zapier** — import Zapier Tables and Zaps, then finish and switch on each automation.
+- **Migrate from Make** — convert scenarios into automations you switch on one at a time.
+- **Migrate from n8n** — convert workflows into automations you switch on one at a time.
+- **Migrate from Typeform** — import a form with its logic and its responses.
 
 ## Integrations
 

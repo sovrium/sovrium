@@ -14,9 +14,9 @@
  * them, and it is passed in.
  *
  * Every other value is a process fact, so both surfaces answer it identically:
- * the boot instant is ONE frozen constant (the config version's `startedAt`
- * and the attention report's are byte-identical by construction, not by two
- * clocks agreeing), and the engine build and the footprint telemetry are read
+ * the boot instant is ONE value (the config version's `startedAt`, and the
+ * attention and instance reads' `bootedAt`, are byte-identical by
+ * construction, not by two clocks agreeing), and the engine build and the footprint telemetry are read
  * from the same modules for both.
  */
 
@@ -26,33 +26,27 @@ import {
   type AdminReadHostFactory,
 } from '@/application/ports/services/admin-read-host'
 import { resolveRuntimeLabel } from '@/domain/models/process-env/database/database-dialect'
-import { readSovriumDevClock } from '@/domain/models/process-env/dev-clock'
 import { exportRecordsToCsv } from '@/infrastructure/export/csv-exporter'
+import { readIssueReportFacts } from '@/infrastructure/logging/issue-report-facts'
+import {
+  findLatestServerFailure,
+  findServerFailure,
+} from '@/infrastructure/logging/issue-report-store'
 import { onDevTimeline, readServerBootInstant } from '@/infrastructure/process/server-boot-instant'
 import { getSovriumVersion } from '@/infrastructure/process/version'
 import { assembleFootprintOverview } from '@/presentation/api/admin/footprint-overview'
 import type { ConfigVersionResponse } from '@/domain/models/api/admin/config/version'
 
 /**
- * Process-boot timestamp, captured once at module import.
- *
- * `GET /api/admin/config/version` reports this as `startedAt`; freezing it
- * here (not per-request) means the value is byte-identical across every call
- * within a process lifetime, letting operators correlate audit entries to a
- * specific process instance.
+ * When this instance started, as every admin read names it: the running
+ * server's boot (`publishServerBootInstant`, recorded when it starts — stable
+ * across every call until it boots again, so audit entries can be correlated
+ * to one server instance), moved onto the development timeline on a host
+ * pinned with `SOVRIUM_DEV_CLOCK` (the pinned instant), the timeline its runs
+ * are stamped on, so « failed since this instance started » counts the runs it
+ * made. `onDevTimeline` is the identity on every other host.
  */
-const PROCESS_STARTED_AT: string = new Date().toISOString()
-
-/**
- * When this instance started, as its console reads it: the process boot, or —
- * on a host pinned with `SOVRIUM_DEV_CLOCK` — the server's boot on the
- * development timeline (the pinned instant), the timeline its runs are stamped
- * on, so « failed since this instance started » counts the runs it made.
- */
-const instanceStartedAt = (): string =>
-  readSovriumDevClock() === undefined
-    ? PROCESS_STARTED_AT
-    : onDevTimeline(readServerBootInstant()).toISOString()
+const instanceStartedAt = (): string => onDevTimeline(readServerBootInstant()).toISOString()
 
 /**
  * The git commit SHA from `SOVRIUM_COMMIT_SHA`, injected at binary build time.
@@ -92,6 +86,13 @@ export const makeAdminReadHost: AdminReadHostFactory = (origin) =>
     configVersion,
     footprintOverview: assembleFootprintOverview,
     encodeCsv: exportRecordsToCsv,
+    issueReportFacts: Effect.sync(() => readIssueReportFacts()),
+    findServerFailure: (requestId) => Effect.sync(() => findServerFailure(requestId)),
+    // effect-promise: total -- the write queue never rejects and an unreadable file reads as nothing kept
+    findLatestServerFailure: Effect.promise(() =>
+      // An operator-fixable failure is answered with its fix, never offered as a report.
+      findLatestServerFailure((kept) => kept.fix === undefined)
+    ),
   })
 
 /** Provide the host to an admin read program, for a caller that reached `origin`. */

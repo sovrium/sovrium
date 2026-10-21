@@ -7,7 +7,11 @@
 
 import { Data, Effect, Result } from 'effect'
 import { AssetStore } from '@/application/ports/services/asset-store'
-import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
+import {
+  StorageService,
+  UNATTRIBUTED_BUCKET,
+  isStorageObjectTooLarge,
+} from '@/application/ports/services/storage-service'
 import { ASSET_MAX_BYTES } from '@/domain/models/app/assets/asset-content-validation'
 import { authoredReferenceRoots } from '../authored-references'
 import { isRecord } from './document-run'
@@ -88,10 +92,16 @@ const assetTemplate = (path: string): Effect.Effect<TemplateText, DocumentTempla
   })
 
 /** A stored template past the 10 MB a template asset may weigh, refused by name. */
-const tooLargeTemplate = (key: string, size: number): Effect.Effect<never, DocumentTemplateError> =>
+/** A template past the limit, its weight named when the catalog measured it. */
+const tooLargeTemplate = (
+  key: string,
+  size?: number
+): Effect.Effect<never, DocumentTemplateError> =>
   Effect.fail(
     templateError(
-      `template "${key}" weighs ${String(size)} bytes, over the 10 MB limit for a template`
+      size === undefined
+        ? `template "${key}" weighs more than the 10 MB limit for a template`
+        : `template "${key}" weighs ${String(size)} bytes, over the 10 MB limit for a template`
     )
   )
 
@@ -112,15 +122,18 @@ const bucketTemplate = (
     const storage = yield* StorageService
     const binding = typeof bucket === 'string' ? bucket : UNATTRIBUTED_BUCKET
     // The catalogued size refuses an oversized template before a byte is
-    // buffered; no catalog row falls through to the download, re-checked below.
+    // buffered; no catalog row falls through to the bounded download.
     const catalogued = yield* Effect.result(storage.getMetadata(key, binding))
     if (catalogued._tag === 'Success' && catalogued.success.size > ASSET_MAX_BYTES) {
       return yield* tooLargeTemplate(key, catalogued.success.size)
     }
-    const bytes = yield* storage
-      .download(key, binding)
-      .pipe(Effect.mapError(() => templateError(`template "${key}" could not be read`)))
-    if (bytes.length > ASSET_MAX_BYTES) return yield* tooLargeTemplate(key, bytes.length)
+    const read = yield* Effect.result(storage.downloadBounded(key, binding, ASSET_MAX_BYTES))
+    if (read._tag === 'Failure') {
+      return yield* isStorageObjectTooLarge(read.failure)
+        ? tooLargeTemplate(key)
+        : Effect.fail(templateError(`template "${key}" could not be read`))
+    }
+    const bytes = read.success
     // A stored template is a file the document is built from: it carries its standing.
     yield* noteStepFileInput({ label: `template "${key}"`, key })
     return {

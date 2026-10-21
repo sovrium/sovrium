@@ -5,8 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Option } from 'effect'
 import { AuditLogRepository } from '@/application/ports/repositories/admin/audit-log-repository'
+import {
+  getAuditEntryFromDb,
+  listAuditPageFromDb,
+} from '@/infrastructure/audit-log/drizzle-page-reads'
 import {
   appendAuditEntryToDb,
   countAuditEntriesByAction,
@@ -17,7 +21,7 @@ import {
  * Live `AuditLogRepository` over the Drizzle `audit_log` store.
  *
  * Each store helper catches and logs its own failure and resolves the empty
- * value, so `Effect.promise` is honest here: none of the three thunks rejects.
+ * value, so `Effect.promise` is honest here: none of the thunks rejects.
  */
 export const AuditLogRepositoryLive = Layer.succeed(
   AuditLogRepository,
@@ -26,6 +30,11 @@ export const AuditLogRepositoryLive = Layer.succeed(
     append: (entry) => Effect.promise(() => appendAuditEntryToDb(entry)),
     // effect-promise: total -- listAuditEntriesFromDb resolves [] on any read failure
     list: (filter) => Effect.promise(() => listAuditEntriesFromDb(filter)),
+    // effect-promise: total -- listAuditPageFromDb resolves an empty last page on any read failure
+    listPage: (query) => Effect.promise(() => listAuditPageFromDb(query)),
+    // effect-promise: total -- getAuditEntryFromDb resolves undefined on any read failure
+    get: (id) =>
+      Effect.promise(() => getAuditEntryFromDb(id)).pipe(Effect.map(Option.fromUndefinedOr)),
     // effect-promise: total -- countAuditEntriesByAction resolves [] on any read failure
     countByAction: (input) => Effect.promise(() => countAuditEntriesByAction(input)),
   })

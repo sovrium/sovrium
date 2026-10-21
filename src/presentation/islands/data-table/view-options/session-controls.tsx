@@ -6,21 +6,19 @@
  */
 
 import { Menu } from '@base-ui/react/menu'
-import { type ReactElement, type ReactNode } from 'react'
-import { computeTablePagerButtonClasses } from '@/presentation/design/table-default-classes'
-import {
-  computeMenuItemClasses,
-  computeMenuPopupClasses,
-} from '../../overlays/menu-default-classes'
+import { type ReactElement } from 'react'
+import { computeMenuItemClasses } from '../../overlays/menu-default-classes'
 import { useGridString } from '../island/grid-strings'
+import { BarMenu, SubMenu, ViewMenu, type MenuShell } from './view-menu-shells'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 import type { DataTableInstance } from '../island/table-features'
 import type { SessionGrouping } from '../island/use-ui-state'
 import type { GridRowHeight } from '@/presentation/design/table-body-default-classes'
 
 /**
- * The reader's session controls, in the right half of the grid's bottom bar:
- * Group by, Hide fields and Row height. Each changes the grid for the visit and
+ * The reader's session controls — Group by, Hide fields and Row height — in the
+ * right half of the grid's bottom bar, or gathered into one `View` menu (in the
+ * toolbar, `viewOptions: toolbar`, and in a phone's bottom bar). Each changes the grid for the visit and
  * nothing else — no request writes it, a reload forgets it. A lasting grouping
  * is a table view's `groupBy`, a lasting set of columns the grid's `columns`, a
  * lasting row height its `rowHeight`.
@@ -56,7 +54,6 @@ const CHECK = (
 
 const OPTION_ITEM = `${computeMenuItemClasses()} pr-8`
 const INDICATOR = 'pointer-events-none absolute right-2 flex size-4 items-center justify-center'
-const TRIGGER = computeTablePagerButtonClasses({ variant: 'ghost' })
 
 /** One field column the controls can name: its field, its heading, its column. */
 interface FieldColumnEntry {
@@ -73,42 +70,6 @@ function fieldColumnsOf(table: DataTableInstance): readonly FieldColumnEntry[] {
     const { header } = column.columnDef
     return [{ field, label: typeof header === 'string' ? header : field, column }]
   })
-}
-
-/** A bottom-bar menu: a ghost trigger and its popup, opening upward from the bar. */
-function BarMenu({
-  label,
-  children,
-}: {
-  readonly label: string
-  readonly children: ReactNode
-}): ReactElement {
-  return (
-    <Menu.Root>
-      <Menu.Trigger
-        type="button"
-        className={TRIGGER}
-      >
-        {label}
-      </Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner
-          side="top"
-          align="end"
-          sideOffset={4}
-          positionMethod="fixed"
-          className="isolate z-50 outline-none"
-        >
-          <Menu.Popup
-            data-slot="dropdown-menu-content"
-            className={computeMenuPopupClasses()}
-          >
-            {children}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
-    </Menu.Root>
-  )
 }
 
 /** One radio row of a bar menu. */
@@ -131,6 +92,7 @@ function GroupByMenu(props: {
   readonly fieldMeta?: FieldMetaMap
   readonly current?: string
   readonly onGroup: (grouping: SessionGrouping) => void
+  readonly Shell: MenuShell
 }) {
   const label = useGridString('datatable.groupBy', 'Group by')
   const none = useGridString('datatable.groupNone', 'None')
@@ -138,8 +100,9 @@ function GroupByMenu(props: {
     GROUPABLE_TYPES.has(props.fieldMeta?.[entry.field]?.type ?? '')
   )
   if (groupable.length === 0) return undefined
+  const { Shell } = props
   return (
-    <BarMenu label={label}>
+    <Shell label={label}>
       <Menu.RadioGroup
         value={props.current ?? ''}
         onValueChange={(next: string) => props.onGroup(next === '' ? {} : { field: next })}
@@ -156,16 +119,22 @@ function GroupByMenu(props: {
           />
         ))}
       </Menu.RadioGroup>
-    </BarMenu>
+    </Shell>
   )
 }
 
 /** Hide fields: one checkbox per column; at least one column always stays. */
-function HideFieldsMenu({ columns }: { readonly columns: readonly FieldColumnEntry[] }) {
+function HideFieldsMenu({
+  columns,
+  Shell,
+}: {
+  readonly columns: readonly FieldColumnEntry[]
+  readonly Shell: MenuShell
+}) {
   const label = useGridString('datatable.hideFields', 'Hide fields')
   const shown = columns.filter((entry) => entry.column.getIsVisible()).length
   return (
-    <BarMenu label={label}>
+    <Shell label={label}>
       {columns.map((entry) => {
         const visible = entry.column.getIsVisible()
         return (
@@ -182,7 +151,7 @@ function HideFieldsMenu({ columns }: { readonly columns: readonly FieldColumnEnt
           </Menu.CheckboxItem>
         )
       })}
-    </BarMenu>
+    </Shell>
   )
 }
 
@@ -190,7 +159,9 @@ function HideFieldsMenu({ columns }: { readonly columns: readonly FieldColumnEnt
 function RowHeightMenu(props: {
   readonly current: string
   readonly onRowHeight: (height: GridRowHeight) => void
+  readonly Shell: MenuShell
 }) {
+  const { Shell } = props
   const label = useGridString('datatable.rowHeight', 'Row height')
   const names: Readonly<Record<GridRowHeight, string>> = {
     short: useGridString('datatable.rowHeight.short', 'Short'),
@@ -199,7 +170,7 @@ function RowHeightMenu(props: {
     'extra-tall': useGridString('datatable.rowHeight.extraTall', 'Extra tall'),
   }
   return (
-    <BarMenu label={label}>
+    <Shell label={label}>
       <Menu.RadioGroup
         value={props.current}
         onValueChange={(next: string) => props.onRowHeight(next as GridRowHeight)}
@@ -212,7 +183,7 @@ function RowHeightMenu(props: {
           />
         ))}
       </Menu.RadioGroup>
-    </BarMenu>
+    </Shell>
   )
 }
 
@@ -227,25 +198,72 @@ export interface SessionControlsProps {
   readonly onRowHeight: (height: GridRowHeight) => void
 }
 
-/** Group by · Hide fields · Row height — the bottom bar's right half, before the pager. */
-export function SessionControls(props: SessionControlsProps): ReactElement {
+/** The three option menus, in the bottom bar's order, each drawn in `Shell`. */
+function OptionMenus({
+  props,
+  Shell,
+}: {
+  readonly props: SessionControlsProps
+  readonly Shell: MenuShell
+}): ReactElement {
   const columns = fieldColumnsOf(props.table)
   return (
-    <div
-      data-slot="data-table-session-controls"
-      className="flex items-center gap-1"
-    >
+    <>
       <GroupByMenu
         columns={columns}
         {...(props.fieldMeta !== undefined && { fieldMeta: props.fieldMeta })}
         {...(props.groupedBy !== undefined && { current: props.groupedBy })}
         onGroup={props.onGroup}
+        Shell={Shell}
       />
-      {columns.length > 0 && <HideFieldsMenu columns={columns} />}
+      {columns.length > 0 && (
+        <HideFieldsMenu
+          columns={columns}
+          Shell={Shell}
+        />
+      )}
       <RowHeightMenu
         current={props.rowHeight}
         onRowHeight={props.onRowHeight}
+        Shell={Shell}
       />
+    </>
+  )
+}
+
+/**
+ * Group by · Hide fields · Row height. `bar` draws them as three menus — the
+ * bottom bar's right half, before the pager; `view` gathers them into one
+ * `View` menu opening toward `side`.
+ */
+export function SessionControls(
+  props: SessionControlsProps & {
+    readonly frame?: 'bar' | 'view'
+    readonly side?: 'top' | 'bottom'
+  }
+): ReactElement {
+  const view = useGridString('datatable.viewOptions', 'View')
+  return (
+    <div
+      data-slot="data-table-session-controls"
+      className="flex items-center gap-1"
+    >
+      {props.frame === 'view' ? (
+        <ViewMenu
+          label={view}
+          side={props.side ?? 'top'}
+        >
+          <OptionMenus
+            props={props}
+            Shell={SubMenu}
+          />
+        </ViewMenu>
+      ) : (
+        <OptionMenus
+          props={props}
+          Shell={BarMenu}
+        />
+      )}
     </div>
   )
 }

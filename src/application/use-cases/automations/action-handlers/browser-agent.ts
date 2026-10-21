@@ -353,7 +353,7 @@ export const handleBrowserAgent: ActionHandler = (action, _app, automation, runC
     const runId = automation.runId ?? globalThis.crypto.randomUUID()
     const counter = yield* Ref.make((parked?.screenshots.length ?? 0) + 1)
     // Resuming, the step starts with what it had read before its submission was held.
-    const seenOwnApp = yield* startStepReading(automation, parked !== undefined)
+    const seenOwnApp = yield* startStepReading(automation, parked !== undefined, base.allowedHosts)
     const run: Omit<AgentRun, 'session'> = {
       options: agentOptionsOf(action),
       base,

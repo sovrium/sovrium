@@ -127,25 +127,12 @@ export function axisKeyLabeller(
   return labeller ?? ((key) => formatAxisLabel(key, format))
 }
 
-const MONTH_NAMES = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-] as const
-
 /**
  * Formats a raw X-axis key for display. With `format: 'date'` the key is
- * parsed as a date and rendered as `"<Month> <Year>"` (e.g. `"Jan 2025"`).
- * Non-date formats and unparseable values pass through unchanged.
+ * parsed as a date and rendered as its short month and year in the page
+ * language — `Jan 2025` in English, `janv. 2025` in French — from the page
+ * locale's `Intl` month names, as the day axis is. Non-date formats and
+ * unparseable values pass through unchanged.
  */
 export function formatAxisLabel(
   raw: string,
@@ -155,8 +142,11 @@ export function formatAxisLabel(
   if (format === 'date') {
     const parsed = new Date(raw)
     if (!Number.isNaN(parsed.getTime())) {
-      const month = MONTH_NAMES[parsed.getUTCMonth()] ?? ''
-      return `${month} ${String(parsed.getUTCFullYear())}`
+      return new Intl.DateTimeFormat(usableLocale(resolvePageLocale()), {
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'UTC',
+      }).format(parsed)
     }
     return raw
   }

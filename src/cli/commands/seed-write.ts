@@ -14,11 +14,11 @@
  * calls `splitManyToManyFields`, so a `many-to-many` field reaches the base
  * INSERT as a phantom column. Only `createRecordProgram` splits link fields out
  * and writes the junction rows. A seeder wired to the batch program produces a
- * green run and zero links — the most expensive failure available here, because
- * it looks exactly like success.
+ * green run and zero links, which looks exactly like success.
  *
- * `--mode upsert` is the one exception, and it is why upsert refuses
- * many-to-many data at planning time: `upsertProgram` writes base columns only.
+ * `--mode upsert` is the one exception: `upsertProgram` writes base columns
+ * only, so the many-to-many fields are split out first and each row's link set
+ * is replaced afterwards (`seed-links.ts`).
  *
  * ## Why `replace` deletes with raw SQL
  *
@@ -43,8 +43,12 @@ import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { generateJunctionTableName } from '@/infrastructure/database/sql/sql-junction-tables'
 import { tableIdentifier } from '@/infrastructure/database/table-queries/statement/validation'
 import { runTableProgram } from '@/infrastructure/layers/table-layer'
+import { alignSeededAutonumbers } from './seed-autonumber'
+import { replaceSeededLinks, splitSeedLinks, upsertReportLine } from './seed-links'
 import { dryRunLines } from './seed-report'
 import { emptyKeyIndex, idOfKey, resolveSeedFields, withKey } from './seed-resolve'
+import { indexUpsertedKeys, partitionReplay, storeChangedAssets } from './seed-upsert'
+import type { WriteRowLinks } from './seed-links'
 import type { Resolved, SeedKeyIndex, SeedResolveContext } from './seed-resolve'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { SeedTableConfig } from '@/application/use-cases/seed/seed-config'
@@ -114,12 +118,10 @@ const createOne = async (step: {
   readonly record: PlannedSeedTable['records'][number]
 }): Promise<SeedKeyIndex> => {
   const { input, context, index, table, record } = step
-  const resolved = await resolveSeedFields(
-    context,
-    index,
-    withoutSelfLinks(table, record.fields),
-    table.name
-  )
+  const resolved = await resolveSeedFields(context, index, withoutSelfLinks(table, record.fields), {
+    table: table.name,
+    key: record.key,
+  })
   const result = await runTableProgram(
     createRecordProgram({
       session: input.session,
@@ -180,7 +182,7 @@ const writeSelfLinks = (
             context,
             carried,
             selfLinksOf(table, record.fields),
-            table.name
+            { table: table.name, key: record.key }
           )
           const id = idOfKey(resolved.index, table.name, record.key)
           if (id === undefined) {
@@ -208,8 +210,7 @@ const writeSelfLinks = (
     )
 
 /** Best-effort human text for whatever a table program failed with. */
-const describe = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error)
+const describe = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
 /** Every row of one table, sequentially — later rows may reference earlier ids. */
 const createAll = (
@@ -230,26 +231,44 @@ const createAll = (
       index: next,
     }))
 
-/** Match every seeded key back to the row `upsert` merged it onto. */
-const indexUpsertedKeys = (
-  index: SeedKeyIndex,
+/** Write a row's link fields onto it — the many-to-many half of an upsert. */
+const writeRowLinks =
+  (input: ExecuteSeedPlanInput, table: PlannedSeedTable): WriteRowLinks =>
+  async (target, fields) => {
+    const result = await runTableProgram(
+      updateRecordProgram(input.session, table.name, String(target.id), {
+        fields,
+        app: input.app,
+      })
+    )
+    if (result._tag === 'Failure') {
+      const config = input.tables.find((one) => one.name === table.name)
+      const explained = explainWriteFailure(result.failure, { table: config, fields })
+      throw new SeedWriteError(`${table.fileName} (key "${target.key}"): ${explained}`)
+    }
+  }
+
+/** Merge the rows a replay would change; a refusal names the file and the reason. */
+const upsertChanged = async (
+  input: ExecuteSeedPlanInput,
   table: PlannedSeedTable,
-  resolved: readonly Record<string, unknown>[]
-): Promise<SeedKeyIndex> => {
-  const matches = (
-    row: Readonly<Record<string, unknown>>,
-    fields: Readonly<Record<string, unknown>>
-  ): boolean => table.mergeOn.every((column) => String(row[column]) === String(fields[column]))
-  return executeRaw(db, sql`SELECT * FROM ${tableIdentifier(table.name)}`).then((rows) =>
-    table.records.reduce<SeedKeyIndex>((carried, record, position) => {
-      const fields = resolved[position]
-      const row = fields === undefined ? undefined : rows.find((one) => matches(one, fields))
-      const id = row?.id
-      return typeof id === 'string' || typeof id === 'number'
-        ? withKey(carried, table.name, record.key, id)
-        : carried
-    }, index)
+  changed: readonly Record<string, unknown>[]
+): Promise<{ readonly created: number; readonly updated: number }> => {
+  if (changed.length === 0) return { created: 0, updated: 0 }
+  const result = await runTableProgram(
+    upsertProgram(input.session, table.name, {
+      recordsData: changed,
+      fieldsToMergeOn: table.mergeOn,
+      returnRecords: true,
+      app: input.app,
+    })
   )
+  if (result._tag === 'Failure') {
+    // A batch upsert does not say WHICH row it rejected; the driver's reason names the field.
+    const failed = { table: input.tables.find((one) => one.name === table.name), fields: {} }
+    throw new SeedWriteError(`${table.fileName}: ${explainWriteFailure(result.failure, failed)}`)
+  }
+  return result.success
 }
 
 /** Replay one table idempotently through the upsert path. */
@@ -272,39 +291,31 @@ const upsertAll = async (
     (previous, record) =>
       previous.then(async (carried) => {
         const one = await resolveSeedFields(
-          context,
+          { ...context, storeAssets: false },
           carried.index,
           withoutSelfLinks(table, record.fields),
-          table.name
+          { table: table.name, key: record.key }
         )
         return { value: [...carried.value, one.value], index: one.index }
       }),
     Promise.resolve({ value: [], index })
   )
-  const result = await runTableProgram(
-    upsertProgram(input.session, table.name, {
-      recordsData: resolved.value,
-      fieldsToMergeOn: table.mergeOn,
-      returnRecords: true,
-      app: input.app,
-    })
-  )
-  if (result._tag === 'Failure') {
-    // A batch upsert does not say WHICH row it rejected, so no value can be
-    // attributed without guessing. The driver's own reason still names the
-    // constraint, which names the field.
-    const explained = explainWriteFailure(result.failure, {
-      table: input.tables.find((candidate) => candidate.name === table.name),
-      fields: {},
-    })
-    throw new SeedWriteError(`${table.fileName}: ${explained}`)
-  }
-  const indexed = await indexUpsertedKeys(resolved.index, table, resolved.value)
-  const next = await writeSelfLinks(input, context, indexed, table)
-  return {
-    value: [`${table.name}: created ${result.success.created}, updated ${result.success.updated}`],
-    index: next,
-  }
+  const config = input.tables.find((one) => one.name === table.name)
+  const split = splitSeedLinks(table, resolved.value)
+  const bases = split.map((row) => row.base)
+  const { changed, unchanged } = await partitionReplay(table, bases, input.app)
+  await storeChangedAssets(context, table, bases, changed)
+  const written = await upsertChanged(input, table, changed)
+  const indexed = await indexUpsertedKeys(resolved.index, table, bases)
+  const write = writeRowLinks(input, table)
+  const relinked = await replaceSeededLinks({ table, config, index: indexed, rows: split, write })
+  const relinkedOnly = table.records.filter(
+    (record, position) =>
+      relinked.has(record.key) && !changed.some((row) => row === bases[position])
+  ).length
+  const counts = { ...written, unchanged, relinkedOnly }
+  const value = [upsertReportLine({ table: table.name, ...counts })]
+  return { value, index: await writeSelfLinks(input, context, indexed, table) }
 }
 
 /** Write one table according to the active mode. */
@@ -318,9 +329,10 @@ const seedOneTable = async (
   if (existing > 0) {
     return { value: [`${table.name}: skipped (${existing} rows already present)`], index }
   }
-  return input.mode === 'upsert'
-    ? upsertAll(input, context, index, table)
-    : createAll(input, context, index, table)
+  const write = input.mode === 'upsert' ? upsertAll : createAll
+  const outcome = await write(input, context, index, table)
+  await alignSeededAutonumbers(table, input.tables)
+  return outcome
 }
 
 /** Clear every in-scope table, children first, before anything is inserted. */

@@ -247,8 +247,11 @@ const projectZones = (
 const projectComponentGuidance = (
   components: App['components']
 ): Readonly<Record<string, unknown>> | undefined => {
+  // A transparent template is furniture, not a part an author browses.
   const documented = (components ?? []).flatMap((component) =>
-    component.guidance ? [[component.name, structuredClone(component.guidance)] as const] : []
+    component.guidance && component.render !== 'transparent'
+      ? [[component.name, structuredClone(component.guidance)] as const]
+      : []
   )
   return documented.length === 0 ? undefined : Object.fromEntries(documented)
 }

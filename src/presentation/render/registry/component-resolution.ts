@@ -5,6 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { withInputsInSchemaOrder } from '@/domain/models/app/pages/template-input-order-service'
+import {
+  expandTemplateInputs,
+  substitutableInputsOf,
+} from '@/domain/models/app/pages/template-input-service'
 import {
   substituteActiveMarker,
   substituteVariableValues,
@@ -19,10 +24,14 @@ import type { Component } from '@/domain/models/app/pages/components'
  * template declares is passed through verbatim.
  *
  * `name` is template-only metadata (it becomes the returned `name`, never a
- * component field); the other four are re-derived with variable substitution.
+ * component field), as are `render` and `inputs`, which say how the template
+ * is placed and travel on the expansion marker instead; the other four are
+ * re-derived with variable substitution.
  */
 const EXPLICITLY_RESOLVED_KEYS: ReadonlySet<string> = new Set([
   'name',
+  'render',
+  'inputs',
   'type',
   'element',
   'props',
@@ -66,6 +75,11 @@ export function resolveComponent(
     return undefined
   }
 
+  const inputs = substitutableInputsOf(template)
+  if (inputs !== undefined) {
+    return { component: resolveWithInputs(template, inputs, vars), name: template.name }
+  }
+
   // Cast template.children to Component children type for type compatibility
   const templateChildren = template.children as ReadonlyArray<Component | string> | undefined
 
@@ -105,4 +119,49 @@ export function resolveComponent(
   }
 
   return { component, name: template.name }
+}
+
+/**
+ * Each placement's expansion, by template and by the placement's own values.
+ * Both are the decoded config's objects, the same on every render, so a page's
+ * placements are expanded (and their values decoded) once, not on every request.
+ */
+const expansions = new WeakMap<object, WeakMap<object, Component>>()
+
+/**
+ * A template that declares `inputs`: ONE pass over every field, for the
+ * declared names only (see `template-input-service`). The text between them
+ * keeps the substitution every template has, with the placement's undeclared
+ * values, so an undeclared `$token` reads as it always did, and nothing a value
+ * inserts is read a second time. Each value passed whole is then put in the
+ * order the page schema writes its keys (`template-input-order-service`), so
+ * the placement draws exactly what the same tree written inline draws.
+ */
+function resolveWithInputs(
+  template: Components[number],
+  inputs: NonNullable<ReturnType<typeof substitutableInputsOf>>,
+  vars: Record<string, unknown> | undefined
+): Component {
+  const cached = vars === undefined ? undefined : expansions.get(template)?.get(vars)
+  if (cached !== undefined) return cached
+  const undeclared = Object.fromEntries(
+    Object.entries(vars ?? {}).filter(([name]) => !inputs.has(name))
+  )
+  const { node, drawn } = expandTemplateInputs(
+    template as Record<string, unknown>,
+    inputs,
+    vars,
+    (text) => substituteVariableValues(text, undeclared) as string
+  )
+  const component = Object.fromEntries(
+    Object.entries(withInputsInSchemaOrder(node, drawn)).filter(
+      ([key]) => key !== 'name' && key !== 'render' && key !== 'inputs'
+    )
+  ) as Component
+  if (vars !== undefined) {
+    const byVars = expansions.get(template) ?? new WeakMap<object, Component>()
+    byVars.set(vars, component)
+    expansions.set(template, byVars)
+  }
+  return component
 }

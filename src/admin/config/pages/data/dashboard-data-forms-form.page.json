@@ -1,0 +1,521 @@
+{
+  "id": "dashboard-data-forms-form",
+  "name": "dashboard-data-forms-form",
+  "path": "/submissions/:form",
+  "meta": {
+    "title": "$t:admin.meta.forms"
+  },
+  "requires": ["forms"],
+  "query": {
+    "tab": {
+      "default": "inbox",
+      "enum": ["inbox", "insights"]
+    }
+  },
+  "dataSource": {
+    "system": {
+      "endpoint": "/api/admin/forms/:form",
+      "param": "form"
+    }
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6 min-h-0"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "submissions": "$t:admin.crumb.submissions"
+            },
+            "currentLabel": "$record.label"
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "header",
+          "element": "header",
+          "props": {
+            "className": "flex flex-col gap-1"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "h1",
+              "props": {
+                "className": "text-foreground text-2xl font-semibold tracking-tight"
+              },
+              "content": "$record.label"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "visibility": {
+                "record": {
+                  "field": "description",
+                  "isNotEmpty": true
+                }
+              },
+              "content": "$record.description"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "visibility": {
+                "record": {
+                  "field": "description",
+                  "isEmpty": true
+                }
+              },
+              "content": "$t:admin.forms.blurbForm"
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "admin-surface-content-2-2",
+          "element": "div",
+          "props": {
+            "className": "flex min-h-0 min-w-0 flex-1 flex-col pt-2 [&>[role=toolbar]]:mb-4"
+          },
+          "children": [
+            {
+              "component": "console-tabs",
+              "key": "tabs",
+              "vars": {
+                "defaultTab": "$query.tab",
+                "ariaLabel": "$t:admin.forms.tabs.region",
+                "dataTestid": "admin-subview-tabs",
+                "panels": [
+                  {
+                    "id": "inbox",
+                    "label": "$t:admin.forms.inbox"
+                  },
+                  {
+                    "id": "insights",
+                    "label": "$t:admin.forms.insights"
+                  }
+                ],
+                "layout": "fill"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-1",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-w-0 flex-col gap-6 flex-none!"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "admin-toolbar-row",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-h-10 flex-wrap items-center gap-2",
+                        "data-testid": "admin-toolbar-row",
+                        "role": "toolbar",
+                        "aria-label": "$t:admin.common.gridControls"
+                      },
+                      "children": [
+                        {
+                          "component": "console-toolbar-search",
+                          "key": "toolbar-search",
+                          "vars": {
+                            "ariaLabel": "$t:admin.forms.search",
+                            "placeholder": "$t:admin.forms.search",
+                            "publishes": {
+                              "bindTo": "submissions-filter",
+                              "param": "q"
+                            }
+                          }
+                        },
+                        {
+                          "type": "container",
+                          "key": "admin-toolbar-row-2",
+                          "element": "div",
+                          "visibility": {
+                            "capability": "administer-accounts"
+                          },
+                          "props": {
+                            "className": "flex items-center gap-2"
+                          },
+                          "children": [
+                            {
+                              "type": "switch",
+                              "props": {
+                                "id": "submissions-reveal",
+                                "aria-label": "$t:admin.forms.reveal"
+                              },
+                              "publishes": {
+                                "bindTo": "submissions-filter",
+                                "param": "reveal"
+                              }
+                            },
+                            {
+                              "type": "label",
+                              "for": "submissions-reveal",
+                              "text": "$t:admin.forms.reveal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "link",
+                          "content": "$t:admin.forms.openForm",
+                          "props": {
+                            "href": "$app.origin/forms/$param.form",
+                            "target": "_blank",
+                            "rel": "noopener noreferrer",
+                            "aria-label": "$t:admin.forms.openForm",
+                            "className": "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground no-underline shadow-xs hover:bg-muted"
+                          }
+                        },
+                        {
+                          "type": "container",
+                          "key": "admin-toolbar-row-4",
+                          "element": "div",
+                          "props": {
+                            "className": "contents [&>li]:list-none"
+                          },
+                          "dataSource": {
+                            "system": {
+                              "endpoint": "/api/admin/forms/$param.form/submissions",
+                              "query": {
+                                "limit": "1"
+                              },
+                              "rowsKey": "items"
+                            }
+                          },
+                          "children": [
+                            {
+                              "type": "button",
+                              "label": "$t:admin.forms.exportCsv",
+                              "variant": "outline",
+                              "props": {
+                                "aria-label": "$t:admin.forms.export.region",
+                                "className": "border-border text-foreground-subtle hover:text-foreground inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-md"
+                              },
+                              "action": {
+                                "type": "fetch",
+                                "mode": "download",
+                                "url": "/api/admin/forms/$param.form/submissions/export?format=csv",
+                                "filename": "$param.form-submissions.csv"
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "component": "console-grid",
+                      "key": "grid",
+                      "vars": {
+                        "ariaLabel": "$t:admin.forms.submissions.region",
+                        "dataSource": {
+                          "system": {
+                            "endpoint": "/api/admin/forms/$param.form/submissions",
+                            "rowsKey": "items",
+                            "idKey": "id",
+                            "totalKey": "total",
+                            "bindTo": "submissions-filter",
+                            "sharedFilter": {}
+                          }
+                        },
+                        "columns": [
+                          {
+                            "field": "status",
+                            "label": "$t:admin.common.status",
+                            "cellStyle": [
+                              {
+                                "when": {
+                                  "eq": "received"
+                                },
+                                "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50"
+                              },
+                              {
+                                "when": {
+                                  "eq": "processing"
+                                },
+                                "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50"
+                              },
+                              {
+                                "when": {
+                                  "eq": "processed"
+                                },
+                                "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50"
+                              },
+                              {
+                                "when": {
+                                  "eq": "done"
+                                },
+                                "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50"
+                              },
+                              {
+                                "when": {
+                                  "eq": "failed"
+                                },
+                                "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-destructive [&:is(span)]:before:bg-destructive"
+                              },
+                              {
+                                "when": {
+                                  "eq": "spam"
+                                },
+                                "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50"
+                              }
+                            ],
+                            "valueLabels": {
+                              "received": "$t:admin.forms.status.received",
+                              "processing": "$t:admin.forms.status.processing",
+                              "processed": "$t:admin.forms.status.processed",
+                              "done": "$t:admin.forms.status.processed",
+                              "failed": "$t:admin.forms.status.failed",
+                              "spam": "$t:admin.forms.status.spam"
+                            }
+                          },
+                          {
+                            "field": "submittedAt",
+                            "label": "$t:admin.forms.received",
+                            "format": "datetime"
+                          }
+                        ],
+                        "emptyMessage": "$t:admin.forms.noneYet",
+                        "noMatchMessage": "$t:admin.forms.noMatch",
+                        "onRowClick": {
+                          "action": "openSheet",
+                          "component": "form-submission-detail"
+                        },
+                        "columnsFrom": {
+                          "form": "$param.form"
+                        },
+                        "selection": {
+                          "mode": "multiple"
+                        }
+                      }
+                    },
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "text-foreground-subtle mt-2 text-md"
+                      },
+                      "content": "$t:admin.forms.scope"
+                    },
+                    {
+                      "component": "console-record-sheet",
+                      "key": "record-sheet",
+                      "vars": {
+                        "id": "form-submission-detail",
+                        "dataSource": {
+                          "system": {
+                            "endpoint": "/api/admin/forms/$param.form/submissions/:id",
+                            "bindTo": "submissions-filter",
+                            "sharedFilter": {
+                              "params": ["reveal"]
+                            }
+                          }
+                        },
+                        "canEdit": false,
+                        "props": {
+                          "title": "$record.label"
+                        },
+                        "recordFields": [
+                          {
+                            "name": "status",
+                            "type": "single-select",
+                            "label": "$t:admin.common.status",
+                            "valueLabels": {
+                              "received": "$t:admin.forms.status.received",
+                              "processing": "$t:admin.forms.status.processing",
+                              "processed": "$t:admin.forms.status.processed",
+                              "done": "$t:admin.forms.status.processed",
+                              "failed": "$t:admin.forms.status.failed",
+                              "spam": "$t:admin.forms.status.spam"
+                            }
+                          },
+                          {
+                            "name": "submittedAt",
+                            "type": "datetime",
+                            "label": "$t:admin.forms.received"
+                          },
+                          {
+                            "name": "answers",
+                            "type": "json",
+                            "label": "$t:admin.forms.answers",
+                            "renderAs": "key-value",
+                            "visibleWhen": {
+                              "field": "answers",
+                              "isNotEmpty": true
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-2",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-h-0 min-w-0 flex-col gap-6 overflow-y-auto"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "metrics-region",
+                      "element": "section",
+                      "props": {
+                        "aria-label": "$t:admin.forms.metrics.region",
+                        "className": "flex flex-col gap-4"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "key": "metrics-region-1",
+                          "props": {
+                            "className": "grid grid-cols-1 gap-4 sm:grid-cols-2"
+                          },
+                          "children": [
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card",
+                              "vars": {
+                                "label": "$t:admin.forms.submissions",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/forms/$param.form/analytics",
+                                    "valuePath": "totalCount"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "number"
+                                }
+                              }
+                            },
+                            {
+                              "component": "console-section-card",
+                              "key": "section-card-2",
+                              "vars": {
+                                "label": "$t:admin.forms.completion",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/forms/$param.form/analytics",
+                                    "valuePath": "completionRate"
+                                  }
+                                },
+                                "kpiFormat": {
+                                  "type": "percentage",
+                                  "options": {
+                                    "scale": "100"
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "chart",
+                          "props": {
+                            "aria-label": "$t:admin.forms.trend.region"
+                          },
+                          "dataSource": {
+                            "system": {
+                              "endpoint": "/api/admin/forms/$param.form/analytics",
+                              "rowsKey": "submissionsPerDay"
+                            }
+                          },
+                          "chartType": "area",
+                          "xAxis": {
+                            "field": "day",
+                            "format": "date"
+                          },
+                          "yAxis": {
+                            "field": "count",
+                            "gridLines": true
+                          },
+                          "series": [
+                            {
+                              "field": "count",
+                              "label": "$t:admin.forms.submissions"
+                            }
+                          ],
+                          "emptyState": {
+                            "role": "region",
+                            "name": "$t:admin.common.noData",
+                            "title": "$t:admin.forms.noPeriod"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "drop-off-heading",
+                      "element": "section",
+                      "props": {
+                        "aria-label": "$t:admin.forms.dropOff.heading",
+                        "className": "flex flex-col gap-2"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "h3",
+                          "props": {
+                            "className": "text-foreground text-md font-medium"
+                          },
+                          "content": "$t:admin.forms.dropOff.heading"
+                        },
+                        {
+                          "type": "list",
+                          "props": {
+                            "className": "text-muted-foreground flex flex-col gap-1 text-sm"
+                          },
+                          "dataSource": {
+                            "system": {
+                              "endpoint": "/api/admin/forms/$param.form/analytics",
+                              "rowsKey": "dropOffByStep"
+                            }
+                          },
+                          "listDisplay": {
+                            "itemTemplate": {
+                              "title": "{stepName}"
+                            },
+                            "emptyMessage": "$t:admin.forms.dropOff.singlePage"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

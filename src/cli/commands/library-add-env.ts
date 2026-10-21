@@ -17,6 +17,8 @@
  * edited to fit: the operator declares the variable, and runs the command again.
  */
 
+import { dirname, join } from 'node:path'
+
 /** The format of the operator's root config, as the lines to paste follow it. */
 export type EnvDeclarationFormat = 'yaml' | 'json' | 'typescript'
 
@@ -87,4 +89,41 @@ export const undeclaredEnvMessage = (input: UndeclaredEnvInput): string | undefi
     `\n\n  Then set ${plural ? 'their values' : 'its value'} in your environment (.env) and run the command again.` +
     '\n  Nothing was written.'
   )
+}
+
+/** What appending variable names to `.env.example` does. */
+export interface EnvPlan {
+  readonly path: string
+  readonly added: readonly string[]
+  readonly all: readonly string[]
+  /** The new `.env.example`, or `undefined` when nothing is appended. */
+  readonly text?: string
+}
+
+const declaredNames = (text: string): ReadonlySet<string> =>
+  new Set(
+    text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line !== '' && !line.startsWith('#'))
+      .map((line) => line.split('=')[0]?.trim() ?? '')
+  )
+
+/**
+ * The variable NAMES to append to `.env.example` — never a value, never `.env`.
+ * `sovrium import` appends the env names of the connections it writes through
+ * this same function, so a `library add` after it finds them all present.
+ */
+export const planEnvExample = async (
+  configPath: string,
+  names: readonly string[]
+): Promise<EnvPlan> => {
+  const path = join(dirname(configPath), '.env.example')
+  const all = [...new Set(names)]
+  const existing = (await Bun.file(path).exists()) ? await Bun.file(path).text() : ''
+  const declared = declaredNames(existing)
+  const added = all.filter((name) => !declared.has(name))
+  if (added.length === 0) return { path, added, all }
+  const base = existing === '' || existing.endsWith('\n') ? existing : `${existing}\n`
+  return { path, added, all, text: `${base}${added.map((name) => `${name}=`).join('\n')}\n` }
 }

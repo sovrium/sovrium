@@ -5,21 +5,22 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import {
-  useCallback,
-  useId,
-  useRef,
-  type ChangeEventHandler,
-  type ReactElement,
-  type Ref,
-} from 'react'
+import { useCallback, useId, useRef, type ReactElement } from 'react'
 import {
   fileUploadDropzoneHint,
   computeFileUploadErrorClasses,
   computeFileUploadTriggerClasses,
 } from '@/presentation/design/file-upload-default-classes'
+import { UploadGlyph } from '@/presentation/design/form-glyphs'
 import { FileNameList, type FailedChipStrings } from './file-name-list'
+import {
+  compactHintIdOf,
+  compactTriggerText,
+  failedChipStrings,
+  useCompactErrorToast,
+} from './file-upload-compact'
 import { DropZone } from './file-upload-dropzone'
+import { UploadInput } from './file-upload-input'
 import { useFileUploadState } from './use-file-upload-state'
 import type {
   FetchSuccessResponse,
@@ -33,6 +34,8 @@ interface FileUploadIslandProps {
   readonly maxFiles?: number
   readonly maxFileSize?: number
   readonly dropZone?: boolean
+  /** Only the trigger, at a toolbar's size; the outcome is a toast. */
+  readonly compact?: boolean
   readonly disabled?: boolean
   readonly label?: string
   // `id` is the host wrapper's id (used to build a stable input id) — we do
@@ -53,63 +56,19 @@ interface FileUploadIslandProps {
 const uploadButtonWord = (strings: FileUploadIslandProps['uiStrings']): string =>
   strings?.['fileUpload.button'] ?? 'Upload file'
 
-/** A failed chip's words: the page's when the host sent them, else English. */
-const failedChipStrings = (strings: Readonly<Record<string, string>> = {}): FailedChipStrings => ({
-  failed: strings['fileUpload.failed'] ?? 'Upload failed',
-  retry: strings['fileUpload.retry'] ?? 'Retry',
-  remove: strings['fileUpload.remove'] ?? 'Remove',
-})
-
-interface UploadInputProps {
-  readonly inputRef: Ref<HTMLInputElement>
-  readonly inputId: string | undefined
-  readonly accept: string | undefined
-  readonly allowMultiple: boolean
-  readonly disabled: boolean
-  readonly buttonText: string
-  /** Hidden from the paint, kept for the keyboard and assistive technology. */
-  readonly hidden: boolean
-  readonly onChange: ChangeEventHandler<HTMLInputElement>
-}
-
 /**
- * The native file input. Beside a drop zone it is `sr-only`: the zone's own
- * Browse files button opens it, and its browser-drawn label, in the browser's
- * language, never shows. Beside a plain button it stays as drawn.
+ * Without a drop zone: the input's label, drawn as an outline button. A
+ * `compact` one carries the upload icon too (see `file-upload-compact.ts`).
  */
-function UploadInput({
-  inputRef,
-  inputId,
-  accept,
-  allowMultiple,
-  disabled,
-  buttonText,
-  hidden,
-  onChange,
-}: UploadInputProps): ReactElement {
-  return (
-    <input
-      ref={inputRef}
-      id={inputId}
-      type="file"
-      accept={accept}
-      multiple={allowMultiple}
-      disabled={disabled}
-      aria-label={buttonText}
-      className={hidden ? 'sr-only' : undefined}
-      onChange={onChange}
-    />
-  )
-}
-
-/** Without a drop zone: the input's label, drawn as an outline button. */
 function ButtonLabel({
   inputId,
   disabled,
+  compact,
   text,
 }: {
   readonly inputId: string | undefined
   readonly disabled: boolean
+  readonly compact: boolean
   readonly text: string
 }): ReactElement {
   return (
@@ -120,6 +79,7 @@ function ButtonLabel({
       className={computeFileUploadTriggerClasses({ disabled })}
       aria-disabled={disabled ? 'true' : undefined}
     >
+      {compact && <UploadGlyph size={16} />}
       {text}
     </label>
   )
@@ -129,6 +89,8 @@ interface FileUploadFeedbackProps {
   readonly error: string | undefined
   readonly upload: ReturnType<typeof useFileUploadState>
   readonly strings: FailedChipStrings
+  /** A compact upload draws nothing under its trigger: its outcome is a toast. */
+  readonly compact: boolean
 }
 
 /** The inline validation-error / picked-filename region below the control. */
@@ -136,7 +98,9 @@ function FileUploadFeedback({
   error,
   upload,
   strings,
+  compact,
 }: FileUploadFeedbackProps): ReactElement | undefined {
+  if (compact) return undefined
   if (error) {
     return (
       <p
@@ -180,6 +144,7 @@ function FileUploadFeedback({
  */
 export default function FileUploadIsland(props: FileUploadIslandProps): ReactElement {
   const { accept, maxFiles, dropZone = false, disabled = false } = props
+  const compact = props.compact === true
   const { label, id, uiStrings } = props
   const inputRef = useRef<HTMLInputElement>(null)
   const upload = useFileUploadState(props)
@@ -189,6 +154,7 @@ export default function FileUploadIsland(props: FileUploadIslandProps): ReactEle
   const inputId = `${id ?? generatedId}-input`
   const buttonText = label ?? uploadButtonWord(uiStrings)
   const controlsDisabled = disabled || upload.submitting
+  useCompactErrorToast(compact, upload.error)
 
   return (
     <div
@@ -209,7 +175,8 @@ export default function FileUploadIsland(props: FileUploadIslandProps): ReactEle
         <ButtonLabel
           inputId={inputId}
           disabled={controlsDisabled}
-          text={buttonText}
+          compact={compact}
+          text={compactTriggerText(compact, upload.submitting, buttonText, uiStrings)}
         />
       )}
       <UploadInput
@@ -219,13 +186,15 @@ export default function FileUploadIsland(props: FileUploadIslandProps): ReactEle
         allowMultiple={allowMultiple}
         disabled={controlsDisabled}
         buttonText={buttonText}
-        hidden={dropZone}
+        describedBy={compactHintIdOf(props)}
+        hidden={dropZone || compact}
         onChange={upload.handleChange}
       />
       <FileUploadFeedback
         error={upload.error}
         upload={upload}
         strings={failedChipStrings(uiStrings)}
+        compact={compact}
       />
     </div>
   )

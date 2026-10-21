@@ -193,6 +193,7 @@ function renderAccountLinkForm(
       method,
       provider: action.provider ?? '',
       ...resolveAuthLabels(action, method, context.lang, context.languages),
+      submitVariant: action.submitVariant,
       uiStrings: controlWords('accountLink.', context),
     },
     <form

@@ -23,7 +23,7 @@ import {
 import { fieldWidgetOf } from '@/presentation/design/field-type-behavior'
 import { pendingControlProps } from '@/presentation/design/pending-state'
 import { renderPendingContent } from '@/presentation/design/spinner-mark'
-import { type FieldDef, labelOf, renderField } from './fields'
+import { type FieldDef, type FormRecordBinding, labelOf, renderField } from './fields'
 import { FormRegions } from './main-aside'
 import { formAsideOf, type FormAsideLayout } from './main-aside-regions'
 import { SaveBar, type SaveBarState } from './save-bar'
@@ -45,9 +45,10 @@ interface RenderProps {
   readonly fieldError?: { readonly field: string; readonly message: string }
   /**
    * The record this form edits, when it edits one. Only a `button` field reads
-   * it — an automation button needs a row to run against.
+   * it — an automation button needs a row to run against, and the button is
+   * drawn on that record (its `disabledWhen` verdict, its `visibleWhen`).
    */
-  readonly binding?: { readonly table?: string; readonly recordId?: string }
+  readonly binding?: FormRecordBinding
   /** The form's interface strings in the page language, keyed by catalogue key; English when absent. */
   readonly uiStrings?: Readonly<Record<string, string>> | undefined
 }
@@ -251,7 +252,7 @@ interface FormBodyProps {
   readonly variant?: string
   readonly layout?: string
   /** Forwarded to the fields so a `button` field can address its own record. */
-  readonly binding?: { readonly table?: string; readonly recordId?: string }
+  readonly binding?: FormRecordBinding
   /** Forwarded to the fields — see `RenderProps.uiStrings`. */
   readonly uiStrings?: Readonly<Record<string, string>> | undefined
   /** Forwarded to the fields — see `FormFieldsProps.sections`. */

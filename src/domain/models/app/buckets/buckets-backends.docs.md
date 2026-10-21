@@ -58,6 +58,10 @@ Every declared bucket stores its objects in the single object store the environm
 
 A declared bucket is not a folder: keys are flat, and each object records the bucket it was uploaded to rather than carrying it in the path. That record is what keeps one bucket's objects out of another's.
 
+The record also holds the object's size, and a read never goes past it. A download, a signed download, an attachment's size check or its stored metadata, and a file an AI chat turn reads all stop at the recorded size: an object whose bytes in the store outgrew its record — written there by something other than Sovrium — fails the read with a `500` and a storage error code instead of being served whole.
+
+An object with no record at all — one an automation wrote straight into the store, then shared through a signed download link — is read up to the size the store reports, and never past 100 MiB. A larger one is refused the same way, before any of it is read.
+
 ## A missing variable stops the boot; an unreachable store does not
 
 The two failures look alike and are handled deliberately differently.

@@ -12,14 +12,15 @@ import type { ActionHandler, ActionKey, AutomationContext } from '../action-hand
 import type { ClientErrorField, RunClientErrorField } from './client-error'
 import type { RecordEventChannel } from './record-event-channel'
 import type { RunLedgers } from './run-ledger-persistence'
+import type { StepWindowField } from './step-window'
+import type { WriteOnlyInheritance } from './write-only-values'
 import type { AuthStepRequirements } from '../action-handlers/auth-grants'
 import type { BrowserStepRequirements } from '../action-handlers/browser-run-scope'
+import type { EmailStepRequirements } from '../action-handlers/email'
 import type { ContainerResume } from '../action-handlers/run-park'
 import type { StepLogEntry } from '../action-handlers/shared'
 import type { TriggerData } from '../resolve-trigger-data'
 import type { StepMetadataMap } from './step-metadata'
-import type { WriteOnlyInheritance } from './write-only-values'
-import type { EmailStepRequirements } from '../action-handlers/email'
 import type { MediaStepRequirements } from '../action-handlers/file-extract-audio'
 import type { AuditLogRepository } from '@/application/ports/repositories/admin/audit-log-repository'
 import type { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
@@ -65,7 +66,7 @@ import type { StepRead } from '@/domain/models/app/automations/step-read-service
 import type { Trigger } from '@/domain/models/app/automations/trigger'
 
 /** A step record in run history, as `GET /api/automations/runs/:id` reads it back. */
-export interface ExecutedStep extends ClientErrorField {
+export interface ExecutedStep extends ClientErrorField, StepWindowField {
   readonly name: string
   readonly type: string
   readonly operator?: string
@@ -76,10 +77,8 @@ export interface ExecutedStep extends ClientErrorField {
    *    not the action declared `continueOnError`)
    *  - `'filtered'` — a `filter`/`continue` evaluated false and halted the run via
    *    `onFalse: 'stop'`; recorded so the runs API sees it, later steps omitted from `steps[]`.
-   *  - `'skipped'` — the run loop short-circuited before this step ran because
-   *    an earlier step propagated a failure (no `continueOnError`). The step
-   *    is still recorded in `steps[]` so callers can observe which actions
-   *    were intentionally not executed.
+   *  - `'skipped'` — never ran: an earlier step propagated a failure (no
+   *    `continueOnError`); still recorded in `steps[]` so callers see which actions did not run.
    *  - `'waiting'` — a loop or a path the run parked inside, until it resumes.
    */
   readonly status: 'success' | 'failure' | 'filtered' | 'skipped' | 'waiting'

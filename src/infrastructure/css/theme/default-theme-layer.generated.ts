@@ -271,21 +271,26 @@ export const V1_ROOT_LIGHT = `:root {
 
     /* ---------- Warmth accent ---------- */
 
-    /* ---------- Semantic ramps (locked) ---------- */
-    --sv-success-50: var(--sv-neutral-50);
-    --sv-success-100: var(--sv-neutral-200);
-    --sv-success-300: var(--sv-neutral-300);
-    --sv-success-500: var(--sv-neutral-500);
-    --sv-success-600: var(--sv-neutral-600);
-    --sv-success-700: var(--sv-neutral-600);
-    --sv-success-950: var(--sv-neutral-900);
+    /* ---------- Semantic ramps ---------- */
+    /* Success, warning and info each carry a hue of their own, on the Tailwind
+       palette shadcn/ui draws from (green, amber, blue), so a status badge or
+       an alert reads by colour as well as by word. The light roles read 100 as
+       the ground, 300 the hairline, 600 (warning 500) the solid and 700 the
+       text, which clears 4.5:1 on white; dark mode re-points the roles below. */
+    --sv-success-50: oklch(0.982 0.018 155.826);
+    --sv-success-100: oklch(0.962 0.044 156.743);
+    --sv-success-300: oklch(0.871 0.15 154.449);
+    --sv-success-500: oklch(0.723 0.219 149.579);
+    --sv-success-600: oklch(0.627 0.194 149.214);
+    --sv-success-700: oklch(0.527 0.154 150.069);
+    --sv-success-950: oklch(0.266 0.065 152.934);
 
-    --sv-warning-50: var(--sv-neutral-50);
-    --sv-warning-100: var(--sv-neutral-100);
-    --sv-warning-300: var(--sv-neutral-300);
-    --sv-warning-500: var(--sv-neutral-400);
-    --sv-warning-700: var(--sv-neutral-600);
-    --sv-warning-950: var(--sv-neutral-800);
+    --sv-warning-50: oklch(0.987 0.022 95.277);
+    --sv-warning-100: oklch(0.962 0.059 95.617);
+    --sv-warning-300: oklch(0.879 0.169 91.605);
+    --sv-warning-500: oklch(0.769 0.188 70.08);
+    --sv-warning-700: oklch(0.555 0.163 48.998);
+    --sv-warning-950: oklch(0.279 0.077 45.635);
 
     /* Error — the ONE hue the system spends on consequence, so it is the one
        ramp written as exact sRGB rather than as a formula. Four steps are the
@@ -304,18 +309,15 @@ export const V1_ROOT_LIGHT = `:root {
     --sv-error-700: #a12b1a;
     --sv-error-950: #3d0e08;
 
-    --sv-info-50: var(--sv-neutral-50);
-    --sv-info-100: var(--sv-neutral-200);
-    --sv-info-300: var(--sv-neutral-300);
-    --sv-info-500: var(--sv-neutral-500);
-    /* Info's SOLID step, and only this step, carries a hue: --sv-info-solid
-       refs 600, so this is what an informational mark is painted with. The
-       rest of this ramp stays monochrome on purpose: an informational surface
-       is a hairline on a neutral well carrying a coloured mark, not a blue
-       box. */
+    --sv-info-50: oklch(0.97 0.014 254.604);
+    --sv-info-100: oklch(0.932 0.032 255.585);
+    --sv-info-300: oklch(0.809 0.105 251.813);
+    --sv-info-500: oklch(0.623 0.214 259.815);
+    /* Info's solid is the first chart colour, so an informational mark and a
+       chart's first series are one blue. */
     --sv-info-600: #398ad6;
-    --sv-info-700: var(--sv-neutral-600);
-    --sv-info-950: var(--sv-neutral-900);
+    --sv-info-700: oklch(0.488 0.243 264.376);
+    --sv-info-950: oklch(0.282 0.091 267.935);
 
     /* Humane fg — literal, no author alias */
 
@@ -383,15 +385,15 @@ export const V1_ROOT_DARK = `html:is(.dark, [data-theme='dark']) {
 
 
     --sv-success-bg: var(--sv-success-950);
-    --sv-success-border: var(--sv-neutral-700);
-    --sv-success-fg: var(--sv-neutral-300);
+    --sv-success-border: var(--sv-success-700);
+    --sv-success-fg: var(--sv-success-300);
     --sv-success-solid: var(--sv-success-500);
-    --sv-success-solid-fg: var(--sv-neutral-950);
+    --sv-success-solid-fg: var(--sv-success-950);
 
     --sv-warning-bg: var(--sv-warning-950);
-    --sv-warning-border: var(--sv-neutral-600);
-    --sv-warning-fg: var(--sv-neutral-300);
-    --sv-warning-solid: var(--sv-neutral-300);
+    --sv-warning-border: var(--sv-warning-700);
+    --sv-warning-fg: var(--sv-warning-300);
+    --sv-warning-solid: var(--sv-warning-500);
     --sv-warning-solid-fg: var(--sv-warning-950);
 
     --sv-error-bg: #3a2323;
@@ -400,8 +402,8 @@ export const V1_ROOT_DARK = `html:is(.dark, [data-theme='dark']) {
     --sv-error-solid-fg: var(--sv-neutral-950);
 
     --sv-info-bg: var(--sv-info-950);
-    --sv-info-border: var(--sv-neutral-700);
-    --sv-info-fg: var(--sv-neutral-300);
+    --sv-info-border: var(--sv-info-700);
+    --sv-info-fg: var(--sv-info-300);
     --sv-info-solid: #398ad6;
     --sv-info-solid-fg: var(--sv-neutral-50);
 

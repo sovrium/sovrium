@@ -21,7 +21,7 @@
  */
 
 import { utcMinuteInstant } from '@/domain/models/app/pages/components/relative-date-filter'
-import { serverNow } from '@/domain/models/process-env/dev-clock'
+import { renderNow } from '@/presentation/render/page/render-clock'
 import { isComponentReferenceNode } from '@/presentation/render/resolve/component-reference'
 import { bindAuthSource, bindAuthSourcesInTree } from './auth-source-binding'
 import { withCallerTableView } from './caller-table-stamp'
@@ -362,7 +362,7 @@ export async function resolvePageDataSources(
   const components = await resolveCurrentUserFiltersInTree(page.components, {
     // Relative date tokens in a filter name a day or an instant of THIS request.
     // `SOVRIUM_DEV_CLOCK` pins it on a development server.
-    now: utcMinuteInstant(serverNow()),
+    now: utcMinuteInstant(renderNow()),
     session: ctx.session,
     cookies: ctx.cookies,
     db: ctx.db,

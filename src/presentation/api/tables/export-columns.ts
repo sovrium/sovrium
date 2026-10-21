@@ -5,10 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { countsWithheldFrom } from '@/application/use-cases/tables/link-count-narrowing'
 import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
 import { relatedValuesRefusedTo } from '@/domain/models/app/tables/lookup-link-service'
 import { toManyLinksRefusedTo } from '@/domain/models/app/tables/related-field-read-service'
+import { runDomainPromise } from '@/infrastructure/logging/request-effect'
+import type { LinkReader } from '@/application/use-cases/tables/linked-row-visibility'
 import type { App, Table } from '@/domain/models/app'
+import type { Context } from 'hono'
 
 /**
  * The columns of `tableName` the records API leaves out of the caller's read
@@ -50,7 +54,7 @@ const readableColumnNames = (
     )
 
 /** The columns withheld from the caller, and the ordered columns she may read. */
-export const exportColumns = (
+const exportColumns = (
   app: App,
   table: Table | undefined,
   role: string,
@@ -59,4 +63,26 @@ export const exportColumns = (
   const caller = { role, groups }
   const withheld = withheldColumnNames(app, table?.name ?? '', caller)
   return { withheld, tableFieldNames: readableColumnNames(app, table, caller, withheld) }
+}
+
+/**
+ * {@link exportColumns} for `reader`, less the counts withheld from every
+ * record she reads (`countsWithheldFrom`) — a count over a table whose list
+ * admits her no row, and every formula over a count her list narrows — so
+ * their columns are left out as any value she may not read is, even named in
+ * `fields=`.
+ */
+export const readerExportColumns = async (
+  c: Context,
+  app: App,
+  table: Table | undefined,
+  reader: LinkReader
+): Promise<ReturnType<typeof exportColumns>> => {
+  const columns = exportColumns(app, table, reader.role, reader.groups ?? [])
+  const counts = await runDomainPromise(c, countsWithheldFrom(app, table?.name ?? '', reader))
+  if (counts.size === 0) return columns
+  return {
+    withheld: new Set([...columns.withheld, ...counts]),
+    tableFieldNames: columns.tableFieldNames.filter((name) => !counts.has(name)),
+  }
 }

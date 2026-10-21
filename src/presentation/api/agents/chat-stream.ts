@@ -232,7 +232,7 @@ export const buildStreamResponse = async (
   const meta = turnMeta(input)
 
   // The stop signal, registered before anything runs so a pre-flight stop is not lost.
-  const { stop, release } = registerStop(input)
+  const { stop, release } = registerStop(c, input)
   // Externally-managed scope: open across runPromise calls, so the provider
   // connection survives into the drain.
   const scope = await Effect.runPromise(Scope.make())

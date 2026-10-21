@@ -31,6 +31,11 @@ import { COMPONENT_LENGTH_RULES } from './components/component-types/component-x
  *    the page's components would be drawn once per element. The node holding
  *    the marker counts, as does every node above it up to the template root.
  *
+ * A named slot — `children: $slots.<name>` — follows the same rules, once per
+ * name, and two more besides: the template must declare `<name>` as an input
+ * of kind `slot` and mark it, and a placement's `slots` may name only a slot
+ * the template declares and marks.
+ *
  * And one check on a slot whose node lays its children out by POSITION — a
  * `tabs` (`panels[i]` shows `children[i]`) or a `stepper` (`steps[i]`): the
  * placement must pass exactly as many children as the template declares
@@ -53,6 +58,7 @@ interface AppForSlotValidation {
 }
 
 const SLOT_MARKER = '$children'
+const NAMED_SLOT_PREFIX = '$slots.'
 
 /** Keys on a template node that change what `$record` means below it. */
 const SCOPE_KEYS: readonly string[] = ['dataSource', 'contentFrom', 'repeat']
@@ -61,11 +67,12 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /**
- * One slot found in a template: whether a scope-changing node encloses it, and
- * which; and, when the slot's own node aligns its children by position, how
- * many children that node expects.
+ * One slot found in a template: which slot (`$children`, or a named slot's
+ * name), whether a scope-changing node encloses it, and which; and, when the
+ * slot's own node aligns its children by position, how many it expects.
  */
 interface SlotSite {
+  readonly slot: string
   readonly scopeKey: string | undefined
   readonly positional?: { readonly type: string; readonly key: string; readonly length: number }
 }
@@ -85,6 +92,14 @@ const positionalArityOf = (node: Readonly<Record<string, unknown>>): SlotSite['p
 const scopeKeyOf = (node: Readonly<Record<string, unknown>>): string | undefined =>
   SCOPE_KEYS.find((key) => node[key] !== undefined)
 
+/** The slot a `children` value marks: `$children`, a named slot's name, or none. */
+const slotMarkedBy = (children: unknown): string | undefined => {
+  if (children === SLOT_MARKER) return SLOT_MARKER
+  return typeof children === 'string' && children.startsWith(NAMED_SLOT_PREFIX)
+    ? children.slice(NAMED_SLOT_PREFIX.length)
+    : undefined
+}
+
 /**
  * Every slot under `node`, walking `children` lists — the only place a slot can
  * be written — and carrying the first scope-changing key met on the way down.
@@ -93,38 +108,89 @@ const slotSites = (node: unknown, enclosingScope: string | undefined): readonly 
   if (!isRecord(node)) return []
   const scopeKey = enclosingScope ?? scopeKeyOf(node)
   const { children } = node
-  if (children === SLOT_MARKER) {
+  const slot = slotMarkedBy(children)
+  if (slot !== undefined) {
     const positional = positionalArityOf(node)
-    return [positional === undefined ? { scopeKey } : { scopeKey, positional }]
+    return [positional === undefined ? { slot, scopeKey } : { slot, scopeKey, positional }]
   }
   return Array.isArray(children)
     ? children.flatMap((child: unknown) => slotSites(child, scopeKey))
     : []
 }
 
+/** A template's slots, and the names it declares as inputs of kind `slot`. */
+interface TemplateSlots {
+  readonly sites: readonly SlotSite[]
+  readonly declared: ReadonlySet<string>
+}
+
+/** The names a template declares as inputs of kind `slot`. */
+const declaredSlotsOf = (template: Readonly<Record<string, unknown>>): ReadonlySet<string> => {
+  const { inputs } = template
+  if (!isRecord(inputs)) return new Set()
+  return new Set(
+    Object.entries(inputs).flatMap(([name, input]) =>
+      isRecord(input) && input['kind'] === 'slot' ? [name] : []
+    )
+  )
+}
+
 /** Each declared template by name, with the slots its tree holds. */
-const templateSlots = (components: unknown): ReadonlyMap<string, readonly SlotSite[]> =>
+const templateSlots = (components: unknown): ReadonlyMap<string, TemplateSlots> =>
   new Map(
     (Array.isArray(components) ? components : []).flatMap((template: unknown) =>
       isRecord(template) && typeof template['name'] === 'string'
-        ? [[template['name'], slotSites(template, undefined)] as const]
+        ? [
+            [
+              template['name'],
+              { sites: slotSites(template, undefined), declared: declaredSlotsOf(template) },
+            ] as const,
+          ]
         : []
     )
   )
 
-/** The template-side refusals: two slots, or a slot in a binding or repeating node. */
-const templateViolation = (name: string, sites: readonly SlotSite[]): string | undefined => {
-  if (sites.length > 1) {
-    return `Template '${name}' declares ${sites.length} slots (children: $children); a template takes at most one. Keep one slot and lay the others out inside the page's components.`
+/** How a slot is written in a template, for a message. */
+const markerOf = (slot: string): string =>
+  slot === SLOT_MARKER ? 'children: $children' : `children: $slots.${slot}`
+
+/** The template-side refusals about how often, and whether declared, a slot is marked. */
+const markingViolation = (name: string, { sites, declared }: TemplateSlots): string | undefined => {
+  const marked = sites.map((site) => site.slot)
+  const repeated = marked.find((slot, index) => marked.indexOf(slot) !== index)
+  if (repeated === SLOT_MARKER) {
+    const count = marked.filter((slot) => slot === SLOT_MARKER).length
+    return `Template '${name}' declares ${count} slots (children: $children); a template takes at most one. Keep one slot and lay the others out inside the page's components.`
   }
-  const scoped = sites.find((site) => site.scopeKey !== undefined)
-  return scoped === undefined
+  if (repeated !== undefined) {
+    return `Template '${name}' marks the slot $slots.${repeated} more than once; each slot is marked on one node. Keep one marker and lay the rest out inside the page's components.`
+  }
+  const undeclared = marked.find((slot) => slot !== SLOT_MARKER && !declared.has(slot))
+  if (undeclared !== undefined) {
+    return `Template '${name}' marks the slot $slots.${undeclared}, but '${undeclared}' is not declared as an input of kind slot. Add inputs: { ${undeclared}: { kind: slot } } to the template.`
+  }
+  const unmarked = [...declared].find((slot) => !marked.includes(slot))
+  return unmarked === undefined
     ? undefined
-    : `Template '${name}' places its slot (children: $children) inside a node that declares ${scoped.scopeKey}. The page's components are read in the page's scope, so the slot cannot sit where ${scoped.scopeKey} would bind or repeat them. Move the slot outside that node.`
+    : `Template '${name}' declares the slot input '${unmarked}' but marks no node with children: $slots.${unmarked}, so what a page passes for it would be drawn nowhere. Mark the node that should hold it, or remove the input.`
 }
 
-/** The page components a placement passes, or `undefined` when it passes none. */
-const passedChildren = (placement: Placement): unknown => placement.node['children']
+/** The template-side refusals: a slot marked wrongly, or a slot in a binding or repeating node. */
+const templateViolation = (name: string, slots: TemplateSlots): string | undefined => {
+  const marking = markingViolation(name, slots)
+  if (marking !== undefined) return marking
+  const scoped = slots.sites.find((site) => site.scopeKey !== undefined)
+  return scoped === undefined
+    ? undefined
+    : `Template '${name}' places its slot (${markerOf(scoped.slot)}) inside a node that declares ${scoped.scopeKey}. The page's components are read in the page's scope, so the slot cannot sit where ${scoped.scopeKey} would bind or repeat them. Move the slot outside that node.`
+}
+
+/** The page components a placement passes for a slot, or `undefined` when it passes none. */
+const passedFor = (placement: Placement, slot: string): unknown => {
+  if (slot === SLOT_MARKER) return placement.node['children']
+  const { slots } = placement.node
+  return isRecord(slots) ? slots[slot] : undefined
+}
 
 /** Whether a placement's values carry a `children` key. */
 const fillsSlotThroughValues = (placement: Placement): boolean =>
@@ -133,33 +199,53 @@ const fillsSlotThroughValues = (placement: Placement): boolean =>
     return isRecord(values) && Object.hasOwn(values, 'children')
   })
 
+/** A placement's `slots` entry naming no slot its template declares and marks. */
+const unknownSlotViolation = (
+  placement: Placement,
+  template: TemplateSlots
+): string | undefined => {
+  const { slots } = placement.node
+  if (!isRecord(slots)) return undefined
+  const marked = new Set(template.sites.map((site) => site.slot))
+  const unknown = Object.keys(slots).find(
+    (slot) => !template.declared.has(slot) || !marked.has(slot)
+  )
+  return unknown === undefined
+    ? undefined
+    : `${placement.form}: ${placement.name} passes slots.${unknown}, but '${unknown}' is not a slot of template '${placement.name}'. Declare it in the template as an input of kind slot and mark its node with children: $slots.${unknown}, or write those components on the page beside the placement.`
+}
+
 /** The placement-side refusals: children to a slotless template, or the slot filled by a value. */
 const placementViolation = (
   placement: Placement,
-  slots: ReadonlyMap<string, readonly SlotSite[]>
+  slots: ReadonlyMap<string, TemplateSlots>
 ): string | undefined => {
-  const sites = slots.get(placement.name)
+  const template = slots.get(placement.name)
   // An unknown name is the reference check's to report, with its own message.
-  if (sites === undefined) return undefined
-  if (sites.length === 0 && passedChildren(placement) !== undefined) {
+  if (template === undefined) return undefined
+  const { sites } = template
+  const hasDefault = sites.some((site) => site.slot === SLOT_MARKER)
+  if (!hasDefault && passedFor(placement, SLOT_MARKER) !== undefined) {
     return `${placement.form}: ${placement.name} passes children, but template '${placement.name}' has no slot to put them in. Mark the node that should hold them with children: $children in the template, or write those components on the page beside the placement.`
   }
-  if (sites.length > 0 && fillsSlotThroughValues(placement)) {
+  if (hasDefault && fillsSlotThroughValues(placement)) {
     return `${placement.form}: ${placement.name} passes a value named children; template '${placement.name}' has a slot, which takes the page's components as the placement's own children list, not as a value. Move them to children: [ … ] on the placement.`
   }
-  return positionalViolation(placement, sites[0]?.positional)
+  return (
+    unknownSlotViolation(placement, template) ??
+    sites.map((site) => positionalViolation(placement, site)).find((error) => error !== undefined)
+  )
 }
 
 /** A placement filling a positional slot with a different number of children. */
-const positionalViolation = (
-  placement: Placement,
-  positional: SlotSite['positional']
-): string | undefined => {
-  const passed = passedChildren(placement)
+const positionalViolation = (placement: Placement, site: SlotSite): string | undefined => {
+  const { positional } = site
+  const passed = passedFor(placement, site.slot)
   if (positional === undefined || !Array.isArray(passed) || passed.length === positional.length) {
     return undefined
   }
-  return `${placement.form}: ${placement.name} passes ${String(passed.length)} children, but template '${placement.name}' holds its slot in a \`${positional.type}\` that declares ${String(positional.length)} \`${positional.key}\`. \`${positional.key}[i]\` shows the i-th child, so pass exactly one child per entry, or a missing one puts the wrong body under every entry after it.`
+  const what = site.slot === SLOT_MARKER ? 'children' : `components in slots.${site.slot}`
+  return `${placement.form}: ${placement.name} passes ${String(passed.length)} ${what}, but template '${placement.name}' holds its slot in a \`${positional.type}\` that declares ${String(positional.length)} \`${positional.key}\`. \`${positional.key}[i]\` shows the i-th child, so pass exactly one child per entry, or a missing one puts the wrong body under every entry after it.`
 }
 
 /**
@@ -170,7 +256,7 @@ const positionalViolation = (
  */
 export const validateAllComponentSlots = (app: AppForSlotValidation): string | true => {
   const slots = templateSlots(app.components)
-  const templateError = [...slots].map(([name, sites]) => templateViolation(name, sites))
+  const templateError = [...slots].map(([name, template]) => templateViolation(name, template))
   const placements = [...collectPlacements(app.pages), ...collectPlacements(app.components)]
   const placementError = placements.map((placement) => placementViolation(placement, slots))
   return [...templateError, ...placementError].find((error) => error !== undefined) ?? true

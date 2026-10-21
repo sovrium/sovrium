@@ -180,7 +180,8 @@ export default {
   'admin.ds.tpl.shell.usage': 'Enveloppe chaque page d’admin avec lui, via le shell.',
   'admin.ds.tpl.shell.when':
     'Quand une page a sa place dans l’arbre de navigation — c’est-à-dire toutes.',
-  'admin.ds.tpl.shell.dont': 'N’y mets pas les actions de page ; elles vont dans data-page-header.',
+  'admin.ds.tpl.shell.dont':
+    'N’y mets pas les actions de page ; elles vont dans console-data-page-header.',
   'admin.ds.tpl.header.usage':
     'Place-le au-dessus de toute grille, liste ou tableau qui lit une collection.',
   'admin.ds.tpl.header.when':

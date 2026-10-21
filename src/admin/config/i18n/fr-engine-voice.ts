@@ -8,16 +8,24 @@
 // The engine's French says `vous`, because it reaches every app's end users.
 // The console says `tu` (`fr.ts`, VOICE), so it overrides each engine string it
 // renders under the reserved `sovrium.` prefix — the record sheet, the grid,
-// the import and filter controls, the API keys manager, the palette — and the
-// engine itself is left as it is.
+// the import and filter controls, the API keys manager, the palette, the AI
+// chat — and the engine itself is left as it is.
 
 export default {
   'sovrium.action.unreachable': 'L’action n’a pas pu être exécutée. Réessaie.',
   'sovrium.agentConversations.idle': 'Choisis une conversation',
   'sovrium.agentConversations.idleBody': 'Choisis-en une dans la liste pour lire ses messages.',
-  'sovrium.agentConversations.loadFailedBody': 'La liste n’a pas pu être chargée. Réessaie.',
-  'sovrium.agentConversations.threadFailedBody':
-    'Les messages n’ont pas pu être chargés. Réessaie.',
+  'sovrium.agentConversations.loadFailedBody':
+    'Les conversations n’ont pas pu se charger. Réessaie.',
+  'sovrium.agentConversations.threadFailedBody': 'Les messages n’ont pas pu se charger. Réessaie.',
+  'sovrium.aiChat.awaitingApproval': 'En attente de ton accord',
+  'sovrium.aiChat.closed': 'Plus en attente de décision. Redemande si tu en as encore besoin.',
+  'sovrium.aiChat.composer.voiceError': 'L’enregistrement n’a pas pu être transcrit. Réessaie.',
+  'sovrium.aiChat.notConfigured':
+    'Le chat IA n’est pas configuré ici. Définis AI_PROVIDER, et AI_API_KEY pour un fournisseur hébergé, pour l’activer.',
+  'sovrium.aiChat.placeholder': 'Pose une question…',
+  'sovrium.aiChat.question.closed':
+    'Cette question est close. Redemande si tu en as encore besoin.',
   'sovrium.apiKeys.copyFailed':
     'Copie impossible : sélectionne la clé ci-dessus et copie-la toi-même.',
   'sovrium.apiKeys.copyNow':
@@ -31,7 +39,7 @@ export default {
     'Crées-en une pour qu’un script ou une tâche planifiée appelle l’API en ton nom.',
   'sovrium.apiKeys.list': 'Tes clés d’API',
   'sovrium.apiKeys.loadFailed':
-    'Impossible de charger tes clés d’API. Recharge la page pour réessayer.',
+    'Tes clés d’API n’ont pas pu se charger. Recharge la page pour réessayer.',
   'sovrium.apiKeys.loading': 'Chargement de tes clés…',
   'sovrium.apiKeys.nameHint':
     'Nomme-la d’après la tâche qui l’utilisera : c’est à ce nom que tu la reconnaîtras.',
@@ -55,7 +63,7 @@ export default {
   'sovrium.form.selectUser': 'Choisis un utilisateur…',
   'sovrium.form.uploadFailed': 'L’envoi du fichier a échoué. Réessaie.',
   'sovrium.form.uploadTypeRefused':
-    'Ce type de fichier n’est pas autorisé. Choisis un fichier valide.',
+    'Ce type de fichier n’est pas accepté. Choisis un autre fichier.',
   'sovrium.rateLimit.message': 'Trop de requêtes. Patiente un instant, puis réessaie.',
   'sovrium.rateLimit.retryIn': 'Trop de requêtes, réessaie dans {seconds} s.',
   'sovrium.recordDrawer.browse': 'parcours',
@@ -63,5 +71,5 @@ export default {
   'sovrium.recordDrawer.invalidJson': 'Saisis un JSON valide.',
   'sovrium.recordDrawer.saveRefused':
     'Tu ne peux pas modifier cet enregistrement, ou il n’existe plus.',
-  'sovrium.tree.loadFailed': 'Impossible de charger {label}. Actualise la page pour réessayer.',
+  'sovrium.tree.loadFailed': '{label} n’a pas pu se charger. Recharge la page pour réessayer.',
 } as const

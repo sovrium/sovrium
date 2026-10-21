@@ -107,14 +107,29 @@ function buildAutoColumn(field: string, options: AutoColumnOptions): DataTableCo
 }
 
 /**
+ * The read envelope's two timestamps, typed as the system date fields they
+ * are. A reader who may read no field of the table is handed only the
+ * envelope, and without a type these columns printed the stored ISO instant
+ * rather than a date in the page language.
+ */
+const ENVELOPE_TIMESTAMP_META: FieldMetaMap = {
+  createdAt: { type: 'created-at', readOnly: true },
+  updatedAt: { type: 'updated-at', readOnly: true },
+}
+
+/**
  * Auto-generates column defs from record keys when no explicit columns provided
  */
 export function autoGenerateColumns(
   records: readonly TableRecord[],
-  options: AutoColumnOptions
+  baseOptions: AutoColumnOptions
 ): readonly DataTableColumnDef[] {
   const firstRecord = records[0]
   if (!firstRecord) return []
+  const options = {
+    ...baseOptions,
+    fieldMeta: { ...ENVELOPE_TIMESTAMP_META, ...baseOptions.fieldMeta },
+  }
   // Record keys come from the database, and a button field has no column
   // there — so append the table's button fields, which would otherwise never
   // reach this path at all.

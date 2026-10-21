@@ -88,6 +88,8 @@ const keptDraftAnswers = (
 export const saveFormDraftProgram = (config: {
   readonly app: Readonly<App>
   readonly formName: string
+  /** The form as offered to the submitter (see `SubmitFormConfig.form`); as declared when absent. */
+  readonly form?: Readonly<Form>
   readonly email: string
   readonly answers: Readonly<Record<string, unknown>>
   readonly token: string
@@ -99,10 +101,12 @@ export const saveFormDraftProgram = (config: {
 }) =>
   Effect.gen(function* () {
     const { app, formName, email, token, tokenHash } = config
-    const form = findFormByName(app, formName)
-    if (form?.saveAndResume?.enabled !== true) {
+    const declared = findFormByName(app, formName)
+    if (declared?.saveAndResume?.enabled !== true) {
       return yield* new FormNotFoundError({ formName })
     }
+    // A draft keeps only what its submitter was offered.
+    const form = { ...(config.form ?? declared), saveAndResume: declared.saveAndResume }
     // A save mails a link, so it is held to the form's submission limits: the
     // endpoint must not become a way to send mail to any address at will.
     yield* checkRateLimit({

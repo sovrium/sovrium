@@ -1,0 +1,898 @@
+{
+  "id": "dashboard-data-link-detail",
+  "name": "dashboard-data-link-detail",
+  "path": "/links/:slug",
+  "meta": {
+    "title": "$t:admin.meta.links"
+  },
+  "requires": ["links"],
+  "window": {
+    "param": "period",
+    "default": "7d",
+    "presets": [
+      {
+        "id": "24h"
+      },
+      {
+        "id": "7d"
+      },
+      {
+        "id": "30d"
+      }
+    ]
+  },
+  "dataSource": {
+    "system": {
+      "endpoint": "/api/admin/links/:slug",
+      "param": "slug",
+      "recordKey": "link"
+    }
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "links": "$t:admin.crumb.links"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "header",
+          "element": "header",
+          "props": {
+            "className": "flex flex-col gap-1"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "h1",
+              "props": {
+                "className": "text-foreground text-2xl font-semibold tracking-tight"
+              },
+              "content": "$record.title|$record.slug"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "content": "$t:admin.links.detailBlurb"
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "admin-surface-content-2-2",
+          "element": "div",
+          "props": {
+            "className": "flex flex-col gap-6 pt-2"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "definition-heading",
+              "element": "section",
+              "props": {
+                "className": "flex flex-col gap-3",
+                "aria-label": "$t:admin.links.definition.heading"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "h3",
+                  "props": {
+                    "className": "text-foreground text-md font-medium"
+                  },
+                  "content": "$t:admin.links.definition.heading"
+                },
+                {
+                  "component": "console-grid",
+                  "key": "grid",
+                  "vars": {
+                    "id": "admin-link-definition",
+                    "ariaLabel": "$t:admin.links.definition.region",
+                    "dataSource": {
+                      "system": {
+                        "endpoint": "/api/admin/links",
+                        "rowsKey": "items",
+                        "idKey": "slug",
+                        "query": {
+                          "q": "$param.slug"
+                        }
+                      }
+                    },
+                    "columns": [
+                      {
+                        "field": "shortUrl",
+                        "label": "$t:admin.links.shortLink"
+                      },
+                      {
+                        "field": "destination",
+                        "label": "$t:admin.links.destination"
+                      },
+                      {
+                        "field": "source",
+                        "label": "$t:admin.common.source",
+                        "valueLabels": {
+                          "config": "$t:admin.links.source.config",
+                          "db": "$t:admin.links.source.console"
+                        }
+                      },
+                      {
+                        "field": "state",
+                        "label": "$t:admin.common.state"
+                      },
+                      {
+                        "field": "validFrom",
+                        "label": "$t:admin.links.starts",
+                        "format": "datetime"
+                      },
+                      {
+                        "field": "validUntil",
+                        "label": "$t:admin.common.expires",
+                        "format": "datetime"
+                      }
+                    ],
+                    "emptyMessage": "$t:admin.links.undeclared",
+                    "onRowClick": {
+                      "action": "openSheet",
+                      "component": "admin-link-definition-drawer"
+                    }
+                  }
+                },
+                {
+                  "type": "container",
+                  "key": "qr-region",
+                  "element": "section",
+                  "props": {
+                    "aria-label": "$t:admin.links.qr.region",
+                    "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 flex w-fit flex-col items-center gap-3 p-4"
+                  },
+                  "children": [
+                    {
+                      "type": "qr-code",
+                      "link": "$param.slug",
+                      "props": {
+                        "aria-label": "$t:admin.links.qrFor /l/$param.slug",
+                        "className": "h-40 w-40"
+                      }
+                    },
+                    {
+                      "type": "link",
+                      "content": "$t:admin.links.qr.download",
+                      "props": {
+                        "href": "$app.origin$record.qrUrl",
+                        "download": "$record.slug-qr.svg",
+                        "target": "_blank",
+                        "rel": "noopener noreferrer",
+                        "className": "text-muted-foreground hover:text-foreground text-sm underline"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "component": "console-record-sheet",
+                  "key": "record-sheet",
+                  "vars": {
+                    "id": "admin-link-definition-drawer",
+                    "dataSource": {
+                      "system": {
+                        "endpoint": "/api/admin/links/:slug",
+                        "param": "slug",
+                        "recordKey": "link"
+                      }
+                    },
+                    "canEdit": false,
+                    "props": {
+                      "title": "$t:admin.links.definition"
+                    },
+                    "recordFields": [
+                      {
+                        "name": "shortUrl",
+                        "type": "single-line-text",
+                        "label": "$t:admin.links.shortLink"
+                      },
+                      {
+                        "name": "targets",
+                        "type": "json",
+                        "label": "$t:admin.links.targets",
+                        "renderAs": "list"
+                      },
+                      {
+                        "name": "utm",
+                        "type": "json",
+                        "label": "$t:admin.links.utm",
+                        "renderAs": "key-value"
+                      },
+                      {
+                        "name": "tags",
+                        "type": "single-line-text",
+                        "label": "$t:admin.links.tags"
+                      },
+                      {
+                        "name": "notes",
+                        "type": "long-text",
+                        "label": "$t:admin.links.notes"
+                      },
+                      {
+                        "name": "maxClicks",
+                        "type": "single-line-text",
+                        "label": "$t:admin.links.clickCap"
+                      },
+                      {
+                        "name": "expiredTo",
+                        "type": "single-line-text",
+                        "label": "$t:admin.links.whenExpired"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "manage-region",
+              "element": "section",
+              "visibility": {
+                "record": {
+                  "field": "source",
+                  "eq": "db"
+                },
+                "capability": "edit-operations"
+              },
+              "props": {
+                "aria-label": "$t:admin.links.manage.region",
+                "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 flex flex-col gap-4 p-4"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "h3",
+                  "props": {
+                    "className": "text-foreground text-md font-medium"
+                  },
+                  "content": "$t:admin.links.manage.heading"
+                },
+                {
+                  "type": "form",
+                  "props": {
+                    "id": "admin-link-repoint-form",
+                    "aria-label": "$t:admin.links.manage.repoint",
+                    "className": "border-0 bg-transparent p-0"
+                  },
+                  "endpoint": {
+                    "url": "/api/admin/links/$param.slug",
+                    "method": "PATCH",
+                    "submitLabel": "$t:admin.links.repoint.submit",
+                    "onSuccess": {
+                      "type": "toast",
+                      "variant": "success",
+                      "message": "$t:admin.links.repoint.done",
+                      "refetch": "admin-link-definition"
+                    },
+                    "onError": {
+                      "type": "toast",
+                      "variant": "destructive",
+                      "message": "$t:admin.links.repoint.failed"
+                    }
+                  },
+                  "fields": [
+                    {
+                      "field": "destination",
+                      "control": "text",
+                      "label": "$t:admin.links.newDestination"
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "manage-region-3",
+                  "element": "div",
+                  "props": {
+                    "className": "flex flex-wrap items-center gap-2"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "manage-region-3-1",
+                      "element": "div",
+                      "visibility": {
+                        "record": {
+                          "field": "state",
+                          "eq": "active"
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "button",
+                          "label": "$t:admin.links.disable",
+                          "variant": "secondary",
+                          "confirm": {
+                            "title": "$t:admin.links.disableConfirm",
+                            "message": "$t:admin.links.disableMessage",
+                            "role": "alertdialog",
+                            "confirmLabel": "$t:admin.links.disableLink",
+                            "cancelLabel": "$t:admin.common.cancel"
+                          },
+                          "action": {
+                            "type": "fetch",
+                            "method": "POST",
+                            "url": "/api/admin/links/$param.slug/disable",
+                            "onSuccess": {
+                              "type": "toast",
+                              "message": "$t:admin.links.disabled",
+                              "refetch": "admin-link-definition"
+                            },
+                            "onError": {
+                              "type": "toast",
+                              "variant": "destructive",
+                              "message": "$t:admin.links.unchanged"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "manage-region-3-2",
+                      "element": "div",
+                      "visibility": {
+                        "record": {
+                          "field": "state",
+                          "eq": "disabled"
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "button",
+                          "label": "$t:admin.links.enable",
+                          "variant": "secondary",
+                          "action": {
+                            "type": "fetch",
+                            "method": "POST",
+                            "url": "/api/admin/links/$param.slug/enable",
+                            "onSuccess": {
+                              "type": "toast",
+                              "message": "$t:admin.links.enabled",
+                              "refetch": "admin-link-definition"
+                            },
+                            "onError": {
+                              "type": "toast",
+                              "variant": "destructive",
+                              "message": "$t:admin.links.unchanged"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "button",
+                      "label": "$t:admin.common.delete",
+                      "variant": "destructive",
+                      "confirm": {
+                        "title": "$t:admin.links.deleteConfirm",
+                        "message": "$t:admin.links.deleteMessage",
+                        "role": "alertdialog",
+                        "confirmLabel": "$t:admin.links.delete",
+                        "cancelLabel": "$t:admin.common.cancel"
+                      },
+                      "action": {
+                        "type": "fetch",
+                        "method": "DELETE",
+                        "url": "/api/admin/links/$param.slug",
+                        "onSuccess": {
+                          "type": "toast",
+                          "message": "$t:admin.links.deleted"
+                        },
+                        "onError": {
+                          "type": "toast",
+                          "variant": "destructive",
+                          "message": "$t:admin.links.notDeleted"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "manage-region-2",
+              "element": "section",
+              "visibility": {
+                "record": {
+                  "field": "source",
+                  "eq": "config"
+                }
+              },
+              "props": {
+                "aria-label": "$t:admin.links.manage.region",
+                "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 flex flex-col gap-2 p-4"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "h3",
+                  "props": {
+                    "className": "text-foreground text-md font-medium"
+                  },
+                  "content": "$t:admin.links.manage.config.heading"
+                },
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "className": "text-muted-foreground max-w-2xl text-md leading-relaxed"
+                  },
+                  "content": "$t:admin.links.manage.config.body"
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-2-4",
+              "element": "div",
+              "visibility": {
+                "declares": "analytics",
+                "capability": "administer-accounts"
+              },
+              "props": {
+                "className": "flex flex-col gap-6"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "period-region",
+                  "element": "nav",
+                  "props": {
+                    "aria-label": "$t:admin.links.period.region",
+                    "className": "border-border flex w-fit items-center gap-1 rounded-md border p-0.5"
+                  },
+                  "children": [
+                    {
+                      "type": "link",
+                      "content": "$t:admin.links.period.24h",
+                      "props": {
+                        "href": "/links/$param.slug?period=24h",
+                        "className": "text-muted-foreground hover:text-foreground rounded px-2.5 py-1 text-sm font-medium"
+                      },
+                      "activeWhen": {
+                        "value": "$window.id",
+                        "equals": "24h"
+                      },
+                      "activeProps": {
+                        "aria-current": "page",
+                        "className": "bg-card text-foreground rounded px-2.5 py-1 text-sm font-medium"
+                      }
+                    },
+                    {
+                      "type": "link",
+                      "content": "$t:admin.links.period.7d",
+                      "props": {
+                        "href": "/links/$param.slug?period=7d",
+                        "className": "text-muted-foreground hover:text-foreground rounded px-2.5 py-1 text-sm font-medium"
+                      },
+                      "activeWhen": {
+                        "value": "$window.id",
+                        "equals": "7d"
+                      },
+                      "activeProps": {
+                        "aria-current": "page",
+                        "className": "bg-card text-foreground rounded px-2.5 py-1 text-sm font-medium"
+                      }
+                    },
+                    {
+                      "type": "link",
+                      "content": "$t:admin.links.period.30d",
+                      "props": {
+                        "href": "/links/$param.slug?period=30d",
+                        "className": "text-muted-foreground hover:text-foreground rounded px-2.5 py-1 text-sm font-medium"
+                      },
+                      "activeWhen": {
+                        "value": "$window.id",
+                        "equals": "30d"
+                      },
+                      "activeProps": {
+                        "aria-current": "page",
+                        "className": "bg-card text-foreground rounded px-2.5 py-1 text-sm font-medium"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "metrics-region",
+                  "element": "section",
+                  "props": {
+                    "className": "flex flex-col gap-3 pt-2",
+                    "aria-label": "$t:admin.links.metrics.region"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "text-foreground-subtle text-sm"
+                      },
+                      "content": "$t:admin.analytics.measuredOver $window.label."
+                    },
+                    {
+                      "type": "container",
+                      "key": "metrics-region-2",
+                      "props": {
+                        "className": "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+                      },
+                      "children": [
+                        {
+                          "component": "console-section-card",
+                          "key": "section-card",
+                          "vars": {
+                            "label": "$t:admin.analytics.clicks",
+                            "dataSource": {
+                              "system": {
+                                "endpoint": "/api/analytics/overview",
+                                "valuePath": "summary.pageViews",
+                                "query": {
+                                  "from": "$window.start",
+                                  "to": "$window.end",
+                                  "granularity": "$window.granularity",
+                                  "event_type": "link_click",
+                                  "event_name": "$param.slug"
+                                }
+                              }
+                            },
+                            "kpiFormat": {
+                              "type": "number"
+                            }
+                          }
+                        },
+                        {
+                          "component": "console-section-card",
+                          "key": "section-card-2",
+                          "vars": {
+                            "label": "$t:admin.analytics.scans",
+                            "dataSource": {
+                              "system": {
+                                "endpoint": "/api/analytics/overview",
+                                "valuePath": "summary.pageViews",
+                                "query": {
+                                  "from": "$window.start",
+                                  "to": "$window.end",
+                                  "granularity": "$window.granularity",
+                                  "event_type": "qr_scan",
+                                  "event_name": "$param.slug"
+                                }
+                              }
+                            },
+                            "kpiFormat": {
+                              "type": "number"
+                            }
+                          }
+                        },
+                        {
+                          "component": "console-section-card",
+                          "key": "section-card-3",
+                          "vars": {
+                            "label": "$t:admin.analytics.uniqueVisitors",
+                            "dataSource": {
+                              "system": {
+                                "endpoint": "/api/analytics/overview",
+                                "valuePath": "summary.uniqueVisitors",
+                                "query": {
+                                  "from": "$window.start",
+                                  "to": "$window.end",
+                                  "granularity": "$window.granularity",
+                                  "event_type": "link_click",
+                                  "event_name": "$param.slug"
+                                }
+                              }
+                            },
+                            "kpiFormat": {
+                              "type": "number"
+                            }
+                          }
+                        },
+                        {
+                          "component": "console-section-card",
+                          "key": "section-card-4",
+                          "vars": {
+                            "label": "$t:admin.analytics.sessions",
+                            "dataSource": {
+                              "system": {
+                                "endpoint": "/api/analytics/overview",
+                                "valuePath": "summary.sessions",
+                                "query": {
+                                  "from": "$window.start",
+                                  "to": "$window.end",
+                                  "granularity": "$window.granularity",
+                                  "event_type": "link_click",
+                                  "event_name": "$param.slug"
+                                }
+                              }
+                            },
+                            "kpiFormat": {
+                              "type": "number"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "chart",
+                  "props": {
+                    "aria-label": "$t:admin.links.trend.region"
+                  },
+                  "dataSource": {
+                    "system": {
+                      "endpoint": "/api/analytics/overview",
+                      "rowsKey": "timeSeries",
+                      "query": {
+                        "from": "$window.start",
+                        "to": "$window.end",
+                        "granularity": "$window.granularity",
+                        "event_type": "link_click",
+                        "event_name": "$param.slug"
+                      }
+                    }
+                  },
+                  "chartType": "area",
+                  "xAxis": {
+                    "field": "period",
+                    "format": "date"
+                  },
+                  "yAxis": {
+                    "field": "pageViews",
+                    "gridLines": true
+                  },
+                  "series": [
+                    {
+                      "field": "pageViews",
+                      "label": "$t:admin.analytics.clicks"
+                    },
+                    {
+                      "field": "uniqueVisitors",
+                      "label": "$t:admin.analytics.uniqueVisitors"
+                    }
+                  ],
+                  "emptyState": {
+                    "role": "region",
+                    "name": "$t:admin.common.noData",
+                    "title": "$t:admin.analytics.noClicksRecorded"
+                  }
+                },
+                {
+                  "type": "container",
+                  "key": "audience-heading",
+                  "element": "section",
+                  "props": {
+                    "className": "flex flex-col gap-3",
+                    "aria-label": "$t:admin.links.audience.heading"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "h3",
+                      "props": {
+                        "className": "text-foreground text-md font-medium"
+                      },
+                      "content": "$t:admin.links.audience.heading"
+                    },
+                    {
+                      "type": "container",
+                      "key": "audience-heading-2",
+                      "props": {
+                        "className": "grid grid-cols-1 gap-4 lg:grid-cols-3"
+                      },
+                      "children": [
+                        {
+                          "component": "console-grid",
+                          "key": "grid-2",
+                          "vars": {
+                            "ariaLabel": "$t:admin.links.referrers.region",
+                            "dataSource": {
+                              "system": {
+                                "endpoint": "/api/analytics/referrers",
+                                "rowsKey": "referrers",
+                                "idKey": "domain",
+                                "query": {
+                                  "from": "$window.start",
+                                  "to": "$window.end",
+                                  "granularity": "$window.granularity",
+                                  "event_type": "link_click",
+                                  "event_name": "$param.slug"
+                                }
+                              }
+                            },
+                            "columns": [
+                              {
+                                "field": "domain",
+                                "label": "$t:admin.analytics.referrer"
+                              },
+                              {
+                                "field": "pageViews",
+                                "label": "$t:admin.analytics.clicks",
+                                "align": "right"
+                              },
+                              {
+                                "field": "uniqueVisitors",
+                                "label": "$t:admin.analytics.visitors",
+                                "align": "right"
+                              }
+                            ],
+                            "emptyMessage": "$t:admin.analytics.noReferrers"
+                          }
+                        },
+                        {
+                          "component": "console-grid",
+                          "key": "grid-3",
+                          "vars": {
+                            "ariaLabel": "$t:admin.links.devices.region",
+                            "dataSource": {
+                              "system": {
+                                "endpoint": "/api/analytics/devices",
+                                "rowsKey": "deviceTypes",
+                                "idKey": "name",
+                                "query": {
+                                  "from": "$window.start",
+                                  "to": "$window.end",
+                                  "granularity": "$window.granularity",
+                                  "event_type": "link_click",
+                                  "event_name": "$param.slug"
+                                }
+                              }
+                            },
+                            "columns": [
+                              {
+                                "field": "name",
+                                "label": "$t:admin.common.name"
+                              },
+                              {
+                                "field": "count",
+                                "label": "$t:admin.analytics.clicks",
+                                "align": "right"
+                              },
+                              {
+                                "field": "percentage",
+                                "label": "$t:admin.analytics.share",
+                                "align": "right"
+                              }
+                            ],
+                            "emptyMessage": "$t:admin.links.noDevices"
+                          }
+                        },
+                        {
+                          "component": "console-grid",
+                          "key": "grid-4",
+                          "vars": {
+                            "ariaLabel": "$t:admin.links.campaigns.region",
+                            "dataSource": {
+                              "system": {
+                                "endpoint": "/api/analytics/campaigns",
+                                "rowsKey": "campaigns",
+                                "idKey": "campaign",
+                                "query": {
+                                  "from": "$window.start",
+                                  "to": "$window.end",
+                                  "granularity": "$window.granularity",
+                                  "event_type": "link_click",
+                                  "event_name": "$param.slug"
+                                }
+                              }
+                            },
+                            "columns": [
+                              {
+                                "field": "campaign",
+                                "label": "$t:admin.analytics.campaign"
+                              },
+                              {
+                                "field": "source",
+                                "label": "$t:admin.common.source"
+                              },
+                              {
+                                "field": "medium",
+                                "label": "$t:admin.analytics.medium"
+                              },
+                              {
+                                "field": "pageViews",
+                                "label": "$t:admin.analytics.clicks",
+                                "align": "right"
+                              }
+                            ],
+                            "emptyMessage": "$t:admin.analytics.noCampaigns"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "click-log-heading",
+                  "element": "section",
+                  "props": {
+                    "className": "flex flex-col gap-3",
+                    "aria-label": "$t:admin.links.clickLog.heading"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "h3",
+                      "props": {
+                        "className": "text-foreground text-md font-medium"
+                      },
+                      "content": "$t:admin.links.clickLog.heading"
+                    },
+                    {
+                      "component": "console-grid",
+                      "key": "grid-5",
+                      "vars": {
+                        "ariaLabel": "$t:admin.links.clickLog.region",
+                        "dataSource": {
+                          "system": {
+                            "endpoint": "/api/analytics/events",
+                            "rowsKey": "events",
+                            "idKey": "id",
+                            "query": {
+                              "from": "$window.start",
+                              "to": "$window.end",
+                              "granularity": "$window.granularity",
+                              "event_type": "link_click",
+                              "event_name": "$param.slug"
+                            }
+                          }
+                        },
+                        "columns": [
+                          {
+                            "field": "timestamp",
+                            "label": "$t:admin.analytics.recorded",
+                            "format": "datetime"
+                          },
+                          {
+                            "field": "event_type",
+                            "label": "$t:admin.common.type"
+                          },
+                          {
+                            "field": "session_hash",
+                            "label": "$t:admin.analytics.session"
+                          }
+                        ],
+                        "emptyMessage": "$t:admin.links.noClicks"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

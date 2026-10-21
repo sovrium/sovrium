@@ -30,6 +30,7 @@ import {
   answerWithSchema,
   decodeAdminReadQuery,
   defineAdminRead,
+  type AdminReadDecode,
   type AdminReadOperation,
   type AdminReadOutcome,
 } from '@/application/use-cases/admin/admin-read-operation'
@@ -40,6 +41,7 @@ import {
   bundleTextFile,
   zipDesignSystemBundle,
 } from '@/application/use-cases/admin/design-system-bundle'
+import { buildDesignSystemBundleWithPages } from '@/application/use-cases/admin/design-system-pages'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import {
@@ -58,29 +60,78 @@ const DESIGN_AUDIT = {
     request.actorUserId,
 }
 
+/**
+ * The bundle a read answers: the one every surface hands over, or — on the
+ * `?pages=true` lens — that bundle with the app's pages added ([internal ref] A13).
+ */
+const bundleOf = (app: App, pages: boolean) =>
+  pages ? buildDesignSystemBundleWithPages(app) : buildDesignSystemBundle(app)
+
 /** A bundle that failed its own token schema answers as a schema failure, never partially. */
 const bundleOutcome = <A>(
   app: App,
-  answer: (bundle: Effect.Success<ReturnType<typeof buildDesignSystemBundle>>) => A
+  answer: (bundle: Effect.Success<ReturnType<typeof buildDesignSystemBundle>>) => A,
+  pages = false
 ) =>
-  buildDesignSystemBundle(app).pipe(
+  bundleOf(app, pages).pipe(
     Effect.map(answer),
-    Effect.catchTag('DesignSystemBundleError', (error) =>
-      Effect.succeed<AdminReadOutcome>({ _tag: 'ValidationFailed', error: error.cause })
-    )
+    // A page the renderer could not draw is the same failure: nothing handed over.
+    Effect.catchTags({
+      DesignSystemBundleError: (error) =>
+        Effect.succeed<AdminReadOutcome>({ _tag: 'ValidationFailed', error: error.cause }),
+      DesignSystemPageDrawError: (error) =>
+        Effect.succeed<AdminReadOutcome>({ _tag: 'ValidationFailed', error: error.cause }),
+    })
   )
 
-const designSystemBundle = defineAdminRead<undefined>({
+/** The one value the `pages` lens accepts. */
+const PAGES_LENS = 'true'
+
+/**
+ * The `?pages` lens, refused by name for any value but `true`: a lens read as
+ * "off" for `?pages=yes` would answer 200 without the pages the caller asked for.
+ */
+export const decodePagesLens = (raw: unknown): AdminReadDecode<boolean> => {
+  if (raw === undefined) return { _tag: 'Ok', input: false }
+  if (raw === PAGES_LENS) return { _tag: 'Ok', input: true }
+  return {
+    _tag: 'InvalidInput',
+    reason: 'malformed',
+    code: 'INVALID_PAGES',
+    message: `pages accepts only "${PAGES_LENS}", which adds the app's pages to the bundle`,
+  }
+}
+
+/** The OpenAPI parameter of the `pages` lens. */
+const PAGES_QUERY_PARAMETER = {
+  name: 'pages',
+  in: 'query',
+  required: false,
+  description:
+    "`true` adds the app's pages to the bundle: each page drawn, its design tree and the node map, listed with the `page` role. Any other value is a 400.",
+  schema: { type: 'string', enum: [PAGES_LENS] },
+} as const
+
+const designSystemBundle = defineAdminRead<boolean>({
   id: 'design-system.bundle',
   method: 'get',
   path: '/api/admin/design-system/bundle',
   pathParams: [],
-  queryParams: [],
+  queryParams: ['pages'],
   tool: {
     suffix: 'design_system_bundle',
     description:
-      'The manifest of the portable design-system bundle — every file with its size, SHA-256 and role — exactly the manifest.json inside GET /api/admin/design-system.zip (admin-only, read-only).',
-    inputSchema: NO_ARGUMENTS,
+      'The manifest of the portable design-system bundle — every file with its size, SHA-256 and role — exactly the manifest.json inside GET /api/admin/design-system.zip; pages: "true" adds the app pages (admin-only, read-only).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        pages: {
+          type: 'string',
+          enum: [PAGES_LENS],
+          description: "`true` adds the app's pages to the bundle the manifest lists.",
+        },
+      },
+    },
   },
   openapi: {
     summary: 'Read the design-system bundle manifest',
@@ -91,12 +142,16 @@ const designSystemBundle = defineAdminRead<undefined>({
     operationIdBase: 'getAdminDesignSystemBundle',
     responseSchema: designSystemBundleManifestSchema,
     responseDescription: 'The bundle manifest',
+    queryParameters: [PAGES_QUERY_PARAMETER],
+    badRequestDescription: 'A `pages` value other than `true`',
   },
   subject: 'design system bundle',
-  decode: () => ({ _tag: 'Ok', input: undefined }),
-  read: (app) =>
-    bundleOutcome(app, (bundle) =>
-      answerWithSchema(designSystemBundleManifestSchema, bundle.manifest)
+  decode: (raw) => decodePagesLens(raw['pages']),
+  read: (app, pages) =>
+    bundleOutcome(
+      app,
+      (bundle) => answerWithSchema(designSystemBundleManifestSchema, bundle.manifest),
+      pages
     ),
   audit: DESIGN_AUDIT,
 })
@@ -204,9 +259,10 @@ export const DESIGN_SYSTEM_BUNDLE_READ_OPERATIONS: ReadonlyArray<AdminReadOperat
  */
 export const downloadDesignSystemBundle = Effect.fn('design-system.bundle-download')(function* (
   app: App,
-  actorUserId: string
+  actorUserId: string,
+  pages = false
 ) {
-  const bundle = yield* buildDesignSystemBundle(app)
+  const bundle = yield* bundleOf(app, pages)
   const actor = yield* resolveActor(actorUserId)
   yield* EmitAuditEvent({
     action: AUDIT_ACTIONS.CONFIG_DESIGN_QUERIED,
@@ -222,6 +278,7 @@ export const downloadDesignSystemBundle = Effect.fn('design-system.bundle-downlo
 /**
  * The bundle as one zip for an anonymous share reader. The share itself is
  * resolved by the caller; this writes no event, as the reader page writes none.
+ * It never carries the app's pages, whatever the reader asks ([internal ref] A13).
  */
 export const sharedDesignSystemBundle = (app: App) =>
   Effect.map(buildDesignSystemBundle(app), zipDesignSystemBundle).pipe(

@@ -148,6 +148,19 @@ export const adminUsersDirectoryQuerySchema = Schema.Struct({
     ),
   sort: adminDirectorySortFieldSchema,
   order: adminDirectorySortOrderSchema,
+  role: optionalField(
+    Schema.String.annotate({
+      description:
+        'Only the accounts holding exactly this role, as the `role` column reads it (an account with no stored role reads the default `member`). Combines with `q`. A role nobody holds answers an empty directory, never the whole one.',
+      examples: ['member'],
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
+  status: optionalField(
+    Schema.Literals(['banned', 'active']).annotate({
+      description:
+        '`banned` keeps only the banned accounts, `active` only the others. Combines with `q` and `role`. Any other value is refused with 400.',
+    })
+  ),
 })
 
 // ─── Directory User Row ──────────────────────────────────────────────────────
@@ -199,6 +212,30 @@ export const adminDirectoryUserSchema = Schema.Struct({
   banned: Schema.Boolean.annotate({
     description:
       'Whether the account is banned (`auth.user.banned`). Drives the Statut pill: `false` → actif, `true` → banni.',
+  }),
+  createdAt: Schema.NullOr(
+    Schema.String.annotate({
+      description:
+        'When the account was created (`auth.user.createdAt`), as an ISO 8601 instant. For an invited colleague, when the invitation created it.',
+    })
+  ),
+  lastSignInAt: Schema.NullOr(
+    Schema.String.annotate({
+      description:
+        'When the account last signed in, as an ISO 8601 instant: the start of its newest session, expired or not. Null when it never signed in, or when every session it held has since been signed out.',
+    })
+  ),
+  activeSessionCount: Schema.Int.annotate({
+    description:
+      'How many sessions the account holds that have not expired: one per browser or device it is signed in from. A fact about its sessions, never a session — no token, address or browser string is carried.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  twoFactorEnabled: Schema.Boolean.annotate({
+    description:
+      'Whether the account has a second factor turned on (`auth.user.twoFactorEnabled`).',
+  }),
+  signInMethods: Schema.Array(Schema.String).annotate({
+    description:
+      'How the account signs in: the provider of each sign-in account linked to it, distinct and sorted — `credential` for an email and password, the provider id for a social or single sign-on account (`google`, `github`, …). Empty for an invited colleague who has not yet set a way to sign in.',
   }),
   groups: Schema.optionalKey(
     Schema.Array(Schema.String).annotate({

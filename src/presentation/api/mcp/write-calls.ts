@@ -37,7 +37,13 @@ import { sanitizeError } from '@/presentation/api/runtime/error-sanitizer'
 import { isUniqueConflictAnswer } from '@/presentation/api/runtime/unique-conflict-answer'
 import { passesTablePermission, type CallerAuthority } from './caller-authority'
 import { resolveUserContextOrUndefined } from './caller-row-context'
-import { toolFailure, toolSuccess, type McpToolResult } from './tool-call-helpers'
+import {
+  answeredToolFailure,
+  sanitizedToolFailure,
+  toolFailure,
+  toolSuccess,
+  type McpToolResult,
+} from './tool-call-helpers'
 import type { McpCaller } from './auth'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { LinkReader } from '@/application/use-cases/tables/linked-row-visibility'
@@ -99,11 +105,10 @@ async function refusalOf(
   failure: unknown,
   excludeIds: readonly string[]
 ): Promise<never> {
-  const sanitized = sanitizeError(failure)
+  const requestId = crypto.randomUUID()
+  const sanitized = sanitizeError(failure, requestId)
   const message = sanitized.message ?? sanitized.error
-  if (!isUniqueConflictAnswer(sanitized)) {
-    return toolFailure(-32_603, message)
-  }
+  if (!isUniqueConflictAnswer(sanitized)) return answeredToolFailure(sanitized, requestId)
   const { app, table } = conflict.scope
   const answer = await runOnDomain(
     write.domainContext,
@@ -175,6 +180,5 @@ export async function runMcpRecordDelete(
   })
   const outcome = await runOnDomain(input.domainContext, Effect.result(program))
   if (outcome._tag === 'Success') return toolSuccess(outcome.success)
-  const sanitized = sanitizeError(outcome.failure)
-  return toolFailure(-32_603, sanitized.message ?? sanitized.error)
+  return sanitizedToolFailure(outcome.failure)
 }

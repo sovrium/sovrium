@@ -57,7 +57,7 @@ const DESIGN_HEADER = /^design\s*:/
  * watcher or the operator's editor never sees a half-written file; the temp
  * file sits beside the target because a rename across filesystems is a copy.
  */
-const writeAtomically = async (path: string, content: string): Promise<void> => {
+export const writeAtomically = async (path: string, content: string): Promise<void> => {
   const temp = `${path}.${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}.tmp`
   await writeFile(temp, content, 'utf-8')
   await rename(temp, path)

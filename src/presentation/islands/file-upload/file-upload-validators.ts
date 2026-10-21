@@ -45,15 +45,14 @@ export function validateMaxFileSize(
 
 /**
  * Composes the file-upload validators. Returns the first failing
- * constraint's error message, or `undefined` when all pass (including
- * the empty/no-files case which is treated as a no-op upstream).
+ * constraint's error message, or `undefined` when all pass. The empty/no-files
+ * case never reaches it: the caller treats it as a no-op before validating.
  */
 export function validateFiles(
-  files: FileList | undefined | null,
+  files: FileList,
   limits: { readonly maxFiles: number | undefined; readonly maxFileSize: number | undefined },
   strings?: UploadStrings
 ): string | undefined {
-  if (!files || files.length === 0) return undefined
   return (
     validateMaxFiles(files, limits.maxFiles, strings) ??
     validateMaxFileSize(files, limits.maxFileSize, strings)

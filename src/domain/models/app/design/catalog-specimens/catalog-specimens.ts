@@ -264,7 +264,7 @@ const FORM_CONTROL_SPECIMENS: readonly CatalogSpecimen[] = [
  */
 const STRUCTURAL_SPECIMENS: readonly CatalogSpecimen[] = [
   { type: 'separator', component: component({ type: 'separator' }) },
-  { type: 'spacer', component: component({ type: 'spacer', size: 'md' }) },
+  { type: 'spacer', component: component({ type: 'spacer', props: { size: 'md' } }) },
 ]
 
 const boxedText = (content: string): unknown => ({
@@ -338,8 +338,7 @@ const LAYOUT_SPECIMENS: readonly CatalogSpecimen[] = [
     type: 'grid',
     component: component({
       type: 'grid',
-      columns: 2,
-      props: { className: 'gap-2' },
+      props: { className: 'grid-cols-2 gap-2' },
       children: layoutChildren('One', 'Two'),
     }),
   },

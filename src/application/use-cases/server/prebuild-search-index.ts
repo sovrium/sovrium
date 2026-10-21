@@ -10,6 +10,8 @@ import { generateSearchIndex } from '@/application/use-cases/server/generate-sea
 import { generateStatic } from '@/application/use-cases/server/generate-static'
 import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
 import { getPublicPagePaths } from '@/domain/models/app/pages/public-pages'
+import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { ContentDirReader } from '@/application/ports/services/content-dir-reader'
 import type { CSSCompiler as CSSCompilerService } from '@/application/ports/services/css-compiler'
 import type { PageRenderer as PageRendererService } from '@/application/ports/services/page-renderer'
@@ -37,9 +39,14 @@ class SearchIndexTempDirError extends Data.TaggedError('SearchIndexTempDirError'
   readonly cause: unknown
 }> {}
 
-/** The four services a static render needs — exactly `createStaticBuildLayer`'s members. */
-/** What a static build reads from its context; `createStaticBuildLayer` provides all of it. */
+/**
+ * What a static build reads from its context; `createStaticBuildLayer` provides
+ * all of it — the two repositories through the page renderer's layer, for the
+ * sitemap's collection filters.
+ */
 export type StaticBuildServices =
+  | DataSourceRepository
+  | AuthRepository
   | ServerFactoryService
   | PageRendererService
   | CSSCompilerService

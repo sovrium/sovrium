@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { liveRefreshOf } from '../../../hooks/use-realtime-subscription'
 import { useSystemCursorPages } from '../../../hooks/use-system-cursor-pages'
 import { buildSummaryAggregateParam } from '../../summary-aggregate'
 import { useDataTableQuery } from '../../use-data-table-query'
@@ -147,10 +148,7 @@ export function useRecordsQuery(
     globalFilter: tableState.globalFilter,
     dataSourceFilter: effective.filter,
     dataSourceSort: dataSource.sort,
-    // A view-bound grid never refreshes on its own: no poll, and no realtime
-    // fallback poll either (`use-refresh-wiring.ts`).
-    refreshMode: ctx.isViewBound ? undefined : dataSource.refreshMode,
-    pollIntervalMs: dataSource.pollIntervalMs,
+    ...refreshOf(dataSource, ctx.isViewBound),
   })
 
   return {
@@ -159,6 +157,23 @@ export function useRecordsQuery(
     effectiveGroupByConfig,
     loadMore: loadMoreFeed !== undefined,
   }
+}
+
+/**
+ * How the grid refreshes: the rule every bound component follows
+ * (`liveRefreshOf`). A view-bound grid never refreshes on its own: no poll,
+ * and no realtime fallback poll either (`use-refresh-wiring.ts`). A system
+ * read polls by its own `system` keys only.
+ */
+function refreshOf(
+  dataSource: SetupContext['params']['dataSource'],
+  viewBound: boolean
+): {
+  readonly refreshMode: 'none' | 'poll' | 'realtime' | undefined
+  readonly pollIntervalMs: number | undefined
+} {
+  const { mode, every } = liveRefreshOf(dataSource, viewBound)
+  return { refreshMode: mode, pollIntervalMs: every }
 }
 
 /**

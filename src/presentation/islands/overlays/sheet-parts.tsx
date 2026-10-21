@@ -9,14 +9,14 @@ import { Dialog } from '@base-ui/react/dialog'
 import { cn } from '@/presentation/design/class-merge'
 import { computeDialogCloseClasses } from '@/presentation/design/dialog-default-classes'
 import { OverlayCloseGlyph } from '@/presentation/design/overlay-close-glyph'
-import { useLiveInjectedMarkup } from './live-injected-markup'
 import {
   computeSheetClosePositionClasses,
   computeSheetDescriptionClasses,
   computeSheetFooterClasses,
   computeSheetHeaderClasses,
   computeSheetTitleClasses,
-} from './sheet-default-classes'
+} from '@/presentation/design/sheet-default-classes'
+import { useLiveInjectedMarkup } from './live-injected-markup'
 import type { ReactElement } from 'react'
 
 function DrawerHeader({

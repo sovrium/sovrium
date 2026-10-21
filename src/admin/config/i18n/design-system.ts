@@ -176,7 +176,8 @@ export default {
   'admin.ds.tpl.shell.usage': 'Wrap every admin page with it, through the shell.',
   'admin.ds.tpl.shell.when':
     'When a page has a place in the navigation tree — which is all of them.',
-  'admin.ds.tpl.shell.dont': 'Do not put page actions here; they belong to data-page-header.',
+  'admin.ds.tpl.shell.dont':
+    'Do not put page actions here; they belong to console-data-page-header.',
   'admin.ds.tpl.header.usage': 'Put it above any grid, list or board that reads a collection.',
   'admin.ds.tpl.header.when':
     'When the page is ONE collection; a page with two grids heads each one instead.',

@@ -145,6 +145,18 @@ export function useDateRangeState({
   const close = useCallback(() => setOpen(false), [])
   const containerRef = useDismissOnOutsidePointerDown<HTMLSpanElement>(open, close)
 
+  // A preset is a whole period, so choosing one is the end of the choice: the
+  // panel closes and the reader is handed back to the trigger, as after Escape,
+  // rather than left with a panel over what the period just narrowed.
+  const choosePreset = useCallback(
+    (preset: string) => {
+      handlePresetClick(preset)
+      setOpen(false)
+      containerRef.current?.querySelector<HTMLElement>('[data-date-range-trigger]')?.focus()
+    },
+    [handlePresetClick, containerRef]
+  )
+
   return {
     range,
     pendingStart,
@@ -156,6 +168,6 @@ export function useDateRangeState({
     toggleOpen,
     handleMonthChange: jumpTo,
     handleDayClick,
-    handlePresetClick,
+    handlePresetClick: choosePreset,
   }
 }

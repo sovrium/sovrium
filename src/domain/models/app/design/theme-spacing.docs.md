@@ -54,11 +54,9 @@ design:
 
 **Name tokens for their role, not their look.** `shadow-card` and `rounded-card` survive a redesign that changes what a card looks like; `shadow-subtle` and `rounded-8` do not, and leave every usage site to be re-audited by hand.
 
-## `codeBlock` (deprecated)
+## Code blocks
 
-Deprecated since 0.40 and ignored; refused from 0.41. Code blocks — a `code` component, a markdown fence, a code block in an ai-chat answer — use shadcn/ui's default colours: `github-light` in the light colour scheme and `github-dark` in the dark one, following the reader's scheme. A config naming `design.codeBlock` still validates and starts, with a deprecation warning from `sovrium validate`, `sovrium start` and `sovrium build`, and draws exactly what it would draw without the key. Remove it.
-
-<!-- sovrium:options CodeBlockConfigSchema -->
+Code blocks — a `code` component, a markdown fence, a code block in an ai-chat answer — use shadcn/ui's default colours: `github-light` in the light colour scheme and `github-dark` in the dark one, following the reader's scheme. No key chooses them: `design.codeBlock`, which named a theme, was ignored from 0.40 and is refused from 0.41.
 
 Every token reads at 4.5:1 or more against its block in both schemes: where a theme's own colour for a token falls under that — the comments of `github-dark` and `github-light`, the keywords, keys and variables of `github-light` — it is drawn in the nearest tone of the same hue that reaches it.
 

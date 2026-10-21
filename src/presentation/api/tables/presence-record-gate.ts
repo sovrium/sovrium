@@ -7,16 +7,20 @@
 
 import { Effect } from 'effect'
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import { readerRowsOf } from '@/application/use-cases/tables/row-read-admission'
 import {
   placedTemplatesOf,
   renderedNodesWhere,
 } from '@/domain/models/app/pages/component-tree-has-type'
+import { admitsRow } from '@/domain/models/app/tables/row-read-admission-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
 import { logError } from '@/infrastructure/logging/logger'
+import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import { recordPassesPredicate, resolveGuardForTable } from './row-level-guard'
 import { checkGetReadGate } from './row-level-read-helpers'
+import type { LinkReader } from '@/application/use-cases/tables/linked-row-visibility'
 import type { App, Table } from '@/domain/models/app'
 import type { DeclaredPageMatch } from '@/domain/models/app/pages/page-path-resolvability'
 import type { Context } from 'hono'
@@ -123,10 +127,13 @@ type BoundRecordVerdict =
  *
  *  1. the table's read gate — the caller's guard (resolved from her roles,
  *     groups and assignments, never from the record) and the table's grant;
- *     no record is read, and a refusal stops here for every address alike;
+ *     no record is read, and a refusal stops here for every address alike —
+ *     then the rows a list of the table returns her (`readerRowsOf`), which
+ *     depend on her grants alone, never on the record the address names;
  *  2. ONE read of the record by the address, every column;
  *  3. the row-level read rule judged in memory on that row, when the caller is
- *     held to one. No record → refused; a record the rule hides → refused.
+ *     held to one, and the row's id among the rows step 1 admits her. No
+ *     record → refused; a record the rule or her rows hide → refused.
  */
 async function admitsBoundRecord(
   c: Context,
@@ -142,10 +149,12 @@ async function admitsBoundRecord(
   if (paramValue === undefined) return undefined
   const gate = await readGateOf(c, app, table)
   if (gate === 'refused') return { admitted: false }
+  const { admission } = await runDomainPromise(c, readerRowsOf(app, table.name, gate.reader))
   const row = await findLiveRecord(c, table.name, { paramField, paramValue })
   const recordId = idOf(row)
   if (row === undefined || recordId === undefined) return { admitted: false }
   if (!passesRowReadRule(table, row, gate.guard)) return { admitted: false }
+  if (!admitsRow(admission, recordId)) return { admitted: false }
   return { admitted: true, watched: { table: table.name, recordId } }
 }
 
@@ -166,11 +175,12 @@ async function readGateOf(
   c: Context,
   app: App,
   table: Table
-): Promise<'refused' | { readonly guard: RowLevelGuard }> {
+): Promise<'refused' | { readonly guard: RowLevelGuard; readonly reader: LinkReader }> {
   const { session, userRole, userGroups } = getTableContext(c)
   const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
   const refusal = checkGetReadGate({ c, app, table, userRole, userGroups, guard })
-  return refusal === undefined ? { guard } : 'refused'
+  const reader = { session, role: userRole, groups: userGroups }
+  return refusal === undefined ? { guard, reader } : 'refused'
 }
 
 /** Step 3: the row-level read rule, judged in memory on the row step 2 read. */

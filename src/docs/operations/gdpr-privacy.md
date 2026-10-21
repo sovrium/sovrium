@@ -30,6 +30,8 @@ No request body, query or path parameters — the user id comes only from the se
 - **AI facts** (`aiFacts`) — what agents remember about the caller: the fact as stored, its namespace, the agent, and when it was learned.
 - **AI activity** (`aiActivity`) — every AI activity-feed entry that names the caller, newest first: their own chat turns, and each action an agent recorded as done for them, with the agent's name and, when the feed recorded it, where the agent ran (a chat, an automation or a schedule).
 - **AI tool calls** (`aiToolCalls`) — every tool call the caller made through an AI client, newest first: the tool, the role it ran as, the transport and session, whether it succeeded, its error code and its latency.
+- **Favourites** (`favorites`) — every record or page the caller keeps among her favourites and has not removed, newest first: what it is (`record` or `page`), the table of a record (`null` for a page), its id, and when she kept it.
+- **Recent items** (`recentItems`) — every record or page kept as recently opened for the caller, most recent first, with the same three values and when she last opened it. Neither list copies the record itself: it stays reachable, under today's permissions, through the records API.
 
 **The order is stable.** Form submissions, audit-trail entries and the AI sections are listed newest first; entries stamped with the same instant follow by id, highest first, so two exports of the same account list the same entries in the same order.
 
@@ -41,7 +43,7 @@ No request body, query or path parameters — the user id comes only from the se
 
 ### What the export does not yet carry
 
-The export is narrower than erasure. Erasure hard-deletes several further categories the export payload does not currently offer — among them comments, favourites, row-level access grants, the activity feed, and uploaded files. Widening the export contract to match is a change to the published response schema and is tracked separately; the asymmetry is held against a recorded baseline in the erasure census, so it cannot grow silently.
+The export is narrower than erasure. Erasure hard-deletes several further categories the export payload does not currently offer — among them comments, row-level access grants, the activity feed, and uploaded files. Widening the export contract to match is a change to the published response schema and is tracked separately; the asymmetry is held against a recorded baseline in the erasure census, so it cannot grow silently.
 
 To satisfy an access request covering one of those categories today, serve it from the operator side through the admin dashboard.
 

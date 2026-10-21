@@ -5,7 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { readerRowsOf } from '@/application/use-cases/tables/row-read-admission'
+import { Effect } from 'effect'
+import {
+  readerRowsOf,
+  rowsReaderMayNotList,
+} from '@/application/use-cases/tables/row-read-admission'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
@@ -50,3 +54,24 @@ export const refuseUnreadableTable =
     if (gateError) return gateError
     return refuseTableWithNoReaderRow(resolveApp)(c, next)
   }
+
+/**
+ * The ids among `ids` that the caller's list of the route's table does not
+ * admit (`rowsReaderMayNotList`). Every write door answers such an id exactly
+ * as an id no record holds — refused or skipped where a missing one is — and
+ * writes nothing to it.
+ */
+export const callerUnlistedRows = (c: Context, app: App, ids: readonly (string | number)[]) => {
+  const { session, tableName, userRole, userGroups } = getTableContext(c)
+  const reader = { session, role: userRole, groups: userGroups }
+  return rowsReaderMayNotList(app, tableName, reader, ids)
+}
+
+/**
+ * The missing record's `404` for a write naming one record the caller's list
+ * of the table does not admit, or `undefined` when her list admits it.
+ */
+export const refuseUnlistedRow = (c: Context, app: App, recordId: string) =>
+  Effect.map(callerUnlistedRows(c, app, [recordId]), (unlisted) =>
+    unlisted.length === 0 ? undefined : notFound(c)
+  )

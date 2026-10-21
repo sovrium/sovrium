@@ -37,6 +37,13 @@ export const SPECIMEN_PERSON = { name: 'Sample person', email: 'sample@example.c
 /** The fixed day every sample date falls on. */
 const SAMPLE_DAY = '2026-03-12'
 
+/**
+ * The instant a specimen is drawn at, on the sample day: its "today" and its
+ * "now", whatever clock the environment sets, so one config always draws the
+ * same bytes.
+ */
+export const SPECIMEN_INSTANT: Readonly<Date> = new Date(`${SAMPLE_DAY}T10:00:00.000Z`)
+
 /** A field name as a reader writes it: `due_date` → `due date`. */
 const words = (name: string): string =>
   name
@@ -84,7 +91,7 @@ const TEXT_TYPES: ReadonlySet<string> = new Set([
  * honestly fill — a relation, a person, a file, a computed value — which the
  * frame then draws empty, as a new record's would be.
  */
-const sampleValueOf = (field: SpecimenFieldShape): unknown => {
+export const sampleValueOf = (field: SpecimenFieldShape): unknown => {
   if (field.type === 'single-select' || field.type === 'status') return firstOption(field)
   if (field.type === 'multi-select') return [firstOption(field)]
   if (TEXT_TYPES.has(field.type)) return `Sample ${words(field.name)}`

@@ -317,6 +317,7 @@ async function filterComponents(
     requestQuery: input.requestQuery,
     urlLanguage: input.urlLanguage,
     callerFieldReader: db.callerFieldReader,
+    viewerIdentity: db.viewerIdentity,
     ...definedOnly({ hostApp: input.hostApp, callerCapabilities: input.callerCapabilities }),
   }
   // The choices are read over the GATED tree: a form inside an overlay this
@@ -355,11 +356,10 @@ async function resolveGatedParentRecord(
  * descendant component's `$currentUser` filter trips the auth guard;
  * returns the fully-resolved `Page` otherwise.
  *
- * Extracted from `renderPageByPath` so the entry function stays under the
- * cyclomatic-complexity cap. The two steps are intentionally fused
- * because the filter pipeline (`expandFormRefs` in particular) needs the
- * resolved parent record to expand `inlinePrefill` tokens before the
- * downstream `resolvePageDataSources` walk runs.
+ * Extracted from `renderPageByPath` (cyclomatic-complexity cap). The two steps
+ * are fused because the filter pipeline (`expandFormRefs` in particular) needs
+ * the parent record to expand `inlinePrefill` tokens before the downstream
+ * `resolvePageDataSources` walk runs.
  */
 export async function resolveAndFilterPage(
   input: ResolveAndFilterInput

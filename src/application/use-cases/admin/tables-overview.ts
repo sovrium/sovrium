@@ -88,6 +88,8 @@ interface OverviewTable {
   readonly displayName: string
   readonly dbName: string
   readonly label: string
+  /** What the table holds, as its config says it; absent when it declares none. */
+  readonly description?: string
 }
 
 /** Period spec — interval, count, and bucket size. */
@@ -123,6 +125,7 @@ function buildByTable(
     return {
       name: t.displayName,
       label: t.label,
+      ...(t.description === undefined ? {} : { description: t.description }),
       rowCount: agg?.rowCount ?? 0,
       softDeletedCount: agg?.softDeletedCount ?? 0,
       lastWriteAt: agg?.lastWriteAt ?? null,

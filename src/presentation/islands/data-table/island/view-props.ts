@@ -100,6 +100,10 @@ export interface DataTableViewProps {
   readonly layout?: DataTableLayout
   /** `rows` draws each row as a two-line item below the `sm` breakpoint. */
   readonly phoneLayout?: 'scroll' | 'rows'
+  /** Where the reader's view options sit; `toolbar` draws one View menu above the rows. */
+  readonly viewOptions?: 'bottom-bar' | 'toolbar'
+  /** The channel the grid listens on, which names the toolbar the View menu joins. */
+  readonly viewChannel?: string
   readonly cellClass: string
   readonly borderClass: string
   readonly emptyMessage: string
@@ -248,6 +252,9 @@ export interface GridBodyProps {
   readonly selection?: GridSelection
   /** The reader's Group by · Hide fields · Row height, in the bottom bar. */
   readonly session: SessionControlsProps
+  /** `toolbar`: the session controls are one View menu above the rows, not in the bottom bar. */
+  readonly viewOptions?: 'bottom-bar' | 'toolbar'
+  readonly viewChannel?: string
 }
 
 /** The selection's half of the bottom bar. */

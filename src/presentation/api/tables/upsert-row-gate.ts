@@ -22,16 +22,21 @@
  * group that matches nothing is a create, checked against `create.when` as a
  * batch create is.
  *
- * A row the caller's row-level `read` rule hides is never a match
- * ({@link hiddenMergeMatches}): a record matching only hidden rows is a create,
+ * A row the caller's row-level `read` rule hides, or that her list of the
+ * table does not admit, is never a match ({@link hiddenMergeMatches}): a record matching only hidden rows is a create,
  * answering what a create of it would answer, and the hidden rows are left
  * alone — so neither the counts nor a refusal say that a hidden row holds the
  * key.
  */
 
 import { rawListRecordsProgram } from '@/application/use-cases/tables/raw-list-program'
+import {
+  readerListsEveryRow,
+  rowsReaderMayNotList,
+} from '@/application/use-cases/tables/row-read-admission'
 import { isResolvableColumnName } from '@/domain/models/app/tables/system-fields'
 import { findRecordIdsByMergeFields } from '@/infrastructure/layers/table-layer'
+import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import {
   enforceBulkCreateGate,
@@ -79,13 +84,45 @@ interface UpsertScope {
   readonly fieldsToMergeOn: readonly string[]
 }
 
+/** The rows each merge key of `records` matches, every key's matches together. */
+const allMergeMatches = async (
+  tableName: string,
+  records: readonly { readonly fields: Fields }[],
+  fieldsToMergeOn: readonly string[]
+): Promise<readonly string[]> => {
+  const perKey = await Promise.all(
+    mergedByKey(records, fieldsToMergeOn).map((fields) =>
+      findRecordIdsByMergeFields(tableName, fields, fieldsToMergeOn)
+    )
+  )
+  return [...new Set(perKey.flat())]
+}
+
+/**
+ * The ids of the rows the records' merge keys match that the caller may not
+ * read: those her row-level `read` rule hides, and those her list of the
+ * table does not admit (`callerUnlistedRows`) — to an upsert, rows that do not
+ * exist. A caller whose list admits every row costs no further lookup.
+ */
+export async function hiddenMergeMatches(
+  input: UpsertScope & { readonly records: readonly { readonly fields: Fields }[] }
+): Promise<readonly string[]> {
+  const { c, app, tableName, session, userRole, userGroups } = input
+  const ruleHidden = await ruleHiddenMergeMatches(input)
+  const reader = { session, role: userRole, groups: userGroups }
+  if (readerListsEveryRow(app, tableName, reader)) return ruleHidden
+  const matched = await allMergeMatches(tableName, input.records, input.fieldsToMergeOn)
+  const unlisted = await runDomainPromise(c, rowsReaderMayNotList(app, tableName, reader, matched))
+  return [...new Set([...ruleHidden, ...unlisted])]
+}
+
 /**
  * The ids of the rows the records' merge keys match that the caller's
  * row-level `read` rule hides — none on a table without row-level rules or for
  * a caller they do not narrow. Trashed rows are judged like the others: the
  * rule decides, not the trash. A read that fails hides every match.
  */
-export async function hiddenMergeMatches(
+async function ruleHiddenMergeMatches(
   input: UpsertScope & { readonly records: readonly { readonly fields: Fields }[] }
 ): Promise<readonly string[]> {
   const { c, app, table, tableName, userRole, userGroups, session, fieldsToMergeOn } = input
@@ -94,12 +131,7 @@ export async function hiddenMergeMatches(
   if (!guard) return []
   const clause = projectReadPredicateClause(table.rowLevelPermissions, guard.current)
   if (clause === 'bypass' || clause === 'no-rlp') return []
-  const perKey = await Promise.all(
-    mergedByKey(input.records, fieldsToMergeOn).map((fields) =>
-      findRecordIdsByMergeFields(tableName, fields, fieldsToMergeOn)
-    )
-  )
-  const matched = [...new Set(perKey.flat())]
+  const matched = await allMergeMatches(tableName, input.records, fieldsToMergeOn)
   if (matched.length === 0 || clause === 'empty' || clause === undefined) return matched
   const readable = await runOnRequest(
     c,

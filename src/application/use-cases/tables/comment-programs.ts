@@ -392,17 +392,11 @@ interface ListCommentsConfig {
    */
   readonly viewerIsAdmin?: boolean
   /**
-   * Raw `:tableId` URL param. Scopes BOTH the comment read itself and the
-   * the per-user comment read-state design unread-count watermark to the same `(table, record)` identity
-   * comments are stored under. Not optional: record ids are per-table
-   * sequences, so a record-only read returns every same-numbered record's
-   * comments across the app.
-   */
-  readonly tableId: string
-  /**
    * Every key the thread's comments may be stored under (`commentTableKeysOf`):
-   * a comment keeps the id or name it was posted through, so the list and its
-   * count read under both.
+   * a comment keeps the id or name it was posted through, so the list, its
+   * count and the unread-count watermark read under all of them. Not optional:
+   * record ids are per-table sequences, so a record-only read returns every
+   * same-numbered record's comments across the app.
    */
   readonly tableKeys: readonly string[]
   /**
@@ -644,7 +638,7 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
   return Effect.gen(function* () {
     const comments = yield* CommentRepository
     const { session, recordId, tableName, limit, offset, sortOrder, viewerIsAdmin } = config
-    const { tableId, tableKeys, readTracking } = config
+    const { tableKeys, readTracking } = config
 
     // Moderation visibility. Fail-closed:
     // when the viewer's admin-ness is unknown (`undefined`), default to
@@ -681,7 +675,7 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
     // read-state is per-user and isolated (enforced in the query).
     const unreadCount =
       readTracking === true
-        ? yield* comments.countUnread({ session, tableId, recordId })
+        ? yield* comments.countUnread({ session, tableKeys, recordId })
         : undefined
 
     // Format response

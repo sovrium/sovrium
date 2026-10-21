@@ -1,0 +1,522 @@
+{
+  "id": "dashboard-api-docs",
+  "name": "dashboard-api-docs",
+  "path": "/api",
+  "meta": {
+    "title": "$t:admin.meta.api"
+  },
+  "dataSource": {
+    "system": {
+      "endpoint": "/api/admin/instance"
+    }
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "api": "$t:admin.crumb.api"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "header",
+          "element": "header",
+          "props": {
+            "className": "flex flex-col gap-1"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "h1",
+              "props": {
+                "className": "text-foreground text-2xl font-semibold tracking-tight"
+              },
+              "content": "$t:admin.api.heading"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "content": "$t:admin.api.blurb"
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "admin-surface-content-2-2",
+          "element": "div",
+          "props": {
+            "className": "flex flex-col gap-6"
+          },
+          "children": [
+            {
+              "component": "console-facts-card",
+              "key": "facts-card",
+              "children": [
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-1",
+                  "props": {
+                    "className": "border-b border-border p-6"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "h2",
+                      "props": {
+                        "className": "text-xl font-semibold text-foreground"
+                      },
+                      "content": "$t:admin.api.access.heading"
+                    },
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "mt-1 text-sm text-muted-foreground"
+                      },
+                      "content": ""
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-2",
+                  "element": "div",
+                  "props": {
+                    "className": "flex flex-col gap-3 px-6 pb-6"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "admin-surface-content-2-2-2-1",
+                      "element": "div",
+                      "props": {
+                        "className": "flex flex-col gap-1"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle text-sm uppercase"
+                          },
+                          "content": "$t:admin.api.baseUrl.heading"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground text-md"
+                          },
+                          "content": "$record.origin/api"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "admin-surface-content-2-2-2-2",
+                      "element": "div",
+                      "props": {
+                        "className": "flex flex-col gap-1"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle text-sm uppercase"
+                          },
+                          "content": "$t:admin.api.auth.heading"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground text-md"
+                          },
+                          "content": "$t:admin.api.auth.blurb"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "admin-surface-content-2-2-2-3",
+                      "element": "div",
+                      "props": {
+                        "className": "flex flex-col gap-1"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle text-sm uppercase"
+                          },
+                          "content": "$t:admin.api.keys.heading"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground text-md"
+                          },
+                          "content": "$t:admin.api.keys.blurb"
+                        }
+                      ],
+                      "visibility": {
+                        "record": {
+                          "field": "apiKeysEnabled",
+                          "eq": true
+                        }
+                      }
+                    },
+                    {
+                      "type": "link",
+                      "content": "$t:admin.api.keys.link",
+                      "props": {
+                        "href": "/api-keys",
+                        "className": "w-fit text-md underline-offset-4 hover:underline"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "apiKeysEnabled",
+                          "eq": true
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "console-facts-card",
+              "key": "facts-card-2",
+              "children": [
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-1-2",
+                  "props": {
+                    "className": "border-b border-border p-6"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "h2",
+                      "props": {
+                        "className": "text-xl font-semibold text-foreground"
+                      },
+                      "content": "$t:admin.api.examples.heading"
+                    },
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "mt-1 text-sm text-muted-foreground"
+                      },
+                      "content": ""
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-2-4",
+                  "element": "div",
+                  "props": {
+                    "className": "flex flex-col gap-3 px-6 pb-6"
+                  },
+                  "children": [
+                    {
+                      "component": "console-tabs",
+                      "key": "tabs",
+                      "vars": {
+                        "defaultTab": "http",
+                        "ariaLabel": "$t:admin.api.examples.heading",
+                        "className": "flex flex-col gap-3",
+                        "panels": [
+                          {
+                            "id": "http",
+                            "label": "HTTP"
+                          },
+                          {
+                            "id": "curl",
+                            "label": "cURL"
+                          },
+                          {
+                            "id": "javascript",
+                            "label": "JavaScript"
+                          }
+                        ]
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "key": "admin-surface-content-2-2-2-4-1",
+                          "children": [
+                            {
+                              "type": "container",
+                              "key": "api-docs-examples",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col gap-2",
+                                "data-testid": "api-docs-examples"
+                              },
+                              "children": [
+                                {
+                                  "type": "code",
+                                  "props": {
+                                    "language": "http",
+                                    "className": "[&_[data-slot=code-block-line-content]>span]:text-inherit!"
+                                  },
+                                  "contentFrom": {
+                                    "endpoint": "/api/admin/instance",
+                                    "rowsKey": "tables",
+                                    "query": {
+                                      "limit": 4
+                                    },
+                                    "template": "$t:admin.api.examples.httpList",
+                                    "empty": "$t:admin.api.examples.httpListAny"
+                                  }
+                                },
+                                {
+                                  "type": "code",
+                                  "props": {
+                                    "language": "http",
+                                    "className": "[&_[data-slot=code-block-line-content]>span]:text-inherit!"
+                                  },
+                                  "content": "$t:admin.api.examples.httpCreate",
+                                  "visibility": {
+                                    "record": {
+                                      "field": "tableCount",
+                                      "gt": 0
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "code",
+                                  "props": {
+                                    "language": "http",
+                                    "className": "[&_[data-slot=code-block-line-content]>span]:text-inherit!"
+                                  },
+                                  "content": "$t:admin.api.examples.httpCreateAny",
+                                  "visibility": {
+                                    "record": {
+                                      "field": "tableCount",
+                                      "eq": 0
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "admin-surface-content-2-2-2-4-2",
+                          "children": [
+                            {
+                              "type": "code",
+                              "props": {
+                                "language": "bash"
+                              },
+                              "content": "$t:admin.api.examples.curlListComment\ncurl '$record.origin/api/tables/$record.exampleTable/records' \\\n  --header 'Accept: application/json' \\\n  --cookie \"$SOVRIUM_SESSION\"",
+                              "visibility": {
+                                "record": {
+                                  "field": "tableCount",
+                                  "gt": 0
+                                }
+                              }
+                            },
+                            {
+                              "type": "code",
+                              "props": {
+                                "language": "bash"
+                              },
+                              "content": "$t:admin.api.examples.curlListAnyComment\ncurl '$record.origin/api/tables/{table}/records' \\\n  --header 'Accept: application/json' \\\n  --cookie \"$SOVRIUM_SESSION\"",
+                              "visibility": {
+                                "record": {
+                                  "field": "tableCount",
+                                  "eq": 0
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "admin-surface-content-2-2-2-4-3",
+                          "children": [
+                            {
+                              "type": "code",
+                              "props": {
+                                "language": "javascript"
+                              },
+                              "content": "$t:admin.api.examples.jsListComment\nconst res = await fetch('/api/tables/$record.exampleTable/records', {\n  headers: { Accept: 'application/json' },\n  credentials: 'include',\n})\nconst { records } = await res.json()",
+                              "visibility": {
+                                "record": {
+                                  "field": "tableCount",
+                                  "gt": 0
+                                }
+                              }
+                            },
+                            {
+                              "type": "code",
+                              "props": {
+                                "language": "javascript"
+                              },
+                              "content": "$t:admin.api.examples.jsListAnyComment\nconst res = await fetch('/api/tables/{table}/records', {\n  headers: { Accept: 'application/json' },\n  credentials: 'include',\n})\nconst { records } = await res.json()",
+                              "visibility": {
+                                "record": {
+                                  "field": "tableCount",
+                                  "eq": 0
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "text-foreground-subtle text-sm"
+                      },
+                      "content": "$t:admin.api.examples.note"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "console-facts-card",
+              "key": "facts-card-3",
+              "children": [
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-1-3",
+                  "props": {
+                    "className": "border-b border-border p-6"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "h2",
+                      "props": {
+                        "className": "text-xl font-semibold text-foreground"
+                      },
+                      "content": "$t:admin.api.createUser.heading"
+                    },
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "mt-1 text-sm text-muted-foreground"
+                      },
+                      "content": "$t:admin.api.createUser.blurb"
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-2-5",
+                  "element": "div",
+                  "props": {
+                    "className": "flex flex-col gap-3 px-6 pb-6"
+                  },
+                  "children": [
+                    {
+                      "type": "code",
+                      "props": {
+                        "language": "bash",
+                        "data-testid": "api-docs-create-user"
+                      },
+                      "content": "$t:admin.api.createUser.comment\ncurl -X POST '$record.origin/api/auth/admin/create-user' \\\n  --header 'Content-Type: application/json' \\\n  --cookie \"$SOVRIUM_SESSION\" \\\n  --data '{\n    \"email\": \"name@example.com\",\n    \"password\": \"a-strong-password\",\n    \"role\": \"member\"\n  }'"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "component": "console-facts-card",
+              "key": "facts-card-4",
+              "children": [
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-1-4",
+                  "props": {
+                    "className": "border-b border-border p-6"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "h2",
+                      "props": {
+                        "className": "text-xl font-semibold text-foreground"
+                      },
+                      "content": "$t:admin.api.reference.heading"
+                    },
+                    {
+                      "type": "text",
+                      "element": "p",
+                      "props": {
+                        "className": "mt-1 text-sm text-muted-foreground"
+                      },
+                      "content": "$t:admin.api.reference.blurb"
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-2-6",
+                  "element": "div",
+                  "props": {
+                    "className": "flex flex-col gap-3 px-6 pb-6"
+                  },
+                  "children": [
+                    {
+                      "type": "link",
+                      "content": "$t:admin.api.reference.link",
+                      "props": {
+                        "href": "/api/scalar",
+                        "target": "_blank",
+                        "rel": "noopener noreferrer",
+                        "data-testid": "api-docs-scalar-link",
+                        "className": "bg-primary text-primary-foreground inline-flex w-fit items-center gap-2 rounded-md px-3 py-1.5 text-md font-medium hover:opacity-90"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,277 @@
+{
+  "id": "dashboard-data-connections",
+  "name": "dashboard-data-connections",
+  "path": "/connections",
+  "meta": {
+    "title": "$t:admin.meta.connections"
+  },
+  "requires": ["connections"],
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "connections": "$t:admin.crumb.connections"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "header",
+          "element": "header",
+          "props": {
+            "className": "flex flex-col gap-1"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "h1",
+              "props": {
+                "className": "text-foreground text-2xl font-semibold tracking-tight"
+              },
+              "content": "$t:admin.connections.heading"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "content": "$t:admin.connections.blurb"
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "admin-toolbar-row",
+          "element": "div",
+          "props": {
+            "className": "flex min-h-10 flex-wrap items-center gap-2",
+            "data-testid": "admin-toolbar-row",
+            "role": "toolbar",
+            "aria-label": "$t:admin.common.gridControls"
+          },
+          "children": [
+            {
+              "component": "console-toolbar-search",
+              "key": "toolbar-search",
+              "vars": {
+                "ariaLabel": "$t:admin.connections.search",
+                "placeholder": "$t:admin.connections.search",
+                "publishes": {
+                  "bindTo": "connections-filter",
+                  "param": "q"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "component": "console-grid",
+          "key": "grid",
+          "vars": {
+            "id": "admin-connections-grid",
+            "ariaLabel": "$t:admin.connections.region",
+            "dataSource": {
+              "system": {
+                "endpoint": "/api/admin/connections",
+                "rowsKey": "connections",
+                "idKey": "id",
+                "bindTo": "connections-filter",
+                "sharedFilter": {}
+              }
+            },
+            "columns": [
+              {
+                "field": "label",
+                "label": "$t:admin.connections.col.connection",
+                "minWidth": 180
+              },
+              {
+                "field": "type",
+                "label": "$t:admin.connections.col.type",
+                "valueLabels": {
+                  "oauth2": "OAuth2",
+                  "apiKey": "$t:admin.connections.type.apiKey",
+                  "basic": "Basic",
+                  "bearer": "Bearer"
+                },
+                "width": 110
+              },
+              {
+                "field": "status",
+                "label": "$t:admin.connections.col.status",
+                "cellStyle": [
+                  {
+                    "when": {
+                      "eq": "active"
+                    },
+                    "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-success-solid"
+                  },
+                  {
+                    "when": {
+                      "eq": "expiring-soon"
+                    },
+                    "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-warning-solid"
+                  },
+                  {
+                    "when": {
+                      "eq": "expired"
+                    },
+                    "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-destructive [&:is(span)]:before:bg-destructive"
+                  },
+                  {
+                    "when": {
+                      "eq": "reconnect-needed"
+                    },
+                    "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-destructive [&:is(span)]:before:bg-destructive"
+                  },
+                  {
+                    "when": {
+                      "eq": "not-connected"
+                    },
+                    "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50"
+                  }
+                ],
+                "valueLabels": {
+                  "active": "$t:admin.connections.status.active",
+                  "expiring-soon": "$t:admin.connections.status.expiringSoon",
+                  "expired": "$t:admin.connections.status.expired",
+                  "reconnect-needed": "$t:admin.connections.status.reconnectNeeded",
+                  "not-connected": "$t:admin.connections.status.notConnected"
+                },
+                "width": 150
+              },
+              {
+                "field": "usedBy",
+                "label": "$t:admin.connections.col.usedBy",
+                "sortable": false,
+                "minWidth": 180
+              },
+              {
+                "field": "lastUsedAt",
+                "label": "$t:admin.connections.col.lastUsed",
+                "format": "day-relative-time",
+                "width": 150
+              },
+              {
+                "field": "lastError",
+                "label": "$t:admin.connections.col.lastError",
+                "truncate": true,
+                "minWidth": 200,
+                "cellStyle": [
+                  {
+                    "when": {
+                      "isNotEmpty": true
+                    },
+                    "tone": "error"
+                  }
+                ]
+              },
+              {
+                "field": "expiresAt",
+                "label": "$t:admin.connections.col.expiration",
+                "format": "datetime",
+                "width": 140
+              },
+              {
+                "field": "tokenCount",
+                "label": "$t:admin.connections.col.tokens",
+                "valueLabels": {
+                  "0": "$t:admin.connections.tokens.none",
+                  "1": "$t:admin.connections.tokens.one",
+                  "2": "$t:admin.connections.tokens.two"
+                },
+                "visible": "hidden"
+              },
+              {
+                "field": "createdAt",
+                "label": "$t:admin.connections.col.created",
+                "format": "datetime",
+                "visible": "hidden"
+              },
+              {
+                "type": "actions",
+                "label": "$t:admin.connections.col.actions",
+                "capability": "edit-operations",
+                "actions": [
+                  {
+                    "label": "$t:admin.connections.action.connect",
+                    "icon": "plug",
+                    "action": {
+                      "type": "fetch",
+                      "url": "/api/admin/connections/$record.id/authorize",
+                      "mode": "oauth",
+                      "method": "POST",
+                      "redirectKey": "authorizationUrl",
+                      "callbackPath": "/api/admin/connections/$record.name/callback"
+                    },
+                    "visibleWhen": {
+                      "field": "rowAction",
+                      "eq": "connect"
+                    }
+                  },
+                  {
+                    "label": "$t:admin.connections.action.reconnect",
+                    "icon": "refresh-cw",
+                    "action": {
+                      "type": "fetch",
+                      "url": "/api/admin/connections/$record.id/authorize",
+                      "mode": "oauth",
+                      "method": "POST",
+                      "redirectKey": "authorizationUrl",
+                      "callbackPath": "/api/admin/connections/$record.name/callback"
+                    },
+                    "visibleWhen": {
+                      "field": "rowAction",
+                      "eq": "reconnect"
+                    }
+                  },
+                  {
+                    "label": "$t:admin.connections.action.disconnect",
+                    "icon": "unplug",
+                    "action": {
+                      "type": "fetch",
+                      "url": "/api/admin/connections/$record.id/disconnect",
+                      "method": "POST"
+                    },
+                    "confirm": "$t:admin.connections.action.disconnectConfirm",
+                    "visibleWhen": {
+                      "field": "rowAction",
+                      "in": ["disconnect", "reconnect"]
+                    },
+                    "variant": "destructive"
+                  }
+                ]
+              }
+            ],
+            "emptyMessage": "$t:admin.connections.empty",
+            "noMatchMessage": "$t:admin.connections.noMatch"
+          }
+        }
+      ]
+    }
+  ]
+}

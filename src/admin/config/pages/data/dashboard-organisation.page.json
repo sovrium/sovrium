@@ -1,0 +1,1240 @@
+{
+  "id": "dashboard-organisation",
+  "name": "dashboard-organisation",
+  "path": "/organisation",
+  "meta": {
+    "title": "$t:admin.meta.organisation"
+  },
+  "requires": ["auth", "data"],
+  "query": {
+    "tab": {
+      "default": "matrix",
+      "enum": ["matrix", "map", "reach", "processes"]
+    }
+  },
+  "dataSource": {
+    "system": {
+      "endpoint": "/api/admin/organisation/graph"
+    }
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "organisation": "$t:admin.crumb.organisation"
+            }
+          },
+          {
+            "type": "container",
+            "key": "organisation-findings-count",
+            "element": "div",
+            "props": {
+              "className": "shrink-0 text-sm text-muted-foreground",
+              "data-testid": "organisation-findings-count"
+            },
+            "children": [
+              {
+                "type": "text",
+                "element": "span",
+                "content": "$record.findingsCount"
+              },
+              {
+                "type": "text",
+                "element": "span",
+                "content": " "
+              },
+              {
+                "type": "text",
+                "element": "span",
+                "content": "$t:admin.organisation.findingsFact"
+              }
+            ]
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "header",
+          "element": "header",
+          "props": {
+            "className": "flex flex-col gap-1"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "h1",
+              "props": {
+                "className": "text-foreground text-2xl font-semibold tracking-tight"
+              },
+              "content": "$t:admin.organisation.heading"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "content": "$t:admin.organisation.blurb"
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "admin-surface-content-2-2",
+          "element": "div",
+          "props": {
+            "className": "flex min-w-0 flex-1 flex-col pt-2"
+          },
+          "children": [
+            {
+              "component": "console-tabs",
+              "key": "tabs",
+              "vars": {
+                "defaultTab": "$query.tab",
+                "ariaLabel": "$t:admin.organisation.tabs.region",
+                "dataTestid": "admin-subview-tabs",
+                "panels": [
+                  {
+                    "id": "matrix",
+                    "label": "$t:admin.organisation.tabs.matrix"
+                  },
+                  {
+                    "id": "map",
+                    "label": "$t:admin.organisation.tabs.map"
+                  },
+                  {
+                    "id": "reach",
+                    "label": "$t:admin.organisation.tabs.reach"
+                  },
+                  {
+                    "id": "processes",
+                    "label": "$t:admin.organisation.tabs.processes"
+                  }
+                ]
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-1",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-w-0 flex-col gap-6"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "organisation-degraded",
+                      "element": "div",
+                      "props": {
+                        "className": "border-error-border bg-error-bg flex flex-col gap-1 rounded-lg border p-4",
+                        "data-testid": "organisation-degraded"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "degraded",
+                          "isNotEmpty": true
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-error-fg text-sm font-medium"
+                          },
+                          "content": "$t:admin.organisation.degraded.heading"
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-error-fg text-sm"
+                          },
+                          "content": "$t:admin.organisation.degraded.body"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "organisation-matrix",
+                      "element": "section",
+                      "props": {
+                        "aria-label": "$t:admin.organisation.matrix.region",
+                        "data-testid": "organisation-matrix",
+                        "className": "flex min-w-0 flex-col gap-6"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "key": "organisation-matrix-1",
+                          "element": "div",
+                          "props": {
+                            "className": "flex min-w-0 flex-col gap-3"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "p",
+                              "props": {
+                                "className": "text-foreground-subtle max-w-3xl text-sm"
+                              },
+                              "content": "$t:admin.organisation.matrix.blurb"
+                            },
+                            {
+                              "type": "matrix",
+                              "dataSource": {
+                                "system": {
+                                  "endpoint": "/api/admin/organisation/graph"
+                                }
+                              },
+                              "rows": {
+                                "kinds": ["table", "page", "form", "bucket", "agent-resource"],
+                                "groupBy": "family"
+                              },
+                              "columns": {
+                                "kinds": ["role", "team", "open"],
+                                "sortBy": "level",
+                                "sortDirection": "desc"
+                              },
+                              "cell": {
+                                "from": "edges",
+                                "kind": "grant",
+                                "glyph": "quadrant",
+                                "opsField": "ops",
+                                "flag": {
+                                  "field": "viaOpenRung",
+                                  "label": "$t:admin.organisation.matrix.flag"
+                                }
+                              },
+                              "label": "$t:admin.organisation.matrix.label",
+                              "emptyMessage": "$t:admin.organisation.matrix.empty"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "organisation-matrix-exceptions-panel",
+                          "element": "div",
+                          "props": {
+                            "className": "flex min-w-0 flex-col gap-3",
+                            "data-testid": "organisation-matrix-exceptions-panel"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "h3",
+                              "props": {
+                                "className": "text-foreground text-sm font-medium"
+                              },
+                              "content": "$t:admin.organisation.exceptions.heading"
+                            },
+                            {
+                              "type": "container",
+                              "key": "organisation-matrix-exceptions-panel-2",
+                              "element": "div",
+                              "visibility": {
+                                "record": {
+                                  "field": "exceptions",
+                                  "isNotEmpty": true
+                                }
+                              },
+                              "children": [
+                                {
+                                  "component": "console-grid",
+                                  "key": "grid",
+                                  "vars": {
+                                    "id": "organisation-matrix-exceptions",
+                                    "ariaLabel": "$t:admin.organisation.narrowings.region",
+                                    "dataSource": {
+                                      "system": {
+                                        "endpoint": "/api/admin/organisation/graph",
+                                        "rowsKey": "exceptions",
+                                        "idKey": "id"
+                                      }
+                                    },
+                                    "columns": [
+                                      {
+                                        "field": "resource",
+                                        "label": "$t:admin.organisation.exceptions.resource"
+                                      },
+                                      {
+                                        "field": "scope",
+                                        "label": "$t:admin.organisation.exceptions.scope",
+                                        "valueLabels": {
+                                          "field": "$t:admin.organisation.exceptions.scope.field",
+                                          "row": "$t:admin.organisation.exceptions.scope.row"
+                                        }
+                                      },
+                                      {
+                                        "field": "op",
+                                        "label": "$t:admin.organisation.exceptions.op"
+                                      },
+                                      {
+                                        "field": "field",
+                                        "label": "$t:admin.organisation.exceptions.field"
+                                      },
+                                      {
+                                        "field": "rung",
+                                        "label": "$t:admin.organisation.exceptions.rung",
+                                        "valueLabels": {
+                                          "everyone": "$t:admin.organisation.exceptions.rung.everyone",
+                                          "any-session": "$t:admin.organisation.exceptions.rung.anySession",
+                                          "roles": "$t:admin.organisation.exceptions.rung.roles"
+                                        }
+                                      },
+                                      {
+                                        "field": "detail",
+                                        "label": "$t:admin.organisation.exceptions.detail"
+                                      }
+                                    ],
+                                    "emptyMessage": "$t:admin.organisation.exceptions.empty"
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "type": "container",
+                              "key": "organisation-matrix-exceptions-panel-3",
+                              "element": "div",
+                              "visibility": {
+                                "record": {
+                                  "field": "exceptions",
+                                  "isEmpty": true
+                                }
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "narrowings-none",
+                                  "element": "section",
+                                  "props": {
+                                    "aria-label": "$t:admin.organisation.narrowings.none",
+                                    "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 flex min-h-64 flex-col items-center justify-center gap-2 p-10 text-center"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-foreground text-md font-medium"
+                                      },
+                                      "content": "$t:admin.organisation.narrowings.none"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-muted-foreground max-w-md text-md leading-relaxed"
+                                      },
+                                      "content": "$t:admin.organisation.narrowings.noneBody"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-foreground-subtle mt-1 max-w-md text-md italic"
+                                      },
+                                      "content": "$t:admin.organisation.narrowings.whole"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-2",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-w-0 flex-col gap-6"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "organisation-degraded-2",
+                      "element": "div",
+                      "props": {
+                        "className": "border-error-border bg-error-bg flex flex-col gap-1 rounded-lg border p-4",
+                        "data-testid": "organisation-degraded"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "degraded",
+                          "isNotEmpty": true
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-error-fg text-sm font-medium"
+                          },
+                          "content": "$t:admin.organisation.degraded.heading"
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-error-fg text-sm"
+                          },
+                          "content": "$t:admin.organisation.degraded.body"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "organisation-findings",
+                      "element": "section",
+                      "props": {
+                        "aria-label": "$t:admin.organisation.findings.region",
+                        "data-testid": "organisation-findings",
+                        "className": "flex max-w-3xl flex-col gap-3 border-l-2 border-warning-border pl-4"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle text-sm"
+                          },
+                          "content": "$t:admin.organisation.findings.blurb"
+                        },
+                        {
+                          "type": "container",
+                          "key": "organisation-findings-2",
+                          "element": "div",
+                          "visibility": {
+                            "record": {
+                              "field": "findings",
+                              "isNotEmpty": true
+                            }
+                          },
+                          "children": [
+                            {
+                              "type": "list",
+                              "props": {
+                                "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 divide-border divide-y"
+                              },
+                              "dataSource": {
+                                "system": {
+                                  "endpoint": "/api/admin/organisation/graph",
+                                  "rowsKey": "findings",
+                                  "idKey": "id"
+                                }
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "organisation-finding",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex items-baseline gap-3 px-4 py-3",
+                                    "data-testid": "organisation-finding",
+                                    "data-finding-severity": "$record.severity",
+                                    "data-finding-kind": "$record.kind"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "organisation-finding-1",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "w-20 shrink-0"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-error-fg text-sm font-medium"
+                                          },
+                                          "content": "$t:admin.organisation.critical",
+                                          "visibility": {
+                                            "record": {
+                                              "field": "severity",
+                                              "eq": "critical"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground text-sm font-medium"
+                                          },
+                                          "content": "$t:admin.organisation.warning",
+                                          "visibility": {
+                                            "record": {
+                                              "field": "severity",
+                                              "eq": "warning"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground-subtle text-sm"
+                                          },
+                                          "content": "$t:admin.organisation.notice",
+                                          "visibility": {
+                                            "record": {
+                                              "field": "severity",
+                                              "eq": "notice"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "container",
+                                      "key": "organisation-finding-2",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex min-w-0 flex-col gap-0.5"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground text-sm"
+                                          },
+                                          "content": "$record.message"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground-subtle text-sm"
+                                          },
+                                          "content": "$t:admin.organisation.anonymous",
+                                          "visibility": {
+                                            "record": {
+                                              "field": "blastRadius",
+                                              "eq": "unbounded"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground-subtle text-sm"
+                                          },
+                                          "content": "$t:admin.organisation.onePrincipal",
+                                          "visibility": {
+                                            "record": {
+                                              "field": "blastRadius",
+                                              "eq": 1
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground-subtle text-sm"
+                                          },
+                                          "content": "$record.blastRadius principals",
+                                          "visibility": {
+                                            "record": {
+                                              "field": "blastRadius",
+                                              "notIn": ["unbounded", 1]
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "organisation-findings-3",
+                          "element": "div",
+                          "visibility": {
+                            "record": {
+                              "field": "findings",
+                              "isEmpty": true
+                            }
+                          },
+                          "children": [
+                            {
+                              "type": "container",
+                              "key": "organisation-no-findings",
+                              "element": "section",
+                              "props": {
+                                "aria-label": "$t:admin.organisation.noFindings",
+                                "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 flex min-h-64 flex-col items-center justify-center gap-2 p-10 text-center"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "p",
+                                  "props": {
+                                    "className": "text-foreground text-md font-medium"
+                                  },
+                                  "content": "$t:admin.organisation.noFindings"
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "p",
+                                  "props": {
+                                    "className": "text-muted-foreground max-w-md text-md leading-relaxed"
+                                  },
+                                  "content": "$t:admin.organisation.noFindingsBody"
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "p",
+                                  "props": {
+                                    "className": "text-foreground-subtle mt-1 max-w-md text-md italic"
+                                  },
+                                  "content": "$t:admin.organisation.scope"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "organisation-map",
+                      "element": "section",
+                      "props": {
+                        "aria-label": "$t:admin.organisation.map.region",
+                        "data-testid": "organisation-map",
+                        "className": "flex min-w-0 flex-col gap-3"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle max-w-3xl text-sm"
+                          },
+                          "content": "$t:admin.organisation.map.blurb"
+                        },
+                        {
+                          "type": "graph",
+                          "layout": "layered",
+                          "dataSource": {
+                            "system": {
+                              "endpoint": "/api/admin/organisation/graph"
+                            }
+                          },
+                          "columns": [
+                            {
+                              "kinds": ["person", "agent"],
+                              "label": "$t:admin.organisation.map.column.principals",
+                              "groupBy": "kind"
+                            },
+                            {
+                              "kinds": ["role", "team", "open"],
+                              "label": "$t:admin.organisation.map.column.grantSources",
+                              "sortBy": "level",
+                              "sortDirection": "desc"
+                            },
+                            {
+                              "kinds": ["table", "page", "form", "bucket", "agent-resource"],
+                              "label": "$t:admin.organisation.map.column.resources",
+                              "groupBy": "family"
+                            }
+                          ],
+                          "selection": {
+                            "mode": "single",
+                            "reach": "both"
+                          },
+                          "flag": {
+                            "field": "inFinding",
+                            "label": "$t:admin.organisation.graph.flag"
+                          },
+                          "legend": true,
+                          "label": "$t:admin.organisation.map.label",
+                          "emptyMessage": "$t:admin.organisation.map.empty"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-3",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-w-0 flex-col gap-6"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "organisation-degraded-3",
+                      "element": "div",
+                      "props": {
+                        "className": "border-error-border bg-error-bg flex flex-col gap-1 rounded-lg border p-4",
+                        "data-testid": "organisation-degraded"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "degraded",
+                          "isNotEmpty": true
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-error-fg text-sm font-medium"
+                          },
+                          "content": "$t:admin.organisation.degraded.heading"
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-error-fg text-sm"
+                          },
+                          "content": "$t:admin.organisation.degraded.body"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "organisation-reach",
+                      "element": "section",
+                      "props": {
+                        "aria-label": "$t:admin.organisation.reach.region",
+                        "data-testid": "organisation-reach",
+                        "className": "flex min-w-0 flex-col gap-3"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle max-w-3xl text-sm"
+                          },
+                          "content": "$t:admin.organisation.reach.blurb"
+                        },
+                        {
+                          "type": "container",
+                          "key": "organisation-reach-2",
+                          "element": "div",
+                          "props": {
+                            "className": "grid grid-cols-2 gap-4 sm:max-w-md"
+                          },
+                          "children": [
+                            {
+                              "type": "kpi",
+                              "label": "$t:admin.organisation.reach.things",
+                              "dataSource": {
+                                "system": {
+                                  "endpoint": "/api/admin/organisation/graph",
+                                  "valuePath": "nodes.length"
+                                }
+                              },
+                              "kpiFormat": {
+                                "type": "number"
+                              }
+                            },
+                            {
+                              "type": "kpi",
+                              "label": "$t:admin.organisation.reach.relationships",
+                              "dataSource": {
+                                "system": {
+                                  "endpoint": "/api/admin/organisation/graph",
+                                  "valuePath": "edges.length"
+                                }
+                              },
+                              "kpiFormat": {
+                                "type": "number"
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "organisation-reach-3",
+                          "element": "div",
+                          "props": {
+                            "className": "flex w-full max-w-5xl flex-col gap-3"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "h3",
+                              "props": {
+                                "className": "text-foreground text-sm font-medium"
+                              },
+                              "content": "$t:admin.organisation.reach.position.heading"
+                            },
+                            {
+                              "type": "container",
+                              "key": "organisation-reach-position",
+                              "element": "div",
+                              "props": {
+                                "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10",
+                                "data-testid": "organisation-reach-position"
+                              },
+                              "children": [
+                                {
+                                  "type": "list",
+                                  "dataSource": {
+                                    "system": {
+                                      "endpoint": "/api/admin/organisation/graph",
+                                      "rowsKey": "nodes",
+                                      "idKey": "id"
+                                    }
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "container",
+                                      "key": "organisation-reach-position-row",
+                                      "element": "div",
+                                      "visibility": {
+                                        "record": {
+                                          "field": "kind",
+                                          "in": ["person", "agent"]
+                                        }
+                                      },
+                                      "props": {
+                                        "className": "border-border flex flex-wrap items-baseline gap-x-6 gap-y-3 border-t px-4 py-3",
+                                        "data-testid": "organisation-reach-position-row",
+                                        "data-principal-kind": "$record.kind"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "container",
+                                          "key": "organisation-reach-position-row-1",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "flex w-full min-w-0 flex-col gap-0.5 sm:w-auto sm:flex-1"
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "element": "span",
+                                              "props": {
+                                                "className": "text-foreground truncate text-sm font-medium"
+                                              },
+                                              "content": "$record.label"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "element": "span",
+                                              "props": {
+                                                "className": "text-foreground-subtle truncate text-xs"
+                                              },
+                                              "content": "$record.detail"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "container",
+                                          "key": "organisation-reach-position-row-2",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "grid shrink-0 grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4"
+                                          },
+                                          "children": [
+                                            {
+                                              "type": "container",
+                                              "key": "organisation-reach-position-row-2-1",
+                                              "element": "div",
+                                              "props": {
+                                                "className": "flex w-24 flex-col gap-0.5"
+                                              },
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "props": {
+                                                    "className": "text-foreground-subtle text-xs"
+                                                  },
+                                                  "content": "$t:admin.organisation.reach.position.holds"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "props": {
+                                                    "className": "text-foreground text-sm tabular-nums"
+                                                  },
+                                                  "content": "$record.holds"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "container",
+                                              "key": "organisation-reach-position-row-2-2",
+                                              "element": "div",
+                                              "props": {
+                                                "className": "flex w-24 flex-col gap-0.5"
+                                              },
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "props": {
+                                                    "className": "text-foreground-subtle text-xs"
+                                                  },
+                                                  "content": "$t:admin.organisation.reach.position.reaches"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "props": {
+                                                    "className": "text-foreground text-sm tabular-nums"
+                                                  },
+                                                  "content": "$record.reaches"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "container",
+                                              "key": "organisation-reach-position-row-2-3",
+                                              "element": "div",
+                                              "props": {
+                                                "className": "flex w-24 flex-col gap-0.5"
+                                              },
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "props": {
+                                                    "className": "text-foreground-subtle text-xs"
+                                                  },
+                                                  "content": "$t:admin.organisation.reach.position.writes"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "props": {
+                                                    "className": "text-foreground text-sm tabular-nums"
+                                                  },
+                                                  "content": "$record.writes"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "container",
+                                              "key": "organisation-reach-position-row-2-4",
+                                              "element": "div",
+                                              "props": {
+                                                "className": "flex w-24 flex-col gap-0.5"
+                                              },
+                                              "children": [
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "props": {
+                                                    "className": "text-foreground-subtle text-xs"
+                                                  },
+                                                  "content": "$t:admin.organisation.reach.position.duplicateRoutes"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "element": "span",
+                                                  "props": {
+                                                    "className": "text-foreground text-sm tabular-nums"
+                                                  },
+                                                  "content": "$record.duplicateRoutes"
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "description-list",
+                              "dividers": false,
+                              "props": {
+                                "data-testid": "organisation-reach-position-legend"
+                              },
+                              "items": [
+                                {
+                                  "term": "$t:admin.organisation.legend.holds",
+                                  "detail": "$t:admin.organisation.legend.holdsDetail"
+                                },
+                                {
+                                  "term": "$t:admin.organisation.legend.reaches",
+                                  "detail": "$t:admin.organisation.legend.reachesDetail"
+                                },
+                                {
+                                  "term": "$t:admin.organisation.legend.writes",
+                                  "detail": "$t:admin.organisation.legend.writesDetail"
+                                },
+                                {
+                                  "term": "$t:admin.organisation.legend.duplicates",
+                                  "detail": "$t:admin.organisation.legend.duplicatesDetail"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
+                          "key": "organisation-reach-4",
+                          "element": "div",
+                          "props": {
+                            "className": "flex w-full max-w-5xl flex-col gap-3"
+                          },
+                          "children": [
+                            {
+                              "component": "console-grid",
+                              "key": "grid-2",
+                              "vars": {
+                                "id": "organisation-reach-chains",
+                                "ariaLabel": "$t:admin.organisation.reach.graphRegion",
+                                "dataSource": {
+                                  "system": {
+                                    "endpoint": "/api/admin/organisation/graph",
+                                    "rowsKey": "edges",
+                                    "idKey": "id"
+                                  }
+                                },
+                                "columns": [
+                                  {
+                                    "field": "fromLabel",
+                                    "label": "$t:admin.organisation.reach.from"
+                                  },
+                                  {
+                                    "field": "kind",
+                                    "label": "$t:admin.organisation.reach.kind",
+                                    "valueLabels": {
+                                      "member": "$t:admin.organisation.reach.kind.member",
+                                      "grant": "$t:admin.organisation.reach.kind.grant",
+                                      "trigger": "$t:admin.organisation.reach.kind.trigger",
+                                      "escalation": "$t:admin.organisation.reach.kind.escalation",
+                                      "step": "$t:admin.organisation.reach.kind.step"
+                                    }
+                                  },
+                                  {
+                                    "field": "toLabel",
+                                    "label": "$t:admin.organisation.reach.to"
+                                  },
+                                  {
+                                    "field": "ops",
+                                    "label": "$t:admin.organisation.reach.ops"
+                                  },
+                                  {
+                                    "field": "viaOpenRung",
+                                    "label": "$t:admin.organisation.reach.route",
+                                    "valueLabels": {
+                                      "true": "$t:admin.organisation.reach.openRung"
+                                    }
+                                  }
+                                ],
+                                "emptyMessage": "$t:admin.organisation.reach.empty"
+                              }
+                            },
+                            {
+                              "type": "container",
+                              "key": "organisation-reach-4-2",
+                              "element": "div",
+                              "visibility": {
+                                "record": {
+                                  "field": "edges",
+                                  "isEmpty": true
+                                }
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "reach-none",
+                                  "element": "section",
+                                  "props": {
+                                    "aria-label": "$t:admin.organisation.reach.none",
+                                    "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 flex min-h-64 flex-col items-center justify-center gap-2 p-10 text-center"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-foreground text-md font-medium"
+                                      },
+                                      "content": "$t:admin.organisation.reach.none"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-muted-foreground max-w-md text-md leading-relaxed"
+                                      },
+                                      "content": "$t:admin.organisation.reach.noneBody"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "p",
+                                      "props": {
+                                        "className": "text-foreground-subtle mt-1 max-w-md text-md italic"
+                                      },
+                                      "content": "$t:admin.organisation.reach.readFailed"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "description-list",
+                              "props": {
+                                "data-testid": "organisation-reach-legend"
+                              },
+                              "items": [
+                                {
+                                  "term": "$t:admin.organisation.legend.sourceTarget",
+                                  "detail": "$t:admin.organisation.legend.sourceTargetDetail"
+                                },
+                                {
+                                  "term": "$t:admin.organisation.legend.permits",
+                                  "detail": "$t:admin.organisation.legend.permitsDetail"
+                                },
+                                {
+                                  "term": "$t:admin.organisation.legend.route",
+                                  "detail": "$t:admin.organisation.legend.routeDetail"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-4",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-w-0 flex-col gap-6"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "organisation-degraded-4",
+                      "element": "div",
+                      "props": {
+                        "className": "border-error-border bg-error-bg flex flex-col gap-1 rounded-lg border p-4",
+                        "data-testid": "organisation-degraded"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "degraded",
+                          "isNotEmpty": true
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-error-fg text-sm font-medium"
+                          },
+                          "content": "$t:admin.organisation.degraded.heading"
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-error-fg text-sm"
+                          },
+                          "content": "$t:admin.organisation.degraded.body"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "organisation-processes",
+                      "element": "section",
+                      "props": {
+                        "aria-label": "$t:admin.organisation.processes.region",
+                        "data-testid": "organisation-processes",
+                        "className": "flex min-w-0 flex-col gap-3"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle max-w-3xl text-sm"
+                          },
+                          "content": "$t:admin.organisation.processes.blurb"
+                        },
+                        {
+                          "type": "graph",
+                          "layout": "lanes",
+                          "dataSource": {
+                            "system": {
+                              "endpoint": "/api/admin/organisation/graph"
+                            }
+                          },
+                          "lanes": {
+                            "kinds": ["automation"],
+                            "label": "$t:admin.organisation.processes.lane",
+                            "stations": {
+                              "kinds": ["step"],
+                              "label": "$t:admin.organisation.processes.stations"
+                            },
+                            "sortBy": "label"
+                          },
+                          "selection": {
+                            "mode": "single",
+                            "reach": "both"
+                          },
+                          "flag": {
+                            "field": "inFinding",
+                            "label": "$t:admin.organisation.graph.flag"
+                          },
+                          "label": "$t:admin.organisation.processes.label",
+                          "emptyMessage": "$t:admin.organisation.processes.empty"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -34,6 +34,29 @@ function partOrderOf(locale: string): readonly DatePart[] {
     .filter((type): type is DatePart => type === 'year' || type === 'month' || type === 'day')
 }
 
+const PATTERN_PART: Readonly<Record<DatePart, string>> = { year: 'YYYY', month: 'MM', day: 'DD' }
+
+/**
+ * The shape of a day as `locale` writes it — `MM/DD/YYYY` in English (US),
+ * `DD/MM/YYYY` in English (UK), `DD.MM.YYYY` in German — for a date box to
+ * show as its placeholder.
+ */
+export function pageDatePattern(locale: string): string {
+  return new Intl.DateTimeFormat(usableLocale(locale), {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: 'UTC',
+  })
+    .formatToParts(new Date(Date.UTC(2026, 9, 21)))
+    .map((part) =>
+      part.type === 'year' || part.type === 'month' || part.type === 'day'
+        ? PATTERN_PART[part.type]
+        : part.value
+    )
+    .join('')
+}
+
 /** A stored day (`YYYY-MM-DD`) as `locale` writes it (`DD/MM/YYYY` in English (UK)); anything else as written. */
 export function formatPageDate(value: string, locale: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value.trim())

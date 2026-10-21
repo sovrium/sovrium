@@ -18,8 +18,8 @@ import {
   type RecordTextField,
   type RecordTextFields,
 } from '@/domain/models/app/tables/record-text-service'
-import { serverNow } from '@/domain/models/process-env/dev-clock'
 import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
+import { renderNow } from '@/presentation/render/page/render-clock'
 import { optionLabelsOf } from '@/presentation/render/props/option-labels'
 import { resolveValueCurrency } from './resolve-chart-field-context'
 import type { DurationDisplayFormat } from '@/domain/kernel/format/duration-format'
@@ -207,7 +207,7 @@ const serverTextContext = (
 ): FieldTextContext => ({
   tables,
   operatorZone: parseSovriumTimezone().zoneId,
-  now: serverNow(),
+  now: renderNow(),
   locale,
   languages,
 })
@@ -340,7 +340,7 @@ export const pageRecordOf = (
     Object.entries(record).map(([key, value]) => [key, storedValueOf(value, typeOf(key))])
   )
   if (context === undefined || plan === undefined) return stored
-  const now = serverNow()
+  const now = renderNow()
   const text = Object.entries(stored).flatMap(([fieldName, value]) => {
     const field = plan.get(fieldName)?.text
     if (value === undefined || value === null || field === undefined) return []

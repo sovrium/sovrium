@@ -10,7 +10,11 @@ import {
   InstanceSupervisor,
   InstanceSupervisorError,
 } from '@/application/ports/services/instance-supervisor'
-import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
+import {
+  StorageService,
+  UNATTRIBUTED_BUCKET,
+  isStorageObjectTooLarge,
+} from '@/application/ports/services/storage-service'
 import { BUNDLE_MANIFEST_ENTRY } from '@/application/use-cases/server/bundle-manifest'
 import {
   manifestSignatureProblem,
@@ -94,7 +98,16 @@ const bundleBytes = (bundle: unknown, gate: StarterFileGate) =>
     // no row for it — is checked before a byte is downloaded; an unknown size is never downloaded.
     const stored = yield* storage.statObject(key).pipe(Effect.mapError(toRefusal))
     if (stored.size > BUNDLE_MAX_STORED_BYTES) return yield* refuse(TOO_LARGE_STORED)
-    return yield* storage.download(key, UNATTRIBUTED_BUCKET).pipe(Effect.mapError(toRefusal))
+    // Bounded too: the object may have grown between its size and its read.
+    return yield* storage
+      .downloadBounded(key, UNATTRIBUTED_BUCKET, BUNDLE_MAX_STORED_BYTES)
+      .pipe(
+        Effect.mapError((error) =>
+          isStorageObjectTooLarge(error)
+            ? new InstanceSupervisorError({ message: TOO_LARGE_STORED })
+            : toRefusal(error)
+        )
+      )
   })
 
 const TOO_LARGE_STORED = 'instance: the bundle is larger than 100 MiB, the most a bundle may weigh'

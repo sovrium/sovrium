@@ -13,6 +13,7 @@ import {
 } from '@/domain/models/app/app-deprecated-keys'
 import { collectAttachmentTokenWarnings } from '@/domain/models/app/attachment-token-validation'
 import { collectSharedChannelWarnings } from '@/domain/models/app/pages/shared-channel-warnings-validation'
+import { collectTemplateWarnings } from '@/domain/models/app/pages/template-warnings-validation'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 
 /**
@@ -79,6 +80,8 @@ export const printConfigDeprecationWarnings = (config: unknown): void => {
     ...collectAttachmentTokenWarnings(config),
     // A shared-filter channel with one side only, and the id-based search box.
     ...collectSharedChannelWarnings(config),
+    // A template named like the console's own, and guidance a transparent one never draws.
+    ...collectTemplateWarnings(config),
   ]
   if (warnings.length === 0) return
   printStderr(warnings.map((warning) => `Warning: ${warning.message}`).join('\n'))

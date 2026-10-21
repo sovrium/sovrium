@@ -149,6 +149,15 @@ export interface ToastRetry {
 }
 
 /**
+ * What a failure toast carries after its message: `decorate` appends the
+ * caller's own detail (a console's request id), then the Retry follows.
+ */
+export interface ToastControls {
+  readonly retry?: ToastRetry | undefined
+  readonly decorate?: ((toast: Element) => void) | undefined
+}
+
+/**
  * Append a Retry to a failure toast: pressing it removes the toast and runs the
  * failed action again, which raises its own toast for the new outcome. Shared
  * by both renderers, so a Retry reads and behaves the same whichever drew it.

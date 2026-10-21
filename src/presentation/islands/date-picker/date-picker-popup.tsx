@@ -5,8 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useCallback, useMemo, type ReactElement } from 'react'
+import { useCallback, useMemo, useRef, type ReactElement } from 'react'
 import { Calendar } from '../parts/day-picker'
+import { useInViewPlacement } from '../parts/in-view-placement'
 import { computeDatePopupClasses } from './date-default-classes'
 import { calendarBounds, type DateRange } from './date-format-helpers'
 
@@ -69,8 +70,14 @@ export function DatePickerPopup({
     () => (rangeValue?.from ? { from: rangeValue.from, to: rangeValue.to } : undefined),
     [rangeValue]
   )
+  // Kept inside the window — flipped above, or shifted — like the other popups;
+  // a month with one more week is measured again.
+  const panel = useRef<HTMLDivElement>(null)
+  const placement = useInViewPlacement(panel, viewMonth.getTime())
   return (
     <div
+      ref={panel}
+      style={depicted ? undefined : placement}
       role={depicted ? undefined : 'dialog'}
       aria-label={depicted ? undefined : (label ?? 'Choose date')}
       data-specimen-open={depicted ? 'true' : undefined}

@@ -25,18 +25,28 @@ import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-ca
 import { denyFormAccess, evaluateFormAccessForRequest } from '@/presentation/api/forms/access-gate'
 import { transformMultipartFiles } from '@/presentation/api/forms/file-upload-handler'
 import { getRequestClientIp, getRequestRateLimitKey } from '@/presentation/api/middleware/client-ip'
+import { formForCaller } from './form-page-context'
 import { formNotFound } from './submission-refusals'
 import {
   detectJsonClient,
   resolveSubmitRedirectTarget,
   respondSubmissionFailure,
 } from './submission-responses'
+import type { ReadTableAsCaller } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 import type { Context } from 'hono'
 
-/** Reads a submission body as the submission endpoint does (JSON or a native form post). */
-export type SubmissionBodyReader = (c: Context) => Promise<Record<string, unknown>>
+/**
+ * What a draft or an edit reads of its request as the submission endpoint
+ * does: the body (JSON or a native form post), and the table API's answer to
+ * what the caller may see of the form's table, so the form is offered — and
+ * kept — exactly as on a first submission.
+ */
+export interface SubmissionRequestReaders {
+  readonly read: (c: Context) => Promise<Record<string, unknown>>
+  readonly readTableAsCaller: ((c: Context) => ReadTableAsCaller) | undefined
+}
 
 /**
  * What a resume or edit link brings to the form page: the answers to restore,
@@ -118,7 +128,7 @@ export async function handleGetEditPage(
 export async function handleEditSubmission(
   c: Context,
   app: App,
-  readBody: SubmissionBodyReader
+  readers: SubmissionRequestReaders
 ): Promise<Response> {
   const form = findFormByName(app, c.req.param('name') ?? '')
   if (form?.editAfterSubmit === undefined) return formNotFound(c)
@@ -126,10 +136,11 @@ export async function handleEditSubmission(
   const denied = denyFormAccess(c, form.name, decision, 'json')
   if (denied !== undefined) return denied
   const isJsonClient = detectJsonClient(c)
+  const offered = await formForCaller(c, app, form, { session, read: readers.readTableAsCaller })
   // A file picked on the edit page is uploaded as on a first submission.
   const uploaded = await runRequestEffect(
     c,
-    provideDomain(c, transformMultipartFiles(app, form, await readBody(c), session)).pipe(
+    provideDomain(c, transformMultipartFiles(app, offered, await readers.read(c), session)).pipe(
       Effect.result
     )
   )
@@ -137,6 +148,7 @@ export async function handleEditSubmission(
   const program = editFormSubmissionProgram({
     app,
     formName: form.name,
+    form: offered,
     tokenHash: hashAccessToken(c.req.param('token') ?? ''),
     body: uploaded.success,
     processEnv: process.env,
@@ -169,19 +181,20 @@ const readDraftRequest = (body: Readonly<Record<string, unknown>>) => ({
 export async function handlePostDraft(
   c: Context,
   app: App,
-  readBody: SubmissionBodyReader
+  readers: SubmissionRequestReaders
 ): Promise<Response> {
   const form = findFormByName(app, c.req.param('name') ?? '')
   if (form?.saveAndResume?.enabled !== true) return formNotFound(c)
-  const { decision } = await evaluateFormAccessForRequest(c, form)
+  const { decision, session } = await evaluateFormAccessForRequest(c, form)
   const denied = denyFormAccess(c, form.name, decision, 'json')
   if (denied !== undefined) return denied
-  const { email, answers } = readDraftRequest(await readBody(c))
+  const { email, answers } = readDraftRequest(await readers.read(c))
   const issued = issueAccessToken()
   const userAgent = c.req.header('user-agent')
   const program = saveFormDraftProgram({
     app,
     formName: form.name,
+    form: await formForCaller(c, app, form, { session, read: readers.readTableAsCaller }),
     email,
     answers,
     token: issued.token,

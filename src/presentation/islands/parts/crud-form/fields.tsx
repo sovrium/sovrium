@@ -25,7 +25,7 @@ import { RecordButton } from '../../runtime/record-button'
 import { CodeFieldBoundary } from './code-field-boundary'
 import { DateField } from './date-field'
 import { CONTROL_CLASS, TEXTAREA_CLASS } from './field-chrome-classes'
-import { type FieldDef, labelOf } from './field-def'
+import { type FieldDef, type FormRecordBinding, labelOf } from './field-def'
 import { FieldHelpText } from './field-help-text'
 import { FieldLabelText, LabelledControl } from './field-label'
 import { FileField } from './file-field'
@@ -41,7 +41,7 @@ import {
 } from './typed-fields'
 
 // Re-exported so existing importers of `crud-form/fields` keep working.
-export { type FieldDef, labelOf }
+export { type FieldDef, type FormRecordBinding, labelOf }
 
 interface FieldInputProps {
   readonly name: string
@@ -202,8 +202,10 @@ interface FieldRenderArgs {
   /**
    * The record the form is bound to, when there is one. Without one an
    * automation button renders disabled — there is nothing to run it against.
+   * With it, the button is drawn on the record: disabled where the server's
+   * verdict (`_disabled`) says so, hidden where its `visibleWhen` fails.
    */
-  readonly binding?: { readonly table?: string; readonly recordId?: string }
+  readonly binding?: FormRecordBinding
   /** The form's interface strings in the page language (a button's `action.running`). */
   readonly uiStrings?: Readonly<Record<string, string>> | undefined
 }
@@ -239,6 +241,7 @@ const WIDGET_RENDERERS: Record<FieldWidget, (args: FieldRenderArgs) => React.Rea
         strings={uiStrings}
         {...(binding?.table === undefined ? {} : { table: binding.table })}
         {...(binding?.recordId === undefined ? {} : { recordId: binding.recordId })}
+        {...(binding?.record === undefined ? {} : { record: binding.record })}
       />
     ) : undefined,
   code: ({ field, value, onChange }) => renderCodeField(field, value, onChange),

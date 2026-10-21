@@ -1,0 +1,643 @@
+{
+  "id": "dashboard-changelog-release",
+  "name": "dashboard-changelog-release",
+  "path": "/changelog/:hash",
+  "meta": {
+    "title": "$t:admin.meta.release"
+  },
+  "dataSource": {
+    "system": {
+      "endpoint": "/api/admin/releases/:hash",
+      "param": "hash",
+      "idKey": "id"
+    }
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "changelog": "$t:admin.crumb.changelog"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "header",
+          "element": "header",
+          "props": {
+            "className": "flex flex-col gap-1"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "h1",
+              "props": {
+                "className": "text-foreground text-2xl font-semibold tracking-tight"
+              },
+              "content": "$t:admin.changelog.one.heading"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "content": "$t:admin.changelog.one.blurb"
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "admin-surface-content-2-2",
+          "element": "div",
+          "props": {
+            "className": "flex flex-col gap-6 pt-2"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "admin-toolbar-row",
+              "element": "div",
+              "props": {
+                "className": "flex min-h-10 flex-wrap items-center gap-2",
+                "data-testid": "admin-toolbar-row"
+              },
+              "children": [
+                {
+                  "type": "link",
+                  "content": "$t:admin.changelog.back",
+                  "props": {
+                    "href": "/changelog",
+                    "data-testid": "changelog-back",
+                    "className": "text-muted-foreground hover:text-foreground text-sm underline"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-2-2",
+              "element": "div",
+              "props": {
+                "className": "flex flex-wrap items-baseline gap-x-3 gap-y-1"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "h2",
+                  "props": {
+                    "className": "text-foreground font-mono text-lg font-medium"
+                  },
+                  "content": "$record.version|$record.configHash"
+                },
+                {
+                  "type": "text",
+                  "element": "span",
+                  "props": {
+                    "className": "text-muted-foreground text-md"
+                  },
+                  "content": "$record.summary"
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-2-3",
+              "element": "div",
+              "props": {
+                "className": "flex flex-col gap-6 lg:flex-row lg:items-start"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "admin-surface-content-2-2-3-1",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-w-0 flex-1 flex-col gap-4"
+                  },
+                  "children": [
+                    {
+                      "type": "container",
+                      "key": "admin-surface-content-2-2-3-1-1",
+                      "element": "div",
+                      "props": {
+                        "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 flex flex-col gap-3 p-5"
+                      },
+                      "children": [
+                        {
+                          "type": "container",
+                          "key": "admin-surface-content-2-2-3-1-1-1",
+                          "element": "div",
+                          "props": {
+                            "className": "flex flex-wrap items-center justify-between gap-2"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "h2",
+                              "props": {
+                                "className": "text-foreground-subtle text-sm font-medium tracking-wide uppercase"
+                              },
+                              "content": "$t:admin.changelog.diff.heading"
+                            },
+                            {
+                              "type": "button",
+                              "label": "$t:admin.changelog.exportDiff",
+                              "variant": "secondary",
+                              "visibility": {
+                                "record": {
+                                  "field": "previousConfigHash",
+                                  "isNotEmpty": true
+                                }
+                              },
+                              "props": {
+                                "type": "button",
+                                "data-testid": "changelog-export-diff"
+                              },
+                              "action": {
+                                "type": "fetch",
+                                "mode": "download",
+                                "url": "/api/admin/releases/$param.hash",
+                                "filename": "release-$param.hash.json"
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground font-mono text-md",
+                            "data-testid": "changelog-diff-counts"
+                          },
+                          "content": "+$record.added −$record.removed",
+                          "visibility": {
+                            "record": {
+                              "field": "previousConfigHash",
+                              "isNotEmpty": true
+                            }
+                          }
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-muted-foreground max-w-2xl text-md leading-relaxed",
+                            "data-testid": "changelog-diff-baseline"
+                          },
+                          "content": "$t:admin.changelog.diff.baseline",
+                          "visibility": {
+                            "record": {
+                              "field": "previousConfigHash",
+                              "isEmpty": true
+                            }
+                          }
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-muted-foreground max-w-2xl text-md leading-relaxed"
+                          },
+                          "content": "$t:admin.changelog.diff.pruned",
+                          "visibility": {
+                            "record": {
+                              "field": "previousUnavailable",
+                              "eq": true
+                            }
+                          }
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-foreground-subtle max-w-2xl text-sm leading-relaxed"
+                          },
+                          "content": "$t:admin.changelog.diff.redaction",
+                          "visibility": {
+                            "record": {
+                              "field": "previousConfigHash",
+                              "isNotEmpty": true
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "admin-surface-content-2-2-3-1-2",
+                      "element": "div",
+                      "props": {
+                        "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 flex flex-col gap-3 p-5"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "h2",
+                          "props": {
+                            "className": "text-foreground-subtle text-sm font-medium tracking-wide uppercase"
+                          },
+                          "content": "$t:admin.changelog.ddl.heading"
+                        },
+                        {
+                          "type": "list",
+                          "props": {
+                            "aria-label": "$t:admin.changelog.ddl.heading",
+                            "data-testid": "changelog-schema-changes",
+                            "className": "divide-border flex flex-col divide-y"
+                          },
+                          "dataSource": {
+                            "system": {
+                              "endpoint": "/api/admin/releases/$param.hash",
+                              "rowsKey": "schemaChanges",
+                              "idKey": "statement"
+                            }
+                          },
+                          "visibility": {
+                            "record": {
+                              "field": "schemaChanges",
+                              "isNotEmpty": true
+                            }
+                          },
+                          "children": [
+                            {
+                              "type": "container",
+                              "key": "admin-surface-content-2-2-3-1-2-1",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col gap-0.5 py-2"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "text-foreground font-mono text-sm break-words"
+                                  },
+                                  "content": "$record.statement"
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "text-foreground-subtle font-mono text-sm"
+                                  },
+                                  "content": "$record.table"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-muted-foreground max-w-2xl text-md leading-relaxed",
+                            "data-testid": "changelog-schema-changes-empty"
+                          },
+                          "content": "$t:admin.changelog.ddl.empty",
+                          "visibility": {
+                            "record": {
+                              "field": "schemaChanges",
+                              "isEmpty": true
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "admin-surface-content-2-2-3-1-3",
+                      "element": "div",
+                      "props": {
+                        "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 flex flex-col gap-3 p-5"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "h2",
+                          "props": {
+                            "className": "text-foreground-subtle text-sm font-medium tracking-wide uppercase"
+                          },
+                          "content": "$t:admin.changelog.migrations.heading"
+                        },
+                        {
+                          "type": "list",
+                          "props": {
+                            "aria-label": "$t:admin.changelog.migrations.heading",
+                            "data-testid": "changelog-engine-migrations",
+                            "tabIndex": 0,
+                            "className": "divide-border flex max-h-48 flex-col divide-y overflow-y-auto rounded-md border border-border px-3 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+                          },
+                          "dataSource": {
+                            "system": {
+                              "endpoint": "/api/admin/releases/$param.hash",
+                              "rowsKey": "engineMigrations",
+                              "idKey": "folder"
+                            }
+                          },
+                          "visibility": {
+                            "record": {
+                              "field": "engineMigrations",
+                              "isNotEmpty": true
+                            }
+                          },
+                          "children": [
+                            {
+                              "type": "container",
+                              "key": "admin-surface-content-2-2-3-1-3-1",
+                              "element": "div",
+                              "props": {
+                                "className": "flex items-baseline justify-between gap-3 py-2"
+                              },
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "text-foreground min-w-0 font-mono text-sm break-words"
+                                  },
+                                  "content": "$record.folder"
+                                },
+                                {
+                                  "type": "text",
+                                  "element": "span",
+                                  "props": {
+                                    "className": "text-foreground-subtle shrink-0 font-mono text-sm"
+                                  },
+                                  "content": "$record.statements"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "props": {
+                            "className": "text-muted-foreground max-w-2xl text-md leading-relaxed",
+                            "data-testid": "changelog-engine-migrations-empty"
+                          },
+                          "content": "$t:admin.changelog.migrations.empty",
+                          "visibility": {
+                            "record": {
+                              "field": "engineMigrations",
+                              "isEmpty": true
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "changelog-boot-rail",
+                  "element": "aside",
+                  "props": {
+                    "aria-label": "$t:admin.changelog.boot.region",
+                    "data-testid": "changelog-boot-rail",
+                    "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 flex shrink-0 flex-col gap-3 p-4 lg:w-72"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "h3",
+                      "props": {
+                        "className": "text-foreground text-sm font-medium"
+                      },
+                      "content": "$t:admin.changelog.boot.heading"
+                    },
+                    {
+                      "type": "container",
+                      "key": "changelog-boot-rail-2",
+                      "element": "div",
+                      "props": {
+                        "className": "flex items-baseline justify-between gap-4"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "version",
+                          "isNotEmpty": true
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle shrink-0 text-sm"
+                          },
+                          "content": "$t:admin.changelog.field.version"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground font-mono min-w-0 text-right text-sm break-words"
+                          },
+                          "content": "$record.version"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "changelog-boot-rail-3",
+                      "element": "div",
+                      "props": {
+                        "className": "flex items-baseline justify-between gap-4"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle shrink-0 text-sm"
+                          },
+                          "content": "$t:admin.changelog.field.bootedAt"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground font-mono min-w-0 text-right text-sm break-words"
+                          },
+                          "content": "$record.bootedAt"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "changelog-boot-rail-4",
+                      "element": "div",
+                      "props": {
+                        "className": "flex items-baseline justify-between gap-4"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle shrink-0 text-sm"
+                          },
+                          "content": "$t:admin.changelog.field.bootedBy"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground font-mono min-w-0 text-right text-sm break-words"
+                          },
+                          "content": "$record.bootedBy"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "changelog-boot-rail-5",
+                      "element": "div",
+                      "props": {
+                        "className": "flex items-baseline justify-between gap-4"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle shrink-0 text-sm"
+                          },
+                          "content": "$t:admin.changelog.field.engine"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground font-mono min-w-0 text-right text-sm break-words"
+                          },
+                          "content": "$record.engineVersion"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "changelog-boot-rail-6",
+                      "element": "div",
+                      "props": {
+                        "className": "flex items-baseline justify-between gap-4"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "previousEngineVersion",
+                          "isNotEmpty": true
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle shrink-0 text-sm"
+                          },
+                          "content": "$t:admin.changelog.field.previousEngine"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle font-mono min-w-0 text-right text-sm break-words"
+                          },
+                          "content": "$record.previousEngineVersion"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "changelog-boot-rail-7",
+                      "element": "div",
+                      "props": {
+                        "className": "flex items-baseline justify-between gap-4"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle shrink-0 text-sm"
+                          },
+                          "content": "$t:admin.changelog.field.config"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground font-mono min-w-0 text-right text-sm break-words"
+                          },
+                          "content": "$record.configHash"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "container",
+                      "key": "changelog-boot-rail-8",
+                      "element": "div",
+                      "props": {
+                        "className": "flex items-baseline justify-between gap-4"
+                      },
+                      "visibility": {
+                        "record": {
+                          "field": "previousConfigHash",
+                          "isNotEmpty": true
+                        }
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle shrink-0 text-sm"
+                          },
+                          "content": "$t:admin.changelog.field.previousConfig"
+                        },
+                        {
+                          "type": "text",
+                          "element": "span",
+                          "props": {
+                            "className": "text-foreground-subtle font-mono min-w-0 text-right text-sm break-words"
+                          },
+                          "content": "$record.previousConfigHash"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

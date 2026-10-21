@@ -44,6 +44,7 @@ import { chainBucketRoutes } from '@/presentation/api/buckets/routes'
 import { chainConnectionRoutes } from '@/presentation/api/connections/routes'
 import { chainFormRoutes } from '@/presentation/api/forms/routes'
 import { authMiddleware, requireAuth } from '@/presentation/api/middleware/auth'
+import { callerTableReaders } from '@/presentation/api/pages/caller-table-reader'
 import { commandSearchRateLimitMiddleware } from '@/presentation/api/search/command-search-rate-limit'
 import { chainFavoriteRoutes } from '@/presentation/api/search/favorites-routes'
 import { type PageReaderResolver } from '@/presentation/api/search/page-reader'
@@ -186,7 +187,11 @@ export const createApiRoutes = <T extends Hono>(
   // are injected here (composition root) because the route file lives
   // in the presentation layer and cannot import the React renderer
   // from `presentation/rendering/forms` directly under the layer rules.
-  const honoWithForms = chainFormRoutes(honoWithBuckets, app, FormRenderers)
+  // The table API's answer for the caller narrows the form page as an embedded form.
+  const honoWithForms = chainFormRoutes(honoWithBuckets, app, {
+    ...FormRenderers,
+    readTableAsCaller: (c) => callerTableReaders(c).readTableAsCaller,
+  })
 
   // Every `/api/admin/*` read, chained in one place. See `api-admin-routes.ts`.
   const honoWithAdminLinks = chainAdminApiRoutes(honoWithForms, app, resolveLiveApp)
@@ -302,7 +307,7 @@ export const createApiRoutes = <T extends Hono>(
     )
   )
 
-  const honoWithFavorites = chainFavoriteRoutes(honoWithNotificationTriggers)
+  const honoWithFavorites = chainFavoriteRoutes(honoWithNotificationTriggers, resolveLiveApp)
 
   // Chain the user directory: GET /api/users/directory. Always registered; the
   // handler returns 401 when no session is attached (the `/api/users/*` auth
@@ -313,7 +318,7 @@ export const createApiRoutes = <T extends Hono>(
   // GET/POST /api/recent and GET /api/command-search. Always registered; the
   // `/api/recent` + `/api/command-search` auth chains are installed above when
   // `app.auth` is configured.
-  const honoWithRecent = chainRecentRoutes(honoWithUserDirectory)
+  const honoWithRecent = chainRecentRoutes(honoWithUserDirectory, resolveLiveApp)
   // Palette request ceiling (the pages command search hardening requirement, [internal ref]),
   // registered HERE rather than in either arm of the auth ternary above: the
   // route is reachable anonymously, so the limiter has to apply on the no-auth

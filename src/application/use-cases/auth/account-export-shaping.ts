@@ -7,7 +7,9 @@
 
 import type {
   AccountAiFootprint,
+  AccountAuditEntryRow,
   AccountChatAttachmentRow,
+  AccountEntityLists,
 } from '@/application/ports/repositories/auth/account-repository'
 
 /**
@@ -156,4 +158,33 @@ export const shapeAiSections = (
     occurredAt: iso(a.createdAt),
   })),
   aiToolCalls: footprint.toolCalls.map(shapeAiToolCall),
+})
+
+/** The entity types a favorite or a recent item names: a record, or a page. */
+const isListedEntity = (entityType: string): entityType is 'record' | 'page' =>
+  entityType === 'record' || entityType === 'page'
+
+/**
+ * Shape the caller's favorites and recent items into the export's two
+ * sections: what she kept — the entity type, its table (`null` for a page),
+ * its id — and when, never a copy of the entity.
+ */
+export const shapeEntityLists = (lists: Readonly<AccountEntityLists>) => ({
+  favorites: lists.favorites.flatMap(({ entityType, tableName, entityId, createdAt }) =>
+    isListedEntity(entityType)
+      ? [{ entityType, tableName, entityId, createdAt: iso(createdAt) }]
+      : []
+  ),
+  recentItems: lists.recentItems.flatMap(({ entityType, tableName, entityId, viewedAt }) =>
+    isListedEntity(entityType) ? [{ entityType, tableName, entityId, viewedAt: iso(viewedAt) }] : []
+  ),
+})
+
+/** One audit-log entry the caller made: the act only, never its metadata. */
+export const shapeAuditEntry = (row: Readonly<AccountAuditEntryRow>) => ({
+  action: row.action,
+  occurredAt: iso(row.createdAt),
+  resourceType: row.resourceType,
+  resourceId: row.resourceId,
+  result: row.result,
 })

@@ -5,7 +5,31 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { formulaHasUntypedPortableDateArgument } from './formula-portable-dates'
+
 const DATE_LIKE_FIELD_TYPES: ReadonlySet<string> = new Set(['date', 'datetime', 'time'])
+
+type FieldLike = { readonly name: string; readonly type: string }
+
+const INSTANT_FIELD_TYPES: ReadonlySet<string> = new Set(['created-at', 'updated-at', 'deleted-at'])
+
+/**
+ * The fields as the date predicates read them: a `created-at`, `updated-at`
+ * or `deleted-at` stamp is a `datetime` (all three are `TIMESTAMPTZ`), and a
+ * formula whose `resultType` is `date`, `datetime` or `timestamp` is the
+ * column type it is stored as. Every other field keeps its own type.
+ */
+const asStoredDateTypes = (allFields: readonly FieldLike[]): readonly FieldLike[] =>
+  allFields.map((field) => {
+    if (INSTANT_FIELD_TYPES.has(field.type)) return { name: field.name, type: 'datetime' }
+    if (field.type !== 'formula') return field
+    const { resultType } = field as { readonly resultType?: unknown }
+    const stored = typeof resultType === 'string' ? resultType.toLowerCase() : ''
+    if (stored === 'date') return { name: field.name, type: 'date' }
+    return stored === 'datetime' || stored === 'timestamp'
+      ? { name: field.name, type: 'datetime' }
+      : field
+  })
 
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
@@ -101,13 +125,37 @@ export const formulaIsStableOnPostgres = (
   POSTGRES_STABLE_FUNCTION.test(withoutStringLiterals(formula)) ||
   formulaNeedsUtcSession(formula, allFields)
 
+/** A read of the clock, which PostgreSQL computes in the session's time zone. */
+const CLOCK_READ =
+  /\b(?:CURRENT_DATE|CURRENT_TIMESTAMP|CURRENT_TIME|LOCALTIMESTAMP|LOCALTIME)\b|\b(?:NOW|TRANSACTION_TIMESTAMP|STATEMENT_TIMESTAMP|CLOCK_TIMESTAMP|TIMEOFDAY)\s*\(/i
+
+/** Whether a formula reads the clock (outside a string literal). */
+export const formulaReadsClock = (formula: string): boolean =>
+  CLOCK_READ.test(withoutStringLiterals(formula))
+
 /**
  * Whether a trigger-computed formula must run with the session pinned to UTC
- * and ISO dates, so it reads what SQLite computes: a date/datetime/time read
- * as text, or a `datetime` converted through the time zone.
+ * and ISO dates, so it reads what SQLite computes: a date, datetime or time
+ * read as text, or a datetime converted through the time zone — counting the
+ * `created-at`/`updated-at`/`deleted-at` stamps and a formula whose result is
+ * a date or a datetime among them — a read of the clock, or a portable date
+ * function over an argument whose type the formula text does not tell.
+ *
+ * Every shape this adds was either refused by PostgreSQL as a generated column
+ * (a stamp read as text or converted) or already computed by the trigger (the
+ * clock is volatile; a formula reading another formula is chained), so no
+ * formula moves from a generated column to the trigger: only the zone its
+ * trigger reads in changes.
  */
 export const formulaNeedsUtcSession = (
   formula: string,
   allFields: readonly { name: string; type: string }[]
-): boolean =>
-  formulaReadsDateAsText(formula, allFields) || formulaConvertsDatetime(formula, allFields)
+): boolean => {
+  const stored = asStoredDateTypes(allFields)
+  return (
+    formulaReadsDateAsText(formula, stored) ||
+    formulaConvertsDatetime(formula, stored) ||
+    formulaReadsClock(formula) ||
+    formulaHasUntypedPortableDateArgument(formula, allFields)
+  )
+}

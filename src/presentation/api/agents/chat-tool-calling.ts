@@ -47,6 +47,7 @@ import {
   type ChatReader,
   type ChatRowScope,
 } from './chat-read-scope'
+import { keepListedTables } from './chat-reader-rows'
 import { projectAppTables, type ProjectedField } from './chat-table-projection'
 import { toolCountProgram, toolQueryProgram } from './chat-tool-lookup-scope'
 import {
@@ -82,17 +83,20 @@ export interface ToolCallTable {
 /**
  * Resolve the set of tables the acting role may *read* — the RBAC-scoped table
  * list used to build the function/tool definitions advertised to the AI
- * provider. A table the role cannot read is omitted
- * entirely, so the produced tool list never exposes an unauthorized table
- * Each surviving table carries its role-readable column
- * projection so the tool enums and result rows are field-level scoped.
+ * provider. A table the role cannot read is omitted entirely, and so is a
+ * table the records list admits the reader no row of
+ * ({@link keepListedTables}), so the produced tool list never names a table
+ * the records API answers her as one that does not exist. Each surviving table
+ * carries its role-readable column projection so the tool enums and result
+ * rows are field-level scoped.
  */
-export const toToolCallTables = (
+export const toToolCallTables = async (
+  services: DomainContext,
   app: App | undefined,
   reader: ChatReader
-): ReadonlyArray<ToolCallTable> => {
+): Promise<ReadonlyArray<ToolCallTable>> => {
   const tables = projectAppTables(app)
-  return tables.flatMap((table) => {
+  const readable = tables.flatMap((table) => {
     // The records route's own effective roles for this table: the account role,
     // a `group:<name>` entry per group (a bare role can never match one,
     // An AI chat tool spec) and, under row-level rules, every assignment role —
@@ -109,6 +113,7 @@ export const toToolCallTables = (
       },
     ]
   })
+  return keepListedTables(services, app, readable, reader)
 }
 
 /** What a chat turn's table tools read with. */

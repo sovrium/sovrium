@@ -13,13 +13,23 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from 'react'
 import { toEntryFormValues, type ValueEntry, type Values } from './record-drawer-values'
 
 export type { Values } from './record-drawer-values'
 export type RawRecord = Record<string, unknown>
 
 export const EMPTY_RECORD: RawRecord = {}
+
+/** The pause before the one automatic re-read of a failed record read. */
+const READ_RETRY_DELAY_MS = 300
 
 /**
  * The records API's answer for one id: its RAW values (structured display needs
@@ -28,9 +38,16 @@ export const EMPTY_RECORD: RawRecord = {}
  */
 type RecordRead = { readonly record: RawRecord; readonly notFound: boolean }
 
+/**
+ * Read one record. A `404` is an answer (the record is not there for this
+ * reader); any other failure — a dropped connection, a `5xx` from a proxy —
+ * THROWS, so the read is retried and then reported, never seeded as an empty
+ * record whose blank fields a Save would write over the stored one.
+ */
 async function fetchRecord(table: string, recordId: string): Promise<RecordRead> {
   const res = await fetch(`/api/tables/${table}/records/${recordId}`)
-  if (!res.ok) return { record: {}, notFound: res.status === 404 }
+  if (res.status === 404) return { record: {}, notFound: true }
+  if (!res.ok) throw new Error(`Record read failed (${res.status})`)
   const body = (await res.json()) as { readonly record?: RawRecord }
   return { record: body.record ?? (body as RawRecord), notFound: false }
 }
@@ -78,6 +95,8 @@ export function useTableRecordRead(read: {
   readonly baseline: Values | undefined
   readonly loading: boolean
   readonly notFound: boolean
+  readonly readFailed: boolean
+  readonly retry: () => void
 } {
   const { open, table, recordId, setValues, entries } = read
   const enabled = open && Boolean(table) && Boolean(recordId)
@@ -85,9 +104,14 @@ export function useTableRecordRead(read: {
     queryKey: ['record-drawer', 'table-record', table, recordId],
     queryFn: () => fetchRecord(table ?? '', recordId ?? ''),
     enabled,
-    retry: false,
+    // One automatic retry: a single dropped read opens on the record; a read
+    // that fails twice is reported, with Retry, rather than retried forever.
+    retry: 1,
+    retryDelay: READ_RETRY_DELAY_MS,
     refetchOnWindowFocus: false,
   })
+  const { refetch } = recordQuery
+  const retry = useCallback(() => void refetch(), [refetch])
 
   const data = recordQuery.data?.record
   const baseline = useMemo(
@@ -106,6 +130,10 @@ export function useTableRecordRead(read: {
     record: data ?? EMPTY_RECORD,
     baseline,
     notFound: answeredNotFound(enabled, recordQuery),
+    // The read and its retry both failed: nothing was loaded, so nothing may be
+    // edited or saved. It stays set through a Retry until a read succeeds.
+    readFailed: enabled && recordQuery.isError,
+    retry,
     // True while the record GET is in flight, and until its response is in the
     // inputs — see the LOAD GATE note above for why the body is inert until then.
     loading: enabled && (recordQuery.isFetching || (data !== undefined && seeded !== data)),

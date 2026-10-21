@@ -142,9 +142,10 @@ sovrium design-system app.yaml                                  # the agent brie
 sovrium design-system app.yaml --output DESIGN.md               # committed beside the config
 sovrium design-system app.yaml --format json --output tokens.json
 sovrium design-system app.yaml --format bundle --output design-system
+sovrium design-system app.yaml --format bundle --pages --output design-system  # with your pages
 ```
 
-Markdown is the default because the default reader is a model. The command runs offline — no server, no database — so it fits a pre-commit hook or a CI step. It refuses an unknown `--format`, refuses `--mode` with any format but `json` (the brief and the bundle describe both colour schemes), and refuses a config that fails validation rather than exporting a design system describing an app that cannot boot. The brief lists each colour's light and dark value side by side, one row per colour; the Dark column is what the app paints under `.dark`. `--format bundle` writes the portable bundle — the brief, the tokens for both colour modes, the theme CSS and a rendered component kit — into a directory a design tool or an assistant can be handed whole.
+Markdown is the default because the default reader is a model. The command runs offline — no server, no database — so it fits a pre-commit hook or a CI step. It refuses an unknown `--format`, refuses `--mode` with any format but `json` (the brief and the bundle describe both colour schemes), and refuses a config that fails validation rather than exporting a design system describing an app that cannot boot. The brief lists each colour's light and dark value side by side, one row per colour; the Dark column is what the app paints under `.dark`. `--format bundle` writes the portable bundle — the brief, the tokens for both colour modes, the theme CSS and a rendered component kit — into a directory a design tool or an assistant can be handed whole. `--pages` adds your pages to it, drawn as the app draws them, so a designer starts from the real screen rather than a screenshot.
 
 The same content is served at runtime from `GET /api/admin/design-system.json` (a W3C DTCG 2025.10 document; `?mode=dark` answers the dark palette) and `GET /api/admin/design-system.md` (the brief the CLI prints), with the bundle at `GET /api/admin/design-system.zip`. All are admin-gated and read-only, and return `404` to anyone else. The design-system console renders the same content as a page a person reads, and can publish it behind a revocable link to someone with no login.
 
@@ -184,3 +185,5 @@ export default {
 Put the import at the top of the file and replace the inline `design: { … }` block with `design,`. The sidecar already holds your own design merged with the import, so the swap loses nothing. An existing `design.json` is replaced only when it already holds this config's design; any other file of that name is refused rather than overwritten. A `design` that takes any part of itself from another file through `$ref` is not patched in place either: copy the dry-run changes into that file instead. A run with nothing to change writes nothing, and every write goes through a temporary file, so an interrupted one never leaves a half-written config.
 
 The import reads a local file or folder only: a URL is refused, and it makes no network call. It never runs over HTTP or in the console. `--json` prints the report as one document for tooling.
+
+The pages a designer reworked come back the same way, with `--pages`: see [Importing Designed Pages](/en/docs/design-pages-import).

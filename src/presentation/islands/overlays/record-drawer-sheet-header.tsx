@@ -6,7 +6,10 @@
  */
 
 import { Dialog } from '@base-ui/react/dialog'
-import { computeSheetDescriptionClasses, computeSheetTitleClasses } from './sheet-default-classes'
+import {
+  computeSheetDescriptionClasses,
+  computeSheetTitleClasses,
+} from '@/presentation/design/sheet-default-classes'
 import type { SheetHeaderParts } from './record-drawer-navigation-slot'
 import type { ReactElement, ReactNode } from 'react'
 

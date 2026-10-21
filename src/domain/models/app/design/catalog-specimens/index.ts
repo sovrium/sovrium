@@ -7,3 +7,4 @@
 
 export * from './catalog-specimen-axes'
 export * from './catalog-specimens'
+export * from './open-overlays'

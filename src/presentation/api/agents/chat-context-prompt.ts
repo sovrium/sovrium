@@ -21,24 +21,69 @@ import {
   type ContextAutomation,
 } from '@/domain/models/app/agents/ai-chat-context'
 import { triggerOfTypeOrFirst } from '@/domain/models/app/automations/trigger-entries-service'
-import { projectAppTables } from './chat-table-projection'
+import { filterFieldsReadableByAny } from '@/domain/models/app/tables/field-read-filter-service'
+import { callersOfRow } from '@/domain/models/app/tables/row-read-admission-service'
+import { chatReadableColumns, type ChatReader } from './chat-read-scope'
+import { chatReaderRows, keepListedTables } from './chat-reader-rows'
+import { projectAppTables, type ProjectedTable } from './chat-table-projection'
 import type { App } from '@/domain/models/app'
+import type { DomainContext } from '@/infrastructure/logging/request-effect'
 
 /**
- * Project the app's `tables[]` onto the minimal {@link ContextTable} shape the
- * domain context builder consumes — the shared {@link projectAppTables}
- * projection. The `permissions` block is forwarded verbatim; the cast narrows
- * its `unknown` projection type onto the context builder's structural shape
- * (the builder only ever reads `permissions.read` / `permissions.fields`).
+ * The fields of `table` `reader`'s records list can ever show her: those she
+ * reads herself ({@link chatReadableColumns}), and those the list reads a row
+ * under a role a grant gives her on it ({@link callersOfRow},
+ * {@link filterFieldsReadableByAny} — the list's own per-row field filter).
  */
-const toContextTables = (app: App | undefined): ReadonlyArray<ContextTable> =>
-  projectAppTables(app).map((table) => ({
-    name: table.name,
-    fields: table.fields,
-    ...(table.permissions !== undefined && {
-      permissions: table.permissions as ContextTable['permissions'],
-    }),
-  }))
+const describedFields = async (
+  services: DomainContext,
+  app: App | undefined,
+  table: ProjectedTable,
+  reader: ChatReader
+): Promise<ReadonlySet<string>> => {
+  const own = chatReadableColumns(app, table, reader).readableColumns
+  const grants = (await chatReaderRows(services, app, table.name, reader))?.grants
+  if (app === undefined || grants === undefined || grants.size === 0) return new Set(own)
+  const callers = [...grants.keys()].flatMap((id) =>
+    callersOfRow({ role: reader.role, groups: reader.groups }, grants, id).slice(1)
+  )
+  const granted = filterFieldsReadableByAny({
+    app,
+    tableName: table.name,
+    callers,
+    record: Object.fromEntries(table.fields.map((field) => [field.name, undefined])),
+  })
+  return new Set([...own, ...Object.keys(granted)])
+}
+
+/**
+ * Project the tables `reader` lists ({@link keepListedTables}) onto the minimal
+ * {@link ContextTable} shape the domain context builder consumes — the shared
+ * {@link projectAppTables} projection, each table narrowed to the fields her
+ * list can show her ({@link describedFields}). The `permissions` block is
+ * forwarded verbatim; the cast narrows its `unknown` projection type onto the
+ * context builder's structural shape (the builder only ever reads
+ * `permissions.read` / `permissions.fields`).
+ */
+const toContextTables = async (
+  services: DomainContext,
+  app: App | undefined,
+  reader: ChatReader
+): Promise<ReadonlyArray<ContextTable>> => {
+  const listed = await keepListedTables(services, app, projectAppTables(app), reader)
+  return Promise.all(
+    listed.map(async (table) => {
+      const readable = await describedFields(services, app, table, reader)
+      return {
+        name: table.name,
+        fields: table.fields.filter((field) => readable.has(field.name)),
+        ...(table.permissions !== undefined && {
+          permissions: table.permissions as ContextTable['permissions'],
+        }),
+      }
+    })
+  )
+}
 
 /**
  * Project the app's `automations[]` onto the minimal {@link ContextAutomation}
@@ -56,21 +101,26 @@ const toContextAutomations = (app: App | undefined): ReadonlyArray<ContextAutoma
 /**
  * Compose the per-request system prompt: the AI chat context block describing
  * the tables, fields, select options, and triggerable automations the current
- * user may reason about. Tables/fields the role cannot read are omitted;
- * record data and credentials are never included.
+ * user may reason about. Tables and fields she cannot read are omitted, and so
+ * is every table the records list admits the reader no row of; record data and
+ * credentials are never included.
  *
  * `buildAiChatContext` is a pure function with no cache, so the context always
- * reflects the caller's *current* role.
+ * reflects the caller's *current* role and grants.
  */
-export const buildChatContextPrompt = (
+export const buildChatContextPrompt = async (
   app: App | undefined,
-  userRole: string,
+  caller: {
+    readonly userRole: string
+    readonly reader: ChatReader
+    readonly services: DomainContext
+  },
   pageContext: ContextPageScope | undefined
-): string =>
+): Promise<string> =>
   buildAiChatContext({
     appName: app?.name ?? 'application',
-    userRole,
-    tables: toContextTables(app),
+    userRole: caller.userRole,
+    tables: await toContextTables(caller.services, app, caller.reader),
     automations: toContextAutomations(app),
     ...(pageContext !== undefined && { pageContext }),
     ...(app?.auth !== undefined && { auth: app.auth }),

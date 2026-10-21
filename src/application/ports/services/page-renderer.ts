@@ -6,8 +6,10 @@
  */
 
 import { Context } from 'effect'
+import type { LookupReadMask } from '@/application/ports/repositories/tables/table-repository'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
+import type { ViewerIdentity } from '@/domain/models/app/pages/component-session-visibility-service'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
 import type { CallerFieldReader } from '@/domain/models/app/tables/field-read-filter-service'
@@ -18,9 +20,7 @@ import type {
 } from '@/domain/models/app/tables/row-read-admission-service'
 import type { RowRuleReader } from '@/domain/models/app/tables/visitor-row-rule-service'
 
-/**
- * Result of rendering a page, including access control outcomes
- */
+/** Result of rendering a page, including access control outcomes */
 export type PageRenderResult =
   | string
   | undefined
@@ -29,11 +29,10 @@ export type PageRenderResult =
   | { readonly unauthorized: true }
 
 /**
- * A table as ONE caller may see it, in the shapes the table API answers that
- * caller: the views `GET /api/tables/:t/views` lists her (each definition
- * naming only the fields she may read), and the map
- * `GET /api/tables/:t/permissions` answers her — `undefined` where that route
- * refuses her.
+ * A table as ONE caller may see it, in the shapes the table API answers her: the
+ * views `GET /api/tables/:t/views` lists her (each naming only fields she may
+ * read), and the map `GET /api/tables/:t/permissions` answers her (`undefined`
+ * where that route refuses her).
  */
 export type CallerTableView = {
   readonly views: readonly unknown[]
@@ -57,19 +56,22 @@ export type CallerTableView = {
    */
   readonly boundView?: { readonly fields?: readonly string[] } | undefined
   /**
-   * `true` when the table's records list admits her no row — a table she may
-   * read no field of — so the table API answers her as a table that does not
-   * exist: no views, no permission map, and no grid drawn over it.
+   * `true` when the records list admits her no row (no field readable): the
+   * table API answers her as a table that does not exist, and no grid is drawn.
    */
   readonly refused?: true
+  /**
+   * Where the table API answers her no permission map (`refused`, or a table
+   * whose read rule refuses her): the fields her role may read or write by the
+   * table's field rules — what a form she may submit offers her, and no other.
+   */
+  readonly formFields?: readonly string[]
 }
 
 /**
  * Read a table of `app` as the caller holding `session` (none: a visitor).
- *
- * Supplied by the route layer, which may reach the table use-cases the
- * renderer may not, so a page hands its reader exactly what the table API
- * would — computed by the same programs, never by a second permission model.
+ * Supplied by the route layer, which may reach the table use-cases the renderer
+ * may not, so a page hands its reader exactly what the table API would.
  */
 export type ReadTableAsCaller = (
   app: App,
@@ -81,9 +83,8 @@ export type ReadTableAsCaller = (
 
 /**
  * The display labels of one record its page is bound to, as the records API
- * answers the caller holding `session` (none: a visitor): a `user` field's
- * person by name, a relationship's linked record by its display field, keyed by
- * field. `undefined` when there is none to read.
+ * answers the caller holding `session` (none: a visitor), keyed by field: a
+ * person by name, a linked record by its display field; `undefined` if none.
  */
 export type ReadRecordLabels = (
   app: App,
@@ -115,6 +116,18 @@ export type ReadReaderRows = (
 ) => Promise<{ readonly admission: RowReadAdmission; readonly grants: RowGrants }>
 
 /**
+ * The lookups and counts of `tableName` a query must read as the records list
+ * reads them for the caller holding `session` (none: a visitor): the list's own
+ * masks (`lookupReadMasks`), so a server-drawn list keeps exactly her rows.
+ */
+export type ReadQueryMasks = (
+  app: App,
+  tableName: string,
+  session: SessionInfo | undefined,
+  query: { readonly filter?: readonly DataFilter[]; readonly sort?: readonly DataSort[] }
+) => Promise<readonly LookupReadMask[]>
+
+/**
  * Sign a download address for one stored file, for the caller of this request.
  *
  * `scope: 'record'` — the file is an attachment of a record the page has
@@ -130,38 +143,6 @@ export type SignFileUrl = (
 ) => Promise<string | undefined>
 
 /**
- * Page renderer port for server-side rendering
- *
- * This interface defines the contract for rendering pages to HTML,
- * allowing the Application layer to remain decoupled from
- * Presentation layer implementations.
- *
- * All rendering functions are synchronous and return complete HTML documents.
- *
- * @example
- * ```typescript
- * const program = Effect.gen(function* () {
- *   const pageRenderer = yield* PageRenderer
- *
- *   // Render homepage with app data
- *   const homeHtml = pageRenderer.renderHome(app)
- *
- *   // Render error pages
- *   const notFoundHtml = pageRenderer.renderNotFound()
- *   const errorHtml = pageRenderer.renderError()
- *
- *   return { homeHtml, notFoundHtml, errorHtml }
- * })
- * ```
- */
-
-/**
- * PageRenderer service for server-side HTML rendering
- *
- * Use this service via Effect Context to render React components
- * to HTML strings with type-safe dependency injection.
- */
-/**
  * Read one page of rows of one table for the sitemap's record fan-out: the
  * named columns only, filtered by the collection page's own `filter`, live rows
  * only (`liveOnly`), in a stable order, at most `pageSize` rows. The caller has
@@ -176,9 +157,47 @@ export type FetchSitemapRecords = (
     readonly pageSize: number
     readonly page: number
     readonly liveOnly: true
+    /** The lookups and counts the filter names, read as her records list reads them. */
+    readonly lookupMasks?: readonly LookupReadMask[]
   }
 ) => Promise<readonly Readonly<Record<string, unknown>>[]>
 
+/**
+ * Render the RSS feed of the first public page opting in. `readQueryMasks`
+ * reads the lookups and counts its collection filter names as a signed-out
+ * reader's records list reads them; absent, the feed steers on stored values.
+ */
+export type RenderRssFeed = (
+  app: App,
+  baseUrl: string,
+  readQueryMasks?: ReadQueryMasks
+) => Promise<string | undefined>
+
+/**
+ * Page renderer port for server-side rendering
+ *
+ * This interface defines the contract for rendering pages to HTML,
+ * allowing the Application layer to remain decoupled from
+ * Presentation layer implementations.
+ *
+ * Use it via Effect Context; each render answers a complete HTML document.
+ *
+ * @example
+ * ```typescript
+ * const program = Effect.gen(function* () {
+ *   const pageRenderer = yield* PageRenderer
+ *
+ *   // Render the homepage (a default one when the app declares none)
+ *   const homeHtml = pageRenderer.renderPage(app, '/')
+ *
+ *   // Render error pages
+ *   const notFoundHtml = pageRenderer.renderNotFound()
+ *   const errorHtml = pageRenderer.renderError()
+ *
+ *   return { homeHtml, notFoundHtml, errorHtml }
+ * })
+ * ```
+ */
 export class PageRenderer extends Context.Service<
   PageRenderer,
   {
@@ -273,20 +292,17 @@ export class PageRenderer extends Context.Service<
          * P10/mount: the caller's resolved POWERS, when the route layer knows
          * them and the renderer does not.
          *
-         * A mounted embedded app renders SESSION-LESS on purpose — handing the
-         * renderer a session would switch on page `access`, `visibility.roles`,
-         * `$user.*` and row-level filtering across every mounted surface at
-         * once. But the mount has already resolved the caller's two powers in
-         * order to decide whether to serve the request at all, and without
-         * them `visibility.capability` and an action column's `capability` are
-         * inert on every mounted page — inert in the direction that hides the
-         * affordance from the administrator it was written for.
-         *
-         * Passing the derived powers rather than the session is what keeps the
-         * blast radius at the capability gate: a capability set cannot be read
-         * as a role, resolve a `$user.*` reference, or reach a row filter.
+         * A mounted embedded app renders SESSION-LESS on purpose — a session
+         * would switch on page `access`, `visibility.roles`, `$user.*` and
+         * row-level filtering across every mounted surface at once — so the
+         * powers the mount already resolved travel instead: without them
+         * `visibility.capability` and an action column's `capability` are inert
+         * there, hiding the affordance from the administrator it was written
+         * for. A capability set cannot be read as a role or reach a row filter.
          */
         readonly callerCapabilities?: readonly CallerCapability[]
+        /** That caller's id and email, answering a `$user.id` / `$user.email` condition only. */
+        readonly viewerIdentity?: ViewerIdentity | undefined
         /**
          * The mounted console caller's role and groups, for the one question a
          * session-less render cannot otherwise answer: which of a table's
@@ -308,16 +324,30 @@ export class PageRenderer extends Context.Service<
         readonly loadRowRuleContext?: LoadRowRuleContext
         /** The rows the records list admits this caller, for every list a page draws. */
         readonly readReaderRows?: ReadReaderRows
+        /** The records list's masks of the lookups and counts a page's query names. */
+        readonly readQueryMasks?: ReadQueryMasks
         /** The download-address signer a `file-preview` draws its file through. */
         readonly signFileUrl?: SignFileUrl
+        /**
+         * The request's query string, by key: an invitation page reads its
+         * token here, and `$query.*` tokens read the page's declared keys.
+         */
+        readonly requestQuery?: Readonly<Record<string, string>>
         /**
          * Render a design-system SPECIMEN: every reader answers a sample
          * synthesised from config (no record, invitation, sign-in or history of
          * the instance is read), every caller-scoped reader above is dropped,
          * and no island is mounted, so the document is a picture of the
-         * template in its main state rather than a live page.
+         * template in its main state rather than a live page. It is drawn at
+         * the specimen instant (`SPECIMEN_INSTANT`), whatever the clock says.
          */
         readonly specimen?: boolean
+        /**
+         * The instant every clock read of the render answers, for a drawing
+         * that must not depend on when it was made. Absent, a page reads the
+         * server's clock.
+         */
+        readonly drawnAt?: Readonly<Date>
       }
     ) => PageRenderResult | Promise<PageRenderResult>
 
@@ -341,20 +371,23 @@ export class PageRenderer extends Context.Service<
      * @param detectedLanguage - Optional detected language
      * @returns Complete HTML document as string with error message
      */
-    readonly renderError: (app?: App, detectedLanguage?: string) => string | Promise<string>
+    readonly renderError: (
+      app?: App,
+      detectedLanguage?: string,
+      requestId?: string
+    ) => string | Promise<string>
 
     /**
      * Render the RSS 2.0 feed XML for the first PUBLIC page that opts in via
      * `page.rss !== false && page.rss !== undefined` — see `findRssPage`.
      *
      * Returns `undefined` when no public page in `app.pages` declares `rss`,
-     * which the route handler maps to a 404 — the `/feed.xml` endpoint
-     * only exists when at least one collection page opts in. The
-     * `baseUrl` is the absolute origin of the request (eg.
-     * `http://localhost:3000`); per-item links and the channel
-     * `<atom:link rel="self">` are built relative to it.
+     * which the route handler maps to a 404 — the `/feed.xml` endpoint only
+     * exists when at least one collection page opts in. The `baseUrl` is the
+     * request's absolute origin (eg. `http://localhost:3000`); per-item links
+     * and the channel `<atom:link rel="self">` are built relative to it.
      */
-    readonly renderRssFeed: (app: App, baseUrl: string) => Promise<string | undefined>
+    readonly renderRssFeed: RenderRssFeed
     /** Row reader behind the sitemap's record fan-out. */
     readonly fetchSitemapRecords: FetchSitemapRecords
   }

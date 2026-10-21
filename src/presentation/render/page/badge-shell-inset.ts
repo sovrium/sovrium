@@ -29,9 +29,12 @@
  * `h-lvh`) with its overflow clipped (`overflow-hidden`, `overflow-clip`). Its
  * inset is the outermost descendant that scrolls vertically (`overflow-auto`,
  * `overflow-y-auto`, `overflow-scroll`, `overflow-y-scroll`) — the one that
- * grows (`flex-1`, `grow`) when a sidebar scrolls too, else the last. Only
- * components written inline on the page are read; a page with no such shell
- * keeps its footer after `<main>`.
+ * grows (`flex-1`, `grow`) when a sidebar scrolls too, else the last. The page
+ * is read with its references already resolved — a file `$ref` when the config
+ * is loaded, a component-template `$ref` (`app.components`) before the page is
+ * rendered — so a shell placed from a shared file or template is recognised as
+ * one written inline. A page with no such shell keeps its footer after
+ * `<main>`.
  */
 
 import type { BadgePlacement } from './badge-placement'

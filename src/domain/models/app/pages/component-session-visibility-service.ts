@@ -71,16 +71,55 @@ export function visibilityOf<T extends object = SessionVisibility>(node: unknown
   return undefined
 }
 
-/** True when a `$user.*` comparison holds for the session; any other field resolves to nothing. */
-function conditionHolds(condition: VisibilityCondition, session: SessionInfo | undefined): boolean {
+/**
+ * True when a `$user.*` comparison holds for `subject` — the session, or a
+ * mounted page's {@link ViewerIdentity}; any other field resolves to nothing.
+ */
+function conditionHolds(condition: VisibilityCondition, subject: object | undefined): boolean {
   const { field, operator, value } = condition
   const fieldValue =
-    field.startsWith('$user.') && session !== undefined
-      ? Object.entries(session).find(([key]) => key === field.slice('$user.'.length))?.[1]
+    field.startsWith('$user.') && subject !== undefined
+      ? Object.entries(subject).find(([key]) => key === field.slice('$user.'.length))?.[1]
       : undefined
   if (operator === 'eq') return fieldValue === value
   if (operator === 'neq') return fieldValue !== value
   return false
+}
+
+/**
+ * Who reads a page that renders WITHOUT a session — a mounted operator console:
+ * the viewer's id and email, and nothing else. An identity cannot be read as a
+ * role and reaches no row filter; it answers only a `$user.id` / `$user.email`
+ * comparison, so a page can tell "this account is the reader's own".
+ */
+export interface ViewerIdentity {
+  readonly id: string
+  readonly email?: string
+}
+
+/** The viewer identity of a signed-in caller, or `undefined` without one. */
+export const viewerIdentityOf = (session: SessionInfo | undefined): ViewerIdentity | undefined =>
+  session === undefined
+    ? undefined
+    : { id: session.userId, ...(session.email !== undefined ? { email: session.email } : {}) }
+
+/** The two `$user.*` fields a {@link ViewerIdentity} answers. */
+const IDENTITY_FIELDS: ReadonlySet<string> = new Set(['$user.id', '$user.email'])
+
+/**
+ * The verdict a viewer identity gives a node's `visibility.condition`: `true`
+ * or `false` when the condition compares `$user.id` or `$user.email`, and
+ * `undefined` when the node has no condition or compares any other field — a
+ * condition the identity does not answer is left to the session gate, where a
+ * session-less render resolves it to nothing, exactly as before.
+ */
+export function viewerConditionVerdict(
+  node: unknown,
+  identity: ViewerIdentity
+): boolean | undefined {
+  const condition = visibilityOf(node)?.condition
+  if (condition === undefined || !IDENTITY_FIELDS.has(condition.field)) return undefined
+  return conditionHolds(condition, identity)
 }
 
 /** True when the session role, an overlay role, or the admin bypass matches `roles`. */

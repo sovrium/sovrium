@@ -6,12 +6,25 @@
  */
 
 import { renderToString } from 'react-dom/server'
+import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
 import { resolveBadge } from '@/presentation/render/page/badge-placement'
 import { ErrorPage } from '@/presentation/render/page/error-page'
 import { NotFoundPage } from '@/presentation/render/page/not-found-page'
 import { SovriumBadge } from '@/presentation/render/page/sovrium-badge'
 import { renderPageByPath } from './render-page'
 import type { App } from '@/domain/models/app'
+
+/**
+ * What the renderer hands a page render and now hands the `/404` page too: the
+ * engine version `$app.engineVersion` prints, the readers a data component
+ * lists through, and the island builder that ships the client runtime — which
+ * is what fills a `$session.*` token in the browser. Without them the page
+ * answering a missing address printed those tokens raw.
+ */
+type NotFoundRenderFacts = Pick<
+  NonNullable<Parameters<typeof renderPageByPath>[2]>,
+  'engineVersion' | 'db' | 'islandBuilder'
+>
 
 /**
  * Builds the built-in analytics tracking script HTML tag for injection into error pages.
@@ -82,18 +95,24 @@ function injectBadgeIntoErrorPage(
  * @param app - Optional validated application data from AppSchema
  * @param detectedLanguage - Optional detected language from Accept-Language header
  * @param requestPath - The decoded path the visitor asked for, without its query
+ * @param facts - The renderer's process facts, as a page render receives them
  * @returns Complete HTML document as string with DOCTYPE
  */
 export async function renderNotFoundPage(
   app?: App,
   detectedLanguage?: string,
-  requestPath?: string
+  requestPath?: string,
+  facts?: NotFoundRenderFacts
 ): Promise<string> {
   // Try to render custom 404 page first if app is provided. `requestPath` is
   // the address that had nothing, for `$app.path` — never the page's own
   // `/404`, and left unanswered when no single address was asked for.
   if (app) {
-    const custom404 = await renderPageByPath(app, '/404', { detectedLanguage, requestPath })
+    const custom404 = await renderPageByPath(app, '/404', {
+      ...facts,
+      detectedLanguage,
+      requestPath,
+    })
     if (typeof custom404 === 'string') {
       return custom404
     }
@@ -114,25 +133,46 @@ export async function renderNotFoundPage(
 }
 
 /**
+ * Stamps the request id on an app's own `/500` document as
+ * `<meta name="sovrium-request-id">`, the one place a page's script can read
+ * the id `X-Request-Id` names and the server kept the failure under: a
+ * configured page cannot know it, since it is drawn after the failure.
+ * A document with no `<head>`, or a failure with no id, is left as it is.
+ */
+export const stampRequestId = (docHtml: string, requestId: string | undefined): string =>
+  requestId === undefined || !docHtml.includes('</head>')
+    ? docHtml
+    : docHtml.replace(
+        '</head>',
+        () => `<meta name="sovrium-request-id" content="${escapeHtml(requestId)}"></head>`
+      )
+
+/**
  * Renders ErrorPage (500) to HTML string for server-side rendering
  *
- * If the app has a custom page configured at '/500', renders that page.
+ * If the app has a custom page configured at '/500', renders that page, with
+ * the request id stamped in its `<head>` ({@link stampRequestId}).
  * Otherwise, renders the default ErrorPage.
  *
  * @param app - Optional validated application data from AppSchema
  * @param detectedLanguage - Optional detected language from Accept-Language header
+ * @param requestId - The request id the default page names, so a visitor can quote it
  * @returns Complete HTML document as string with DOCTYPE
  */
-export async function renderErrorPage(app?: App, detectedLanguage?: string): Promise<string> {
+export async function renderErrorPage(
+  app?: App,
+  detectedLanguage?: string,
+  requestId?: string
+): Promise<string> {
   // Try to render custom 500 page first if app is provided
   if (app) {
     const custom500 = await renderPageByPath(app, '/500', { detectedLanguage })
     if (typeof custom500 === 'string') {
-      return custom500
+      return stampRequestId(custom500, requestId)
     }
   }
 
   // Fallback to default 500 page
-  const html = renderToString(<ErrorPage />)
+  const html = renderToString(<ErrorPage {...(requestId === undefined ? {} : { requestId })} />)
   return injectBadgeIntoErrorPage(`<!DOCTYPE html>\n${html}`, app, detectedLanguage)
 }

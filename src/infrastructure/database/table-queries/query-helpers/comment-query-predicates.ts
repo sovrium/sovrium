@@ -63,9 +63,9 @@ export function activeCommentsByRecordId(tableKeys: readonly string[], recordId:
  * (`table_id, guest_email, status`); without it this probe degrades to a
  * sequential scan over every comment in the app.
  */
-export function approvedGuestCommentByEmail(tableId: string, guestEmail: string) {
+export function approvedGuestCommentByEmail(tableKeys: readonly string[], guestEmail: string) {
   return and(
-    eq(recordComments.tableId, tableId),
+    inArray(recordComments.tableId, [...tableKeys]),
     eq(recordComments.guestEmail, guestEmail),
     eq(recordComments.status, 'approved'),
     isNull(recordComments.deletedAt)

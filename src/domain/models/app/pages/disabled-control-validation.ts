@@ -6,8 +6,8 @@
  */
 
 /**
- * The two ways a `disabledWhen` / `disabledReason` pair can be written that
- * could never do what its author wrote, refused when the app starts:
+ * The ways a `disabledWhen` / `disabledReason` pair, or a button's `editSelect`,
+ * can be written that could never do what its author wrote, refused when the app starts:
  *
  *  1. **A `button`'s `disabledWhen` with no record-binding ancestor.** The
  *     condition is judged on the record the button is drawn on; outside a
@@ -23,6 +23,10 @@
  *     it is NOT refused under a `dataSource.system` read: a system row is a
  *     record the button is drawn on, and nothing about the picker is judged on
  *     the server.
+ *  4. **A `button`'s `editSelect` in front of an action that is not a
+ *     `fetch`.** The pick replaces `$record.<field>` in the request the fetch
+ *     sends; a navigate, crud or any other action is dispatched without it, so
+ *     the button would press straight through with nothing picked.
  */
 
 import { boundNodesOf, describeNode } from './record-binding-walk'
@@ -60,6 +64,9 @@ const disableableControlsUnder = (value: unknown): readonly Node[] =>
     ]
   })
 
+/** Whether a button's action is a `fetch` — the one action a picker feeds. */
+const isFetchAction = (action: unknown): boolean => isRecord(action) && action['type'] === 'fetch'
+
 /** How a refusal names a control. */
 const controlLabelOf = (node: Node): string =>
   node['type'] === 'button' ? describeNode(node) : 'table row action'
@@ -71,6 +78,24 @@ const isOrphanReason = (node: Node): boolean =>
 /** How a refusal names the page. */
 const pageLabelOf = (page: Node): string =>
   typeof page['name'] === 'string' ? `page '${page['name']}'` : 'a page'
+
+/** How a refusal names the action a picker sits in front of. */
+const actionNameOf = (action: unknown): string =>
+  isRecord(action) && typeof action['type'] === 'string'
+    ? `${/^[aeiou]/.test(action['type']) ? 'an' : 'a'} ${action['type']} action`
+    : 'no action'
+
+/** The refusal of a record-bound button whose picker feeds no fetch, or `undefined`. */
+const nonFetchPickerRefusal = (page: Node, label: string): string | undefined => {
+  const picker = boundNodesOf(page).find(
+    ({ node }) =>
+      node['type'] === 'button' &&
+      node['editSelect'] !== undefined &&
+      !isFetchAction(node['action'])
+  )
+  if (picker === undefined) return undefined
+  return `${label} declares editSelect on a ${describeNode(picker.node, { withLabel: true })} in front of ${actionNameOf(picker.node['action'])} — editSelect is valid only in front of a fetch action, since the pick replaces $record.<field> in the request the fetch sends; any other action would run with nothing picked. Make the action a fetch, or remove the editSelect`
+}
 
 /** The first refusal of one page, or `undefined`. */
 const pageRefusal = (page: unknown): string | undefined => {
@@ -87,6 +112,8 @@ const pageRefusal = (page: unknown): string | undefined => {
   if (unboundPicker !== undefined) {
     return `${label} declares editSelect on a ${describeNode(unboundPicker.node)} with no record-binding ancestor — the picker opens on the record's current value and its pick replaces that value in the action, so off a record there is nothing to pre-fill or replace. Nest it under a component with a dataSource (a list or gallery row template, a single-record container, or a dataSource.system read), or bind the page to one record`
   }
+  const pickerError = nonFetchPickerRefusal(page, label)
+  if (pickerError !== undefined) return pickerError
   const reached = reachedControlNodesOf(page)
   const unjudged = disableableControlsUnder([page['components'], page['layout']]).find(
     (node) => !reached.has(node)

@@ -1,0 +1,115 @@
+{
+  "id": "dashboard-internal-error",
+  "name": "dashboard-internal-error",
+  "path": "/500",
+  "meta": {
+    "title": "$t:admin.meta.internalError"
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 p-4"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "500": "$t:admin.internalError.heading"
+            },
+            "unlinked": ["500"]
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "empty",
+          "element": "section",
+          "props": {
+            "aria-labelledby": "admin-internal-error-heading",
+            "data-slot": "empty",
+            "className": "flex min-h-[60svh] w-full min-w-0 flex-1 flex-col items-center justify-center gap-4 rounded-xl p-6 text-center text-balance"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "empty-header",
+              "element": "div",
+              "props": {
+                "data-slot": "empty-header",
+                "className": "flex max-w-md flex-col items-center gap-2"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "span",
+                  "props": {
+                    "data-slot": "empty-media",
+                    "data-variant": "icon",
+                    "aria-hidden": "true",
+                    "className": "mb-2 flex h-8 min-w-8 shrink-0 items-center justify-center rounded-lg bg-muted px-2 text-sm font-medium tabular-nums text-foreground"
+                  },
+                  "content": "500"
+                },
+                {
+                  "type": "text",
+                  "element": "h1",
+                  "props": {
+                    "id": "admin-internal-error-heading",
+                    "data-slot": "empty-title",
+                    "className": "text-lg font-medium tracking-tight text-foreground"
+                  },
+                  "content": "$t:admin.internalError.heading"
+                },
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "data-slot": "empty-description",
+                    "className": "text-sm/relaxed text-muted-foreground"
+                  },
+                  "content": "$t:admin.internalError.body"
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "internal-error-report",
+              "element": "div",
+              "props": {
+                "className": "flex w-full max-w-md min-w-0 flex-col items-center gap-3",
+                "data-island": "admin-report-link",
+                "data-island-props": "{\"source\":\"request\"}"
+              },
+              "children": []
+            },
+            {
+              "type": "link",
+              "props": {
+                "href": "/",
+                "className": "text-muted-foreground hover:text-foreground text-sm underline underline-offset-4"
+              },
+              "content": "$t:admin.notFound.back"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

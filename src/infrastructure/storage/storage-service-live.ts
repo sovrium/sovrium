@@ -38,7 +38,7 @@ const notConfigured = (): StorageError =>
 const notConfiguredStorage = (): StorageService['Service'] =>
   StorageService.of({
     upload: () => Effect.fail(notConfigured()),
-    download: () => Effect.fail(notConfigured()),
+    downloadBounded: () => Effect.fail(notConfigured()),
     delete: () => Effect.fail(notConfigured()),
     deleteUncataloguedBytes: () => Effect.fail(notConfigured()),
     getSignedUrl: () => Effect.fail(notConfigured()),
@@ -46,6 +46,7 @@ const notConfiguredStorage = (): StorageService['Service'] =>
     findOtherSpelling: () => Effect.fail(notConfigured()),
     statObject: () => Effect.fail(notConfigured()),
     objectIdentity: () => Effect.fail(notConfigured()),
+    hashObject: () => Effect.fail(notConfigured()),
     list: () => Effect.fail(notConfigured()),
     listPage: () => Effect.fail(notConfigured()),
     catalogBuckets: () => Effect.fail(notConfigured()),

@@ -88,7 +88,7 @@ const resultOf = (table: string, said: string): SeedTableResult | undefined => {
   if (skipped !== null) {
     return { table, outcome: 'skipped', created: 0, updated: 0, present: count(skipped[1]) }
   }
-  const upserted = /^created (\d+), updated (\d+)$/.exec(said)
+  const upserted = /^created (\d+), updated (\d+)(?:, unchanged \d+)?$/.exec(said)
   if (upserted !== null) return seeded(count(upserted[1]), count(upserted[2]))
   const created = /^(?:created|would create|would write) (\d+) records(?: \(mode: upsert\))?$/.exec(
     said

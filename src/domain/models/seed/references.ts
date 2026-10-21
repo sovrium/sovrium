@@ -59,12 +59,19 @@ const ESCAPE_PREFIX = '\\'
 const REFERENCE_PATTERN = /^@([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z0-9][A-Za-z0-9_-]*)$/
 
 /**
- * `@asset:<filename>`. The filename is resolved relative to `seed/assets/` and
- * may not escape it — `..` and absolute paths are refused, because a seed file
- * is data and must never be able to read an arbitrary path on the host that
- * runs the nightly reset.
+ * `@asset:<filename>` or `@asset:<folder>/<filename>`. The path is resolved
+ * relative to `seed/assets/` and may not escape it — `..`, absolute paths and
+ * any nesting deeper than one folder are refused, because a seed file is data
+ * and must never be able to read an arbitrary path on the host that runs the
+ * nightly reset. Every segment starts with a letter or a digit, so neither can
+ * be `.` or `..`.
+ *
+ * The one folder exists to tell apart different files that share a name — a
+ * migration keeps each attachment under its source filename, in a folder
+ * named after its bytes. The stored file keeps its own filename; the folder
+ * never reaches the storage key.
  */
-const ASSET_PATTERN = /^@asset:([A-Za-z0-9][A-Za-z0-9._-]*)$/
+const ASSET_PATTERN = /^@asset:((?:[A-Za-z0-9][A-Za-z0-9._-]*\/)?[A-Za-z0-9][A-Za-z0-9._-]*)$/
 
 /**
  * `@user:<email>`. Names a sign-in account rather than a seed row, so a
@@ -88,11 +95,17 @@ export const parseSeedReference = (raw: string): SeedReference | undefined => {
   return { table, key }
 }
 
-/** Parse `@asset:name.ext` into the bare filename, or `undefined`. */
+/**
+ * Parse `@asset:name.ext` or `@asset:folder/name.ext` into the path under
+ * `seed/assets/`, or `undefined`.
+ */
 export const parseAssetReference = (raw: string): string | undefined => {
   const match = ASSET_PATTERN.exec(raw)
   return match?.[1]
 }
+
+/** The file's own name: the last segment of an asset path, without its folder. */
+export const assetFileName = (path: string): string => path.slice(path.lastIndexOf('/') + 1)
 
 /** Parse `@user:<email>` into the bare email, or `undefined`. */
 export const parseUserReference = (raw: string): string | undefined => {
@@ -143,7 +156,7 @@ export const classifyReferenceToken = (raw: string): ReferenceToken => {
     reason:
       `Unrecognised reference "${raw}". ` +
       `Expected @<table>.<key> (e.g. @companies.acme), @asset:<filename> ` +
-      `(e.g. @asset:logo.avif) or @user:<email> (e.g. @user:ines@example.com). ` +
+      `(e.g. @asset:logo.avif or @asset:brand/logo.avif) or @user:<email> (e.g. @user:ines@example.com). ` +
       `To store this text literally, escape it as "\\${raw}".`,
   }
 }

@@ -1,0 +1,160 @@
+name: Issue triage
+
+# Turns the answers of an issue form into labels, and keeps every issue on the
+# taxonomy declared in .github/labels.yml: a Type (Bug, Feature or Task), one
+# domain: label, and for a Bug or a Feature one kind label.
+#
+#   - On a new or edited issue: reads the "### Domain" and "### Kind of bug"
+#     answers, adds domain:<value> and bug:<value>, adds source:ai-drafted when
+#     the AI-assistance box is ticked, and, when the Type, the domain or the
+#     kind is still missing, keeps status:needs-triage and says what is missing
+#     in one comment.
+#   - When a title carries a crash signature ([sig:<8 hex>]), points at the
+#     other open issue with the same signature.
+#   - Every Monday (and on demand): lists the open issues with no Type or no
+#     domain: label in the run summary. It changes nothing.
+#
+# The value lists below are held equal to labels.yml by a drift check in the
+# source repository, so a new domain is added to labels.yml and here together.
+# Comments here are public: they name labels and forms, nothing else.
+
+on:
+  issues:
+    types: [opened, edited]
+  schedule:
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  DOMAIN_VALUES: 'accessibility account admin ai analytics api assets authentication automations buckets cli design design-system ecoconception footprint forms infrastructure internationalization links migrations pages records-api security tables templates theming user-management desktop docs toolchain'
+  BUG_KIND_VALUES: 'regression crash-or-data-loss wrong-behaviour performance ux-a11y compat'
+  DOMAIN_HEADING: 'Domain'
+  BUG_KIND_HEADING: 'Kind of bug'
+  AI_HEADING: 'AI assistance'
+
+jobs:
+  triage:
+    name: Label from the form
+    if: github.event_name == 'issues' && github.event.issue.pull_request == null
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    concurrency:
+      group: issue-triage-${{ github.event.issue.number }}
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      NUMBER: ${{ github.event.issue.number }}
+      ISSUE_TITLE: ${{ github.event.issue.title }}
+      ISSUE_BODY: ${{ github.event.issue.body }}
+    steps:
+      - name: Apply labels and report what is missing
+        run: |
+          set -euo pipefail
+          body="$(printf '%s' "${ISSUE_BODY}" | tr -d '\r')"
+
+          # First non-empty line under "### <heading>", or nothing.
+          answer() {
+            printf '%s\n' "${body}" | awk -v h="### $1" '
+              $0 == h { found = 1; next }
+              /^### / { found = 0 }
+              found && NF { print; exit }
+            '
+          }
+          in_list() {
+            local value="$1" list="$2" item
+            for item in ${list}; do
+              [ "${item}" = "${value}" ] && return 0
+            done
+            return 1
+          }
+
+          add=()
+          domain="$(answer "${DOMAIN_HEADING}")"
+          if [ -n "${domain}" ] && in_list "${domain}" "${DOMAIN_VALUES}"; then
+            add+=("domain:${domain}")
+          fi
+          kind="$(answer "${BUG_KIND_HEADING}")"
+          if [ -n "${kind}" ] && in_list "${kind}" "${BUG_KIND_VALUES}"; then
+            add+=("bug:${kind}")
+          fi
+          if answer "${AI_HEADING}" | grep -qi '^- \[x\]'; then
+            add+=("source:ai-drafted")
+          fi
+          if [ "${#add[@]}" -gt 0 ]; then
+            joined="$(IFS=,; printf '%s' "${add[*]}")"
+            gh issue edit "${NUMBER}" --repo "${REPO}" --add-label "${joined}"
+          fi
+
+          issue="$(gh api "repos/${REPO}/issues/${NUMBER}")"
+          type="$(jq -r '.type.name // ""' <<<"${issue}")"
+          labels="$(jq -r '[.labels[].name] | join(" ")' <<<"${issue}")"
+          missing=()
+          [ -z "${type}" ] && missing+=("a Type (Bug, Feature or Task)")
+          grep -qE '(^| )domain:' <<<"${labels}" || missing+=("a domain: label")
+          if [ "${type}" = "Bug" ] && ! grep -qE '(^| )bug:' <<<"${labels}"; then
+            missing+=("a bug: kind label")
+          fi
+          if [ "${type}" = "Feature" ] && ! grep -qE '(^| )feature:' <<<"${labels}"; then
+            missing+=("a feature: kind label")
+          fi
+
+          marker='<!-- issue-triage:missing -->'
+          if [ "${#missing[@]}" -gt 0 ]; then
+            gh issue edit "${NUMBER}" --repo "${REPO}" --add-label "status:needs-triage"
+            already="$(gh api "repos/${REPO}/issues/${NUMBER}/comments" --paginate \
+              --jq "[.[] | select(.body | contains(\"${marker}\"))] | length")"
+            if [ "${already}" = "0" ]; then
+              list="$(printf -- '- %s\n' "${missing[@]}")"
+              printf '%s\n\nThanks for the report. To be picked up, this issue still needs:\n\n%s\n\nA maintainer will complete it during triage; nothing is required from you unless we ask a question.\n' \
+                "${marker}" "${list}" > comment.md
+              gh issue comment "${NUMBER}" --repo "${REPO}" --body-file comment.md
+            fi
+          fi
+
+          sig="$(grep -oE '\[sig:[0-9a-f]{8}\]' <<<"${ISSUE_TITLE}" | head -1 || true)"
+          if [ -n "${sig}" ]; then
+            key="${sig#[}"; key="${key%]}"
+            others="$(gh issue list --repo "${REPO}" --state open --search "\"${key}\" in:title" \
+              --json number --jq "[.[].number | select(. != ${NUMBER})] | first // empty")"
+            sig_marker='<!-- issue-triage:signature -->'
+            seen="$(gh api "repos/${REPO}/issues/${NUMBER}/comments" --paginate \
+              --jq "[.[] | select(.body | contains(\"${sig_marker}\"))] | length")"
+            if [ -n "${others}" ] && [ "${seen}" = "0" ]; then
+              printf '%s\n\nThis crash signature (%s) also appears in #%s, so it may be the same problem.\n' \
+                "${sig_marker}" "${key}" "${others}" > signature.md
+              gh issue comment "${NUMBER}" --repo "${REPO}" --body-file signature.md
+            fi
+          fi
+
+  sweep:
+    name: Weekly sweep
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: List open issues off the taxonomy
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/${REPO}/issues?state=open&per_page=100" \
+            --jq '.[] | select(.pull_request == null)
+                  | select((.type == null) or ([.labels[].name | select(startswith("domain:"))] | length == 0))
+                  | "- #\(.number) \(.title) (type: \(.type.name // "none"))"' > offenders.txt
+          count="$(grep -c . offenders.txt || true)"
+          {
+            echo "## Issue taxonomy sweep"
+            echo
+            echo "${count} open issue(s) without a Type or a domain: label."
+            echo
+            cat offenders.txt
+          } >> "${GITHUB_STEP_SUMMARY}"
+          echo "${count} open issue(s) without a Type or a domain: label."

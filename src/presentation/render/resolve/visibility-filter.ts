@@ -129,7 +129,7 @@ export function isComponentHiddenForSession(
  * How one pruning pass decides: which nodes stay, and — for a surviving node —
  * any reshaping of its own fields before its descendants are walked.
  */
-interface PruneRule {
+export interface PruneRule {
   readonly keep: (node: unknown) => boolean
   readonly reshape?: (node: object) => object
 }
@@ -140,7 +140,7 @@ function isSameList(a: readonly unknown[], b: readonly unknown[]): boolean {
 }
 
 /** Keep what `rule` admits from one list, then walk into whatever survives. */
-function pruneNodes(nodes: readonly unknown[], rule: PruneRule): readonly unknown[] {
+export function pruneNodes(nodes: readonly unknown[], rule: PruneRule): readonly unknown[] {
   return nodes.filter(rule.keep).map((node) => pruneNode(node, rule))
 }
 

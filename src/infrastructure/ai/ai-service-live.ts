@@ -14,6 +14,7 @@ import {
   type EmbedInput,
 } from '@/application/ports/services/ai-service'
 import { StorageService } from '@/application/ports/services/storage-service'
+import { readRecordedIn } from '@/application/ports/services/stored-file-read'
 import {
   resolveAiEcoRouting,
   resolveOllamaBaseUrl,
@@ -270,7 +271,10 @@ export const AiServiceLive = Layer.effect(
     // turn carrying a file fails closed (`attachment-parts.ts`).
     const read: Option.Option<ReadReferencedFile> = Option.map(
       yield* Effect.serviceOption(StorageService),
-      (storage) => (ref) => storage.download(ref.key, ref.bucket)
+      // The one recorded read every stored-file reader shares: no further than
+      // the size the catalogue records (a key with no row: the store's size,
+      // within the fixed ceiling), so bytes that outgrew it fail the read.
+      (storage) => (ref) => readRecordedIn(storage, ref.key, ref.bucket)
     )
 
     /**

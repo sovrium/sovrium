@@ -145,6 +145,13 @@ export const formAdminItemSchema = Schema.Struct({
       examples: ['Quote request'],
     })
   ),
+  description: optionalField(
+    Schema.String.annotate({
+      description:
+        "What the form is for, as its configuration's `description` says it, in the caller's console language (a `$t:` key resolved). Absent when the form declares none, never an empty string.",
+      examples: ['Questions from the website, answered within a day.'],
+    })
+  ),
   _admin: adminEnvelopeSchema,
 }).annotate({ identifier: 'FormAdminItem' })
 

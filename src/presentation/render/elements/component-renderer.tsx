@@ -6,6 +6,7 @@
  */
 
 import { type ReactElement, Fragment, useId } from 'react'
+import { exportNodeIdOf } from '@/domain/models/app/pages/node-identity'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { resolveComponentStyle } from '@/presentation/design/resolve-component-classes'
 import {
@@ -14,7 +15,7 @@ import {
 } from '@/presentation/render/page/structured-data-from-component'
 import { useBreakpoint } from '@/presentation/render/props/use-breakpoint'
 import {
-  expandedReferenceOf,
+  namingReferenceOf,
   isComponentReferenceNode,
 } from '@/presentation/render/resolve/component-reference'
 import { resolveI18nContent } from '../i18n/i18n-content-resolver'
@@ -56,9 +57,7 @@ import type { Component, ComponentType } from '@/domain/models/app/pages/compone
 import type { VariantOverrides } from '@/domain/models/app/pages/components/responsive'
 import type { Tables } from '@/domain/models/app/tables'
 
-/**
- * Component renderer props
- */
+/** Component renderer props */
 type ComponentRendererProps = {
   readonly component: Component | SimpleComponentReference | ComponentReference
   readonly pageVars?: Record<string, string | number | boolean>
@@ -180,22 +179,20 @@ function applyVariableSubstitution(
   }
 }
 
-/**
- * Add data-component-type attribute for testing
- */
+/** Add `data-component-type`, and the `data-sovrium-id` a page export wrote on the node. */
 function addComponentTypeAttribute(
   elementProps: Record<string, unknown>,
-  type: string
+  type: string,
+  exportNodeId: string | undefined
 ): Record<string, unknown> {
   return {
     ...elementProps,
     'data-component-type': type,
+    ...(exportNodeId !== undefined && { 'data-sovrium-id': exportNodeId }),
   }
 }
 
-/**
- * Check if component has responsive content overrides
- */
+/** Check if component has responsive content overrides */
 function hasResponsiveContentOverrides(responsive: Component['responsive']): boolean {
   return (
     !!responsive &&
@@ -409,11 +406,12 @@ function RenderDirectComponent({
     elementPropsWithSpacing: interactionElementPropsWithSpacing,
   })
 
-  // Add data-component-type attribute for testing
-  const baseElementPropsWithType = addComponentTypeAttribute(finalElementProps, type)
+  const exportNodeId = exportNodeIdOf(component) // only a page export's own copy carries one
+  const baseElementPropsWithType = addComponentTypeAttribute(finalElementProps, type, exportNodeId)
   const finalElementPropsWithSpacingAndType = addComponentTypeAttribute(
     finalElementPropsWithSpacing,
-    type
+    type,
+    exportNodeId
   )
 
   // Inject island-specific props for data-table / kanban sections. These
@@ -567,7 +565,7 @@ export function ComponentRenderer(props: ComponentRendererProps): Readonly<React
 
 /** The renderer props, named by the template an inlined reference came from. */
 function namedByExpandedReference(props: ComponentRendererProps): ComponentRendererProps {
-  const expanded = expandedReferenceOf(props.component)
+  const expanded = namingReferenceOf(props.component)
   if (expanded === undefined) return props
   return {
     ...props,

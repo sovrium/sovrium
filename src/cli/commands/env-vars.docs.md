@@ -200,12 +200,12 @@ An install that already supplies the variable cannot simply unset it: the next s
 
 Both the email and the password must be set for seeding to happen at all.
 
-| Variable              | Default         | Description                                     |
-| --------------------- | --------------- | ----------------------------------------------- |
-| `AUTH_ADMIN_EMAIL`    | —               | Email address of the seeded administrator       |
-| `AUTH_ADMIN_PASSWORD` | —               | Password for that account, 8 characters minimum |
-| `AUTH_ADMIN_NAME`     | `Administrator` | Display name                                    |
-| `AUTH_ADMIN_ROLE`     | `admin`         | Role assigned to the account                    |
+| Variable              | Default         | Description                                                                                                                                                       |
+| --------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AUTH_ADMIN_EMAIL`    | —               | Email address of the seeded administrator. Ignored when the database already holds an account; startup then warns, and `sovrium admin create <email>` creates it. |
+| `AUTH_ADMIN_PASSWORD` | —               | Password for that account, 8 characters minimum                                                                                                                   |
+| `AUTH_ADMIN_NAME`     | `Administrator` | Display name                                                                                                                                                      |
+| `AUTH_ADMIN_ROLE`     | `admin`         | Role assigned to the account                                                                                                                                      |
 
 `sovrium admin create <email>` does the same job interactively, without putting a password in the environment.
 

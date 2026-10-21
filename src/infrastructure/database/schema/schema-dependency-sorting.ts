@@ -33,8 +33,9 @@ export const detectCircularDependenciesWithOptionalFK = (
     const optionalRelationships = table.fields.filter(
       (field): field is typeof field & { relatedTable: string } =>
         isRelationshipField(field) &&
+        relationshipFieldCreatesForeignKey(field) && // Only a FK column can be deferred
         field.relatedTable !== table.name && // Exclude self-references
-        field.required === false // Explicitly optional FK (allows NULL)
+        field.required !== true // Optional FK (allows NULL): only `required: true` is NOT NULL
     )
 
     return optionalRelationships.flatMap((field) => {
@@ -43,9 +44,13 @@ export const detectCircularDependenciesWithOptionalFK = (
 
       if (!relatedTable) return []
 
-      // Check if related table also has a relationship back to this table
+      // A loop needs a FK back to this table: a one-to-many / many-to-many reverse
+      // field (the inverse side of this very link) places no FK and makes no loop
       const hasReverseRelationship = relatedTable.fields.some(
-        (f) => isRelationshipField(f) && f.relatedTable === table.name
+        (f) =>
+          isRelationshipField(f) &&
+          relationshipFieldCreatesForeignKey(f) &&
+          f.relatedTable === table.name
       )
 
       return hasReverseRelationship ? [table.name, relatedTableName] : []

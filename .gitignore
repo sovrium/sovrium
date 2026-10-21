@@ -111,8 +111,7 @@ docs/user-stories/template-apps/*/parity/*/diff/
 docs/user-stories/as-business-admin/admin/console/parity/*/current-state/
 docs/user-stories/as-business-admin/admin/console/parity/*/target-state/
 docs/user-stories/as-business-admin/admin/console/parity/*/diff/
-docs/growth/**/*.wav
-docs/growth/offers/*/ressources/prospection/prive/
+/docs/growth/
 .repository-analysis/
 tmp/
 desktop/src-tauri/target/

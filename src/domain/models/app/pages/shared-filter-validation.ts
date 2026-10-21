@@ -54,9 +54,9 @@ export function sharedFilterChannelViolations(
     .map((node) => node['publishes'])
     .filter(isRecord)
     .flatMap((publishes) => {
-      const { bindTo, param } = publishes
-      return typeof bindTo === 'string' && typeof param === 'string'
-        ? [{ channel: bindTo, param }]
+      const { bindTo } = publishes
+      return typeof bindTo === 'string'
+        ? publishedKeys(publishes).map((param) => ({ channel: bindTo, param }))
         : []
     })
 
@@ -98,6 +98,18 @@ function subscriberParamViolations(
           `${label} declares a shared-filter subscriber consuming "${param}" from channel "${bindTo}", which publishes only ${offered.map((name) => `"${name}"`).join(', ')} — that key would never be merged`
       )
   })
+}
+
+/**
+ * The keys one `publishes` declaration adds to its channel's bag: its `param`,
+ * or each request param a range publisher maps its ends to
+ * (`params: { from, to }`, the values being the published names).
+ */
+function publishedKeys(publishes: Readonly<Record<string, unknown>>): readonly string[] {
+  const { param, params } = publishes
+  if (typeof param === 'string') return [param]
+  if (!isRecord(params)) return []
+  return Object.values(params).filter((name): name is string => typeof name === 'string')
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -1,0 +1,151 @@
+<!doctype html>
+<!--
+  Copyright (c) 2025-2026 ESSENTIAL SERVICES
+
+  This source code is licensed under the Business Source License 1.1
+  found in the LICENSE.md file in the root directory of this source tree.
+
+  The plugin UI. `figma-plugin/build.ts` inlines the bundled `ui.ts` at the
+  marker below: Figma loads `ui.html` as one string, so nothing can be fetched.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: var(--figma-color-bg, #ffffff);
+        --text: var(--figma-color-text, #1e1e1e);
+        --muted: var(--figma-color-text-secondary, #6b6b6b);
+        --border: var(--figma-color-border, #e5e5e5);
+        --accent: var(--figma-color-bg-brand, #0d99ff);
+        --on-accent: var(--figma-color-text-onbrand, #ffffff);
+        --danger: var(--figma-color-text-danger, #d42b2b);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 12px;
+        font:
+          12px/1.45 Inter,
+          system-ui,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      h1 {
+        font-size: 13px;
+        margin: 0 0 4px;
+      }
+      p {
+        margin: 0 0 8px;
+        color: var(--muted);
+      }
+      section {
+        border-top: 1px solid var(--border);
+        padding: 10px 0;
+      }
+      button {
+        font: inherit;
+        padding: 6px 10px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text);
+        cursor: pointer;
+      }
+      button.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--on-accent);
+      }
+      #status {
+        white-space: pre-wrap;
+        margin-top: 8px;
+      }
+      #status.error {
+        color: var(--danger);
+      }
+      ul {
+        list-style: none;
+        margin: 8px 0 0;
+        padding: 0;
+      }
+      li {
+        display: flex;
+        gap: 8px;
+        align-items: baseline;
+        justify-content: space-between;
+        padding: 4px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      li span {
+        overflow-wrap: anywhere;
+      }
+      textarea {
+        width: 100%;
+        height: 120px;
+        font:
+          11px/1.4 ui-monospace,
+          monospace;
+        margin-top: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Sovrium pages</h1>
+    <p>
+      Builds, tags, exports and checks the pages of a Sovrium bundle. It never changes a layer you
+      drew, and it talks to nothing: no Sovrium instance, no network.
+    </p>
+
+    <section>
+      <strong>Import a page</strong>
+      <p>
+        First import the bundle's <code>adapters/figma/*.tokens.json</code> with Figma's own
+        Variables import. Then pick a page from <code>adapters/figma/pages/</code>.
+      </p>
+      <input
+        id="file"
+        type="file"
+        accept=".json,application/json"
+      />
+    </section>
+
+    <section>
+      <strong>Export</strong>
+      <p>Writes each Sovrium page on this Figma page back as its <code>.figma.json</code>.</p>
+      <button
+        id="export"
+        class="primary"
+      >
+        Export
+      </button>
+      <div id="files"></div>
+    </section>
+
+    <section>
+      <strong>Check</strong>
+      <p>
+        Lists the values off the spacing scale, with the nearest token, and the layers that are no
+        kit component. Select them to fix them yourself.
+      </p>
+      <button id="check">Check</button>
+      <button
+        id="select-all"
+        hidden
+      >
+        Select all
+      </button>
+      <ul id="findings"></ul>
+    </section>
+
+    <div
+      id="status"
+      role="status"
+    ></div>
+    <!-- sovrium:ui-script -->
+  </body>
+</html>

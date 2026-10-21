@@ -211,6 +211,8 @@ export type RuntimeCapability = Schema.Schema.Type<typeof RuntimeCapabilitySchem
  * - `condition`: Show based on a field value comparison (e.g., user plan or role)
  * - `record`: Show only on records whose named field satisfies a predicate —
  *   the PER-ROW gate, evaluated against the bound record rather than the session
+ * - `item`: Show only in the copies of a `repeat` whose element satisfies a
+ *   predicate — the PER-ELEMENT gate, on a page bound to one record
  * - `query`: Show only while a declared `page.query` property resolves to a
  *   matching value — the URL-STATE gate, which is what lets two tabs under one
  *   path show two different bodies rather than both at once
@@ -571,6 +573,54 @@ export const VisibilitySchema = Schema.Struct({
       title: 'Record Visibility',
       description:
         'Per-row gate: render only on records whose `field` value satisfies the operator(s). Evaluated server-side at row expansion; a failing row omits the element entirely. Requires a record-binding ancestor.',
+    })
+  ),
+
+  /**
+   * PER-ELEMENT visibility inside a `repeat`: the component renders only in the
+   * copies whose element satisfies the predicate.
+   *
+   * ─── WHY NOT `record` ──────────────────────────────────────────────────────
+   *
+   * `record` asks about the record a row or a page is bound to. Inside a repeat
+   * there are two things a gate could mean — the page's record, the same on
+   * every copy, or the element this copy was drawn from — and `record` was
+   * refused there so it would never silently mean the wrong one. `item` names
+   * the element, so the two questions keep two spellings.
+   *
+   * ─── WHICH ELEMENT ─────────────────────────────────────────────────────────
+   *
+   * The element of the NEAREST enclosing repeat — the one `$<as>.` (or, for an
+   * unnamed repeat, `$record.`) reads inside it. `field` names a key of that
+   * element, read as `record` reads a key of a record, `.raw` included.
+   *
+   * ─── WHERE IT HOLDS ────────────────────────────────────────────────────────
+   *
+   * Evaluated server-side, while a page bound to one record (`{ system }` or
+   * `{ table, mode: 'single' }`) expands its repeats: a copy whose element
+   * fails it has the component OMITTED from its HTML. Refused at decode
+   * anywhere else — outside any repeat (there is no element), and inside a
+   * record-bound drawer's slot, whose copies are built in the browser where no
+   * gate runs.
+   *
+   * It reuses `FieldConditionSchema` — the same operators and the same matcher
+   * as `record` — so the two gates cannot drift.
+   *
+   * @example
+   * ```yaml
+   * repeat: { record: steps, as: step }
+   * children:
+   *   - type: collapsible
+   *     triggerLabel: Data in and out
+   *     defaultOpen: true
+   *     visibility: { item: { field: status, eq: failed } }
+   * ```
+   */
+  item: Schema.optional(
+    FieldConditionSchema.annotate({
+      title: 'Repeat Element Visibility',
+      description:
+        'Per-element gate inside a `repeat`: render only in the copies whose element (the one the nearest enclosing repeat iterates) has a `field` value satisfying the operator(s). Evaluated server-side on a page bound to one record; a failing copy omits the component entirely. Refused outside a repeat and inside a record-bound drawer.',
     })
   ),
 

@@ -113,7 +113,7 @@ Read: `sovrium docs fields`
 | `button` | Interactive button that triggers actions like opening URLs or running automations. |
 | `code` | Stores source code as plain text with syntax highlighting. Rendered with CodeMirror 6 editor in UI. |
 | `color` | Stores color values in hexadecimal format. Rendered with color picker in UI. |
-| `count` | Counts the number of linked records from a relationship field. Optionally filters records before counting. |
+| `count` | Counts the linked records from a relationship field that its reader may list in the related table, optionally filtered first. A reader who may list none of them is not given the count. |
 | `formula` | Computed field that calculates values based on formula expressions. |
 | `geolocation` | Stores geographic coordinates (latitude and longitude). Used for location-based features. |
 | `json` | Stores structured JSON data with optional schema validation. |

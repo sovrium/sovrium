@@ -10,6 +10,7 @@ import componentsOverviewBody from '@/domain/models/app/pages/components/compone
 import contentComponentsBody from '@/domain/models/app/pages/components/component-types/content/content-components.docs.md' with { type: 'file' }
 import mediaComponentsBody from '@/domain/models/app/pages/components/component-types/content/media-components.docs.md' with { type: 'file' }
 import reusableComponentsBody from '@/domain/models/app/pages/components/component-types/custom/custom.docs.md' with { type: 'file' }
+import templateInputsBody from '@/domain/models/app/pages/components/component-types/custom/template-inputs.docs.md' with { type: 'file' }
 import layoutComponentsBody from '@/domain/models/app/pages/components/component-types/layout/layout-components.docs.md' with { type: 'file' }
 import sidebarClientNavigationBody from '@/domain/models/app/pages/components/component-types/layout/sidebar-client-navigation.docs.md' with { type: 'file' }
 import sidebarFetchedEntriesBody from '@/domain/models/app/pages/components/component-types/layout/sidebar-fetched-entries.docs.md' with { type: 'file' }
@@ -108,6 +109,18 @@ export const section = defineSection({
         'US-PAGES-PAGE-COMPONENTS-004',
         'US-PAGES-PAGE-COMPONENTS-006',
       ],
+    }),
+    defineArticle({
+      slug: 'template-inputs',
+      title: 'Structured Template Inputs',
+      description:
+        'Let a template take lists and objects as inputs and name one as the whole value of any field — its columns, data source, panels or actions — with each placement checked at startup.',
+      keywords: ['sovrium', 'component templates', 'inputs', 'json', 'vars', 'columns'],
+      order: 3205,
+      sidebarLabel: 'Structured Template Inputs',
+      body: templateInputsBody,
+      documents: [],
+      stories: [],
     }),
     defineArticle({
       slug: 'layout-components',

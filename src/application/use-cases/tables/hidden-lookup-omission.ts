@@ -48,6 +48,8 @@ import {
   type ClearedKeys,
   type RowVerdict,
 } from '@/domain/models/app/tables/lookup-row-judgement-service'
+import { countsNarrowedFor } from '@/domain/models/app/tables/row-read-admission-service'
+import { recountLinks } from './link-count-narrowing'
 import { readableKeys, relatedReaderOf, type LinkReader } from './linked-row-visibility'
 import {
   narrowManyToManyLookups,
@@ -68,8 +70,8 @@ import type { RelatedReader } from '@/domain/models/app/tables/related-field-rea
  * lookup through a link to a table with a row-level read rule their role is
  * subject to, or of a lookup that answers to one further along
  * ({@link rowRuledLookupLinksOf}) — the lookups the records API
- * judges against the linked records ({@link omitHiddenLookups}) — and every
- * formula over one of those.
+ * judges against the linked records ({@link omitHiddenLookups}), every count
+ * her list narrows (`countsNarrowedFor`) — and every formula over one of those.
  *
  * A change event is judged in memory, with no read per subscriber, so it cannot
  * tell which linked records this subscriber may read. It withholds the value
@@ -85,7 +87,8 @@ export const lookupsWithheldFromStream = (
   const ruled = isAdminEquivalent(reader.role, app)
     ? new Set<string>()
     : new Set(rowRuledLookupLinksOf(app, tableName).map((link) => link.lookup))
-  return [...new Set([...refused, ...withFormulasOver(app, tableName, ruled)])]
+  const counts = countsNarrowedFor(app, tableName, reader)
+  return [...new Set([...refused, ...withFormulasOver(app, tableName, ruled), ...counts])]
 }
 
 /**
@@ -305,7 +308,7 @@ const manyToManyLookupsOf = (
           ...(filters === undefined ? {} : { filters }),
         }))
 
-/** Every entry with its many-to-many lookups narrowed to the readable linked rows. */
+/** Every entry with its many-to-many lookups, then its counts, narrowed to its reader. */
 const narrowEntries = (
   app: App | undefined,
   tableName: string,
@@ -313,12 +316,9 @@ const narrowEntries = (
   reader: LinkReader | undefined
 ) =>
   narrowManyToManyLookups({
-    app,
-    tableName,
-    entries,
+    ...{ app, tableName, entries, reader },
     lookups: manyToManyLookupsOf(app, tableName),
-    reader,
-  })
+  }).pipe(Effect.flatMap(recountLinks({ app, tableName, entries, reader })))
 
 /**
  * {@link omitLookups} over every link, whatever road its keys take, then the

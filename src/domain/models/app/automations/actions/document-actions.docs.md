@@ -34,7 +34,7 @@ A template read from a bucket is treated as written by whoever may upload to tha
 
 Every template — HTML, SVG, Word, email, plain text — has the formatting helpers of the run's templates, plus the document helpers (`chunk`, `pageBreak`, `image`, `qrcode`, `t`), partials and layouts declared in `assets`, and translations from `languages`. What each one prints, and what each output format does with it, is in Template Helpers: `sovrium docs automations/template-helpers`.
 
-A picture comes from a declared image asset, a stored file the configuration names, or a file an earlier step of the run produced — never a URL, and never a `{ key, bucket }` that arrives with the request. The same rule covers the `header` and `footer` templates of a PDF.
+A picture comes from a declared image asset, a stored file the configuration names, or a file an earlier step of the run produced — never a URL, and never a `{ key, bucket }` that arrives with the request. A stored picture is read up to 100 MiB; a larger one fails the step, and the read stops at that size. The same rule covers the `header` and `footer` templates of a PDF.
 
 ## Where the file goes
 

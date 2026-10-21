@@ -54,7 +54,7 @@ import {
 } from '@/presentation/api/mcp/rate-limit'
 import { handleToolsCall } from '@/presentation/api/mcp/tool-call'
 import { compileMcpTools, type CompiledTool } from '@/presentation/api/mcp/tool-compiler'
-import { filterToolsForRole, refuseHeldAdminTool } from '@/presentation/api/mcp/tool-visibility'
+import { filterToolsForCaller, refuseHeldAdminTool } from '@/presentation/api/mcp/tool-visibility'
 import { applyMcpIpCeiling } from '@/presentation/api/middleware/api-ip-ceiling'
 import type { AdminReadHostFactory } from '@/application/ports/services/admin-read-host'
 import type { App } from '@/domain/models/app'
@@ -209,7 +209,7 @@ export function setupMcpRoutes(
 /**
  * Compile every tool family the mount may offer, refusing a config whose own
  * tools would answer to a reserved name. Each family's gate is applied here or
- * downstream in {@link filterToolsForRole}.
+ * downstream in {@link filterToolsForCaller}.
  */
 const compileToolCatalog = (
   app: App,
@@ -282,7 +282,7 @@ const buildMcpServer = (caller: McpCaller, dispatch: McpDispatchContext): Server
       // `CompiledTool` already IS the wire shape (`tool-compiler.ts` emits
       // `inputSchema: { type: 'object', … }` JSON Schema). The cast only bridges
       // the readonly-array variance the SDK's mutable `Tool[]` does not accept.
-      tools: filterToolsForRole(dispatch.tools, caller, dispatch.app, paused) as never,
+      tools: (await filterToolsForCaller(dispatch, caller, paused)) as never,
     }
   })
 

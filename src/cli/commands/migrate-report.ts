@@ -194,6 +194,7 @@ export const changeLine = (change: TableChange): CliBlock => {
             'The statement list depends on the live column set at the moment it runs,',
             'so it cannot be rendered ahead of time. Expect a table rebuild and a full',
             'row copy — plan a maintenance window for it.',
+            ...(change.lostObjects ?? []),
           ],
         },
       ]

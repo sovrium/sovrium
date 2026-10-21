@@ -152,11 +152,17 @@ export async function refreshInvitationExpiry(id: string, expiresAt: Date): Prom
 }
 
 /**
- * Delete an invitation token row by id (single-use enforcement).
+ * Delete an invitation token row by id (single-use enforcement), answering
+ * whether THIS call removed it. Two acceptances racing on one token both reach
+ * the delete; only the one that sees a removed row has consumed the invitation.
  */
-export async function deleteInvitationToken(id: string): Promise<void> {
+export async function deleteInvitationToken(id: string): Promise<boolean> {
   const verifications = authVerificationsTable()
-  await db.delete(verifications).where(eq(verifications.id, id))
+  const deleted = await db
+    .delete(verifications)
+    .where(eq(verifications.id, id))
+    .returning({ id: verifications.id })
+  return deleted.length > 0
 }
 
 /**

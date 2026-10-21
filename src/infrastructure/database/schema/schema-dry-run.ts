@@ -119,12 +119,12 @@ export interface TableChange {
   /**
    * Why this change would be REFUSED, in the words the boot would use.
    *
-   * Empty on every table that would go through. A recreate is reported as
-   * {@link unsimulated} precisely because its statements cannot be rendered
-   * ahead of time — but whether it will refuse is the one thing about it an
-   * operator actually needs, and that IS computable read-only.
+   * Empty on every table that would go through. A recreate is {@link unsimulated}
+   * because its statements cannot be rendered ahead of time — but whether it will
+   * refuse is the one thing an operator needs, and that IS computable read-only.
    */
   readonly refusals: readonly string[]
+  readonly lostObjects?: readonly string[] // SQLite rebuild: hand-made objects it won't recreate
 }
 
 /** Everything one {@link planTable} call needs, bundled to keep arity low. */

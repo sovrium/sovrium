@@ -6,16 +6,22 @@
  */
 
 import { Effect } from 'effect'
-import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
 import { writeGeneratedFile } from './document-output'
 import { outputPropOf, runDocumentAction } from './document-run'
 import { generateXlsxFromTemplate } from './document-xlsx-template'
-import { isSelfContainedSource, resolveSource } from './file-support'
+import {
+  isSelfContainedSource,
+  readStoredSource,
+  resolveSource,
+  sourceRefusalMessage,
+  storedReadMessage,
+} from './file-support'
 import { applyCellRange, parseCellRange, readXlsx, type XlsxCell } from './file-xlsx-parse'
 import { buildXlsx, type XlsxSheetInput } from './file-xlsx-write'
 import { resolveOwnProps } from './run-context-resolution'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
+import type { StorageService } from '@/application/ports/services/storage-service'
 
 /**
  * `file/parseXlsx` and `document/generateXlsx` — the two halves of the `.xlsx`
@@ -55,7 +61,7 @@ type LoadedBytes =
 /**
  * Load workbook bytes from a `data:` URI, an `http(s)://` URL or a storage key.
  *
- * Plain keys go through `storage.download` rather than `resolveSource` for the
+ * Plain keys go through `readStoredSource` rather than `resolveSource` for the
  * same reason `parseCsv` does: `resolveSource` degrades a missing key to empty
  * bytes, turning "file not found" into a silent empty parse.
  */
@@ -64,13 +70,12 @@ const loadWorkbookBytes = (ref: string): Effect.Effect<LoadedBytes, never, Stora
     if (isSelfContainedSource(ref)) {
       const resolved = yield* Effect.result(resolveSource(ref))
       return resolved._tag === 'Failure'
-        ? ({ ok: false, message: `invalid_outbound_url_${resolved.failure.reason}` } as const)
+        ? ({ ok: false, message: sourceRefusalMessage(resolved.failure) } as const)
         : ({ ok: true, bytes: resolved.success.bytes } as const)
     }
-    const storage = yield* StorageService
-    const downloaded = yield* Effect.result(storage.download(ref, UNATTRIBUTED_BUCKET))
+    const downloaded = yield* Effect.result(readStoredSource(ref))
     return downloaded._tag === 'Failure'
-      ? ({ ok: false, message: `file not found: ${ref}` } as const)
+      ? ({ ok: false, message: storedReadMessage(downloaded.failure) } as const)
       : ({ ok: true, bytes: downloaded.success } as const)
   })
 

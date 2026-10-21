@@ -23,7 +23,7 @@ import { openEditableSubmissionProgram } from './open-form-access-link'
 import { findFormByName } from './submit-form'
 import { processSubmissionBody } from './submit-form-body'
 import { constraintRefusalForField } from './submit-form-constraint-errors'
-import { filterTableBoundFields } from './submit-form-field-shaping'
+import { filterTableBoundFields, withoutWithheldAnswers } from './submit-form-field-shaping'
 import type { AccessibleFormSubmissionRow } from '@/application/ports/repositories/forms/form-submission-repository'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
@@ -98,6 +98,8 @@ const updateBoundRow = (input: {
 export const editFormSubmissionProgram = (config: {
   readonly app: App
   readonly formName: string
+  /** The form as offered to the editor (see `SubmitFormConfig.form`); as declared when absent. */
+  readonly form?: Readonly<Form>
   readonly tokenHash: string
   readonly body: Readonly<Record<string, unknown>>
   readonly processEnv: Readonly<Record<string, string | undefined>>
@@ -106,12 +108,14 @@ export const editFormSubmissionProgram = (config: {
 }) =>
   Effect.gen(function* () {
     const { app, formName, tokenHash } = config
-    const form = findFormByName(app, formName)
-    if (form === undefined) return yield* new FormEditLinkNotFoundError({ formName })
-    const row = yield* openEditableSubmissionProgram({ form, tokenHash })
+    const declared = findFormByName(app, formName)
+    if (declared === undefined) return yield* new FormEditLinkNotFoundError({ formName })
+    const row = yield* openEditableSubmissionProgram({ form: declared, tokenHash })
     if (row === undefined) return yield* new FormEditLinkNotFoundError({ formName })
+    const form = config.form ?? declared
+    const posted = withoutWithheldAnswers(config.body, declared, form)
     const answers = answersFromLedgerData(form, row.data)
-    const body = { ...keptFileAnswers(form, app.tables, answers, config.body), ...config.body }
+    const body = { ...keptFileAnswers(form, app.tables, answers, posted), ...posted }
     const mapped = yield* processSubmissionBody(app, form, body, {})
     const tableName = form.submitTo.table
     if (tableName !== undefined && row.linkedRecordId !== null) {

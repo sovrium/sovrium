@@ -16,6 +16,7 @@ import { declaredGalleryPartClasses } from '@/presentation/design/gallery-part-c
 import { resolveWeekdayFields } from '@/presentation/render/props/resolve-weekday-fields'
 import { hostClassName, namedHost } from '@/presentation/render/registry/island-host-attributes'
 import { islandLoadingLabel, islandUiStrings } from './island-loading-label'
+import { islandFallback, specimenEmpty } from './specimen-island-states'
 import type { ComponentDispatchConfig, ComponentRenderer } from './component-dispatch-config'
 
 /** The gallery island's props, the author's piece classes merged here, on the server. */
@@ -69,35 +70,38 @@ const galleryRenderer =
             uses (`gallery-default-classes.ts`), so the cards do not re-draw at
             hydration: only the pulsing bars are replaced, inside boxes whose
             border, radius, fill and gutter never move. */}
-        <div
-          className={`${computeGalleryGridClasses()} grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`}
-          data-loading-status=""
-          aria-label={loading.status}
-          role="status"
-        >
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={`gallery-skeleton-${String(i)}`}
-              {...GALLERY_CARD_SLOT_ATTRIBUTES}
-              className={computeGalleryCardClasses()}
-            >
+        {islandFallback(
+          <div
+            className={`${computeGalleryGridClasses()} grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`}
+            data-loading-status=""
+            aria-label={loading.status}
+            role="status"
+          >
+            {Array.from({ length: 6 }).map((_, i) => (
               <div
-                data-slot="skeleton"
-                className={`bg-muted w-full animate-pulse ${GALLERY_COVER_FALLBACK_HEIGHT_CLASS}`}
-              />
-              <div className={GALLERY_CARD_BODY_CLASSES}>
+                key={`gallery-skeleton-${String(i)}`}
+                {...GALLERY_CARD_SLOT_ATTRIBUTES}
+                className={computeGalleryCardClasses()}
+              >
                 <div
                   data-slot="skeleton"
-                  className="bg-muted h-4 w-3/4 animate-pulse rounded-md"
+                  className={`bg-muted w-full animate-pulse ${GALLERY_COVER_FALLBACK_HEIGHT_CLASS}`}
                 />
-                <div
-                  data-slot="skeleton"
-                  className="bg-muted h-3 w-1/2 animate-pulse rounded-md"
-                />
+                <div className={GALLERY_CARD_BODY_CLASSES}>
+                  <div
+                    data-slot="skeleton"
+                    className="bg-muted h-4 w-3/4 animate-pulse rounded-md"
+                  />
+                  <div
+                    data-slot="skeleton"
+                    className="bg-muted h-3 w-1/2 animate-pulse rounded-md"
+                  />
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>,
+          () => specimenEmpty('gallery.empty', currentLang, languages)
+        )}
       </div>
     )
   }

@@ -10,8 +10,8 @@
  *
  * Two trigger shapes name an overlay by id: a click interaction
  * (`interactions.click.modal: <id>`, at the root or under `props`) and an
- * `openSheet` action (`{ action: 'openSheet', component: <id> }`, on a row
- * click or a button). Both are read wherever they sit on a node — the node's
+ * `openSheet` or `openDialog` action (`{ action: 'openSheet', component: <id> }`,
+ * on a row click, a button or a menu item). Both are read wherever they sit on a node — the node's
  * own fields, not its `children`, which are walked as nodes of their own.
  *
  * A trigger INSIDE the overlay it addresses (a "back" button that re-opens
@@ -52,7 +52,8 @@ function targetsInValue(value: unknown, depth: number): readonly string[] {
     ...(isRecord(value['click']) && typeof value['click']['modal'] === 'string'
       ? [value['click']['modal']]
       : []),
-    ...(value['action'] === 'openSheet' && typeof value['component'] === 'string'
+    ...((value['action'] === 'openSheet' || value['action'] === 'openDialog') &&
+    typeof value['component'] === 'string'
       ? [value['component']]
       : []),
   ]

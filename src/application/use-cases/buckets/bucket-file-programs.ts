@@ -27,6 +27,7 @@ import {
   StorageService,
   isStorageObjectNotFound,
 } from '@/application/ports/services/storage-service'
+import { readRecordedFile } from '@/application/use-cases/storage/recorded-file-read'
 import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
 import type { StorageError, StoredSpelling } from '@/application/ports/services/storage-service'
 import type { TransformParams } from '@/domain/models/app/buckets/image-transform-params'
@@ -51,15 +52,16 @@ export interface TransformedFile {
   readonly contentType: string
 }
 
-/** Read a file's bytes from the bucket it belongs to. */
+/**
+ * Read a file's bytes from the bucket it belongs to, no further than the size
+ * its catalogue row records: bytes that outgrew the row fail the read rather
+ * than being read whole.
+ */
 export const readBucketFile = (input: {
   readonly key: string
   readonly bucket: string
 }): Effect.Effect<Uint8Array, StorageError, StorageService> =>
-  Effect.gen(function* () {
-    const storage = yield* StorageService
-    return yield* storage.download(input.key, input.bucket)
-  }).pipe(Effect.withSpan('buckets.read-file'))
+  readRecordedFile(input.key, input.bucket).pipe(Effect.withSpan('buckets.read-file'))
 
 /**
  * Read a file and run the on-the-fly image transform over it.

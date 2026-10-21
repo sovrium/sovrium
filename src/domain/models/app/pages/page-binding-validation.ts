@@ -18,6 +18,8 @@ import {
   visibilityPolarityViolations,
 } from './component-rule-validation'
 import { derivedColumnViolations } from './derived-columns-validation'
+import { compactFileUploadViolations } from './file-upload-compact-validation'
+import { openDialogTargetViolations } from './open-dialog-target-validation'
 import { queryVisibilityViolations } from './query-visibility-validation'
 import { boundNodesOf, describeNode } from './record-binding-walk'
 import { recordReferenceViolations } from './record-reference-validation'
@@ -189,6 +191,8 @@ export function collectPageBindingViolations(page: unknown): readonly string[] {
     ...routeParamAllowListViolations(page, declared, label),
     ...queryVisibilityViolations(page, label),
     ...actionPlacementViolations(nodes, label),
+    ...compactFileUploadViolations(nodes, label),
+    ...openDialogTargetViolations(page, label),
   ]
 }
 

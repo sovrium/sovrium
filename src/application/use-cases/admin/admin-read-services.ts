@@ -46,7 +46,10 @@ import type {
   AutomationPauseDatabaseError,
   AutomationPauseRepository,
 } from '@/application/ports/repositories/automations/automation-pause-repository'
-import type { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
+import type {
+  AutomationRunDatabaseError,
+  AutomationRunRepository,
+} from '@/application/ports/repositories/automations/automation-run-repository'
 import type {
   AdminBucketFilesDatabaseError,
   AdminBucketFilesRepository,
@@ -101,6 +104,7 @@ import type { Logger } from '@/infrastructure/logging/logger'
 export type AdminReadError =
   | AdminAutomationsDatabaseError
   | AutomationPauseDatabaseError
+  | AutomationRunDatabaseError
   | AuthDatabaseError
   | BootLedgerDatabaseError
   | AdminSearchDatabaseError

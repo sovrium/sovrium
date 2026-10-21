@@ -49,6 +49,8 @@ import {
   existingRowWriteAllowed,
 } from '@/domain/models/app/tables/row-level-write-decision-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
+import { logError } from '@/infrastructure/logging/logger'
+import { rowsReaderMayNotList } from '../row-read-admission'
 import { loadCurrentUserContext, rowRuleScopeOf } from './row-level-enforcement'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
@@ -101,7 +103,18 @@ export const loadCallerIdentity = (
     if (!active) return undefined
     // The role decides every grant, so a failed role lookup refuses the write
     // outright rather than guessing one — a guess could only widen access.
-    const roleLookup = yield* Effect.result(auth.getUserRole(userId))
+    // effect-swallow: fail-closed — a role that cannot be read refuses the write (no caller); the cause is logged on the way.
+    const roleLookup = yield* Effect.result(
+      auth.getUserRole(userId).pipe(
+        Effect.tapCause((cause) =>
+          Effect.sync(() =>
+            logError('[tables] the caller role could not be read; refusing the write', cause, {
+              'sovrium.user.id': userId,
+            })
+          )
+        )
+      )
+    )
     if (roleLookup._tag === 'Failure') return undefined
     // The role the records API would see: an absent, empty or undeclared one
     // grants nothing (`toGrantingRole`), never the `member` default.
@@ -234,7 +247,9 @@ const passesRowAndFieldRules = (input: {
  * delete, a hand-started automation's batch) judges each row exactly as a
  * single write of it would be judged. A table that does not exist, a row that
  * does not exist, and a rule that excludes the caller all answer `false` — the
- * caller maps every one to the records API's `Resource not found`.
+ * caller maps every one to the records API's `Resource not found` — and so does
+ * an update or a delete of a row her list of the table does not admit
+ * (`readerRowsOf`), which to every write is a row that does not exist.
  */
 export const authorizeCallerWrites = (
   app: App,
@@ -248,8 +263,17 @@ export const authorizeCallerWrites = (
     if (table === undefined) return refuseAll
     const identity = yield* loadSessionIdentity(app, session.userId, table)
     if (identity === undefined) return refuseAll
+    const reader = { session, role: identity.role, groups: identity.groups }
+    const stored = requests.flatMap((request) =>
+      request.op === 'create' ? [] : [request.recordId]
+    )
+    const unlisted = new Set(yield* rowsReaderMayNotList(app, tableName, reader, stored))
+    const listed = (request: CallerWriteRequest): boolean =>
+      request.op === 'create' || !unlisted.has(request.recordId)
     return yield* Effect.forEach(requests, (request) =>
-      request.tableName === tableName && passesTableGrant(app, table, request.op, identity)
+      request.tableName === tableName &&
+      passesTableGrant(app, table, request.op, identity) &&
+      listed(request)
         ? passesRowAndFieldRules({ app, table, request, identity, session })
         : Effect.succeed(false)
     )

@@ -11,9 +11,18 @@ import {
   type ImageFit,
   type ImageOutputFormat,
 } from '@/application/ports/services/image-transform-service'
-import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
+import { StorageService } from '@/application/ports/services/storage-service'
+import { logStorageFailure } from '@/application/use-cases/storage/storage-failure-log'
 import { extractTextFromBytes, type ExtractTextFormat } from './file-extract'
-import { extOf, mimeByExt, tempKey, uploadArtifact } from './file-support'
+import {
+  extOf,
+  FILE_SOURCE_MAX_BYTES,
+  mimeByExt,
+  readStoredSource,
+  storedReadMessage,
+  tempKey,
+  uploadArtifact,
+} from './file-support'
 import { buildStoredZip } from './file-zip'
 import { builtFromRunBytes, recordRunArtifact } from './run-written-files'
 import { actionAttributes, numberProp, stringProp } from './shared'
@@ -55,6 +64,77 @@ const compressKeys = (p: Readonly<Record<string, unknown>>): readonly string[] =
   return []
 }
 
+/** Why a `compress` stops: the inputs together are past the single-file limit. */
+const COMPRESS_TOTAL_TOO_LARGE = 'the files to compress are larger than 100 MiB in total'
+
+/**
+ * The sizes the store reports for `keys`, summed, stopping once the sum passes
+ * {@link FILE_SOURCE_MAX_BYTES}: an archive whose inputs are known to be too
+ * large is refused before any is read. A size the store cannot report counts
+ * as nothing here — the read that follows is bounded by what the limit leaves,
+ * and reports a missing file itself.
+ */
+const reportedTotal = (
+  storage: Effect.Success<typeof StorageService>,
+  keys: readonly string[]
+): Effect.Effect<number> =>
+  Effect.reduce(
+    keys,
+    () => 0,
+    (total, key) =>
+      total > FILE_SOURCE_MAX_BYTES
+        ? Effect.succeed(total)
+        : // effect-swallow: a size the store cannot report counts as nothing; the read that follows stays bounded by the cap. A failure other than a missing object is logged.
+          Effect.result(
+            storage
+              .statObject(key)
+              .pipe(
+                logStorageFailure(
+                  '[automations] file.compress could not stat an input; counting it as 0 bytes',
+                  { 'sovrium.storage.key': key }
+                )
+              )
+          ).pipe(
+            Effect.map((stat) => (stat._tag === 'Success' ? total + stat.success.size : total))
+          )
+  )
+
+interface CompressRead {
+  readonly total: number
+  readonly entries: readonly { readonly name: string; readonly bytes: Uint8Array }[]
+  readonly refusal?: string
+}
+
+/**
+ * Read each of `keys` no further than what {@link FILE_SOURCE_MAX_BYTES} leaves
+ * after the files before it, stopping at the first that cannot be read: the
+ * bytes one archive holds stay within the limit however many files it names,
+ * and however the store's reported sizes compare with what it holds.
+ */
+const readWithinTotal = (
+  keys: readonly string[]
+): Effect.Effect<CompressRead, never, StorageService> =>
+  Effect.reduce(
+    keys,
+    (): CompressRead => ({ total: 0, entries: [] }),
+    (read, key) =>
+      read.refusal !== undefined
+        ? Effect.succeed(read)
+        : Effect.result(readStoredSource(key, FILE_SOURCE_MAX_BYTES - read.total)).pipe(
+            Effect.map((res): CompressRead => {
+              if (res._tag === 'Success') {
+                const entry = { name: key.slice(key.lastIndexOf('/') + 1), bytes: res.success }
+                return { total: read.total + res.success.length, entries: [...read.entries, entry] }
+              }
+              const pastTotal = res.failure._tag === 'StoredSourceTooLargeError' && read.total > 0
+              return {
+                ...read,
+                refusal: pastTotal ? COMPRESS_TOTAL_TOO_LARGE : storedReadMessage(res.failure),
+              }
+            })
+          )
+  )
+
 export const handleFileCompress: ActionHandler = (action, _app, automation) =>
   Effect.gen(function* () {
     const p = props(action)
@@ -62,19 +142,12 @@ export const handleFileCompress: ActionHandler = (action, _app, automation) =>
     if (keys.length === 0) return softError('file.compress requires keys')
 
     const storage = yield* StorageService
-    const downloads = yield* Effect.forEach(keys, (key) =>
-      Effect.result(storage.download(key, UNATTRIBUTED_BUCKET)).pipe(
-        Effect.map((res) => ({ key, res }))
-      )
-    )
-    const missing = downloads.find((d) => d.res._tag === 'Failure')
-    if (missing) return softError(`file not found: ${missing.key}`)
-
-    const entries = downloads.map((d) => ({
-      name: d.key.slice(d.key.lastIndexOf('/') + 1),
-      bytes: d.res._tag === 'Success' ? d.res.success : new Uint8Array(0),
-    }))
-    const zip = buildStoredZip(entries)
+    if ((yield* reportedTotal(storage, keys)) > FILE_SOURCE_MAX_BYTES) {
+      return softError(COMPRESS_TOTAL_TOO_LARGE)
+    }
+    const read = yield* readWithinTotal(keys)
+    if (read.refusal !== undefined) return softError(read.refusal)
+    const zip = buildStoredZip(read.entries)
 
     const destination = optionalString(p, 'destination')
     const key = destination ?? tempKey('.zip')
@@ -111,9 +184,8 @@ export const handleFileExtractText: ActionHandler = (action) =>
     const key = p['key'] !== undefined ? stringProp(p, 'key') : stringProp(p, 'source')
     if (!key) return softError('file.extractText requires a key')
 
-    const storage = yield* StorageService
-    const downloaded = yield* Effect.result(storage.download(key, UNATTRIBUTED_BUCKET))
-    if (downloaded._tag === 'Failure') return softError(`file not found: ${key}`)
+    const downloaded = yield* Effect.result(readStoredSource(key))
+    if (downloaded._tag === 'Failure') return softError(storedReadMessage(downloaded.failure))
 
     const format = resolveExtractFormat(p['format'])
     const extracted = extractTextFromBytes(downloaded.success, key, format)
@@ -232,8 +304,8 @@ export const handleFileTransformImage: ActionHandler = (action, _app, automation
     if (!key) return softError('file.transformImage requires a key')
 
     const storage = yield* StorageService
-    const downloaded = yield* Effect.result(storage.download(key, UNATTRIBUTED_BUCKET))
-    if (downloaded._tag === 'Failure') return softError(`file not found: ${key}`)
+    const downloaded = yield* Effect.result(readStoredSource(key))
+    if (downloaded._tag === 'Failure') return softError(storedReadMessage(downloaded.failure))
 
     const inputs = parseTransformImageInputs(p)
     const imageTransform = yield* ImageTransformService

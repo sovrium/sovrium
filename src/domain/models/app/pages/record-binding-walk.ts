@@ -88,8 +88,24 @@ function walkWithBinding(value: unknown, boundByAncestor: boolean): readonly Bou
   ]
 }
 
-/** Name a node for the error message: its `type` when it has one. */
-export function describeNode(node: Readonly<Record<string, unknown>>): string {
+/** The words an author wrote on a node to name it: its `label`, else its text `content`. */
+const authoredNameOf = (node: Readonly<Record<string, unknown>>): string | undefined => {
+  const { label, content } = node
+  if (typeof label === 'string' && label !== '') return label
+  return typeof content === 'string' && content !== '' ? content : undefined
+}
+
+/**
+ * Name a node for the error message: its `type` when it has one, followed —
+ * with `withLabel` — by the label the author wrote on it, so a page holding
+ * several buttons says which one is wrong.
+ */
+export function describeNode(
+  node: Readonly<Record<string, unknown>>,
+  options: { readonly withLabel?: boolean } = {}
+): string {
   const { type } = node
-  return typeof type === 'string' ? `"${type}" component` : 'component'
+  const base = typeof type === 'string' ? `"${type}" component` : 'component'
+  const name = options.withLabel === true ? authoredNameOf(node) : undefined
+  return name === undefined ? base : `${base} '${name}'`
 }

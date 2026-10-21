@@ -8,6 +8,7 @@
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { castDivisionOperands } from './formula-numeric-cast'
+import { translatePortableDates } from './formula-portable-dates'
 import { formulaIsStableOnPostgres } from './formula-postgres-stability'
 
 /**
@@ -554,11 +555,9 @@ export const escapeReservedFieldNames = (
 }
 
 /**
- * Translate formula from user-friendly syntax to PostgreSQL syntax
- * Converts SUBSTR(text, start, length) to SUBSTRING(text FROM start FOR length)
- * Converts date_field::TEXT to TO_CHAR(date_field, 'YYYY-MM-DD') for immutability
- * Casts ROUND arguments to NUMERIC when input may be double precision
- * Escapes field names that contain reserved words (e.g., order_num → "order_num")
+ * Translate formula from user-friendly syntax to PostgreSQL syntax: the portable date
+ * functions (`formula-portable-dates.ts`), SUBSTR → SUBSTRING … FROM … FOR, date::TEXT → TO_CHAR
+ * Casts ROUND arguments to NUMERIC; escapes reserved field names (order_num → "order_num")
  *
  * NOTE: PostgreSQL natively supports nested function calls like ROUND(SQRT(ABS(value)), 2)
  * and all standard mathematical functions (ABS, SQRT, ROUND, POWER, etc.), but ROUND only
@@ -569,7 +568,8 @@ export const translateFormulaToPostgres = (
   formula: string,
   allFields?: readonly { name: string; type: string }[]
 ): string => {
-  const withDateToText = translateDateCastsToText(formula, allFields)
+  const withPortableDates = translatePortableDates(formula, allFields ?? [], 'postgres')
+  const withDateToText = translateDateCastsToText(withPortableDates, allFields)
   const withSubstring = translateSubstrToSubstring(withDateToText)
   const withRoundCast = addNumericCastsToRound(withSubstring)
   return escapeReservedFieldNames(withRoundCast, allFields)

@@ -7,7 +7,11 @@
 
 import { Data, Effect } from 'effect'
 import { AssetStore } from '@/application/ports/services/asset-store'
-import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
+import {
+  StorageService,
+  UNATTRIBUTED_BUCKET,
+  isStorageObjectTooLarge,
+} from '@/application/ports/services/storage-service'
 import { SvgRasterizer } from '@/application/ports/services/svg-rasterizer'
 import {
   DOCUMENT_MEDIA_MARKER,
@@ -20,6 +24,7 @@ import { encodeQrMatrix, matrixToSvg } from '@/domain/models/app/links/qr-code-s
 import { isRecord, type Raw } from './document-run'
 import { renderTemplateText, type TemplateText } from './document-template'
 import { assetNameRefusal, storedFileRefusal } from './file-ref-origin'
+import { FILE_SOURCE_MAX_BYTES } from './file-support'
 import { noteStepFileInput } from './step-file-inputs'
 import type { DocumentRenderSetup } from './document-render-setup'
 import type { ActionRunContext } from './shared'
@@ -126,9 +131,17 @@ const pictureBytes = (
     const refusal = check?.(source, false)
     if (refusal !== undefined) return yield* refuse(source, refusal)
     const bucket = typeof file['bucket'] === 'string' ? file['bucket'] : UNATTRIBUTED_BUCKET
+    // Read no further than the most a file reference reads.
     const bytes = yield* (yield* StorageService)
-      .download(key, bucket)
-      .pipe(Effect.mapError(() => refuse(source, 'could not be read')))
+      .downloadBounded(key, bucket, FILE_SOURCE_MAX_BYTES)
+      .pipe(
+        Effect.mapError((error) =>
+          refuse(
+            source,
+            isStorageObjectTooLarge(error) ? 'is larger than 100 MiB' : 'could not be read'
+          )
+        )
+      )
     // A stored picture is a file the document is built from: it carries its standing.
     yield* noteStepFileInput({ label: `image "${key}"`, key })
     return bytes

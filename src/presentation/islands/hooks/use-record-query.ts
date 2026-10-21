@@ -8,7 +8,7 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query'
 import { retryUnlessAnswered } from '../runtime/records-api'
 import { useLazySharedFilter } from './use-lazy-shared-filter'
-import { fetchSystemDetailEndpoint } from './use-system-source-fetch'
+import { fetchSystemDetailEndpoint } from './use-system-detail-fetch'
 import type { TableRecord } from '../runtime/types'
 import type { SystemDetailSource } from '@/domain/models/app/pages/components/system-detail-source'
 

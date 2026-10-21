@@ -144,8 +144,15 @@ interface UnitCommand {
  * stop of the app) queues a stop that cancels the app's own restart job —
  * `Job … canceled.`, on every restart of an app whose proxy runs. Stopping the
  * proxy and the app in ONE call puts both stops in one transaction, into which
- * the proxy's stop of the app merges; the app is then started alone, and the
- * proxy comes back with the next request through the socket.
+ * the proxy's stop of the app merges.
+ *
+ * The socket stops in that same call, first: while it listens, a request
+ * arriving during the stop wakes the proxy, whose `Requires=` queues a start of
+ * the app that replaces the pending stop — `Job … canceled.` again, under
+ * traffic. The socket and the app then start in one call: the socket queues
+ * the requests that arrive while the app boots, and starting the app itself
+ * makes the restart report whether the new release comes up. The proxy comes
+ * back with the next request through the socket.
  */
 export const unitCommands = (
   slug: string,
@@ -162,9 +169,12 @@ export const unitCommands = (
           },
         ]
       : [
-          { args: ['stop', unit.proxy(slug), unit.app(slug)], timeoutMs: UNIT_COMMAND_TIMEOUT_MS },
           {
-            args: ['start', unit.app(slug)],
+            args: ['stop', unit.socket(slug), unit.proxy(slug), unit.app(slug)],
+            timeoutMs: UNIT_COMMAND_TIMEOUT_MS,
+          },
+          {
+            args: ['start', unit.socket(slug), unit.app(slug)],
             timeoutMs: UNIT_START_TIMEOUT_MS,
             // The stop went through: the app is down until the next request reaches its socket.
             failureContext: `${unit.app(slug)} was stopped for the restart, and starting it again failed`,

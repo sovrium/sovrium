@@ -6,18 +6,25 @@
  */
 
 /**
- * Resolve the foreign-key column a `count` / `rollup` field must traverse.
+ * Resolve the foreign-key column a `one-to-many` relationship reads through.
  *
- * A `count` or `rollup` aggregates the CHILD table's rows, so the generated
- * subquery needs the name of the FK column ON THE CHILD. Three declared shapes
- * answer that directly:
+ * Only a `one-to-many` keeps its key on the CHILD table, so only there does a
+ * `count` / `rollup` (or a record trigger's relation) need the name of a column
+ * ON THE CHILD. The other directions never ask this question of the child: a
+ * `many-to-one` or `one-to-one` keeps its key on the DECLARING table (the
+ * aggregate reads the base row's own column), and a `many-to-many` keeps no
+ * column at all (its links are rows of the junction table). See
+ * `lookup-aggregate-source.ts`. Three declared shapes answer it directly:
  *
  *   1. `foreignKey` on the parent's relationship field — states the child column
  *      outright and always wins.
  *   2. `reciprocalField` — names the child's relationship field, which for a
  *      `many-to-one` IS the FK column.
- *   3. Any relation direction other than `one-to-many` — there the parent's own
- *      relationship field is the FK column, so its name is the answer.
+ *   3. Any relation direction other than `one-to-many` — the question has no
+ *      child-side answer, so the field's own name is returned as a resolved
+ *      no-op: it names the declaring table's column (or, for `many-to-many`,
+ *      nothing), never a column on the related table, and the startup
+ *      validator raises nothing for it.
  *
  * For a `one-to-many` declaring neither (1) nor (2) the answer must be INFERRED
  * from the child, and the parent's field name is emphatically NOT it: that name

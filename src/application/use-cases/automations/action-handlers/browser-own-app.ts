@@ -21,6 +21,7 @@
 
 import { Effect, Ref } from 'effect'
 import { ServerOrigin } from '@/application/ports/services/server-origin'
+import { isAllowedHost } from '@/domain/models/app/automations/actions/browser/browser-host-service'
 import { httpUrlOf, ownStoredKeyOfUrl } from './own-file-url'
 import { noteStepFileInput, stepFileInputs } from './step-file-inputs'
 import type { AutomationContext } from './shared'
@@ -49,6 +50,13 @@ const isUnspecified = (hostname: string): boolean => hostname === '0.0.0.0' || h
 const isAddressLiteral = (hostname: string): boolean =>
   /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname) || hostname.startsWith('[')
 
+/**
+ * A URL's hostname as a resolver reads it: a name written with its final dot
+ * (`localhost.`, `app.example.`) names the same host as without it.
+ */
+const hostnameOf = (url: Readonly<URL>): string =>
+  url.hostname.endsWith('.') ? url.hostname.slice(0, -1) : url.hostname
+
 /** A URL's port, the scheme's default written out. */
 const portOf = (url: Readonly<URL>): string =>
   url.port !== '' ? url.port : url.protocol === 'https:' ? '443' : '80'
@@ -57,7 +65,8 @@ const portOf = (url: Readonly<URL>): string =>
 export const comparableOrigin = (text: string): string | undefined => {
   const url = httpUrlOf(text)
   if (url === undefined) return undefined
-  const host = isThisMachine(url.hostname) ? 'localhost' : url.hostname
+  const hostname = hostnameOf(url)
+  const host = isThisMachine(hostname) ? 'localhost' : hostname
   return `${url.protocol}//${host}:${portOf(url)}`
 }
 
@@ -76,13 +85,29 @@ export const isOnOwnOrigin = (url: string, own: readonly string[]): boolean => {
     const listener = httpUrlOf(candidate)
     return (
       listener !== undefined &&
-      isUnspecified(listener.hostname) &&
-      isAddressLiteral(target.hostname) &&
+      isUnspecified(hostnameOf(listener)) &&
+      isAddressLiteral(hostnameOf(target)) &&
       listener.protocol === target.protocol &&
       portOf(listener) === portOf(target)
     )
   })
 }
+
+/**
+ * Whether `allowedHosts` lets a step open one of `own` origins. An entry names
+ * a host and port without a scheme, so it is read on both schemes the way
+ * `isOnOwnOrigin` reads a request (a name of this machine, the unspecified
+ * listener); and each own origin is matched against the entries the way the
+ * driver's guard matches a request (a wildcard entry covering it). Pure.
+ */
+export const allowsOwnAddress = (
+  allowedHosts: readonly string[],
+  own: readonly string[]
+): boolean =>
+  own.some((origin) => isAllowedHost(origin, allowedHosts)) ||
+  allowedHosts.some((entry) =>
+    ['http', 'https'].some((scheme) => isOnOwnOrigin(`${scheme}://${entry.trim()}/`, own))
+  )
 
 /** The origins the app answers on: its canonical address, and the one it listens on. */
 const ownOrigins = Effect.gen(function* () {
@@ -125,16 +150,23 @@ export const observeOwnApp = (
  * kept by its pause (`parked-step-files.ts`). Answers the step's taint. A
  * resume that finds no reading kept (one stored by an older version, or one
  * that did not read back) starts tainted: what the step saw before its pause
- * cannot be told, so its pictures lend no standing.
+ * cannot be told, so its pictures lend no standing. A step whose
+ * `allowedHosts` names one of the app's own origins starts tainted too: its
+ * pages may reach the app by roads the step does not watch (a WebSocket a
+ * script opens, a sub-resource an engine does not report), so none of its
+ * pictures lends standing, whatever page it shows.
  */
 export const startStepReading = (
   automation: AutomationContext,
-  resuming: boolean
-): Effect.Effect<Ref.Ref<boolean>> =>
+  resuming: boolean,
+  allowedHosts: readonly string[]
+): Effect.Effect<Ref.Ref<boolean>, never, ServerOrigin> =>
   Effect.gen(function* () {
     const parked = resuming ? automation.parkedStep?.take() : undefined
     yield* Effect.forEach(parked?.inputs ?? [], noteStepFileInput, { discard: true })
-    return yield* Ref.make(resuming ? parked?.sawOwnApp !== false : false)
+    const mayOpenOwnApp = allowsOwnAddress(allowedHosts, yield* ownOrigins)
+    const keptTaint = resuming ? parked?.sawOwnApp !== false : false
+    return yield* Ref.make(mayOpenOwnApp || keptTaint)
   }).pipe(Effect.withSpan('automations.browser-start-step-reading'))
 
 /** Keep the step's reading with the run as it pauses in the step's middle. */

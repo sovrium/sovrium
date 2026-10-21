@@ -123,6 +123,7 @@ export const PAGE_LEVEL_ISLANDS: readonly string[] = [
 export const CONSOLE_ISLANDS: readonly string[] = [
   'admin-spa-nav',
   'admin-agent-conversations',
+  'admin-report-link',
   'api-key-manager',
   'design-system-rail',
 ]

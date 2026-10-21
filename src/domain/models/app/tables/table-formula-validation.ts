@@ -27,12 +27,12 @@ export const SPECIAL_FIELDS = new Set([
  * @returns Error message if invalid, undefined if valid
  */
 const validateFormulaSyntax = (formula: string): string | undefined => {
-  // Remove string literals and regex patterns to avoid false positives
-  // String literals: 'text' or "text"
-  // Regex patterns: text ~ 'pattern' or text ~ '^pattern$'
-  const withoutLiterals = formula
-    .replace(/'[^']*'/g, '') // Remove single-quoted strings
-    .replace(/"[^"]*"/g, '') // Remove double-quoted strings
+  // Every check below reads the formula with its quoted text ('text', "text",
+  // a regex pattern such as '^a(b)$') replaced by one neutral operand, so a
+  // parenthesis or an operator INSIDE a string is never counted. The operand
+  // stands in for the literal rather than deleting it, so `UPPER('x')` does not
+  // read as the empty call `UPPER()`.
+  const withoutLiterals = formula.replace(/'[^']*'|"[^"]*"/g, '0')
 
   // Check for consecutive operators (e.g., "* *", "+ +", "- -")
   // Only check outside of string literals and regex patterns
@@ -42,14 +42,14 @@ const validateFormulaSyntax = (formula: string): string | undefined => {
   }
 
   // Check for unmatched parentheses
-  const openParens = (formula.match(/\(/g) || []).length
-  const closeParens = (formula.match(/\)/g) || []).length
+  const openParens = (withoutLiterals.match(/\(/g) || []).length
+  const closeParens = (withoutLiterals.match(/\)/g) || []).length
   if (openParens !== closeParens) {
     return 'Invalid formula syntax: unmatched parentheses'
   }
 
   // Check for empty parentheses
-  if (/\(\s*\)/.test(formula)) {
+  if (/\(\s*\)/.test(withoutLiterals)) {
     return 'Invalid formula syntax: empty parentheses'
   }
 

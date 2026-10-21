@@ -56,6 +56,8 @@ export const specimenSampleDb = (app: App): DataSourceDb => ({
   countRecords: async () => 1,
   fetchSingleRecord: async (table) => ({ ...specimenRecord(fieldsOf(app, table)) }),
   fetchUserAssignments: async () => [],
+  // The sample person is an admin: her list admits every sample row.
+  readReaderRows: async () => ({ admission: { kind: 'every-row' }, grants: new Map() }),
   readInvitation: async () => specimenInvitation(),
   // A sign-in is waiting for its code: the code step, not the lapsed notice.
   readTwoFactorAttempt: async () => ({ live: true }),

@@ -1,0 +1,11 @@
+{
+  // The Bun half of the package: the unit tests, the fake Plugin API they run
+  // against, and the build script. No Figma globals here — a test that reached
+  // for `figma` instead of the port would fail this check.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["bun"]
+  },
+  "include": ["src/**/*.test.ts", "src/fake-figma.ts", "src/test-documents.ts", "build.ts"],
+  "exclude": []
+}

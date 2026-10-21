@@ -6,12 +6,39 @@ documentation improvements to bug reports and new features.
 
 ## Ways to contribute
 
-- **Report a bug or request a feature** — open an issue with a clear description
-  and, where possible, a minimal reproduction.
+- **Report a bug or request a feature** — open an issue from one of the forms
+  (see [Filing an issue](#filing-an-issue)).
+- **Ask a question** — use [Discussions](https://github.com/sovrium/sovrium/discussions),
+  not an issue.
 - **Improve the documentation** — corrections and clarifications are always
   welcome.
 - **Submit a pull request** — implement a fix or feature and open a PR for
   review (requires certification — see below).
+
+## Filing an issue
+
+Issues are opened from a form, one per kind: **Bug report**, **Feature: configuration
+option**, **Feature: engine primitive**, **Feature: recipe**, and **Task**. Each form asks
+for what a maintainer needs to act without coming back to you, and sets the issue's type
+(Bug, Feature or Task) for you.
+
+- **Before filing a bug**, run `sovrium validate` on your configuration (a configuration
+  error is reported there, and is not a bug), search existing issues, and remove secrets and
+  real records from anything you paste. `sovrium report` prefills the bug form for you.
+- **Labels** are applied from your answers: one `domain:` label for the part of Sovrium the
+  issue is about, one kind label (`bug:` or `feature:`), and a `status:` label that tracks
+  triage. `status:ready` means the issue is accepted and its _Agent brief_ (acceptance
+  criteria, affected paths, verification) is complete, so anyone can start from it. You may
+  leave the Agent brief empty; a maintainer completes it.
+- **Drafted with an AI assistant?** That is welcome. Tick the box at the end of the form, and
+  check that every fact in the report is one you observed.
+- **Security vulnerabilities are never issues.** Report them privately through
+  [a security advisory](https://github.com/sovrium/sovrium/security/advisories/new); see
+  [SECURITY.md](SECURITY.md).
+- **GitHub is the only issue tracker you need.** Every problem with Sovrium as it ships
+  belongs here. Maintainers keep their internal tooling work elsewhere, so an issue about
+  that work is occasionally closed with "Tracked internally; closing here." That is not a
+  rejection: the work continues, it is just not tracked on GitHub.
 
 ## Becoming a certified contributor
 
@@ -95,5 +122,6 @@ Starter configurations are available in the [`templates/`](templates/) directory
 
 ## Questions
 
-For general questions, see the project [README](README.md). For commercial or
+For general questions, see the project [README](README.md) or ask in
+[Discussions](https://github.com/sovrium/sovrium/discussions). For commercial or
 trademark licensing inquiries, contact **license@sovrium.com**.

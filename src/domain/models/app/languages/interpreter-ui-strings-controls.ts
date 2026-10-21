@@ -135,6 +135,21 @@ export const CONTROL_UI_STRINGS: Readonly<Record<string, Readonly<Record<string,
   'kanban.empty': { en: 'No records', fr: 'Aucun enregistrement' },
   'kanban.loadMore': { en: 'Load More', fr: 'Charger plus' },
   'kanban.loaded': { en: '{loaded} of {total} loaded', fr: '{loaded} sur {total} chargés' },
+  /** The heading of the column (and lane) of cards with no group value. */
+  'kanban.uncategorized': { en: 'Uncategorized', fr: 'Sans catégorie' },
+
+  // ---- List and gallery: the button loading the next page, and an infinite one's count ----
+  'list.loadMore': { en: 'Load More', fr: 'Charger plus' },
+  'list.loaded': { en: '{loaded} of {total} loaded', fr: '{loaded} sur {total} chargés' },
+  'gallery.loadMore': { en: 'Load More', fr: 'Charger plus' },
+  'gallery.loaded': { en: '{loaded} of {total} loaded', fr: '{loaded} sur {total} chargés' },
+
+  // ---- The built-in account forms' field messages: `{label}` is the field's label ----
+  'auth.required': { en: '{label} is required', fr: 'Le champ {label} est obligatoire' },
+  'auth.invalidEmail': {
+    en: '{label} must be a valid email address',
+    fr: 'Saisissez une adresse e-mail valide dans le champ {label}',
+  },
 
   // ---- The ⌘K palette: its name, its search fields, its groups and its own actions ----
   'commandPalette.title': { en: 'Command palette', fr: 'Palette de commandes' },

@@ -80,7 +80,7 @@ export function useAuthFormState(input: AuthFormStateInput): AuthFormStateResult
   const handleBlur = (name: string, value: string): void => {
     const field = fields.find((f) => f.name === name)
     if (!field) return
-    const error = validateField(field, value)
+    const error = validateField(field, value, input.words)
     setFieldErrors((prev) => withFieldError(prev, name, error))
   }
 
@@ -93,7 +93,7 @@ export function useAuthFormState(input: AuthFormStateInput): AuthFormStateResult
     const current = Object.fromEntries(
       fields.map((f) => [f.name, String(formData.get(f.name) ?? '')])
     )
-    const validationErrors = validateAllFields(fields, current)
+    const validationErrors = validateAllFields(fields, current, input.words)
     setFieldErrors(validationErrors)
     setSummaryErrors(validationErrors)
     if (Object.keys(validationErrors).length > 0) return

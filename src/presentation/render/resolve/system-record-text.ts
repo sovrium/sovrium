@@ -15,8 +15,8 @@ import {
   isoDateTextFieldsOf,
   withRecordTextFields,
 } from '@/domain/models/app/tables/record-text-service'
-import { serverNow } from '@/domain/models/process-env/dev-clock'
 import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
+import { renderNow } from '@/presentation/render/page/render-clock'
 import type { RecordTextContext } from '@/presentation/render/props/record-value-format'
 import type { SystemRowsFetcher } from '@/presentation/render/resolve/first-object-redirect-resolver'
 
@@ -37,7 +37,7 @@ export const systemRecordWithText = (
         record,
         isoDateTextFieldsOf(record, parseSovriumTimezone().zoneId),
         context.locale,
-        serverNow()
+        renderNow()
       )
 
 /**

@@ -19,7 +19,8 @@ import type { Effect } from 'effect'
  *     plus the authored-record collection ({@link tablesWithCreatedBy} +
  *     {@link readAuthoredRecords}), the caller's form-submission ledger rows
  *     ({@link loadFormSubmissions}), the audit entries they made
- *     ({@link loadAuditTrail}) and their AI footprint ({@link loadAiFootprint}).
+ *     ({@link loadAuditTrail}), their AI footprint ({@link loadAiFootprint}) and
+ *     their favorites and recent items ({@link loadEntityLists}).
  *   - `POST /api/account/delete` (GDPR Art. 17) → {@link cancelErasure} and the
  *     transactional {@link scheduleErasure}.
  *
@@ -204,6 +205,27 @@ export interface AccountAiFootprint {
 }
 
 /**
+ * The caller's favorites and recent items, read for the export: the favorites
+ * she has not removed (newest first) and every recent item kept for her (most
+ * recently opened first). Only what she kept is read — the entity's type, its
+ * table (`null` for a page), its id and the time — never the entity itself.
+ */
+export interface AccountEntityLists {
+  readonly favorites: readonly {
+    readonly entityType: string
+    readonly tableName: string | null
+    readonly entityId: string
+    readonly createdAt: Date
+  }[]
+  readonly recentItems: readonly {
+    readonly entityType: string
+    readonly tableName: string | null
+    readonly entityId: string
+    readonly viewedAt: Date
+  }[]
+}
+
+/**
  * One app table plus the authorship columns it MIGHT carry, resolved from the
  * table's declared `created-by` field types unioned with the literal
  * `created_by` (engine-generated scope tables carry the literal with no
@@ -288,6 +310,11 @@ export class AccountRepository extends Context.Service<
       userId: string,
       email: string
     ) => Effect.Effect<AccountAiFootprint, AccountDatabaseError>
+
+    /** Load the caller's favorites (not removed) and recent items, by `user_id`. */
+    readonly loadEntityLists: (
+      userId: string
+    ) => Effect.Effect<AccountEntityLists, AccountDatabaseError>
 
     /**
      * Read the caller's pending scheduled-erasure instant, or `undefined` when

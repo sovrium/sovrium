@@ -124,12 +124,17 @@ function toDefaultValue(defaultValue: unknown, multiple: boolean): string | stri
   return Array.isArray(defaultValue) ? defaultValue.map(String) : [String(defaultValue)]
 }
 
-/** The `{ bindTo, param }` pair, when the author declared a publisher. */
+/**
+ * The `{ bindTo, param }` pair, when the author declared a publisher, and
+ * whether the choice is mirrored in the page address (`url: true`) — which is
+ * what lets the runtime open the control on the value a link carried.
+ */
 function publisherAttributes(publishes: unknown): Record<string, string | undefined> {
-  const declaration = (publishes ?? {}) as { bindTo?: unknown; param?: unknown }
+  const declaration = (publishes ?? {}) as { bindTo?: unknown; param?: unknown; url?: unknown }
   return {
     'data-publishes-bind-to': str(declaration.bindTo),
     'data-publishes-param': str(declaration.param),
+    'data-publishes-url': declaration.url === true ? 'true' : undefined,
   }
 }
 

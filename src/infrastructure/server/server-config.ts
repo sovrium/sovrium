@@ -21,6 +21,7 @@
 import type {
   FetchSitemapRecords,
   PageRenderResult,
+  RenderRssFeed,
 } from '@/application/ports/services/page-renderer'
 import type { DatabaseStartupReport } from '@/application/ports/services/server-factory'
 import type { App } from '@/domain/models/app'
@@ -70,14 +71,18 @@ export interface ServerConfig {
     }
   ) => PageRenderResult | Promise<PageRenderResult>
   readonly renderNotFoundPage: (app?: App, detectedLanguage?: string) => string | Promise<string>
-  readonly renderErrorPage: (app?: App, detectedLanguage?: string) => string | Promise<string>
+  readonly renderErrorPage: (
+    app?: App,
+    detectedLanguage?: string,
+    requestId?: string
+  ) => string | Promise<string>
   /**
    * RSS feed renderer (the pages access publishing requirement — a pages publishing spec).
    *
    * Optional so SSG and legacy callers that don't yet pass through the
    * RSS pipeline keep working — the route handler 404s when undefined.
    */
-  readonly renderRssFeed?: (app: App, baseUrl: string) => Promise<string | undefined>
+  readonly renderRssFeed?: RenderRssFeed
   /** Row reader behind the sitemap's record fan-out. */
   readonly fetchSitemapRecords?: FetchSitemapRecords
   /** Plaintext bootstrap token surfaced in the startup banner exactly once when defined. */

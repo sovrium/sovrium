@@ -39,10 +39,10 @@ import {
   runRequestEffect,
 } from '@/infrastructure/logging/request-effect'
 import { errorBody } from '@/presentation/api/runtime/auth-helpers'
-import { agentAttribution, type AgentTurnBinding } from './agent-chat'
+import { actionTablesFor, agentAttribution, type AgentTurnBinding } from './agent-chat'
 import { recordChatActivity } from './chat-activity-log'
 import { buildTurnTools } from './chat-browser-tool'
-import { appendConversationTurn } from './chat-conversation-store'
+import { appendConversationTurn, getConversationHistory } from './chat-conversation-store'
 import {
   applyRetentionPolicy,
   loadDurableHistory,
@@ -73,6 +73,7 @@ import type {
   ChatMessage,
   ChatReply,
   ChatToolCall,
+  ChatToolDefinition,
   MessagePart,
 } from '@/application/ports/services/ai-service'
 import type { OtherToolResult } from '@/application/use-cases/agents/agent-tool-call'
@@ -88,9 +89,11 @@ import type { Context } from 'hono'
  * allowlist can only ever subtract — it never grants an agent a table its role
  * cannot read.
  */
-const resolveTurnToolTables = (input: ChatTurnInput): ReturnType<typeof toToolCallTables> => {
+const resolveTurnToolTables = async (
+  input: ChatTurnInput
+): Promise<Awaited<ReturnType<typeof toToolCallTables>>> => {
   const allowlist = input.agent?.toolTables
-  return toToolCallTables(input.app, input.reader).filter(
+  return (await toToolCallTables(input.services, input.app, input.reader)).filter(
     (table) => allowlist === undefined || allowlist.includes(table.name)
   )
 }
@@ -146,8 +149,18 @@ const turnCaller = (input: ChatTurnInput): AgentCaller | undefined => {
  * fact per turn, so a replayed history makes an agent re-learn its FIRST fact
  * every turn.
  */
-export const replayedHistory = async (input: ChatTurnInput): Promise<ReadonlyArray<ChatMessage>> =>
-  replaysHistory(input) ? loadDurableHistory(input.services, input.actorName, input.sessionId) : []
+export const replayedHistory = async (
+  c: Context,
+  input: ChatTurnInput
+): Promise<ReadonlyArray<ChatMessage>> => {
+  if (!replaysHistory(input)) return []
+  // A signed-out caller's conversation is her browser's own, never the durable store's.
+  if (input.actorName === 'anonymous') return getConversationHistory(c, input.sessionId)
+  return loadDurableHistory(
+    { services: input.services, app: input.app, reader: input.reader },
+    { userId: input.actorName, sessionId: input.sessionId }
+  )
+}
 
 /** Whether a turn replays its conversation's earlier messages ({@link replayedHistory}). */
 const replaysHistory = (input: ChatTurnInput): boolean =>
@@ -213,14 +226,32 @@ interface ChatTurnSpecOptions {
   readonly carried?: ReadonlyArray<MessagePart>
 }
 
+/**
+ * The tools a chat turn offers its model: its table lookups and browser tool,
+ * then a declared agent's actions, each naming only the tables it reaches.
+ */
+const turnToolDefinitions = (
+  input: ChatTurnInput,
+  tables: Awaited<ReturnType<typeof resolveTurnToolTables>>,
+  agent: Agent | undefined
+): ReadonlyArray<ChatToolDefinition> => {
+  const toolDefs = tables.map((table) => ({ name: table.name, columns: table.readableColumns }))
+  const listed = new Set(tables.map((table) => table.name))
+  return [
+    ...buildTurnTools(toolDefs, input.app, input.agent),
+    ...(agent === undefined
+      ? []
+      : buildAgentActionTools(agent, actionTablesFor(agent, input.app, turnCaller(input), listed))),
+  ]
+}
+
 /** The turn a chat request runs, buffered or streamed. */
-export const chatTurnSpec = (
+export const chatTurnSpec = async (
   input: ChatTurnInput,
   options: ChatTurnSpecOptions
-): AgentTurnSpec<StepRequirements> => {
+): Promise<AgentTurnSpec<StepRequirements>> => {
   const errorConfig = resolveChatErrorConfig()
-  const tables = resolveTurnToolTables(input)
-  const toolDefs = tables.map((table) => ({ name: table.name, columns: table.readableColumns }))
+  const tables = await resolveTurnToolTables(input)
   const agent = declaredAgent(input)
   const caller = turnCaller(input)
   const { app } = input
@@ -251,10 +282,7 @@ export const chatTurnSpec = (
       ...options.history,
       { role: 'user', content: questionContent(input.message, input.parts, options.carried ?? []) },
     ],
-    toolDefinitions: [
-      ...buildTurnTools(toolDefs, input.app, input.agent),
-      ...(agent === undefined ? [] : buildAgentActionTools(agent)),
-    ],
+    toolDefinitions: turnToolDefinitions(input, tables, agent),
     // `AI_CHAT_MAX_TOOL_ITERATIONS` counts tool ROUNDS; the runtime counts
     // model calls, one more than the rounds they bracket.
     maxSteps: resolveMaxToolIterations() + 1,
@@ -297,7 +325,7 @@ const finishWithReply = async (
     readonly toolCalls?: ReturnType<typeof storedToolCalls>
   }
 ): Promise<Response> => {
-  appendConversationTurn(input.sessionId, input.message, answer.reply)
+  appendConversationTurn(c, input, input.message, answer.reply)
   await persistChatTurnDurably(input.services, {
     userId: input.actorName,
     sessionId: input.sessionId,
@@ -335,11 +363,11 @@ export const runChatTurn = async (c: Context, asked: ChatTurnInput): Promise<Res
   // Lazy retention sweep — delete this user's conversations older than
   // `AI_MEMORY_MAX_AGE_DAYS` before the new turn lands.
   await applyRetentionPolicy(asked.services, asked.actorName)
-  const history = await replayedHistory(asked)
+  const history = await replayedHistory(c, asked)
   const carried = await carriedFiles(asked)
   // The agent's knowledge passages, numbered into its prompt; its answer cites them.
   const { input, passages } = await withTurnKnowledge(asked)
-  const program = runAgentTurnToEnd(chatTurnSpec(input, { history, stream: false, carried }))
+  const program = runAgentTurnToEnd(await chatTurnSpec(input, { history, stream: false, carried }))
   // Under the request-edge root span, so each model call's `ai.request` span
   // chains under it.
   const result = await runRequestEffect(c, provideDomain(c, program).pipe(Effect.result))

@@ -30,8 +30,8 @@ export type ExportStatus = 'exported' | 'withheld' | 'gap'
  * ── Why a ratchet, not an assertion of zero gaps ─────────────────────────────
  *
  * The honest state today is that the export offers the profile, sessions, accounts, authored
- * records, form submissions, audit acts, chat files and the AI footprint, while erasure still
- * hard-deletes more — comments, favourites, recent items, row-level grants, the activity feed,
+ * records, form submissions, audit acts, chat files, the AI footprint, favourites and recent
+ * items, while erasure still hard-deletes more — comments, row-level grants, the activity feed,
  * uploaded files. Closing that asymmetry means EXPANDING the published export contract in
  * `src/domain/models/api/account/account.ts`, which is a schema-surface decision and not this
  * change's to make.
@@ -54,6 +54,8 @@ export const EXPORT_COVERAGE: Readonly<Record<string, ExportStatus>> = {
   'system.ai_conversations': 'exported',
   'system.ai_facts': 'exported',
   'system.ai_tool_calls': 'exported',
+  'system.user_favorites': 'exported',
+  'system.user_recent_items': 'exported',
 
   // Deliberately withheld — credentials and pure derivations.
   'auth.two_factor': 'withheld',
@@ -78,6 +80,4 @@ export const EXPORT_COVERAGE: Readonly<Record<string, ExportStatus>> = {
   'system.file_storage_metadata': 'gap',
   'system.record_comments': 'gap',
   'system.user_access': 'gap',
-  'system.user_favorites': 'gap',
-  'system.user_recent_items': 'gap',
 }

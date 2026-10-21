@@ -129,7 +129,7 @@ export const isBundleTextMediaType = (mediaType: string): boolean =>
 
 const encoder = new TextEncoder()
 
-const textEntry = (
+export const textEntry = (
   path: string,
   role: DesignSystemBundleFileRole,
   text: string
@@ -152,7 +152,8 @@ const validatedDocument = (app: App, mode: DesignSystemMode) => {
 }
 
 /** The bundle's one JSON spelling — see the module docblock. */
-const serialise = (document: unknown): string => `${JSON.stringify(document, undefined, 2)}\n`
+export const serialise = (document: unknown): string =>
+  `${JSON.stringify(document, undefined, 2)}\n`
 
 /**
  * `css/theme.css` alone — the stylesheet read answers it without drawing the
@@ -167,7 +168,7 @@ export const buildDesignSystemThemeStylesheet = (
     return renderThemeStylesheet(light, dark, app.name)
   }).pipe(Effect.withSpan('design-system.theme-stylesheet'))
 
-const manifestOf = (
+export const manifestOf = (
   app: App,
   files: ReadonlyArray<DesignSystemBundleEntry>
 ): DesignSystemBundleManifest => ({

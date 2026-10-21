@@ -52,10 +52,10 @@ The default `./.sovrium/database.db` sits under that data directory; the parent 
 
 Sovrium renders pages server-side on every request. For a page whose HTML does not depend on per-request state — a marketing, about or pricing page — that is wasted CPU. The in-memory render cache renders such a page once and serves it from memory on subsequent anonymous requests, skipping the render entirely. It is both smaller and faster, so it is on by default rather than being an eco lever you opt into.
 
-| Variable                | Default | Options      | Description                                                         |
-| ----------------------- | ------- | ------------ | ------------------------------------------------------------------- |
-| `ECO_PAGE_CACHE`        | `on`    | `on`, `off`  | In-memory cache of page HTML. Operators opt out; they never opt in. |
-| `ECO_PAGE_CACHE_MAX_MB` | `64`    | integer (MB) | Memory budget before the oldest entries are evicted.                |
+| Variable                | Default | Options      | Description                                                                       |
+| ----------------------- | ------- | ------------ | --------------------------------------------------------------------------------- |
+| `ECO_PAGE_CACHE`        | `on`    | `on`, `off`  | In-memory cache of page HTML. Operators opt out; they never opt in.               |
+| `ECO_PAGE_CACHE_MAX_MB` | `64`    | integer (MB) | Byte budget for the cached pages; past it, the least recently served are evicted. |
 
 How it works:
 
@@ -63,10 +63,24 @@ How it works:
 - **Safety model.** The cache is consulted only for **anonymous, non-preview** requests; session-dependent filtering is deterministic when no session exists, so one user's view can never leak to another.
 - **Invalidation by checksum.** Each entry is keyed by the app's render checksum, the path and the language. The checksum covers the render-affecting slice of the config — pages, components, design, languages, analytics — so any schema edit changes every key and stale entries become unreachable. No time-to-live, no purge logic.
 - **Content pages are keyed by their corpus too.** A `content` page extends that key with a checksum of its `contentDir`: the sorted path, modification time and size of every markdown file, re-scanned per request. Editing, adding or removing an article changes the checksum, so the next request misses and serves the new prose. Both modification time and size participate, so a same-millisecond rewrite of a different length is still caught. No watcher, no restart, no purge endpoint.
-- **Bounded by bytes, not by entry count.** `ECO_PAGE_CACHE_MAX_MB` caps the total HTML held; past the budget, the oldest entries are evicted until the new one fits, and an entry larger than the whole budget is refused. Bytes are the right unit once whole documentation zones are cacheable: two hundred marketing pages and two hundred long-form articles differ by an order of magnitude.
+- **Bounded by bytes, not by entry count.** `ECO_PAGE_CACHE_MAX_MB` caps the cached pages at that many megabytes of UTF-8, and the cache keeps each page as exactly those bytes, so the figure you set is the size of what it holds. Past the budget, the pages served least recently are evicted until the new one fits: a page visitors keep coming back to stays cached while a crawler walks through the rest of the site. An entry larger than the whole budget is refused. Bytes are the right unit once whole documentation zones are cacheable: two hundred marketing pages and two hundred long-form articles differ by an order of magnitude. The budget bounds the cache, not the process: the JavaScript heap, the database and the rendering of each miss come on top of it — see **Running in a small container**.
 - **Observability.** Every page response carries `X-Render-Cache: hit | miss | bypass` and a `Cache-Control` header — `public, max-age=300` for cacheable pages; `private, no-store` for an invitation page (`page.invitation`), whoever asks and whatever the cache setting, since each visit is answered from the token in its own address and no copy is kept anywhere; `public, no-cache` with a weak `ETag` for anonymous renders of pages that read table data, so a browser or CDN may keep the page but asks again on every visit, gets an empty `304 Not Modified` while nothing changed, and gets the new page on the visit after a write; `public, max-age=60, stale-while-revalidate=300` for anonymous renders of other non-cacheable paths, such as a parameterised route or a presence page that reads no table; and `private, no-cache` for authenticated or preview renders. Language variants are isolated by key.
 
 **Ecoconception** documents the full `ECO_*` contract.
+
+## Running in a small container
+
+On Linux, the runtime sizes its JavaScript heap against the memory limit of the container or service it runs in, such as Docker's `--memory` or a systemd unit's `MemoryMax=`, rather than against the memory of the host. That limit covers the whole process, though, and the heap is only part of it: the database, the native buffers of uploads and responses, the binary itself and the page cache all count against the same figure.
+
+Two settings keep a small instance inside its limit:
+
+- **Size the page cache to the container.** `ECO_PAGE_CACHE_MAX_MB` defaults to `64`, which is a large share of a 512 MiB limit; on a small container, `16` or `32` keeps the cache useful without crowding the heap. The cache never grows past its budget, but the budget is counted inside the same limit as everything else.
+- **Leave headroom for what is not heap.** `BUN_JSC_forceRAMSize`, set in the environment of the process, is the memory size in bytes the heap is sized against, in place of the limit. About three quarters of the limit (`402653184` under 512 MiB) makes the heap collect garbage earlier and leaves the rest to the database and the buffers.
+
+| Variable                | Example     | Effect                                                                        |
+| ----------------------- | ----------- | ----------------------------------------------------------------------------- |
+| `ECO_PAGE_CACHE_MAX_MB` | `16`        | Byte budget of the page cache, in megabytes.                                  |
+| `BUN_JSC_forceRAMSize`  | `402653184` | The memory size, in bytes, the heap is sized against. Set it below the limit. |
 
 ## Standalone binary distribution
 

@@ -9,9 +9,11 @@ import type { EmbeddedAppMount } from '@/application/ports/contracts/embedded-ap
 import type {
   FetchSitemapRecords,
   PageRenderResult,
+  RenderRssFeed,
 } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
+import type { ViewerIdentity } from '@/domain/models/app/pages/component-session-visibility-service'
 import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
 import type { CallerFieldReader } from '@/domain/models/app/tables/field-read-filter-service'
 
@@ -89,6 +91,8 @@ export interface HonoAppConfig {
       readonly callerCapabilities?: readonly CallerCapability[]
       /** The mounted console caller's role and groups, for her record sheet's field access only: see the port (`page-renderer.ts`). */
       readonly callerFieldReader?: CallerFieldReader | undefined
+      /** That caller's id and email, for a `$user.id` / `$user.email` condition only: see the port. */
+      readonly viewerIdentity?: ViewerIdentity | undefined
       /** A design-system specimen, drawn on sample readers: see the port (`page-renderer.ts`). */
       readonly specimen?: boolean
     }
@@ -98,7 +102,11 @@ export interface HonoAppConfig {
     detectedLanguage?: string,
     requestPath?: string
   ) => string | Promise<string>
-  readonly renderErrorPage: (app?: App, detectedLanguage?: string) => string | Promise<string>
+  readonly renderErrorPage: (
+    app?: App,
+    detectedLanguage?: string,
+    requestId?: string
+  ) => string | Promise<string>
   /**
    * RSS feed renderer (the pages access publishing requirement — a pages publishing spec).
    *
@@ -107,7 +115,7 @@ export interface HonoAppConfig {
    * (the route handler responds 404). Optional so a caller that wires no
    * renderer gets a 404 by default rather than a runtime crash.
    */
-  readonly renderRssFeed?: (app: App, baseUrl: string) => Promise<string | undefined>
+  readonly renderRssFeed?: RenderRssFeed
   /**
    * Row reader behind the sitemap's record fan-out. Optional: without it a
    * collection page contributes no record entries.

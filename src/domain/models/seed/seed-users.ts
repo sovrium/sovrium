@@ -45,6 +45,24 @@
  * The token is never written in the file: a template ships its seed folder
  * publicly, and a token everyone can read is an invitation anyone can accept.
  *
+ * ## Unclaimed accounts
+ *
+ * `unclaimed: true` creates the account with NO credential and NO invitation:
+ * a person who exists in the data — the owner of a record, a member of a team —
+ * but who has not been asked to join yet. It needs no password and no
+ * `SOVRIUM_SEED_PASSWORD`, sends nothing and prints no link. The person claims
+ * it later through the app's ordinary roads: a password reset to that email, or
+ * an invitation an admin sends from the console. A migration seeds the
+ * collaborators of the tool it leaves this way, so their names stay on their
+ * records without anyone being signed up or emailed by the migration.
+ *
+ * ```yaml
+ *   - email: marc@northwind.example
+ *     name: Marc Dubois
+ *     role: member
+ *     unclaimed: true
+ * ```
+ *
  * ## Access grants
  *
  * An app that lists tables in `auth.scopeTables` decides who sees which of
@@ -155,6 +173,14 @@ export const SeedAccountSchema = Schema.Struct({
       })
     )
   ),
+  unclaimed: Schema.optional(
+    Schema.Boolean.pipe(
+      Schema.annotate({
+        description:
+          'Create the account with no credential and no invitation; it is claimed later by a password reset or an invitation. Takes no password and no SOVRIUM_SEED_PASSWORD.',
+      })
+    )
+  ),
   invitedBy: Schema.optional(
     Schema.String.pipe(
       Schema.annotate({
@@ -181,6 +207,12 @@ export const SeedAccountSchema = Schema.Struct({
     Schema.makeFilter((account) => {
       if (account.invited === true && account.password !== undefined) {
         return `"${account.email}" is invited, so it takes no password: the invitee chooses one when accepting.`
+      }
+      if (account.unclaimed === true && account.password !== undefined) {
+        return `"${account.email}" is unclaimed, so it takes no password: its owner sets one by resetting it.`
+      }
+      if (account.unclaimed === true && account.invited === true) {
+        return `"${account.email}" is both unclaimed and invited: an unclaimed account sends no invitation, so keep one of the two.`
       }
       if (account.invitedBy !== undefined && account.invited !== true) {
         return `"${account.email}" names invitedBy but is not invited: add invited: true, or remove invitedBy.`

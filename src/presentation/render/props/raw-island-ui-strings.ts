@@ -15,6 +15,7 @@ import type { Languages } from '@/domain/models/app/languages'
  */
 const RAW_ISLAND_STRING_PREFIXES: Readonly<Record<string, readonly string[]>> = {
   'admin-agent-conversations': ['agentConversations.'],
+  'admin-report-link': ['report.'],
   'api-key-manager': ['apiKeys.'],
 }
 

@@ -306,7 +306,7 @@ const PLACEHOLDER_RE =
  * `codeBlocks` is empty (no fenced blocks in the source).
  *
  * The themes are shadcn/ui's default pair, `github-light` and `github-dark`;
- * `design.codeBlock` is deprecated and ignored.
+ * no config key chooses them.
  */
 export const highlightCodeBlocks = async (
   html: string,

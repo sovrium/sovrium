@@ -47,7 +47,7 @@ function renderOAuthSkeleton(config: {
         disabled
         data-component-type="button"
         data-oauth-provider={provider}
-        className={computeButtonDefaultClasses({ variant: 'secondary' })}
+        className={computeButtonDefaultClasses({ variant: 'outline' })}
       >
         {label}
       </button>

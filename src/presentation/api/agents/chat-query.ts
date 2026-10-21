@@ -242,6 +242,16 @@ const formatListReply = (
 // ---------------------------------------------------------------------------
 
 /**
+ * The one refusal of a table the caller may not read, whatever the reason: one
+ * the app does not have, one her role may not read, one the records list
+ * admits her no row of all read the same.
+ */
+const outOfReach = (tableName: string): QueryOutcome => ({
+  status: 'forbidden',
+  message: `No table named "${tableName}" is available.`,
+})
+
+/**
  * Run a parsed read query. Enforces table-level read RBAC, then dispatches on
  * the aggregate kind. Returns a `forbidden` outcome (→ HTTP 403) when the role
  * cannot read the table, or an `answered` outcome carrying the reply text and
@@ -249,21 +259,14 @@ const formatListReply = (
  */
 export const runQuery = async (input: RunQueryInput): Promise<QueryOutcome> => {
   const table = resolveTable(input)
-  if (table === undefined) {
-    return { status: 'forbidden', message: `Unknown table "${input.intent.table}".` }
-  }
+  if (table === undefined) return outOfReach(input.intent.table)
   // Table-level read RBAC (an AI chat query spec), over the records
   // route's effective roles for this table; then the rows the records read
   // gate lets the caller read.
   const scope = passesChatTableGate(input.app, input.tables, table, input.reader)
     ? await resolveChatRowScope(input.services, input.app, table.name, input.reader)
     : ({ kind: 'refused' } as const)
-  if (scope.kind === 'refused') {
-    return {
-      status: 'forbidden',
-      message: `You do not have permission to read the "${table.name}" table.`,
-    }
-  }
+  if (scope.kind === 'refused') return outOfReach(table.name)
 
   const { intent } = input
   const rowCap = resolveMaxQueryRows()

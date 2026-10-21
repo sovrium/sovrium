@@ -8,7 +8,7 @@ Nine operators, all pure: each reads from earlier steps and produces a new value
 
 | Operator      | Props                                     | Does                                                                   |
 | ------------- | ----------------------------------------- | ---------------------------------------------------------------------- |
-| `set`         | `value`                                   | Sets a value for later steps, read back at `steps.<name>.value`        |
+| `set`         | `value` or `fields`                       | Sets one value, or named fields, for later steps to read               |
 | `aggregate`   | `input`, `function`, `field?`, `groupBy?` | Reduces an array — sum, average, min, max or count, optionally grouped |
 | `sort`        | `input`, `field`, `direction?`            | Sorts an array by a field                                              |
 | `limit`       | `input`, `count`                          | Takes the first `count` items                                          |
@@ -35,7 +35,34 @@ Three behaviours worth knowing before designing around them:
 
 - **`aggregate` needs `field`** for sum, average, min and max. Only `count` may omit it.
 - **`lookup` returns one item**, not a keyed map — it is a find, not an index.
-- **`set` takes a string.** `value` is a template string, so a bare number, list or object is refused, and its result is at `steps.<name>.value` rather than `.result`.
+- **`set` takes exactly one of `value` and `fields`.** `value` is one template string, read back at `steps.<name>.value`. `fields` holds named values, read back at `{{<name>.result.<field>}}` — see below.
+
+### `set` with named fields
+
+`fields` is the shape of n8n's Edit Fields (Set) node and Make's Set variable(s): each name becomes a key of the step's result.
+
+```yaml
+- name: lead
+  type: data
+  operator: set
+  props:
+    fields:
+      tier: '{{trigger.data.plan}}'
+      label: 'Lead from {{trigger.data.source}}'
+      score: 42
+      address:
+        city: '{{trigger.data.city}}'
+- name: notify
+  type: http
+  operator: post
+  props:
+    url: https://hooks.example.com/leads
+    body: { tier: '{{lead.result.tier}}', city: '{{lead.result.address.city}}' }
+```
+
+A string is a template: a lone `{{path}}` keeps the type of what it names — a number stays a number, a list stays a list — and text around a reference makes a string. A number, boolean, null, list or object is kept as written, and the strings inside a list or an object are templates too, so `{{lead.result.address.city}}` reads one level down.
+
+A name starts with a letter or an underscore and holds only letters, digits and underscores, up to 64 characters; `result` is reserved, because every step output is also read under `.result`. `validate` names a name it refuses, and refuses a step holding both `value` and `fields`, or an empty `fields`. Inside a `loop/each`, every iteration computes its own fields, and a later step of the same iteration reads that iteration's values.
 
 ## State — a key-value store across runs
 

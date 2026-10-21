@@ -9,7 +9,7 @@ import { useRecordSelectionToggle } from '../hooks/use-lazy-shared-filter-publis
 import { BoardContinuation } from './board-continuation'
 import { buildKanbanDragHandler } from './build-drag-handler'
 import { buildKanbanGrid, type KanbanGrid } from './group-lanes'
-import { groupRecords, type KanbanHeaderPaint } from './group-records'
+import { groupRecords, withUncategorizedLabel, type KanbanHeaderPaint } from './group-records'
 import { KanbanBoard } from './kanban-board'
 import { KanbanFormatProvider } from './kanban-format-context'
 import { KanbanError, KanbanLoading, KanbanMissingGroupBy } from './kanban-states'
@@ -168,8 +168,12 @@ function boardLayoutOf(
   shown: readonly TableRecord[],
   columnField: string
 ): { readonly columns: ReturnType<typeof groupRecords>; readonly grid: KanbanGrid | undefined } {
-  const { columnOptions, swimlanes, swimlaneOptions, swimlaneLabels } = props
-  const columnPaint = { colors: props.columnColors, labels: props.columnLabels }
+  const { columnOptions, swimlanes, swimlaneOptions, uiStrings } = props
+  const swimlaneLabels = withUncategorizedLabel(props.swimlaneLabels, uiStrings)
+  const columnPaint = {
+    colors: props.columnColors,
+    labels: withUncategorizedLabel(props.columnLabels, uiStrings),
+  }
   const lanes = { columnOptions, columnPaint, swimlanes, swimlaneOptions, swimlaneLabels }
   return {
     columns: groupRecords(shown, columnField, columnOptions, columnPaint),

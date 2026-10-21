@@ -7,7 +7,9 @@
 
 import { Data, Effect } from 'effect'
 import {
+  FILE_SOURCE_MAX_BYTES,
   isCreateOnlyRefusal,
+  isStorageObjectTooLarge,
   StorageService,
   UNATTRIBUTED_BUCKET,
   uploadTargetParts,
@@ -187,7 +189,61 @@ const parseDataUri = (source: string): ResolvedSource | undefined => {
 }
 
 /** The largest source read, in bytes (100 MiB) — the default upload cap. */
-export const FILE_SOURCE_MAX_BYTES = 104_857_600
+export { FILE_SOURCE_MAX_BYTES }
+
+/** A stored file past {@link FILE_SOURCE_MAX_BYTES}, refused by name. */
+export class StoredSourceTooLargeError extends Data.TaggedError('StoredSourceTooLargeError')<{
+  readonly key: string
+  readonly message: string
+}> {}
+
+/** A stored file that could not be read: no such key, or a store that did not answer. */
+export class StoredSourceUnreadableError extends Data.TaggedError('StoredSourceUnreadableError')<{
+  readonly key: string
+}> {}
+
+/**
+ * Read the stored file at `key` for a `file` action, at most `maxBytes` of it
+ * ({@link FILE_SOURCE_MAX_BYTES} unless the step has less left): the read stops
+ * at the first byte past the limit, so a stored file is never held in memory
+ * whole whatever its size. Unattributed, like every `file` action: which keys
+ * reach a step is the config's to decide.
+ */
+export const readStoredSource = (
+  key: string,
+  maxBytes: number = FILE_SOURCE_MAX_BYTES
+): Effect.Effect<
+  Uint8Array,
+  StoredSourceTooLargeError | StoredSourceUnreadableError,
+  StorageService
+> =>
+  Effect.gen(function* () {
+    const storage = yield* StorageService
+    return yield* storage.downloadBounded(key, UNATTRIBUTED_BUCKET, maxBytes).pipe(
+      Effect.mapError((error) =>
+        isStorageObjectTooLarge(error)
+          ? new StoredSourceTooLargeError({
+              key,
+              message: `file '${key}' is larger than 100 MiB`,
+            })
+          : new StoredSourceUnreadableError({ key })
+      )
+    )
+  }).pipe(Effect.withSpan('automations.read-stored-source'))
+
+/** The message a step reports for a stored file it could not read: past the limit, or not found. */
+export const storedReadMessage = (
+  failure: Readonly<StoredSourceTooLargeError | StoredSourceUnreadableError>
+): string =>
+  failure._tag === 'StoredSourceTooLargeError' ? failure.message : `file not found: ${failure.key}`
+
+/** The message a step reports for a source it could not resolve. */
+export const sourceRefusalMessage = (
+  failure: Readonly<OutboundUrlBlockedError | StoredSourceTooLargeError>
+): string =>
+  failure._tag === 'StoredSourceTooLargeError'
+    ? failure.message
+    : `invalid_outbound_url_${failure.reason}`
 
 const NO_BYTES: ResolvedSource = { bytes: new Uint8Array(0) }
 
@@ -266,10 +322,20 @@ export const isSelfContainedSource = (source: string): boolean =>
   // falls through to storage there, so it is a stored key here too.
   DATA_URI.test(source) || /^https?:\/\//.test(source)
 
+/**
+ * Resolve a source to its bytes: a `data:` URI decoded, an `http(s)://` URL
+ * fetched behind the outbound guard, or a stored key read through
+ * {@link readStoredSource}. A stored key that cannot be read resolves to empty
+ * bytes; one past {@link FILE_SOURCE_MAX_BYTES} fails by name, never empty.
+ */
 export const resolveSource = (
   source: string,
   headers: Readonly<Record<string, string>> = {}
-): Effect.Effect<ResolvedSource, OutboundUrlBlockedError, StorageService> => {
+): Effect.Effect<
+  ResolvedSource,
+  OutboundUrlBlockedError | StoredSourceTooLargeError,
+  StorageService
+> => {
   const dataUri = parseDataUri(source)
   if (dataUri) return Effect.succeed(dataUri)
   // The inline data URI is parsed above and opens no span — there is no
@@ -277,11 +343,11 @@ export const resolveSource = (
   if (/^https?:\/\//.test(source)) {
     return fetchSource(source, headers).pipe(Effect.withSpan('automations.resolve-source'))
   }
-  return Effect.gen(function* () {
-    const storage = yield* StorageService
-    const downloaded = yield* Effect.result(storage.download(source, UNATTRIBUTED_BUCKET))
-    return downloaded._tag === 'Failure'
-      ? { bytes: new Uint8Array(0), fromStore: true as const }
-      : { bytes: downloaded.success, fromStore: true as const }
-  }).pipe(Effect.withSpan('automations.resolve-source'))
+  return readStoredSource(source).pipe(
+    Effect.map((bytes): ResolvedSource => ({ bytes, fromStore: true })),
+    Effect.catchTag('StoredSourceUnreadableError', () =>
+      Effect.succeed<ResolvedSource>({ bytes: new Uint8Array(0), fromStore: true })
+    ),
+    Effect.withSpan('automations.resolve-source')
+  )
 }

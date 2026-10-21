@@ -259,3 +259,18 @@ the zero-config SQLite database (`database.db`), the server lock file, and local
 storage. Set `DATABASE_URL` to use PostgreSQL instead. Relocate the whole folder with
 the `SOVRIUM_DATA_DIR` env var. Operator settings live in **environment variables**, not
 in `app.yaml`.
+
+## Reporting a problem with Sovrium
+
+- **Validate first.** Run `sovrium validate`: a configuration Sovrium refuses is yours to
+  fix (look the option up with `sovrium docs`), never a bug to report.
+- **Report a bug with `sovrium report`.** It prints a new-issue address with the version,
+  the platform, the install channel and the database already filled in. Add
+  `--config app.yaml` to attach the configuration, `--last-error` for the last failed command,
+  or `--request-id <id>` for a server error. It sends nothing: the person submits the form.
+- **Redact.** Secrets are removed from what it fills in; read the form before submitting, and
+  never paste a key, a password, a token or record data into it.
+- **Search first.** Look for the error signature (the `sig:` in the title) among the existing
+  issues, and add to the one you find rather than opening a second.
+- **A vulnerability is never a public issue.** Run `sovrium report --security`, which prints
+  the private advisory form, and write the report there.

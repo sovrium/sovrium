@@ -1,0 +1,100 @@
+{
+  "id": "dashboard-api-keys",
+  "name": "dashboard-api-keys",
+  "path": "/api-keys",
+  "meta": {
+    "title": "$t:admin.meta.apiKeys"
+  },
+  "requires": ["auth.apiKeys"],
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "api-keys": "$t:admin.crumb.apiKeys"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "admin-surface-content-2-1",
+          "element": "div",
+          "props": {
+            "className": "flex flex-col gap-6"
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-1-1",
+              "element": "div",
+              "props": {
+                "className": "flex flex-col gap-2"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "h1",
+                  "props": {
+                    "className": "text-foreground text-2xl font-semibold tracking-tight"
+                  },
+                  "content": "$t:admin.apiKeys.heading"
+                },
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "className": "text-foreground-subtle text-md"
+                  },
+                  "content": "$t:admin.locked.audit.apiKeys.scopeNotice"
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "api-keys-region",
+              "element": "section",
+              "props": {
+                "className": "bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 flex flex-col gap-3 p-4",
+                "aria-label": "$t:admin.apiKeys.region",
+                "data-island": "api-key-manager",
+                "data-island-props": "{}"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "className": "text-foreground-subtle text-md"
+                  },
+                  "content": "$t:admin.apiKeys.loading"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

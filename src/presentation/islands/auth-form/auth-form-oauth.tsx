@@ -75,7 +75,7 @@ export function OAuthSignInForm(props: OAuthSignInFormProps): React.ReactElement
         data-component-type="button"
         {...pendingControlProps(isPending)}
         data-oauth-provider={provider}
-        className={computeButtonDefaultClasses({ variant: 'secondary' })}
+        className={computeButtonDefaultClasses({ variant: 'outline' })}
       >
         {props.label ?? oauthSubmitLabel(provider)}
       </button>

@@ -3,6 +3,1073 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.41.0",
+      "date": "2026-10-21",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.40.0...v0.41.0",
+      "sections": [
+        {
+          "kind": "breaking",
+          "heading": "BREAKING CHANGES",
+          "entries": [
+            {
+              "scope": "design",
+              "text": "refuse design.codeBlock, deprecated since 0.40"
+            }
+          ]
+        },
+        {
+          "kind": "features",
+          "heading": "Features",
+          "entries": [
+            {
+              "scope": "admin",
+              "text": "name the failed step and time each step on the run page"
+            },
+            {
+              "scope": "automations",
+              "text": "number the failed step of a run from 1 in the admin run detail"
+            },
+            {
+              "scope": "pages",
+              "text": "read nested paths, description lists and per-element gates in repeated copies"
+            },
+            {
+              "scope": "pages",
+              "text": "tell an invitation page whether the invited role reaches the console"
+            },
+            {
+              "scope": "admin",
+              "text": "show a sign-in link on the console's not-found page"
+            },
+            {
+              "scope": "admin",
+              "text": "let a console page know who is reading it"
+            },
+            {
+              "scope": "admin",
+              "text": "redesign the automation run page"
+            },
+            {
+              "scope": "admin",
+              "text": "show instance health, object descriptions and audit entries in the console"
+            },
+            {
+              "scope": "admin",
+              "text": "filter runs by period, upload from the bucket toolbar and list keyboard shortcuts"
+            },
+            {
+              "scope": "pages",
+              "text": "let a grid column start hidden yet stay restorable"
+            },
+            {
+              "scope": "auth",
+              "text": "send an invitee whose role cannot open the console into the app"
+            },
+            {
+              "scope": "pages",
+              "text": "open a dialog from a menu item or a button with openDialog"
+            },
+            {
+              "scope": "pages",
+              "text": "add a compact file upload for toolbars"
+            },
+            {
+              "scope": "pages",
+              "text": "poll a system read with dataSource.system.refreshMode"
+            },
+            {
+              "scope": "admin",
+              "text": "name the step a failed run stopped on in the run detail"
+            },
+            {
+              "scope": "admin",
+              "text": "page the audit trail by cursor and read one audit entry on its own"
+            },
+            {
+              "scope": "admin",
+              "text": "filter the account directory by role and by ban status"
+            },
+            {
+              "scope": "admin",
+              "text": "name each template by its file name on the template list"
+            },
+            {
+              "scope": "admin",
+              "text": "describe a table, a bucket and an agent, and publish descriptions on the admin reads"
+            },
+            {
+              "scope": "admin",
+              "text": "the overview read carries the instance health facts"
+            },
+            {
+              "scope": "pages",
+              "text": "name the request on a custom 500 page, and draw the console's failures inside its shell"
+            },
+            {
+              "scope": "admin",
+              "text": "a console 500 page inside the console shell"
+            },
+            {
+              "scope": "pages",
+              "text": "find command palette items by their group's name"
+            },
+            {
+              "scope": "admin",
+              "text": "rework the console overview and tighten console copy"
+            },
+            {
+              "scope": "admin",
+              "text": "size console grids to their content and show where connections are used"
+            },
+            {
+              "scope": "admin",
+              "text": "name each console detail page after its object and rebuild the account page"
+            },
+            {
+              "scope": "admin",
+              "text": "add the audit log page and regroup the console sidebar"
+            },
+            {
+              "scope": "design-system",
+              "text": "draw sheets, dialogs, alert dialogs and drawers in the component kit"
+            },
+            {
+              "scope": "design",
+              "text": "write translated copy and template inputs back from a page drawing, and report every edit it does not carry"
+            },
+            {
+              "scope": "admin",
+              "text": "a Report a problem page, and a run page that says whose fault it is"
+            },
+            {
+              "scope": "admin",
+              "text": "report a problem with nothing failed on screen"
+            },
+            {
+              "scope": "admin",
+              "text": "say whose fault a failed automation run is"
+            },
+            {
+              "scope": "design-system",
+              "text": "add success, warning and info badge variants"
+            },
+            {
+              "scope": "design-system",
+              "text": "give the success, warning and info colours their own hues"
+            },
+            {
+              "scope": "pages",
+              "text": "let a grid put its view options in a View menu in the toolbar"
+            },
+            {
+              "scope": "pages",
+              "text": "let a description-list text detail name a display format"
+            },
+            {
+              "scope": "admin",
+              "text": "say what the instance runs on in the instance read"
+            },
+            {
+              "scope": "admin",
+              "text": "show where each connection is used and when it last worked"
+            },
+            {
+              "scope": "admin",
+              "text": "show sign-in facts on each account of the user directory"
+            },
+            {
+              "scope": "admin",
+              "text": "tell a schedule started by hand from one that fired"
+            },
+            {
+              "scope": "admin",
+              "text": "time each step of an automation run"
+            },
+            {
+              "scope": "admin",
+              "text": "offer a prefilled bug report link on the console's internal-error states"
+            },
+            {
+              "scope": "admin",
+              "text": "answer the prefilled bug report address of a failed request or run"
+            },
+            {
+              "scope": "cli",
+              "text": "report a problem with `sovrium report`, and offer a prefilled bug report when Sovrium fails"
+            },
+            {
+              "scope": "library",
+              "text": "add Trello, MeisterTask and Google Sheets connections, and lead and webhook operations for Calendly, Facebook and LinkedIn"
+            },
+            {
+              "scope": "import",
+              "text": "map Trello, MeisterTask, Calendly, Facebook and LinkedIn lead forms, and new Sheets rows"
+            },
+            {
+              "scope": "import",
+              "text": "migrated form-tool triggers name the webhook registration their connection needs"
+            },
+            {
+              "scope": "import",
+              "text": "migrated app steps share library connections, written as library add writes them"
+            },
+            {
+              "scope": "library",
+              "text": "add the Webflow connection"
+            },
+            {
+              "scope": "import",
+              "text": "bring the pages of a Webflow site export into the app"
+            },
+            {
+              "scope": "library",
+              "text": "add the Jotform connection"
+            },
+            {
+              "scope": "library",
+              "text": "add the Typeform connection"
+            },
+            {
+              "scope": "import",
+              "text": "bring the screens of a Retool classic app into the app"
+            },
+            {
+              "scope": "library",
+              "text": "add the Mailjet connection"
+            },
+            {
+              "scope": "library",
+              "text": "add the Dropbox connection"
+            },
+            {
+              "scope": "automations",
+              "text": "an enabled automation can't hold a todo placeholder"
+            },
+            {
+              "scope": "import",
+              "text": "send Webflow and Retool page exports to the page converter"
+            },
+            {
+              "scope": "import",
+              "text": "translate Airtable date differences, date additions, weekday and find"
+            },
+            {
+              "scope": "tables",
+              "text": "days_between, add_days and date_part_utc formula functions, and strpos on SQLite"
+            },
+            {
+              "scope": "import",
+              "text": "bring the pages of a Notion export into the app"
+            },
+            {
+              "scope": "import",
+              "text": "translate more date and text formula functions"
+            },
+            {
+              "scope": "import",
+              "text": "name the page exports that cannot be imported yet"
+            },
+            {
+              "scope": "import",
+              "text": "convert Zapier exports into disabled automations"
+            },
+            {
+              "scope": "pages",
+              "text": "let a template take lists and objects as inputs in any field"
+            },
+            {
+              "scope": "import",
+              "text": "convert Retool workflow exports into automations"
+            },
+            {
+              "scope": "automations",
+              "text": "data set steps can hold named fields"
+            },
+            {
+              "scope": "pages",
+              "text": "let a template render as if its content were written inline, with named slots"
+            },
+            {
+              "scope": "import",
+              "text": "fetch Jotform and Google Forms forms and their responses, read-only"
+            },
+            {
+              "scope": "import",
+              "text": "convert Jotform, Google Forms and Microsoft Forms forms and their responses"
+            },
+            {
+              "scope": "import",
+              "text": "import Webflow forms with their submissions"
+            },
+            {
+              "scope": "import",
+              "text": "fetch and convert Notion databases and Google spreadsheets"
+            },
+            {
+              "scope": "import",
+              "text": "fetch n8n workflows and migrate Webflow form webhooks"
+            },
+            {
+              "scope": "import",
+              "text": "fetch Typeform, Tally and Fillout forms and their responses, read-only"
+            },
+            {
+              "scope": "import",
+              "text": "convert Typeform, Tally and Fillout forms into table-bound forms with their responses"
+            },
+            {
+              "scope": "import",
+              "text": "fetch Webflow CMS collections and Zite databases, and read Zapier Tables and Webflow CSV exports"
+            },
+            {
+              "scope": "import",
+              "text": "write migrated links, attachments and collaborators faithfully"
+            },
+            {
+              "scope": "import",
+              "text": "migrate Baserow workspaces and Retool Databases"
+            },
+            {
+              "scope": "seed",
+              "text": "write many-to-many links in upsert mode"
+            },
+            {
+              "scope": "seed",
+              "text": "seed accounts that are left unclaimed"
+            },
+            {
+              "scope": "design",
+              "text": "draw an app's pages as a Penpot file and read it back"
+            },
+            {
+              "scope": "seed",
+              "text": "reference an asset inside one folder of seed/assets"
+            },
+            {
+              "scope": "import",
+              "text": "convert Make scenario blueprints and fetch a Make team's scenarios"
+            },
+            {
+              "scope": "import",
+              "text": "map migrated automations' branches, loops, filters, pauses and expressions"
+            },
+            {
+              "scope": "import",
+              "text": "translate Airtable and Notion formulas and rollups"
+            },
+            {
+              "scope": "import",
+              "text": "convert Airtable snapshots into tables, seed files and a report"
+            },
+            {
+              "scope": "design",
+              "text": "bring designed pages back into the app config"
+            },
+            {
+              "scope": "design",
+              "text": "draw an app's pages as a Claude Design canvas"
+            },
+            {
+              "scope": "import",
+              "text": "migrate tables, records and automations from another tool"
+            },
+            {
+              "scope": "design",
+              "text": "export an app's pages for the Figma plugin and read them back"
+            },
+            {
+              "scope": "design",
+              "text": "export an app's pages in the design-system bundle"
+            }
+          ]
+        },
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "server",
+              "text": "keep the page cache within its memory budget and evict least recently served pages"
+            },
+            {
+              "scope": "import",
+              "text": "write Notion pages in the same order whichever system packed the export"
+            },
+            {
+              "scope": "cli",
+              "text": "stop `start --watch` from missing a quick second save on Linux"
+            },
+            {
+              "scope": "cli",
+              "text": "keep a save made right after `start --watch` begins watching inside the reload budget"
+            },
+            {
+              "scope": "cli",
+              "text": "no longer lose a save made right after `start --watch` begins watching"
+            },
+            {
+              "scope": "admin",
+              "text": "name the overview's headline figures as a group assistive technology can read"
+            },
+            {
+              "scope": "tables",
+              "text": "a many-to-one link keeps its foreign key on SQLite when the related table lists it back"
+            },
+            {
+              "scope": "admin",
+              "text": "keep the colour scheme toggle the last control of the console header"
+            },
+            {
+              "scope": "pages",
+              "text": "offer Retry on a compact upload's failure toast"
+            },
+            {
+              "scope": "pages",
+              "text": "read the whole page count to assistive technology on a phone pager"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a flowing grid's column heads on screen whichever box the page scrolls in"
+            },
+            {
+              "scope": "pages",
+              "text": "print an escaped token as written in a button confirm's title and message"
+            },
+            {
+              "scope": "ai",
+              "text": "bound how many anonymous chat conversations are kept in memory"
+            },
+            {
+              "scope": "ai",
+              "text": "let an anonymous visitor stop only her own browser's streamed chat turn"
+            },
+            {
+              "scope": "ai",
+              "text": "keep an anonymous visitor's chat history to the browser that wrote it"
+            },
+            {
+              "scope": "pages",
+              "text": "refresh a system-bound table by its system keys only"
+            },
+            {
+              "scope": "admin",
+              "text": "name one boot instant across the admin reads"
+            },
+            {
+              "scope": "automations",
+              "text": "read the run history over whole calendar days"
+            },
+            {
+              "scope": "pages",
+              "text": "close the date range picker when a preset is chosen"
+            },
+            {
+              "scope": "automations",
+              "text": "keep a step's recorded times inside its run on a pinned development clock"
+            },
+            {
+              "scope": "pages",
+              "text": "state a compact upload's accepted types and size cap beside its trigger"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a social sign-in button with the outline recipe"
+            },
+            {
+              "scope": "pages",
+              "text": "open an address-mirrored native select on the value a link carries"
+            },
+            {
+              "scope": "pages",
+              "text": "keep the empty message when a search-echoing no-match has no search"
+            },
+            {
+              "scope": "pages",
+              "text": "say \"no match\" when a filter narrows a grid to nothing"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a flowing grid's column heads on screen while the page scrolls"
+            },
+            {
+              "scope": "pages",
+              "text": "count a date range picker's params as keys its channel publishes"
+            },
+            {
+              "scope": "pages",
+              "text": "put a system-source grid's View menu in the toolbar on its channel"
+            },
+            {
+              "scope": "pages",
+              "text": "resolve the engine version and session text on the not-found page"
+            },
+            {
+              "scope": "import",
+              "text": "write the import report's reasons and TODOs in plain words"
+            },
+            {
+              "scope": "pages",
+              "text": "keep an escaped token escaped for the browser in interactive components"
+            },
+            {
+              "scope": "import",
+              "text": "keep each record's creation date, autonumber and collaborator name, and re-run without rewriting rows"
+            },
+            {
+              "scope": "import",
+              "text": "make the import report read plainly"
+            },
+            {
+              "scope": "design",
+              "text": "draw page exports at a fixed instant, with link targets, real tabs and seeded data"
+            },
+            {
+              "scope": "import",
+              "text": "resolve a Webflow page's images against its place in the export"
+            },
+            {
+              "scope": "design",
+              "text": "keep Claude Design component previews live and inset the cover title"
+            },
+            {
+              "scope": "import",
+              "text": "name a form migrated from a page by its readable title, keeping its page reference"
+            },
+            {
+              "scope": "import",
+              "text": "install the Trello, MeisterTask and Google Sheets steps and triggers from the connection library"
+            },
+            {
+              "scope": "import",
+              "text": "bring another tool's dollar text across as text"
+            },
+            {
+              "scope": "pages",
+              "text": "let a backslash print any page token as text"
+            },
+            {
+              "scope": "library",
+              "text": "a connection added under another name reads its own secrets"
+            },
+            {
+              "scope": "design-system",
+              "text": "keep a page sidecar named by a bundle beside the config"
+            },
+            {
+              "scope": "design-system",
+              "text": "refuse a Figma or Penpot page file nested past a bound"
+            },
+            {
+              "scope": "import",
+              "text": "convert a long Webflow page in linear time"
+            },
+            {
+              "scope": "import",
+              "text": "report a Webflow link with a malformed escape instead of failing"
+            },
+            {
+              "scope": "import",
+              "text": "refuse a Retool file the reader could not read to its end"
+            },
+            {
+              "scope": "import",
+              "text": "read a Webflow site stylesheet in linear time"
+            },
+            {
+              "scope": "import",
+              "text": "convert a long Notion page in linear time"
+            },
+            {
+              "scope": "design-system",
+              "text": "read a wide Figma page document in near-linear time"
+            },
+            {
+              "scope": "design-system",
+              "text": "read a wide Claude Design board in near-linear time"
+            },
+            {
+              "scope": "cli",
+              "text": "keep a YAML value holding a line break and quotes readable"
+            },
+            {
+              "scope": "design-system",
+              "text": "refuse a Penpot board that draws a shape twice"
+            },
+            {
+              "scope": "import",
+              "text": "bound a wrapped page export by its limits as each part opens"
+            },
+            {
+              "scope": "design-system",
+              "text": "never read a drawing's files through a linked folder"
+            },
+            {
+              "scope": "design-system",
+              "text": "read large HTML drawings in linear time"
+            },
+            {
+              "scope": "import",
+              "text": "read real Notion exports correctly"
+            },
+            {
+              "scope": "design",
+              "text": "stamp every console node in the page export"
+            },
+            {
+              "scope": "pages",
+              "text": "render a template's structured inputs in the same order as written inline"
+            },
+            {
+              "scope": "tables",
+              "text": "date formulas read UTC on PostgreSQL as they do on SQLite"
+            },
+            {
+              "scope": "import",
+              "text": "keep a Zapier zap whose trigger names no app"
+            },
+            {
+              "scope": "design",
+              "text": "draw the grid specimen in two columns and let grid and spacer specimens be placed on a page"
+            },
+            {
+              "scope": "tables",
+              "text": "a relationship without required no longer blocks a loop of links"
+            },
+            {
+              "scope": "import",
+              "text": "read Zapier zap dumps that list their steps as nodes, and keep every zap"
+            },
+            {
+              "scope": "design",
+              "text": "keep a YAML config's comments and quoting on a page import"
+            },
+            {
+              "scope": "design",
+              "text": "export every page and stamp every component it draws"
+            },
+            {
+              "scope": "forms",
+              "text": "check a submission against the fields its submitter was offered"
+            },
+            {
+              "scope": "ai",
+              "text": "recall only the facts learned from tables the user still lists"
+            },
+            {
+              "scope": "import",
+              "text": "rename a migrated view whose name is taken by a link table"
+            },
+            {
+              "scope": "forms",
+              "text": "offer a step of a multi-step form only the fields its form page offers"
+            },
+            {
+              "scope": "tables",
+              "text": "judge every press naming a record on that record"
+            },
+            {
+              "scope": "import",
+              "text": "migrated tables validate when links loop, choices repeat or names run long"
+            },
+            {
+              "scope": "tables",
+              "text": "formula validation ignores parentheses inside quoted text"
+            },
+            {
+              "scope": "tables",
+              "text": "refuse a button press on a record that does not exist"
+            },
+            {
+              "scope": "ai",
+              "text": "name in an agent's action tools only the tables the person chatting may use them on"
+            },
+            {
+              "scope": "records",
+              "text": "keep favorites and recent items per table"
+            },
+            {
+              "scope": "ai",
+              "text": "describe to the chat model only the fields the person chatting can be shown"
+            },
+            {
+              "scope": "realtime",
+              "text": "a live change holds the table's declared fields only, as a listed record does"
+            },
+            {
+              "scope": "account",
+              "text": "include favorites and recent items in the personal data export"
+            },
+            {
+              "scope": "forms",
+              "text": "offer a reader only the fields she may read or write"
+            },
+            {
+              "scope": "import",
+              "text": "set variables and n8n Set nodes keep their names"
+            },
+            {
+              "scope": "pages",
+              "text": "steer feeds, sitemaps and record pages on the counts and lookups a visitor reads"
+            },
+            {
+              "scope": "ai",
+              "text": "replay only the exchanges a user can still read"
+            },
+            {
+              "scope": "activity",
+              "text": "a record history and an activity entry show each reader exactly the fields her list of that row returns"
+            },
+            {
+              "scope": "realtime",
+              "text": "a live change shows each reader exactly the fields her list of that row returns"
+            },
+            {
+              "scope": "ai",
+              "text": "answer a chat write naming an unlisted table as plain chat"
+            },
+            {
+              "scope": "ai",
+              "text": "describe to a declared agent's model only the tables its caller lists"
+            },
+            {
+              "scope": "import",
+              "text": "remove credentials from the code kept beside a converted code step"
+            },
+            {
+              "scope": "import",
+              "text": "keep a library call missing a required parameter as a stub"
+            },
+            {
+              "scope": "import",
+              "text": "note archived n8n workflows read from an export file"
+            },
+            {
+              "scope": "import",
+              "text": "read n8n nodes left at their defaults, and say why a mapped node is a stub"
+            },
+            {
+              "scope": "import",
+              "text": "read a Make webhook's payload fields under body"
+            },
+            {
+              "scope": "import",
+              "text": "repeat a URL argument by its scheme and host only in a refusal"
+            },
+            {
+              "scope": "import",
+              "text": "never carry a credential from a migrated automation into the config"
+            },
+            {
+              "scope": "import",
+              "text": "keep every snapshot file inside its folder, and out of served folders"
+            },
+            {
+              "scope": "import",
+              "text": "judge every redirect of an attachment download"
+            },
+            {
+              "scope": "import",
+              "text": "keep credential URLs of migrated HTTP steps out of the config"
+            },
+            {
+              "scope": "tables",
+              "text": "count and rollup fields read through many-to-many and many-to-one links"
+            },
+            {
+              "scope": "import",
+              "text": "rename an imported table or field whose name is a SQL keyword"
+            },
+            {
+              "scope": "seed",
+              "text": "order tables only by the links a seed actually writes"
+            },
+            {
+              "scope": "import",
+              "text": "keep authorship fields as text when the app has no accounts"
+            },
+            {
+              "scope": "seed",
+              "text": "keep a seeded attachment's storage key stable across replays"
+            },
+            {
+              "scope": "records",
+              "text": "echo a missing id in a batch restore as it was sent"
+            },
+            {
+              "scope": "pages",
+              "text": "judge a signed-out visitor's related values on a page as her records list does"
+            },
+            {
+              "scope": "automations",
+              "text": "name in a comment thread only the people its record still admits"
+            },
+            {
+              "scope": "tables",
+              "text": "read a signed-out visitor as one principal on every list, feed and sitemap"
+            },
+            {
+              "scope": "automations",
+              "text": "show an approver a run step whole only when her records list admits her every row it read"
+            },
+            {
+              "scope": "mcp",
+              "text": "offer and answer the read tools of a table only where the records list answers the caller"
+            },
+            {
+              "scope": "tables",
+              "text": "answer a view's records and the export as the table's list does"
+            },
+            {
+              "scope": "records",
+              "text": "list favorites and recent items as the reader's list admits them"
+            },
+            {
+              "scope": "tables",
+              "text": "answer a table's definitions as its list answers the reader"
+            },
+            {
+              "scope": "records",
+              "text": "list the trash to a reader as her list of the table admits"
+            },
+            {
+              "scope": "pages",
+              "text": "sort and filter a page list on a narrowed count as the records list does"
+            },
+            {
+              "scope": "ai",
+              "text": "describe and offer the chat only the tables a reader's records list admits"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a view-bound grid over a table admitting its reader no row as the table-bound grid"
+            },
+            {
+              "scope": "pages",
+              "text": "list a feed's and a sitemap's records only as a signed-out reader's records list does"
+            },
+            {
+              "scope": "storage",
+              "text": "read a stored file with no catalogue record no further than 100 MiB"
+            },
+            {
+              "scope": "automations",
+              "text": "read at most 100 MiB across all the files one compress packs"
+            },
+            {
+              "scope": "storage",
+              "text": "clear unfinished local writes and leave them out of the quota"
+            },
+            {
+              "scope": "storage",
+              "text": "reserve the name a local write stages its bytes under"
+            },
+            {
+              "scope": "buckets",
+              "text": "read a stored file no further than the size its record holds"
+            },
+            {
+              "scope": "automations",
+              "text": "fingerprint a paused run's file by hashing it as a stream"
+            },
+            {
+              "scope": "automations",
+              "text": "read a stored file in a file action up to 100 MiB"
+            },
+            {
+              "scope": "tables",
+              "text": "read a count narrowed to a reader's list as empty wherever a query names it"
+            },
+            {
+              "scope": "records",
+              "text": "answer a restore, a delete form, a button press and an assistant's write on a record the writer may not list as on a missing one"
+            },
+            {
+              "scope": "tables",
+              "text": "count only the linked records a reader may list"
+            },
+            {
+              "scope": "storage",
+              "text": "a staged local write that cannot be moved into place leaves no file and no record"
+            },
+            {
+              "scope": "automations",
+              "text": "read a host written with its final dot as the same host in a browser step"
+            },
+            {
+              "scope": "records",
+              "text": "offer and keep mentions only for people who can open the record"
+            },
+            {
+              "scope": "admin",
+              "text": "drop a kit page's scripts with an HTML parser, however their end tag is written"
+            },
+            {
+              "scope": "tables",
+              "text": "close a table whose every field is read from a table its reader may not read"
+            },
+            {
+              "scope": "storage",
+              "text": "tell apart two same-second writes of an S3 object when a paused run resumes"
+            },
+            {
+              "scope": "records",
+              "text": "answer a write on a record the writer may not list as on a missing one"
+            },
+            {
+              "scope": "storage",
+              "text": "a replacing write on local disk places its bytes only once its claim settles"
+            },
+            {
+              "scope": "storage",
+              "text": "read a stored file no further than the reader's size limit"
+            },
+            {
+              "scope": "realtime",
+              "text": "hold subscriptions and record presence to the rows a list returns its reader"
+            },
+            {
+              "scope": "activity",
+              "text": "list only the entries of rows the records list admits"
+            },
+            {
+              "scope": "records",
+              "text": "answer comments and history only for rows the records list admits"
+            },
+            {
+              "scope": "automations",
+              "text": "a browser step allowed to open the app's own address cannot attach its screenshots in a run nobody started"
+            },
+            {
+              "scope": "pages",
+              "text": "draw an edit form's button field disabled on the record it edits"
+            },
+            {
+              "scope": "pages",
+              "text": "refuse a button picker in front of an action that is not a fetch"
+            },
+            {
+              "scope": "auth",
+              "text": "the replaced-session memory keeps only real session tokens and forgets expired ones"
+            },
+            {
+              "scope": "automations",
+              "text": "an approval message holding an env value keeps the earlier rule"
+            },
+            {
+              "scope": "admin",
+              "text": "fit the profile's Sovrium Cloud button and the Overview's attention rows"
+            },
+            {
+              "scope": "automations",
+              "text": "an approval message whose reads cannot be told apart stays withheld"
+            },
+            {
+              "scope": "comments",
+              "text": "keep read state and guest approvals across table id and name"
+            },
+            {
+              "scope": "ai",
+              "text": "tell the chat reader a value is taken when she can read who holds it"
+            },
+            {
+              "scope": "admin",
+              "text": "speak to the operator in « tu » in the console's AI chat"
+            },
+            {
+              "scope": "tables",
+              "text": "answer conflicts on multi-field unique rules like single-field ones"
+            },
+            {
+              "scope": "languages",
+              "text": "translate the kanban's unstaged column, Load More and chart months"
+            },
+            {
+              "scope": "auth",
+              "text": "say an account form's field messages in the page language"
+            },
+            {
+              "scope": "storage",
+              "text": "never store two spellings of one new key written at the same moment by two processes"
+            },
+            {
+              "scope": "auth",
+              "text": "a late answer to a replaced session no longer signs the reader out"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a date field's calendar inside the window"
+            },
+            {
+              "scope": "tables",
+              "text": "honour the requested columns and their order in record exports"
+            },
+            {
+              "scope": "pages",
+              "text": "show a grid's record dates in the page language when no field is readable"
+            },
+            {
+              "scope": "ai",
+              "text": "transcription refuses a video whose container cannot be read"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a drawer's date fields with the forms' date picker"
+            },
+            {
+              "scope": "auth",
+              "text": "startup warns when AUTH_ADMIN_EMAIL is ignored because accounts exist"
+            },
+            {
+              "scope": "automations",
+              "text": "an approver sees a request's message unless it reads what she may not"
+            },
+            {
+              "scope": "pages",
+              "text": "never open a record drawer on empty fields after a failed read"
+            },
+            {
+              "scope": "storage",
+              "text": "see keys still being written when checking an upload's key spelling"
+            },
+            {
+              "scope": "auth",
+              "text": "an invitation accepted twice at once fires its trigger once"
+            },
+            {
+              "scope": "migrations",
+              "text": "keep hand-made indexes and triggers when SQLite rebuilds a table"
+            },
+            {
+              "scope": "auth",
+              "text": "sign-in returns a visitor to the protected page she was opening"
+            },
+            {
+              "scope": "automations",
+              "text": "keep app restarts from failing when a request arrives mid-restart"
+            },
+            {
+              "scope": "database",
+              "text": "make the migration snapshot history linear again"
+            }
+          ]
+        },
+        {
+          "kind": "performance",
+          "heading": "Performance Improvements",
+          "entries": [
+            {
+              "scope": "admin",
+              "text": "read every connection's last call in one query"
+            },
+            {
+              "scope": "admin",
+              "text": "read the audit log one page at a time in the database"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.40.0",
       "date": "2026-10-19",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.39.1...v0.40.0",

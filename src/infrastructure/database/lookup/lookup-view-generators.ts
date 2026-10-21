@@ -9,12 +9,12 @@ import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { getViewFormulaLayers, buildLayeredViewSQL } from '../formula/view-formula-generators'
+import { aggregateSourceOf, type AggregateSource } from './lookup-aggregate-source'
 import {
   generateReverseLookupExpression,
   generateManyToManyLookupExpression,
   generateForwardLookupExpression,
 } from './lookup-expressions'
-import { resolveForeignKeyColumn } from './lookup-foreign-key'
 import { readThroughSelfLookup } from './lookup-self-read'
 import {
   compileRelationalFilter,
@@ -282,6 +282,37 @@ interface ComputedFieldContext {
 }
 
 /**
+ * The related table a `rollup` / `count` reads, the alias it reads it under,
+ * and the FROM / join conditions for its relationship's direction — or
+ * `undefined` when the relationship field is missing or names no table.
+ */
+const computedSourceOf = (
+  computedFieldName: string,
+  relationshipField: string,
+  context: ComputedFieldContext
+):
+  | { readonly relatedTable: string; readonly alias: string; readonly source: AggregateSource }
+  | undefined => {
+  const { parentTableName } = context
+  const def = context.allFields.find((f) => f.name === relationshipField)
+  if (!def || def.type !== 'relationship' || !hasRelatedTable(def)) return undefined
+  const { relatedTable } = def
+  const alias = relatedAliasOf(relatedTable, computedFieldName)
+  const source = aggregateSourceOf({
+    relationshipFieldDef: def as Readonly<Record<string, unknown>>,
+    relationshipFieldName: relationshipField,
+    relatedTable,
+    relatedRelation: relationFor(relatedTable, parentTableName),
+    alias,
+    computedFieldName,
+    tableAlias: context.tableAlias,
+    parentTableName,
+    allTables: context.allTables,
+  })
+  return { relatedTable, alias, source }
+}
+
+/**
  * Generate rollup column expression with aggregation
  */
 const generateRollupExpression = (
@@ -295,55 +326,34 @@ const generateRollupExpression = (
   context: ComputedFieldContext
 ): string => {
   const { name: rollupName, relationshipField, relatedField, aggregation, filters } = rollupField
-  const { tableAlias, parentTableName, allFields, allTables } = context
-
-  const relationshipFieldDef = allFields.find((f) => f.name === relationshipField)
-
-  if (!relationshipFieldDef || relationshipFieldDef.type !== 'relationship') {
-    return `${getDefaultValueForAggregation(aggregation)} AS ${rollupName}`
-  }
-
-  if (
-    !('relatedTable' in relationshipFieldDef) ||
-    typeof relationshipFieldDef.relatedTable !== 'string'
-  ) {
-    return `${getDefaultValueForAggregation(aggregation)} AS ${rollupName}`
-  }
-
-  const { relatedTable } = relationshipFieldDef
-  const alias = relatedAliasOf(relatedTable, rollupName)
+  const defaultValue = getDefaultValueForAggregation(aggregation)
+  const computed = computedSourceOf(rollupName, relationshipField, context)
+  if (computed === undefined) return `${defaultValue} AS ${rollupName}`
+  const { relatedTable, alias, source } = computed
 
   const aggregationExpr = mapAggregationToSql(
     aggregation,
     `${alias}.${quoteSqlIdentifier(relatedField)}`
   )
-  const defaultValue = getDefaultValueForAggregation(aggregation)
-
-  const foreignKeyColumn = resolveForeignKeyColumn(
-    relationshipFieldDef as Readonly<Record<string, unknown>>,
-    relationshipField,
-    parentTableName,
-    allTables
-  )
-
-  const baseCondition = `${alias}.${quoteSqlIdentifier(foreignKeyColumn)} = ${tableAlias}.id`
   // Soft-deleted child rows must NOT contribute to the aggregate — a devoted /
   // trashed related record is logically gone (soft-delete-by-default: every app
   // table carries a `deleted_at` column). Without this, "un-voting" (soft-
   // deleting a pain_vote) never lowers the pain's rollup.
   const notDeleted = `${alias}.deleted_at IS NULL`
-  const filterCondition = compileRelationalFilter(filters, alias, { allTables, relatedTable })
+  const filterCondition = compileRelationalFilter(filters, alias, {
+    allTables: context.allTables,
+    relatedTable,
+  })
   const whereClause = [
-    baseCondition,
+    ...source.where,
     notDeleted,
     ...(filterCondition ? [filterCondition] : []),
   ].join(' AND ')
 
-  // Use the VIEW name (not base table) for rollup queries
-  // The VIEW will be created after all base tables exist, so it's safe to reference
+  // Reads the related table's VIEW (created after every base table exists).
   return `COALESCE(
     (SELECT ${aggregationExpr}
-     FROM ${relationFor(relatedTable, parentTableName)} AS ${alias}
+     FROM ${source.from}
      WHERE ${whereClause}),
     ${defaultValue}
   ) AS ${rollupName}`
@@ -362,34 +372,10 @@ const generateCountExpression = (
   context: ComputedFieldContext
 ): string => {
   const { name: countName, relationshipField, filters } = countField
-  const { tableAlias, parentTableName, allFields, allTables } = context
-
-  const relationshipFieldDef = allFields.find((f) => f.name === relationshipField)
-
-  // Count field must reference a valid relationship field in same table
-  if (!relationshipFieldDef || relationshipFieldDef.type !== 'relationship') {
-    return `0 AS ${countName}`
-  }
-
-  if (
-    !('relatedTable' in relationshipFieldDef) ||
-    typeof relationshipFieldDef.relatedTable !== 'string'
-  ) {
-    return `0 AS ${countName}`
-  }
-
-  const { relatedTable } = relationshipFieldDef
-  const alias = relatedAliasOf(relatedTable, countName)
-
-  const foreignKeyColumn = resolveForeignKeyColumn(
-    relationshipFieldDef as Readonly<Record<string, unknown>>,
-    relationshipField,
-    parentTableName,
-    allTables
-  )
-
-  // Build WHERE clause with base condition + optional filter conditions
-  const baseCondition = `${alias}.${quoteSqlIdentifier(foreignKeyColumn)} = ${tableAlias}.id`
+  // A count must reference a valid relationship field of the same table.
+  const computed = computedSourceOf(countName, relationshipField, context)
+  if (computed === undefined) return `0 AS ${countName}`
+  const { relatedTable, alias, source } = computed
 
   // Soft-deleted child rows must NOT be counted — a devoted / trashed related
   // record is logically gone (soft-delete-by-default: every app table carries a
@@ -397,15 +383,22 @@ const generateCountExpression = (
   const notDeleted = `${alias}.deleted_at IS NULL`
 
   // An and / or group keeps its own meaning (an `or` is no longer read as AND).
-  const filterCondition = compileRelationalFilter(filters, alias, { allTables, relatedTable })
+  const filterCondition = compileRelationalFilter(filters, alias, {
+    allTables: context.allTables,
+    relatedTable,
+  })
 
-  const whereConditions = [baseCondition, notDeleted, ...(filterCondition ? [filterCondition] : [])]
+  const whereConditions = [
+    ...source.where,
+    notDeleted,
+    ...(filterCondition ? [filterCondition] : []),
+  ]
   const whereClause = whereConditions.join(' AND ')
 
   // Use COALESCE to ensure 0 instead of NULL when no records match
   return `COALESCE(
     (SELECT COUNT(*)
-     FROM ${relationFor(relatedTable, parentTableName)} AS ${alias}
+     FROM ${source.from}
      WHERE ${whereClause}),
     0
   ) AS ${countName}`

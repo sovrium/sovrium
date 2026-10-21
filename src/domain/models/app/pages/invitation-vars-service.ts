@@ -16,6 +16,7 @@
 
 import { escapeRegExp } from '@/domain/kernel/sanitize/escape-regexp'
 import { relativeOffset } from '@/domain/kernel/time/relative-offset'
+import { isAdminTier, type AdminRoleResolvable } from '@/domain/models/app/auth/roles/role'
 
 /** What the engine found for one invitation token. */
 export interface InvitationFacts {
@@ -34,6 +35,7 @@ const REFERENCES = [
   'inviter.image',
   'email',
   'role',
+  'role.isAdminTier',
   'workspace',
   'expiresAt',
   'expiresAt.relative',
@@ -48,6 +50,12 @@ type InvitationReference = (typeof REFERENCES)[number]
 export interface InvitationVarContext {
   /** The app's display name (`$app.label`). */
   readonly workspace: string
+  /**
+   * The app whose roles the invitation names — on a mount, the operator's, never
+   * the console's — read by `role.isAdminTier` with the rule that lands an
+   * accepted invitee in the console.
+   */
+  readonly roles: AdminRoleResolvable
   /** The page's language tag; an unknown one reads as English. */
   readonly lang: string
   /** The IANA zone the date is printed in. */
@@ -102,6 +110,7 @@ export const invitationVarValues = (
       'inviter.image': '',
       email: '',
       role: '',
+      'role.isAdminTier': '',
       workspace: '',
       expiresAt: '',
       'expiresAt.relative': '',
@@ -116,6 +125,7 @@ export const invitationVarValues = (
     'inviter.image': facts.inviterImage,
     email: facts.email,
     role: facts.role,
+    'role.isAdminTier': String(isAdminTier(facts.role, context.roles)),
     workspace: context.workspace,
     expiresAt: valid ? formatInvitationDeadline(deadline, context.lang, context.timeZone) : '',
     'expiresAt.relative': valid

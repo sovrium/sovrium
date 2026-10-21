@@ -108,7 +108,7 @@ Soft-deleted rows are excluded from list and read responses by default. Two para
 
 `includeDeleted` is compared against the exact string `true`, so any other value is read as "exclude deleted" and narrows nothing. A trash-only listing is `?deleted=true`, or the dedicated trash endpoint above.
 
-The trash listing takes the same `filter` as the live listing, every operator included, and narrows the trash exactly as that filter narrows the live listing. Row-level read rules apply to the trash as they do to live rows.
+The trash listing takes the same `filter` as the live listing, every operator included, and narrows the trash exactly as that filter narrows the live listing. Row-level read rules apply to the trash as they do to live rows. The trash lists a caller exactly the removed rows her list of the table would: on a table listed in `auth.scopeTables`, the rows an assignment of hers names, counted alone in `pagination.total`. A caller whose list of the table admits no row is answered `404` with the body of a table that does not exist, on the trash endpoint and on `?deleted=true` alike.
 
 On a single-record read, `?includeDeleted=true` is what reaches a trashed row; without it the row answers `404` exactly as an absent one would.
 

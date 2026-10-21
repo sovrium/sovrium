@@ -7,6 +7,7 @@
 
 import { mapStringsDeep } from '@/domain/kernel/config-parsing/map-strings-deep'
 import {
+  isRecordFieldRef,
   printableRecordFields,
   withRecordText,
 } from '@/domain/models/app/pages/substitute-record-vars'
@@ -317,11 +318,35 @@ const textOf = (prose: Readonly<Record<string, unknown>>, field: string): string
 }
 
 /**
+ * What a text entry that names a `format` hands the renderer: the STORED value
+ * to format, never the prose its detail would print — formatting a date already
+ * written out for reading would format text. A detail that is one
+ * `$record.<field>` reference carries that field's value and name, so the
+ * renderer reads its zone and currency as the grid column does; any other
+ * detail carries its stored-value text.
+ */
+function formatSourceOf(
+  detail: unknown,
+  format: unknown,
+  record: Record<string, unknown>,
+  tableName: string | undefined
+): Readonly<Record<string, unknown>> {
+  if (typeof format !== 'string' || typeof detail !== 'string') return {}
+  const table = tableName === undefined ? {} : { _recordTable: tableName }
+  if (!isRecordFieldRef(detail)) {
+    return { _formatValue: substituteRecordVars(detail, record), ...table }
+  }
+  const fieldName = detail.slice('$record.'.length)
+  return { _formatValue: record[fieldName] ?? null, _formatField: fieldName, ...table }
+}
+
+/**
  * A `description-list`'s entries filled from the bound record. An entry naming a
  * `field` carries the record's value and table on to the renderer, which draws
  * it BY ITS TYPE — the hand-off a `record-field` gets from
  * `injectRecordFieldValue`. A text entry's `detail` is prose and prints a value
- * formatted; every other string keeps the stored value.
+ * formatted, unless it names a `format`, which reads the stored value
+ * ({@link formatSourceOf}); every other string keeps the stored value.
  */
 export function withDescriptionFieldValues(
   component: { readonly type?: string; readonly items?: unknown },
@@ -332,10 +357,15 @@ export function withDescriptionFieldValues(
   const prose = withRecordText(record)
   return component.items.map((item: unknown) => {
     if (item === null || typeof item !== 'object') return item
-    const { field, detail } = item as { readonly field?: unknown; readonly detail?: unknown }
+    const { field, detail, format } = item as {
+      readonly field?: unknown
+      readonly detail?: unknown
+      readonly format?: unknown
+    }
     return {
       ...(mapStringsDeep(item, (value) => substituteRecordVars(value, record)) as object),
       ...(typeof detail === 'string' && { detail: substituteRecordVars(detail, prose) }),
+      ...formatSourceOf(detail, format, record, tableName),
       ...(typeof field === 'string' && {
         _recordValue: record[field] ?? null,
         // A system record has no table to type its fields by: what it reads as

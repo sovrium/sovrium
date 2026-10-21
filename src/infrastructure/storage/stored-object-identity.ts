@@ -13,8 +13,11 @@
  * is never part of it:
  *
  * - S3: the `ETag`, the size and `LastModified` of one `HEAD` (Bun's client
- *   reports no `VersionId`; a versioned bucket's rewrite still changes the
- *   `ETag` or `LastModified`);
+ *   reports no `VersionId`), and `none` for an object stamped within
+ *   {@link S3_RACY_WINDOW_MS} of the read (or in the future): `LastModified`
+ *   keeps whole seconds, so a rewrite of the same size within the same second
+ *   could read the same, and the caller hashes the bytes instead. The window
+ *   is wide because the stamp comes from the store's clock, not this one;
  * - local disk: the size, the inode, and the modification and change times
  *   at nanosecond resolution — `none` on a mount that keeps whole seconds,
  *   where a rewrite within the same second would read as unchanged, and `none`
@@ -36,6 +39,8 @@ import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import {
   StorageError,
+  storageObjectNotFound,
+  type StoredObjectHash,
   type StoredObjectIdentity,
 } from '@/application/ports/services/storage-service'
 import { db } from '@/infrastructure/database'
@@ -83,11 +88,19 @@ const codeOf = (error: unknown): unknown =>
     ? (error as { readonly code?: unknown }).code
     : undefined
 
-/** The S3 identity of `key`: one `HEAD`. */
+/**
+ * How recent an S3 object's `LastModified` must be for it not to be trusted, in
+ * milliseconds: its whole second, plus room for the store's clock to differ
+ * from this one.
+ */
+export const S3_RACY_WINDOW_MS = 60_000
+
+/** The S3 identity of `key`: one `HEAD`, read at `nowMs`. */
 export const s3ObjectIdentity = async (
   client: Bun.S3Client,
   bucket: string,
-  key: string
+  key: string,
+  nowMs: number = Date.now()
 ): Promise<StoredObjectIdentity> => {
   assertCanonicalS3Key(key)
   return Effect.runPromise(
@@ -98,7 +111,7 @@ export const s3ObjectIdentity = async (
         s3Deadline('stat', S3_METADATA_TIMEOUT_MS)
       )
     ).pipe(
-      Effect.map(s3IdentityOf),
+      Effect.map((stats) => s3IdentityOf(stats, nowMs)),
       Effect.catchIf(
         (error) => codeOf(error) === 'NoSuchKey',
         () => Effect.succeed(ABSENT)
@@ -107,15 +120,24 @@ export const s3ObjectIdentity = async (
   )
 }
 
-/** The identity one `HEAD` answered; `none` when it carried no `ETag`. */
-const s3IdentityOf = (stats: {
-  readonly etag?: unknown
-  readonly size: number
-  readonly lastModified: Date | string | number
-}): StoredObjectIdentity => {
+/**
+ * The identity one `HEAD` answered at `nowMs`; `none` when it carried no `ETag`
+ * or no readable `LastModified`, or when the object was stamped within
+ * {@link S3_RACY_WINDOW_MS} of `nowMs`, or after it.
+ */
+const s3IdentityOf = (
+  stats: {
+    readonly etag?: unknown
+    readonly size: number
+    readonly lastModified: Date | string | number
+  },
+  nowMs: number
+): StoredObjectIdentity => {
   const etag = typeof stats.etag === 'string' ? stats.etag : ''
-  if (etag === '') return NONE
-  return identity(`s3:${etag}:${String(stats.size)}:${new Date(stats.lastModified).toISOString()}`)
+  const stamped = new Date(stats.lastModified).getTime()
+  if (etag === '' || Number.isNaN(stamped)) return NONE
+  if (nowMs - stamped < S3_RACY_WINDOW_MS) return NONE
+  return identity(`s3:${etag}:${String(stats.size)}:${new Date(stamped).toISOString()}`)
 }
 
 /** How recent a write must be for its stamps not to be trusted: the caller hashes instead. */
@@ -179,4 +201,22 @@ export const byteaIdentityOf = (rows: readonly Record<string, unknown>[]): Store
   const row = rows[0]
   if (row === undefined) return ABSENT
   return identity(`bytea:${String(row['id'])}:${String(row['writes'])}:${String(row['size'])}`)
+}
+
+/**
+ * The payload's length and SHA-256, computed by the database: the payload
+ * never leaves it, whatever its size. Rejects with the not-found marker when no
+ * bytea payload is stored under `key`.
+ */
+export const byteaHashObject = async (key: string): Promise<StoredObjectHash> => {
+  const result = (await db.execute(sql`
+    SELECT octet_length(b.content) AS size, encode(sha256(b.content), 'hex') AS sha256
+    FROM system.file_storage_bytea b
+    JOIN system.file_storage_metadata m ON m.id = b.metadata_id
+    WHERE m.key = ${key} AND m.storage_provider = 'bytea'
+    LIMIT 1
+  `)) as readonly Record<string, unknown>[]
+  const row = result[0]
+  if (!row) throw storageObjectNotFound(key)
+  return { size: Number(row['size']), sha256: String(row['sha256']) }
 }

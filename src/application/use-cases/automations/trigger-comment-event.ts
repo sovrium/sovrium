@@ -6,7 +6,6 @@
  */
 
 import { Effect } from 'effect'
-import { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import {
   loadCurrentUserContext,
@@ -21,10 +20,10 @@ import {
   type TriggerOfType,
 } from '@/domain/models/app/automations/trigger-entries-service'
 import { createdByFieldNames } from '@/domain/models/app/tables/authorship-fields'
-import { commentTableKeysOf } from '@/domain/models/app/tables/comment-address-service'
 import { evaluateRecordAgainstPredicate } from '@/domain/models/app/tables/row-level-evaluator-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
 import { logError } from '@/infrastructure/logging/logger'
+import { resolveMentionedEmails, resolveThreadParticipants } from './comment-trigger-recipients'
 import { dispatchAutomationOnce } from './dispatch-automation-trigger'
 import { loadPausedAutomationNames } from './paused-automation-names'
 import type { TriggerData } from './resolve-trigger-data'
@@ -32,7 +31,9 @@ import type { ExecuteAutomationRunRequirements } from './run-automation'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
+import type { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import type { AudienceRequirements } from '@/application/use-cases/tables/comment-mention-programs'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/tables/table'
 
@@ -108,141 +109,6 @@ const matchesCommentTrigger = (input: {
       !(trigger.when === 'approved' && status !== 'approved')
   )
 }
-
-/**
- * Read the first non-empty owner user id from `record`, searching the table's
- * declared `created-by` field name(s) FIRST ([internal ref]: the owner column may be
- * custom-named, e.g. `author`), then the literal `created_by` / `createdBy`
- * fallthrough (back-compat — keeps an automation trigger comment spec green
- * for tables whose created-by field IS literally named `created_by`).
- */
-const readOwnerId = (
-  record: Readonly<Record<string, unknown>>,
-  createdByNames: readonly string[]
-): string | undefined => {
-  const candidates = [...createdByNames, 'created_by', 'createdBy']
-  const owner = candidates
-    .map((name) => record[name])
-    .find((value): value is string => typeof value === 'string' && value.length > 0)
-  return owner
-}
-
-/**
- * Resolve the record OWNER's email for the [internal ref] first-comment fallback.
- *
- * The record envelope surfaces the owner's user id in the table's declared
- * `created-by` field — which may be CUSTOM-NAMED ([internal ref], e.g. `author`) — or
- * the literal snake_case `created_by` (the transformed envelope's camelCase
- * `createdBy` is also accepted defensively in case the upstream shape changes).
- * When a record has no prior comment authors (the very first comment),
- * `threadParticipants` would otherwise be empty and a "notify the thread"
- * automation would fail with "requires a `to` address". We fall back to the
- * record owner's email so notifications still deliver. Returns an empty array
- * when the owner cannot be resolved (no owner field, owner is the new author,
- * or the user row is missing).
- */
-const resolveOwnerFallbackEmails = (
-  session: Readonly<UserSession>,
-  record: Readonly<Record<string, unknown>>,
-  newAuthorId: string,
-  createdByNames: readonly string[]
-): Effect.Effect<readonly string[], never, CommentRepository> =>
-  Effect.gen(function* () {
-    const comments = yield* CommentRepository
-    const ownerId = readOwnerId(record, createdByNames)
-    if (ownerId === undefined) return [] as readonly string[]
-    if (ownerId === newAuthorId) return [] as readonly string[]
-    const emailResult = yield* Effect.result(
-      comments.getUserEmailById({ session, userId: ownerId })
-    )
-    if (emailResult._tag === 'Failure' || !emailResult.success) return [] as readonly string[]
-    return [emailResult.success]
-  })
-
-/** Every key the thread's comments may be stored under: the posted one, the table's id and name. */
-const threadTableKeysOf = (input: TriggerCommentEventInput): readonly string[] => {
-  const table = input.app.tables?.find((candidate) => candidate.name === input.tableName)
-  return table === undefined ? [input.tableId] : commentTableKeysOf(table, input.tableId)
-}
-
-/**
- * Resolve `threadParticipants` for the just-posted comment.
- *
- * Distinct EMAIL ADDRESSES of all (non-soft-deleted) comment authors on the
- * same record OF THE SAME TABLE, minus the new author — usable directly as an
- * `email.send` `to`. The thread is keyed on `(table, recordId)`, under every
- * key of the table (a comment keeps the id or name it was posted by): record ids
- * are per-table sequences, so a record-only lookup would notify the
- * commenters of every same-numbered record in the app. When the resolved list is empty (a first comment), falls back to the
- * record OWNER's email so a notify-thread automation still has a recipient.
- * Returns `readonly string[]` so the trigger envelope can surface it directly
- * at `{{trigger.threadParticipants}}`.
- */
-const resolveThreadParticipants = (params: {
-  readonly session: Readonly<UserSession>
-  readonly record: Readonly<Record<string, unknown>>
-  readonly tableKeys: readonly string[]
-  readonly recordId: string
-  readonly newAuthorId: string
-  readonly createdByNames: readonly string[]
-}): Effect.Effect<readonly string[], never, CommentRepository> =>
-  Effect.gen(function* () {
-    const { session, record, tableKeys, recordId, newAuthorId, createdByNames } = params
-    const comments = yield* CommentRepository
-    const authorsResult = yield* Effect.result(
-      comments.listAuthorEmailsForRecord({ session, tableKeys, recordId })
-    )
-    const priorEmails =
-      authorsResult._tag === 'Failure'
-        ? ([] as readonly string[])
-        : authorsResult.success
-            .filter((author) => author.userId !== newAuthorId)
-            .map((author) => author.email)
-    if (priorEmails.length > 0) return priorEmails
-    return yield* resolveOwnerFallbackEmails(session, record, newAuthorId, createdByNames)
-  })
-
-/**
- * Resolve `mentionedEmails` for the just-posted comment.
- *
- * The EMAIL ADDRESSES of the users named in `mentions`, in mention order,
- * usable directly as an `email.send` `to`. This is the exact twin of [internal ref]:
- * `mentions` is — and stays — `UUID[]` (an automation trigger comment spec
- * pins that, and it is the documented payload contract), so
- * `to: '{{trigger.mentions}}'` renders a comma-joined list of ids and the
- * action fails with "email.send requires a `to` address". Rather than change
- * the type of `mentions` and break both, we surface a SIBLING field that is
- * already addresses.
- *
- * The comment's own author is dropped even when they appear in `mentions`:
- * a self-mention must not send someone a notification about their own
- * comment. Ids that do not resolve to a user row (deleted user, bad id from
- * the caller) are skipped rather than failing the dispatch — a mention
- * automation that half-delivers is better than a comment endpoint that
- * silently drops its automation. Duplicate ids collapse to one address.
- */
-const resolveMentionedEmails = (params: {
-  readonly session: Readonly<UserSession>
-  readonly mentions: readonly string[]
-  readonly newAuthorId: string
-}): Effect.Effect<readonly string[], never, CommentRepository> =>
-  Effect.gen(function* () {
-    const { session, mentions, newAuthorId } = params
-    const targets = [...new Set(mentions)].filter((userId) => userId !== newAuthorId)
-    if (targets.length === 0) return [] as readonly string[]
-    const comments = yield* CommentRepository
-    const resolved = yield* Effect.forEach(
-      targets,
-      (userId) =>
-        Effect.map(Effect.result(comments.getUserEmailById({ session, userId })), (result) =>
-          result._tag === 'Failure' ? undefined : result.success
-        ),
-      { concurrency: 1 }
-    )
-    return resolved.filter(
-      (email): email is string => typeof email === 'string' && email.length > 0
-    )
-  })
 
 /**
  * Build the trigger-data envelope for a comment-posted dispatch. `record`
@@ -341,7 +207,22 @@ const fetchParentRecord = (
 ): Effect.Effect<Record<string, unknown> | undefined, never, TableRepository> =>
   Effect.gen(function* () {
     const repo = yield* TableRepository
-    const result = yield* Effect.result(repo.getRecord(session, tableName, recordId))
+    // effect-swallow: fail-soft — a parent record that cannot be read short-circuits the dispatch, as a vanished one does; the cause is logged on the way.
+    const result = yield* Effect.result(
+      repo
+        .getRecord(session, tableName, recordId)
+        .pipe(
+          Effect.tapCause((cause) =>
+            Effect.sync(() =>
+              logError(
+                '[automation:comment-posted] the parent record could not be read; the trigger is not dispatched',
+                cause,
+                { 'sovrium.table.name': tableName, 'sovrium.record.id': recordId }
+              )
+            )
+          )
+        )
+    )
     if (result._tag === 'Failure') return undefined
     return result.success ?? undefined
   })
@@ -394,18 +275,15 @@ const dispatchSingleCommentAutomation = (params: {
 const buildEnvelopeForComment = (
   input: TriggerCommentEventInput,
   record: Readonly<Record<string, unknown>>
-): Effect.Effect<TriggerData, never, CommentRepository> =>
+): Effect.Effect<TriggerData, never, CommentRepository | AudienceRequirements> =>
   Effect.gen(function* () {
     // [internal ref]: resolve the table's declared `created-by` field name(s) so the
     // first-comment owner fallback reads the owner from a CUSTOM-named column
     // (e.g. `author`), not just the literal `created_by`.
     const createdByNames = createdByFieldNames(input.app.tables, input.tableName)
     const threadParticipants = yield* resolveThreadParticipants({
-      session: input.session,
+      input: { ...input, authorId: input.author?.id },
       record,
-      tableKeys: threadTableKeysOf(input),
-      recordId: input.recordId,
-      newAuthorId: input.author?.id ?? '',
       createdByNames,
     })
     const mentionedEmails = yield* resolveMentionedEmails({
@@ -432,7 +310,7 @@ export const triggerCommentEventAutomations = (
   never,
   | ExecuteAutomationRunRequirements
   | CommentRepository
-  | DataSourceRepository
+  | AudienceRequirements
   | AutomationPauseRepository
 > =>
   Effect.gen(function* () {

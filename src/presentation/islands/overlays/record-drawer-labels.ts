@@ -34,6 +34,8 @@ export interface DrawerBuiltInLabels {
   readonly saveRefused?: string
   /** The name of the banner a refused save shows (`recordDrawer.validationError`). */
   readonly validationError?: string
+  /** The date picker's words, keyed by catalogue key (`datePicker.pick`, `datePicker.choose`). */
+  readonly datePicker?: Readonly<Record<string, string>>
   /** A refused write's toast words, keyed by catalogue key (`rateLimit.retryIn`, …). */
   readonly writeRefusal?: Readonly<Record<string, string>>
 }

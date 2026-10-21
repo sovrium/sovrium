@@ -72,6 +72,10 @@ export interface DesignSystemCommandOptions {
   readonly mode?: string
   /** `--force`: overwrite the bundle's own files in a non-empty `--output` directory. */
   readonly force?: boolean
+  /** `--pages`: add the app's pages to the bundle (`--format bundle` only). */
+  readonly pages?: boolean
+  /** Every `--page <name>`: export only these pages with `--pages`. */
+  readonly pageNames?: readonly string[]
 }
 
 /** The colour modes a token document describes, named once by the wire schema; light first. */
@@ -111,6 +115,29 @@ const refuseModeOutsideJson = (mode: string | undefined, format: string): void =
       '  Use --format json --mode dark for the dark token document, or drop --mode.'
   )
   process.exit(1)
+}
+
+/**
+ * Refuse `--pages` and `--page` where they change nothing, exiting 1: the pages
+ * are drawn into the bundle, so a single-document format has nowhere to put
+ * them, and `--page` narrows a `--pages` export. Runs before anything is read.
+ */
+const refusePagesOutsideBundle = (options: DesignSystemCommandOptions, format: string): void => {
+  const named = (options.pageNames ?? []).length > 0
+  if ((options.pages === true || named) && format !== BUNDLE_FORMAT) {
+    printStderr(
+      "Error: `--pages` draws the app's pages into the bundle, so it needs --format bundle.\n\n" +
+        '  sovrium design-system app.yaml --format bundle --pages --output design-system'
+    )
+    process.exit(1)
+  }
+  if (named && options.pages !== true) {
+    printStderr(
+      'Error: `--page` narrows a page export, so it needs --pages.\n\n' +
+        '  sovrium design-system app.yaml --format bundle --pages --page dashboard --output design-system'
+    )
+    process.exit(1)
+  }
 }
 
 /**
@@ -181,16 +208,21 @@ export const handleDesignSystemCommand = async (
     'the markdown brief, which is what an agent reads.'
   )
   refuseModeOutsideJson(options.mode, format)
+  refusePagesOutsideBundle(options, format)
   const mode = resolveColorMode(options.mode)
   const configPath = options.configFile ?? (await discoverDesignSystemConfig())
   const app = await decodeForExport(configPath)
 
   if (format === BUNDLE_FORMAT) {
     const { writeDesignSystemBundle } = await import('./design-system-bundle')
+    const { pageSelectionFor } = await import('./design-system-pages')
     // The logo files are read from the `public/` beside the config, as `sovrium start` serves it.
     const { assetProjectDir } = await import('@/infrastructure/assets/private-assets')
     await writeDesignSystemBundle(app, options.outputPath, options.force ?? false, {
       publicDir: join(assetProjectDir(configPath), 'public'),
+      ...(options.pages === true
+        ? { pages: await pageSelectionFor(app, configPath, options.pageNames ?? []) }
+        : {}),
     })
     return
   }

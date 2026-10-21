@@ -8,15 +8,16 @@ Usage: sovrium skills [--output <dir>] [--target claude|agents|all] [--check] [-
 
 An AI editing your config is only as good as what it knows about Sovrium. Left alone, it guesses from whatever it read during training: option names from an older release, a web page instead of the manual for your version, a config that validates but was never looked at in a browser. Agent skills close that gap. Each one is a short `SKILL.md` your AI reads when a task matches it, plus a `references/` folder it opens when it needs the detail.
 
-The binary carries five of them:
+The binary carries six of them:
 
-| Skill                 | Use it for                                                                |
-| --------------------- | ------------------------------------------------------------------------- |
-| `sovrium-app`         | Any change to the config: the edit, validate, run, look, stop loop        |
-| `sovrium-data-model`  | Tables, fields, field ids, relations                                      |
-| `sovrium-pages`       | Pages, components, design                                                 |
-| `sovrium-automations` | Triggers, actions, connections                                            |
-| `sovrium-seo-geo`     | Metadata, sitemaps, languages, redirects, and how pages read to AI search |
+| Skill                  | Use it for                                                                       |
+| ---------------------- | -------------------------------------------------------------------------------- |
+| `sovrium-app`          | Any change to the config: the edit, validate, run, look, stop loop               |
+| `sovrium-data-model`   | Tables, fields, field ids, relations                                             |
+| `sovrium-pages`        | Pages, components, design                                                        |
+| `sovrium-automations`  | Triggers, actions, connections                                                   |
+| `sovrium-seo-geo`      | Metadata, sitemaps, languages, redirects, and how pages read to AI search        |
+| `sovrium-report-issue` | Telling a configuration error from a bug, and reporting a bug or a vulnerability |
 
 Part of each `references/` folder is generated from the binary's own option descriptions, so a catalogue of field types or components always describes the version you run.
 

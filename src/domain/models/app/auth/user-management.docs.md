@@ -27,7 +27,7 @@ On first boot against a fresh database the admin is provisioned with a verified 
 
 On later startups the path **no-ops**. It never creates a duplicate and never modifies an existing user, even where the address already maps to a different role — so leaving the variables set in a deployment is safe. Success is logged without the password.
 
-The path is gated on a configured auth block, and is a no-op once any user exists. `AUTH_ADMIN_EMAIL` set with no password — and without the Sovrium Cloud variables below — provisions nothing, and the server says so in a startup warning.
+The path is gated on a configured auth block, and is a no-op once any user exists: when no account holds the `AUTH_ADMIN_EMAIL` address either, startup warns that it was ignored, and `sovrium admin create <email>` creates it. `AUTH_ADMIN_EMAIL` set with no password — and without the Sovrium Cloud variables below — provisions nothing, and the server says so in a startup warning.
 
 ### The one-time token
 

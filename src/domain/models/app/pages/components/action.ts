@@ -21,6 +21,7 @@ import { Schema } from 'effect'
 import {
   FillActionSchema,
   NavigateActionSchema,
+  OpenDialogActionSchema,
   OpenDrawerActionSchema,
   OpenImportActionSchema,
   SeekActionSchema,
@@ -67,6 +68,7 @@ const NON_FILL_ACTION_MEMBERS = [
   ToastActionSchema,
   FetchActionSchema,
   OpenDrawerActionSchema,
+  OpenDialogActionSchema,
   OpenImportActionSchema,
 ] as const
 
@@ -88,7 +90,7 @@ export const actionWithoutFill = (
     identifier,
     title,
     description,
-    message: `${slot} accepts an auth, crud, automation, navigate, toast, fetch, openSheet or openImport action. A fill action runs only from a button, a list item click (onRowClick) or a board drop hook (drag.onDrop); a seek action only from a button, or a list item, table row or card click.`,
+    message: `${slot} accepts an auth, crud, automation, navigate, toast, fetch, openSheet, openDialog or openImport action. A fill action runs only from a button, a list item click (onRowClick) or a board drop hook (drag.onDrop); a seek action only from a button, or a list item, table row or card click.`,
   })
 
 /**
@@ -107,8 +109,9 @@ export const actionWithoutFill = (
  * - **seek**: Move a video or audio player on the same page to a moment
  * - **openSheet**: Open a drawer component — discriminated on `action`, NOT on
  *   `type`, which is why it is easy to miss when counting this union.
+ * - **openDialog**: Open a dialog declared on the page — also on `action`.
  * - **openImport**: Open the CSV import dialog for one table — also on `action`.
- *   The union has TEN members; a list of seven here has already been read as
+ *   The union has ELEVEN members; a list of seven here has already been read as
  *   authoritative by downstream comments that then undercounted it.
  *
  * @example
@@ -167,7 +170,7 @@ export const ActionSchema = Schema.Union([
     identifier: 'Action',
     title: 'Action',
     description:
-      'Component action. Discriminated by type: auth (authentication), crud (data operations), automation (invoke workflow), navigate (pure URL navigation), toast (transient notification), fetch (client-side HTTP with toast response), fill (write a value into a form control on the same page), seek (move a video or audio player on the same page to a moment). Open-drawer is discriminated by `action: openSheet` instead of `type` (PG-04 quick-edit drawer pattern), and open-import (the CSV import dialog for one table) by `action: openImport`. A control narrows a data component through its `publishes` on a shared-filter channel, not through an action.',
+      'Component action. Discriminated by type: auth (authentication), crud (data operations), automation (invoke workflow), navigate (pure URL navigation), toast (transient notification), fetch (client-side HTTP with toast response), fill (write a value into a form control on the same page), seek (move a video or audio player on the same page to a moment). Open-drawer is discriminated by `action: openSheet` instead of `type` (PG-04 quick-edit drawer pattern), open-dialog (a dialog declared on the page) by `action: openDialog`, and open-import (the CSV import dialog for one table) by `action: openImport`. A control narrows a data component through its `publishes` on a shared-filter channel, not through an action.',
   })
 )
 

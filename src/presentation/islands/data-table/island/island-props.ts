@@ -115,6 +115,8 @@ export interface DataTableIslandProps {
   readonly layout?: DataTableLayout
   /** `rows` draws each row as a two-line item below the `sm` breakpoint. */
   readonly phoneLayout?: 'scroll' | 'rows'
+  /** Where Group by, Hide fields and Row height sit (`toolbar`: one View menu above the grid). */
+  readonly viewOptions?: 'bottom-bar' | 'toolbar'
   /**
    * The grid reads through one of its table's views (`dataSource.view`): the
    * view decides its rows, order, columns and grouping. Writes still go to the

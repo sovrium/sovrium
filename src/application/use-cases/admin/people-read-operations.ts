@@ -34,7 +34,7 @@ import {
   type AdminReadDecode,
   type AdminReadOperation,
 } from '@/application/use-cases/admin/admin-read-operation'
-import { ListAuditEvents } from '@/application/use-cases/admin/audit-log/emit'
+import { AUDIT_LOG_READ_OPERATIONS } from '@/application/use-cases/admin/audit-log-read-operations'
 import { GROUPS_READ_OPERATIONS } from '@/application/use-cases/admin/groups-read-operations'
 import {
   consoleLabels,
@@ -49,10 +49,6 @@ import {
 import { BuildUsersOverview } from '@/application/use-cases/admin/users-overview'
 import { projectInvitations } from '@/application/use-cases/auth/admin-invitation-lifecycle'
 import { parseSortSpec } from '@/domain/kernel/format/sort-spec'
-import {
-  auditLogListResponseSchema,
-  auditLogQuerySchema,
-} from '@/domain/models/api/admin/audit-log'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
 import { adminInvitationsListResponseSchema } from '@/domain/models/api/admin/invitations/lifecycle'
 import {
@@ -66,7 +62,6 @@ import {
   usersOverviewQuerySchema,
   usersOverviewResponseSchema,
 } from '@/domain/models/api/admin/users'
-import type { AuditListFilter } from '@/application/ports/repositories/admin/audit-log-repository'
 import type { PeriodPreset } from '@/domain/models/api/admin/envelope/period-preset'
 
 // ─── Users ───────────────────────────────────────────────────────────────────
@@ -141,6 +136,9 @@ export const decodeUsersDirectoryQuery = (
       limit: raw['limit'],
       sort: sortSpec?.field,
       order: sortSpec?.direction ?? raw['order'],
+      // An empty facet (`?role=`) is no facet, not a role nobody holds.
+      role: raw['role'] === '' ? undefined : raw['role'],
+      status: raw['status'] === '' ? undefined : raw['status'],
     }),
     {
       onNone: () => ({
@@ -148,11 +146,13 @@ export const decodeUsersDirectoryQuery = (
         reason: 'malformed',
         message: 'Invalid query parameters',
       }),
-      onSome: ({ q, page, limit, sort, order }) => ({
+      onSome: ({ q, page, limit, sort, order, role, status }) => ({
         _tag: 'Ok',
         input: {
           ...(q !== undefined ? { q } : {}),
           ...(sort !== undefined ? { sort, order } : {}),
+          ...(role !== undefined ? { role } : {}),
+          ...(status !== undefined ? { status } : {}),
           page,
           limit,
         },
@@ -166,11 +166,11 @@ const usersDirectory = defineAdminRead<UsersDirectoryQuery>({
   method: 'get',
   path: '/api/admin/users',
   pathParams: [],
-  queryParams: ['q', 'page', 'limit', 'sort', 'order'],
+  queryParams: ['q', 'page', 'limit', 'sort', 'order', 'role', 'status'],
   tool: {
     suffix: 'users_list',
     description:
-      'Search and page the account directory — id, email, name, role, whether banned and the groups each account belongs to — as GET /api/admin/users answers it in JSON (admin-only, read-only).',
+      'Search and page the account directory — id, email, name, role, whether banned, the groups each account belongs to, when it was created and last signed in, how many sessions it holds, whether it has two-factor on and how it signs in — as GET /api/admin/users answers it in JSON (admin-only, read-only).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -181,6 +181,12 @@ const usersDirectory = defineAdminRead<UsersDirectoryQuery>({
           description: 'The column to order by; or field:direction.',
         },
         order: { type: 'string', enum: ['asc', 'desc'], description: 'Sort direction.' },
+        role: { type: 'string', description: 'Only the accounts holding exactly this role.' },
+        status: {
+          type: 'string',
+          enum: ['banned', 'active'],
+          description: 'Only the banned accounts, or only the others.',
+        },
         page: { type: 'integer', minimum: 1, description: '1-based page (default 1).' },
         limit: { type: 'integer', minimum: 1, maximum: 200, description: 'Accounts per page.' },
       },
@@ -189,7 +195,8 @@ const usersDirectory = defineAdminRead<UsersDirectoryQuery>({
   openapi: {
     summary: 'List the accounts',
     description:
-      'The secret-free account directory, searched over email and name, ordered and paged; ' +
+      'The secret-free account directory, searched over email and name, narrowed by `role` ' +
+      'and `status`, ordered and paged; ' +
       '`q` is echoed back as `appliedQuery`. `?format=csv` downloads every matching account ' +
       'instead of the page. Admin only.',
     operationIdBase: 'listAdminUsers',
@@ -296,76 +303,6 @@ const organisationGraph = defineAdminRead<AdminOrganisationGraphQuery>({
     ),
 })
 
-// ─── Audit log ───────────────────────────────────────────────────────────────
-
-/** A filter value as the route reads it: a non-empty string, else no filter. */
-const filterValue = (value: unknown): string | undefined =>
-  typeof value === 'string' && value.length > 0 ? value : undefined
-
-/**
- * The audit-log filters, read as the route always read them: an unrecognised
- * transport or resource type matches nothing and answers an empty page — an
- * explicit empty state, never a 400. All filters combine conjunctively.
- */
-const decodeAuditLogFilter = (raw: Readonly<Record<string, unknown>>): AuditListFilter => {
-  const actorId = filterValue(raw['actorId'])
-  const action = filterValue(raw['action'])
-  const transport = filterValue(raw['transport'])
-  const resourceType = filterValue(raw['resourceType'])
-  return {
-    ...(actorId !== undefined ? { actorId } : {}),
-    ...(action !== undefined ? { action } : {}),
-    ...(transport !== undefined ? { transport } : {}),
-    ...(resourceType !== undefined ? { resourceType } : {}),
-  }
-}
-
-const auditLogList = defineAdminRead<AuditListFilter>({
-  id: 'audit-log.list',
-  method: 'get',
-  path: '/api/admin/audit-log',
-  pathParams: [],
-  queryParams: ['actorId', 'action', 'resourceType', 'transport', 'cursor', 'limit'],
-  tool: {
-    suffix: 'audit_log_list',
-    description:
-      'Read the admin audit trail newest first, filtered by actor, action, transport or resource type, as GET /api/admin/audit-log answers it (admin-only, read-only; reading it records nothing).',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        actorId: { type: 'string', description: 'Only entries by this user id.' },
-        action: { type: 'string', description: 'Only entries of this exact action.' },
-        transport: {
-          type: 'string',
-          description: 'Only entries made through this transport, e.g. api or mcp.',
-        },
-        resourceType: {
-          type: 'string',
-          description: 'Only entries on this exact resource type.',
-        },
-      },
-    },
-  },
-  openapi: {
-    summary: 'Read the admin audit log',
-    description:
-      'The admin audit trail, newest first, optionally filtered by actor, action, transport ' +
-      'and resource type (all exact, combined conjunctively). An unrecognised value matches ' +
-      'nothing and answers an empty page. Reading the trail writes no audit event. Admin only.',
-    operationIdBase: 'listAdminAuditLog',
-    querySchema: auditLogQuerySchema,
-    responseSchema: auditLogListResponseSchema,
-    responseDescription: 'The matching audit entries',
-  },
-  subject: 'audit-log response',
-  decode: (raw) => ({ _tag: 'Ok', input: decodeAuditLogFilter(raw) }),
-  // No admin audit event: reading the trail must not grow it.
-  read: (_app, filter) =>
-    Effect.map(ListAuditEvents(filter), (items) =>
-      answerWithSchema(auditLogListResponseSchema, { items: [...items], nextCursor: null })
-    ),
-})
-
 // ─── Area ────────────────────────────────────────────────────────────────────
 
 /**
@@ -382,9 +319,6 @@ export const USERS_READ_OPERATIONS: ReadonlyArray<AdminReadOperation> = [
 
 /** The organisation graph. */
 export const ORGANISATION_READ_OPERATIONS: ReadonlyArray<AdminReadOperation> = [organisationGraph]
-
-/** The admin audit log. */
-export const AUDIT_LOG_READ_OPERATIONS: ReadonlyArray<AdminReadOperation> = [auditLogList]
 
 /** The people and access admin reads, in the order the registry lists them. */
 export const PEOPLE_READ_OPERATIONS: ReadonlyArray<AdminReadOperation> = [

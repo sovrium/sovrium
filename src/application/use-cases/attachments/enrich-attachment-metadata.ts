@@ -22,7 +22,7 @@
  */
 
 import { Effect } from 'effect'
-import { StorageService } from '@/application/ports/services/storage-service'
+import { probeStoredFile, recordedSizeOf } from '@/application/use-cases/storage/recorded-file-read'
 import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
 import {
   bucketForField,
@@ -32,6 +32,7 @@ import {
 } from './attachment-fields'
 import { storageUnavailable } from './errors'
 import type { AttachmentStorageUnavailable } from './errors'
+import type { StorageService } from '@/application/ports/services/storage-service'
 
 /** Enrich every `single-attachment` column declaring `storeMetadata: true`. */
 export const enrichAttachmentMetadata = (input: {
@@ -52,8 +53,6 @@ export const enrichAttachmentMetadata = (input: {
 
     if (metadataFields.length === 0) return fields
 
-    const storage = yield* StorageService
-
     return yield* Effect.reduce(
       metadataFields,
       () => ({ ...fields }) as Record<string, unknown>,
@@ -61,19 +60,21 @@ export const enrichAttachmentMetadata = (input: {
         if (!(f.name in acc) || typeof acc[f.name] !== 'string') return Effect.succeed(acc)
         const key = acc[f.name] as string
         const bucket = bucketForField(scope, f.name)
-        return storage.download(key, bucket).pipe(
+        // The size is the one the catalogue records; the file is probed, never read whole.
+        return probeStoredFile(key, bucket).pipe(
+          Effect.andThen(recordedSizeOf(key, bucket)),
           Effect.mapError(
             storageUnavailable(
               f.name,
               'the referenced file could not be read to record its metadata'
             )
           ),
-          Effect.map((content) => ({
+          Effect.map((size) => ({
             ...acc,
             [f.name]: {
               filename: stripUuidPrefix(key),
               mimeType: inferMimeFromKey(key),
-              size: content.length,
+              size,
               url: `/api/buckets/${bucket}/files/${key}`,
             },
           }))

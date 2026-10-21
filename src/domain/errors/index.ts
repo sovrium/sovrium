@@ -47,3 +47,10 @@ export { UniqueConstraintViolationError } from './unique-constraint-violation-er
 export { ForeignKeyViolationError } from './foreign-key-violation-error'
 export { ValidationError } from './validation-error'
 export { UnknownFilterFieldError } from './unknown-filter-field-error'
+export {
+  OPERATOR_FIXES,
+  OPERATOR_FIX_GUIDANCE,
+  isOperatorFix,
+  operatorFixOf,
+  type OperatorFix,
+} from './operator-fixable-error'

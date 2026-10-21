@@ -18,8 +18,24 @@
  *
  * A source matching TWO formats is never settled by a precedence nobody can
  * see: the caller refuses it, naming both, and `--from` decides.
+ *
+ * Page drawings (`--pages`) are detected apart, by {@link detectPageImportFormats}:
+ * a page document is no token file, so a token import never reads one, and
+ * `--from figma` without `--pages` still means Figma's Variables files.
  */
 
+import {
+  fromClaudeDesignCanvas,
+  isClaudeDesignCanvas,
+  type ClaudeDesignCanvasParseOptions,
+} from '@/domain/models/app/design/adapters/pages/claude-design-canvas-parse'
+import {
+  PAGE_IMPORT_FORMATS,
+  type PageDrawingParse,
+  type PageImportFormat,
+} from '@/domain/models/app/design/adapters/pages/page-drawing'
+import { isFigmaPageDocument } from '../pages/figma-pages-parse'
+import { fromPenpot, isPenpotExport } from '../pages/penpot-pages-parse'
 import {
   isDtcgTree,
   isLegacyTree,
@@ -96,3 +112,48 @@ const ADAPTERS: Readonly<Record<ImportFormat, (source: ImportSource) => AdapterR
 /** Read a source as one format, through that format's adapter. */
 export const readImportSource = (source: ImportSource, format: ImportFormat): AdapterResult =>
   ADAPTERS[format](source)
+
+// ─── page mode (`design-system import --pages`) ───────────────────────────────
+//
+// A page drawing is read by a page adapter, never by a token adapter, so the
+// two detections never meet: `--from claude-design` without `--pages` still
+// reads the design-system project's tokens, and with `--pages` reads a canvas.
+// A tool whose page parse has not shipped yet is simply never detected.
+
+/** What a page drawing's shape says it is, per format. */
+const PAGE_SHAPES: Readonly<Partial<Record<PageImportFormat, (source: ImportSource) => boolean>>> =
+  {
+    'claude-design': isClaudeDesignCanvas,
+    figma: (source) => documentsOf(source).some(isFigmaPageDocument),
+    penpot: (source) => isPenpotExport(source.files),
+  }
+
+/** The page parse of each format, each into the shared `PageDrawingParse`. */
+const PAGE_ADAPTERS: Readonly<
+  Partial<
+    Record<
+      PageImportFormat,
+      (source: ImportSource, options: ClaudeDesignCanvasParseOptions) => PageDrawingParse
+    >
+  >
+> = {
+  'claude-design': fromClaudeDesignCanvas,
+  penpot: fromPenpot,
+}
+
+/**
+ * The page formats a source's shape matches: one is a detection, none means
+ * it is no page drawing, two or more means it is ambiguous.
+ */
+export const detectPageImportFormats = (source: ImportSource): readonly PageImportFormat[] =>
+  PAGE_IMPORT_FORMATS.filter((format) => PAGE_SHAPES[format]?.(source) === true)
+
+/**
+ * Read a source as one page format, or `undefined` when that format's page
+ * parse is not available.
+ */
+export const readPageImportSource = (
+  source: ImportSource,
+  format: PageImportFormat,
+  options: ClaudeDesignCanvasParseOptions = {}
+): PageDrawingParse | undefined => PAGE_ADAPTERS[format]?.(source, options)

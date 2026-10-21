@@ -21,6 +21,13 @@ import {
   hostComponentType,
 } from '@/presentation/render/registry/island-host-attributes'
 import { isAccountSessionsSource } from '@/presentation/render/resolve/auth-source-binding'
+import {
+  islandFallback,
+  renderSeededListItems,
+  specimenEmpty,
+  specimenSeedOf,
+  type SpecimenSeed,
+} from './specimen-island-states'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Tables } from '@/domain/models/app/tables'
 import type { ComponentDesignResolution } from '@/presentation/design/resolve-component-classes'
@@ -94,6 +101,20 @@ function renderListSkeleton(
       ))}
     </div>
   )
+}
+
+/**
+ * What a list island draws in a specimen: the seeded rows of its declared
+ * table, else its empty state, or nothing for a list that hides when empty.
+ */
+function renderListSpecimen(
+  seed: SpecimenSeed | undefined,
+  listDisplay: ListDisplayProps | undefined,
+  { currentLang, languages }: EngineLocale
+): ReactElement | undefined {
+  if (seed !== undefined) return renderSeededListItems(seed)
+  if (listDisplay?.hideWhenEmpty === true) return undefined
+  return specimenEmpty('gallery.empty', currentLang, languages)
 }
 
 /**
@@ -174,7 +195,12 @@ export function renderListIsland(
       data-testid={elementProps['data-testid'] as string | undefined}
       data-island-props={islandProps}
     >
-      {renderListSkeleton(listDisplay, shell, { currentLang, languages })}
+      {islandFallback(renderListSkeleton(listDisplay, shell, { currentLang, languages }), () =>
+        renderListSpecimen(specimenSeedOf(dataSource, tables), listDisplay, {
+          currentLang,
+          languages,
+        })
+      )}
     </div>
   )
 }

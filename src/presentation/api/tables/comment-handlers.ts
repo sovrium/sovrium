@@ -303,9 +303,8 @@ export async function handleListComments(c: Context, app: App) {
   const viewerIsAdmin = isAdminEquivalent(userRole, app)
 
   // Project a per-user `unreadCount` only when the table opts into
-  // `comments.readTracking`. Thread the raw `:tableId` so the read-state
-  // watermark is scoped to the same (user, table, record) identity comments
-  // are stored under.
+  // `comments.readTracking`. The watermark is read under every key of the
+  // table, as the comments are.
   const readTracking = table.comments?.readTracking === true
 
   // Each comment carries the people its `@[<user id>]` markup names, resolved
@@ -317,7 +316,6 @@ export async function handleListComments(c: Context, app: App) {
       session,
       recordId,
       tableName: table.name,
-      tableId,
       tableKeys: commentTableKeysOf(table, tableId),
       limit,
       offset,

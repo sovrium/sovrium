@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { sentChatCallerKey } from '@/presentation/api/agents/chat-conversation-store'
 import { stopChatTurn } from '@/presentation/api/agents/chat-stream-events'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
@@ -23,8 +24,9 @@ export const handleChatStop = async (c: Context): Promise<Response | TypedRespon
   const body = await validateRequest(c, Schema.Struct({ sessionId: Schema.NonEmptyString }))
   if (!body.success) return body.response
   const { sessionId } = body.data
-  const userId = getSessionContext(c)?.userId ?? 'anonymous'
-  return stopChatTurn(userId, sessionId)
+  // A signed-out caller stops only her own browser's turn; one with no id has none.
+  const caller = sentChatCallerKey(c, getSessionContext(c)?.userId ?? 'anonymous')
+  return caller !== undefined && stopChatTurn(caller, sessionId)
     ? c.json({ status: 'stopping', sessionId }, 202)
     : notFound(c, 'No turn in progress on this session.')
 }

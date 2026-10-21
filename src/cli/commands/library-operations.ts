@@ -30,6 +30,7 @@ import type {
   ConnectionOperation,
   OperationParam,
 } from '@/domain/models/app/connections/operations'
+import type { LibraryCatalogueApi, LibraryEntry } from '@/library/manifest/define'
 import type { LibraryOperationSet } from '@/library/manifest/operations'
 
 /** Above this many, `--all` installs only with `--yes`. */
@@ -68,20 +69,56 @@ export const isOperationId = (id: string | undefined, kinds: readonly string[]):
   return second !== undefined && first !== undefined && !kinds.includes(first)
 }
 
+/** The refusal for a provider with no operations, listing the providers that have some. */
+const refuseNoOperations = (provider: string, providers: readonly string[]): never =>
+  refuse(
+    `Error: The library ships no API operations for "${provider}".\n\n` +
+      `  Providers with operations: ${providers.join(', ')}.\n` +
+      '  Find one with `sovrium library search <word>`.'
+  )
+
 /** The set a provider ships, or a refusal listing the providers that ship one. */
 const setOrRefuse = async (
   operations: OperationsModule,
   provider: string
 ): Promise<LibraryOperationSet> =>
-  (await operations.load(provider)) ??
-  refuse(
-    `Error: The library ships no API operations for "${provider}".\n\n` +
-      `  Providers with operations: ${operations.providers.join(', ')}.\n` +
-      '  Find one with `sovrium library search <word>`.'
+  (await operations.load(provider)) ?? refuseNoOperations(provider, operations.providers)
+
+/** A provider and the operations an install may name, generated or written by hand. */
+type NamedOperations = Pick<LibraryOperationSet, 'provider' | 'operations'>
+
+/** The operations a connection entry declares itself, built with its parameters' defaults. */
+const entryOperations = (entry: LibraryEntry): readonly ConnectionOperation[] =>
+  entry.kind === 'connection'
+    ? (entry.build({
+        name: entry.slug,
+        params: Object.fromEntries(entry.params.map((param) => [param.name, param.default])),
+      }).operations ?? [])
+    : []
+
+/**
+ * A provider's operations for `add <provider>/<operation>`: its generated set,
+ * else the operations its connection entry writes by hand (`trello`), else a
+ * refusal listing every provider that has either.
+ */
+const namedOperationsOrRefuse = async (
+  operations: OperationsModule,
+  catalogue: LibraryCatalogueApi,
+  provider: string
+): Promise<NamedOperations> => {
+  const generated = await operations.load(provider)
+  if (generated !== undefined) return generated
+  const declaring = (await catalogue.loadCatalogue()).filter(
+    (entry) => entry.kind === 'connection' && entryOperations(entry).length > 0
   )
+  const entry = declaring.find((candidate) => candidate.slug === provider)
+  if (entry !== undefined) return { provider, operations: entryOperations(entry) }
+  const providers = [...new Set([...operations.providers, ...declaring.map((one) => one.slug)])]
+  return refuseNoOperations(provider, providers.toSorted())
+}
 
 /** One operation of a set, or a refusal pointing at the search that finds it. */
-const operationOrRefuse = (set: LibraryOperationSet, name: string): ConnectionOperation =>
+const operationOrRefuse = (set: NamedOperations, name: string): ConnectionOperation =>
   set.operations.find((operation) => operation.name === name) ??
   refuse(
     `Error: ${set.provider} has no operation "${name}".\n\n` +
@@ -129,6 +166,7 @@ type ResolvedOperations = { readonly provider: string; readonly request: Operati
 /** `add <provider>/<operation>`: that one operation. */
 const resolveOneOperation = async (
   operations: OperationsModule,
+  catalogue: LibraryCatalogueApi,
   selection: OperationSelection,
   id: string
 ): Promise<ResolvedOperations> => {
@@ -139,7 +177,7 @@ const resolveOneOperation = async (
   const parsed =
     operations.parse(id) ??
     refuse(`Error: "${id}" is not an operation id of the form <provider>/<operation>.`)
-  const set = await setOrRefuse(operations, parsed.provider)
+  const set = await namedOperationsOrRefuse(operations, catalogue, parsed.provider)
   const operation = operationOrRefuse(set, parsed.name)
   return {
     provider: set.provider,
@@ -173,16 +211,17 @@ const resolveOperationGroup = async (
 
 /**
  * The provider and operations a `library add` names — refusing, before the
- * config is looked for, anything that names no real operation.
+ * config is looked for, anything that names no real operation. `--tag` and
+ * `--all` read generated sets only: an entry's own operations have no groups.
  */
 export const resolveOperationsRequest = async (
   selection: OperationSelection,
-  kinds: readonly string[]
+  catalogue: LibraryCatalogueApi
 ): Promise<ResolvedOperations> => {
   const operations = await loadOperationsModule()
   const id = selection.id ?? ''
-  return isOperationId(id, kinds)
-    ? resolveOneOperation(operations, selection, id)
+  return isOperationId(id, catalogue.LIBRARY_KINDS)
+    ? resolveOneOperation(operations, catalogue, selection, id)
     : resolveOperationGroup(operations, selection, id)
 }
 

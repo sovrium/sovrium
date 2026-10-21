@@ -8,6 +8,7 @@
 import { Effect } from 'effect'
 import { AutomationRepository } from '@/application/ports/repositories/automations/automation-repository'
 import { firstTrigger } from '@/domain/models/app/automations/trigger-entries-service'
+import { logError } from '@/infrastructure/logging/logger'
 import { defaultActionHandlers } from './action-handlers'
 import {
   executeAutomationRun,
@@ -44,13 +45,26 @@ export const resolveAutomationIdSilent = (
     ) {
       return findResult.success['id']
     }
+    // effect-swallow: fail-soft — an automation row that cannot be created leaves the id unresolved and the caller skips the dispatch; the cause is logged on the way.
     const createResult = yield* Effect.result(
-      repo.create({
-        name,
-        trigger: firstTrigger(automation),
-        actions: automation.actions,
-        enabled: automation.enabled ?? true,
-      })
+      repo
+        .create({
+          name,
+          trigger: firstTrigger(automation),
+          actions: automation.actions,
+          enabled: automation.enabled ?? true,
+        })
+        .pipe(
+          Effect.tapCause((cause) =>
+            Effect.sync(() =>
+              logError(
+                '[automations] the automation row could not be created; the trigger is not dispatched',
+                cause,
+                { 'sovrium.automation.name': name }
+              )
+            )
+          )
+        )
     )
     if (createResult._tag !== 'Success') return undefined
     const created = createResult.success

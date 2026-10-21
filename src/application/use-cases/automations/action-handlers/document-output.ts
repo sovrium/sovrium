@@ -11,6 +11,7 @@ import {
   UNATTRIBUTED_BUCKET,
   type BucketBinding,
 } from '@/application/ports/services/storage-service'
+import { storageReadOrUndefined } from '@/application/use-cases/storage/storage-failure-log'
 import { isCanonicalStorageKey } from '@/domain/kernel/identity/storage-key'
 import { TEMP_STORAGE_PREFIX } from '@/domain/models/app/automations/actions/file/shared'
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
@@ -185,11 +186,9 @@ interface Existing {
 
 /** The object already at `key`, in any bucket, or `undefined`. */
 const existingAt = (key: string): Effect.Effect<Existing | undefined, never, StorageService> =>
-  Effect.gen(function* () {
-    const storage = yield* StorageService
-    const meta = yield* Effect.result(storage.getMetadata(key, UNATTRIBUTED_BUCKET))
-    return meta._tag === 'Success' ? meta.success : undefined
-  })
+  StorageService.use((storage) =>
+    storageReadOrUndefined(storage.getMetadata(key, UNATTRIBUTED_BUCKET), key, 'document output')
+  )
 
 /**
  * Why the file at a taken key is not this automation's to replace (or to

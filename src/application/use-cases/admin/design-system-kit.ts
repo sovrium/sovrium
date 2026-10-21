@@ -44,6 +44,7 @@ import { DesignKitAssets } from '@/application/ports/services/design-kit-assets'
 import { PageRenderer } from '@/application/ports/services/page-renderer'
 import { projectCatalogue } from '@/application/use-cases/admin/design-system-catalogue-export'
 import {
+  OPEN_OVERLAY_SPECIMEN_BY_TYPE,
   SPECIMEN_BY_TYPE,
   catalogSpecimenInAxes,
 } from '@/domain/models/app/design/catalog-specimens'
@@ -57,6 +58,7 @@ import {
   CATALOG_CATEGORY_TITLES,
   purposeOfComponentType,
 } from '@/domain/models/app/pages/components/component-types/catalog'
+import { SPECIMEN_INSTANT } from '@/domain/models/app/pages/specimen-sample-service'
 import {
   escapeHtml,
   kitDocument,
@@ -125,22 +127,28 @@ const candidateOf = (entry: ReturnType<typeof projectCatalogue>[number]): KitCan
   const variants = entry.variants ?? []
   const base = SPECIMEN_BY_TYPE.get(entry.type)?.component
   const introspection = introspectType(entry.type)
+  // An overlay the console refuses live (it would cover the page) is drawn OPEN in its frame.
+  const open = OPEN_OVERLAY_SPECIMEN_BY_TYPE.get(entry.type)
   const cells =
-    base === undefined || entry.excludedReason !== undefined
-      ? []
-      : variants.length === 0
-        ? [{ label: 'default', component: base }]
-        : variants.map((variant) => ({
-            label: variant,
-            component: catalogSpecimenInAxes(entry.type, { variant }, introspection) ?? base,
-          }))
+    open !== undefined
+      ? [{ label: 'open', component: open }]
+      : base === undefined || entry.excludedReason !== undefined
+        ? []
+        : variants.length === 0
+          ? [{ label: 'default', component: base }]
+          : variants.map((variant) => ({
+              label: variant,
+              component: catalogSpecimenInAxes(entry.type, { variant }, introspection) ?? base,
+            }))
   return {
     type: entry.type,
     category: entry.category as CatalogComponentCategory,
     variants,
     refusal:
-      entry.excludedReason ??
-      (cells.length === 0 ? `${entry.type} has no specimen the kit can draw.` : undefined),
+      open !== undefined
+        ? undefined
+        : (entry.excludedReason ??
+          (cells.length === 0 ? `${entry.type} has no specimen the kit can draw.` : undefined)),
     cells,
   }
 }
@@ -199,6 +207,26 @@ const kitAppOf = (app: App, pages: readonly Page[]): App =>
     pages,
   }) as App
 
+/**
+ * The app a page export draws its pages in: the specimen app above, plus the
+ * four keys a page cannot be drawn without — its `languages` (the `$t:` copy),
+ * its `components` (the templates a page places), its `tables` (the field
+ * definitions the synthetic seed is made from) and its `auth` (the roles and
+ * groups a page's `access` rule and a node's `visibility` are judged against,
+ * and the sign-in methods a sign-in page draws). `auth` is configuration, never
+ * a session: the renderer draws a specimen as the synthetic sample admin, so a
+ * page closed to admins is drawn as an admin meets it. Still no `env` and no
+ * other page: an export draws the pages it was asked for, from config alone.
+ */
+export const kitPageAppOf = (app: App, pages: readonly Page[]): App =>
+  ({
+    ...kitAppOf(app, pages),
+    ...(app.languages === undefined ? {} : { languages: app.languages }),
+    ...(app.components === undefined ? {} : { components: app.components }),
+    ...(app.tables === undefined ? {} : { tables: app.tables }),
+    ...(app.auth === undefined ? {} : { auth: app.auth }),
+  }) as App
+
 /** Render one type's page, or `undefined` when the renderer could not draw it. */
 const renderKitPage = (kitApp: App, type: string) =>
   Effect.gen(function* () {
@@ -206,7 +234,7 @@ const renderKitPage = (kitApp: App, type: string) =>
     // A specimen the renderer cannot draw offline is listed without a page
     // (see `entryOf`), never a failure of the whole kit.
     const rendered = yield* Effect.tryPromise({
-      try: async () => renderer.renderPage(kitApp, kitRoute(type), {}),
+      try: async () => renderer.renderPage(kitApp, kitRoute(type), { drawnAt: SPECIMEN_INSTANT }),
       catch: (cause) => new KitPageRenderError({ type, cause }),
     }).pipe(
       Effect.tapCause((cause) =>

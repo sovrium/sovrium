@@ -114,6 +114,91 @@ export const excludeRuntimeArtefacts = (absolutePath: string): boolean => {
 }
 
 /**
+ * A third-party export pinned byte for byte as the sample of a design-system
+ * adapter contract: `[internal ref]<tool>/<version>/export-sample/**`.
+ *
+ * Those files are upstream-verbatim, licensed vendor output (a Notion Markdown
+ * export, a Webflow site export with its `js/webflow.js`), and each folder's
+ * `manifest.json` holds them to a sha256 under `Design Adapter Contract Drift`.
+ * A gate that judges them as if they were authored here demands a change to
+ * vendor bytes, which the manifest then rejects: Notion links a page to CSVs
+ * its Markdown export does not hold, and a Webflow export nests `js/` under a
+ * dotted version directory. Neither is a defect to fix; both are the evidence
+ * the adapter is tested against.
+ *
+ * Deliberately narrow: only the `export-sample/` DIRECTORY, the same glob
+ * `[internal ref]` ignores. The contract's own `manifest.json`, its
+ * README, and the single-file samples beside the folder stay governed.
+ */
+export const PINNED_EXPORT_SAMPLE =
+  /^scripts\/baselines\/design-system-adapters\/[^/]+\/[^/]+\/export-sample\//
+
+/** Whether a REPO-RELATIVE path lies inside a {@link PINNED_EXPORT_SAMPLE} folder. */
+export const isPinnedExportSample = (repoRelativePath: string): boolean =>
+  PINNED_EXPORT_SAMPLE.test(toPosixPath(repoRelativePath))
+
+/** A {@link WalkOptions.filter} that drops every {@link isPinnedExportSample} path. */
+export const excludePinnedExportSamples = (absolutePath: string): boolean =>
+  !isPinnedExportSample(relative(REPO_ROOT, absolutePath))
+
+/** The operator console's Claude Design reference, repo-relative (`[internal ref]`, `admin`). */
+export const CONSOLE_DESIGN_ROOT = 'src/admin/design'
+
+/**
+ * The folders of {@link CONSOLE_DESIGN_ROOT} that hold reference DATA rather
+ * than authored source: all three are written whole by `bun run design:console`
+ * from the console's own design-system bundle export (`prototype/` is the
+ * interactive prototype built from its canvas) and two-way synced with
+ * claude.ai/design.
+ */
+export const CONSOLE_DESIGN_REFERENCE_FOLDERS: readonly string[] = [
+  'design-system',
+  'canvas',
+  'prototype',
+]
+
+const CONSOLE_DESIGN_REFERENCE = new RegExp(
+  `^${CONSOLE_DESIGN_ROOT}/(?:${CONSOLE_DESIGN_REFERENCE_FOLDERS.join('|')})/`
+)
+
+/**
+ * Whether a REPO-RELATIVE path lies inside one of the console design
+ * reference's data folders ({@link CONSOLE_DESIGN_REFERENCE_FOLDERS}).
+ *
+ * Those files are never imported and never embedded: they exist to be read by
+ * Claude Design and by a person, and their names, sizes and links are the
+ * export's (`components/Accordion/README.md`, anchors into sibling pages, one
+ * directory per component). A gate that judges them as if they were authored
+ * here demands edits that the next `bun run design:console` overwrites, which is
+ * the {@link isPinnedExportSample} argument one tree over. Their only gate is
+ * the report-only `Console Design Reference Drift`, which compares them to a
+ * fresh export.
+ *
+ * Deliberately narrow: the three folders, never the whole of
+ * {@link CONSOLE_DESIGN_ROOT}. The `README.md` beside them is authored prose and
+ * stays governed like any other.
+ */
+export const isConsoleDesignReference = (repoRelativePath: string): boolean =>
+  CONSOLE_DESIGN_REFERENCE.test(toPosixPath(repoRelativePath))
+
+/** A {@link WalkOptions.filter} that drops every {@link isConsoleDesignReference} path. */
+export const excludeConsoleDesignReference = (absolutePath: string): boolean =>
+  !isConsoleDesignReference(relative(REPO_ROOT, absolutePath))
+
+/**
+ * A {@link WalkOptions.filter} keeping only what is AUTHORED here: neither a
+ * {@link RUNTIME_ARTEFACT_PREFIXES} path, nor an {@link isPinnedExportSample}
+ * one, nor an {@link isConsoleDesignReference} one. `Layout Drift` walks both
+ * trees through it — the law governs authored files, and a vendor's folder
+ * layout (a Webflow export's `site-export/js/webflow.js`, eight segments under
+ * the dotted `2.2.2/`) is not one, nor is a generated export's.
+ */
+export const isAuthored = (absolutePath: string): boolean =>
+  excludeRuntimeArtefacts(absolutePath) &&
+  excludePinnedExportSamples(absolutePath) &&
+  excludeConsoleDesignReference(absolutePath)
+
+/**
  * Whether `name`, found inside `parent`, is a harness's NESTED-CHECKOUT
  * directory: `worktrees` directly under `.claude`.
  *

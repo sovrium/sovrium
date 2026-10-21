@@ -137,23 +137,6 @@ export const s3UploadCreateOnly = async (
   return 'written'
 }
 
-export const s3Download = async (
-  client: Bun.S3Client,
-  bucket: string,
-  key: string
-): Promise<Uint8Array> => {
-  assertCanonicalS3Key(key)
-  return Effect.runPromise(
-    retryIdempotentS3(
-      Effect.timeoutOrElse(
-        // @effect-diagnostics-next-line unknownInEffectCatch:off -- see `passThrough`: this adapter's contract is that the peer's own rejection reaches the Promise boundary verbatim
-        Effect.tryPromise({ try: () => client.file(key, { bucket }).bytes(), catch: passThrough }),
-        s3Deadline('download', S3_DATA_TIMEOUT_MS)
-      )
-    )
-  )
-}
-
 export const s3Delete = async (
   client: Bun.S3Client,
   bucket: string,

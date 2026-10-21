@@ -45,6 +45,7 @@ import {
   RELEASE_DOWNLOAD_STALL_TIMEOUT_MS,
   isTrustedFinalUrl,
 } from '@/domain/kernel/identity/release-signature'
+import { packageManagerOfExecPath } from '@/domain/kernel/url/package-manager-install'
 import { releaseAssetUrl } from '@/domain/models/process-env/release-download'
 import { withFetchStallTimeout } from '@/infrastructure/egress/with-fetch-timeout'
 import {
@@ -107,14 +108,9 @@ export interface InstallMethodProbe {
  * misfiles a binary the install script put in `~/.sovrium/bin` and sends
  * `sovrium update` to a package manager that never installed it.
  *
- * - Homebrew keeps a formula under `<prefix>/Cellar/sovrium/<version>/` and
- *   links `<prefix>/bin/sovrium` to it. Bun resolves symlinks when it computes
- *   `process.execPath` (on Linux, macOS and Windows alike), so the linked
- *   command still reports its Cellar path.
- * - Scoop installs under `…\scoop\apps\sovrium\current\…`.
- *
- * Separators and case are normalised first, for Windows paths and for
- * case-insensitive macOS volumes.
+ * The path layouts themselves (Homebrew's Cellar, Scoop's `apps` tree) are
+ * recognised in one place, {@link packageManagerOfExecPath}, which the bug
+ * report's install channel reads too.
  *
  * A container is NOT inferred. `/.dockerenv` is wrong in both directions: an
  * install-script binary inside a devcontainer or CI job has it, and would be
@@ -127,11 +123,7 @@ export interface InstallMethodProbe {
 export const classifyInstallMethod = (probe: Readonly<InstallMethodProbe>): InstallMethod => {
   if (isInstallMethod(probe.override)) return probe.override
 
-  const execPathNormalized = probe.execPath.replace(/\\/g, '/').toLowerCase()
-  if (execPathNormalized.includes('/cellar/sovrium/')) return 'homebrew'
-  if (execPathNormalized.includes('/scoop/apps/sovrium/')) return 'scoop'
-
-  return 'binary'
+  return packageManagerOfExecPath(probe.execPath) ?? 'binary'
 }
 
 /**

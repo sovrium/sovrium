@@ -75,8 +75,17 @@ const walkPages = (
 ): Effect.Effect<readonly string[] | undefined> =>
   Effect.gen(function* () {
     const { after, seen } = cursor
+    // effect-swallow: a page that cannot be read fails the listing as a whole, as a repeated cursor does; the cause is logged on the way.
     const listed = yield* Effect.result(
-      storage.listPage({ prefix: scope.prefix, after, size: STARTER_LIST_PAGE })
+      storage.listPage({ prefix: scope.prefix, after, size: STARTER_LIST_PAGE }).pipe(
+        Effect.tapCause((cause) =>
+          Effect.sync(() =>
+            logError('[automations] a listing page could not be read; the listing fails', cause, {
+              'sovrium.storage.prefix': scope.prefix,
+            })
+          )
+        )
+      )
     )
     if (listed._tag === 'Failure') return undefined
     // A store that hands back a cursor it already gave — the last one, or one

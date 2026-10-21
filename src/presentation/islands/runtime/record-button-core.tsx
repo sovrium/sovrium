@@ -18,10 +18,7 @@
  */
 
 import { useCallback, useId, useState } from 'react'
-import {
-  disabledControlAttributes,
-  renderDisabledControl,
-} from '@/presentation/design/disabled-reason'
+import { verdictAttributes, withVerdict } from '@/presentation/design/disabled-reason'
 import { pendingControlProps } from '@/presentation/design/pending-state'
 import { renderPendingContent } from '@/presentation/design/spinner-mark'
 import { followAddress } from './follow-address'
@@ -31,6 +28,7 @@ import {
   type ButtonStrings,
 } from './record-button-outcome'
 import { renderToast } from './toast'
+import type { DisabledVerdict } from '@/presentation/design/disabled-verdict'
 
 /** The button field's config, carried from the table schema to the client. */
 export interface RecordButtonConfig {
@@ -63,7 +61,7 @@ export interface RecordButtonCoreProps {
    * the record's `_disabled` — with the reason it gives, already filled from
    * the record. Drawn `aria-disabled`, focusable, and a press starts nothing.
    */
-  readonly disabledOnRecord?: { readonly reason: string | undefined }
+  readonly disabledOnRecord?: DisabledVerdict
 }
 
 export const RECORD_BUTTON_CLASS =
@@ -81,15 +79,6 @@ const invokeUrl = (table: string, recordId: string, fieldName: string): string =
 /** The caption while the run is in flight: the host's, else the page's word, else English. */
 const pendingWord = (pendingLabel: string | undefined, strings: ButtonStrings): string =>
   pendingLabel ?? strings?.['action.running'] ?? 'Running…'
-
-/** The attributes of a button the record disables; none when it is usable. */
-const recordDisabledAttributes = (
-  disabledOnRecord: RecordButtonCoreProps['disabledOnRecord'],
-  reasonId: string
-): Readonly<Record<string, string>> =>
-  disabledOnRecord === undefined
-    ? {}
-    : disabledControlAttributes(disabledOnRecord.reason ? reasonId : undefined)
 
 export function RecordButtonCore(props: RecordButtonCoreProps): React.ReactNode {
   const { config, fieldName, table, recordId, onInvoked, classFor, strings } = props
@@ -135,14 +124,12 @@ export function RecordButtonCore(props: RecordButtonCoreProps): React.ReactNode 
       data-button-action={config.action}
       data-control-id={`field:${fieldName}`}
       disabled={disabled}
-      {...recordDisabledAttributes(disabledOnRecord, reasonId)}
+      {...verdictAttributes(disabledOnRecord, reasonId)}
       {...pendingControlProps(pending)}
       onClick={onClick}
     >
       {pending ? renderPendingContent(pendingWord(props.pendingLabel, strings)) : config.label}
     </button>
   )
-  return disabledOnRecord === undefined
-    ? button
-    : renderDisabledControl(button, reasonId, disabledOnRecord.reason)
+  return withVerdict(button, disabledOnRecord, reasonId)
 }

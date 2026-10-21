@@ -1,0 +1,106 @@
+{
+  "id": "dashboard-login",
+  "name": "dashboard-login",
+  "path": "/login",
+  "query": {
+    "next": {
+      "default": "none",
+      "enum": ["none", "set"],
+      "onUnknown": "set"
+    }
+  },
+  "meta": {
+    "title": "$t:admin.meta.login",
+    "noindex": true
+  },
+  "components": [
+    {
+      "component": "console-login",
+      "key": "section",
+      "children": [
+        {
+          "type": "flex",
+          "props": {
+            "data-slot": "field",
+            "className": "flex flex-col gap-3 empty:hidden [&_button]:w-full"
+          },
+          "children": [
+            {
+              "type": "form",
+              "action": {
+                "type": "auth",
+                "method": "login",
+                "strategy": "oauth",
+                "provider": "sovrium-cloud",
+                "submitLabel": "$t:admin.login.cloudSignIn",
+                "onSuccess": {
+                  "navigate": "/"
+                }
+              },
+              "props": {
+                "id": "admin-cloud-sign-in"
+              }
+            }
+          ]
+        },
+        {
+          "type": "flex",
+          "props": {
+            "data-slot": "field-separator",
+            "className": "flex h-5 items-center gap-2 text-sm text-muted-foreground [[data-slot=field]:empty+&]:hidden"
+          },
+          "children": [
+            {
+              "type": "separator",
+              "props": {
+                "className": "flex-1"
+              }
+            },
+            {
+              "type": "text",
+              "element": "span",
+              "props": {
+                "className": "shrink-0 px-2",
+                "data-slot": "field-separator-content"
+              },
+              "content": "$t:admin.login.orEmail"
+            },
+            {
+              "type": "separator",
+              "props": {
+                "className": "flex-1"
+              }
+            }
+          ]
+        },
+        {
+          "type": "form",
+          "action": {
+            "type": "auth",
+            "method": "login",
+            "strategy": "email",
+            "submitLabel": "$t:admin.login.submit",
+            "pendingLabel": "$t:admin.login.pending",
+            "fields": [
+              {
+                "name": "email",
+                "label": "$t:admin.field.email",
+                "placeholder": "m@example.com"
+              },
+              {
+                "name": "password",
+                "label": "$t:admin.field.password"
+              }
+            ],
+            "onSuccess": {
+              "navigate": "/"
+            }
+          },
+          "props": {
+            "id": "admin-login-form"
+          }
+        }
+      ]
+    }
+  ]
+}

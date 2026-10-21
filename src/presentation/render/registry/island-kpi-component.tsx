@@ -18,7 +18,9 @@ import {
 } from '@/presentation/design/kpi-default-classes'
 import { toneTextClass } from '@/presentation/design/tone-classes'
 import { resolveLucideIconNode } from '@/presentation/render/elements/lucide-resolver'
+import { isSpecimenDrawing } from '@/presentation/render/page/specimen-drawing'
 import { hostClassName, namedHost } from '@/presentation/render/registry/island-host-attributes'
+import { islandFallback, renderSpecimenDash } from './specimen-island-states'
 import { isWithheldKpi, withheldKpiCard } from './withheld-kpi-card'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { Tone } from '@/domain/models/app/pages/components/shared-schemas'
@@ -106,6 +108,7 @@ export const islandKpiComponent: ComponentRenderer = ({ elementProps, designStyl
   // pre-hydration and remain visible to anonymous visitors on public pages —
   // independent of the auth-gated records fetch the island performs.
   const kpiLabel = typeof elementProps.label === 'string' ? elementProps.label : undefined
+  const specimen = isSpecimenDrawing()
 
   // The ONE element naming the KPI; the mounted card writes `data-kpi-state` onto it.
   return (
@@ -126,9 +129,9 @@ export const islandKpiComponent: ComponentRenderer = ({ elementProps, designStyl
           server-rendered does not jump. */}
       <div
         className={KPI_STACK_CLASSES}
-        data-loading-status=""
-        aria-label={kpiLoadingLabel(elementProps)}
-        role="status"
+        // A specimen fetches nothing, so its card is not loading: it reads empty.
+        {...(specimen ? {} : { 'data-loading-status': '', role: 'status' })}
+        aria-label={specimen ? undefined : kpiLoadingLabel(elementProps)}
       >
         <div
           data-slot="card-header"
@@ -142,16 +145,19 @@ export const islandKpiComponent: ComponentRenderer = ({ elementProps, designStyl
             >
               {kpiLabel}
             </div>
-          ) : (
+          ) : specimen ? undefined : (
             <div
               data-slot="skeleton"
               className={`${KPI_SKELETON_CLASSES} h-5 w-32`}
             />
           )}
-          <div
-            data-slot="skeleton"
-            className={`${KPI_SKELETON_CLASSES} h-8 w-24`}
-          />
+          {islandFallback(
+            <div
+              data-slot="skeleton"
+              className={`${KPI_SKELETON_CLASSES} h-8 w-24`}
+            />,
+            renderSpecimenDash
+          )}
         </div>
       </div>
     </div>

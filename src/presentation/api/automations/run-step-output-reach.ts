@@ -26,8 +26,8 @@
  *    exceeds hers, and none from there on; step names, statuses and timings
  *    stay, so a failed step still reads `failed`;
  *  - the run's own error, unless any step's error is withheld;
- *  - a request's message, judged as the request step's output is: it reads
- *    `null` when she may not read what fed it.
+ *  - a request's message, judged by what fed it: it reads `null` unless she
+ *    may read every value its template reads (or every step up to it).
  */
 
 import { Effect } from 'effect'
@@ -45,6 +45,8 @@ import {
 import { getUserAccessRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
+import { flattenActions, type StepAction } from '@/domain/models/app/automations/step-read-service'
+import { templateFeed } from '@/domain/models/app/automations/template-feed-service'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
 import { runErrorWithClientError, stepsWithClientErrors } from './run-client-error'
@@ -294,9 +296,52 @@ const loadRequestRun = (
   ).catch(() => undefined)
 
 /**
+ * True when every value the request step's authored message reads stays within
+ * the reader's verdict: the trigger, when it reads it, is shown to her, and
+ * every step it reads by name ran before the request and is among the leading
+ * steps she sees. A message whose reads cannot be named ({@link templateFeed}
+ * `unknown`), or a step that is not a declared request, proves nothing.
+ */
+const messageFedWithinReach = (
+  app: App,
+  judged: JudgedRun,
+  stepIndex: number,
+  verdict: Verdict
+): boolean => {
+  const request = requestTemplateOf(app, judged, stepIndex)
+  if (request === undefined) return false
+  const feed = templateFeed(request.template, request.stepNames)
+  if (feed.kind === 'unknown' || (feed.trigger && !verdict.triggerVisible)) return false
+  return [...feed.steps].every((name) => {
+    const index = judged.steps.findIndex((each) => each.name === name)
+    return index >= 0 && index < stepIndex && index < verdict.visibleSteps
+  })
+}
+
+/** The authored message of the request step at `stepIndex`, with every declared step name. */
+const requestTemplateOf = (
+  app: App,
+  judged: JudgedRun,
+  stepIndex: number
+): { readonly template: string; readonly stepNames: ReadonlySet<string> } | undefined => {
+  const automation = app.automations?.find((each) => each.name === judged.automationName)
+  const step = judged.steps[stepIndex]
+  if (automation === undefined || step === undefined) return undefined
+  const actions = flattenActions((automation.actions ?? []) as ReadonlyArray<StepAction>)
+  const action = actions.find((each) => each.name === step.name)
+  const template = action?.props?.['message']
+  if (action?.type !== 'approval' || typeof template !== 'string') return undefined
+  const stepNames = new Set(actions.flatMap((each) => (each.name === undefined ? [] : [each.name])))
+  return { template, stepNames }
+}
+
+/**
  * The requests of the approvals list as the signed-in caller may read them:
- * each message — rendered from what its run carries — judged as the request
- * step's output is, and `null` when she may not read what fed it.
+ * each message — rendered from what its run carries — is shown when she may
+ * read every value its template reads, or every step up to the request; it
+ * reads `null` otherwise. A step beyond her reach that the message does not
+ * read (an agent's review before a literal sign-off question) keeps nothing
+ * from her.
  */
 export const approvalsAsSeenByCaller = <A extends ApprovalLike>(
   c: Context,
@@ -315,6 +360,9 @@ export const approvalsAsSeenByCaller = <A extends ApprovalLike>(
       const seen = { ...approval, message: textWithoutAdminOnlyLines(approval.message, lines) }
       if (caller === 'starter') return seen
       const verdict = await verdictFor(c, app, caller, loaded.judged)
-      return verdict.visibleSteps > approval.stepIndex ? seen : { ...approval, message: null }
+      const shown =
+        verdict.visibleSteps > approval.stepIndex ||
+        messageFedWithinReach(app, loaded.judged, approval.stepIndex, verdict)
+      return shown ? seen : { ...approval, message: null }
     })
   )

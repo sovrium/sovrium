@@ -16,12 +16,17 @@ import { deleteRecordWithSideEffects } from '@/application/use-cases/tables/reco
 import { isDriverOriginatedFailure } from '@/domain/errors/driver-failure'
 import { resolveRedirectAgainst } from '@/domain/kernel/url/redirect-resolution'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
-import { provideDomain, runRequestEffect } from '@/infrastructure/logging/request-effect'
+import {
+  provideDomain,
+  runDomainPromise,
+  runRequestEffect,
+} from '@/infrastructure/logging/request-effect'
 import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import { handleRestoreRecordError, handleRouteError } from './error-handlers'
+import { refuseUnlistedRow } from './readable-table-gate'
 import { checkDeleteGate } from './record-delete-gate'
 import {
   enforceFormMutationGate,
@@ -192,6 +197,10 @@ export async function handleFormDeleteRecord(c: Context, app: App) {
     )
   }
 
+  // A record her list of the table does not admit is a missing one.
+  const unlisted = await runDomainPromise(c, refuseUnlistedRow(c, app, recordId))
+  if (unlisted) return unlisted
+
   // Parse form body for redirect path
   const body = await c.req.parseBody()
   const redirectPath = typeof body['_redirect'] === 'string' ? body['_redirect'] : undefined
@@ -244,6 +253,10 @@ export async function handleRestoreRecord(c: Context, app: App) {
       404
     )
   }
+
+  // A record her list of the table does not admit is a missing one.
+  const unlisted = await runDomainPromise(c, refuseUnlistedRow(c, app, recordId))
+  if (unlisted) return unlisted
 
   const result = await runOnRequest(
     c,

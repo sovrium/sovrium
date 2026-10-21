@@ -24,12 +24,23 @@ export default {
   // contiennent se résout. Avec un nom, « Bienvenue, Ada Lovelace » ; sans nom,
   // et pour une visite anonyme, « Bienvenue » tout court — la virgule s’en va
   // avec le nom auquel elle appartient.
-  'admin.welcome.heading': 'Bienvenue[, $session.name]',
-  'admin.welcome.intro': 'Ce qui t’attend, et ce que cette app déclare.',
+  'admin.welcome.intro':
+    'Bienvenue[, $session.name]. Ce qui t’attend, et ce que cette app déclare.',
+  'admin.welcome.instance.heading': 'Instance',
+  'admin.welcome.instance.description': 'Ce sur quoi tourne cette instance',
+  'admin.welcome.instance.booted': 'Démarrée',
+  'admin.welcome.instance.version': 'Version',
+  'admin.welcome.instance.database': 'Base de données',
+  'admin.welcome.instance.storage': 'Stockage des fichiers',
+  'admin.welcome.instance.ai': 'Fournisseur d’IA',
   'admin.welcome.ask.title': 'Pose une question sur cette app',
   'admin.welcome.ask.description':
     'Réponses tirées des données et de la configuration de cette app. Lecture seule. Aussi dans ⌘K.',
   'admin.invitation.heading': 'Rejoindre la console',
+  'admin.invitation.headingMember': 'Rejoindre $app.label',
+  'admin.invitation.landsAdmin': 'Une fois que tu as rejoint, tu arrives dans la console.',
+  'admin.invitation.landsMember':
+    'Une fois que tu as rejoint, tu arrives dans $app.label. La console est réservée aux admins.',
   'admin.invitation.invitedYouTo': 't’invite sur',
   'admin.invitation.signInAs': 'Tu te connecteras avec',
   'admin.invitation.submit': 'Choisir un mot de passe et rejoindre',
@@ -39,6 +50,9 @@ export default {
   'admin.invitation.unusable.body':
     'Il a peut-être expiré ou déjà servi. Demande à la personne qui t’a invité·e de t’en envoyer un nouveau.',
   'admin.invitation.unusable.signIn': 'Aller à la connexion',
+  'admin.internalError.heading': 'Cette page n’a pas pu se charger',
+  'admin.internalError.body':
+    'Sovrium a rencontré une erreur interne en la dessinant. Tes données sont intactes. Recharge la page ; si ça échoue encore, signale-le pour qu’il soit corrigé.',
   'admin.notFound.heading': 'Page introuvable',
   'admin.notFound.body':
     'Rien dans cette console ne répond à cette adresse. La section n’existe peut-être pas dans cette app, ou le lien est périmé.',
@@ -69,13 +83,12 @@ export default {
   'admin.welcome.counts.region': 'Ce que cette app déclare',
   'admin.welcome.counts.heading': 'Ce que cette app déclare',
   'admin.welcome.counts.description':
-    'Une ligne apparaît quand la configuration déclare la fonctionnalité.',
+    'Une carte apparaît pour chaque fonctionnalité que ta config déclare.',
   'admin.welcome.figures.region': 'Chiffres clés',
   'admin.welcome.figures.runs': 'Exécutions, dernières 24 h',
   'admin.welcome.figures.runs.sub': 'en échec depuis le démarrage de cette instance',
   'admin.welcome.figures.submissions': 'Réponses',
   'admin.welcome.figures.submissions.sub': 'depuis le démarrage de cette instance',
-  'admin.welcome.figures.accounts': 'Comptes',
   'admin.welcome.figures.storage': 'Fichiers stockés',
   'admin.welcome.runsChart.region': 'Exécutions, 7 derniers jours',
   'admin.welcome.runsChart.runs': 'Exécutions',
@@ -151,8 +164,8 @@ export default {
   'admin.profile.gdprLink': 'Ouvrir Mes données',
 
   'admin.gdpr.heading': 'Mes données (RGPD)',
-  'admin.gdpr.blurb':
-    'Ce que cette instance détient sur toi, et comment le récupérer ou l’effacer.',
+  'admin.gdpr.blurb': 'Exporte ce que cette instance garde sur toi, ou efface ton compte.',
+  'admin.profile.blurb': 'Ton nom, ta connexion et tes préférences dans cette console.',
   'admin.gdpr.identity.heading': 'Mon identité',
   'admin.gdpr.export.heading': 'Exporter mes données',
   'admin.gdpr.export.submit': 'Générer l’export',
@@ -181,12 +194,99 @@ export default {
   'admin.gdpr.account.hint': 'Change ton nom, ton e-mail, ton mot de passe, ta photo ou ta langue.',
   'admin.gdpr.profileLink': 'Ouvrir Mon profil',
 
+  'admin.report.heading': 'Signaler un problème',
+  'admin.report.description':
+    'Quelque chose ne va pas dans Sovrium ? Ouvre un ticket prérempli sur GitHub, rédigé en anglais. Rien n’est envoyé tant que tu ne l’as pas soumis.',
+  'admin.report.installation.heading': 'Un nouveau signalement',
+  'admin.report.installation.body':
+    'Un signalement vierge, avec la version, le canal d’installation, la base de données et le système de cette installation déjà remplis. Décris ce que tu as vu et ce que tu attendais.',
+  'admin.report.latest.heading': 'La dernière erreur interne',
+  'admin.report.latest.body':
+    'La dernière panne de Sovrium que ce serveur a conservée, avec ses détails déjà remplis.',
   'admin.apiKeys.heading': 'Clés API',
-  'admin.apiKeys.readScope': 'Cette clé lit ce que tu peux lire.',
   'admin.apiKeys.region': 'Tes clés API',
   'admin.apiKeys.loading': 'Chargement de tes clés API…',
 
   'admin.env.heading': 'Environnement',
+
+  'admin.auditLog.heading': 'Journal d’audit',
+
+  'admin.auditLog.blurb':
+    'Qui a lu ou modifié quoi sur cette instance, quand, et par quel accès. En lecture seule, du plus récent au plus ancien.',
+
+  'admin.auditLog.region': 'Journal d’audit',
+
+  'admin.auditLog.filter.transport': 'Accès',
+
+  'admin.auditLog.filter.allTransports': 'Tous les accès',
+
+  'admin.auditLog.filter.resource': 'Ressource',
+
+  'admin.auditLog.filter.allResources': 'Toutes les ressources',
+
+  'admin.auditLog.col.time': 'Heure',
+
+  'admin.auditLog.col.actor': 'Auteur',
+
+  'admin.auditLog.col.action': 'Action',
+
+  'admin.auditLog.col.resource': 'Ressource',
+
+  'admin.auditLog.col.result': 'Résultat',
+
+  'admin.auditLog.col.transport': 'Accès',
+
+  'admin.auditLog.result.success': 'Réussi',
+
+  'admin.auditLog.result.failure': 'Échoué',
+
+  'admin.auditLog.transport.configfile': 'Fichier de config',
+
+  'admin.auditLog.transport.env': 'Environnement',
+
+  'admin.auditLog.transport.api': 'API',
+
+  'admin.auditLog.transport.mcp': 'MCP',
+
+  'admin.auditLog.transport.restore': 'Restauration',
+
+  'admin.auditLog.resource.user': 'Compte',
+
+  'admin.auditLog.resource.config': 'Config',
+
+  'admin.auditLog.resource.table': 'Table',
+
+  'admin.auditLog.resource.record': 'Enregistrement',
+
+  'admin.auditLog.resource.form': 'Formulaire',
+
+  'admin.auditLog.resource.submission': 'Réponse',
+
+  'admin.auditLog.resource.automation': 'Automatisation',
+
+  'admin.auditLog.resource.automationRun': 'Exécution',
+
+  'admin.auditLog.resource.agent': 'Agent',
+
+  'admin.auditLog.resource.bucket': 'Bucket',
+
+  'admin.auditLog.resource.link': 'Lien',
+
+  'admin.auditLog.resource.connection': 'Connexion',
+
+  'admin.auditLog.resource.group': 'Groupe',
+
+  'admin.auditLog.resource.designShare': 'Partage du design',
+
+  'admin.auditLog.empty':
+    'Aucun événement pour l’instant. Chaque lecture et chaque modification d’un admin s’inscrit ici au moment où elle a lieu.',
+
+  'admin.auditLog.noMatch':
+    'Aucun événement ne correspond à ces filtres. Retire un filtre pour en voir plus.',
+
+  'admin.auditLog.entry.title': 'Événement d’audit',
+
+  'admin.auditLog.entry.details': 'Détails',
   'admin.env.search': 'Rechercher une variable',
   'admin.env.filter.status': 'Filtrer par statut',
   'admin.env.filter.allStatuses': 'Tous les statuts',
@@ -219,7 +319,7 @@ export default {
     'Les décisions d’architecture que cette application déclare, et ce que chacune concernait.',
   'admin.decisions.register.region': 'Registre des décisions',
   'admin.decisions.provenance':
-    'Déclarées dans app.ts. On les change là-bas et on redéploie, jamais ici.',
+    'Déclarée dans ton fichier de config. Change-la là-bas, puis redéploie.',
   'admin.decisions.one.heading': 'Décision',
   'admin.decisions.one.blurb':
     'Une décision du registre : la situation, le choix, et ce qui en découle.',

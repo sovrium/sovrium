@@ -24,6 +24,10 @@ Counts the records linked through a relationship field **in the same table** —
 
 `filters` narrows what is counted, using the same condition grammar a view's filters use. Without it, every linked record counts — except a soft-deleted one, which never counts. Trashing a linked record lowers the count immediately, and restoring it raises the count again.
 
+The relationship may be of any kind. A count over a `one-to-many` or `many-to-many` link counts the linked records — through a `many-to-many` link, whichever table wrote the link, each linked record once; a count over a `many-to-one` or `one-to-one` link reads `1` when a record is linked and `0` when none is.
+
+A count counts only the linked records its reader may list in the related table. Where that table lets her read only the records a grant names, it counts those; where she may list none, the count is left out of the record, as any value read from a table she may not read is. For such a reader, a filter, a sort, a group or a total that names the count — or a formula over it — reads it as empty, so neither the records kept nor their order depend on records she may not list; an export leaves out the column of a count left out of every record she reads; and a page drawn on the server or a live change leaves the count out rather than recount it.
+
 ## `autonumber`
 
 A database-assigned auto-incrementing integer — the field type behind invoice and order references. The column is a sequence, so the value is allocated by the database on insert and is never supplied by the client.

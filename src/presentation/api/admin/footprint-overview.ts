@@ -45,6 +45,7 @@ import { resolveOllamaBaseUrl } from '@/domain/models/process-env/ai/ai-eco-rout
 import { parseStorageEnvConfig } from '@/domain/models/process-env/storage/storage'
 import { getCachedOllamaReachable } from '@/infrastructure/ai/ollama-reachability'
 import { StorageFootprintRepositoryLive } from '@/infrastructure/database/repositories/footprint/storage-footprint-repository-live'
+import { logError } from '@/infrastructure/logging/logger'
 import { readEcoIndexTrackerSnapshot } from '@/infrastructure/process/eco-index-tracker'
 import { readPageCacheStats } from '@/infrastructure/process/page-cache-telemetry'
 import { readProcessMetrics } from '@/infrastructure/process/process-metrics'
@@ -144,6 +145,15 @@ const measureBucket = (): Effect.Effect<StorageConsumerInput, never, StorageServ
     const storage = yield* StorageService
     return yield* storage.getTotalBytes
   }).pipe(
+    Effect.tapCause((cause) =>
+      Effect.sync(() =>
+        logError(
+          '[admin] footprint could not measure the object store; reporting it unavailable',
+          cause
+        )
+      )
+    ),
+    // effect-swallow: an unreachable store reports the bucket row as unavailable, never as 0 bytes; the cause is logged just above.
     Effect.result,
     Effect.map((result) =>
       result._tag === 'Success'

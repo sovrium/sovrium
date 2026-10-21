@@ -55,10 +55,12 @@ import { recordChatActivity } from './chat-activity-log'
 import { chatProviderFailure, chatTurnSpec } from './chat-agent-turn'
 import { resolveChatErrorConfig } from './chat-error-handling'
 import { turnCitations, withTurnKnowledge } from './chat-knowledge-citations'
+import { keepListedExchanges } from './chat-replay-scope'
 import { toolTurnActions, toolTurnReply } from './chat-tool-reply'
 import { carriedFilesOf, readmitStoredParts, replayStoredHistory } from './chat-turn-parts'
 import { resolveConversationTurnInput } from './conversation-turn-input'
 import { toWireMessages } from './conversation-wire'
+import type { ChatTurnInput } from './chat-turn-completion'
 import type {
   AiMemoryMessage,
   AiMemoryThread,
@@ -155,12 +157,45 @@ const replayFor = (
   readonly role: 'user' | 'assistant'
   readonly content: string
   readonly parts?: ReadonlyArray<AiMessagePart> | undefined
+  readonly toolCalls?: AiMemoryMessage['toolCalls']
 }> =>
   pathTo(messages, historyEnd).flatMap((message) =>
     message.role === 'user' || message.role === 'assistant'
-      ? [{ role: message.role, content: message.content, parts: message.parts }]
+      ? [
+          {
+            role: message.role,
+            content: message.content,
+            parts: message.parts,
+            toolCalls: message.toolCalls,
+          },
+        ]
       : []
   )
+
+/**
+ * The branch the new message continues, with the files sent in it: replayed
+ * whole — less every exchange answered from a table the caller no longer
+ * lists — or, for a turn that replays no history, its files alone.
+ */
+const branchHistory = async (
+  asked: ChatTurnInput,
+  branch: {
+    readonly userId: string
+    readonly messages: ReadonlyArray<AiMemoryMessage>
+    readonly plan: BranchTurnPlan
+  }
+): Promise<{
+  readonly history: Awaited<ReturnType<typeof replayStoredHistory>>
+  readonly carried: Awaited<ReturnType<typeof carriedFilesOf>>
+}> => {
+  const { services, app, reader } = asked
+  const earlier = replayFor(branch.messages, branch.plan.historyEnd)
+  if (asked.agent !== undefined && asked.agent.builtIn !== true) {
+    return { history: [], carried: await carriedFilesOf(services, branch.userId, earlier) }
+  }
+  const replayed = await keepListedExchanges({ services, app, reader }, earlier)
+  return { history: await replayStoredHistory(services, branch.userId, replayed), carried: [] }
+}
 
 /** The answer a branch ends on, with one line per call its turn ran. */
 const answerOf = (turn: {
@@ -241,17 +276,12 @@ const answerBranch = async (
   const services = requireDomainContext(c)
   const parts =
     plan.parts === undefined ? undefined : await readmitStoredParts(services, userId, plan.parts)
-  const replaysHistory = asked.agent === undefined || asked.agent.builtIn === true
   const { input, passages } = await withTurnKnowledge({
     ...asked,
     ...(parts !== undefined && { parts }),
   })
-  // The branch the new message continues, with the files sent in it: replayed
-  // whole, or — for a turn that replays no history — its files alone.
-  const earlier = replayFor(thread.messages, plan.historyEnd)
-  const history = replaysHistory ? await replayStoredHistory(services, userId, earlier) : []
-  const carried = replaysHistory ? [] : await carriedFilesOf(services, userId, earlier)
-  const spec = chatTurnSpec(input, { history, stream: false, carried })
+  const earlier = await branchHistory(asked, { userId, messages: thread.messages, plan })
+  const spec = await chatTurnSpec(input, { ...earlier, stream: false })
   const result = await runRequestEffect(
     c,
     provideDomain(c, runAgentTurnToEnd(spec)).pipe(Effect.result)

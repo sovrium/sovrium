@@ -1,0 +1,37 @@
+{
+  // The Figma plugin's own program. Kept OUT of the repository's tsconfig
+  // (whose `include` is src, specs and scripts) because `@figma/plugin-typings`
+  // declares the global `figma`, `__html__` and friends: loaded there, they
+  // would type-check every `src/` file as if it ran in Figma's sandbox.
+  //
+  // It reaches the CLI's pure contract code under `src/domain/` through the
+  // same `@/*` alias, so the plugin compiles against the exact schemas and
+  // reader the import runs. Checked with `bun run typecheck:figma-plugin`,
+  // which also checks the two other halves: `tsconfig.ui.json` (the UI
+  // iframe, which has the DOM and no `figma`) and `tsconfig.test.json` (the
+  // tests, the fake and the build script, which run under Bun). The Figma
+  // typings declare their own `console`, `setTimeout` and `fetch`, which clash
+  // with the DOM's, so no program holds both.
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "types": ["@figma/plugin-typings"],
+    "strict": true,
+    "skipLibCheck": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "paths": {
+      "@/*": ["../src/*"]
+    }
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts", "src/fake-figma.ts", "src/test-documents.ts", "src/ui.ts"]
+}

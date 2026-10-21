@@ -12,8 +12,9 @@
  * ─── ONE COERCION ───────────────────────────────────────────────────────────
  *
  * A missing field (`undefined`) and an explicit `null` both resolve to the
- * EMPTY STRING; a list joins with `, `; every other value is coerced with
- * `String(value)`.
+ * EMPTY STRING; a list joins with `, `; a plain object — or a list holding one —
+ * prints as its own token text rather than `[object Object]`; every other value
+ * is coerced with `String(value)`.
  *
  * The rule is written once. The page renderer, the kanban card template and
  * the search island all delegate here, so none of them can, say, test only
@@ -66,7 +67,7 @@
  * `/g` makes it stateful under `.exec` / `.test`, and neither is used: `.replace`
  * resets `lastIndex` when it finishes, and `.matchAll` iterates a clone.
  */
-const RECORD_REFERENCE = /(?<!\\)\$record\.([a-zA-Z0-9_]+)/g
+const RECORD_REFERENCE = /(?<!\\)\$record\.(\w+)/g
 
 /**
  * One token of ANY namespace, optionally continued by `|` and another token of
@@ -84,10 +85,17 @@ const RECORD_REFERENCE = /(?<!\\)\$record\.([a-zA-Z0-9_]+)/g
  * `$record.a|$record.b` chains while `$leg.a|$record.b` is two tokens — exactly
  * what the record-only pattern did with the second half.
  *
- * The field charset is {@link RECORD_REFERENCE}'s, `[a-zA-Z0-9_]`; a namespace
+ * The field charset is {@link RECORD_REFERENCE}'s, `[a-zA-Z0-9_]` (spelled `\w`,
+ * which is exactly that set without the `u` flag); a namespace
  * must start with a letter or an underscore, so `$1.50` is never a token.
  *
- * A field may end in `.raw` (`$record.paid_at.raw`): the stored value, where a
+ * A field may be a dotted PATH (`$record.failedStep.label`): each further
+ * segment reads a key of the plain object the previous one named. The path is
+ * the token's, and {@link fieldText} walks it — a scalar part-way down prints
+ * itself and the rest of the path as text, which is what the one-segment
+ * grammar printed for the same characters.
+ *
+ * A path may end in `.raw` (`$record.paid_at.raw`): the stored value, where a
  * text site would otherwise print it formatted. The suffix belongs to the
  * token, so it is never printed; {@link fieldText} reads it.
  *
@@ -98,7 +106,7 @@ const RECORD_REFERENCE = /(?<!\\)\$record\.([a-zA-Z0-9_]+)/g
  * chain's back-reference names.
  */
 const SCOPED_VAR_CHAIN =
-  /\\\$([a-zA-Z_][a-zA-Z0-9_]*)\.[a-zA-Z0-9_]+|\$([a-zA-Z_][a-zA-Z0-9_]*)\.[a-zA-Z0-9_]+(?:\.raw\b)?(?:\|\$\2\.[a-zA-Z0-9_]+(?:\.raw\b)?)*/g
+  /\\\$([a-zA-Z_]\w*)(?:\.\w+)+|\$([a-zA-Z_]\w*)(?:\.\w+)+(?:\|\$\2(?:\.\w+)+)*/g
 
 /**
  * {@link SCOPED_VAR_CHAIN} as source text, for the one reader that cannot import
@@ -110,7 +118,7 @@ const SCOPED_VAR_CHAIN =
 export const SCOPED_VAR_CHAIN_SOURCE: string = SCOPED_VAR_CHAIN.source
 
 /** One scoped token, namespace and field captured — the unchained reader; an escaped token is skipped. */
-const SCOPED_REFERENCE = /(?<!\\)\$([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z0-9_]+)/g
+const SCOPED_REFERENCE = /(?<!\\)\$([a-zA-Z_]\w*)\.(\w+)/g
 
 /** The namespace a bare `$record.` token names. */
 export const RECORD_NAMESPACE = 'record'
@@ -163,22 +171,63 @@ const tokenText = (namespace: string, field: string): string => `$${namespace}.$
 export const RECORD_TEXT_KEY = '_text'
 
 /**
- * One field, coerced: `undefined` and `null` alike become the empty string.
+ * An object whose keys a path may walk, and which `String()` would print as
+ * `[object Object]`: a plain object (or a class instance), never a list or a
+ * `Date`. Tested by its tag because islands ship this, and the tag is the
+ * shortest test that a null-prototype object passes too.
+ */
+const isPlainObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  Object.prototype.toString.call(value) === '[object Object]'
+
+/**
+ * One resolved value, coerced: `undefined` and `null` alike become the empty
+ * string, an object survives as its own token text — `token` — rather than
+ * printing `[object Object]` where data belongs, and a list joins with `, `.
+ */
+const valueText = (value: unknown, token: string): string =>
+  isPlainObject(value)
+    ? token
+    : // A list reads as a list: `Camille Martin, Léa Bernard`, never the bare
+      // comma `String(array)` joins with. Kept this small on purpose: islands ship it.
+      Array.isArray(value)
+      ? value.join(', ')
+      : String(value ?? '')
+
+/**
+ * One field — or one dotted path — coerced by {@link valueText}.
  * `<field>.raw` reads the key of that name when a text projection
  * ({@link withRecordText}) supplied one, else the field itself — so the suffix
  * is accepted at every site and is a no-op where nothing is formatted.
  *
+ * A path walks one segment at a time into the object the previous one named. A
+ * missing key, a `null` or an empty text part-way down resolves to nothing, as a
+ * missing field does; any other SCALAR part-way down prints itself followed by
+ * the rest of the path as text, exactly what `$record.name.suffix` printed
+ * before a token could carry a path. An object prints as `token`, the token as
+ * written.
+ *
  * The {@link RECORD_TEXT_KEY} map is the engine's, not a field: it rides on the
- * record so a text site can read it, and a token naming it prints nothing.
+ * record so a text site can read it, and a token naming it — or a path into
+ * it — prints nothing.
  */
-const fieldText = (record: Readonly<Record<string, unknown>>, fieldName: string): string => {
+const fieldText = (
+  record: Readonly<Record<string, unknown>>,
+  fieldName: string,
+  token: string
+): string => {
   const stored = fieldName.replace(/\.raw$/, '')
-  if (stored === RECORD_TEXT_KEY) return ''
+  const [head, ...rest] = stored.split('.') as [string, ...string[]]
   const value = record[fieldName] ?? record[stored]
-  if (value === undefined || value === null) return ''
-  // A list reads as a list: `Camille Martin, Léa Bernard`, never the bare comma
-  // `String(array)` joins with. Kept this small on purpose: islands ship it.
-  return Array.isArray(value) ? value.join(', ') : String(value)
+  const tail = rest.join('.')
+  return head === RECORD_TEXT_KEY
+    ? ''
+    : value !== undefined || tail === ''
+      ? valueText(value, token)
+      : isPlainObject(record[head])
+        ? fieldText(record[head] as Readonly<Record<string, unknown>>, tail, token)
+        : // A scalar part-way down: itself, then the rest of the path as text —
+          // nothing at all when it prints nothing.
+          valueText(record[head], token).replace(/.+/s, `$&.${tail}`)
 }
 
 /**
@@ -192,8 +241,8 @@ export const withRecordText = (
   record: Readonly<Record<string, unknown>>
 ): Readonly<Record<string, unknown>> => {
   const text = record[RECORD_TEXT_KEY]
-  if (typeof text !== 'object' || text === null || Array.isArray(text)) return record
-  const entries = Object.entries(text as Record<string, unknown>)
+  if (!isPlainObject(text)) return record
+  const entries = Object.entries(text)
   if (entries.length === 0) return record
   return {
     ...record,
@@ -265,7 +314,7 @@ const substituteChain = (
   const resolved =
     match
       .split('|')
-      .map((token) => fieldText(record, token.slice(prefix)))
+      .map((token) => fieldText(record, token.slice(prefix), token))
       .find((text) => text.length > 0) ?? ''
   return transformValue ? transformValue(resolved) : resolved
 }
@@ -340,7 +389,7 @@ export const recordFieldRefsIn = (value: string): readonly string[] =>
  * what the family-14 decode rule needs.
  */
 export const isRecordFieldRef = (value: unknown): value is string =>
-  typeof value === 'string' && /^\$record\.[a-zA-Z0-9_]+$/.test(value)
+  typeof value === 'string' && /^\$record\.\w+$/.test(value)
 
 /**
  * One element of a repeated array, projected to what this substituter may
@@ -362,8 +411,10 @@ export const isRecordFieldRef = (value: unknown): value is string =>
  *    thing a null column means anywhere else. This is what makes a key the
  *    RECORD carries and the element does not (`$record.scope` over a per-step
  *    element) print nothing rather than leaking the drawer's value;
- *  - an OBJECT- or ARRAY-valued key is mapped to its own token text, so it
- *    survives substitution VERBATIM.
+ *  - an ARRAY-valued key is mapped to its own token text, so it survives
+ *    substitution VERBATIM; a PLAIN-OBJECT key is kept, so a path
+ *    (`$step.target.city`) can walk it, and the substituter prints the object
+ *    itself as that same token text.
  *
  * That last mapping is deliberate and the alternatives are worse. `String({})`
  * is `[object Object]`, which looks like data and is the exact string that moved
@@ -387,11 +438,11 @@ export const repeatElementScalars = (
   element: unknown,
   token: string = RECORD_NAMESPACE
 ): Readonly<Record<string, unknown>> => {
-  if (typeof element !== 'object' || element === null || Array.isArray(element)) return {}
+  if (!isPlainObject(element)) return {}
   return Object.fromEntries(
-    Object.entries(element as Record<string, unknown>).map(([key, value]) => [
+    Object.entries(element).map(([key, value]) => [
       key,
-      typeof value === 'object' && value !== null ? tokenText(token, key) : value,
+      Array.isArray(value) ? tokenText(token, key) : value,
     ])
   )
 }
@@ -420,8 +471,8 @@ export const withDisplayLabels = (
   record: Readonly<Record<string, unknown>>
 ): Readonly<Record<string, unknown>> => {
   const display = record['_display']
-  if (typeof display !== 'object' || display === null || Array.isArray(display)) return record
-  const labels = Object.entries(display as Record<string, unknown>).map(
+  if (!isPlainObject(display)) return record
+  const labels = Object.entries(display).map(
     ([field, label]) => [field, Array.isArray(label) ? label.join(', ') : label] as const
   )
   return labels.length === 0 ? record : { ...record, ...Object.fromEntries(labels) }
@@ -433,21 +484,17 @@ export const withScopesText = (
 ): Readonly<Record<string, Readonly<Record<string, unknown>>>> =>
   Object.fromEntries(Object.entries(scopes).map(([name, record]) => [name, withRecordText(record)]))
 
-/** A value `String()` would print as `[object Object]`: a plain object, or an array holding one. */
-const printsAsObjectTag = (value: unknown): boolean => {
-  if (Array.isArray(value)) return value.some(printsAsObjectTag)
-  if (typeof value !== 'object' || value === null) return false
-  const prototype: unknown = Object.getPrototypeOf(value)
-  return prototype === Object.prototype || prototype === null
-}
+/** A list holding an object — what `String()` would print as `[object Object]`. */
+const listOfObjects = (value: unknown): boolean => Array.isArray(value) && value.some(isPlainObject)
 
 /**
  * A page's OWN record, projected to what `$record.` may print on it.
  *
  * The narrow sibling of {@link repeatElementScalars}, for a record rather than
- * an element: only a value `String()` would print as `[object Object]` — a plain
- * object, or an array holding one — is mapped to its own token, and it survives
- * substitution verbatim for the reason that projection gives. Everything else is
+ * an element: only an array holding a plain object is mapped to its own token,
+ * and it survives substitution verbatim for the reason that projection gives. A
+ * plain object is kept so a path can walk it; printed whole, the substituter
+ * maps it to the same token text. Everything else is
  * untouched, so a `Date`, a number or an array of strings prints exactly as it
  * always has on a bound page.
  *
@@ -460,8 +507,6 @@ export const printableRecordFields = (
   Object.fromEntries(
     Object.entries(record).map(([key, value]) => [
       key,
-      key !== RECORD_TEXT_KEY && printsAsObjectTag(value)
-        ? tokenText(RECORD_NAMESPACE, key)
-        : value,
+      key !== RECORD_TEXT_KEY && listOfObjects(value) ? tokenText(RECORD_NAMESPACE, key) : value,
     ])
   )

@@ -57,9 +57,10 @@ export const designSystemBundleFileRoleSchema = Schema.Literals([
   'asset',
   'font',
   'adapter',
+  'page',
 ]).annotate({
   description:
-    'What the file is for: the markdown `brief`, the `index` an assistant reads first, a `tokens` document for one mode, the `resolver` that picks a mode, a `css` stylesheet, a `kit` page or its manifest, a copied `asset` or `font`, or a provider `adapter` projection.',
+    'What the file is for: the markdown `brief`, the `index` an assistant reads first, a `tokens` document for one mode, the `resolver` that picks a mode, a `css` stylesheet, a `kit` page or its manifest, a copied `asset` or `font`, a provider `adapter` projection, or a `page` file: a drawn page, its design tree, the node map or the sidecar manifest, present only when the bundle was exported with its pages.',
 })
 
 /** A bundle-relative path: `/`-separated, no leading slash, no `..` segment. */

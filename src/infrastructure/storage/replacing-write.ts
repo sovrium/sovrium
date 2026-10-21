@@ -17,8 +17,9 @@
  * this write loses it — a row appeared after the check — it refuses in the
  * not-found shape and stores nothing, so a row another writer created never
  * ends up describing this write's bytes. Bytes that cannot be stored release
- * the claim. Two processes sharing one store and one catalog are not
- * serialised by the in-process spelling lock; the row is what decides.
+ * the claim. The other spellings are checked only once the claim is held, so
+ * two processes sharing one store and one catalog never both write two
+ * spellings of one key (`claim-then-check.ts`).
  */
 
 import { Clock, Effect } from 'effect'
@@ -31,13 +32,13 @@ import {
   type CatalogWrite,
 } from './bytea-adapter'
 import {
-  claimProviderOf,
-  releaseClaim,
   releaseStaleClaim,
   settleClaim,
+  withdrawSettledClaim,
   type CatalogClaim,
 } from './catalog-claim'
-import { assertNoOtherSpelling, insertFileMetadataOnly, type SpellingStore } from './catalog-guards'
+import { assertNoOtherSpelling, type SpellingStore } from './catalog-guards'
+import { claimThenCheck, releaseClaimQuietly } from './claim-then-check'
 
 const makeError = (cause: unknown): StorageError => new StorageError({ cause })
 
@@ -48,24 +49,78 @@ const attempt = <A>(run: () => Promise<A>): Effect.Effect<A, StorageError> =>
 const refuseAsAbsent = (key: string): Effect.Effect<never, StorageError> =>
   Effect.fail(makeError(storageObjectNotFound(key)))
 
-/** Store the bytes of a claimed key, releasing the claim when they cannot be stored. */
-const storeClaimed = (
-  writeBytes: () => Promise<unknown>,
-  claim: CatalogClaim
-): Effect.Effect<void, StorageError> => {
-  const release = attempt(() => releaseClaim(claim)).pipe(
+/**
+ * Bytes written beside their key, not yet at it: `commit` moves them into
+ * place, `discard` removes them. What a store that can move a file in one step
+ * (a local disk) offers, so a write is placed only once its claim is settled.
+ */
+export interface StagedWrite {
+  readonly commit: () => Promise<void>
+  readonly discard: () => Promise<void>
+}
+
+/** Remove staged bytes; a failure is logged, and leaves a file no listing shows. */
+const discardQuietly = (staged: StagedWrite): Effect.Effect<void> =>
+  attempt(staged.discard).pipe(
     Effect.tapCause((cause) =>
-      Effect.sync(() => logError('[storage] a claimed key could not be released', cause))
+      Effect.sync(() => logError('[storage] staged bytes could not be removed', cause))
     ),
-    // effect-swallow: the write already failed and reports that; a claim left behind is released by the next write once stale, logged just above.
+    // effect-swallow: the write already answers for itself; a staged file sits under a fresh random name no listing shows. Logged just above.
     Effect.orElseSucceed(() => undefined)
   )
-  return attempt(writeBytes).pipe(
+
+/**
+ * Staged bytes that could not be moved to their key after the claim settled:
+ * they are removed, and so is the row the claim settled into, so no row is
+ * left describing a file that is not there. Either failure is logged.
+ */
+const abandonSettled = (staged: StagedWrite, claim: CatalogClaim): Effect.Effect<void> =>
+  discardQuietly(staged).pipe(
+    Effect.andThen(attempt(() => withdrawSettledClaim(claim))),
+    Effect.tapCause((cause) =>
+      Effect.sync(() =>
+        logError('[storage] a settled key with no bytes could not be removed', cause)
+      )
+    ),
+    // effect-swallow: the failed move already answers for the write; a row left behind is replaced by the next write to the key. Logged just above.
+    Effect.orElseSucceed(() => undefined)
+  )
+
+/**
+ * Store the bytes of a claimed key, releasing the claim when they cannot be
+ * stored. Staged bytes reach the key only once the claim is settled: a writer
+ * whose claim went stale while it wrote — and was taken by a newer writer —
+ * finds no claim to settle, and its bytes are discarded instead of landing
+ * over the newer writer's.
+ */
+const storeClaimed = (
+  bytes:
+    { readonly write: () => Promise<unknown> } | { readonly stage: () => Promise<StagedWrite> },
+  claim: CatalogClaim
+): Effect.Effect<void, StorageError> => {
+  const release = releaseClaimQuietly(claim)
+  // A claim released as stale meanwhile is no longer this write's row, even
+  // when another writer has claimed the key since: the markers differ.
+  const settle = attempt(() => settleClaim(claim))
+  if ('write' in bytes) {
+    return attempt(bytes.write).pipe(
+      Effect.tapError(() => release),
+      Effect.andThen(settle),
+      Effect.flatMap((settled) => (settled ? Effect.void : refuseAsAbsent(claim.key)))
+    )
+  }
+  return attempt(bytes.stage).pipe(
     Effect.tapError(() => release),
-    Effect.andThen(attempt(() => settleClaim(claim))),
-    // A claim released as stale meanwhile is no longer this write's row, even
-    // when another writer has claimed the key since: the markers differ.
-    Effect.flatMap((settled) => (settled ? Effect.void : refuseAsAbsent(claim.key)))
+    Effect.flatMap((staged) =>
+      settle.pipe(
+        Effect.tapError(() => discardQuietly(staged)),
+        Effect.flatMap((settled) =>
+          settled
+            ? attempt(staged.commit).pipe(Effect.tapError(() => abandonSettled(staged, claim)))
+            : discardQuietly(staged).pipe(Effect.andThen(refuseAsAbsent(claim.key)))
+        )
+      )
+    )
   )
 }
 
@@ -79,28 +134,28 @@ export const replaceOutsideCatalog = (input: {
   readonly catalog: CatalogWrite
   readonly store: Readonly<SpellingStore>
   readonly writeBytes: () => Promise<unknown>
+  /** Write the bytes beside the key for a claimed write; absent, a claimed write uses `writeBytes`. */
+  readonly stageBytes?: () => Promise<StagedWrite>
   readonly readRow?: typeof readFileMetadata
 }): Effect.Effect<void, StorageError> =>
   Effect.gen(function* () {
-    const { key, bucket, storageProvider } = input.catalog
+    const { key, bucket } = input.catalog
     const now = yield* Clock.currentTimeMillis
     yield* attempt(() => releaseStaleClaim(key, now))
     // A claim is invisible here: a key another writer is claiming reads as free.
     const row = yield* attempt(() => (input.readRow ?? readFileMetadata)(key))
     if (!bucketBindingPermitsWrite(bucket, row?.bucket)) return yield* refuseAsAbsent(key)
-    yield* assertNoOtherSpelling(key, bucket, input.store)
     if (row !== undefined) {
+      // The row is settled and visible to every other writer's check: no claim needed.
+      yield* assertNoOtherSpelling(key, bucket, input.store)
       return yield* attempt(() => input.writeBytes().then(() => writeFileMetadata(input.catalog)))
     }
-    const token = yield* Effect.sync(() => crypto.randomUUID())
-    const claim = {
-      key,
-      provider: storageProvider,
-      marker: claimProviderOf(storageProvider, token),
-    }
-    const claimRow = { ...input.catalog, storageProvider: claim.marker }
-    if ((yield* attempt(() => insertFileMetadataOnly(claimRow))) === 'taken') {
-      return yield* refuseAsAbsent(key)
-    }
-    return yield* storeClaimed(input.writeBytes, claim)
+    // A free key: claim it, then check the other spellings (`claim-then-check.ts`).
+    const claim = yield* claimThenCheck(input.catalog, input.store)
+    if (claim === undefined) return yield* refuseAsAbsent(key)
+    const { stageBytes } = input
+    return yield* storeClaimed(
+      stageBytes === undefined ? { write: input.writeBytes } : { stage: stageBytes },
+      claim
+    )
   }).pipe(Effect.withSpan('storage.replace-outside-catalog'))

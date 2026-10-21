@@ -12,12 +12,15 @@
  * Each of them reads the rows its relationship links to. Whether a reader may
  * see what it reads is first a question about the SCHEMA — may they read the
  * related table, and the related field ({@link mayReadRelatedField}, the rule
- * a relationship's label answers to as well)? — and, for a lookup only, then
- * about the linked ROWS, which the read surfaces ask with the rows in hand (a
- * rollup and a count aggregate every related record whatever the reader's row
- * rule). This module answers the schema half, so every surface that hands a
- * record out (the records API, a page drawn on the server, a change stream)
- * leaves out the same fields — and the formulas built over them.
+ * a relationship's label answers to as well)? — and, for a lookup and a count,
+ * then about the linked ROWS, which the read surfaces ask with the rows in
+ * hand: a lookup is judged by the linked rows the reader may read, and a count
+ * counts only the linked rows her list of the related table admits — withheld
+ * when it admits her none ({@link countLinksOf}). A rollup aggregates every
+ * related record whatever the reader's row rule. This module answers the
+ * schema half, so every surface that hands a record out (the records API, a
+ * page drawn on the server, a change stream) leaves out the same fields — and
+ * the formulas built over them.
  */
 
 import {
@@ -92,6 +95,7 @@ const reverseLinkOf = (
 type DerivedType = 'lookup' | 'rollup' | 'count'
 
 const LOOKUPS: ReadonlySet<DerivedType> = new Set(['lookup'])
+const COUNTS: ReadonlySet<DerivedType> = new Set(['count'])
 const DERIVED: ReadonlySet<DerivedType> = new Set(['lookup', 'rollup', 'count'])
 
 /**
@@ -148,6 +152,16 @@ const derivedLinksOf = (
 /** The lookups of `tableName` whose relationship links to a declared table. */
 export const lookupLinksOf = (app: App, tableName: string): readonly LookupLink[] =>
   derivedLinksOf(app, tableName, LOOKUPS)
+
+/**
+ * The counts of `tableName` whose relationship links to a declared table, each
+ * with that link and its own `filters`. A count counts only the linked rows
+ * its reader's list of the related table admits: the read surfaces recount it
+ * from those rows where that list is narrowed to the rows a grant names, and
+ * leave it out where it admits her none.
+ */
+export const countLinksOf = (app: App, tableName: string): readonly LookupLink[] =>
+  derivedLinksOf(app, tableName, COUNTS)
 
 /** Does `table` declare a row-level read rule? */
 const isRowRuled = (table: Table): boolean => table.rowLevelPermissions?.read?.when !== undefined
@@ -363,8 +377,10 @@ const formulaReferencesOf = (
   })
 
 /**
- * May `reader` see the value `link` reads? The related table must be theirs
- * to read, and so must the related field (a `count` reads none) — and so must
+ * May `reader` see the value `link` reads, as far as the schema tells? The
+ * related table must be theirs to read, and so must the related field (a
+ * `count` reads none, and is then narrowed to the linked rows her list of the
+ * related table admits, with the rows in hand: {@link countLinksOf}) — and so must
  * whatever that field is built from: when it is itself a lookup, a rollup or a
  * count, the value it reads in turn (a lookup of a lookup reads two tables
  * away); when it is a formula, every value its expression names, however many
@@ -504,9 +520,10 @@ export const lookupKeyColumnsFor = (
  * many records refused to them ({@link toManyLinksRefusedTo}) — and every
  * formula built over one of them. Each is left out of every record, exactly as the label of the same
  * relationship is. A judgement on the schema alone: it reads no row. Within a
- * table the reader may read, a rollup and a count still aggregate every
- * related record whatever the reader's row-level rule; only a lookup answers
- * to that rule, judged by the read surfaces with the rows in hand.
+ * table the reader may read, a rollup still aggregates every related record
+ * whatever the reader's row-level rule; a lookup answers to that rule, and a
+ * count to the rows her list of the related table admits, both judged by the
+ * read surfaces with the rows in hand.
  */
 export const relatedValuesRefusedTo = (
   app: App,

@@ -7,7 +7,6 @@
 
 import { Schema } from 'effect'
 import { DesignBreakpointsSchema } from './breakpoints'
-import { CodeBlockConfigSchema } from './code-block'
 import { ColorRolesSchema } from './color-roles'
 import { DesignColorsSchema, DesignDarkColorsSchema } from './colors'
 import { DesignComponentsSchema } from './components'
@@ -49,13 +48,13 @@ import { DesignZonesSchema } from './zones'
  *    co-located, so a rename cannot half-apply. `design.components` is the
  *    operator's per-engine-type STYLE key.)
  *
- * ## Four bands, twenty-one keys, no second spelling of anything
+ * ## Four bands, twenty keys, no second spelling of anything
  *
  * - **Colour** — `colorScheme`, `colors`, `darkColors`, `ramps`, `colorRoles`.
  * - **Foundations** — `typeScale`, `spacing`, `radius`, `elevation`, `motion`,
  *   `breakpoints`.
- * - **Application** — `density`, `badgeForm`, `baseline`, `codeBlock`
- *   (deprecated, ignored), `components`, `zones`.
+ * - **Application** — `density`, `badgeForm`, `baseline`, `components`,
+ *   `zones`.
  * - **Charter** — `logo`, `imagery`, `principles`, `voice`.
  *
  * The order above is the narrative order, and it is also the order the design
@@ -198,12 +197,6 @@ export const DesignSchema = Schema.Struct({
   ),
 
   /**
-   * Deprecated since 0.40 and ignored; refused from 0.41. Code blocks use
-   * shadcn/ui's default colours whatever it names.
-   */
-  codeBlock: Schema.optional(CodeBlockConfigSchema),
-
-  /**
    * Classes on the components the ENGINE draws, keyed by component type.
    *
    * The one key here addressed to the OPERATOR rather than the author: it
@@ -245,7 +238,7 @@ export const DesignSchema = Schema.Struct({
     identifier: 'Design',
     title: 'Design System',
     description:
-      "The app's design system in one key: the colour palette, ramps and roles; the type, space, shape, elevation, motion and layout foundations; density, baseline, code-block and per-engine-type component styling; the zone map; and the charter — logo, imagery, principles and voice.",
+      "The app's design system in one key: the colour palette, ramps and roles; the type, space, shape, elevation, motion and layout foundations; density, baseline and per-engine-type component styling; the zone map; and the charter — logo, imagery, principles and voice.",
     // One example, exercising every band. Completeness is deliberate: this
     // block is the only place a reader sees the whole key in one shape, and a
     // partial example teaches the omitted keys as optional-in-practice.

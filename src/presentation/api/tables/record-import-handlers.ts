@@ -136,7 +136,8 @@ async function importOverwrite(
   }).pipe(Effect.map(({ created, updated }) => ({ created, updated, skipped: 0 })))
   const response = await runEffect(c, provideDomain(c, program), importRecordsResponseSchema)
   const written = validation.strippedRecords.map((record) => record.fields)
-  return maskUnreadableUniqueConflict(c, app, { written }, response)
+  const match = { fields: [input.mergeOn], hiddenIds: validation.hiddenIds }
+  return maskUnreadableUniqueConflict(c, app, { written, match }, response)
 }
 
 /** Create, or skip what is already there: a batch create, behind the batch create's gates. */

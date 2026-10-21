@@ -570,6 +570,7 @@ function repeatNodeViolations(
     ...repeatPositionViolations(repeats, context, label),
     ...(repeats ? repeatNestingViolations(repeatName(node), context, label) : []),
     ...repeatVisibilityViolations(node, repeats || context.repeats.length > 0, label),
+    ...itemGateViolations(node, context, label),
     ...drawerSlotReadViolations(node, context, label),
   ]
 }
@@ -662,6 +663,39 @@ function repeatVisibilityViolations(
         `${label} declares \`visibility.record\` on or inside a \`repeat\` — the per-row gate is evaluated only for a row template, and a repeat's copies are built with no per-element gate — in the browser for a drawer slot, in the binding pass for a page bound to one record — so the gate would silently apply to nothing and every element would render. v1 refuses it rather than shipping a filter that holds in one path and evaporates in the other; filter the array before it reaches the record, or drop the gate.`,
       ]
     : []
+}
+
+/**
+ * Rule 3b: `visibility.item`, the per-element gate. It reads the element of the
+ * NEAREST enclosing repeat, and only the binding pass of a page bound to one
+ * record evaluates it — so a gate with no repeat around it has no element to
+ * read, one in a record-bound drawer's copies (built in the browser) would apply
+ * to nothing, and one with a field but no operator matches every element. Each
+ * would render every copy while looking like a filter.
+ */
+function itemGateViolations(
+  node: Readonly<Record<string, unknown>>,
+  context: Pick<RepeatContext, 'inDrawerSlot' | 'repeats'>,
+  label: string
+): readonly string[] {
+  const { visibility } = node
+  const gate = isRecord(visibility) ? visibility['item'] : undefined
+  if (!isRecord(gate)) return []
+  if (context.repeats.length === 0) {
+    return [
+      `${label} declares \`visibility.item\` outside any \`repeat\` — the gate tests the element of the nearest enclosing repeat, and there is none here, so it could never fire and the component would always render. Move it inside a repeat's \`children\`, or use \`visibility.record\` for the record the page is bound to.`,
+    ]
+  }
+  if (context.inDrawerSlot) {
+    return [
+      `${label} declares \`visibility.item\` inside a record-bound drawer — that drawer's repeat copies are built in the browser, which does not evaluate the gate, so every element would render. The gate holds on a page bound to one record (\`{ system }\` or \`{ table, mode: 'single' }\`); filter the array before it reaches the record, or drop the gate.`,
+    ]
+  }
+  return Object.keys(gate).some((key) => key !== 'field')
+    ? []
+    : [
+        `${label} declares \`visibility.item\` with a field but no operator — the matcher ANDs the operators it is given, so an empty predicate matches every element and the gate renders on every copy. Add an operator such as \`eq\`, \`neq\`, \`in\` or \`isNotEmpty\`.`,
+      ]
 }
 
 /** Rule 4: a `$record.`-carrying `{ system }` read inside the drawer slot. */

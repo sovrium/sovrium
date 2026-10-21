@@ -152,6 +152,31 @@ export const SystemSourceSchema = Schema.Struct({
         'Companion to bindTo: the shared selector params merged (dynamically) into every request to endpoint, alongside the static query. Inert without bindTo.',
     })
   ),
+  /**
+   * How the rows are refreshed after the first read (default: none). `poll`
+   * re-reads the endpoint every `pollIntervalMs`, keeping the channel's params.
+   * There is no `realtime`: an endpoint has no change feed to follow.
+   */
+  refreshMode: Schema.optional(
+    Schema.Literals(['none', 'poll']).annotate({
+      title: 'System Refresh Mode',
+      description:
+        "How the rows are refreshed after the first read (default: 'none'). 'poll' re-reads the endpoint every pollIntervalMs, keeping the channel's params, so rows that change elsewhere show without a reload. 'realtime' is refused: an endpoint has no change feed to follow. Refused on rows the server draws, as on a table source.",
+      defaultNote: 'none',
+    })
+  ),
+  /** Poll interval in milliseconds, used when `refreshMode` is `poll`. */
+  pollIntervalMs: Schema.optional(
+    Schema.Finite.pipe(
+      Schema.annotate({
+        description:
+          "Polling interval in milliseconds for refreshMode: poll (min 1000, max 300000). Defaults to 30000 when omitted, and is ignored unless refreshMode is 'poll'.",
+        defaultNote: '30000',
+        examples: [5000, 30_000],
+      }),
+      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 300_000 }))
+    )
+  ),
 }).annotate({
   title: 'System Source',
   description:

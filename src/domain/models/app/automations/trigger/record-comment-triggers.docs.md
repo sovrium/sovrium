@@ -108,16 +108,16 @@ It defaults to `true`, honouring the table's row-level read predicate against th
 
 A comment trigger supplies the comment, the record it hangs from, and two ready-made audiences — enough to notify a thread without a single lookup.
 
-| Path                                      | Type         | Contains                                                         |
-| ----------------------------------------- | ------------ | ---------------------------------------------------------------- |
-| `$trigger.comment.id`                     | UUID         | The comment row                                                  |
-| `$trigger.comment.body`                   | string       | The comment body, as rich text                                   |
-| `$trigger.comment.author.{id,email,name}` | string       | Who wrote it                                                     |
-| `$trigger.comment.parentCommentId`        | UUID or null | `null` on a top-level comment; the parent's id on a reply        |
-| `$trigger.record.*`                       | object       | The record the comment was posted on                             |
-| `$trigger.threadParticipants`             | UUID array   | Everyone who has written on the thread, excluding the new author |
-| `$trigger.mentions`                       | UUID array   | The users the comment mentions who can read the record           |
-| `$trigger.mentionedEmails`                | string array | Those same users' addresses, excluding the comment's own author  |
+| Path                                      | Type         | Contains                                                                                                                                                                                                         |
+| ----------------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `$trigger.comment.id`                     | UUID         | The comment row                                                                                                                                                                                                  |
+| `$trigger.comment.body`                   | string       | The comment body, as rich text                                                                                                                                                                                   |
+| `$trigger.comment.author.{id,email,name}` | string       | Who wrote it                                                                                                                                                                                                     |
+| `$trigger.comment.parentCommentId`        | UUID or null | `null` on a top-level comment; the parent's id on a reply                                                                                                                                                        |
+| `$trigger.record.*`                       | object       | The record the comment was posted on                                                                                                                                                                             |
+| `$trigger.threadParticipants`             | string array | Email addresses of the earlier authors of the thread whose records list still admits the record, excluding the new author; on a first comment, the record owner, while her records list still admits the record. |
+| `$trigger.mentions`                       | UUID array   | The users the comment mentions who can read the record                                                                                                                                                           |
+| `$trigger.mentionedEmails`                | string array | Those same users' addresses, excluding the comment's own author                                                                                                                                                  |
 
 **`mentions` holds ids; `mentionedEmails` holds addresses.** Only the second is a usable recipient: `to: '{{trigger.mentions}}'` renders a comma-joined list of user ids and the send fails for want of an address.
 
@@ -131,6 +131,6 @@ A comment trigger supplies the comment, the record it hangs from, and two ready-
     body: '{{trigger.comment.author.name}} wrote: {{trigger.comment.body}}'
 ```
 
-A mention is either `@[<user id>]` markup in the body — what the page's comment composer writes when someone types `@` and picks a person — or an id in the create request's `mentions` array; the two are merged. A name typed by hand without picking it, such as `@Carol Dupont`, is plain text and mentions nobody. Only people who can read the record count: a mention of someone the table's `read` permission or row-level read rule refuses, or of an id that belongs to nobody, never reaches `mentions` or `mentionedEmails`, and never fires a `mentionsOnly` automation.
+A mention is either `@[<user id>]` markup in the body — what the page's comment composer writes when someone types `@` and picks a person — or an id in the create request's `mentions` array; the two are merged. A name typed by hand without picking it, such as `@Carol Dupont`, is plain text and mentions nobody. Only people who can read the record count: a mention of someone the table's `read` permission, the rows the records list admits them, or the row-level read rule refuses, or of an id that belongs to nobody, never reaches `mentions` or `mentionedEmails`, and never fires a `mentionsOnly` automation.
 
 `mentionedEmails` drops the comment's own author even where they mention themselves, so nobody is emailed about their own comment. Repeat mentions of one person collapse to a single address, and a mention whose user no longer exists is skipped rather than failing the run — a half-delivered notification beats a comment endpoint that swallows its own automation. Pair it with `filter: { mentionsOnly: true }` so the automation runs only when there is somebody to notify.

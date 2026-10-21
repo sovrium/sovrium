@@ -97,13 +97,11 @@ function liftTimelineGanttProps(componentProps: Component['props']): Record<stri
  * line. Each is still read off `component` by name, so they are forwarded
  * exactly as verbatim as they read here.
  */
-type GridDrawingKey = 'rowHeight' | 'layout' | 'phoneLayout' | 'striped' | 'bordered'
-const gridDrawingProps = (
-  component: Partial<Record<GridDrawingKey | 'showRowNumbers', unknown>>
-): Record<string, unknown> => ({
+const gridDrawingProps = (component: ComponentOfType<'table'>): Record<string, unknown> => ({
   rowHeight: component.rowHeight,
   layout: component.layout,
   phoneLayout: component.phoneLayout,
+  viewOptions: component.viewOptions,
   striped: component.striped,
   bordered: component.bordered,
   showRowNumbers: component.showRowNumbers,

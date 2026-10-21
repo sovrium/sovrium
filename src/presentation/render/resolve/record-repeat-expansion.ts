@@ -38,9 +38,19 @@
  * Its `href`, `src` and `alt`, on the node or in its props, take the stored
  * value, exactly as `$record.` fills those props on a bound page — the same
  * destination with the same rule, so a value is no more trusted inside a copy
- * than outside one. Every other prop keeps its tokens verbatim. Widening that
+ * than outside one. A `description-list`'s pairs resolve as they do on a bound
+ * page: `term` and `detail` as text, `action.href` as the stored value, and a
+ * formatted lone-token detail as the element's stored value. Every other prop
+ * keeps its tokens verbatim. Widening that
  * further is a per-destination escaping question (a `style` can name a `url(`),
  * not a loosened key filter.
+ *
+ * ─── THE PER-ELEMENT GATE ─────────────────────────────────────────────────
+ *
+ * A node under a copy declaring `visibility.item` is kept only when the element
+ * the copy is drawn from satisfies it — the nearest enclosing repeat's element,
+ * at any depth of the copy — and is otherwise left out of the HTML with its
+ * subtree, as `visibility.record` leaves a node out of a row.
  *
  * ─── A VALUE IS TEXT, NEVER MARKUP (standing rule S2) ─────────────────────
  *
@@ -63,11 +73,11 @@ import {
   RECORD_NAMESPACE,
   printableRecordFields,
   repeatElementScalars,
-  scopedTokensIn,
   substituteScopedVars,
   withScopesText,
 } from '@/domain/models/app/pages/substitute-record-vars'
 import { substituteScopesInContent, withPlainTextPin } from './record-substitution'
+import { filterChildrenForElement } from './record-visibility'
 import type { Component } from '@/domain/models/app/pages/components'
 
 type Fields = Readonly<Record<string, unknown>>
@@ -120,16 +130,30 @@ const withSortedKeys = (value: unknown): unknown => {
   )
 }
 
+/** A string that is exactly one unescaped scoped token: its namespace and its dotted path. */
+const LONE_TOKEN = /^\$([a-zA-Z_][a-zA-Z0-9_]*)((?:\.[a-zA-Z0-9_]+)+)$/
+
+/**
+ * The raw value a string names when it is exactly one scoped token — its path
+ * walked through plain objects — or `undefined` when it is not one.
+ */
+function loneTokenValue(text: string, scope: RecordScope): unknown {
+  const [, namespace = '', path = ''] = LONE_TOKEN.exec(text) ?? []
+  return path
+    .slice(1)
+    .split('.')
+    .reduce<unknown>(
+      (value, key) => (isFields(value) ? value[key] : undefined),
+      path === '' ? undefined : scope.raw[namespace]
+    )
+}
+
 /**
  * The JSON a `code` node prints when its whole content is one scoped token whose
  * value is an object or an array, or `undefined` when the rule does not apply.
  */
 function loneTokenJson(content: unknown, scope: RecordScope): string | undefined {
-  if (typeof content !== 'string') return undefined
-  const tokens = scopedTokensIn(content)
-  const [only] = tokens
-  if (tokens.length !== 1 || only === undefined || only.token !== content) return undefined
-  const value = scope.raw[only.namespace]?.[only.field]
+  const value = typeof content === 'string' ? loneTokenValue(content, scope) : undefined
   return typeof value === 'object' && value !== null
     ? JSON.stringify(withSortedKeys(value), undefined, 2)
     : undefined
@@ -184,6 +208,40 @@ function typedKeysInScope(node: Component, scope: RecordScope): Partial<Componen
   ) as Partial<Component>
 }
 
+/**
+ * One `description-list` pair inside a copy, resolved as the bound page resolves
+ * it: `term` and `detail` are sentences and print as text; `action.href` is an
+ * address and takes the stored value; a `detail` naming a `format` hands the
+ * renderer the STORED value to format — the element's own value for a lone
+ * token (`$step.durationMs` with `format: 'duration'`), else the detail's
+ * stored-value text — so a step's duration reads as the grid cell beside it.
+ */
+function itemInScope(item: unknown, scope: RecordScope): unknown {
+  if (!isFields(item)) return item
+  const text = withScopesText(scope.printable)
+  const { term, detail, format, action } = item
+  const fill = (value: unknown, scopes: RecordScope['printable']): unknown =>
+    typeof value === 'string' ? substituteScopedVars(value, scopes) : value
+  const formatValue =
+    typeof format === 'string' && typeof detail === 'string'
+      ? (loneTokenValue(detail, scope) ?? substituteScopedVars(detail, scope.printable))
+      : undefined
+  return {
+    ...item,
+    term: fill(term, text),
+    ...(detail !== undefined && { detail: fill(detail, text) }),
+    ...(formatValue !== undefined && { _formatValue: formatValue }),
+    ...(isFields(action) && { action: { ...action, href: fill(action['href'], scope.printable) } }),
+  }
+}
+
+/** A copy's `description-list` pairs, resolved; nothing for any other node. */
+function itemsInScope(node: Component, scope: RecordScope): Partial<Component> {
+  const { items } = node as { readonly items?: unknown }
+  if (node.type !== 'description-list' || !Array.isArray(items)) return {}
+  return { items: items.map((item: unknown) => itemInScope(item, scope)) } as Partial<Component>
+}
+
 /** One template node, resolved against one copy's scope. */
 function nodeInScope(node: Component | string, scope: RecordScope): Component | string {
   if (typeof node === 'string') return substituteScopedVars(node, withScopesText(scope.printable))
@@ -192,6 +250,7 @@ function nodeInScope(node: Component | string, scope: RecordScope): Component | 
   const own: Component = {
     ...node,
     ...typedKeysInScope(node, scope),
+    ...itemsInScope(node, scope),
     props: withPlainTextPin(propsInScope(node.props, scope), resolved.forcePlainText),
     content: json ?? resolved.content,
   }
@@ -199,8 +258,8 @@ function nodeInScope(node: Component | string, scope: RecordScope): Component | 
     ? expandRepeat(own, scope)
     : {
         ...own,
-        children: (node.children ?? []).map((child: Component | string) =>
-          nodeInScope(child, scope)
+        children: filterChildrenForElement(node.children ?? [], scope.nearest).map(
+          (child: Component | string) => nodeInScope(child, scope)
         ),
       }
 }
@@ -225,7 +284,7 @@ export function expandRepeat(component: Component, scope: RecordScope): Componen
   const template = component.children ?? []
   const copies = Array.isArray(source)
     ? source.flatMap((element) =>
-        template.map((child: Component | string) =>
+        filterChildrenForElement(template, element).map((child: Component | string) =>
           nodeInScope(child, elementScope(scope, repeat.as, element))
         )
       )

@@ -45,6 +45,13 @@ export const agentAdminItemSchema = Schema.Struct({
     description:
       "The agent's name as the console prints it. An agent declares no label of its own, so a declared agent reads as its name humanised (`quote-assistant` → `Quote assistant`); the built-in agent reads `System` in the operator's console language (`Système` in French). The sidebar row and the breadcrumb read this; the URL keeps `name`.",
   }).pipe(Schema.check(Schema.isMinLength(1))),
+  description: optionalField(
+    Schema.String.annotate({
+      description:
+        "What the agent is for, as its configuration's `description` says it. Absent when the agent declares none, and on the built-in `system` agent, never an empty string.",
+      examples: ['Answers customers from the help centre, hands over to a person.'],
+    })
+  ),
   isSystem: Schema.Boolean.annotate({
     description:
       'True for the built-in `system` agent, whose conversations are those no declared agent claimed (`agent_name IS NULL`). Exactly one item per response carries `true`.',

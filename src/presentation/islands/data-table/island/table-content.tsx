@@ -147,6 +147,13 @@ const loadingProps = (props: TableContentProps) => ({
   ...(props.loadingMore === true && { loadingMore: true }),
 })
 
+/** What decides between the no-match and the empty state: the search, the narrowing, the message. */
+const noMatchProps = (props: TableContentProps) => ({
+  ...(props.noMatchMessage !== undefined && { noMatchMessage: props.noMatchMessage }),
+  globalFilter: props.globalFilter,
+  narrowed: props.narrowed,
+})
+
 interface BodyRowsSlotProps {
   readonly props: TableContentProps
   readonly rows: readonly DataTableRow[]
@@ -198,8 +205,7 @@ function BodyRowsSlot({
       rowColorField={props.rowColorField}
       rowColorFieldColors={props.rowColorFieldColors}
       emptyMessage={props.emptyMessage}
-      {...(props.noMatchMessage !== undefined && { noMatchMessage: props.noMatchMessage })}
-      globalFilter={props.globalFilter}
+      {...noMatchProps(props)}
       selectionMode={props.selectionMode}
       gridRole={gridRole}
       navigable={navigable}

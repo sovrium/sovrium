@@ -19,8 +19,9 @@
  *  - an AI agent prompt spec: the agent's `temperature` override is
  *    sent; when omitted, the env default (`AI_TEMPERATURE`) is used, if any.
  *  - an AI agent prompt spec: auto-generated table context (one line
- *    per `app.tables[]` entry) is appended AFTER the agent prompt so the LLM
- *    knows which data surfaces it may reason about.
+ *    per table its tools read for the person chatting, with the fields both
+ *    may read) is appended AFTER the agent prompt so the LLM knows which data
+ *    surfaces it may reason about.
  *  - `{{appName}}` / `{{userRole}}` template
  *    variables in the agent prompt are resolved before delivery.
  *  - the resolved system prompt is NEVER echoed back
@@ -48,6 +49,7 @@
  * the agent that produced them.
  */
 
+import { isCallerDeniedAgentAction } from '@/domain/models/app/agents/agent-gate-validation'
 import { isSystemAgentName } from '@/domain/models/app/agents/agent-identity'
 import {
   buildSystemAgent,
@@ -55,6 +57,7 @@ import {
 } from '@/domain/models/app/agents/system-agent-service'
 import { hasReadPermission } from '@/domain/models/app/auth/permission-evaluator-service'
 import { resolveAgentTemperature } from '@/presentation/api/runtime/agent-ai-config'
+import type { AgentCaller } from '@/application/ports/services/agent-approval-store'
 import type { App } from '@/domain/models/app'
 import type { Agent } from '@/domain/models/app/agents/agent'
 
@@ -67,27 +70,35 @@ const resolveTemplateVariables = (prompt: string, app: App, agent: Agent): strin
   prompt.replaceAll('{{appName}}', app.name).replaceAll('{{userRole}}', agent.role)
 
 /**
- * Build the one-line-per-table context block appended after the agent prompt.
- * Returns an empty string when the app declares no tables.
- *
- * Tables are scoped by the agent's RBAC role: an agent
- * operates under its declared `role`, so a table the role cannot read
- * (`permissions.read` excludes it) is omitted entirely — neither the table nor
- * its field names reach the model prompt.
+ * The tables, and the fields of each, an agent-bound turn describes to its
+ * model: the ones its tools may read for the person it answers.
  */
-const buildTableContext = (app: App, agent: Agent): string => {
-  const tables = app.tables ?? []
-  const readableTables = tables.filter((table) =>
-    hasReadPermission(table as { name: string; permissions?: { read?: unknown } }, agent.role, {
-      auth: app.auth,
-      tables: tables as readonly { name: string }[],
-    })
+export interface DescribedTable {
+  readonly name: string
+  readonly readableColumns: ReadonlyArray<string>
+}
+
+/**
+ * Build the one-line-per-table context block appended after the agent prompt.
+ * Returns an empty string when no table is described.
+ *
+ * `tables` is the set the turn's tools read (`toToolCallTables`, for the
+ * agent's reader), narrowed to the agent's declared allowlist: a table the
+ * agent's role cannot read, a table the person it answers does not list, and
+ * a field either of them may not read are absent, so the prompt and the tool
+ * list never name different tables or columns.
+ */
+const buildTableContext = (
+  tables: ReadonlyArray<DescribedTable>,
+  allowlist: ReadonlyArray<string> | undefined
+): string => {
+  const described = tables.filter(
+    (table) => allowlist === undefined || allowlist.includes(table.name)
   )
-  if (readableTables.length === 0) return ''
-  const lines = readableTables.map((table) => {
-    const fieldNames = table.fields.map((field) => field.name).join(', ')
-    return `- ${table.name} (fields: ${fieldNames})`
-  })
+  if (described.length === 0) return ''
+  const lines = described.map(
+    (table) => `- ${table.name} (fields: ${table.readableColumns.join(', ')})`
+  )
   return ['Available data tables:', ...lines].join('\n')
 }
 
@@ -97,9 +108,13 @@ const buildTableContext = (app: App, agent: Agent): string => {
  * context. Either part may be empty; the join collapses blank segments so an
  * empty agent prompt yields just the table context.
  */
-const buildAgentSystemPrompt = (app: App, agent: Agent): string => {
+const buildAgentSystemPrompt = (
+  app: App,
+  agent: Agent,
+  tables: ReadonlyArray<DescribedTable>
+): string => {
   const resolvedPrompt = resolveTemplateVariables(agent.systemPrompt, app, agent)
-  const tableContext = buildTableContext(app, agent)
+  const tableContext = buildTableContext(tables, agent.tools?.tables)
   return [resolvedPrompt, tableContext].filter((part) => part.trim().length > 0).join('\n\n')
 }
 
@@ -130,6 +145,30 @@ const resolveAgentToolTables = (app: App, agent: Agent): ReadonlyArray<string> |
   )
   return readable.filter((table) => allowlist.includes(table.name)).map((table) => table.name)
 }
+
+/**
+ * The tables each of a declared agent's actions names to its model. Answering
+ * a person (`caller`), an action names only an allowlisted table she may reach
+ * with it herself: one her chat tools list (`listed`), or for `record.create`
+ * one she may create in — never a table the records API answers her as
+ * unknown. With no one to answer, the whole allowlist.
+ */
+export const actionTablesFor =
+  (
+    agent: Agent,
+    app: App | undefined,
+    caller: AgentCaller | undefined,
+    listed: ReadonlySet<string>
+  ) =>
+  (action: string): ReadonlyArray<string> => {
+    const allowlist = agent.tools?.tables ?? []
+    if (caller === undefined) return allowlist
+    return allowlist.filter(
+      (table) =>
+        (action === 'record.create' || listed.has(table)) &&
+        !isCallerDeniedAgentAction({ action, table, caller: caller.grantOn(table) }, app)
+    )
+  }
 
 /**
  * Default temperature applied when neither the agent nor the `AI_TEMPERATURE`
@@ -177,19 +216,27 @@ export interface AgentTurnBinding {
 }
 
 /**
- * Resolve the binding for an agent-bound chat turn, or `undefined` when the
- * app declares no agent by that name (the caller maps that onto HTTP 404).
+ * The declared agent `agentName` names, or `undefined` when the app declares
+ * none by that name (the caller maps that onto HTTP 404). The built-in System
+ * Agent is not a declared one.
+ */
+export const findDeclaredAgent = (app: App, agentName: string): Agent | undefined =>
+  isSystemAgentName(agentName)
+    ? undefined
+    : app.agents?.find((candidate) => candidate.name === agentName)
+
+/**
+ * Resolve the binding for a turn with the declared `agent`, describing to its
+ * model the `tables` its tools read for this turn ({@link DescribedTable}).
  *
  * The composed system prompt is never echoed back in the response
  * — it is an input to the provider call only.
  */
 export const resolveAgentTurnBinding = (
   app: App,
-  agentName: string
-): AgentTurnBinding | undefined => {
-  if (isSystemAgentName(agentName)) return undefined
-  const agent = app.agents?.find((candidate) => candidate.name === agentName)
-  if (agent === undefined) return undefined
+  agent: Agent,
+  tables: ReadonlyArray<DescribedTable>
+): AgentTurnBinding => {
   // Deliberately NOT `resolveAgentModel`: that helper ends in a hard-coded
   // `'mock-model'`, which the raw-fetch path needed because it always had to put
   // SOME model on the wire. Through the port an absent model means "use the
@@ -201,7 +248,7 @@ export const resolveAgentTurnBinding = (
   return {
     name: agent.name,
     role: agent.role,
-    systemPrompt: buildAgentSystemPrompt(app, agent),
+    systemPrompt: buildAgentSystemPrompt(app, agent, tables),
     temperature: resolveAgentTemperature(agent, DEFAULT_TEMPERATURE),
     ...(model !== undefined && { model }),
     ...(agent.maxTokens !== undefined && { maxTokens: agent.maxTokens }),
@@ -219,10 +266,7 @@ export const resolveAgentTurnBinding = (
  */
 export const resolveSystemAgentTurnBinding = (
   app: App,
-  readableTables: ReadonlyArray<{
-    readonly name: string
-    readonly readableColumns: ReadonlyArray<string>
-  }>
+  readableTables: ReadonlyArray<DescribedTable>
 ): AgentTurnBinding => {
   const tables: ReadonlyArray<SystemAgentTable> = readableTables.map((table) => ({
     name: table.name,

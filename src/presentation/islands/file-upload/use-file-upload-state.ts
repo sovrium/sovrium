@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useState, type ChangeEvent } from 'react'
+import { failedChipStrings } from './file-upload-compact'
 import { submitUpload } from './file-upload-submit'
 import { validateFiles } from './file-upload-validators'
 import type {
@@ -24,6 +25,8 @@ interface FileUploadStateInput {
   readonly onError?: FetchToastResponse | undefined
   /** The `fileUpload.*` words in the page language, where they differ from English. */
   readonly uiStrings?: Readonly<Record<string, string>> | undefined
+  /** A compact upload draws no failed chip: its failure toast carries a Retry. */
+  readonly compact?: boolean | undefined
 }
 
 export interface FileUploadState {
@@ -50,7 +53,7 @@ export interface FileUploadState {
  * onSuccess effects / onError toast).
  */
 export function useFileUploadState(input: FileUploadStateInput): FileUploadState {
-  const { maxFiles, maxFileSize, uploadAction, onSuccess, onError, uiStrings } = input
+  const { maxFiles, maxFileSize, uploadAction, onSuccess, onError, uiStrings, compact } = input
   const [error, setError] = useState<string | undefined>(undefined)
   const [fileNames, setFileNames] = useState<readonly string[]>([])
   const [submitting, setSubmitting] = useState(false)
@@ -62,11 +65,14 @@ export function useFileUploadState(input: FileUploadStateInput): FileUploadState
       if (!uploadAction) return
       setSubmitting(true)
       setFailed([])
-      void submitUpload(picked, { url: uploadAction, onSuccess, onError, origin })
+      const retry = compact
+        ? { label: failedChipStrings(uiStrings).retry, run: () => send(picked, origin) }
+        : undefined
+      void submitUpload(picked, { url: uploadAction, onSuccess, onError, origin, retry })
         .then((ok) => setFailed(ok ? [] : picked))
         .finally(() => setSubmitting(false))
     },
-    [uploadAction, onSuccess, onError]
+    [uploadAction, onSuccess, onError, compact, uiStrings]
   )
 
   const handleFiles = useCallback(

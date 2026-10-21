@@ -52,7 +52,7 @@ When the binding returns no record, a list says its `listDisplay.emptyMessage` �
 
 ## Paging is the binding's business, not the display's
 
-Page size comes from `dataSource.limit`: it sets how many records the first page holds, and each press of Load More appends another page of that size.
+Page size comes from `dataSource.limit`: it sets how many records the first page holds, and each press of Load More appends another page of that size. The button reads « Load More » in the page language (`sovrium.list.loadMore` renames it; a gallery's is `sovrium.gallery.loadMore`).
 
 `loadMore: button` renders the control that does the appending. On a `dataSource.system` binding it appears only if that binding also declares `totalKey` **and** the endpoint answers a number there — without one the reported total is the page's own length, so there is never anything left to load.
 

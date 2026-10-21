@@ -40,18 +40,16 @@
  *
  * WHY THE POLICY IS EXPLICIT RATHER THAN INFERRED
  * ----------------------------------------------
- * Two of the deviations found in the audit are DELIBERATE and must survive:
+ * One deviation found in the audit is DELIBERATE and must survive: a surface
+ * that has no session at all (an anonymous public-read page) still has to
+ * answer "which columns", and the answer is not the same as for a signed-in
+ * `viewer`. A plan that silently normalised it away would be a regression
+ * dressed as a consolidation, so it is an option with a name.
  *
- *   - the realtime transports match a field grant against ANY of the caller's
- *     effective roles, not just the primary one, because a change event is
- *     fanned out to a connection rather than derived per-request
- *     (`subscribe-handlers.ts`);
- *   - a surface that has no session at all (an anonymous public-read page)
- *     still has to answer "which columns", and the answer is not the same as
- *     for a signed-in `viewer`.
- *
- * A plan that silently normalised those away would be a regression dressed as
- * a consolidation. Both are therefore options with names.
+ * A field grant is matched against the caller's own role and groups, never a
+ * role she holds through a `user_access` grant: such a role is held on rows,
+ * and a row a grant names shows its fields under that role row by row
+ * (`callersOfRow`), never a whole table's — let alone another table's.
  *
  * WHAT IT DELIBERATELY DOES NOT DO
  * --------------------------------
@@ -164,27 +162,9 @@ const groupsOf = (principal: ReadPrincipal): readonly string[] =>
     .filter((entry) => entry.startsWith(GROUP_PREFIX))
     .map((entry) => entry.slice(GROUP_PREFIX.length))
 
-/** The caller's non-group roles — the primary role plus any overlay roles. */
-const plainRolesOf = (principal: ReadPrincipal): readonly string[] =>
-  principal.effectiveRoles.filter((entry) => !entry.startsWith(GROUP_PREFIX))
-
 // ---------------------------------------------------------------------------
 // Policy — the choices a surface must make by name
 // ---------------------------------------------------------------------------
-
-/**
- * How a field grant is matched against a caller holding several roles.
- *
- * - `primary-role`      — only {@link ReadPrincipal.role} decides. What the
- *   REST record read does: a request carries one acting role and the response
- *   is shaped for it.
- * - `any-effective-role` — a column survives if ANY effective role may read it.
- *   What the realtime transports do, DELIBERATELY (`subscribe-handlers.ts`):
- *   the whitelist is resolved once per CONNECTION and then applied to every
- *   fanned-out change event, so narrowing it to the primary role would hide
- *   columns a group grant legitimately opens.
- */
-export type FieldRoleMatch = 'primary-role' | 'any-effective-role'
 
 /**
  * Whether the built-in default field rules apply.
@@ -213,9 +193,8 @@ export type FieldDefaultRules = 'apply' | 'skip'
  */
 export type DeletionScope = 'live-only' | 'deleted-only'
 
-/** The policy triple every read plan must declare. */
+/** The policy pair every read plan must declare. */
 export interface ReadAccessPolicy {
-  readonly fieldRoleMatch: FieldRoleMatch
   readonly fieldDefaultRules: FieldDefaultRules
   readonly deletionScope: DeletionScope
 }
@@ -225,25 +204,12 @@ export interface ReadAccessPolicy {
  * starting point for any new read surface.
  */
 export const CANONICAL_READ_POLICY: ReadAccessPolicy = {
-  fieldRoleMatch: 'primary-role',
-  fieldDefaultRules: 'apply',
-  deletionScope: 'live-only',
-}
-
-/**
- * The realtime policy. Differs from canonical in ONE named way, documented on
- * {@link FieldRoleMatch}: the whitelist is per-connection, so it is resolved
- * across every effective role.
- */
-export const REALTIME_READ_POLICY: ReadAccessPolicy = {
-  fieldRoleMatch: 'any-effective-role',
   fieldDefaultRules: 'apply',
   deletionScope: 'live-only',
 }
 
 /** The trash policy: canonical, but scoped to soft-deleted rows. */
 export const TRASH_READ_POLICY: ReadAccessPolicy = {
-  fieldRoleMatch: 'primary-role',
   fieldDefaultRules: 'apply',
   deletionScope: 'deleted-only',
 }
@@ -401,8 +367,8 @@ const admitsNoValue = (clause: { readonly operator: string; readonly value: unkn
  * Returns `undefined` when every column is readable. Delegates the per-field
  * decision to {@link isFieldReadableByCaller} — the ONE predicate carrying the
  * built-in default rules, the `permissions.fields` precedence and the
- * `isAdminEquivalent` superuser bypass — so this function owns only the
- * multi-role combining rule.
+ * `isAdminEquivalent` superuser bypass. The field is judged for the
+ * primary role with the caller's groups, never an overlay role.
  */
 export const resolveColumnWhitelist = (
   app: App,
@@ -410,20 +376,11 @@ export const resolveColumnWhitelist = (
   principal: ReadPrincipal,
   policy: ReadAccessPolicy
 ): readonly string[] | undefined => {
-  const groups = groupsOf(principal)
-  // Group membership rides on EVERY candidate caller, whichever match mode is
-  // in force: a `group:` grant is satisfied by membership, not by which role
-  // happens to be primary. Only the ROLE set widens under
-  // `any-effective-role`.
-  const callers: readonly PermissionCaller[] = (
-    policy.fieldRoleMatch === 'any-effective-role' ? plainRolesOf(principal) : [principal.role]
-  ).map((role) => ({ role, groups }))
-
+  // A `group:` grant is satisfied by membership, not by the role string.
+  const caller: PermissionCaller = { role: principal.role, groups: groupsOf(principal) }
   const readable = table.fields
     .map((field) => field.name)
-    .filter((fieldName) =>
-      callers.some((caller) => isFieldReadableForPolicy({ app, table, caller, fieldName, policy }))
-    )
+    .filter((fieldName) => isFieldReadableForPolicy({ app, table, caller, fieldName, policy }))
 
   return readable.length === table.fields.length ? undefined : readable
 }
@@ -460,17 +417,11 @@ const resolvePresenceColumns = (
   principal: ReadPrincipal,
   policy: ReadAccessPolicy
 ): ReadonlySet<string> => {
-  const groups = groupsOf(principal)
-  const roles =
-    policy.fieldRoleMatch === 'any-effective-role' ? plainRolesOf(principal) : [principal.role]
+  const caller: PermissionCaller = { role: principal.role, groups: groupsOf(principal) }
   const skips = policy.fieldDefaultRules === 'skip' && !table.permissions?.fields
   return new Set(
     writeOnlyFieldNames(app, table.name).filter(
-      (name) =>
-        skips ||
-        roles.some((role) =>
-          isFieldReadableUnderFieldRules(app, table.name, { role, groups }, name)
-        )
+      (name) => skips || isFieldReadableUnderFieldRules(app, table.name, caller, name)
     )
   )
 }

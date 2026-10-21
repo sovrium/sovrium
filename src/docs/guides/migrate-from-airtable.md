@@ -1,70 +1,85 @@
 # Migrate from Airtable to Sovrium
 
-> Move an Airtable base to a self-hosted Sovrium app — map each Airtable field type to a Sovrium field, define the table in config, and import your CSV export.
+> Move an Airtable base to a self-hosted Sovrium app with `sovrium import`: fetch the base read-only, preview the conversion, read the report, then write and seed the tables, links, formulas, files and collaborators.
 
-You have an Airtable base and want to own it — self-hosted, config-as-code, no per-seat pricing. A base maps almost one-to-one onto a Sovrium table.
+You have an Airtable base and want to own it: self-hosted, config-as-code, no per-seat pricing. `sovrium import` reads the base once, read-only, and turns it into Sovrium tables and seed files. You can repeat the conversion as often as you like before you switch over.
 
-## Map the field types
+## Before you start
 
-Export the base first — in Airtable, **… → Download CSV** per table. Most Airtable field types have a direct Sovrium equivalent:
-
-| Airtable field         | Sovrium field type        |
-| ---------------------- | ------------------------- |
-| Single line text       | `single-line-text`        |
-| Long text              | `long-text`               |
-| Email / URL / Phone    | `email` / `url` / `phone` |
-| Single select          | `single-select`           |
-| Multiple select        | `multi-select`            |
-| Number / Currency      | `number` / `currency`     |
-| Date                   | `date`                    |
-| Checkbox               | `checkbox`                |
-| Attachment             | `attachment`              |
-| Link to another record | `relationship`            |
-
-Every field type and its own options are documented in **Tables Overview** and the field-category articles.
-
-## Define the table
-
-Declare each column as a Sovrium field. This `contacts` table is a complete, runnable app:
+You need an app to import into. An empty one is enough:
 
 ```yaml
-name: contacts-app
+name: crm
 version: 1.0.0
-tables:
-  - id: 1
-    name: contacts
-    fields:
-      - id: 1
-        name: full_name
-        type: single-line-text
-        required: true
-      - id: 2
-        name: email
-        type: email
-      - id: 3
-        name: company
-        type: single-line-text
-      - id: 4
-        name: status
-        type: single-select
-        options: [lead, active, churned]
-      - id: 5
-        name: notes
-        type: long-text
+auth:
+  strategies:
+    - type: emailAndPassword
 ```
 
-Give every field an explicit `id`. Without one the id is the field's position, so adding a column above an existing one shifts the ids below it and the next migration reads the shift as a rename — which matters most here, where the whole point is to keep growing the table after the import.
+The `auth` block matters for collaborator fields: with it, each collaborator becomes an account the person can claim later; without it, collaborators are kept as email addresses.
 
-## Run it
+Then create a personal access token in Airtable's Builder Hub, with the `data.records:read` and `schema.bases:read` scopes and access to the base (add `workspacesAndBases:read` if the base has a form view). Copy the base id, the part of the base's link that starts with `app`.
+
+## 1. Fetch a snapshot
+
+```bash
+export AIRTABLE_TOKEN=pat…
+sovrium import fetch airtable:appX9kQ2vLmN7 --out .sovrium-imports/crm
+```
+
+The fetch reads the schema, every record and every attachment, sending only read requests, and writes them to a folder you keep. The token stays in your environment: it is never written to the snapshot, the config or the output. A large base that stops halfway resumes when you run the same command again.
+
+## 2. Preview the migration
+
+```bash
+sovrium import .sovrium-imports/crm --config app.yaml
+```
+
+A dry run is the default: it prints the report and writes nothing. Run it as often as you like; the same snapshot always gives the same result.
+
+## 3. Read the report
+
+The report says what was created and what did not come across as it was. A typical base reads like this:
+
+```text
+Tables (2):
+  + projects (28 fields, from Projects)
+  + clients (9 fields, from Clients)
+    simplified clients.total_budget: rollup -> currency — Kept as its last computed values: Airtable's API does not expose a rollup's aggregation, so it cannot be rebuilt
+    view projects / Kanban (kanban): not converted, only a grid view becomes a table view
+    never importable: Airtable Interfaces — Airtable's Web API does not expose interface pages; they are readable through the Airtable MCP server, not yet imported.
+
+Records (2 seed files):
+  seed/import/projects.yaml: 3 records, keyed by source id
+  seed/import/clients.yaml: 3 records, keyed by source id
+
+TODO (1):
+  tables.clients.fields.total_budget: Airtable's API does not expose a rollup's aggregation, so it cannot be rebuilt
+      rollup(Projects, budget)
+```
+
+Most fields keep their type: links become relationships, lookups and counts read through them, select options keep their order and colour, and formulas are translated when every function they use has a Sovrium counterpart. A formula or a rollup that does not translate keeps its last values and lands in the **TODO** list, quoted as Airtable wrote it. The full mapping is in [Migrating From Airtable and Notion](/en/docs/cli-import-airtable-notion).
+
+## 4. Write and seed
+
+```bash
+sovrium import .sovrium-imports/crm --config app.yaml --write --apply
+```
+
+`--write` adds the tables to `app.yaml` (or writes one sidecar file per table beside a TypeScript config) and the records to `seed/import/`, which holds your real data and is added to `.gitignore`. `--apply` then seeds them. Running the same command again changes nothing. On the day you switch over, fetch a fresh snapshot into a new folder (a folder that already holds a finished snapshot keeps it) and convert that one: rows merge on the Airtable record id, so new records are added and changed ones updated.
 
 ```bash
 sovrium start app.yaml
 ```
 
-## Verify
+Open `/_admin/records` to check the tables and their records.
 
-Open `http://localhost:3000/api/tables/contacts/records` — the table exists and is empty, ready for your CSV import through the records API.
+## 5. Rebuild the automations
 
-## What does not map
+Airtable's Web API does not expose automations, Interfaces or scripts, so the import cannot bring them across: the report lists them as readable through the Airtable MCP server, not imported. Rebuild each automation as a Sovrium automation on the imported table, usually a `record` trigger and a few steps, and switch them on one at a time, checking each run under `/_admin/runs`. If an n8n or Make workflow fed the base, import it with [Migrating Automations](/en/docs/cli-import-automations): its Airtable steps become record steps on the imported tables.
 
-Airtable **formulas, rollups and automations** are not columns you paste in. Sovrium has its own formula and rollup fields and a separate automations engine, so re-declare that logic rather than importing it. Airtable **views** become Sovrium pages and their data components.
+## What does not come across
+
+- **Views**: a grid view becomes a table view of the same name; kanban, calendar, gallery, form, timeline and Gantt views are reported. Rebuild them as pages and their data components.
+- **Rollups**: Airtable's API does not say how a rollup aggregates, so each keeps its last values. Replace it with a Sovrium rollup field from the TODO list.
+- **AI text and synced fields** are kept as long text.

@@ -1,0 +1,122 @@
+name: 'Feature: recipe'
+description: An app or use case assembled from existing primitives.
+title: 'Recipe: <the app or use case>'
+type: Feature
+labels:
+  - feature:recipe
+  - status:needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Security vulnerability?** Do not file it here. Report it privately at https://github.com/sovrium/sovrium/security/advisories/new instead.
+  - type: dropdown
+    id: domain
+    attributes:
+      label: Domain
+      description: The part of Sovrium this is about. Pick the closest one; triage can correct it.
+      options:
+        - accessibility
+        - account
+        - admin
+        - ai
+        - analytics
+        - api
+        - assets
+        - authentication
+        - automations
+        - buckets
+        - cli
+        - design
+        - design-system
+        - ecoconception
+        - footprint
+        - forms
+        - infrastructure
+        - internationalization
+        - links
+        - migrations
+        - pages
+        - records-api
+        - security
+        - tables
+        - templates
+        - theming
+        - user-management
+        - desktop
+        - docs
+        - toolchain
+    validations:
+      required: true
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: The app or workflow you want to build, and who uses it.
+    validations:
+      required: true
+  - type: textarea
+    id: primitives
+    attributes:
+      label: Primitives it assembles
+      description: The existing tables, pages, automations or connections it would combine.
+    validations:
+      required: true
+  - type: textarea
+    id: gap
+    attributes:
+      label: Blocking gap
+      description: Anything missing that stops it from being built today. Leave empty if nothing is.
+  - type: dropdown
+    id: delivery
+    attributes:
+      label: Delivery
+      options:
+        - A library recipe (sovrium library)
+        - A starter template (sovrium init)
+        - Not sure
+  - type: markdown
+    attributes:
+      value: |
+        ## Agent brief (optional)
+
+        Leave these empty if you are unsure: a maintainer completes them during triage. An issue is marked ready only once they are complete, so that anyone, a person or an automated agent, can start work from the issue alone. Write behaviour, not internals.
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: Numbered Given / When / Then lines, in plain behaviour terms.
+      placeholder: |
+        1. Given an app with ..., when I ..., then ...
+  - type: textarea
+    id: affected-paths
+    attributes:
+      label: Affected paths
+      description: Source paths under src/ that are likely involved, when known.
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification
+      description: The CLI commands or HTTP requests that prove it is done.
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: What this issue deliberately does not cover.
+  - type: textarea
+    id: related
+    attributes:
+      label: Related issues
+      description: Dependencies, duplicates or follow-ups, as #numbers.
+  - type: checkboxes
+    id: validated
+    attributes:
+      label: Validation
+      options:
+        - label: I ran `sovrium validate` on my configuration
+  - type: checkboxes
+    id: ai-drafted
+    attributes:
+      label: AI assistance
+      options:
+        - label: This report was drafted with an AI assistant

@@ -284,6 +284,16 @@ const attentionItemsOf = (sources: Readonly<AttentionSources>, variablesUnset: C
     .filter((figure) => figure > 0).length
 
 /**
+ * The attention report as the sources answer it: every key but the instance
+ * health facts, which the read adds from the instance facts use-case so the
+ * two reads cannot drift apart.
+ */
+export type AttentionReport = Omit<
+  AdminAttentionResponse,
+  'version' | 'bootedAt' | 'database' | 'storage' | 'aiProvider'
+>
+
+/**
  * Project the resolved sources plus the app's own config onto the wire body.
  *
  * PURE, and deliberately so: everything that could fail has already been
@@ -297,7 +307,7 @@ const assembleAttention = (
   app: App,
   since: string,
   sources: Readonly<AttentionSources>
-): AdminAttentionResponse => {
+): AttentionReport => {
   const { failedRuns, tokensExpired, invitationsPending, recentSubmissions, findings } = sources
   const { automations, links, usersBanned } = sources
   const variablesUnset = variablesUnsetCell(app)
@@ -378,7 +388,7 @@ export const buildAdminAttention = (
   app: App,
   since: string,
   language: ConsoleLanguage = 'en'
-): Effect.Effect<AdminAttentionResponse, never, AdminAttentionServices> =>
+): Effect.Effect<AttentionReport, never, AdminAttentionServices> =>
   Effect.gen(function* () {
     const windows = { runs: new Date(since), submissions: new Date(since) }
     const sources = yield* readSources(app, windows, Date.now(), language)

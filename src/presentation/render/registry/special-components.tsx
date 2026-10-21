@@ -45,17 +45,18 @@ const LIST_ERROR_STYLE = {
  * what attaches the control to the list above it rather than leaving it
  * floating under a gap. The control itself reuses the shared button recipe, so
  * a list's "Load More" is the same secondary button as every other secondary
- * button in the app rather than an unstyled UA control.
+ * button in the app rather than an unstyled UA control. Its `label` is
+ * `list.loadMore` in the page language.
  */
-function renderLoadMoreUI(): ReactElement {
+function renderLoadMoreUI(label: string): ReactElement {
   return (
     <div className={computeListLoadMoreClasses()}>
       <button
         type="button"
-        aria-label="Load more"
+        aria-label={label}
         className={computeButtonDefaultClasses({ variant: 'secondary', size: 'sm' })}
       >
-        Load More
+        {label}
       </button>
     </div>
   )
@@ -87,11 +88,12 @@ function renderNumberedPaginationUI(totalPages: number): ReactElement {
 function renderPaginationUI(
   style: string | undefined,
   pageSize: number,
-  totalCount: number
+  totalCount: number,
+  loadMoreLabel: string
 ): ReactElement | undefined {
   const totalPages = Math.ceil(totalCount / pageSize)
   if (totalPages <= 1) return undefined
-  if (style === 'loadMore') return renderLoadMoreUI()
+  if (style === 'loadMore') return renderLoadMoreUI(loadMoreLabel)
   return renderNumberedPaginationUI(totalPages)
 }
 
@@ -217,12 +219,13 @@ function extractListProps(elementProps: Record<string, unknown>): {
 function renderListWithPagination(
   domProps: Record<string, unknown>,
   renderedChildren: readonly ReactElement[],
-  pagination: ListPaginationProps
+  pagination: ListPaginationProps,
+  loadMoreLabel: string
 ): ReactElement {
   const { pageSize, totalCount, paginationStyle } = pagination
   const hasPagination = pageSize !== undefined && totalCount !== undefined && totalCount > pageSize
   const paginationUI = hasPagination
-    ? renderPaginationUI(paginationStyle, pageSize, totalCount)
+    ? renderPaginationUI(paginationStyle, pageSize, totalCount, loadMoreLabel)
     : undefined
 
   return (
@@ -280,7 +283,8 @@ export const specialComponents: Partial<Record<DispatchableComponentType, Compon
 
     // Render list with children (data-bound or static) when no HTML content string
     if (!content && renderedChildren.length > 0) {
-      return renderListWithPagination(domProps, renderedChildren, pagination)
+      const loadMoreLabel = resolveInterpreterString('list.loadMore', currentLang, languages)
+      return renderListWithPagination(domProps, renderedChildren, pagination, loadMoreLabel)
     }
     // Ensure data-bound lists are visible even when empty (no records in table)
     if (dataSourceBound && !content) {

@@ -35,6 +35,7 @@ import { announceRecordWrites } from '@/application/use-cases/tables/record-chan
 import { agentActionKey, needsAutomationRun } from '@/domain/models/app/agents/agent-turn-service'
 import { buildEnvLookup } from '@/domain/models/app/env-reference-service'
 import { actionKey, defaultActionHandlers } from '../automations/action-handlers'
+import { judgedTakenValue } from './agent-taken-value'
 import type { AgentActionResult } from './agent-tool-call'
 import type { ActionRunContext, AutomationContext } from '../automations/action-handlers'
 import type { StepRequirements } from '../automations/run/types'
@@ -89,12 +90,17 @@ export const dispatchAgentAction = (input: {
     const outcome = yield* announceRecordWrites(input.app)(
       handler(rawAction, input.app, automation, runContext)
     )
-    return outcome.status === 'success'
-      ? ({ ok: true, output: outcome.output ?? {} } as const)
-      : ({
-          ok: false,
-          error: outcome.error ?? `${input.action} failed`,
-          refusedWrite: outcome.refusedWrite,
-          requestFailure: outcome.requestFailure,
-        } as const)
+    if (outcome.status === 'success') return { ok: true, output: outcome.output ?? {} } as const
+    // A taken value the person could read on every record holding it may be called taken.
+    const refusedWrite = yield* judgedTakenValue({
+      ...{ app: input.app, action: input.action, props: input.props },
+      userId: input.caller?.userId,
+      refusedWrite: outcome.refusedWrite,
+    })
+    return {
+      ok: false,
+      error: outcome.error ?? `${input.action} failed`,
+      refusedWrite,
+      requestFailure: outcome.requestFailure,
+    } as const
   }).pipe(Effect.withSpan('agents.dispatch-agent-action'))

@@ -114,6 +114,18 @@ export interface FieldDef extends TypedColumnConfig {
   // gate exists to prevent.
 }
 
+/**
+ * The record a form edits, when it edits one: its table and id, which a
+ * `button` field's press names, and the record as the server read it, whose
+ * `_disabled` verdict and values the button is drawn on (its `disabledWhen`
+ * and `visibleWhen`). A create form has none.
+ */
+export interface FormRecordBinding {
+  readonly table?: string
+  readonly recordId?: string
+  readonly record?: Readonly<Record<string, unknown>>
+}
+
 /** Resolve a field's display label: explicit override or humanized field name. */
 export function labelOf(field: FieldDef): string {
   return field.displayLabel ?? humanizeFieldName(field.name)

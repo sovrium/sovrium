@@ -17,6 +17,10 @@
  *
  *  - whether the table may be read at all;
  *  - which columns may be read (`undefined` meaning every column);
+ *  - which rows may be read: every row, the rows a grant admits (by id), or
+ *    none — the same admission a list of the table answers its reader with;
+ *  - the roles each row a grant names gives the reader, which open on that
+ *    row's changes the fields those roles read;
  *  - the row-level context the table's read rule is judged against — the
  *    caller's identity, role, unrestricted flag, and the record ids their
  *    `user_access` grants assign per scope table.
@@ -25,6 +29,8 @@
  * serialising: two resolutions of the same grant always produce the same
  * string, whatever order the database returned the rows in.
  */
+
+import type { RowGrants, RowReadAdmission } from './row-read-admission-service'
 
 /** The row-level context a read rule is judged against, as far as a grant decides it. */
 export interface GrantRowContext {
@@ -41,6 +47,10 @@ export interface ResolvedGrant {
   readonly allowed: boolean
   /** The readable columns, or `undefined` when every column is readable. */
   readonly columns: readonly string[] | undefined
+  /** The rows the reader may read, as a list of the table admits them. */
+  readonly rows: RowReadAdmission
+  /** Each row a grant names on the table, with the roles granted on it; none when absent. */
+  readonly grants?: RowGrants | undefined
   /** The row-level context, or `undefined` when no row rule governs the table. */
   readonly rowContext: GrantRowContext | undefined
 }
@@ -63,10 +73,21 @@ const rowContextShape = (context: GrantRowContext | undefined): unknown =>
         ]),
       }
 
+const rowsShape = (rows: RowReadAdmission): unknown =>
+  rows.kind === 'granted-rows' ? [rows.kind, sorted(rows.ids)] : rows.kind
+
+const grantsShape = (grants: RowGrants | undefined): unknown =>
+  sorted([...(grants ?? new Map<string, readonly string[]>()).keys()]).map((id) => [
+    id,
+    sorted(grants?.get(id) ?? []),
+  ])
+
 /** One comparable string for a resolved grant — equal exactly when the grants are the same. */
 export const grantFingerprint = (grant: ResolvedGrant): string =>
   JSON.stringify({
     allowed: grant.allowed,
     columns: grant.columns === undefined ? '*' : sorted(grant.columns),
+    rows: rowsShape(grant.rows),
+    grants: grantsShape(grant.grants),
     rowContext: rowContextShape(grant.rowContext),
   })

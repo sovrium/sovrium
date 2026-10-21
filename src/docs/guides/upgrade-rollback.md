@@ -32,6 +32,12 @@ sovrium stop && sovrium start app.yaml
 
 A refusal names the place in the config and, in most cases, what to write instead. Fix it, validate again, then restart. Environment variables are read when the server starts rather than by `validate`, so an invalid one surfaces at `start`, before the app serves traffic. Then read the breaking changes between your version and the new one — `sovrium changelog --since <the version you run>` gathers them in one list.
 
+## Upgrading from 0.40 to 0.41
+
+| Removed                                               | Replace with                                                                                                                                                                                                                        |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `design.codeBlock` (with its `theme` and `darkTheme`) | Nothing: delete the key, which 0.40 already ignored. `sovrium validate` and `sovrium start` now refuse it. Code blocks use shadcn/ui's default colours, `github-light` in the light colour scheme and `github-dark` in the dark one |
+
 ## Upgrading from 0.39 to 0.40
 
 - **`design.codeBlock` is deprecated and ignored.** Code blocks use shadcn/ui's default colours, `github-light` in the light scheme and `github-dark` in the dark one, whatever `theme` or `darkTheme` names. A config naming it still validates and starts, with one deprecation warning; `sovrium validate` will refuse it from 0.41. An app that named `github-dark` to keep its code blocks dark on every page now draws them light in the light scheme. Remove the key.
@@ -189,7 +195,7 @@ Connections reads each connection in one column, its name and its provider joine
 | `text-primary-fg`                                                             | `text-primary-foreground`                                                                                                                                                                                                          |
 | `bg-error-solid`                                                              | `bg-destructive`                                                                                                                                                                                                                   |
 | `design.colorScheme` left out, on an app meant to stay light                  | `design.colorScheme: light`                                                                                                                                                                                                        |
-| `design.codeBlock` left out, on an app that wants dark code blocks everywhere | `design.codeBlock.theme: github-dark` (ignored from 0.40)                                                                                                                                                                          |
+| `design.codeBlock` left out, on an app that wants dark code blocks everywhere | Nothing: code blocks follow the scheme (`design.codeBlock` was ignored from 0.40, refused from 0.41)                                                                                                                               |
 
 The seven type renames change nothing but the name: every key the old type took, the new one takes. In a page addressed by its old name — a spec or a stylesheet reading `data-component-type="drawer"` — read `sheet` instead, since `drawer` now marks the bottom drawer; a sidebar folded into a menu on a phone now names that panel `sheet` too. See [Component Model](/en/docs/components-overview), [Overlays](/en/docs/overlay-components) and [Form Controls](/en/docs/form-controls).
 

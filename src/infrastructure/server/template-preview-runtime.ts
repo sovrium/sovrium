@@ -35,13 +35,14 @@ const offline = Effect.fail(
 /** Storage that holds nothing: a preview never reaches a bucket or a database. */
 const OfflineStorage = Layer.succeed(StorageService, {
   upload: () => offline,
-  download: () => offline,
+  downloadBounded: () => offline,
   delete: () => offline,
   deleteUncataloguedBytes: () => offline,
   getSignedUrl: () => offline,
   getMetadata: () => offline,
   statObject: () => offline,
   objectIdentity: () => offline,
+  hashObject: () => offline,
   findOtherSpelling: () => offline,
   list: () => offline,
   listPage: () => offline,

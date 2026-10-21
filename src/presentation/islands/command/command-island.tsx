@@ -42,6 +42,7 @@ import {
 } from './command-actions-data'
 import { BuiltInPalette } from './command-built-in-palette'
 import { CreateRecordDialog } from './command-create-dialog'
+import { groupsMatchQuery } from './command-group-match'
 import { GroupsPalette, SearchedGroups, type AuthoredCommandGroup } from './command-groups'
 import { CommandHints, type CommandHintWords } from './command-hints'
 import { LocalGroups } from './command-search-local'
@@ -92,6 +93,17 @@ function useOpenResult(close: () => void): (href: string) => void {
   )
 }
 
+/**
+ * Whether the typed words found something the endpoint was not asked for — an
+ * authored item, a page, the dark-mode toggle — so "No results" stays silent.
+ */
+const matchedWithoutSearch = (
+  groups: readonly AuthoredCommandGroup[],
+  local: ReturnType<typeof localMatches>,
+  query: string
+): boolean =>
+  local.pages.length > 0 || local.toggle !== undefined || groupsMatchQuery(groups, query)
+
 /** The SEARCH mode: an endpoint-backed search with its three calm states. */
 function SearchPalette({
   host,
@@ -107,7 +119,8 @@ function SearchPalette({
   const [query, setQuery] = useState('')
   const search = useAdminSearch(query, host.endpoint ?? '')
   const onSelect = useOpenResult(close)
-  const local = localMatches(pages, strings, query)
+  const groups = host.groups ?? NO_GROUPS
+  const matchedLocally = matchedWithoutSearch(groups, localMatches(pages, strings, query), query)
   const phase = searchPhaseOf(query, search)
   return (
     <Command shouldFilter={false}>
@@ -122,7 +135,7 @@ function SearchPalette({
         aria-busy={phase === 'searching' ? true : undefined}
       >
         <SearchedGroups
-          groups={host.groups ?? NO_GROUPS}
+          groups={groups}
           query={query}
           narrow
           close={close}
@@ -135,7 +148,7 @@ function SearchPalette({
           close={close}
         />
         <SearchResults
-          matchedLocally={local.pages.length > 0 || local.toggle !== undefined}
+          matchedLocally={matchedLocally}
           query={query}
           search={search}
           kindLabels={kindLabels}

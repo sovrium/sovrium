@@ -85,6 +85,8 @@ export const EXPANDED_REFERENCE_KEY = '_expandedReference'
 export interface ExpandedReference {
   readonly name: string
   readonly vars: Readonly<Record<string, unknown>> | undefined
+  /** Set when the template declares `render: transparent`: nothing on the page is named by it. */
+  readonly transparent?: true
 }
 
 /**
@@ -100,8 +102,20 @@ export const expandedReferenceOf = (node: unknown): ExpandedReference | undefine
 }
 
 /**
+ * The expanded reference a node is NAMED by: {@link expandedReferenceOf},
+ * except for a transparent template, whose root draws exactly what its tree
+ * draws inline — no template name, no template type, and the test id its
+ * position gives it.
+ */
+export const namingReferenceOf = (node: unknown): ExpandedReference | undefined => {
+  const expanded = expandedReferenceOf(node)
+  return expanded?.transparent === true ? undefined : expanded
+}
+
+/**
  * The template name a node stands for — a reference's own name, or the name
- * an expanded reference remembers. `undefined` for an inline component.
+ * an expanded reference remembers. `undefined` for an inline component, and
+ * for a transparent template's root, which is neither named nor counted.
  */
 export const referenceNameOf = (node: unknown): string | undefined => {
   if (isComponentReferenceNode(node)) {
@@ -110,5 +124,5 @@ export const referenceNameOf = (node: unknown): string | undefined => {
       ? candidate.component
       : (candidate.$ref as string)
   }
-  return expandedReferenceOf(node)?.name
+  return namingReferenceOf(node)?.name
 }

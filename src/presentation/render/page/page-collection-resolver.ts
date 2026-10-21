@@ -23,7 +23,7 @@
  */
 
 import { resolvePageWindow } from '@/domain/models/app/pages/window-props'
-import { serverNow } from '@/domain/models/process-env/dev-clock'
+import { renderNow } from '@/presentation/render/page/render-clock'
 import { resolveActiveMarkers } from '@/presentation/render/resolve/active-marker-resolver'
 import { resolvePageAppVars } from '@/presentation/render/resolve/app-vars-resolver'
 import { resolveAddressedDrawerTitle } from '@/presentation/render/resolve/drawer-record-title-resolver'
@@ -45,6 +45,7 @@ import { translateReferencedKeys } from '@/presentation/render/resolve/translate
 import { resolvePageTwoFactorAttempt } from '@/presentation/render/resolve/two-factor-attempt-resolver'
 import { resolvePageWindowProps } from '@/presentation/render/resolve/window-props-resolver'
 import { resolveSidebarState } from '../resolve/sidebar-state-resolver'
+import { withListedFilter } from './collection-listed-filter'
 import { resolvePageLanguage } from './page-lang-resolver'
 import { definedOnly, resolveAndFilterPage } from './page-row-scope-resolver'
 import type { App } from '@/domain/models/app'
@@ -72,7 +73,7 @@ import type { SystemRecordFetcher } from '@/presentation/render/resolve/page-sys
  *    is about to serialise, a breadcrumb root label derived further down.
  *
  * The window is resolved ONCE, against a single reading of the server clock
- * (`serverNow()`, which `SOVRIUM_DEV_CLOCK` pins on a development server). A page whose
+ * (`renderNow()`, which `SOVRIUM_DEV_CLOCK` pins on a development server). A page whose
  * panels each read the clock would drift their windows apart by however long
  * the render took, and a surface reporting two periods at once invites the
  * operator to compare them.
@@ -94,6 +95,8 @@ function prepareRequestPage(input: {
   readonly engineVersion?: string
   readonly requestPath?: string
   readonly callerCapabilities?: readonly CallerCapability[]
+  /** A specimen's sample address: a route-bound table or form may name nothing declared. */
+  readonly sampleAddress?: boolean
 }): Page | 'not-found' {
   const {
     matchedPage,
@@ -108,11 +111,12 @@ function prepareRequestPage(input: {
     engineVersion,
     requestPath,
   } = input
-  const boundTables = resolveRouteBoundTables(matchedPage, app, { routeParams, session, lang })
+  const request = { routeParams, session, lang, admitUndeclared: input.sampleAddress === true }
+  const boundTables = resolveRouteBoundTables(matchedPage, app, request)
   if (boundTables === 'not-found') return 'not-found'
   // Answer columns come from the forms the admin API serves: a mount's host's.
   const { callerCapabilities } = input
-  const formsRequest = { app: hostApp ?? app, routeParams, lang, session, callerCapabilities }
+  const formsRequest = { ...request, app: hostApp ?? app, callerCapabilities }
   const routeBound = resolveRouteBoundForms(boundTables, formsRequest)
   if (routeBound === 'not-found') return 'not-found'
 
@@ -134,7 +138,7 @@ function prepareRequestPage(input: {
           requestOrigin,
           { basePath, engineVersion, ...(requestPath !== undefined ? { path: requestPath } : {}) }
         ),
-        resolvePageWindow(matchedPage.window, requestQuery, serverNow().getTime())
+        resolvePageWindow(matchedPage.window, requestQuery, renderNow().getTime())
       ),
       routeParams
     )
@@ -196,6 +200,11 @@ interface ResolveCollectionAndFilterInput {
    * `holdsCapability` (`visibility-filter.ts`).
    */
   readonly callerCapabilities?: readonly CallerCapability[]
+  /**
+   * A specimen's sample address (see `renderPageByPath`'s `sampleAddress`): its
+   * route-bound tables and forms, and its collection filter, are not asked.
+   */
+  readonly sampleAddress?: boolean
 }
 
 /** The passes reading the request itself: the page's invitation, then its code forms. */
@@ -238,9 +247,13 @@ export async function resolveCollectionAndFilter(
   // one — the records API's 404 — see `collectionReadGateOf`, and the page's
   // attachment tokens are addresses — see `collectionAttachments`.
   const collectionPage = collectionAttachments(matchedPage, app, db).page
+  const unfiltered = previewMode === true || input.sampleAddress === true
   const collectionResolution = await resolveCollectionPage(collectionPage, routeParams, db, {
-    bypassFilter: previewMode,
-    ...collectionReadGateOf(matchedPage, app, session, db),
+    // A specimen's sample record is drawn whatever the collection filter says of
+    // it: `sampleAddress` is set only by a specimen render, which reads the
+    // synthetic sample db as the sample person, never a visitor's request.
+    bypassFilter: unfiltered,
+    ...collectionGateOf(matchedPage, { app, session, db }, unfiltered),
   })
   if (
     collectionResolution.kind === 'not-found' ||
@@ -326,6 +339,19 @@ function collectionReadGateOf(
     readRows: async (query) =>
       (await readRowsForCaller({ app, tableName, session, db, query })).rows,
   }
+}
+
+/** The read gate a collection record passes, as `collectionReadGateOf` builds it. */
+type CollectionReadGate = ReturnType<typeof collectionReadGateOf>
+
+/** The collection's read gate; its filter judged as her list judges it, unless previewed. */
+const collectionGateOf = (
+  page: Page,
+  ctx: { readonly app: App; readonly session: SessionInfo | undefined; readonly db: DataSourceDb },
+  previewMode: boolean | undefined
+): CollectionReadGate => {
+  const gate = collectionReadGateOf(page, ctx.app, ctx.session, ctx.db)
+  return previewMode === true ? gate : withListedFilter(gate, { page, ...ctx })
 }
 
 /** A collection record, given its attachment parts. */

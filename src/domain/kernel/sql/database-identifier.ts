@@ -121,6 +121,10 @@ const annotatedString = (description: string | undefined) =>
  */
 const TABLE_NAME_PATTERN = /^ *[a-zA-Z][a-zA-Z0-9_ -]*$/
 
+/** Whether a name, as a field or column takes it, is a reserved SQL keyword. */
+export const isReservedSqlKeyword = (name: string): boolean =>
+  SQL_RESERVED_KEYWORDS.has(name.toLowerCase())
+
 /** Table names: user-friendly format, sanitized for the database downstream. */
 const tableIdentifierSchema = (description: string | undefined) =>
   annotatedString(description).pipe(

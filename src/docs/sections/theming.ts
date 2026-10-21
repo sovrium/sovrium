@@ -6,13 +6,13 @@
  */
 
 import animationsBody from '@/domain/models/app/design/animations.docs.md' with { type: 'file' }
-import { CodeBlockConfigSchema } from '@/domain/models/app/design/code-block'
 import { ColorRoleSchema } from '@/domain/models/app/design/color-roles'
 import { ComponentStyleSchema } from '@/domain/models/app/design/components'
 import { DensitySchema, DensityStepSchema } from '@/domain/models/app/design/density'
 import { DesignSchema } from '@/domain/models/app/design/design'
 import designComponentsBody from '@/domain/models/app/design/design-components.docs.md' with { type: 'file' }
 import designDensityBody from '@/domain/models/app/design/design-density.docs.md' with { type: 'file' }
+import designPagesImportBody from '@/domain/models/app/design/design-pages-import.docs.md' with { type: 'file' }
 import designTypeScaleBody from '@/domain/models/app/design/design-type-scale.docs.md' with { type: 'file' }
 import designBody from '@/domain/models/app/design/design.docs.md' with { type: 'file' }
 import { FontConfigItemSchema } from '@/domain/models/app/design/fonts'
@@ -196,6 +196,31 @@ export const section = defineSection({
       stories: ['US-THEMING-ISLANDS-DATA-TABLE-PANELS', 'US-THEMING-ISLANDS-DATA-TABLE-SURFACE'],
     }),
     defineArticle({
+      slug: 'design-pages-import',
+      title: 'Importing Designed Pages',
+      description:
+        'Bring a page a designer reworked in Claude Design, Figma or Penpot back into the config: what the import writes, what it keeps, and how it writes YAML, JSON and TypeScript configs.',
+      keywords: [
+        'sovrium',
+        'design-system import',
+        'pages',
+        'round trip',
+        'Figma',
+        'Penpot',
+        'Claude Design',
+        'design tokens',
+      ],
+      order: 3603,
+      sidebarLabel: 'Importing Designed Pages',
+      body: designPagesImportBody,
+      documents: [],
+      stories: [
+        'US-CLI-DESIGN-SYSTEM-PAGES-EXPORT',
+        'US-CLI-DESIGN-SYSTEM-PAGES-IMPORT',
+        'US-CLI-DESIGN-SYSTEM-PAGES-ADAPTERS',
+      ],
+    }),
+    defineArticle({
       slug: 'theme-typography',
       title: 'Typography',
       description:
@@ -220,7 +245,7 @@ export const section = defineSection({
       slug: 'theme-spacing',
       title: 'Spacing, Radius & Elevation',
       description:
-        'Three ladders that decide how much room things take and how far they sit off the page, plus the syntax theme for fenced code.',
+        'Three ladders that decide how much room things take and how far they sit off the page, plus how fenced code is coloured.',
       keywords: [
         'sovrium',
         'spacing',
@@ -229,13 +254,13 @@ export const section = defineSection({
         'elevation',
         'box-shadow',
         'design tokens',
-        'codeBlock',
+        'code block',
         'syntax highlighting',
       ],
       order: 3608,
       sidebarLabel: 'Spacing & Surfaces',
       body: themeSpacingBody,
-      documents: [CodeBlockConfigSchema],
+      documents: [],
       stories: [
         'US-THEMING-DEFAULT-THEME-ALIAS-UTILITIES',
         'US-THEMING-DESIGN-TOKENS-001',

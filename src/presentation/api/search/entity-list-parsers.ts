@@ -12,9 +12,8 @@
  * Favorites and recent items both accept a `{ entityType, entityId, tableName? }`
  * mutation body. This module is the single source of truth for parsing and
  * validating that body. It stays in the presentation layer because it has no
- * data-access concern — the existence-probe logic that previously lived here
- * (`recordStillExists` / `filterLiveEntities`) moved into the
- * `user-entity-lists` use case and its repository port (data access belongs in
+ * data-access concern — which entries the caller may keep and read back is
+ * judged by the `user-entity-lists` use case (data access belongs in
  * application + infrastructure, not presentation).
  */
 

@@ -5,20 +5,21 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Cause, Effect, Option } from 'effect'
+import { Effect, Option } from 'effect'
+import { StorageService, UNATTRIBUTED_BUCKET } from '@/application/ports/services/storage-service'
 import {
-  isStorageObjectNotFound,
-  StorageService,
-  UNATTRIBUTED_BUCKET,
-} from '@/application/ports/services/storage-service'
+  isStorageMiss,
+  logStorageFailure,
+} from '@/application/use-cases/storage/storage-failure-log'
 import { storageKeyCollisionForm } from '@/domain/kernel/identity/storage-key'
 import { logError } from '@/infrastructure/logging/logger'
 import { signDownloadLink, signUploadLink } from './file-sign-upload'
-import { mimeByExt, uploadArtifactTo } from './file-support'
+import { mimeByExt, readStoredSource, storedReadMessage, uploadArtifactTo } from './file-support'
 import { forgetRemovedKey, recordOwnCopy } from './run-written-files'
 import { actionAttributes, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, AutomationContext } from './shared'
 import type { BucketBinding, StorageError } from '@/application/ports/services/storage-service'
+import type { Cause } from 'effect'
 
 type Storage = Effect.Success<typeof StorageService>
 
@@ -77,7 +78,18 @@ export const listFilesUnder = <R>(
     const limit = optionalNumber(p, 'limit')
 
     const storage = yield* StorageService
-    const listed = yield* Effect.result(storage.list(prefix))
+    // effect-swallow: a listing that fails ends the step with a soft error naming the prefix; the cause is logged on the way.
+    const listed = yield* Effect.result(
+      storage.list(prefix).pipe(
+        Effect.tapCause((cause) =>
+          Effect.sync(() =>
+            logError('[automations] file.list could not list the prefix; the step fails', cause, {
+              'sovrium.storage.prefix': prefix,
+            })
+          )
+        )
+      )
+    )
     if (listed._tag === 'Failure') return softError(`failed to list files under ${prefix}`)
 
     const admitted = yield* admit(listed.success)
@@ -100,7 +112,17 @@ export const handleFileGetMetadata: ActionHandler = (action) =>
     if (!key) return softError('file.getMetadata requires a key')
 
     const storage = yield* StorageService
-    const meta = yield* Effect.result(storage.getMetadata(key, UNATTRIBUTED_BUCKET))
+    // effect-swallow: every failed read answers "file not found", as the step always has; a failure other than a missing object is logged with its cause.
+    const meta = yield* Effect.result(
+      storage.getMetadata(key, UNATTRIBUTED_BUCKET).pipe(
+        logStorageFailure(
+          '[automations] file.getMetadata could not read the catalog; the step fails',
+          {
+            'sovrium.storage.key': key,
+          }
+        )
+      )
+    )
     if (meta._tag === 'Failure') return softError(`file not found: ${key}`)
 
     // The recorded bucket stays internal: the step output keeps its documented shape.
@@ -115,12 +137,6 @@ export const handleFileGetMetadata: ActionHandler = (action) =>
 // ---------------------------------------------------------------------------
 // copy / move (download + upload [+ delete])
 // ---------------------------------------------------------------------------
-
-/** Whether a failed catalog read is the "no such row" verdict rather than an outage. */
-const isCatalogMiss = (cause: Cause.Cause<StorageError>): boolean => {
-  const error = Cause.findErrorOption(cause)
-  return Option.isSome(error) && isStorageObjectNotFound(error.value)
-}
 
 /** Log a catalog read that failed for a reason other than a missing row. */
 const logCatalogFailure = (key: string, cause: Cause.Cause<StorageError>): void =>
@@ -146,7 +162,7 @@ export const recordedBucket = (
   storage.getMetadata(key, UNATTRIBUTED_BUCKET).pipe(
     Effect.map((meta): BucketBinding => meta.bucket ?? UNATTRIBUTED_BUCKET),
     Effect.tapCause((cause) =>
-      isCatalogMiss(cause) ? Effect.void : Effect.sync(() => report(key, cause))
+      isStorageMiss(cause) ? Effect.void : Effect.sync(() => report(key, cause))
     ),
     // effect-swallow: no catalog row is the ordinary case for a key written out of band, and the download that just succeeded proved the store answers; unattributed is the safe binding, and any other failure was logged just above
     Effect.orElseSucceed((): BucketBinding => UNATTRIBUTED_BUCKET),
@@ -170,11 +186,14 @@ const copyBytes = (
   destinationKey: string
 ): Effect.Effect<
   { readonly size: number; readonly bucket: BucketBinding } | ActionOutcome,
-  never
+  never,
+  StorageService
 > =>
   Effect.gen(function* () {
-    const downloaded = yield* Effect.result(storage.download(sourceKey, UNATTRIBUTED_BUCKET))
-    if (downloaded._tag === 'Failure') return softError(`file not found: ${sourceKey}`)
+    // The storage port has no copy of its own: the bytes pass through memory, so
+    // the read is held to the 100 MiB the `file` actions read.
+    const downloaded = yield* Effect.result(readStoredSource(sourceKey))
+    if (downloaded._tag === 'Failure') return softError(storedReadMessage(downloaded.failure))
     const bucket = yield* recordedBucket(storage, sourceKey)
     const mime = mimeByExt(destinationKey) ?? mimeByExt(sourceKey) ?? 'application/octet-stream'
     const file = { bytes: downloaded.success, contentType: mime }
@@ -240,7 +259,14 @@ const copyOrMove = (
     )
 
     if (deleteSource) {
-      const removed = yield* Effect.result(storage.delete(sourceKey, UNATTRIBUTED_BUCKET))
+      // effect-swallow: a source that cannot be removed fails the step with a soft error naming it; the copy stands, and the cause is logged.
+      const removed = yield* Effect.result(
+        storage.delete(sourceKey, UNATTRIBUTED_BUCKET).pipe(
+          logStorageFailure('[automations] file.move could not remove its source; the step fails', {
+            'sovrium.storage.key': sourceKey,
+          })
+        )
+      )
       if (removed._tag === 'Failure') return softError(`failed to remove source ${sourceKey}`)
       // The run moved its file away: the key it left is no longer its own.
       yield* Effect.sync(() => forgetRemovedKey(automation, sourceKey))
@@ -269,7 +295,14 @@ export const handleFileDelete: ActionHandler = (action, _app, automation) =>
     if (!key) return { status: 'failure', error: 'file.delete requires a key' } as const
 
     const storage = yield* StorageService
-    const removed = yield* Effect.result(storage.delete(key, UNATTRIBUTED_BUCKET))
+    // effect-swallow: every failed delete answers "file not found", as the step always has; a failure other than a missing object is logged with its cause.
+    const removed = yield* Effect.result(
+      storage.delete(key, UNATTRIBUTED_BUCKET).pipe(
+        logStorageFailure('[automations] file.delete could not delete the file; the step fails', {
+          'sovrium.storage.key': key,
+        })
+      )
+    )
     if (removed._tag === 'Failure') {
       return { status: 'failure', error: `file not found: ${key}` } as const
     }

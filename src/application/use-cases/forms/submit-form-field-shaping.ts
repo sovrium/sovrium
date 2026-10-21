@@ -173,6 +173,31 @@ export const applyFieldDefaults = (
 }
 
 /**
+ * The answers less every value for a field the form declares but does not
+ * offer this submitter (`offered` is the form as narrowed for her, see
+ * `formForCaller`): such a value is dropped before anything reads it — the
+ * required check, a calculation, the bound row or the ledger — exactly as a
+ * value for a field the form does not declare at all.
+ */
+export const withoutWithheldAnswers = (
+  data: Readonly<Record<string, unknown>>,
+  declared: Readonly<Form>,
+  offered: Readonly<Form>
+): Readonly<Record<string, unknown>> => {
+  if (declared === offered) return data
+  const kept = new Set(offered.fields.map((field) => fieldSubmitIdentifier(field)))
+  const withheld = new Set(
+    declared.fields
+      .map((field) => fieldSubmitIdentifier(field))
+      .filter(
+        (identifier): identifier is string => identifier !== undefined && !kept.has(identifier)
+      )
+  )
+  if (withheld.size === 0) return data
+  return Object.fromEntries(Object.entries(data).filter(([key]) => !withheld.has(key)))
+}
+
+/**
  * Filter data to only include fields the form declares (by `column` for
  * table-field kind, by `name` for standalone kind). Hidden fields and
  * defaults are merged in by the caller before this filter is applied.

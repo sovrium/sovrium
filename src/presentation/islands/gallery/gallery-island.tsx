@@ -6,15 +6,13 @@
  */
 
 import { useState } from 'react'
-import { computeGalleryPagerClasses } from '@/presentation/design/gallery-default-classes'
 import { useRecordSelectionToggle } from '../hooks/use-lazy-shared-filter-publisher'
-import { InfiniteLoadMore } from '../parts/infinite-load-more'
-import { LoadMoreButton } from '../parts/load-more-button'
 import { withWeekdayDates, type WeekdayFields } from '../parts/weekday-dates'
 import { hasDataBinding } from '../runtime/data-binding'
 import { isRefusedRead } from '../runtime/records-api'
 import { GalleryCarousel } from './carousel-layout'
 import { GalleryClassesContext, GallerySelectionContext } from './gallery-classes-context'
+import { GalleryContinuation } from './gallery-continuation'
 import { GalleryGrid } from './gallery-grid'
 import { GalleryPager } from './gallery-pager'
 import { computePaginationView, type PaginationConfig } from './gallery-pagination'
@@ -30,50 +28,6 @@ import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/
 import type { SystemSource } from '@/domain/models/app/pages/components/system-source'
 import type { GalleryPartClasses } from '@/presentation/design/gallery-part-classes'
 import type { ReactElement } from 'react'
-
-/** The gallery's pager chrome, which its load-more footer wears. Pure: resolved once. */
-const GALLERY_PAGER_CLASSES = computeGalleryPagerClasses()
-
-/** The shared load-more control, in the gallery's pager chrome. */
-/**
- * How a gallery that grows from the top reaches its next page: a Load more
- * button, or under `infinite` the end-of-list sentinel with the same button kept
- * for the keyboard and a polite count of the cards loaded.
- */
-function GalleryContinuation({
-  infinite,
-  hasMore,
-  loaded,
-  total,
-  onLoadMore,
-}: {
-  readonly infinite: boolean
-  readonly hasMore: boolean
-  readonly loaded: number
-  readonly total: number
-  readonly onLoadMore: () => void
-}): ReactElement | undefined {
-  if (!infinite) return hasMore ? <GalleryLoadMore onClick={onLoadMore} /> : undefined
-  return (
-    <InfiniteLoadMore
-      hasMore={hasMore}
-      isLoading={false}
-      onLoadMore={onLoadMore}
-      status={`${String(loaded)} of ${String(total)} loaded`}
-      label="Load More"
-      footerClassName={GALLERY_PAGER_CLASSES}
-    />
-  )
-}
-
-function GalleryLoadMore({ onClick }: { readonly onClick: () => void }): ReactElement {
-  return (
-    <LoadMoreButton
-      onClick={onClick}
-      footerClassName={GALLERY_PAGER_CLASSES}
-    />
-  )
-}
 
 interface GalleryIslandProps {
   /** The gallery's own words in the page language, where they differ from English. */
@@ -121,7 +75,8 @@ function buildLoadMoreHandler(setPage: (updater: (prev: number) => number) => vo
  *
  * One 1-based cursor serves every control: `loadMore` and `infinite` read it as
  * "how many pages have been revealed", the numbered pager as "which page is
- * drawn". The setter goes to the pager as-is; it is referentially stable.
+ * drawn". The setter goes to the pager as-is; it is referentially stable. A
+ * carousel walks the same cards on a track: no column arithmetic, same paging.
  */
 function GalleryContent({
   records,
@@ -130,9 +85,10 @@ function GalleryContent({
   gridColumns,
   layout,
   featured,
+  uiStrings,
 }: Pick<
   GalleryIslandProps,
-  'dataSource' | 'galleryCard' | 'gridColumns' | 'layout' | 'featured'
+  'dataSource' | 'galleryCard' | 'gridColumns' | 'layout' | 'featured' | 'uiStrings'
 > & {
   readonly records: readonly TableRecord[]
 }): ReactElement {
@@ -145,8 +101,6 @@ function GalleryContent({
     pagination?.style
   )
   const onLoadMore = buildLoadMoreHandler(setPage)
-
-  // A carousel walks the same cards on a track: no column arithmetic, same paging.
   return (
     <>
       {layout === 'carousel' ? (
@@ -171,6 +125,7 @@ function GalleryContent({
         loaded={visibleRecords.length}
         total={records.length}
         onLoadMore={onLoadMore}
+        words={uiStrings}
       />
       {showPager && (
         <GalleryPager
@@ -238,6 +193,7 @@ export default function GalleryIsland({
           gridColumns={gridColumns}
           layout={layout}
           featured={featured}
+          uiStrings={uiStrings}
         />
       </GallerySelectionContext.Provider>
     </GalleryClassesContext.Provider>

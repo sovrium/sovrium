@@ -1,0 +1,147 @@
+# The issue taxonomy of github.com/sovrium/sovrium — the ONE source of truth.
+#
+# Every issue carries a GitHub Issue Type (Bug, Feature or Task, defined at the
+# organization level) plus exactly one label per required axis below. The issue
+# forms in .github/ISSUE_TEMPLATE/, the triage workflow and the filing scripts
+# all read their vocabulary from this file, and a drift check holds them to it.
+#
+# Maintainers sync the GitHub label set from this file with a dry-run-first
+# script; a label is deleted only after every issue carrying it is relabelled.
+#
+# Security: a vulnerability is NEVER an issue. Report it privately at
+# https://github.com/sovrium/sovrium/security/advisories/new — `domain:security`
+# is for public hardening features only.
+
+version: 1
+repository: sovrium/sovrium
+
+# GitHub Issue Types, org-level. Every issue has exactly one.
+types:
+  - Bug
+  - Feature
+  - Task
+
+axes:
+  # Where the problem or the change lives. One value per product directory of
+  # the specification suite, so an issue's scope reads the same way the tests
+  # are organised, plus the declared extras below.
+  domain:
+    color: '1d76db'
+    required: always
+    values:
+      accessibility: Keyboard, screen-reader and contrast behaviour of generated apps
+      account: A signed-in user's own account, profile and sessions
+      admin: The operator console at /_admin
+      ai: AI agents, providers, chat and AI-backed field behaviour
+      analytics: Built-in page and event analytics
+      api: The generated HTTP API, OpenAPI document and API keys
+      assets: Static assets, images and their transforms
+      authentication: Sign-in, sign-up, SSO, passkeys and two-factor
+      automations: Triggers, actions, runs and approvals
+      buckets: File storage buckets and uploads
+      cli: The sovrium command-line interface
+      design: The design key of an app (tokens, fonts, appearance)
+      design-system: The shipped component library and its exports
+      ecoconception: Opt-in low-footprint operating posture
+      footprint: Measured resource and carbon footprint reporting
+      forms: Public forms, submissions and their notifications
+      infrastructure: Server runtime, database providers, email transports and packaging
+      internationalization: Languages, translations and locale formatting
+      links: Short links and link tracking
+      migrations: Database schema migrations and upgrades between versions
+      pages: Pages, components, layout and rendering
+      records-api: Reading and writing table records over HTTP
+      security: Public hardening features (never a vulnerability report)
+      tables: Tables, fields, views and permissions
+      templates: The starter apps that sovrium init scaffolds
+      theming: Themes, light and dark mode
+      user-management: Users, roles, groups and invitations
+      desktop: The free desktop app
+      docs: The manual shipped in the binary and sovrium docs
+      toolchain: Build, release, packaging and repository tooling
+    # Values with no directory of their own in the specification suite. Each
+    # says why it is a domain anyway.
+    extras:
+      desktop: The desktop shell is tested by its own build workflow, not by the specification suite.
+      docs: The manual is held by documentation gates rather than by behaviour specs.
+      toolchain: Build, release and repository tooling are proved by their own gates, not by app behaviour.
+    # Directories of the specification suite that are test harness, not product
+    # scope. None of them can be the subject of an issue.
+    excluded:
+      ci: Container setup shared by CI runs; harness, not product behaviour.
+      containers: Helper services (a fake AI server) the tests boot; harness only.
+      demo: A product spec, but of the hosted demo notice, which only the demo fleet's environment turns on; no operator configures it, so its issues are domain:infrastructure.
+      fixtures: Shared test data and app configs used by every domain.
+      helpers: Shared test helpers used by every domain.
+
+  # The kind of bug. On Bugs, exactly one.
+  bug:
+    color: 'd73a4a'
+    required: on-bug
+    values:
+      regression: Worked in an earlier version, broken now
+      crash-or-data-loss: The process crashes, or data is lost or corrupted
+      wrong-behaviour: Runs, but does something other than what the docs say
+      performance: Correct, but too slow or too heavy
+      ux-a11y: Confusing, inaccessible or visually broken
+      compat: Fails on one OS, database, browser or install channel only
+
+  # The kind of feature. On Features, exactly one.
+  feature:
+    color: 'a2eeef'
+    required: on-feature
+    values:
+      config-option: A new or extended option in the app configuration
+      engine-primitive: A new runtime capability that cannot be composed from existing ones
+      recipe: An app or use case assembled from existing primitives
+
+  # Lifecycle. needs-triage is added by every form.
+  status:
+    color: 'fbca04'
+    required: lifecycle
+    values:
+      needs-triage: Not yet classified and reviewed
+      needs-info: Waiting on a specific question to the reporter
+      ready: Accepted, and its Agent brief is complete; work can start from the issue alone
+      blocked: Cannot progress until the stated blocker is resolved
+
+  # Where the issue came from. Optional.
+  source:
+    color: 'c5def5'
+    required: optional
+    values:
+      release-deferred: Found during a release and deferred to the next one
+      ai-drafted: The reporter drafted it with an AI assistant
+      agent: Filed by a maintainer's automated agent
+
+# Labels outside the axes.
+standalone:
+  - name: good first issue
+    color: '7057ff'
+    description: A small, well-scoped change for a first contribution
+  - name: help wanted
+    color: '008672'
+    description: Maintainers would welcome a contribution here
+  # Declared so Dependabot reuses it instead of creating its own variant.
+  - name: dependencies
+    color: '0366d6'
+    description: A dependency update or advisory
+
+# Migration of the labels that existed before this taxonomy. A legacy label is
+# deleted only by `sync-labels --prune`, after every issue carrying it has been
+# relabelled. An entry with exactly one target label is RENAMED by sync-labels
+# (which keeps it on every issue that has it) instead of being created afresh.
+legacyMap:
+  bug: { type: Bug }
+  enhancement: { type: Feature }
+  documentation: { type: Task, labels: [domain:docs] }
+  config: { type: Feature, labels: [feature:config-option] }
+  engine: { type: Feature, labels: [feature:engine-primitive] }
+  recipe: { type: Feature, labels: [feature:recipe] }
+  deferred: { labels: [source:release-deferred] }
+  community: { tracking: Community apps }
+  question: { discussion: true }
+  javascript: { remove: true }
+  duplicate: { remove: true, closeReason: duplicate }
+  invalid: { remove: true, closeReason: not planned }
+  wontfix: { remove: true, closeReason: not planned }

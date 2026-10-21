@@ -125,10 +125,24 @@ export function createDefaultHomePageConfig(app: App): Page {
 /**
  * Creates error page section with centered layout
  */
+/** A small line under an error page's link, or nothing. */
+const footnoteOf = (footnote: string | undefined): ReadonlyArray<Component> =>
+  footnote === undefined
+    ? []
+    : [
+        {
+          type: 'text',
+          element: 'p',
+          props: { className: 'mt-8 text-sm text-muted-foreground' },
+          content: footnote,
+        },
+      ]
+
 function createErrorSection(
   code: string,
   message: string,
-  codeColor: string = 'text-foreground'
+  codeColor: string = 'text-foreground',
+  footnote?: string
 ): ReadonlyArray<Component> {
   return [
     {
@@ -167,6 +181,7 @@ function createErrorSection(
               },
               content: 'Go back home',
             },
+            ...footnoteOf(footnote),
           ],
         },
       ],
@@ -213,7 +228,7 @@ export function createNotFoundPageConfig(): Page {
  *
  * @returns Page configuration for DynamicPage rendering
  */
-export function createErrorPageConfig(): Page {
+export function createErrorPageConfig(requestId?: string): Page {
   return {
     name: 'error',
     path: '/500',
@@ -222,6 +237,13 @@ export function createErrorPageConfig(): Page {
       title: '500 - Internal Server Error',
       description: 'Internal Server Error',
     },
-    components: createErrorSection('500', 'Internal Server Error', 'text-error-fg'),
+    // The request id, so a visitor can quote it to whoever runs the app — and
+    // nothing more: the visitor is not the operator, so no report link.
+    components: createErrorSection(
+      '500',
+      'Internal Server Error',
+      'text-error-fg',
+      requestId === undefined ? undefined : `Request id: ${requestId}`
+    ),
   }
 }

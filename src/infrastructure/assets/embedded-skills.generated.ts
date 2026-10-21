@@ -38,16 +38,20 @@ import _s23 from '../../../src/skills/sovrium-pages/references/design-plan.md' w
 import _s24 from '../../../src/skills/sovrium-pages/references/sources.md' with { type: 'file' }
 import _s25 from '../../../src/skills/sovrium-pages/references/states-and-forms.md' with { type: 'file' }
 import _s26 from '../../../src/skills/sovrium-pages/SKILL.md' with { type: 'file' }
-import _s27 from '../../../src/skills/sovrium-seo-geo/references/copy-for-search.md' with { type: 'file' }
-import _s28 from '../../../src/skills/sovrium-seo-geo/references/crawlers.md' with { type: 'file' }
-import _s29 from '../../../src/skills/sovrium-seo-geo/references/geo.md' with { type: 'file' }
-import _s30 from '../../../src/skills/sovrium-seo-geo/references/report-template.md' with { type: 'file' }
-import _s31 from '../../../src/skills/sovrium-seo-geo/references/seo-options.generated.md' with { type: 'file' }
-import _s32 from '../../../src/skills/sovrium-seo-geo/references/social-previews.md' with { type: 'file' }
-import _s33 from '../../../src/skills/sovrium-seo-geo/references/sources.md' with { type: 'file' }
-import _s34 from '../../../src/skills/sovrium-seo-geo/references/structured-data.md' with { type: 'file' }
-import _s35 from '../../../src/skills/sovrium-seo-geo/references/technical.md' with { type: 'file' }
-import _s36 from '../../../src/skills/sovrium-seo-geo/SKILL.md' with { type: 'file' }
+import _s27 from '../../../src/skills/sovrium-report-issue/references/issue-address.md' with { type: 'file' }
+import _s28 from '../../../src/skills/sovrium-report-issue/references/redaction.md' with { type: 'file' }
+import _s29 from '../../../src/skills/sovrium-report-issue/references/sources.md' with { type: 'file' }
+import _s30 from '../../../src/skills/sovrium-report-issue/SKILL.md' with { type: 'file' }
+import _s31 from '../../../src/skills/sovrium-seo-geo/references/copy-for-search.md' with { type: 'file' }
+import _s32 from '../../../src/skills/sovrium-seo-geo/references/crawlers.md' with { type: 'file' }
+import _s33 from '../../../src/skills/sovrium-seo-geo/references/geo.md' with { type: 'file' }
+import _s34 from '../../../src/skills/sovrium-seo-geo/references/report-template.md' with { type: 'file' }
+import _s35 from '../../../src/skills/sovrium-seo-geo/references/seo-options.generated.md' with { type: 'file' }
+import _s36 from '../../../src/skills/sovrium-seo-geo/references/social-previews.md' with { type: 'file' }
+import _s37 from '../../../src/skills/sovrium-seo-geo/references/sources.md' with { type: 'file' }
+import _s38 from '../../../src/skills/sovrium-seo-geo/references/structured-data.md' with { type: 'file' }
+import _s39 from '../../../src/skills/sovrium-seo-geo/references/technical.md' with { type: 'file' }
+import _s40 from '../../../src/skills/sovrium-seo-geo/SKILL.md' with { type: 'file' }
 
 export const EMBEDDED_SKILLS = {
   "sovrium-app": {
@@ -85,16 +89,22 @@ export const EMBEDDED_SKILLS = {
     "references/states-and-forms.md": _s25,
     "SKILL.md": _s26,
   },
+  "sovrium-report-issue": {
+    "references/issue-address.md": _s27,
+    "references/redaction.md": _s28,
+    "references/sources.md": _s29,
+    "SKILL.md": _s30,
+  },
   "sovrium-seo-geo": {
-    "references/copy-for-search.md": _s27,
-    "references/crawlers.md": _s28,
-    "references/geo.md": _s29,
-    "references/report-template.md": _s30,
-    "references/seo-options.generated.md": _s31,
-    "references/social-previews.md": _s32,
-    "references/sources.md": _s33,
-    "references/structured-data.md": _s34,
-    "references/technical.md": _s35,
-    "SKILL.md": _s36,
+    "references/copy-for-search.md": _s31,
+    "references/crawlers.md": _s32,
+    "references/geo.md": _s33,
+    "references/report-template.md": _s34,
+    "references/seo-options.generated.md": _s35,
+    "references/social-previews.md": _s36,
+    "references/sources.md": _s37,
+    "references/structured-data.md": _s38,
+    "references/technical.md": _s39,
+    "SKILL.md": _s40,
   },
 }

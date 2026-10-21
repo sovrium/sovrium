@@ -13,6 +13,7 @@ import {
   uploadTargetParts,
 } from '@/application/ports/services/storage-service'
 import { logWarning } from '@/infrastructure/logging/logger'
+import { boundedDownload } from './bounded-read'
 import { deleteFileMetadata, type CatalogWrite } from './bytea-adapter'
 import { withoutClaimedKeys } from './catalog-claim'
 import {
@@ -28,7 +29,6 @@ import { replaceOutsideCatalog } from './replacing-write'
 import {
   createS3Client,
   s3Delete,
-  s3Download,
   s3GetSignedUrl,
   s3GetTotalBytes,
   s3List,
@@ -36,6 +36,7 @@ import {
   s3Upload,
   s3UploadCreateOnly,
 } from './s3-adapter'
+import { s3DownloadWithin, s3HashObject } from './s3-bounded-download'
 import { warnIfS3BucketUnreachable } from './s3-reachability'
 import {
   absentWhileClaimed,
@@ -104,6 +105,19 @@ const s3StorageUpload =
     return write.pipe(withSpellingLock(key))
   }
 
+/** The S3 provider's read of an object's bytes, bounded, checking the binding. */
+const s3Reads = (
+  client: Bun.S3Client,
+  s3Bucket: string
+): Pick<StorageService['Service'], 'downloadBounded'> => ({
+  downloadBounded: (key: string, bucket: BucketBinding, maxBytes: number) =>
+    assertBucketBinding(key, bucket).pipe(
+      Effect.andThen(
+        boundedDownload(key, maxBytes, () => s3DownloadWithin(client, s3Bucket, key, maxBytes))
+      )
+    ),
+})
+
 /** The S3 provider: bytes in the configured bucket, metadata in the catalog. */
 export const makeS3Storage = (
   config: S3StorageEnvConfig
@@ -117,10 +131,7 @@ export const makeS3Storage = (
     yield* Effect.promise(() => warnIfS3BucketUnreachable(client, config.endpoint, s3Bucket))
     return StorageService.of({
       upload: s3StorageUpload(client, s3Bucket),
-      download: (key: string, bucket: BucketBinding) =>
-        assertBucketBinding(key, bucket).pipe(
-          Effect.andThen(attempt(() => s3Download(client, s3Bucket, key)))
-        ),
+      ...s3Reads(client, s3Bucket),
       delete: (key: string, bucket: BucketBinding) =>
         attempt(() => deleteFileMetadata(key, bucket)).pipe(
           Effect.flatMap((found) =>
@@ -139,6 +150,7 @@ export const makeS3Storage = (
         storedObjectIdentity(
           absentWhileClaimed(key, () => s3ObjectIdentity(client, s3Bucket, key))
         ),
+      hashObject: (key: string) => attempt(() => s3HashObject(client, s3Bucket, key)),
       list: (prefix: string) =>
         attempt(() => s3List(client, s3Bucket, prefix)).pipe(
           Effect.map((page) => unwrapS3Listing(page.keys, page.truncated, 'list', s3Bucket)),

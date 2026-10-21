@@ -115,11 +115,17 @@ const buildAgentsIndex = (
     ...declared.filter((name) => !isSystemAgentName(name)),
     ...declared.filter((name) => isSystemAgentName(name)),
   ]
-  const items = names.map((name) => ({
-    name,
-    label: agentLabelOf(name, language),
-    isSystem: isSystemAgentName(name),
-  }))
+  const items = names.map((name) => {
+    const description = isSystemAgentName(name)
+      ? undefined
+      : app.agents?.find((agent) => agent.name === name)?.description
+    return {
+      name,
+      label: agentLabelOf(name, language),
+      ...(description?.trim() ? { description } : {}),
+      isSystem: isSystemAgentName(name),
+    }
+  })
   const start = cursor ? decodeAgentCursor(cursor, names) : 0
   const page = items.slice(start, start + limit)
   const last = page.at(-1)

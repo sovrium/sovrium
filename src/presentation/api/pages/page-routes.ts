@@ -15,15 +15,15 @@ import {
   resolvePreferredLanguage,
   validateLanguageSubdirectory,
 } from '@/domain/models/app/languages/language-detection'
-import { logError } from '@/infrastructure/logging/logger'
 import { isProduction as isProductionEnv } from '@/infrastructure/process/env'
 import { applyCredentialedPageIpCeiling } from '@/presentation/api/middleware/api-ip-ceiling'
+import { answerRenderFailure } from '@/presentation/api/runtime/render-failure-answer'
 import { varyOnAcceptLanguage, varyOnCookie } from '@/presentation/api/runtime/vary'
+import { queryMasksReader } from './caller-table-reader'
 import { setupContentDirIndexRedirectRoutes } from './content-dir-index-redirect-routes'
 import { applyFormFlash } from './form-flash-middleware'
 import { setupMarkdownExportRoutes } from './markdown-export-routes'
 import {
-  ERROR_PAGE_STATUS,
   extractSession,
   renderTracedPage,
   renderWithCache,
@@ -206,8 +206,9 @@ export function setupHomepageRoute(honoApp: Readonly<Hono>, config: HonoAppConfi
 
       return await renderRoot()
     } catch (error) {
-      logError(`[server] GET / → ${ERROR_PAGE_STATUS} Error rendering homepage`, error)
-      return c.html(await renderErrorPage(app), ERROR_PAGE_STATUS)
+      return answerRenderFailure(c, error, (requestId) =>
+        renderErrorPage(app, undefined, requestId)
+      )
     }
   })
 }
@@ -282,9 +283,8 @@ function handleLanguageHomepageRoute(config: HonoAppConfig) {
         lang ?? c.html(await renderNotFoundPage(app, urlLanguage, requestedPath(c.req.url)), 404)
       )
     } catch (error) {
-      logError(`[server] GET ${c.req.path} → ${ERROR_PAGE_STATUS} Error rendering homepage`, error)
       const detectedLang = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
-      return c.html(await renderErrorPage(app, detectedLang), ERROR_PAGE_STATUS)
+      return answerRenderFailure(c, error, (id) => renderErrorPage(app, detectedLang, id))
     }
   }
 }
@@ -335,8 +335,7 @@ function handleLanguagePageRoute(config: HonoAppConfig) {
         lang ?? c.html(await renderNotFoundPage(app, urlLanguage, requestedPath(c.req.url)), 404)
       )
     } catch (error) {
-      logError(`[server] GET ${path} → ${ERROR_PAGE_STATUS} Error rendering page`, error)
-      return c.html(await renderErrorPage(app, detectedLanguage), ERROR_PAGE_STATUS)
+      return answerRenderFailure(c, error, (id) => renderErrorPage(app, detectedLanguage, id))
     }
   }
 }
@@ -405,8 +404,7 @@ export function setupDynamicPageRoutes(
  * page path and 404 because no page declares that path.
  *
  * Behaviour:
- *   - When `config.renderRssFeed` is provided AND it returns an XML
- *     string, respond `200 application/rss+xml`.
+ *   - When `config.renderRssFeed` returns an XML string, respond `200 application/rss+xml`.
  *   - When the renderer returns `undefined` (no opted-in collection page),
  *     fall through to a 404 rendered with the standard not-found page so
  *     the response stays consistent with other unmapped paths.
@@ -422,7 +420,7 @@ export function setupRssFeedRoute(honoApp: Readonly<Hono>, config: HonoAppConfig
     try {
       const url = new URL(c.req.url)
       const baseUrl = `${url.protocol}//${url.host}`
-      const xml = await renderRssFeed(app, baseUrl)
+      const xml = await renderRssFeed(app, baseUrl, queryMasksReader(c))
       if (xml === undefined) {
         return c.html(await renderNotFoundPage(app, undefined, requestedPath(c.req.url)), 404)
       }
@@ -431,8 +429,9 @@ export function setupRssFeedRoute(honoApp: Readonly<Hono>, config: HonoAppConfig
         'Cache-Control': 'public, max-age=300',
       })
     } catch (error) {
-      logError(`[server] GET /feed.xml → ${ERROR_PAGE_STATUS} Error rendering RSS feed`, error)
-      return c.html(await renderErrorPage(app), ERROR_PAGE_STATUS)
+      return answerRenderFailure(c, error, (requestId) =>
+        renderErrorPage(app, undefined, requestId)
+      )
     }
   })
 }

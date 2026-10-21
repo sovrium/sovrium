@@ -66,6 +66,15 @@ export const toRun = (
   valuesErasedAt: toIso(runRow.valuesErasedAt),
   resumeAt: toIso(runRow.resumeAt),
   filesLedger: runRow.filesLedger ?? null,
+  ...(runRow.defectClass !== null && runRow.defectSignature !== null
+    ? {
+        defect: {
+          errorClass: runRow.defectClass,
+          signature: runRow.defectSignature,
+          ...(runRow.defectFrames === null ? {} : { frames: runRow.defectFrames }),
+        },
+      }
+    : {}),
 })
 
 /**

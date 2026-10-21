@@ -12,6 +12,11 @@ import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite
 import { getPhysicalTableName } from '../lookup/lookup-view-generators'
 import { executeSQL, SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
 import { generateCreateTableSQL, type TableDdlInputs } from './create-table-sql'
+import {
+  planHandMadeReplay,
+  readHandMadeObjects,
+  replayHandMadeObjects,
+} from './sqlite-hand-made-objects'
 import { areTypesCompatible } from './type-compatibility'
 import type { Table } from '@/domain/models/app/tables'
 
@@ -322,6 +327,11 @@ const guardEmptyCopy = (
 /**
  * Recreate table with data preservation when schema changes are incompatible with ALTER TABLE
  * Used when primary key type changes or other incompatible schema modifications occur
+ *
+ * On SQLite, dropping the original table drops every index and trigger on it.
+ * The engine recreates its own afterwards; the ones an operator made by hand
+ * are read first and replayed after the swap, less those naming a column the
+ * rebuilt table no longer has (`sqlite-hand-made-objects.ts`).
  */
 export const recreateTableWithDataEffect = (
   options: TableDdlInputs & {
@@ -337,6 +347,9 @@ export const recreateTableWithDataEffect = (
     const { tx, table, existingColumns } = options
     const physicalTableName = getPhysicalTableName(table)
     const tempTableName = `${physicalTableName}_migration_temp`
+    const handMade = isSqliteRuntime()
+      ? yield* readHandMadeObjects(tx, table, physicalTableName)
+      : []
 
     // Create temporary table with new schema
     const { ddl: createTableSQL, scopedConstraints } = yield* Effect.try({
@@ -363,4 +376,10 @@ export const recreateTableWithDataEffect = (
 
     // Finalize by dropping old table and renaming temp table
     yield* finalizeTableRecreation(tx, physicalTableName, tempTableName, scopedConstraints)
+
+    if (handMade.length === 0) return
+    const removedColumns = Array.from(existingColumns.keys()).filter(
+      (column) => !newColumnInfo.has(column)
+    )
+    yield* replayHandMadeObjects(tx, table.name, planHandMadeReplay(handMade, removedColumns))
   })

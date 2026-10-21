@@ -15,7 +15,7 @@ Nothing is exposed by default. An entity appears only when its schema declares `
 | Configuration      | `{app}_config_*`                  | Read-only views of the config, its findings, its schema and its run state, admin role only |
 | Admin reads        | `{app}_admin_*`                   | The admin API's own reads — automation run history first — admin role only, audited        |
 
-A table name keeps its capitals and hyphens in its tool names, and any other character — a space, most often — becomes `_`, because MCP clients refuse a tool name with a space in it: `Open Deals` in an app named `crm` gives `crm_Open_Deals_list`. The tool list is filtered per connection, so a viewer credential is never even told that a delete tool exists. Only manual-trigger automations qualify: a cron or record-change automation has no caller to expose.
+A table name keeps its capitals and hyphens in its tool names, and any other character — a space, most often — becomes `_`, because MCP clients refuse a tool name with a space in it: `Open Deals` in an app named `crm` gives `crm_Open_Deals_list`. The tool list is filtered per connection, so a viewer credential is never even told that a delete tool exists, and no credential is offered the list and read tools of a table whose records list would answer it as a table that does not exist. Only manual-trigger automations qualify: a cron or record-change automation has no caller to expose.
 
 A create, update or delete tool runs the same write the records API runs, so the table's webhooks and the automations triggered by that record event fire for it exactly as they do for a `POST`, `PATCH` or `DELETE` — an assistant's change is not a quieter one.
 
@@ -102,12 +102,17 @@ The last row is the other one you do not declare. Each admin read tool runs the 
 | `{app}_admin_form_submissions_export`      | `GET /api/admin/forms/:formName/submissions/export`        | `formName`                                                                                              |
 | `{app}_admin_form_analytics`               | `GET /api/admin/forms/:formName/analytics`                 | `formName`, `window` — `24h`, `7d` or `30d` (default)                                                   |
 | `{app}_admin_users_overview`               | `GET /api/admin/users/overview`                            | `period` — `24h` (default), `7d` or `30d`                                                               |
-| `{app}_admin_users_list`                   | `GET /api/admin/users` (JSON)                              | `q`, `sort`, `order`, `page`, `limit`                                                                   |
+| `{app}_admin_users_list`                   | `GET /api/admin/users` (JSON)                              | `q`, `role`, `status`, `sort`, `order`, `page`, `limit`                                                 |
 | `{app}_admin_invitations_list`             | `GET /api/admin/invitations`                               | none                                                                                                    |
 | `{app}_admin_roles_list`                   | `GET /api/admin/roles`                                     | none                                                                                                    |
 | `{app}_admin_groups_list`                  | `GET /api/admin/groups`                                    | none                                                                                                    |
 | `{app}_admin_organisation_graph`           | `GET /api/admin/organisation/graph`                        | `node`                                                                                                  |
-| `{app}_admin_audit_log_list`               | `GET /api/admin/audit-log`                                 | `actorId`, `action`, `transport`, `resourceType`                                                        |
+| `{app}_admin_audit_log_list`               | `GET /api/admin/audit-log`                                 | `actorId`, `action`, `transport`, `resourceType`, `limit`, `cursor`                                     |
+| `{app}_admin_audit_log_entry_read`         | `GET /api/admin/audit-log/:id`                             | `id`                                                                                                    |
+| `{app}_admin_report_request_read`          | `GET /api/admin/reports/requests/:requestId`               | `requestId` — answers the bug report address; opening it files nothing                                  |
+| `{app}_admin_report_run_read`              | `GET /api/admin/reports/runs/:runId`                       | `runId`                                                                                                 |
+| `{app}_admin_report_installation_read`     | `GET /api/admin/reports/installation`                      | none                                                                                                    |
+| `{app}_admin_report_latest_read`           | `GET /api/admin/reports/latest`                            | none                                                                                                    |
 
 The configuration, console and design-system tools answer exactly what their endpoints answer, redaction included: the configuration reads never carry a credential the config holds, and the environment read says whether a variable is set and where from, never its value. The markdown tool answers the export's text byte for byte rather than JSON. The share list names each live public share of the design system by its id and creation time and never its link: the link is the token, handed out once when the share is minted.
 

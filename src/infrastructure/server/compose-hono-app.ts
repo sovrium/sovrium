@@ -28,6 +28,7 @@ import { selfFramedPaths } from '@/domain/models/app/pages/self-framed-paths-ser
 import { createEmailHandlers } from '@/infrastructure/auth/better-auth/email-handlers'
 import { createInvitationServices } from '@/infrastructure/auth/better-auth/invitation-services'
 import { isIngestRequest } from '@/infrastructure/logging/ingest-request-scope'
+import { internalErrorLogSuffix } from '@/infrastructure/logging/internal-error-report'
 import { logDebug, logError } from '@/infrastructure/logging/logger'
 import { isLiveReloadEligible } from '@/infrastructure/process/env'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
@@ -73,6 +74,9 @@ import { setupDevReloadRoute } from '@/presentation/api/server/dev-reload-routes
 import type { HonoAppConfig } from '@/application/ports/contracts/hono-app-config'
 import type { App } from '@/domain/models/app'
 import type { DomainContext } from '@/infrastructure/server/domain-runtime'
+
+/** The request id the `hono/request-id` middleware set, if it ran. */
+const requestIdOf = (id: unknown): string | undefined => (typeof id === 'string' ? id : undefined)
 
 /**
  * Mount the per-request trace boundary when EITHER signal that reads it is
@@ -466,7 +470,15 @@ export async function createHonoApp(
         // Losing it collapses `hono/timeout`'s `HTTPException(504)` into a
         // hard-coded 500, which is what a production incident looked like.
         const status = error instanceof HTTPException ? error.status : 500
-        logError(`[server] ${c.req.method} ${redactSecretPath(c.req.path)} → ${status}`, error)
+        // A 500's request id goes to the caller, and the operator's log line
+        // names the id and either the fix (a failure the operator can fix) or
+        // the signature and `sovrium report --request-id` — never an issue address.
+        const internalRequestId = status === 500 ? requestIdOf(c.get('requestId')) : undefined
+        const kept = internalErrorLogSuffix(error, internalRequestId)
+        logError(
+          `[server] ${c.req.method} ${redactSecretPath(c.req.path)} → ${status}${kept}`,
+          error
+        )
 
         // Content negotiation by ROUTE FAMILY, not by `Accept` header: `/api/*` is
         // a machine surface and must always answer with the canonical error
@@ -479,6 +491,7 @@ export async function createHonoApp(
               success: false,
               message: apiErrorMessage(error, status),
               code: apiErrorCodeForStatus(status),
+              ...(internalRequestId === undefined ? {} : { requestId: internalRequestId }),
             },
             status
           )
@@ -489,7 +502,7 @@ export async function createHonoApp(
         if (error instanceof HTTPException && error.res !== undefined) {
           return error.getResponse()
         }
-        return c.html(await renderErrorPage(app), status)
+        return c.html(await renderErrorPage(app, undefined, internalRequestId), status)
       })
   )
 }

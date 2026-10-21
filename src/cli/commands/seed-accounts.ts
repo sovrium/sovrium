@@ -33,6 +33,7 @@ import { invitationLine } from '@/domain/models/seed/invitation-lines'
 import { db } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { authTableRef, authUserTableRef } from '@/infrastructure/database/sql/dialect-sql'
+import { createUnclaimedSeedAccounts } from './seed-unclaimed'
 import type { SeedAccountReference } from '@/application/use-cases/seed/seed-checks'
 import type { App } from '@/domain/models/app'
 import type { SeedAccount } from '@/domain/models/seed'
@@ -46,6 +47,8 @@ export interface AccountPlan {
   readonly toCreate: readonly (SeedAccount & { readonly password: string })[]
   /** Listed `invited: true` accounts with no account yet — issued as pending invitations. */
   readonly toInvite: readonly SeedAccount[]
+  /** Listed `unclaimed: true` accounts with no account yet — no credential, no invitation. */
+  readonly toLeaveUnclaimed: readonly SeedAccount[]
   /** Listed accounts that already exist — left unchanged, a pending invitation included. */
   readonly existing: readonly SeedAccount[]
   readonly errors: readonly string[]
@@ -166,7 +169,9 @@ const checkInviters = (
 ): readonly string[] => {
   const senders = new Set([
     ...index.keys(),
-    ...accounts.filter((a) => a.invited !== true).map((a) => a.email.toLowerCase()),
+    ...accounts
+      .filter((a) => a.invited !== true && a.unclaimed !== true)
+      .map((a) => a.email.toLowerCase()),
   ])
   return accounts.flatMap((account) => {
     const sender = account.invitedBy?.toLowerCase()
@@ -195,6 +200,17 @@ const checkAuthConfigured = (app: Readonly<App>, needed: boolean): readonly stri
       ]
     : []
 
+/** The password a new account gets: its own, else `SOVRIUM_SEED_PASSWORD`, else none. */
+const passwordOf = (
+  account: SeedAccount,
+  fallbackPassword: string | undefined
+): string | undefined =>
+  account.password !== undefined && account.password.length > 0
+    ? account.password
+    : fallbackPassword !== undefined && fallbackPassword.length > 0
+      ? fallbackPassword
+      : undefined
+
 /**
  * Settle every account question for a run, writing nothing.
  *
@@ -215,15 +231,12 @@ export const planAccounts = (input: {
   const { accounts, index, fallbackPassword } = input
   const existing = accounts.filter((account) => index.has(account.email.toLowerCase()))
   const unseen = accounts.filter((account) => !index.has(account.email.toLowerCase()))
-  // An invited account takes no password: the invitee chooses one on accepting.
-  const fresh = unseen.filter((account) => account.invited !== true)
+  // Invited and unclaimed accounts take no password: their owner sets one later.
+  const fresh = unseen.filter((account) => account.invited !== true && account.unclaimed !== true)
   const toInvite = unseen.filter((account) => account.invited === true)
+  const toLeaveUnclaimed = unseen.filter((account) => account.unclaimed === true)
   const password = (account: SeedAccount): string | undefined =>
-    account.password !== undefined && account.password.length > 0
-      ? account.password
-      : fallbackPassword !== undefined && fallbackPassword.length > 0
-        ? fallbackPassword
-        : undefined
+    passwordOf(account, fallbackPassword)
   const known = new Set([...index.keys(), ...accounts.map((a) => a.email.toLowerCase())])
 
   const needsAuth =
@@ -252,6 +265,7 @@ export const planAccounts = (input: {
       return secret === undefined ? [] : [{ ...account, password: secret }]
     }),
     toInvite,
+    toLeaveUnclaimed,
     existing,
     errors,
   }
@@ -314,7 +328,8 @@ const issuePlannedInvitations = async (
 }
 
 /**
- * Create the planned accounts, then issue the planned invitations, and return
+ * Create the planned accounts and the unclaimed ones, then issue the planned
+ * invitations, and return
  * the index the rows are written with and the links to print.
  *
  * Throws {@link SeedAccountError} naming the email when the auth layer refuses
@@ -338,6 +353,8 @@ export const createPlannedAccounts = async (
       throw new SeedAccountError(failures.join('\n  '))
     }
   }
+  const unclaimedFailures = await createUnclaimedSeedAccounts(app, plan.toLeaveUnclaimed)
+  if (unclaimedFailures.length > 0) throw new SeedAccountError(unclaimedFailures.join('\n  '))
   const created = await readAccountIndex()
   const invitations = await issuePlannedInvitations(app, plan, created)
   return {
@@ -345,6 +362,10 @@ export const createPlannedAccounts = async (
     invitations,
   }
 }
+
+/** `, unclaimed N` when the run creates unclaimed accounts, else nothing. */
+const unclaimedSegment = (plan: AccountPlan, label: string): string =>
+  plan.toLeaveUnclaimed.length === 0 ? '' : `, ${label} ${plan.toLeaveUnclaimed.length}`
 
 /**
  * The report lines for the accounts step — none when no file lists any — and
@@ -356,14 +377,19 @@ export const accountReportLines = (
   dryRun: boolean,
   invitations: readonly IssuedInvitation[] = []
 ): readonly string[] =>
-  plan.toCreate.length + plan.toInvite.length + plan.existing.length === 0
+  plan.toCreate.length +
+    plan.toInvite.length +
+    plan.toLeaveUnclaimed.length +
+    plan.existing.length ===
+  0
     ? []
     : [
         dryRun
           ? `[dry-run] accounts: would create ${plan.toCreate.length}, would invite ` +
-            `${plan.toInvite.length}, ${plan.existing.length} already present`
-          : `accounts: created ${plan.toCreate.length}, invited ${plan.toInvite.length}, ` +
-            `${plan.existing.length} already present`,
+            `${plan.toInvite.length}${unclaimedSegment(plan, 'would leave unclaimed')}, ` +
+            `${plan.existing.length} already present`
+          : `accounts: created ${plan.toCreate.length}, invited ${plan.toInvite.length}` +
+            `${unclaimedSegment(plan, 'unclaimed')}, ${plan.existing.length} already present`,
         ...invitationReportLines(invitations),
       ]
 

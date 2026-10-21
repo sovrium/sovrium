@@ -381,7 +381,7 @@ const handleAddOperations = async (
       all: options.all === true,
       yes: options.yes === true,
     },
-    catalogue.LIBRARY_KINDS
+    catalogue
   )
   const entries = await catalogue.loadCatalogue()
   const entry = findEntryOrRefuse(

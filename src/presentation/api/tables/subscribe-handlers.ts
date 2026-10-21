@@ -46,18 +46,20 @@
 
 import { Effect, Queue, Stream, type Cause } from 'effect'
 import { upgradeWebSocket } from 'hono/bun'
+import { readerRowsOf } from '@/application/use-cases/tables/row-read-admission'
 import { buildEffectiveRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { REALTIME_TRANSPORT_CONFIG } from '@/domain/models/api/realtime/realtime'
 import {
   buildReadAccessPlan,
+  CANONICAL_READ_POLICY,
   narrowRequestedColumns,
-  REALTIME_READ_POLICY,
   type ReadAccessPlan,
 } from '@/domain/models/app/tables/read-access-plan-service'
 import { grantFingerprint } from '@/domain/models/app/tables/realtime-grant-fingerprint-service'
 import {
   scopeChangeToReader,
+  withinAdmittedRows,
   type RowReadRule,
 } from '@/domain/models/app/tables/realtime-row-scope-service'
 import { relationshipFieldNames } from '@/domain/models/app/tables/record-id-service'
@@ -86,11 +88,15 @@ import { parseSubscriptionFilter, changeEventMatchesFilter } from './subscriptio
 import {
   applyFieldSelection,
   parseFieldSelection,
-  streamColumnsOf,
+  readableChange,
+  rowStreamColumnsOf,
   toWebSocketWireMessage,
   withStringRelationshipLinks,
+  type RowStreamColumns,
 } from './subscription-payload'
+import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { App } from '@/domain/models/app'
+import type { RowReadAdmission } from '@/domain/models/app/tables/row-read-admission-service'
 import type { Table } from '@/domain/models/app/tables/table'
 import type { Context } from 'hono'
 
@@ -99,27 +105,17 @@ import type { Context } from 'hono'
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve the composed read plan for one subscription handshake.
- *
- * Delegates to the canonical {@link buildReadAccessPlan} under
- * {@link REALTIME_READ_POLICY}, which differs from the REST record read in
- * exactly one NAMED way: a field grant is matched against ANY of the caller's
- * effective roles rather than the primary one. That breadth is deliberate — the
- * whitelist is resolved once per CONNECTION and then applied to every fanned-out
- * change event — and it is now a policy value rather than a local re-derivation.
- *
- * Two things the hand-rolled predecessor got wrong and the plan fixes:
- *
- *  - it skipped the BUILT-IN DEFAULT FIELD RULES entirely, so a `viewer` saw
- *    columns over the stream that `GET /records` strips (a stream and a `GET`
- *    on the same table must not disagree about which columns exist);
- *  - it short-circuited to "no filtering" whenever the table declared no
- *    `permissions.fields`, which is precisely when the default rules apply.
+ * Resolve the composed read plan for one subscription handshake, through the
+ * canonical {@link buildReadAccessPlan} under {@link CANONICAL_READ_POLICY} —
+ * the records list's own.
  *
  * The roles are the records API's: on a table with a row-level rule they are
  * the guard's (account role, groups AND `user_access` roles), so a caller the
  * records API admits through that overlay is admitted to the stream of the same
- * rows. The rows themselves are scoped per change event by {@link readRuleOf}.
+ * rows. They decide admission only — a field is matched against her own role
+ * and groups, never a role she holds through a grant elsewhere — and a change
+ * carries, row by row, the columns a list of that row returns her
+ * (`rowStreamColumnsOf`). The rows are scoped per event by {@link readRuleOf}.
  */
 const resolveReadPlan = (
   table: Table,
@@ -135,28 +131,29 @@ const resolveReadPlan = (
       effectiveRoles: caller.effectiveRoles,
       isAuthenticated: true,
     },
-    policy: REALTIME_READ_POLICY,
+    policy: CANONICAL_READ_POLICY,
     rowContext: guard?.current,
   })
 
 /**
  * The subscriber's row-level read rule, as a pure in-memory predicate over a
- * changed row — or `undefined` when no rule governs them (the table declares
- * none, or the caller is unrestricted). Resolved once per connection: the
- * caller's context is loaded at the handshake, so each fanned-out change costs
- * one predicate evaluation per subscriber and no database read.
+ * changed row, held to the rows a list admits them — or `undefined` when no
+ * rule governs them and they read every row. Resolved once per connection, so
+ * each fanned-out change costs one predicate evaluation and no database read.
  */
 const readRuleOf = (
   table: Table,
-  guard: RowLevelGuardContext | undefined
+  { guard, rows }: Pick<SubscriptionGrant, 'guard' | 'rows'>
 ): RowReadRule | undefined => {
   const rlp = table.rowLevelPermissions
-  if (rlp?.read?.when === undefined || guard === undefined || guard.current.isUnrestricted) {
-    return undefined
-  }
+  const ruled =
+    rlp?.read?.when !== undefined && guard !== undefined && !guard.current.isUnrestricted
   // Judged as the records API reads the row: a SQLite `1`/`0` boolean is
   // `true`/`false` before the rule sees it, whichever row the event carries.
-  return (row) => rowPassesRule(rlp, 'read', readStoredValues(table, row), guard.current)
+  const rule: RowReadRule | undefined = ruled
+    ? (row) => rowPassesRule(rlp, 'read', readStoredValues(table, row), guard.current)
+    : undefined
+  return withinAdmittedRows(rule, rows)
 }
 
 // ---------------------------------------------------------------------------
@@ -167,12 +164,10 @@ const readRuleOf = (
 interface SubscriptionGrant {
   readonly guard: RowLevelGuardContext | undefined
   readonly plan: ReadAccessPlan
-  /**
-   * The columns the stream may carry to this subscriber, or `undefined` for
-   * every column: the plan's whitelist, less the lookups the stream withholds
-   * from them ({@link streamColumnsOf}).
-   */
-  readonly streamColumns: readonly string[] | undefined
+  /** The columns the stream may carry to this subscriber, row by row. */
+  readonly columns: RowStreamColumns
+  /** The rows a list of the table returns the subscriber (`readerRowsOf`). */
+  readonly rows: RowReadAdmission
   /** The grant reduced to one comparable string — see `grantFingerprint`. */
   readonly fingerprint: string
 }
@@ -186,24 +181,30 @@ interface SubscriptionGrant {
  */
 const resolveSubscriptionGrant = async (
   c: Context,
-  session: { readonly userId: string },
+  session: Readonly<UserSession>,
   caller: GuardCaller,
   { table, app }: { readonly table: Table; readonly app: App }
 ): Promise<SubscriptionGrant> => {
   const guard = await resolveGuardForTable(c, session, caller, { table, app })
   const effectiveRoles =
     guard?.effectiveRoles ?? buildEffectiveRoles(caller.userRole, caller.userGroups)
-  const plan = resolveReadPlan(table, { userRole: caller.userRole, effectiveRoles }, app, guard)
-  const streamColumns = streamColumnsOf(app, table, plan, {
-    role: caller.userRole,
-    groups: caller.userGroups,
-  })
+  const admitted = resolveReadPlan(table, { userRole: caller.userRole, effectiveRoles }, app, guard)
+  const reader = { role: caller.userRole, groups: caller.userGroups }
+  const { admission: rows, grants } = await runDomainPromise(
+    c,
+    readerRowsOf(app, table.name, { ...reader, session })
+  )
+  const columns = rowStreamColumnsOf(app, table, reader, grants)
+  // The handshake reports the columns her own role reads over the stream.
+  const plan = { ...admitted, columnWhitelist: columns.own }
   const fingerprint = grantFingerprint({
     allowed: plan.allowed,
-    columns: streamColumns,
+    columns: columns.own,
+    rows,
+    grants,
     rowContext: guard?.current,
   })
-  return { guard, plan, streamColumns, fingerprint }
+  return { guard, plan, columns, rows, fingerprint }
 }
 
 /**
@@ -215,7 +216,7 @@ const resolveSubscriptionGrant = async (
  */
 const resolveHandshakeGrant = (
   c: Context,
-  session: { readonly userId: string },
+  session: Readonly<UserSession>,
   caller: GuardCaller,
   { table, app }: { readonly table: Table; readonly app: App }
 ): Promise<SubscriptionGrant | undefined> =>
@@ -251,7 +252,7 @@ const resolveCaller = (c: Context, userId: string): Promise<GuardCaller> =>
 const recheckGrant =
   (input: {
     readonly c: Context
-    readonly session: { readonly userId: string }
+    readonly session: Readonly<UserSession>
     readonly table: Table
     readonly app: App
     readonly fingerprint: string
@@ -280,9 +281,9 @@ const notFoundResponse = (c: Context): Response => notFound(c)
 
 /** Scoping parameters resolved from a subscription handshake. */
 interface SubscriptionScope {
-  /** Every column the stream may carry to this subscriber (`undefined`: all). */
-  readonly readable: readonly string[] | undefined
-  /** The subscriber's own `?fields=` selection, within {@link readable}. */
+  /** The columns the stream may carry to this subscriber, row by row. */
+  readonly columns: RowStreamColumns
+  /** The subscriber's own `?fields=` selection, applied within {@link columns}. */
   readonly fields: readonly string[] | undefined
   readonly filter: ReturnType<typeof parseSubscriptionFilter>
   /** The subscriber's row-level read rule; `undefined` when none governs them. */
@@ -334,31 +335,19 @@ const buildLiveResponse = (params: {
 }): Response => {
   const { c, appId, tableName, scope, release, bind } = params
 
-  // REGISTRATION HAPPENS HERE, not inside the stream — and that placement is
-  // the whole point of this function's shape.
-  //
-  // `runEffectSse` sequences preamble → heartbeat → drain, and Hono's
-  // `streamSSE` commits the HTTP 200 at or before the preamble write. A
-  // browser's `EventSource` fires `onopen` on that 200, so the client can
-  // observe itself as connected — and issue a write — while the drain that
-  // would have registered this listener has not run yet. Registering inside
-  // `Stream.callback` therefore left a window in which a change published to
-  // the channel reached NO listener, and `channel-manager` has neither a
-  // buffer nor a replay, so such a change was dropped silently and
-  // permanently. Measured: roughly one connection in three lost its first
-  // write that way.
-  //
-  // Registering before `runEffectSse` is called closes the window by
-  // construction rather than narrowing it: the listener exists before the
-  // response object is built, so before any byte — 200 status line included —
-  // can reach the client.
-  // The queue is created EAGERLY and IS the buffer. `Stream.callback` — the
-  // Effect 4 shape this replaced — hands its queue out only once the stream is
-  // drained, which is precisely what made registration late. Hoisting the
-  // queue out inverts that: the listener has somewhere to put an event from
-  // the moment the request is handled, and `Stream.fromQueue` later drains
-  // whatever accumulated. No hand-rolled holding buffer and no replay step,
-  // because an unbounded queue already is both.
+  // REGISTRATION HAPPENS HERE, not inside the stream — that placement is the
+  // whole point of this function's shape. `runEffectSse` sequences preamble →
+  // heartbeat → drain, and Hono's `streamSSE` commits the HTTP 200 at or before
+  // the preamble write; `EventSource` fires `onopen` on that 200, so the client
+  // can issue a write before a drain-time listener exists. `channel-manager`
+  // has neither buffer nor replay, so such a change was dropped silently —
+  // measured: one connection in three lost its first write that way.
+  // Registering before `runEffectSse` closes the window by construction: the
+  // listener exists before any byte, status line included, reaches the client.
+  // The queue is created EAGERLY and IS the buffer (`Stream.callback` handed its
+  // queue out only once drained, which is what made registration late); an
+  // unbounded queue is both the holding buffer and the replay, and
+  // `Stream.fromQueue` later drains whatever accumulated.
   const queue = Effect.runSync(Queue.unbounded<Record<string, unknown>, Cause.Done>())
 
   const unsubscribe = addChannelListener(tableChannel(appId, tableName), (event) => {
@@ -371,7 +360,7 @@ const buildLiveResponse = (params: {
     // event by event, what that column holds. Their own `?fields=` selection
     // narrows the payload only after, so a filter on a readable column they
     // did not select still works.
-    const readable = applyFieldSelection(scoped, scope.readable)
+    const readable = readableChange(scope.columns, scoped)
     if (!changeEventMatchesFilter(readable, scope.filter)) return
     Queue.offerUnsafe(
       queue,
@@ -461,7 +450,8 @@ const sendWebSocketMessage = (ws: SendableWebSocket, msg: Record<string, unknown
 const buildWebSocketEvents = (params: {
   readonly appId: string
   readonly tableName: string
-  readonly readableFields: readonly string[] | undefined
+  readonly columns: RowStreamColumns
+  readonly fields: readonly string[] | undefined
   readonly reads: RowReadRule | undefined
   readonly links: readonly string[]
   /** Released on `onClose` so the per-user connection counter does not leak. */
@@ -471,7 +461,7 @@ const buildWebSocketEvents = (params: {
   /** Resolves the grant again and answers whether it still matches. */
   readonly recheck: NonNullable<ConnectionHooks['recheck']>
 }) => {
-  const { appId, tableName, readableFields, reads, links, release, bind, recheck } = params
+  const { appId, tableName, columns, fields, reads, links, release, bind, recheck } = params
   const state: WebSocketConnectionState = {}
 
   return {
@@ -480,11 +470,9 @@ const buildWebSocketEvents = (params: {
 
       state.unsubscribe = addChannelListener(tableChannel(appId, tableName), (event) => {
         const scoped = scopeChangeToReader(event, reads)
-        if (scoped !== undefined)
-          sendWebSocketMessage(
-            ws,
-            withStringRelationshipLinks(toWebSocketWireMessage(scoped, readableFields), links)
-          )
+        if (scoped === undefined) return
+        const wire = toWebSocketWireMessage(readableChange(columns, scoped), fields)
+        sendWebSocketMessage(ws, withStringRelationshipLinks(wire, links))
       })
 
       state.heartbeat = setInterval(() => {
@@ -531,17 +519,16 @@ const handleWebSocketUpgrade = (params: {
   readonly c: Context
   readonly appId: string
   readonly tableName: string
-  readonly readableFields: readonly string[] | undefined
+  readonly columns: RowStreamColumns
+  readonly fields: readonly string[] | undefined
   readonly reads: RowReadRule | undefined
   readonly links: readonly string[]
   readonly release: () => void
   readonly bind: (hooks: ConnectionHooks) => void
   readonly recheck: NonNullable<ConnectionHooks['recheck']>
 }): Promise<Response> => {
-  const { c, appId, tableName, readableFields, reads, links, release, bind, recheck } = params
-  const middleware = upgradeWebSocket(() =>
-    buildWebSocketEvents({ appId, tableName, readableFields, reads, links, release, bind, recheck })
-  )
+  const { c, ...events } = params
+  const middleware = upgradeWebSocket(() => buildWebSocketEvents(events))
 
   // `upgradeWebSocket` is a Hono middleware: invoke it directly with a no-op
   // `next` so it runs `server.upgrade()` and returns the 101 handshake.
@@ -596,7 +583,7 @@ interface LiveTransportInput {
   readonly c: Context
   readonly app: App
   /** The handshake's session: its user, and its own id, which bounds the connection. */
-  readonly session: { readonly id: string; readonly userId: string }
+  readonly session: Readonly<UserSession>
   readonly table: Table
   readonly grant: SubscriptionGrant
 }
@@ -623,7 +610,7 @@ const openLiveTransport = (input: LiveTransportInput): Promise<Response> => {
   const { c, app, session, table, grant } = input
   const { plan } = grant
   const tableName = table.name
-  const reads = readRuleOf(table, grant.guard)
+  const reads = readRuleOf(table, grant)
   const links = relationshipFieldNames(table)
   const registration = registerConnection(session.userId, session.id)
   if (!registration.accepted) {
@@ -631,16 +618,14 @@ const openLiveTransport = (input: LiveTransportInput): Promise<Response> => {
   }
   const requested = parseFieldSelection(c.req.query('fields'))
   const effectiveFields = narrowRequestedColumns(plan, requested)
-  const streamFields = narrowRequestedColumns(
-    { ...plan, columnWhitelist: grant.streamColumns },
-    requested
-  )
+  const { columns } = grant
   if (isWebSocketUpgrade(c)) {
     return handleWebSocketUpgrade({
       c,
       appId: app.name,
       tableName,
-      readableFields: streamFields,
+      columns,
+      fields: requested,
       reads,
       links,
       release: registration.release,
@@ -660,7 +645,7 @@ const openLiveTransport = (input: LiveTransportInput): Promise<Response> => {
       c,
       appId: app.name,
       tableName,
-      scope: { readable: grant.streamColumns, fields: streamFields, filter, reads, links },
+      scope: { columns, fields: requested, filter, reads, links },
       release: registration.release,
       bind: registration.bind,
     })
@@ -675,10 +660,10 @@ export async function handleSubscribe(c: Context, app: App): Promise<Response> {
   // narrow so the permission check below has a concrete table.
   if (!table) return notFoundResponse(c)
 
-  // Anti-enumeration: a denied subscription — or one whose grant could not be
-  // read — is indistinguishable from a missing table (S1 — 404, never 403/500).
+  // Anti-enumeration: a denied subscription — one whose grant could not be read,
+  // or that admits no row — is indistinguishable from a missing table (S1 — 404).
   const grant = await resolveHandshakeGrant(c, session, { userRole, userGroups }, { table, app })
-  if (grant === undefined || !grant.plan.allowed) return notFoundResponse(c)
+  if (grant?.plan.allowed !== true || grant.rows.kind === 'no-row') return notFoundResponse(c)
   const { plan } = grant
 
   // Enforce the per-user concurrent transport-connection

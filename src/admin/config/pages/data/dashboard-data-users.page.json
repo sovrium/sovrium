@@ -1,0 +1,658 @@
+{
+  "id": "dashboard-data-users",
+  "name": "dashboard-data-users",
+  "path": "/users",
+  "meta": {
+    "title": "$t:admin.meta.users"
+  },
+  "query": {
+    "tab": {
+      "default": "members",
+      "enum": ["members", "invitations"]
+    }
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6 min-h-0"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "users": "$t:admin.crumb.users"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "header",
+          "element": "header",
+          "props": {
+            "className": "flex flex-col gap-1"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "h1",
+              "props": {
+                "className": "text-foreground text-2xl font-semibold tracking-tight"
+              },
+              "content": "$t:admin.users.heading"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "content": "$t:admin.users.blurb"
+            }
+          ]
+        },
+        {
+          "component": "console-tabs",
+          "key": "tabs",
+          "vars": {
+            "defaultTab": "$query.tab",
+            "ariaLabel": "$t:admin.users.tabs.region",
+            "dataTestid": "admin-subview-tabs",
+            "panels": [
+              {
+                "id": "members",
+                "label": "$t:admin.users.tab.members"
+              },
+              {
+                "id": "invitations",
+                "label": "$t:admin.users.tab.invitations"
+              }
+            ]
+          },
+          "children": [
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-1",
+              "element": "div",
+              "props": {
+                "className": "flex min-w-0 flex-none! flex-col gap-6"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "admin-toolbar-row",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-h-10 flex-wrap items-center gap-2",
+                    "data-testid": "admin-toolbar-row",
+                    "role": "toolbar",
+                    "aria-label": "$t:admin.common.gridControls"
+                  },
+                  "children": [
+                    {
+                      "component": "console-toolbar-search",
+                      "key": "toolbar-search",
+                      "vars": {
+                        "ariaLabel": "$t:admin.users.search",
+                        "placeholder": "$t:admin.users.search",
+                        "publishes": {
+                          "bindTo": "users-filter",
+                          "param": "q"
+                        }
+                      }
+                    },
+                    {
+                      "type": "native-select",
+                      "props": {
+                        "id": "users-role-filter",
+                        "label": "$t:admin.users.filter.role",
+                        "className": "flex w-fit items-center [&>[data-slot=label]]:sr-only [&_[data-slot=native-select]]:border-dashed [&_[data-slot=native-select]]:font-medium"
+                      },
+                      "emptyOption": {
+                        "label": "$t:admin.users.filter.allRoles"
+                      },
+                      "publishes": {
+                        "bindTo": "users-filter",
+                        "param": "role"
+                      },
+                      "dataSource": {
+                        "system": {
+                          "endpoint": "/api/admin/roles",
+                          "rowsKey": "roles",
+                          "idKey": "name"
+                        },
+                        "valueKey": "name",
+                        "labelKey": "label"
+                      }
+                    },
+                    {
+                      "type": "native-select",
+                      "props": {
+                        "id": "users-status-filter",
+                        "label": "$t:admin.users.filter.status",
+                        "className": "flex w-fit items-center [&>[data-slot=label]]:sr-only [&_[data-slot=native-select]]:border-dashed [&_[data-slot=native-select]]:font-medium"
+                      },
+                      "emptyOption": {
+                        "label": "$t:admin.users.filter.allStatuses"
+                      },
+                      "publishes": {
+                        "bindTo": "users-filter",
+                        "param": "status"
+                      },
+                      "options": [
+                        {
+                          "value": "active",
+                          "label": "$t:admin.users.state.active"
+                        },
+                        {
+                          "value": "banned",
+                          "label": "$t:admin.users.state.banned"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "button",
+                      "label": "$t:admin.common.exportCsv",
+                      "variant": "outline",
+                      "action": {
+                        "type": "fetch",
+                        "mode": "download",
+                        "url": "/api/admin/users?format=csv",
+                        "filename": "users.csv"
+                      },
+                      "props": {
+                        "className": "sm:ml-auto"
+                      }
+                    },
+                    {
+                      "type": "button",
+                      "label": "$t:admin.users.invite.open",
+                      "visibility": {
+                        "capability": "administer-accounts"
+                      },
+                      "props": {
+                        "interactions": {
+                          "click": {
+                            "modal": "admin-invite-dialog"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "key": "metrics-region",
+                  "element": "div",
+                  "props": {
+                    "role": "region",
+                    "aria-label": "$t:admin.users.metrics.region",
+                    "className": "grid grid-cols-1 gap-4 sm:grid-cols-3"
+                  },
+                  "children": [
+                    {
+                      "component": "console-section-card",
+                      "key": "section-card",
+                      "vars": {
+                        "label": "$t:admin.users.kpi.accounts",
+                        "dataSource": {
+                          "system": {
+                            "endpoint": "/api/admin/users/overview",
+                            "valuePath": "totals.users"
+                          }
+                        },
+                        "kpiFormat": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    {
+                      "component": "console-section-card",
+                      "key": "section-card-2",
+                      "vars": {
+                        "label": "$t:admin.users.kpi.active",
+                        "dataSource": {
+                          "system": {
+                            "endpoint": "/api/admin/users/overview",
+                            "valuePath": "totals.active_24h"
+                          }
+                        },
+                        "kpiFormat": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    {
+                      "component": "console-section-card",
+                      "key": "section-card-3",
+                      "vars": {
+                        "label": "$t:admin.users.kpi.new",
+                        "dataSource": {
+                          "system": {
+                            "endpoint": "/api/admin/users/overview",
+                            "valuePath": "totals.new_in_period"
+                          }
+                        },
+                        "kpiFormat": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "component": "console-grid",
+                  "key": "grid",
+                  "vars": {
+                    "id": "admin-users-grid",
+                    "ariaLabel": "$t:admin.users.region",
+                    "dataSource": {
+                      "system": {
+                        "endpoint": "/api/admin/users",
+                        "rowsKey": "users",
+                        "idKey": "id",
+                        "totalKey": "total",
+                        "bindTo": "users-filter",
+                        "sharedFilter": {}
+                      }
+                    },
+                    "columns": [
+                      {
+                        "field": "email",
+                        "label": "$t:admin.common.email",
+                        "minWidth": 220
+                      },
+                      {
+                        "field": "name",
+                        "label": "$t:admin.common.name",
+                        "width": 180
+                      },
+                      {
+                        "field": "roleLabel",
+                        "label": "$t:admin.common.role",
+                        "sortable": false,
+                        "width": 140
+                      },
+                      {
+                        "field": "groupLabels",
+                        "label": "$t:admin.common.groups",
+                        "sortable": false,
+                        "width": 180,
+                        "truncate": true
+                      },
+                      {
+                        "field": "lastSignInAt",
+                        "label": "$t:admin.users.col.lastActive",
+                        "format": "day-relative-time",
+                        "width": 150
+                      },
+                      {
+                        "field": "banned",
+                        "label": "$t:admin.common.status",
+                        "cellStyle": [
+                          {
+                            "when": {
+                              "eq": false
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-success-solid"
+                          },
+                          {
+                            "when": {
+                              "eq": true
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-destructive"
+                          }
+                        ],
+                        "valueLabels": {
+                          "false": "$t:admin.users.state.active",
+                          "true": "$t:admin.users.state.banned"
+                        },
+                        "width": 110
+                      },
+                      {
+                        "type": "actions",
+                        "label": "$t:admin.common.actions",
+                        "capability": "administer-accounts",
+                        "actions": [
+                          {
+                            "label": "$t:admin.users.changeRole",
+                            "action": {
+                              "type": "fetch",
+                              "url": "/api/auth/admin/set-role",
+                              "method": "POST",
+                              "body": {
+                                "userId": "$record.id",
+                                "role": "$record.role"
+                              },
+                              "responseEnvelope": "better-auth",
+                              "onSuccess": {
+                                "type": "toast",
+                                "message": "$t:admin.users.roleUpdated",
+                                "refetch": "admin-users-grid"
+                              }
+                            },
+                            "editSelect": {
+                              "field": "role",
+                              "label": "$t:admin.common.role",
+                              "optionsSource": {
+                                "system": {
+                                  "endpoint": "/api/admin/roles",
+                                  "rowsKey": "roles"
+                                },
+                                "valueKey": "name",
+                                "labelKey": "label"
+                              },
+                              "saveLabel": "$t:admin.common.save"
+                            }
+                          },
+                          {
+                            "label": "$t:admin.users.changeGroups",
+                            "action": {
+                              "type": "fetch",
+                              "url": "/api/admin/users/$record.id/groups",
+                              "method": "PUT",
+                              "body": {
+                                "groups": "$record.groups"
+                              },
+                              "onSuccess": {
+                                "type": "toast",
+                                "message": "$t:admin.users.groupsUpdated",
+                                "refetch": "admin-users-grid"
+                              }
+                            },
+                            "editSelect": {
+                              "field": "groups",
+                              "label": "$t:admin.common.groups",
+                              "optionsSource": {
+                                "system": {
+                                  "endpoint": "/api/admin/groups",
+                                  "rowsKey": "groups"
+                                },
+                                "valueKey": "name",
+                                "labelKey": "label"
+                              },
+                              "saveLabel": "$t:admin.common.save",
+                              "multiple": true
+                            }
+                          },
+                          {
+                            "label": "$t:admin.users.ban",
+                            "action": {
+                              "type": "fetch",
+                              "url": "/api/auth/admin/ban-user",
+                              "method": "POST",
+                              "body": {
+                                "userId": "$record.id"
+                              },
+                              "responseEnvelope": "better-auth",
+                              "onSuccess": {
+                                "type": "toast",
+                                "message": "$t:admin.users.banned",
+                                "refetch": "admin-users-grid"
+                              }
+                            },
+                            "confirm": {
+                              "message": "$t:admin.users.banMessage",
+                              "title": "$t:admin.users.confirmBan",
+                              "role": "alertdialog",
+                              "confirmLabel": "$t:admin.users.confirmBan",
+                              "cancelLabel": "$t:admin.common.cancel"
+                            },
+                            "visibleWhen": {
+                              "field": "banned",
+                              "eq": false
+                            },
+                            "variant": "destructive"
+                          },
+                          {
+                            "label": "$t:admin.common.liftBan",
+                            "action": {
+                              "type": "fetch",
+                              "url": "/api/auth/admin/unban-user",
+                              "method": "POST",
+                              "body": {
+                                "userId": "$record.id"
+                              },
+                              "responseEnvelope": "better-auth",
+                              "onSuccess": {
+                                "type": "toast",
+                                "message": "$t:admin.users.unbanned",
+                                "refetch": "admin-users-grid"
+                              }
+                            },
+                            "visibleWhen": {
+                              "field": "banned",
+                              "eq": true
+                            }
+                          }
+                        ]
+                      }
+                    ],
+                    "emptyMessage": "$t:admin.users.empty",
+                    "noMatchMessage": "$t:admin.users.noMatch",
+                    "pagination": {
+                      "pageSize": 25
+                    },
+                    "onRowClick": {
+                      "type": "navigate",
+                      "path": "/users/$record.email"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "key": "admin-surface-content-2-2",
+              "element": "div",
+              "props": {
+                "className": "flex min-h-0 min-w-0 flex-col gap-6 overflow-y-auto"
+              },
+              "children": [
+                {
+                  "type": "container",
+                  "key": "admin-toolbar-row-2",
+                  "element": "div",
+                  "props": {
+                    "className": "flex min-h-10 flex-wrap items-center gap-2",
+                    "data-testid": "admin-toolbar-row"
+                  },
+                  "children": [
+                    {
+                      "type": "button",
+                      "label": "$t:admin.users.invite.open",
+                      "visibility": {
+                        "capability": "administer-accounts"
+                      },
+                      "props": {
+                        "interactions": {
+                          "click": {
+                            "modal": "admin-invite-dialog"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "component": "console-grid",
+                  "key": "grid-2",
+                  "vars": {
+                    "id": "admin-invitations-grid",
+                    "ariaLabel": "$t:admin.invitations.pending.region",
+                    "dataSource": {
+                      "system": {
+                        "endpoint": "/api/admin/invitations",
+                        "rowsKey": "items",
+                        "idKey": "id"
+                      }
+                    },
+                    "columns": [
+                      {
+                        "field": "email",
+                        "label": "$t:admin.common.email"
+                      },
+                      {
+                        "field": "roleLabel",
+                        "label": "$t:admin.common.role"
+                      },
+                      {
+                        "field": "status",
+                        "label": "$t:admin.common.status",
+                        "cellStyle": [
+                          {
+                            "when": {
+                              "eq": "pending"
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-info-solid"
+                          },
+                          {
+                            "when": {
+                              "eq": "expired"
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-destructive [&:is(span)]:before:bg-destructive"
+                          }
+                        ]
+                      },
+                      {
+                        "field": "invitedBy",
+                        "label": "$t:admin.users.invite.by"
+                      },
+                      {
+                        "field": "expiresAt",
+                        "label": "$t:admin.common.expires",
+                        "format": "datetime"
+                      },
+                      {
+                        "type": "actions",
+                        "label": "$t:admin.common.actions",
+                        "capability": "administer-accounts",
+                        "actions": [
+                          {
+                            "label": "$t:admin.users.invite.resend",
+                            "action": {
+                              "type": "fetch",
+                              "url": "/api/admin/invitations/$record.id/resend",
+                              "method": "POST",
+                              "onSuccess": {
+                                "type": "toast",
+                                "message": "$t:admin.users.invite.resent",
+                                "refetch": "admin-invitations-grid"
+                              }
+                            }
+                          },
+                          {
+                            "label": "$t:admin.common.revoke",
+                            "action": {
+                              "type": "fetch",
+                              "url": "/api/admin/invitations/$record.id",
+                              "method": "DELETE",
+                              "onSuccess": {
+                                "type": "toast",
+                                "message": "$t:admin.users.invite.revoked",
+                                "refetch": "admin-invitations-grid"
+                              }
+                            },
+                            "confirm": {
+                              "message": "$t:admin.users.invite.revokeMessage",
+                              "title": "$t:admin.users.invite.revokeConfirm",
+                              "role": "alertdialog",
+                              "confirmLabel": "$t:admin.common.confirm",
+                              "cancelLabel": "$t:admin.common.cancel"
+                            }
+                          }
+                        ]
+                      }
+                    ],
+                    "emptyMessage": "$t:admin.users.invite.none"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "dialog",
+          "title": "$t:admin.invitations.form.region",
+          "description": "$t:admin.invitations.form.blurb",
+          "visibility": {
+            "capability": "administer-accounts"
+          },
+          "props": {
+            "id": "admin-invite-dialog"
+          },
+          "children": [
+            {
+              "type": "form",
+              "props": {
+                "aria-label": "$t:admin.invitations.form.region",
+                "className": "border-0 bg-transparent p-0"
+              },
+              "endpoint": {
+                "url": "/api/auth/admin/invite-user",
+                "method": "POST",
+                "submitLabel": "$t:admin.users.invite.send",
+                "onSuccess": {
+                  "type": "toast",
+                  "variant": "success",
+                  "message": "$t:admin.invitations.sent",
+                  "refetch": "admin-invitations-grid",
+                  "close": true,
+                  "reset": true
+                },
+                "onError": {
+                  "type": "toast",
+                  "variant": "destructive",
+                  "message": "$t:admin.users.invite.failed"
+                }
+              },
+              "fields": [
+                {
+                  "field": "email",
+                  "control": "email",
+                  "label": "$t:admin.users.invite.email"
+                },
+                {
+                  "field": "name",
+                  "control": "text",
+                  "label": "$t:admin.users.invite.name"
+                },
+                {
+                  "field": "role",
+                  "control": "select",
+                  "label": "$t:admin.common.role",
+                  "optionsSource": {
+                    "system": {
+                      "endpoint": "/api/admin/roles",
+                      "rowsKey": "roles"
+                    },
+                    "valueKey": "name",
+                    "labelKey": "label"
+                  },
+                  "defaultValue": "viewer"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -50,6 +50,8 @@ export const noopDb: DataSourceDb = {
   // Fails closed: no `user_access` reader means no assignments, so an
   // assignment filter matches nothing rather than trusting a cookie.
   fetchUserAssignments: async () => [],
+  // Fails closed too: with no reader of the records list, no row is listed.
+  readReaderRows: async () => ({ admission: { kind: 'no-row' }, grants: new Map() }),
 }
 
 /**

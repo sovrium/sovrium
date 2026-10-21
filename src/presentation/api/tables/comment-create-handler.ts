@@ -19,6 +19,7 @@ import {
   hasCommentPermissionForRoles,
   hasReadPermissionForRoles,
 } from '@/domain/models/app/auth/permission-evaluator-service'
+import { commentTableKeysOf } from '@/domain/models/app/tables/comment-address-service'
 import {
   isModerationEnabled,
   resolveCommentModerationStatus,
@@ -297,12 +298,13 @@ async function resolveCommentableTable(
 async function resolvePriorGuestApproval(input: {
   readonly c: Context
   readonly session: ReturnType<typeof getTableContext>['session']
-  readonly tableId: string
+  /** Every key of the table (`commentTableKeysOf`): an approval counts under any of them. */
+  readonly tableKeys: readonly string[]
   readonly moderationConfig: CommentModerationConfig
   readonly isAuthenticated: boolean
   readonly guestEmail: string | undefined
 }): Promise<boolean> {
-  const { c, session, tableId, moderationConfig, isAuthenticated, guestEmail } = input
+  const { c, session, tableKeys, moderationConfig, isAuthenticated, guestEmail } = input
   if (!isModerationEnabled(moderationConfig)) return false
   if (moderationConfig.autoApprove?.previouslyApproved !== true) return false
   if (isAuthenticated || guestEmail === undefined) return false
@@ -311,7 +313,7 @@ async function resolvePriorGuestApproval(input: {
     c,
     Effect.gen(function* () {
       const repo = yield* CommentRepository
-      return yield* repo.hasApprovedGuestComment({ session, tableId, guestEmail })
+      return yield* repo.hasApprovedGuestComment({ session, tableKeys, guestEmail })
     })
   )
   return lookup._tag === 'Success' && lookup.success
@@ -409,7 +411,7 @@ async function checkCreateCommentGate(c: Context, app: App): Promise<CreateComme
   const priorApprovedCommentExists = await resolvePriorGuestApproval({
     c,
     session,
-    tableId,
+    tableKeys: commentTableKeysOf(table, tableId),
     moderationConfig,
     isAuthenticated,
     guestEmail: validated.guestEmail,

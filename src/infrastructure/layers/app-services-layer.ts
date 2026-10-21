@@ -114,9 +114,10 @@ const authLayerFor = (authConfig?: AuthConfig): Layer.Layer<Auth> =>
 //
 // Hoisted out of `createAppServicesLayer`: neither this nor `DatabaseBackedRepositories`
 // below reads `authConfig`, so rebuilding them per call bought nothing and cost
-// a stable layer reference for Effect to memoise on.
+// a stable layer reference for Effect to memoise on. Both reads stay exposed:
+// a build's sitemap steers its collection filters through them.
 export const PageRendererWithDeps = PageRendererLive.pipe(
-  Layer.provide(Layer.mergeAll(DataSourceRepositoryLive, AuthRepositoryLive))
+  Layer.provideMerge(Layer.mergeAll(DataSourceRepositoryLive, AuthRepositoryLive))
 )
 
 // Ports whose live implementation READS the `Database` service rather than

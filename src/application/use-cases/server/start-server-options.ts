@@ -8,6 +8,7 @@
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { BootstrapTokenRepository } from '@/application/ports/repositories/auth/bootstrap-token-repository'
 import type { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { AccountProvisioner } from '@/application/ports/services/account-provisioner'
 import type { ContentDirReader } from '@/application/ports/services/content-dir-reader'
 import type { CSSCompiler } from '@/application/ports/services/css-compiler'
@@ -106,3 +107,4 @@ export type StartServerRequirements =
   | CSSCompiler
   | StaticSiteGenerator
   | ContentDirReader
+  | DataSourceRepository

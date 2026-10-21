@@ -17,8 +17,16 @@ import { adminReadToolNames } from '@/application/use-cases/admin/admin-read-reg
 import { isConfigToolName } from '@/application/use-cases/config/config-mcp-tools'
 import { isAdminTierCaller, type McpCaller } from '@/presentation/api/mcp/auth'
 import { automationToolIsOffered } from '@/presentation/api/mcp/automation-call'
+import {
+  authorityOnTable,
+  callerListsTable,
+  isReadOperation,
+  resolveListingAuthority,
+  resolveTableTool,
+} from '@/presentation/api/mcp/table-tool-reach'
 import { toolFailure } from '@/presentation/api/mcp/tool-call-helpers'
 import type { App } from '@/domain/models/app'
+import type { DomainContext } from '@/infrastructure/logging/request-effect'
 import type { CompiledTool } from '@/presentation/api/mcp/tool-compiler'
 
 /**
@@ -57,6 +65,52 @@ export const filterToolsForRole = (
   )
   if (role !== 'viewer') return offered
   return offered.filter((tool) => !isMutatingTool(tool.name))
+}
+
+/**
+ * The tools `tools/list` offers `caller`: those her role may see
+ * ({@link filterToolsForRole}), less the read tools (`_list`, `_read`) of every
+ * table the records list would answer her as one that does not exist — a
+ * table whose read gate refuses her, or whose list admits her no row
+ * ({@link callerListsTable}). Each table is asked once, and her permission
+ * identity — groups and assignment roles — is looked up once for them all.
+ */
+export const filterToolsForCaller = async (
+  dispatch: {
+    readonly tools: ReadonlyArray<CompiledTool>
+    readonly app: App
+    readonly domainContext: DomainContext
+  },
+  caller: Readonly<McpCaller>,
+  pausedNames: ReadonlySet<string>
+): Promise<ReadonlyArray<CompiledTool>> => {
+  const { app, domainContext } = dispatch
+  const offered = filterToolsForRole(dispatch.tools, caller, app, pausedNames)
+  const readTables = [
+    ...new Set(
+      offered.flatMap((tool) => {
+        const resolved = resolveTableTool(app, tool.name)
+        return resolved !== undefined && isReadOperation(resolved.operation) ? [resolved.table] : []
+      })
+    ),
+  ]
+  if (readTables.length === 0) return offered
+  const authority = await resolveListingAuthority(app, caller, readTables, domainContext)
+  const listed = await Promise.all(
+    readTables.map((table) =>
+      callerListsTable(app, table, caller, {
+        domainContext,
+        authority: authorityOnTable(authority, table),
+      })
+    )
+  )
+  const hidden = new Set(readTables.filter((_, index) => listed[index] !== true))
+  return offered.filter((tool) => {
+    const resolved = resolveTableTool(app, tool.name)
+    return (
+      resolved === undefined || !isReadOperation(resolved.operation) || !hidden.has(resolved.table)
+    )
+  })
 }
 
 /**

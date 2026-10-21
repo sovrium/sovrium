@@ -15,8 +15,12 @@ export { type AuthFormField }
 /** Per-field validation errors keyed by field name. */
 export type FieldErrors = Readonly<Record<string, string>>
 
+/** The form's words in the page language, keyed by catalogue key, where they differ from English. */
+type ValidationWords = Readonly<Record<string, string>> | undefined
+
 /**
- * Validates a single auth-form field against its declared rules.
+ * Validates a single auth-form field against its declared rules, in the page
+ * language (`auth.required`, `auth.invalidEmail`; English where `words` has none).
  *
  * - Required fields with an empty value produce a `"<Label> is required"`
  *   message.
@@ -25,15 +29,20 @@ export type FieldErrors = Readonly<Record<string, string>>
  *
  * Returns `undefined` when the field is valid.
  */
-export function validateField(field: AuthFormField, value: string): string | undefined {
+export function validateField(
+  field: AuthFormField,
+  value: string,
+  words?: ValidationWords
+): string | undefined {
   const trimmed = value.trim()
-  if (field.required && trimmed === '') {
-    return `${field.label} is required`
-  }
-  if (field.inputType === 'email' && trimmed !== '' && !isValidEmail(trimmed)) {
-    return `${field.label} must be a valid email address`
-  }
-  return undefined
+  // The message's catalogue key and its English; `{label}` is the field's label.
+  const [key, english] =
+    field.required && trimmed === ''
+      ? ['auth.required', '{label} is required']
+      : field.inputType === 'email' && trimmed !== '' && !isValidEmail(trimmed)
+        ? ['auth.invalidEmail', '{label} must be a valid email address']
+        : []
+  return key && (words?.[key] ?? english ?? '').replace('{label}', field.label)
 }
 
 /**
@@ -42,10 +51,11 @@ export function validateField(field: AuthFormField, value: string): string | und
  */
 export function validateAllFields(
   fields: readonly AuthFormField[],
-  values: Readonly<Record<string, string>>
+  values: Readonly<Record<string, string>>,
+  words?: ValidationWords
 ): FieldErrors {
   const entries = fields
-    .map((field) => [field.name, validateField(field, values[field.name] ?? '')] as const)
+    .map((field) => [field.name, validateField(field, values[field.name] ?? '', words)] as const)
     .filter((entry): entry is readonly [string, string] => entry[1] !== undefined)
   return Object.fromEntries(entries)
 }

@@ -30,6 +30,7 @@
 
 import { Effect } from 'effect'
 import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
+import { rowsReaderMayNotList } from '@/application/use-cases/tables/row-read-admission'
 import {
   createAllowed,
   existingRowIsGoverned,
@@ -37,7 +38,9 @@ import {
 } from '@/domain/models/app/tables/row-level-write-decision-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
 import { provideTableLive } from '@/infrastructure/layers/table-layer'
+import { runOnDomain, type DomainContext } from '@/infrastructure/logging/request-effect'
 import type { UserSession } from '@/application/ports/contracts/user-session'
+import type { LinkReader } from '@/application/use-cases/tables/linked-row-visibility'
 import type { App, Table } from '@/domain/models/app'
 import type { CurrentUserContext } from '@/domain/models/app/tables/row-level-evaluator-service'
 
@@ -90,4 +93,26 @@ export const existingRowIsInScope = async (input: ExistingRowScopeInput): Promis
     change,
     ctx,
   })
+}
+
+/**
+ * Whether the caller's list of the table does not admit the record
+ * (`rowsReaderMayNotList`). An update or a delete of such a record answers as
+ * one of a missing record — and since an id no record holds is never one her
+ * list admits, asked first, a missing record and one she may not list answer
+ * alike.
+ */
+export const callerMayNotList = async (input: {
+  readonly app: App
+  readonly table: Table
+  readonly reader: LinkReader
+  readonly recordId: string
+  readonly domainContext: DomainContext
+}): Promise<boolean> => {
+  const { app, table, reader, recordId } = input
+  const unlisted = await runOnDomain(
+    input.domainContext,
+    rowsReaderMayNotList(app, table.name, reader, [recordId])
+  )
+  return unlisted.length > 0
 }

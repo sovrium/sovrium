@@ -5,7 +5,22 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { and, count, desc, eq, gte, inArray, lt, ne, type SQL } from 'drizzle-orm'
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  ne,
+  not,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm'
 import { Layer } from 'effect'
 import {
   AdminAutomationsDatabaseError,
@@ -13,6 +28,8 @@ import {
   type AdminAutomationOverviewRow,
   type AdminAutomationRunRow,
   type AdminRunsListFilters,
+  type AutomationStepRef,
+  type StepLatestRun,
 } from '@/application/ports/repositories/automations/admin-automations-repository'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { db } from '@/infrastructure/database'
@@ -29,6 +46,7 @@ import {
 } from '@/infrastructure/database/drizzle/schema-sqlite/automation'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { searchAnyColumn } from '@/infrastructure/database/sql/dialect-sql-helpers'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { triggerNameFilter } from './automation-run-list-repository-live'
 
 // Dialect-aware schema resolution for `automation_runs` / `automation_definitions`
@@ -73,6 +91,21 @@ const buildSearchConditions = (filters: AdminRunsListFilters): ReadonlyArray<SQL
   searchAnyColumn(filters.q, automationDefinitions.name, automationRuns.error)
 
 /**
+ * The `?onDemand=` predicate: the run's own trigger data says an operator
+ * started it by hand (`invokedOnDemand: true`), or — for `false` — it does not.
+ * The JSON boolean is read by its JSON type on SQLite (where `json_extract`
+ * answers `1`) and by its text on PostgreSQL; `COALESCE` makes a run whose
+ * trigger data holds no such key one of the others, never neither.
+ */
+const onDemandCondition = (onDemand: boolean | undefined): ReadonlyArray<SQL> => {
+  if (onDemand === undefined) return []
+  const byHand = isSqliteRuntime()
+    ? sql`COALESCE(json_type(${automationRuns.triggerData}, '$.invokedOnDemand') = 'true', 0) = 1`
+    : sql`COALESCE((${automationRuns.triggerData} ->> 'invokedOnDemand') = 'true', false)`
+  return [onDemand ? byHand : not(byHand)]
+}
+
+/**
  * Build the WHERE-clause condition list for the runs-list read. Spreads each
  * optional filter immutably so the result is a frozen ReadonlyArray<SQL>; the
  * caller wraps with `and(...)` when non-empty.
@@ -82,6 +115,17 @@ const buildSearchConditions = (filters: AdminRunsListFilters): ReadonlyArray<SQL
  * sort. The list is sorted `createdAt DESC`, so the cursor predicate selects
  * rows strictly older than the cursor's `createdAt`.
  */
+/**
+ * A window bound on when a run STARTED, as `from` and `to` are published: its
+ * `startedAt`, or — for a run still queued, which has not started — the moment
+ * it was created, so a waiting run stays in the period it was asked in.
+ */
+const startedOn = (compare: typeof gte, bound: Date): SQL =>
+  or(
+    and(isNotNull(automationRuns.startedAt), compare(automationRuns.startedAt, bound)),
+    and(isNull(automationRuns.startedAt), compare(automationRuns.createdAt, bound))
+  ) ?? sql`false`
+
 const buildListConditions = (filters: AdminRunsListFilters): ReadonlyArray<SQL> => {
   const statusFilter: ReadonlyArray<SQL> =
     filters.status !== undefined ? [eq(automationRuns.status, filters.status)] : []
@@ -94,9 +138,8 @@ const buildListConditions = (filters: AdminRunsListFilters): ReadonlyArray<SQL> 
       ? [eq(automationRuns.automationId, filters.automationId)]
       : []
   const fromFilter: ReadonlyArray<SQL> =
-    filters.from !== undefined ? [gte(automationRuns.createdAt, filters.from)] : []
-  const toFilter: ReadonlyArray<SQL> =
-    filters.to !== undefined ? [lt(automationRuns.createdAt, filters.to)] : []
+    filters.from !== undefined ? [startedOn(gte, filters.from)] : []
+  const toFilter: ReadonlyArray<SQL> = filters.to !== undefined ? [startedOn(lt, filters.to)] : []
   const cursorFilter: ReadonlyArray<SQL> =
     filters.cursorBefore !== undefined ? [lt(automationRuns.createdAt, filters.cursorBefore)] : []
   return [
@@ -107,6 +150,7 @@ const buildListConditions = (filters: AdminRunsListFilters): ReadonlyArray<SQL> 
     ...fromFilter,
     ...toFilter,
     ...buildSearchConditions(filters),
+    ...onDemandCondition(filters.onDemand),
     ...cursorFilter,
   ]
 }
@@ -156,6 +200,55 @@ const countAdminRunsByStatusImpl = async (
   const filtered = conditions.length === 0 ? baseQuery : baseQuery.where(and(...conditions))
   const rows = await filtered.groupBy(automationRuns.status)
   return new Map(rows.map((row) => [row.status ?? 'pending', toFiniteCount(row.runs)] as const))
+}
+
+/**
+ * The newest ran run of each of `steps` (runs ⋈ definitions ⋈ steps), by its
+ * start then its id, in ONE read: every ran row of those steps is ranked within
+ * its (automation, step) by `row_number()` — a window both engines evaluate —
+ * and only each step's first row comes back.
+ */
+const findLatestRunPerStepImpl = async (
+  steps: readonly AutomationStepRef[]
+): Promise<readonly StepLatestRun[]> => {
+  const which = or(
+    ...steps.map((step) =>
+      and(
+        eq(automationDefinitions.name, step.automationName),
+        eq(automationRunSteps.actionName, step.stepName)
+      )
+    )
+  )
+  const ranked = db
+    .select({
+      automationName: automationDefinitions.name,
+      stepName: automationRunSteps.actionName,
+      id: automationRunSteps.id,
+      startedAt: automationRunSteps.startedAt,
+      status: automationRunSteps.status,
+      error: automationRunSteps.error,
+      stepRank:
+        sql<number>`row_number() over (partition by ${automationDefinitions.name}, ${automationRunSteps.actionName} order by ${automationRunSteps.startedAt} desc, ${automationRunSteps.id} desc)`.as(
+          'step_rank'
+        ),
+    })
+    .from(automationRunSteps)
+    .innerJoin(automationRuns, eq(automationRuns.id, automationRunSteps.runId))
+    .innerJoin(automationDefinitions, eq(automationDefinitions.id, automationRuns.automationId))
+    .where(and(which, ne(automationRunSteps.status, 'skipped')))
+    .as('ranked_step_runs')
+  const rows = await db
+    .select({
+      automationName: ranked.automationName,
+      stepName: ranked.stepName,
+      id: ranked.id,
+      startedAt: ranked.startedAt,
+      status: ranked.status,
+      error: ranked.error,
+    })
+    .from(ranked)
+    .where(eq(ranked.stepRank, 1))
+  return rows as readonly StepLatestRun[]
 }
 
 /**
@@ -217,6 +310,11 @@ export const AdminAutomationsRepositoryLive = Layer.succeed(AdminAutomationsRepo
         .limit(1)) as ReadonlyArray<AdminAutomationRunRow>
       return rows[0]
     }),
+
+  findLatestRunPerStep: (steps) =>
+    steps.length === 0
+      ? wrap(async (): Promise<readonly StepLatestRun[]> => [])
+      : wrap(async () => findLatestRunPerStepImpl(steps)),
 
   countStepsByRunIds: (runIds) =>
     runIds.length === 0

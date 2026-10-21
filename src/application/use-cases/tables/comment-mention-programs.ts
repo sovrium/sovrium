@@ -13,14 +13,18 @@
  * thread read (which tokens render as a name). Deciding it once here is what
  * stops the three from disagreeing about who is in a record's audience.
  *
- * "Can read the record" is the same two gates a direct read of the record
+ * "Can read the record" is the same three gates a direct read of the record
  * applies to that person, evaluated FOR them rather than for the caller:
  *
  *  1. **table read** — `hasReadPermissionForRoles` over their role and, only
  *     when the role alone is refused, their groups (when the app declares any)
  *     and — on a table with a row-level rule — their `user_access` roles, the
  *     same overlay the records API's guard counts;
- *  2. **row-level read** — the table's `rowLevelPermissions.read.when`, judged
+ *  2. **listed rows** — the rows the records list admits them
+ *     (`peopleAdmittedToRow`): none, when their own role reads no field of a
+ *     table whose field rules decide, or of a table whose every field is read
+ *     through a table they may not read, unless a grant opens this row to them;
+ *  3. **row-level read** — the table's `rowLevelPermissions.read.when`, judged
  *     by the shared `rowPassesRule` against their own context (id, role,
  *     assignments). An unrestricted role passes, as it does on the records API.
  *
@@ -40,9 +44,11 @@ import { toGrantingRole } from '@/domain/models/app/auth/roles/granting-role-ser
 import { extractMentionIds } from '@/domain/models/app/tables/comment-mention-markup-service'
 import { rulesNameCurrentUser } from '@/domain/models/app/tables/row-level-evaluator-service'
 import { rowPassesRule } from '@/domain/models/app/tables/row-level-write-decision-service'
+import { emptyRowMayClose } from '@/domain/models/app/tables/row-read-admission-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { loadContextsWithKnownEmails } from './permissions/row-level-enforcement'
+import { peopleAdmittedToRow } from './row-read-admission'
 import { buildEffectiveRoles } from './user-groups'
 import { getUserRoles } from './user-role'
 import type { UserSession } from '@/application/ports/contracts/user-session'
@@ -63,10 +69,10 @@ export interface MentionAudienceScope {
   readonly session: Readonly<UserSession>
 }
 
-type AudienceRequirements =
+export type AudienceRequirements =
   UserDirectoryRepository | AuthRepository | TableRepository | DataSourceRepository
 
-type AudienceError = UserDirectoryDatabaseError | AuthDatabaseError | DatabaseError
+export type AudienceError = UserDirectoryDatabaseError | AuthDatabaseError | DatabaseError
 
 /** Each person's values from one batched lookup; a person it does not name has none. */
 type ByPerson = ReadonlyMap<string, readonly string[]>
@@ -145,6 +151,34 @@ const selectTableReaders = (
   })
 
 /**
+ * The people among `readers` the records list admits to the record, each as
+ * herself (`peopleAdmittedToRow`): a person it admits to no row of the table,
+ * or not to this one, is nobody's mention here — exactly as the record answers
+ * her as missing. Nothing is read on a table whose empty row closes for no
+ * reader (`emptyRowMayClose`); else her groups in ONE query, when the app
+ * declares any.
+ */
+const selectListedReaders = (
+  scope: MentionAudienceScope,
+  readers: readonly UserDirectoryEntry[],
+  roleOf: (userId: string) => string
+): Effect.Effect<readonly UserDirectoryEntry[], never, AuthRepository | DataSourceRepository> =>
+  Effect.gen(function* () {
+    if (readers.length === 0 || !emptyRowMayClose(scope.app, scope.table.name)) return readers
+    const groups = yield* groupsOf(
+      scope.app,
+      readers.map((user) => user.id)
+    )
+    const people = readers.map((user) => ({
+      id: user.id,
+      role: roleOf(user.id),
+      groups: groups.get(user.id) ?? [],
+    }))
+    const admitted = yield* peopleAdmittedToRow(scope.app, scope.table.name, people, scope.recordId)
+    return readers.filter((user) => admitted.has(user.id))
+  })
+
+/**
  * The people among `readers` the row-level read rule admits to `record`, each
  * judged against their own context. Their emails are read in ONE query, and
  * only when a rule names `$currentUser.email`; their assignments in one query
@@ -197,7 +231,7 @@ const emailsForRules = (
  * The people among `ids` who can read the record, as directory entries
  * (`{ id, name, image }`, never an email), in the order of `ids`.
  */
-const selectRecordReaders = (
+export const selectRecordReaders = (
   scope: MentionAudienceScope,
   ids: readonly string[]
 ): Effect.Effect<readonly UserDirectoryEntry[], AudienceError, AudienceRequirements> =>
@@ -216,13 +250,14 @@ const selectRecordReaders = (
     const roles = yield* getUserRoles(people.map((user) => user.id))
     const roleOf = (userId: string): string => toGrantingRole(roles.get(userId), scope.app)
     const tableReaders = yield* selectTableReaders(scope, people, roleOf)
-    if (scope.table.rowLevelPermissions?.read?.when === undefined) return tableReaders
-    if (tableReaders.length === 0) return tableReaders
+    const listed = yield* selectListedReaders(scope, tableReaders, roleOf)
+    if (scope.table.rowLevelPermissions?.read?.when === undefined) return listed
+    if (listed.length === 0) return listed
 
     const repo = yield* TableRepository
     const record = yield* repo.getRecord(scope.session, scope.table.name, scope.recordId)
     if (record === null) return []
-    return yield* selectRowReaders(scope, record, tableReaders, roleOf)
+    return yield* selectRowReaders(scope, record, listed, roleOf)
   }).pipe(Effect.withSpan('tables.select-record-readers'))
 
 /** A person a comment names, as a thread reads it. */
@@ -331,62 +366,4 @@ export const attachSingleCommentMentions = <C extends { readonly content: string
       comment: withMentions ?? { ...envelope.comment, mentions: [] },
     })),
     Effect.withSpan('tables.attach-single-comment-mentions')
-  )
-
-/** How many directory rows the picker reads per page before narrowing to readers. */
-const MENTIONABLE_PAGE = 100
-
-/**
- * How many directory rows one picker search reads at most. A performance bound,
- * not a boundary — the narrowing to readers is — set well above any page so a
- * crowd of people who cannot read the record never hides the ones who can.
- */
-const MENTIONABLE_SCAN_CAP = 2000
-
-/** How many people the picker is offered at most. */
-const MENTIONABLE_LIMIT = 20
-
-/**
- * Read the directory page after `after`, keep its readers, and go on until
- * {@link MENTIONABLE_LIMIT} readers are found, the directory runs out, or
- * {@link MENTIONABLE_SCAN_CAP} rows have been read.
- */
-const collectMentionableReaders = (
-  scope: MentionAudienceScope & { readonly term: string | undefined },
-  found: readonly UserDirectoryEntry[],
-  after: UserDirectoryEntry | undefined,
-  scanned: number
-): Effect.Effect<readonly UserDirectoryEntry[], AudienceError, AudienceRequirements> =>
-  Effect.gen(function* () {
-    const directory = yield* UserDirectoryRepository
-    const page = yield* directory.listPickableUsers({
-      term: scope.term,
-      limit: MENTIONABLE_PAGE,
-      after,
-    })
-    const candidates = page
-      .map((user) => user.id)
-      .filter((userId) => userId !== scope.session.userId)
-    const readers = [...found, ...(yield* selectRecordReaders(scope, candidates))]
-    const read = scanned + page.length
-    const exhausted = page.length < MENTIONABLE_PAGE || read >= MENTIONABLE_SCAN_CAP
-    if (readers.length >= MENTIONABLE_LIMIT || exhausted) return readers
-    return yield* collectMentionableReaders(scope, readers, page.at(-1), read)
-  })
-
-/**
- * The people the comment composer offers when its writer types `@`: those who
- * can read the record, other than the writer, whose name matches `term`.
- *
- * The directory is read in name order a page at a time and narrowed to the
- * record's readers after each page, so readers are found however many people
- * who cannot read the record sort before them, and a large directory still
- * costs a bounded scan.
- */
-export const listMentionableUsersProgram = (
-  scope: MentionAudienceScope & { readonly term: string | undefined }
-): Effect.Effect<readonly UserDirectoryEntry[], AudienceError, AudienceRequirements> =>
-  collectMentionableReaders(scope, [], undefined, 0).pipe(
-    Effect.map((readers) => readers.slice(0, MENTIONABLE_LIMIT)),
-    Effect.withSpan('tables.list-mentionable-users')
   )

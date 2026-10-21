@@ -23,7 +23,7 @@
  */
 
 import { Effect } from 'effect'
-import { StorageService } from '@/application/ports/services/storage-service'
+import { probeStoredFile, recordedSizeOf } from '@/application/use-cases/storage/recorded-file-read'
 import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
 import {
   attachmentFieldsOf,
@@ -35,6 +35,7 @@ import {
 } from './attachment-fields'
 import { AttachmentRuleViolation, storageUnavailable } from './errors'
 import type { AttachmentStorageUnavailable } from './errors'
+import type { StorageService } from '@/application/ports/services/storage-service'
 
 /** `maxFiles` — decidable from the key count alone, so no storage is touched. */
 const ensureMaxFiles = (
@@ -68,7 +69,10 @@ const ensureAllowedTypes = (
   )
 }
 
-/** Download each storage key and reject when any exceeds `maxFileSize`. */
+/**
+ * Reject when any storage key's file exceeds `maxFileSize`, judged by the size
+ * its catalogue row records; the file is probed, never read whole.
+ */
 const checkMaxFileSize = (
   field: Readonly<AttachmentField>,
   keys: readonly string[],
@@ -77,23 +81,21 @@ const checkMaxFileSize = (
   if (field.maxFileSize === undefined) return Effect.void
   const max = field.maxFileSize
   const unreadable = storageUnavailable(field.name, 'the referenced file could not be read')
-  return Effect.gen(function* () {
-    const storage = yield* StorageService
-    yield* Effect.forEach(
-      keys,
-      (key) =>
-        Effect.gen(function* () {
-          const content = yield* storage.download(key, bucket).pipe(Effect.mapError(unreadable))
-          if (content.length > max) {
-            return yield* new AttachmentRuleViolation({
-              message: `File size ${content.length} bytes exceeds maximum file size for field '${field.name}'. Maximum file size: ${max} bytes`,
-              field: field.name,
-            })
-          }
-        }),
-      { discard: true }
-    )
-  })
+  return Effect.forEach(
+    keys,
+    (key) =>
+      Effect.gen(function* () {
+        yield* probeStoredFile(key, bucket).pipe(Effect.mapError(unreadable))
+        const size = yield* recordedSizeOf(key, bucket).pipe(Effect.mapError(unreadable))
+        if (size > max) {
+          return yield* new AttachmentRuleViolation({
+            message: `File size ${size} bytes exceeds maximum file size for field '${field.name}'. Maximum file size: ${max} bytes`,
+            field: field.name,
+          })
+        }
+      }),
+    { discard: true }
+  )
 }
 
 /**

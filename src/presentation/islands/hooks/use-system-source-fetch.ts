@@ -5,13 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { localizeRunRecord } from '@/domain/models/app/pages/automation-run-status'
 import { flattenRecordFields } from '@/domain/models/app/pages/record-envelope'
-import { buildDetailEndpointUrl } from '@/domain/models/app/pages/system-detail-endpoint'
 import { fetchCoalesced } from '../runtime/coalesced-read'
 import { localizeRunStatusRows, readErrorBody } from '../runtime/system-response-read'
 import type { TableRecord } from '../runtime/types'
-import type { SystemDetailSource } from '@/domain/models/app/pages/components/system-detail-source'
 import type { SystemSource } from '@/domain/models/app/pages/components/system-source'
 
 /**
@@ -284,6 +281,19 @@ export function parseSystemEnvelope(
   }
 }
 
+/** A failed read's `cause` on both read paths: its status, and a 5xx envelope's request id. */
+export const failedReadCause = async (response: {
+  readonly status: number
+  readonly json: () => Promise<unknown>
+}): Promise<{ readonly status: number; readonly requestId?: string }> => {
+  const body = response.status >= 500 ? await response.json().catch(() => 0) : 0
+  const id = (body as { readonly requestId?: unknown } | null)?.requestId
+  return {
+    status: response.status,
+    ...(typeof id === 'string' && /^[\w=-]{1,255}$/.test(id) && { requestId: id }),
+  }
+}
+
 /**
  * Fetch one page of rows from a system read endpoint and normalize the
  * `{ [rowsKey]: [...] }` envelope to the consumer's `{ records, total }` shape.
@@ -313,76 +323,14 @@ export async function fetchSystemEndpoint({
   const res = await fetchCoalesced(url)
 
   if (!res.ok) {
-    // The MESSAGE is what an operator reads in the grid's alert, so it carries the
-    // status and nothing else. `cause` carries the status the grid's notice and
-    // retry rule branch on (a 404 is not retried and offers no Retry), beside the
-    // raw envelope, which only a developer reads, from the console.
+    // The MESSAGE (the grid's alert) carries the status and nothing else. `cause`
+    // carries what the notice and retry rule branch on (status; a 5xx's request
+    // id), beside the raw envelope only a developer reads, from the console.
     throw new Error(`The server refused this request (${res.status}).`, {
-      cause: { status: res.status, body: await readErrorBody(res) },
+      cause: { ...(await failedReadCause(res.clone())), body: await readErrorBody(res) },
     })
   }
 
   const json = (await res.json()) as Record<string, unknown>
   return parseSystemEnvelope(system, sourceId, json)
-}
-
-// ---------------------------------------------------------------------------
-// Single-record DETAIL fetch (CAP-2)
-// ---------------------------------------------------------------------------
-
-// The URL builder moved to `@/domain/utils/system-detail-endpoint` when the
-// RENDERER began resolving the same binding server-side: the
-// rendering layer may not import an island, so one shared home replaces what
-// would otherwise be two copies of the id-injection rule.
-export { buildDetailEndpointUrl }
-
-/**
- * The single-record counterpart to the rows-envelope fetch above. Where the
- * rows fetch extracts an ARRAY at `rowsKey`, the detail fetch injects a bound
- * record id into the endpoint's `:param` placeholder and extracts exactly ONE
- * record at `recordKey` (or the whole body when `recordKey` is omitted). It
- * reuses the SAME credentialed `fetch` discipline so admin detail endpoints
- * authorize the request. Mirrors `SystemDetailSourceSchema`.
- */
-
-/**
- * Parse a detail-endpoint response into a single record: read it at `recordKey`
- * (fallback the whole body), normalize its id onto the canonical `id` key from
- * `idKey` (default `'id'`) so downstream field lookups resolve uniformly, then
- * localize the run status — the record's own and its steps' — for a runs
- * endpoint.
- */
-export function parseSystemDetailEnvelope(
-  system: SystemDetailSource,
-  json: Record<string, unknown>
-): TableRecord {
-  const raw = system.recordKey !== undefined ? json[system.recordKey] : json
-  const record = (typeof raw === 'object' && raw !== null ? raw : {}) as TableRecord
-  const idKey = system.idKey ?? 'id'
-  const identified = idKey === 'id' ? record : { ...record, id: record[idKey] }
-  return localizeRunRecord(system.endpoint, identified)
-}
-
-/**
- * Fetch ONE record from a system detail endpoint (the bound id injected into the
- * `:param` slot) and normalize it to a single record. Sends the session cookie
- * so admin detail endpoints authorize the request.
- */
-export async function fetchSystemDetailEndpoint(
-  system: SystemDetailSource,
-  id: string
-): Promise<TableRecord> {
-  const url = buildDetailEndpointUrl(system, id)
-  const res = await fetch(url, { credentials: 'include' })
-
-  if (!res.ok) {
-    // The status rides on `cause`, where the retry rule reads it: a refused read
-    // is an answer, and asking again cannot change it.
-    throw new Error(`Failed to fetch system record: ${res.status} ${await readErrorBody(res)}`, {
-      cause: { status: res.status },
-    })
-  }
-
-  const json = (await res.json()) as Record<string, unknown>
-  return parseSystemDetailEnvelope(system, json)
 }

@@ -5,8 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-// sovrium-library: block/console-shell@0.37.0#2a3e313b7cdc
+// sovrium-library: block/console-shell@0.37.0#c9216eb18438
+// sovrium-library: block/command@0.37.0#11d80c9163ba
 
+// The operator console shell: the sidebar, the sticky header, the command palette and the
+// two hidden hosts, placed once by every console page. The page passes its breadcrumb trail
+// (and any topbar fact) to the `trail` slot, its body to `$children`, and the body frame's
+// class (`bodyClass`), which is the one thing the page kinds draw differently.
+//
+// TRANSPARENT: it draws exactly what the same tree drew written inline, attribute for
+// attribute, and it is not listed on the Design System pages.
+
+// ── From components/console-shell.ts (the installed block copy) ────────────────
 // The console's frame, INSTALLED from the library's `console-shell` block —
 // shadcn's sidebar-07 (a sidebar that collapses to icons, the account at its
 // foot) with sidebar-16's sticky site header across the content column. It is a
@@ -38,343 +48,751 @@
 //
 // Hrefs are mount-relative: `prefixMountHrefs` moves `/` and `/profile` onto
 // the console's base the first time the console is opened.
+// ── The sidebar's navigation ───────────────────────────────────────────────────
+// Overview, then seven groups named for what the operator does: Activity,
+// Data, Audience, People & access, Instance, Developers and Design. Every
+// group is open, so each page is one click away; a row with a `source` lists
+// its entries (tables, buckets, forms, agents) under it. The SPA nav swaps
+// only `#admin-surface-content`, so the sidebar is not re-rendered on an
+// in-console navigation and `trackNavigation` re-derives the current row on
+// the client. `admin-spa-nav` and the palette sit OUTSIDE that frame, so a swap
+// never unmounts them.
+// ── The ⌘K palette ──────────────────────────────────────────────────────────────
+// INSTALLED from the library's `command` block; its bindings are `search`
+// (cross-entity search over `/api/admin/search`) and `groups` (the one
+// authored row below). Declared rather than inherited: `app.ts` turns the
+// generic record palette off, since two palettes on one ⌘K open two overlays.
+// `kindLabels` is absent on purpose — the engine names each kind the search
+// returns, and a third copy of that vocabulary could drift silently. It draws
+// no markup until the first ⌘K, and stays outside the SPA swap region so the
+// listener survives a navigation.
+//
+// « Ask about this app » takes the words typed so far (`$query`) to the
+// Overview's assistant, unsent. Its group carries the composer's own gate — a
+// model to answer and a caller allowed to act — so a read-only operator's page
+// never carries the row.
 
-export const consoleShellCopy = {
-  type: 'flex',
+import type { AppEncoded as AppConfig } from '@/domain/models/app'
+
+type Template = NonNullable<AppConfig['components']>[number]
+
+// eslint-disable-next-line sovrium/no-double-assertion -- a template that declares inputs writes `$name` where the component type expects a list or an object; each placement is decoded as the page component it produces when the app starts
+export const consoleShell = {
+  name: 'console-shell',
+  type: 'container',
+  render: 'transparent',
+  inputs: {
+    bodyClass: {
+      kind: 'text',
+      required: true,
+    },
+    trail: {
+      kind: 'slot',
+    },
+  },
+  element: 'div',
   props: {
-    className: 'flex h-svh w-full flex-col items-stretch overflow-hidden md:flex-row',
+    'data-admin-base-path': '/',
+    className: 'contents',
   },
   children: [
     {
-      type: 'sidebar',
-      drawer: {
-        below: 'md',
-        label: '$t:admin.shell.openMenu',
+      type: 'flex',
+      props: {
+        className: 'flex h-svh w-full flex-col items-stretch overflow-hidden md:flex-row',
       },
-      collapsible: 'icon',
-      header: [
+      children: [
         {
-          type: 'link',
-          props: {
-            href: '/',
-            className:
-              'flex h-12 w-full min-w-0 items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm text-sidebar-foreground no-underline ring-sidebar-ring outline-hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:no-underline focus-visible:ring-2 group-data-[collapsible=icon]/sidebar:size-8! group-data-[collapsible=icon]/sidebar:p-0! [&_svg]:size-4 [&_svg]:shrink-0',
-            'aria-label': '$t:admin.shell.home',
+          type: 'sidebar',
+          drawer: {
+            below: 'md',
+            label: '$t:admin.shell.openMenu',
           },
-          children: [
+          collapsible: 'icon',
+          header: [
             {
-              // The app's mark: its `design.logo`, else a monogram of its
-              // display name, filled in by the engine (`data-app-mark`).
-              type: 'container',
+              type: 'link',
+              props: {
+                href: '/',
+                className:
+                  'flex h-12 w-full min-w-0 items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm text-sidebar-foreground no-underline ring-sidebar-ring outline-hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:no-underline focus-visible:ring-2 group-data-[collapsible=icon]/sidebar:size-8! group-data-[collapsible=icon]/sidebar:p-0! [&_svg]:size-4 [&_svg]:shrink-0',
+                'aria-label': '$t:admin.shell.home',
+              },
+              children: [
+                {
+                  type: 'container',
+                  props: {
+                    className:
+                      'flex aspect-square size-8 flex-none items-center justify-center overflow-hidden rounded-lg bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground data-[app-mark=logo]:bg-transparent',
+                    'data-app-mark': 'tile',
+                  },
+                },
+                {
+                  type: 'flex',
+                  props: {
+                    className: 'flex min-w-0 flex-1 flex-col gap-0.5 leading-none',
+                  },
+                  children: [
+                    {
+                      type: 'flex',
+                      props: {
+                        className: 'flex min-w-0 items-center gap-1.5',
+                      },
+                      children: [
+                        {
+                          type: 'text',
+                          element: 'span',
+                          props: {
+                            className: 'truncate font-medium',
+                          },
+                          content: '$app.label',
+                        },
+                        {
+                          type: 'text',
+                          element: 'span',
+                          props: {
+                            className:
+                              "shrink-0 rounded-sm bg-sidebar-accent px-1 font-mono text-[10px] leading-4 text-sidebar-foreground/70 before:content-['v'] empty:hidden!",
+                            'data-testid': 'sidebar-version',
+                          },
+                          content: '$app.version',
+                        },
+                      ],
+                    },
+                    {
+                      type: 'text',
+                      element: 'span',
+                      props: {
+                        className: 'truncate text-xs text-sidebar-foreground/70',
+                        'data-testid': 'sidebar-engine',
+                      },
+                      content: 'Sovrium v$app.engineVersion',
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+          footer: [
+            {
+              type: 'dropdown-menu',
+              triggerLabel: '$t:admin.shell.account',
               props: {
                 className:
-                  'flex aspect-square size-8 flex-none items-center justify-center overflow-hidden rounded-lg bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground data-[app-mark=logo]:bg-transparent',
-                'data-app-mark': 'tile',
+                  'flex h-12 w-full min-w-0 items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm text-sidebar-foreground no-underline ring-sidebar-ring outline-hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:no-underline focus-visible:ring-2 aria-expanded:bg-sidebar-accent aria-expanded:text-sidebar-accent-foreground group-data-[collapsible=icon]/sidebar:size-8! group-data-[collapsible=icon]/sidebar:p-0! [&_svg]:size-4 [&_svg]:shrink-0 [&>svg]:hidden',
+                'data-testid': 'operator-menu',
               },
-            },
-            {
-              type: 'flex',
-              props: {
-                className: 'flex min-w-0 flex-1 flex-col gap-0.5 leading-none',
-              },
+              menuItems: [
+                {
+                  label: '$t:admin.shell.myAccount',
+                  icon: 'badge-check',
+                  action: {
+                    type: 'navigate',
+                    path: '/profile',
+                  },
+                },
+                {
+                  label: '$t:admin.shell.myData',
+                  icon: 'download',
+                  action: {
+                    type: 'navigate',
+                    path: '/gdpr',
+                  },
+                },
+                {
+                  separator: true,
+                },
+                {
+                  label: '$t:admin.shell.openApp',
+                  icon: 'external-link',
+                  action: {
+                    type: 'navigate',
+                    path: '$app.origin/',
+                    openInNewTab: true,
+                  },
+                },
+                {
+                  label: '$t:admin.shell.shortcuts',
+                  icon: 'keyboard',
+                  action: {
+                    action: 'openDialog',
+                    component: 'admin-shortcuts-dialog',
+                  },
+                },
+                {
+                  label: '$t:admin.shell.theme',
+                  heading: true,
+                },
+                {
+                  label: '$t:admin.shell.theme.light',
+                  action: {
+                    type: 'theme',
+                    value: 'light',
+                  },
+                },
+                {
+                  label: '$t:admin.shell.theme.dark',
+                  action: {
+                    type: 'theme',
+                    value: 'dark',
+                  },
+                },
+                {
+                  label: '$t:admin.shell.theme.system',
+                  action: {
+                    type: 'theme',
+                    value: 'system',
+                  },
+                },
+                {
+                  separator: true,
+                },
+                {
+                  label: '$t:admin.shell.signOut',
+                  icon: 'log-out',
+                  variant: 'destructive',
+                  action: {
+                    type: 'auth',
+                    method: 'logout',
+                    onSuccess: {
+                      navigate: '/login',
+                    },
+                  },
+                },
+              ],
               children: [
+                {
+                  type: 'avatar',
+                  label: '$session.name',
+                  size: 'default',
+                  shape: 'square',
+                  src: '$session.image',
+                  props: {
+                    'data-testid': 'operator-avatar',
+                  },
+                },
                 {
                   type: 'flex',
                   props: {
-                    className: 'flex min-w-0 items-center gap-1.5',
+                    className: 'grid min-w-0 flex-1 gap-0.5 text-left text-sm leading-tight',
                   },
                   children: [
                     {
-                      type: 'text',
-                      element: 'span',
+                      type: 'flex',
                       props: {
-                        className: 'truncate font-medium',
+                        className: 'flex min-w-0 items-center gap-1.5',
                       },
-                      content: '$app.label',
+                      children: [
+                        {
+                          type: 'text',
+                          element: 'span',
+                          props: {
+                            className: 'min-w-0 truncate font-medium',
+                            'data-testid': 'operator-name',
+                          },
+                          session: 'name',
+                        },
+                        {
+                          type: 'badge',
+                          badgeVariant: 'secondary',
+                          props: {
+                            className: 'h-4 max-w-[60%] shrink truncate px-1.5 text-[10px]',
+                          },
+                          visibility: {
+                            capability: 'edit-operations',
+                          },
+                          content: '$session.roleLabel',
+                        },
+                        {
+                          type: 'badge',
+                          badgeVariant: 'outline',
+                          props: {
+                            className: 'h-4 max-w-[60%] shrink truncate px-1.5 text-[10px]',
+                          },
+                          visibility: {
+                            unlessCapability: 'edit-operations',
+                          },
+                          content: '$session.roleLabel',
+                        },
+                      ],
                     },
                     {
                       type: 'text',
                       element: 'span',
                       props: {
-                        className:
-                          "shrink-0 rounded-sm bg-sidebar-accent px-1 font-mono text-[10px] leading-4 text-sidebar-foreground/70 before:content-['v'] empty:hidden!",
-                        'data-testid': 'sidebar-version',
+                        className: 'truncate text-xs text-sidebar-foreground/70',
+                        'data-testid': 'operator-email',
                       },
-                      content: '$app.version',
+                      session: 'email',
                     },
                   ],
                 },
                 {
-                  type: 'text',
-                  element: 'span',
+                  type: 'icon',
                   props: {
-                    className: 'truncate text-xs text-sidebar-foreground/70',
-                    'data-testid': 'sidebar-engine',
+                    name: 'chevrons-up-down',
+                    size: 16,
+                    className: 'ml-auto shrink-0 group-data-[collapsible=icon]/sidebar:hidden',
                   },
-                  content: 'Sovrium v$app.engineVersion',
                 },
               ],
             },
           ],
-        },
-      ],
-      footer: [
-        {
-          type: 'dropdown-menu',
-          triggerLabel: '$t:admin.shell.account',
-          props: {
-            className:
-              'flex h-12 w-full min-w-0 items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm text-sidebar-foreground no-underline ring-sidebar-ring outline-hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:no-underline focus-visible:ring-2 aria-expanded:bg-sidebar-accent aria-expanded:text-sidebar-accent-foreground group-data-[collapsible=icon]/sidebar:size-8! group-data-[collapsible=icon]/sidebar:p-0! [&_svg]:size-4 [&_svg]:shrink-0 [&>svg]:hidden',
-            'data-testid': 'operator-menu',
-          },
-          menuItems: [
+          groups: [
             {
-              label: '$t:admin.shell.myAccount',
-              icon: 'badge-check',
-              action: {
-                type: 'navigate',
-                path: '/profile',
-              },
-            },
-            {
-              label: '$t:admin.shell.myData',
-              icon: 'download',
-              action: {
-                type: 'navigate',
-                path: '/gdpr',
-              },
-            },
-            {
-              separator: true,
-            },
-            {
-              label: '$t:admin.shell.signOut',
-              icon: 'log-out',
-              variant: 'destructive',
-              action: {
-                type: 'auth',
-                method: 'logout',
-                onSuccess: {
-                  navigate: '/login',
+              items: [
+                {
+                  label: '$t:admin.nav.overview',
+                  href: '/',
+                  icon: 'house',
+                  activeMatch: 'exact',
+                  props: {
+                    'data-testid': 'data-nav-overview',
+                  },
                 },
-              },
+              ],
+            },
+            {
+              label: '$t:admin.nav.group.activity',
+              landmark: '$t:admin.nav.landmark.console',
+              headingLevel: 2,
+              items: [
+                {
+                  label: '$t:admin.crumb.runs',
+                  href: '/runs',
+                  icon: 'zap',
+                  activeMatch: 'prefix',
+                  props: {
+                    'data-testid': 'data-nav-runs',
+                  },
+                  badge: {
+                    endpoint: '/api/admin/attention',
+                    valuePath: 'failedRuns',
+                    variant: 'destructive',
+                  },
+                },
+                {
+                  label: '$t:admin.crumb.submissions',
+                  href: '/submissions',
+                  icon: 'clipboard-list',
+                  activeMatch: 'prefix',
+                  props: {
+                    'data-testid': 'data-nav-submissions',
+                  },
+                  childrenProps: {
+                    'data-testid': 'submissions-nav-children',
+                  },
+                  source: {
+                    endpoint: '/api/admin/forms',
+                    rowsKey: 'items',
+                    labelKey: 'label',
+                    hrefTemplate: '/submissions/{name}',
+                    itemProps: {
+                      'data-testid': 'data-nav-submissions-{name}',
+                    },
+                  },
+                },
+                {
+                  label: '$t:admin.crumb.conversations',
+                  href: '/conversations',
+                  icon: 'message-square',
+                  activeMatch: 'prefix',
+                  props: {
+                    'data-testid': 'data-nav-conversations',
+                  },
+                  childrenProps: {
+                    'data-testid': 'conversations-nav-children',
+                  },
+                  source: {
+                    endpoint: '/api/admin/agents',
+                    rowsKey: 'items',
+                    labelKey: 'label',
+                    hrefTemplate: '/conversations/{name}',
+                    itemProps: {
+                      'data-testid': 'data-nav-conversations-{name}',
+                    },
+                  },
+                },
+              ],
+            },
+            {
+              label: '$t:admin.nav.group.data',
+              landmark: '$t:admin.nav.landmark.console',
+              headingLevel: 2,
+              items: [
+                {
+                  label: '$t:admin.crumb.records',
+                  href: '/records',
+                  icon: 'table',
+                  activeMatch: 'prefix',
+                  props: {
+                    'data-testid': 'data-nav-records',
+                  },
+                  childrenProps: {
+                    'data-testid': 'records-nav-children',
+                  },
+                  source: {
+                    endpoint: '/api/admin/tables/overview',
+                    rowsKey: 'by_table',
+                    labelKey: 'label',
+                    hrefTemplate: '/records/{name}',
+                    itemProps: {
+                      'data-testid': 'data-nav-records-{name}',
+                    },
+                  },
+                },
+                {
+                  label: '$t:admin.crumb.files',
+                  href: '/files',
+                  icon: 'folder',
+                  activeMatch: 'prefix',
+                  props: {
+                    'data-testid': 'data-nav-files',
+                  },
+                  childrenProps: {
+                    'data-testid': 'files-nav-children',
+                  },
+                  source: {
+                    endpoint: '/api/admin/buckets',
+                    rowsKey: 'items',
+                    labelKey: 'label',
+                    hrefTemplate: '/files/{name}',
+                    itemProps: {
+                      'data-testid': 'data-nav-files-{name}',
+                    },
+                  },
+                },
+                {
+                  label: '$t:admin.crumb.connections',
+                  href: '/connections',
+                  icon: 'plug',
+                  activeMatch: 'prefix',
+                  props: {
+                    'data-testid': 'data-nav-connections',
+                  },
+                  badge: {
+                    endpoint: '/api/admin/attention',
+                    valuePath: 'tokensExpired',
+                    variant: 'destructive',
+                  },
+                },
+              ],
+            },
+            {
+              label: '$t:admin.nav.group.audience',
+              landmark: '$t:admin.nav.landmark.console',
+              headingLevel: 2,
+              items: [
+                {
+                  label: '$t:admin.crumb.analytics',
+                  href: '/analytics',
+                  icon: 'chart-column',
+                  activeMatch: 'prefix',
+                  props: {
+                    'data-testid': 'data-nav-analytics',
+                  },
+                  capability: 'administer-accounts',
+                },
+                {
+                  label: '$t:admin.crumb.links',
+                  href: '/links',
+                  icon: 'link',
+                  activeMatch: 'prefix',
+                  props: {
+                    'data-testid': 'data-nav-links',
+                  },
+                },
+                {
+                  label: '$t:admin.crumb.templates',
+                  href: '/templates',
+                  icon: 'file-text',
+                  activeMatch: 'prefix',
+                  props: {
+                    'data-testid': 'data-nav-templates',
+                  },
+                },
+              ],
+            },
+            {
+              label: '$t:admin.nav.group.people',
+              landmark: '$t:admin.nav.landmark.console',
+              headingLevel: 2,
+              items: [
+                {
+                  label: '$t:admin.crumb.users',
+                  href: '/users',
+                  icon: 'users',
+                  activeMatch: 'prefix',
+                  props: {
+                    'data-testid': 'data-nav-users',
+                  },
+                },
+                {
+                  label: '$t:admin.crumb.organisation',
+                  href: '/organisation',
+                  icon: 'network',
+                  activeMatch: 'prefix',
+                  props: {
+                    'data-testid': 'data-nav-organisation',
+                  },
+                },
+              ],
+            },
+            {
+              label: '$t:admin.nav.group.instance',
+              landmark: '$t:admin.nav.landmark.console',
+              headingLevel: 2,
+              items: [
+                {
+                  label: '$t:admin.crumb.env',
+                  href: '/env',
+                  icon: 'braces',
+                  props: {
+                    'data-testid': 'developer-nav-env',
+                  },
+                  badge: {
+                    endpoint: '/api/admin/attention',
+                    valuePath: 'variablesUnset',
+                    variant: 'destructive',
+                  },
+                },
+                {
+                  label: '$t:admin.crumb.auditLog',
+                  href: '/audit-log',
+                  icon: 'clipboard-list',
+                  activeMatch: 'prefix',
+                  props: {
+                    'data-testid': 'data-nav-audit-log',
+                  },
+                },
+                {
+                  label: '$t:admin.crumb.changelog',
+                  href: '/changelog',
+                  icon: 'history',
+                  props: {
+                    'data-testid': 'developer-nav-changelog',
+                  },
+                },
+                {
+                  label: '$t:admin.crumb.decisions',
+                  href: '/decisions',
+                  icon: 'scroll-text',
+                  activeMatch: 'prefix',
+                  props: {
+                    'data-testid': 'data-nav-decisions',
+                  },
+                },
+              ],
+            },
+            {
+              label: '$t:admin.nav.group.developers',
+              landmark: '$t:admin.nav.landmark.console',
+              headingLevel: 2,
+              items: [
+                {
+                  label: '$t:admin.crumb.api',
+                  href: '/api',
+                  icon: 'code',
+                  props: {
+                    'data-testid': 'developer-nav-api',
+                  },
+                },
+                {
+                  label: '$t:admin.crumb.mcp',
+                  href: '/mcp',
+                  icon: 'bot',
+                  props: {
+                    'data-testid': 'developer-nav-mcp',
+                  },
+                },
+                {
+                  label: '$t:admin.crumb.apiKeys',
+                  href: '/api-keys',
+                  icon: 'key-round',
+                  activeMatch: 'prefix',
+                  props: {
+                    'data-testid': 'data-nav-api-keys',
+                  },
+                },
+              ],
+            },
+            {
+              label: '$t:admin.nav.group.design',
+              landmark: '$t:admin.nav.landmark.console',
+              headingLevel: 2,
+              items: [
+                {
+                  label: '$t:admin.nav.design.overview',
+                  href: '/design-system',
+                  icon: 'palette',
+                  props: {
+                    'data-testid': 'data-nav-design-system-overview',
+                  },
+                },
+                {
+                  label: '$t:admin.nav.design.foundations',
+                  href: '/design-system/foundations',
+                  icon: 'swatch-book',
+                  activeMatch: 'prefix',
+                  props: {
+                    'data-testid': 'data-nav-design-system-foundations',
+                  },
+                },
+                {
+                  label: '$t:admin.nav.design.components',
+                  href: '/design-system/components',
+                  icon: 'component',
+                  activeMatch: 'prefix',
+                  props: {
+                    'data-testid': 'data-nav-design-system-components',
+                  },
+                  badge: {
+                    endpoint: '/api/admin/design-system/usage?subject=component',
+                    valuePath: 'total',
+                  },
+                },
+                {
+                  label: '$t:admin.nav.design.brand',
+                  href: '/design-system/brand',
+                  icon: 'stamp',
+                  activeMatch: 'prefix',
+                  props: {
+                    'data-testid': 'data-nav-design-system-brand',
+                  },
+                },
+                {
+                  label: '$t:admin.nav.design.voice',
+                  href: '/design-system/voice',
+                  icon: 'quote',
+                  activeMatch: 'prefix',
+                  props: {
+                    'data-testid': 'data-nav-design-system-voice',
+                  },
+                },
+              ],
             },
           ],
+          trigger: {
+            label: '$t:admin.shell.toggleSidebar',
+          },
+          railHandle: true,
+          trackNavigation: true,
+          props: {
+            className: '[--sidebar-trigger-top:0.625rem]',
+            'data-testid': 'admin-sidebar',
+          },
+        },
+        {
+          type: 'container',
+          element: 'div',
+          props: {
+            className: 'relative flex min-w-0 flex-1 flex-col overflow-y-auto bg-background',
+            id: 'admin-surface-content',
+            'data-admin-content': 'true',
+          },
           children: [
             {
-              type: 'avatar',
-              label: '$session.name',
-              size: 'default',
-              shape: 'square',
-              src: '$session.image',
+              type: 'container',
+              element: 'header',
               props: {
-                'data-testid': 'operator-avatar',
+                className:
+                  '@container sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background pr-4 pl-11',
+                'data-testid': 'design-system-topbar',
               },
-            },
-            // shadcn's NavUser: the name over the email, then the chevron at
-            // the row's end. The role rides on the name's line as a small
-            // badge, so the block stays two lines; the name gives way first,
-            // then the badge, and the email truncates on its own line.
-            {
-              type: 'flex',
-              props: {
-                className: 'grid min-w-0 flex-1 gap-0.5 text-left text-sm leading-tight',
-              },
-              children: [
-                {
-                  type: 'flex',
-                  props: {
-                    className: 'flex min-w-0 items-center gap-1.5',
-                  },
-                  children: [
-                    {
-                      type: 'text',
-                      element: 'span',
-                      props: {
-                        className: 'min-w-0 truncate font-medium',
-                        'data-testid': 'operator-name',
-                      },
-                      session: 'name',
-                    },
-                    {
-                      type: 'badge',
-                      badgeVariant: 'secondary',
-                      props: { className: 'h-4 max-w-[60%] shrink truncate px-1.5 text-[10px]' },
-                      visibility: { capability: 'edit-operations' },
-                      content: '$session.roleLabel',
-                    },
-                    {
-                      type: 'badge',
-                      badgeVariant: 'outline',
-                      props: { className: 'h-4 max-w-[60%] shrink truncate px-1.5 text-[10px]' },
-                      visibility: { unlessCapability: 'edit-operations' },
-                      content: '$session.roleLabel',
-                    },
-                  ],
-                },
-                {
-                  type: 'text',
-                  element: 'span',
-                  props: {
-                    className: 'truncate text-xs text-sidebar-foreground/70',
-                    'data-testid': 'operator-email',
-                  },
-                  session: 'email',
-                },
-              ],
+              children: '$slots.trail',
             },
             {
-              type: 'icon',
+              type: 'container',
+              element: 'div',
               props: {
-                name: 'chevrons-up-down',
-                size: 16,
-                className: 'ml-auto shrink-0 group-data-[collapsible=icon]/sidebar:hidden',
+                className: '$bodyClass',
               },
+              children: '$children',
             },
           ],
         },
       ],
-      groups: [],
-      trigger: {
-        label: '$t:admin.shell.toggleSidebar',
+    },
+    {
+      type: 'command',
+      search: {
+        endpoint: '/api/admin/search',
       },
-      railHandle: true,
-      trackNavigation: true,
-      props: {
-        // The block's own class: the fold controls stand 10px down, on the
-        // centre of the 48px site header.
-        className: '[--sidebar-trigger-top:0.625rem]',
-        'data-testid': 'admin-sidebar',
-      },
+      groups: [
+        {
+          label: '$t:admin.palette.ask.group',
+          visibility: {
+            runtime: 'ai',
+            capability: 'edit-operations',
+          },
+          items: [
+            {
+              label: '$t:admin.palette.ask.label',
+              emptyLabel: '$t:admin.palette.ask.empty',
+              icon: 'message-square',
+              href: '/?q=$query',
+            },
+          ],
+        },
+        {
+          label: '$t:admin.palette.help.group',
+          items: [{ label: '$t:admin.palette.help.report', icon: 'life-buoy', href: '/report' }],
+        },
+      ],
     },
     {
       type: 'container',
       element: 'div',
       props: {
-        // The console's ONE scroll region. `relative` makes it the containing
-        // block of every absolutely positioned descendant — an `sr-only`
-        // label above all — so none of them resolves against the document and
-        // lengthens the window behind the column, which read as a second
-        // scroll running far past the page's end.
-        className: 'relative flex min-w-0 flex-1 flex-col overflow-y-auto bg-background',
-        id: 'admin-surface-content',
-        'data-admin-content': 'true',
+        className: 'hidden',
+        'data-island': 'admin-spa-nav',
+        'data-island-props': '{}',
+      },
+      children: [
+        {
+          type: 'text',
+          element: 'span',
+          props: {
+            className: 'sr-only',
+          },
+          content: '',
+        },
+      ],
+    },
+    {
+      type: 'container',
+      element: 'div',
+      props: {
+        className: 'hidden',
+        'data-spa-offline-template': 'true',
       },
       children: [
         {
           type: 'container',
-          element: 'header',
+          element: 'div',
           props: {
+            role: 'status',
             className:
-              '@container sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background pr-4 pl-11',
-            'data-testid': 'design-system-topbar',
+              'border-border bg-muted text-foreground m-4 flex items-center justify-between gap-4 rounded-md border px-4 py-3 text-sm',
           },
           children: [
             {
-              type: 'breadcrumb',
-              separator: '›',
-              props: {
-                // Below `sm` the trail keeps its root and the page being
-                // viewed, and drops the crumbs between them with their
-                // separators: a phone reads where it is, not the whole path.
-                className:
-                  'min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden',
-                'data-testid': 'breadcrumb',
-              },
-              derive: 'path',
-              home: {
-                label: '$app.label',
-              },
+              type: 'text',
+              element: 'p',
+              content: '$t:admin.offline.message',
             },
             {
-              type: 'container',
+              type: 'button',
+              variant: 'outline',
+              content: '$t:admin.offline.retry',
               props: {
-                className: 'ml-auto flex shrink-0 items-center gap-2',
-                'data-testid': 'chrome-end',
+                type: 'button',
+                'data-spa-retry': 'true',
               },
-              children: [
-                {
-                  type: 'button',
-                  variant: 'outline',
-                  props: {
-                    type: 'button',
-                    'aria-label': '$t:admin.shell.search',
-                    'data-command-palette-trigger': 'true',
-                    // An icon button in a bar narrower than 42rem (the
-                    // header's own width, `@container`), where the breadcrumb
-                    // needs the width; the labelled field from there up. The
-                    // button's own label names it at every width.
-                    className:
-                      'relative size-8 shrink-0 justify-center gap-2 rounded-md px-0 text-sm font-normal text-muted-foreground shadow-none @2xl:w-56 @2xl:justify-start @2xl:px-2',
-                  },
-                  children: [
-                    {
-                      type: 'icon',
-                      props: {
-                        name: 'search',
-                        size: 16,
-                      },
-                    },
-                    {
-                      type: 'text',
-                      element: 'span',
-                      props: {
-                        className: 'hidden flex-1 text-left @2xl:inline',
-                      },
-                      content: '$t:admin.shell.searchPlaceholder',
-                    },
-                  ],
-                },
-                {
-                  // Said where every page shows it, to the one reader it is
-                  // true for: an operator without the console's write tier.
-                  // The sentence from 1440px; two words below, from `md` —
-                  // and at every width on a page whose facts stand beside the
-                  // trail (the header's third child), which need that room.
-                  type: 'text',
-                  element: 'span',
-                  visibility: { unlessCapability: 'edit-operations' },
-                  props: {
-                    className:
-                      'hidden min-w-0 truncate text-xs text-muted-foreground min-[90rem]:block [header>:nth-child(3)>&]:hidden',
-                    'data-testid': 'read-only-notice',
-                  },
-                  content: '$t:admin.shell.readOnly',
-                },
-                {
-                  type: 'text',
-                  element: 'span',
-                  visibility: { unlessCapability: 'edit-operations' },
-                  props: {
-                    className:
-                      'hidden shrink-0 text-xs whitespace-nowrap text-muted-foreground md:block min-[90rem]:hidden min-[90rem]:[header>:nth-child(3)>&]:block',
-                    'data-testid': 'read-only-notice-short',
-                  },
-                  content: '$t:admin.shell.readOnlyShort',
-                },
-                {
-                  // shadcn's ghost icon button (size `icon`, 32 px), the
-                  // height of the search button beside it: a square box with
-                  // its glyph centred, rather than the bare 20×24 the
-                  // component draws on its own.
-                  type: 'theme-toggle',
-                  variant: 'icon',
-                  props: {
-                    'data-testid': 'admin-scheme-toggle',
-                    className:
-                      'inline-flex size-8 shrink-0 items-center justify-center rounded-md text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 [&_svg]:size-4',
-                  },
-                },
-              ],
             },
           ],
-        },
-        {
-          type: 'container',
-          element: 'div',
-          children: [],
         },
       ],
     },
   ],
-} as const
+} as unknown as Template

@@ -86,7 +86,7 @@ import {
   cursorPaginationResponseSchema,
 } from '@/domain/models/api/combinators/cursor-pagination'
 import { describedUnknown } from '@/domain/models/api/combinators/described-ref'
-import { looseIsoDateTime, uuid } from '@/domain/models/api/combinators/formats'
+import { looseIsoDateOrDateTime, uuid } from '@/domain/models/api/combinators/formats'
 import { optionalField } from '@/domain/models/api/combinators/optional-field'
 import { appliedQuerySchema, searchTermSchema } from '@/domain/models/api/combinators/search'
 import { withDefault } from '../../combinators/schema-defaults'
@@ -146,15 +146,15 @@ export const automationsRunsListQuerySchema = Schema.Struct({
     }).pipe(Schema.check(Schema.isMinLength(1)))
   ),
   from: optionalField(
-    looseIsoDateTime({
+    looseIsoDateOrDateTime({
       description:
-        'Lower bound (inclusive) on `startedAt` as ISO 8601. Pair with `to` to scope to a custom window; pair with neither to scope to all history (subject to retention).',
+        'Start of the period, inclusive, on `startedAt`: a calendar day (`2026-10-17`) or an ISO 8601 date-time. A day means from the first instant of that day, counted in the operator timezone (`SOVRIUM_TIMEZONE`, UTC when unset). Pair with `to` to read one period; leave both out to read the whole history (subject to retention).',
     })
   ),
   to: optionalField(
-    looseIsoDateTime({
+    looseIsoDateOrDateTime({
       description:
-        'Upper bound (exclusive) on `startedAt` as ISO 8601. Returns 400 when `from > to`.',
+        'End of the period on `startedAt`: a calendar day (`2026-10-17`) or an ISO 8601 date-time. A day is INCLUDED — the period runs through the last instant of that day, in the operator timezone — so `?from=2026-10-17&to=2026-10-17` reads that one day. A date-time is EXCLUSIVE: a run started at exactly that instant is left out. Days and date-times may be mixed. Returns 400 when the period ends before it starts.',
     })
   ),
   include_deleted: booleanFlag
@@ -163,6 +163,12 @@ export const automationsRunsListQuerySchema = Schema.Struct({
         'Include soft-deleted runs. Default `false` — the D2 lock. Pass `?include_deleted=true` to surface tombstones for compliance review. The flag parses without 400 even when the underlying table has no soft-delete column yet (forward-contract — see story §risks).',
     })
     .pipe(withDefault(false)),
+  onDemand: optionalField(
+    Schema.Literals(['true', 'false']).annotate({
+      description:
+        'Keep only the runs an operator started by hand from a schedule (`true`: the run reads `invokedOnDemand: true`) or only the others (`false`). Exactly `true` or `false`; any other value is a 400, never a filter silently ignored. AND-combined with every other filter.',
+    })
+  ),
   q: searchTermSchema.annotate({
     description:
       'Optional free-text search over the run `automationName` and the failure `error` message, as a case-insensitive literal substring. Composes with every other filter (AND) and with the cursor, so a page is a page of MATCHES. `status`, `startedAt` and `triggerData` are intentionally NOT searched — see the searchable-field contract in the module docstring. Empty / whitespace-only means "no search".',
@@ -248,8 +254,12 @@ export const automationRunAdminItemSchema = Schema.Struct({
   ),
   triggerLabel: Schema.String.annotate({
     description:
-      'What started the run, as one reading in the operator’s language, composed on the server from the trigger the configuration declares today: a schedule as `Schedule · daily 06:00`, `Schedule · every 15 min`, `Schedule · Mon 07:30` (the expression itself when it reads as none of these); a record trigger as the table and what it watches, `Quotes · status → Signed` for a condition that one field equals one value, `Quotes · status changed` for watched fields, `Quotes · created` for events alone; a form as `Form · ` and its title. Any other trigger reads as its kind (`Webhook`, `Manual`). An entry its author named reads its name after the description (`Manual · on-demand`), so two entries of one kind stay apart. For an automation no longer declared, the stored trigger name made readable. Display text only; `triggerName` stays what the filter takes.',
+      'What started the run, as one reading in the operator’s language, composed on the server from the trigger the configuration declares today: a schedule as `Schedule · daily 06:00`, `Schedule · every 15 min`, `Schedule · Mon 07:30` (the expression itself when it reads as none of these); a record trigger as the table and what it watches, `Quotes · status → Signed` for a condition that one field equals one value, `Quotes · status changed` for watched fields, `Quotes · created` for events alone; a form as `Form · ` and its title. Any other trigger reads as its kind (`Webhook`, `Manual`). An entry its author named reads its name after the description (`Manual · on-demand`), so two entries of one kind stay apart. A schedule an operator started by hand ends with ` · run on demand` (` · lancée à la demande` in French): `Schedule · daily 03:00 · run on demand`. For an automation no longer declared, the stored trigger name made readable. Display text only; `triggerName` stays what the filter takes.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
+  invokedOnDemand: Schema.Boolean.annotate({
+    description:
+      'Whether an operator started this run by hand from a schedule ("run now") rather than the schedule firing by itself, read from the run’s own trigger data. `false` for every run its trigger started: a fired schedule, a webhook, a record or form trigger. A run started by hand reads its schedule in `triggerLabel` followed by `run on demand`.',
+  }),
   _admin: adminEnvelopeSchema,
 }).annotate({ identifier: 'AutomationRunAdminItem' })
 
@@ -367,6 +377,30 @@ const adminRunStepBaseSchema = Schema.Struct({
   error: Schema.NullOr(
     Schema.String.annotate({ description: 'Error message if the step failed.' })
   ),
+  startedAt: optionalField(
+    Schema.NullOr(
+      Schema.String.annotate({
+        description:
+          'When the step started, as an ISO 8601 instant; null when the step never ran. Present on every top-level step; a step nested in a path or a loop carries no timing of its own.',
+      })
+    )
+  ),
+  completedAt: optionalField(
+    Schema.NullOr(
+      Schema.String.annotate({
+        description:
+          'When the step ended, finished or failed, as an ISO 8601 instant; null while it runs or when it never ran.',
+      })
+    )
+  ),
+  durationMs: optionalField(
+    Schema.NullOr(
+      Schema.Int.annotate({
+        description:
+          'How long the step took, in whole milliseconds; null while it runs or when it never ran.',
+      }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))
+    )
+  ),
   /**
    * Always present, even for a silent step: the console lists the array and
    * draws its own "nothing logged" line, so absence would be a second empty
@@ -431,6 +465,27 @@ export const adminRunStepSchema: Schema.Codec<AdminRunStep> = Schema.suspend(
 ).annotate({ identifier: 'AdminRunStep' })
 
 /**
+ * Whose fault a failed run is, as a FACT the console can gate on.
+ *
+ * A run page draws one of two failure callouts: a run the engine stopped on an
+ * internal error is Sovrium's to fix, and offers a bug report; a run that
+ * failed on its own step is the author's or the operator's, and points at what
+ * to fix. A declarative page cannot infer the split from the report read (a
+ * `404` there also means "not an admin"), so the run read carries it, and the
+ * page chooses each callout with a plain `visibility.record` gate.
+ *
+ * The split is the defect guard's, and only its: `defect` exactly when the run
+ * report read (`GET /api/admin/reports/runs/:runId`) answers an address for the
+ * run. A run whose action died on a cause the operator can fix (a table missing
+ * from the database, an unreachable database, an unset variable) is a `step`
+ * failure, as the defect guard records it.
+ */
+const runFailureKindSchema = Schema.Literals(['defect', 'step']).annotate({
+  description:
+    'Whose fault the failure is, present only on a run that ended in failure (`failed`, `exhausted` or `timed-out`): `defect` when the engine stopped the run on an internal error of its own, which is Sovrium’s to fix and the one failure a bug report is offered for (exactly when the run report read answers an address); `step` when the run failed on one of its own steps, including a cause the operator can fix such as a missing table or an unset variable. Absent on a run that did not fail.',
+})
+
+/**
  * Run-detail response WITH the per-step I/O list — the shape the dashboard's
  * run-detail panel consumes. Extends the canonical detail item (run row +
  * `_admin`) with a `steps` array so the per-step Input/Output panels resolve.
@@ -445,6 +500,24 @@ export const automationsRunsDetailWithStepsResponseSchema = Schema.Struct({
   steps: Schema.Array(adminRunStepSchema).annotate({
     description: 'Per-step execution rows with input (props) + output, ordered by step index.',
   }),
+  failedStep: Schema.NullOr(
+    Schema.Struct({
+      index: Schema.Finite.annotate({
+        description: "The failed step's `index`, as its row in `steps` carries it.",
+      }),
+      number: Schema.Finite.annotate({
+        description:
+          'The failed step counted from 1 among the run’s top-level steps, in the order they ran: `2` for the second step, so a page prints "Step 2 failed" with no arithmetic of its own.',
+      }).pipe(Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(1))),
+      label: Schema.String.annotate({
+        description: "The failed step's `label`, as its row in `steps` carries it.",
+      }).pipe(Schema.check(Schema.isMinLength(1))),
+    })
+  ).annotate({
+    description:
+      'The top-level step a failed run stopped on, by the index and the label its row in `steps` carries and its position counted from 1, so a console can title its callout "Step N failed · <step>". `null` for a run that did not fail, and for a failed run no step of which failed.',
+  }),
+  failureKind: optionalField(runFailureKindSchema),
 }).annotate({ identifier: 'AutomationsRunsDetailWithStepsResponse' })
 
 /** @public */

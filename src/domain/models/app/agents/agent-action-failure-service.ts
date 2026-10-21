@@ -15,6 +15,9 @@
  * A value refused because it is already taken names no column: that reads
  * word for word like any refusal the database cannot pin on a column, so the
  * sentence never says whether a value exists in a row the reader may not see.
+ * The one exception is a taken value the reader could read on every record
+ * holding it — the records API answers her the conflict too — which says the
+ * value given for that field is already taken, quoting no value.
  *
  * A request an action sent that did not succeed says how, in words that hold
  * no value: the HTTP status the server answered with, or that it timed out,
@@ -35,6 +38,11 @@ export interface RefusedWrite {
   readonly unique: boolean
   /** The submitted column the database refused, when it can be told. */
   readonly column?: string | undefined
+  /**
+   * A taken value the reader could read on every record holding it, as the
+   * records API judges her: only then may the sentence say it is taken.
+   */
+  readonly holderReadable?: boolean | undefined
 }
 
 /** How a request an action sent did not succeed, holding no value. */
@@ -68,6 +76,12 @@ export interface AgentActionFailure extends ActionFailureFacts {
 const namedColumn = (refusedWrite: RefusedWrite | undefined): string | undefined =>
   refusedWrite === undefined || refusedWrite.unique ? undefined : refusedWrite.column
 
+/** The column a taken value may be named on: only one the reader could read on every holder. */
+const takenColumn = (refusedWrite: RefusedWrite | undefined): string | undefined =>
+  refusedWrite?.unique === true && refusedWrite.holderReadable === true
+    ? refusedWrite.column
+    : undefined
+
 /** What each way a request fails is called, besides an HTTP status. */
 const REQUEST_FAILURE_TEXT: Readonly<Record<Exclude<RequestFailure['kind'], 'http'>, string>> = {
   timeout: 'the request timed out',
@@ -83,6 +97,8 @@ const isHttpStatus = (status: number): boolean =>
 
 /** Why the action did not complete, when that can be said without a value. */
 const reasonOf = (failure: AgentActionFailure): string | undefined => {
+  const taken = takenColumn(failure.refusedWrite)
+  if (taken !== undefined) return `the value given for the field "${taken}" is already taken`
   const column = namedColumn(failure.refusedWrite)
   if (column !== undefined) return `the field "${column}" cannot hold the value given`
   const request = failure.requestFailure

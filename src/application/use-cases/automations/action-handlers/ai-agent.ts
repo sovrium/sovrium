@@ -32,6 +32,7 @@ import {
   buildAgentSystemPrompt,
 } from '@/domain/models/app/agents/agent-turn-service'
 import { readsOfToolCalls } from '@/domain/models/app/automations/step-read-service'
+import { logError } from '@/infrastructure/logging/logger'
 import { aiErrorOutcome, classifyAiError } from './ai'
 import { chunksWithinStarterReach } from './ai-agent-starter-reach'
 import { actionAttributes, stringProp } from './shared'
@@ -55,6 +56,25 @@ const DEFAULT_KNOWLEDGE_RETRIEVAL_LIMIT = 5
 
 /** Default similarity threshold when `agent.memory.knowledge.similarityThreshold` is omitted. */
 const DEFAULT_KNOWLEDGE_SIMILARITY_THRESHOLD = 0.7
+
+/**
+ * Log a task that could not be embedded, with its cause, before the agent
+ * falls back to running without retrieved knowledge.
+ */
+const logEmbedFailure =
+  (agentName: string) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+    effect.pipe(
+      Effect.tapCause((cause) =>
+        Effect.sync(() =>
+          logError(
+            '[automations] ai.agent could not embed its task; running without retrieved knowledge',
+            cause,
+            { 'sovrium.agent.name': agentName }
+          )
+        )
+      )
+    )
 
 /**
  * Search the agent's knowledge base for chunks semantically relevant to the
@@ -93,7 +113,10 @@ const retrieveKnowledgeChunks = (input: {
     const sources = memory.sources ?? []
 
     const ai = yield* AiService
-    const embedResult = yield* Effect.result(ai.embed({ text: input.task }))
+    // effect-swallow: fail-soft — a task that cannot be embedded runs without retrieved knowledge, as an agent with none does; the cause is logged on the way.
+    const embedResult = yield* Effect.result(
+      ai.embed({ text: input.task }).pipe(logEmbedFailure(input.agent.name))
+    )
     if (embedResult._tag === 'Failure') return []
 
     const searchProgram = Effect.gen(function* () {

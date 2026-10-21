@@ -18,7 +18,7 @@
  * `run-automation.ts` — that would form an import cycle.
  */
 
-import { Duration, Effect } from 'effect'
+import { Clock, Duration, Effect } from 'effect'
 import { logWarning } from '@/infrastructure/logging/logger'
 import { actionKey, missingActionHandler, type ActionOutcome } from '../action-handlers'
 import { buildStepsResultView, resolveOwnProp } from '../action-handlers/run-context-resolution'
@@ -181,6 +181,42 @@ export const executeStep = (
   buildAutomationInvoker: (ctx: StepContext, stepIndex: number) => AutomationInvoker
 ): Effect.Effect<RunAccumulator, never, StepRequirements> =>
   Effect.gen(function* () {
+    const startedAtMs = yield* Clock.currentTimeMillis
+    const next = yield* dispatchStep(acc, rawAction, ctx, buildAutomationInvoker)
+    const completedAtMs = yield* Clock.currentTimeMillis
+    return withStepWindow(next, acc.steps.length, startedAtMs, completedAtMs)
+  }).pipe(Effect.withSpan('automations.execute-step'))
+
+/**
+ * Stamp the steps this dispatch recorded — those past `from` — with when it
+ * started and settled. A skipped step never ran and stays unstamped.
+ */
+const withStepWindow = (
+  acc: RunAccumulator,
+  from: number,
+  startedAtMs: number,
+  completedAtMs: number
+): RunAccumulator => ({
+  ...acc,
+  steps: acc.steps.map((step, index) =>
+    index < from || step.status === 'skipped'
+      ? step
+      : {
+          ...step,
+          startedAt: new Date(startedAtMs).toISOString(),
+          completedAt: new Date(completedAtMs).toISOString(),
+        }
+  ),
+})
+
+/** Run one action and fold its outcome, untimed: {@link executeStep} brackets it. */
+const dispatchStep = (
+  acc: RunAccumulator,
+  rawAction: Readonly<Record<string, unknown>>,
+  ctx: StepContext,
+  buildAutomationInvoker: (ctx: StepContext, stepIndex: number) => AutomationInvoker
+): Effect.Effect<RunAccumulator, never, StepRequirements> =>
+  Effect.gen(function* () {
     // A `webhook/response` step answers the webhook caller; a run another
     // trigger started has no caller waiting, and passes over the step.
     if (answersNoCaller(rawAction, ctx.triggerType)) return appendSkippedStep(acc, rawAction)
@@ -239,7 +275,7 @@ export const executeStep = (
     })
     const tracked = withRecordedReads(outcome, rawAction, tracker)
     return foldOutcome({ acc, rawAction, resolvedProps, outcome: tracked, ctx, durationMs })
-  }).pipe(Effect.withSpan('automations.execute-step'))
+  })
 
 /**
  * Build a `'skipped'` step record for an action that was never executed
