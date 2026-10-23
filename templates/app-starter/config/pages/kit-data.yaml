@@ -6,6 +6,7 @@ access:
 meta:
   title: 'Data blocks · App starter'
   description: 'Figures, grids, cards, calendars and lists over the app tables.'
+  favicon: ./favicon.svg
 window:
   default: 30d
   presets:

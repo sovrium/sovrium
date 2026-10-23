@@ -336,9 +336,14 @@ export const CrudActionSchema = Schema.Struct({
   type: Schema.Literal('crud').annotate({
     description: 'Which kind of action this is. It decides which of the other keys apply.',
   }),
-  /** CRUD operation */
-  operation: Schema.Literals(['create', 'update', 'delete']).annotate({
-    description: 'Data operation to perform',
+  /**
+   * CRUD operation. `toggle` creates or deletes the reader's own row joined by
+   * the enclosing list or gallery's `dataSource.mine` — the one named by
+   * `mine` — under the table's own create and delete permissions.
+   */
+  operation: Schema.Literals(['create', 'update', 'delete', 'toggle']).annotate({
+    description:
+      "Data operation to perform. `toggle` deletes the reader's own row named by `mine` when the item has one, and creates it (its link and person fields filled) when it does not, under the table's own create and delete permissions",
   }),
   /** Target table name (must exist in app.tables) */
   table: Schema.String.annotate({
@@ -462,12 +467,42 @@ export const CrudActionSchema = Schema.Struct({
       examples: ['Archiving…', 'Archivage…', '$t:invoices.archiving'],
     })
   ),
+  /**
+   * With `operation: toggle`, the `as` alias of the enclosing list or
+   * gallery's `dataSource.mine` join: the row this control creates or deletes.
+   * Its `table` must be the action's `table`.
+   */
+  mine: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          "With operation: toggle, the `as` of the enclosing list or gallery's `dataSource.mine`: the reader's own row this control creates or deletes. Required by toggle, and read by no other operation",
+        examples: ['enrolment', 'done'],
+      }),
+      Schema.check(Schema.isMinLength(1))
+    )
+  ),
   onSuccess: Schema.optional(ActionResponseSchema),
   onError: Schema.optional(ActionResponseSchema),
-}).annotate({
-  title: 'CRUD Action',
-  description: 'Data operation action (create, update, delete)',
-})
+}).pipe(
+  Schema.annotate({
+    title: 'CRUD Action',
+    description: 'Data operation action (create, update, delete, toggle)',
+  }),
+  // Piped AFTER the annotation: a trailing annotate on a checked node lands on
+  // the check, and the struct's title/description would vanish from app.json.
+  Schema.check(
+    Schema.makeFilter((action) => {
+      if (action.operation === 'toggle')
+        return action.mine === undefined
+          ? "a crud toggle names the row it switches: add `mine: <as>`, the alias of the enclosing list or gallery's `dataSource.mine`"
+          : true
+      return action.mine === undefined
+        ? true
+        : `\`mine\` belongs to operation: toggle — a crud ${action.operation} does not read it. Set operation: toggle, or remove mine.`
+    })
+  )
+)
 
 /**
  * Automation action - invoke a named automation

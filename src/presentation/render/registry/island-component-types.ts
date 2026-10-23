@@ -151,6 +151,9 @@ export const ISLAND_COMPONENT_TYPES: ReadonlySet<string> = new Set([
   'scroll-area',
   'navigation-menu',
   'menubar',
+  // `notification-bell` reads, follows and marks the reader's own notifications
+  // on the client alone; its SSR host is a disabled trigger.
+  'notification-bell',
   // `date-picker` mounts a popover trigger + react-day-picker grid; the
   // calendar dialog only appears after the trigger is clicked.
   'date-picker',

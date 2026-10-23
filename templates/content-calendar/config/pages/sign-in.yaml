@@ -6,6 +6,7 @@ path: /sign-in
 meta:
   title: Sign in · Loomwork Content
   description: Sign in to plan, write and schedule Loomwork's content.
+  favicon: ./favicon.svg
 components:
   - type: container
     element: div

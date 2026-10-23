@@ -24,7 +24,7 @@ Everything else an image needs rides in `props`: `src` (required, and it substit
 
 **`loading` defaults by the image's role.** An image with no `props.loading` renders `loading="lazy"`, so it is fetched only as the reader scrolls towards it. The exception is `variant: hero`: the largest image in the first screen is typically the page's Largest Contentful Paint element, and deferring it delays the metric search engines measure (2.5 seconds is the "good" threshold), so a hero renders `loading="eager"` with `fetchpriority="high"` and is fetched first. An explicit `props.loading` always wins — set `eager` on a small logo that must paint at once, or `lazy` on a hero pushed below a long introduction.
 
-Give every image `width` and `height`: the browser then reserves its box before the file arrives and nothing below it moves — layout shift is the second of those metrics. They reach the element exactly as written; none are invented when you leave them out.
+Give every image `width` and `height`: the browser then reserves its box before the file arrives and nothing below it moves — layout shift is the second of those metrics. They reach the element as attributes, exactly as written, and never as an inline size, so a width class in `props.className` (`w-full h-auto`) still sizes the image while the browser keeps the aspect ratio they give. That ratio holds even when the file has another one: a logo declared 160 × 58 stays 160 × 58 when the file is square, the picture cropped to cover the box (set `objectFit: contain` to letter-box it instead). None are invented when you leave them out.
 
 `alt` renders empty when it is omitted, which marks the image as decorative to a screen reader. Give every image that carries meaning a real `alt`.
 

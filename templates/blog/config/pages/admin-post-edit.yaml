@@ -10,6 +10,7 @@ access:
 meta:
   title: Edit post · Field Notes
   description: Edit, schedule and publish a post.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

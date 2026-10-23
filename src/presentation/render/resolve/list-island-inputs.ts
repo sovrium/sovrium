@@ -40,6 +40,41 @@ export interface ListIslandInputs {
   readonly badgeField?: string
   /** The date fields that print their weekday, as the grid prints them. */
   readonly weekdays?: Readonly<Record<string, CalendarWeekday>>
+  /** The bound view's first `groupBy` level: the list draws its records under its groups. */
+  readonly groupBy?: ViewGroupLevel
+}
+
+/** One grouping level of a view, as the list and the gallery draw it. */
+export interface ViewGroupLevel {
+  readonly field: string
+  readonly direction?: 'asc' | 'desc'
+  readonly collapsed?: boolean
+}
+
+/** The bound view's grouping as the list's input, when it has one. */
+const groupByInput = (dataSource: ListShape['dataSource'], tables: App['tables']) => {
+  const groupBy = boundViewGroupBy(dataSource, tables)
+  return groupBy === undefined ? {} : { groupBy }
+}
+
+/**
+ * The grouping of the view a component reads through: its first `groupBy`
+ * level, or `undefined` for a binding to the table itself or an ungrouped view.
+ */
+export function boundViewGroupBy(
+  dataSource: { readonly table?: unknown; readonly view?: unknown } | undefined,
+  tables: App['tables']
+): ViewGroupLevel | undefined {
+  const table = tables?.find((candidate) => candidate.name === dataSource?.table)
+  const view = table?.views?.find((candidate) => candidate.id === dataSource?.view)
+  const groupBy = view?.groupBy
+  return groupBy === undefined
+    ? undefined
+    : {
+        field: groupBy.field,
+        ...(groupBy.direction === undefined ? {} : { direction: groupBy.direction }),
+        ...(groupBy.collapsed === undefined ? {} : { collapsed: groupBy.collapsed }),
+      }
 }
 
 interface MetadataEntry {
@@ -49,7 +84,7 @@ interface MetadataEntry {
 }
 
 interface ListShape {
-  readonly dataSource?: { readonly table?: string }
+  readonly dataSource?: { readonly table?: string; readonly view?: string }
   readonly onRowClick?: unknown
   readonly publishes?: unknown
   readonly listDisplay?: {
@@ -124,6 +159,7 @@ export function resolveListIslandInputs(
   const weekdays = resolveWeekdayFields(table)
   return {
     ...click,
+    ...groupByInput(list.dataSource, app.tables),
     ...(currencies === undefined ? {} : { currencies }),
     ...(weekdays === undefined ? {} : { weekdays }),
     ...resolveBadgeInputs(list, table, app),

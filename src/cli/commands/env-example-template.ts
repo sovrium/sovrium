@@ -163,6 +163,10 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # SOVRIUM_AUTOMATION_DEFAULT_TIMEOUT_MS=900000   # default 15 minutes
 # How many days an ended run is kept (1 to 36500). Unset keeps every run.
 # SOVRIUM_AUTOMATION_RUN_RETENTION_DAYS=30
+# Switches on the app/seed action, an app reseeding or resetting itself from
+# its own seed/ folder: reset allows every mode, any other value if-empty and
+# upsert only. Unset, an automation holding the step is not scheduled.
+# SOVRIUM_SELF_SEED=
 
 # ── Ecoconception (performance-first defaults; opt IN to frugality) ────
 # Win-win defaults — smaller AND faster. Change only for a specific reason.

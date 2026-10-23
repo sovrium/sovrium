@@ -9,6 +9,7 @@ access:
 meta:
   title: Pipeline · Kestrel CRM
   description: Open deals by stage, with value, close date and owner.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

@@ -13,6 +13,7 @@ access:
 meta:
   title: Register · Arden Assets
   description: Everything the firm owns, with its holder, its place and what needs attention.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

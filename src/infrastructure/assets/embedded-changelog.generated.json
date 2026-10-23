@@ -3,6 +3,323 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.42.0",
+      "date": "2026-10-23",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.41.0...v0.42.0",
+      "sections": [
+        {
+          "kind": "features",
+          "heading": "Features",
+          "entries": [
+            {
+              "scope": "pages",
+              "text": "the composer signals typing and the conversation shows who is writing"
+            },
+            {
+              "scope": "pages",
+              "text": "a bound conversation marks where the reader left off"
+            },
+            {
+              "scope": "automations",
+              "text": "let an app seed or reset itself with the app/seed action"
+            },
+            {
+              "scope": "cli",
+              "text": "the design-system export writes a round-trip guide and per-board verdicts"
+            },
+            {
+              "scope": "cli",
+              "text": "drawn pages carry their bindings and rules through a round trip"
+            },
+            {
+              "scope": "cli",
+              "text": "a TypeScript page is rewritten in place or refused with its line"
+            },
+            {
+              "scope": "cli",
+              "text": "the page import can create pages drawn on new boards"
+            },
+            {
+              "scope": "cli",
+              "text": "colour and type edits import as design tokens"
+            },
+            {
+              "scope": "pages",
+              "text": "an app can be installed with a manifest and an optional offline shell"
+            },
+            {
+              "scope": "pages",
+              "text": "the command palette searches records across readable tables"
+            },
+            {
+              "scope": "pages",
+              "text": "a notification bell lists and marks the reader's notifications"
+            },
+            {
+              "scope": "pages",
+              "text": "member lists filter on who is online"
+            },
+            {
+              "scope": "pages",
+              "text": "a navigation menu can render as a bottom tab bar on phones"
+            },
+            {
+              "scope": "pages",
+              "text": "fetched sidebar entries carry an icon and a badge from their fields"
+            },
+            {
+              "scope": "pages",
+              "text": "an action may follow a returned URL to an allowed origin"
+            },
+            {
+              "scope": "cli",
+              "text": "the design-system export draws at most 300 seeded rows per table"
+            },
+            {
+              "scope": "cli",
+              "text": "a stateful prototype board shares one store across pages"
+            },
+            {
+              "scope": "cli",
+              "text": "the design-system export can write a clickable prototype"
+            },
+            {
+              "scope": "pages",
+              "text": "an avatar group draws related people with an overflow count"
+            },
+            {
+              "scope": "pages",
+              "text": "lists and galleries draw their view's groups"
+            },
+            {
+              "scope": "pages",
+              "text": "a progress bar binds to a ratio of records"
+            },
+            {
+              "scope": "pages",
+              "text": "collection pages scope previous and next to a parent and offer a resume link"
+            },
+            {
+              "scope": "pages",
+              "text": "a list item can show and toggle the viewer's own related row"
+            },
+            {
+              "scope": "cli",
+              "text": "exported boards mount the kit's components and lay out by section"
+            },
+            {
+              "scope": "cli",
+              "text": "the design-system export draws one board per state and variant"
+            },
+            {
+              "scope": "tables",
+              "text": "link previews on message bubbles, fetched safely and served by the app"
+            },
+            {
+              "scope": "pages",
+              "text": "messages show a reply summary that opens the thread"
+            },
+            {
+              "scope": "library",
+              "text": "a pinned-messages block"
+            },
+            {
+              "scope": "pages",
+              "text": "a GIF picker through a declared connection, served by the app"
+            },
+            {
+              "scope": "pages",
+              "text": "a composer sends on Enter and attaches files or voice notes"
+            },
+            {
+              "scope": "pages",
+              "text": "a conversation frame binds to a table"
+            },
+            {
+              "scope": "cli",
+              "text": "the design-system export draws pages from a seed folder"
+            },
+            {
+              "scope": "records-api",
+              "text": "comment threads follow a live change feed"
+            },
+            {
+              "scope": "automations",
+              "text": "a notification store, action and per-user preferences"
+            },
+            {
+              "scope": "realtime",
+              "text": "app-wide presence with last seen and typing"
+            },
+            {
+              "scope": "tables",
+              "text": "per-user read state on a relationship with unread counts"
+            },
+            {
+              "scope": "pages",
+              "text": "charts fill empty time buckets and draw a time axis"
+            },
+            {
+              "scope": "pages",
+              "text": "charts take a height, a strip variant and per-bar tones"
+            },
+            {
+              "scope": "pages",
+              "text": "a clipboard action copies a value"
+            },
+            {
+              "scope": "pages",
+              "text": "tab labels can carry a count bound to a table"
+            },
+            {
+              "scope": "tables",
+              "text": "a row can expand inline under its row"
+            },
+            {
+              "scope": "pages",
+              "text": "a neutral favicon answers when none is declared"
+            },
+            {
+              "scope": "pages",
+              "text": "sidebars swap page content on in-app links by default"
+            }
+          ]
+        },
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "pages",
+              "text": "scan page markup in linear time when exporting pages and importing forms"
+            },
+            {
+              "scope": "cli",
+              "text": "pack a page's source.file markdown into sovrium bundle"
+            },
+            {
+              "scope": "cli",
+              "text": "the page import keeps the spaces and line breaks of a code block"
+            },
+            {
+              "scope": "cli",
+              "text": "pack the markdown files pages read into sovrium bundle"
+            },
+            {
+              "scope": "cli",
+              "text": "the page import names every edit it cannot carry and reads layout from classes"
+            },
+            {
+              "scope": "pages",
+              "text": "refuse the reader's own row on a list drawn from an item template"
+            },
+            {
+              "scope": "automations",
+              "text": "unread digest notifications expire with the retention window"
+            },
+            {
+              "scope": "pages",
+              "text": "tab counts resolve the reader and route tokens before asking the server"
+            },
+            {
+              "scope": "pages",
+              "text": "a create sheet leaves defaulted fields to the server and speaks the page language"
+            },
+            {
+              "scope": "pages",
+              "text": "table-bound forms honour password and textarea controls"
+            },
+            {
+              "scope": "cli",
+              "text": "canvas boards match the drawn page height"
+            },
+            {
+              "scope": "cli",
+              "text": "a page that redirects is skipped and named in the design-system export"
+            },
+            {
+              "scope": "cli",
+              "text": "drawn forms keep their title and leak no option as an attribute"
+            },
+            {
+              "scope": "cli",
+              "text": "drawn pages carry their images into the bundle"
+            },
+            {
+              "scope": "cli",
+              "text": "the design-system bundle ships self-hosted brand fonts"
+            },
+            {
+              "scope": "tables",
+              "text": "phone rows layout keeps the empty message and the new-row control"
+            },
+            {
+              "scope": "pages",
+              "text": "feed links resolve the article slug and use BASE_URL"
+            },
+            {
+              "scope": "pages",
+              "text": "image width and height no longer force an inline size"
+            },
+            {
+              "scope": "tables",
+              "text": "grid refusal offers to clear the refused search; row height control hidden when declared; bottom bar stays on one line"
+            },
+            {
+              "scope": "design",
+              "text": "type-scale utilities survive a text colour in the same class list"
+            },
+            {
+              "scope": "pages",
+              "text": "tabs keep typed text and focus while a nested table mounts"
+            },
+            {
+              "scope": "design",
+              "text": "status tones draw their own colours with the default palette"
+            },
+            {
+              "scope": "tables",
+              "text": "grid first read no longer waits for the views list"
+            },
+            {
+              "scope": "tables",
+              "text": "grid search sends one request per settled term"
+            },
+            {
+              "scope": "design",
+              "text": "apps without a form no longer ship form-field styles"
+            },
+            {
+              "scope": "design",
+              "text": "item replace drops the recipe like button does"
+            },
+            {
+              "scope": "pages",
+              "text": "retry the entry script and reload once before giving up"
+            },
+            {
+              "scope": "pages",
+              "text": "run a swapped page's inline scripts so forms keep their onSuccess"
+            },
+            {
+              "scope": "design",
+              "text": "refuse spacing token names that collide with display utilities"
+            }
+          ]
+        },
+        {
+          "kind": "performance",
+          "heading": "Performance Improvements",
+          "entries": [
+            {
+              "scope": "tables",
+              "text": "unread counts are computed in one grouped query per page"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.41.0",
       "date": "2026-10-21",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.40.0...v0.41.0",

@@ -37,8 +37,10 @@
  * names (`$param.table`) is the table the page is drawn at
  * (`design-system-page-seed.ts`). No row of any instance is read.
  *
- * Every tree node is drawn whatever its `visibility` (kept in the node map):
- * an undrawn node would read, on the way back, as one the designer deleted.
+ * Every tree node is a node of the tree and of the map, whatever its
+ * `visibility` (kept in the map). A board draws the branches its state selects
+ * (`design-system-page-branches.ts`): a node it leaves out is not in its export
+ * stamp, so an import reads its absence as no change.
  *
  * ─── EXPRESSIONS, NEVER VALUES ─────────────────────────────────────────────
  *
@@ -47,7 +49,6 @@
  * reads, and never what either resolves to.
  */
 
-import { splitLeadingTranslationKey } from '@/domain/models/app/languages/translation-resolver'
 import {
   EXPORT_NODE_ID_KEY,
   isTemplatePlacement,
@@ -58,12 +59,17 @@ import {
   layoutsOfClassName,
   type SpacingScale,
 } from '@/domain/models/app/pages/page-layout-service'
+import { drawnOnBoard, isDrawnOnBoard, type BoardBranches } from './design-system-page-branches'
 import {
+  drawnAsViewer,
   drawnIsland,
+  islandSeedOf,
   sampleRouteValuesOf,
-  seededTableOf,
+  writeOnlyFieldsOf,
   type SeedContext,
 } from './design-system-page-seed'
+import { literalContentOf, textEntriesOf } from './design-system-page-text'
+import type { PageSeed, PageSeedAccount } from './design-system-page-seed-folder'
 import type {
   PAGE_DESIGN_TREE_FORMAT,
   PageDesignTreeNode,
@@ -93,6 +99,7 @@ export interface ProjectedPage {
 interface ProjectedNode {
   readonly tree: PageDesignTreeNode
   readonly entries: readonly NodeMapEntry[]
+  /** Its drawn copy; `undefined` when the board does not draw it. */
   readonly drawn: unknown
 }
 
@@ -101,68 +108,14 @@ interface ProjectionContext extends SeedContext {
   readonly pageName: string
   readonly spacing: SpacingScale
   readonly templates: readonly Node[]
+  /** The state the board is drawn at; absent, every branch is drawn. */
+  readonly branches?: BoardBranches | undefined
 }
-
-/** A binding names `$<source>.<path>`; a template variable (`$label`) and a `$t:` key do not. */
-const BINDING_PATTERN = /\$([A-Za-z_]\w*(?:\.\w+)+)/g
-
-const isTranslation = (text: string): boolean => text.startsWith('$t:')
-const isLiteral = (text: string): boolean => !isTranslation(text) && !/\$[A-Za-z_]/.test(text)
 
 const sha256Of = (text: string): string => new Bun.CryptoHasher('sha256').update(text).digest('hex')
 
 const stringField = (node: Node, field: string): string | undefined =>
   typeof node[field] === 'string' ? (node[field] as string) : undefined
-
-/** The literal text a node draws: its `content`, or a lone string child. */
-const literalContentOf = (node: Node): string | undefined => {
-  const content = stringField(node, 'content')
-  if (content !== undefined) return isLiteral(content) ? content : undefined
-  const { children } = node
-  return Array.isArray(children) &&
-    children.length === 1 &&
-    typeof children[0] === 'string' &&
-    isLiteral(children[0])
-    ? children[0]
-    : undefined
-}
-
-/** Every text-bearing property of a node, by its dotted path from the node. */
-const textPropertiesOf = (node: Node): readonly (readonly [string, string])[] => {
-  const content = stringField(node, 'content')
-  const children = Array.isArray(node['children']) ? (node['children'] as readonly unknown[]) : []
-  const props = (node['props'] ?? {}) as Node
-  return [
-    ...(content === undefined ? [] : [['content', content] as const]),
-    ...children.flatMap((child, index) =>
-      typeof child === 'string' ? [[`children.${index}`, child] as const] : []
-    ),
-    ...Object.entries(props).flatMap(([name, value]) =>
-      typeof value === 'string' ? [[`props.${name}`, value] as const] : []
-    ),
-  ]
-}
-
-/** The map's view of a node's text: its bindings and its translation keys. */
-const textEntriesOf = (node: Node): Partial<NodeMapEntry> => {
-  const texts = textPropertiesOf(node)
-  // A text may open with a `$t:` key and carry more after it (a code block's
-  // translated comment line, then the code): the key is kept as a translation,
-  // and what follows it is read for bindings like any other text.
-  const bindings = texts.flatMap(([property, expression]) => {
-    const after = splitLeadingTranslationKey(expression)?.rest ?? expression
-    const references = [...after.matchAll(BINDING_PATTERN)].map((match) => match[1] ?? '')
-    return references.length === 0 ? [] : [{ property, expression, references }]
-  })
-  const translations = texts.flatMap(([property, text]) => {
-    const leading = splitLeadingTranslationKey(text)
-    return leading === undefined ? [] : [{ property, key: `$t:${leading.key}` }]
-  })
-  return {
-    ...(bindings.length === 0 ? {} : { bindings }),
-    ...(translations.length === 0 ? {} : { translations }),
-  }
-}
 
 /** The fields the map keeps exactly as the config writes them. */
 const keptFieldsOf = (node: Node): Partial<NodeMapEntry> => ({
@@ -171,7 +124,7 @@ const keptFieldsOf = (node: Node): Partial<NodeMapEntry> => ({
   ...(node['interactions'] === undefined ? {} : { interactions: node['interactions'] }),
 })
 
-/** A node as the export draws it: shown whatever its visibility rule says. */
+/** A node as the export draws it, its visibility rule already judged by the board. */
 const drawnAlways = ({ visibility: _visibility, ...shown }: Node): Node => shown
 
 /** The template a placement names, from `app.components`. */
@@ -203,8 +156,11 @@ const projectChildren = (
 const projectedOnly = (list: readonly (ProjectedNode | string)[]): readonly ProjectedNode[] =>
   list.filter((child): child is ProjectedNode => typeof child !== 'string')
 
+/** The drawn copies of a list, a node this board does not draw left out. */
 const drawnOf = (list: readonly (ProjectedNode | string)[]): readonly unknown[] =>
-  list.map((child) => (typeof child === 'string' ? child : child.drawn))
+  list.flatMap((child) =>
+    typeof child === 'string' ? [child] : child.drawn === undefined ? [] : [child.drawn]
+  )
 
 /**
  * The page components a placement passes to its slots, projected as the
@@ -312,9 +268,7 @@ const mapEntryOf = (
   contentHash: sha256Of(JSON.stringify({ ...tree, children: undefined })),
   ...textEntriesOf(node),
   ...keptFieldsOf(node),
-  ...(node['dataSource'] === undefined
-    ? {}
-    : { island: { seed: seededTableOf(context, node) === undefined ? 'empty' : 'synthetic' } }),
+  ...(node['dataSource'] === undefined ? {} : { island: islandSeedOf(context, node) }),
 })
 
 /** One component node, then its own children; an island's inside is not walked. */
@@ -325,11 +279,21 @@ function projectNode(context: ProjectionContext, node: Node, pointer: string): P
   const projected = island ? [] : projectChildren(context, node, pointer)
   const children = projectedOnly(projected)
   const tree = treeNodeOf(context, node, id, children)
-  const drawn = {
-    ...drawnAlways(island ? drawnIsland(context, node) : node),
-    ...(projected.length === 0 ? {} : { children: drawnOf(projected) }),
-    [EXPORT_NODE_ID_KEY]: id,
-  }
+  const board = drawnOnBoard(context.branches, node)
+  const shown = context.branches === undefined || isDrawnOnBoard(context.branches, node)
+  const drawn = shown
+    ? {
+        ...drawnAlways(
+          board['dataSource'] === undefined
+            ? drawnAsViewer(context, board)
+            : drawnIsland(context, board)
+        ),
+        ...(projected.length === 0 || board['type'] === 'skeleton'
+          ? {}
+          : { children: drawnOf(projected) }),
+        [EXPORT_NODE_ID_KEY]: id,
+      }
+    : undefined
   return {
     tree,
     entries: [mapEntryOf(context, node, tree), ...children.flatMap((child) => child.entries)],
@@ -337,19 +301,39 @@ function projectNode(context: ProjectionContext, node: Node, pointer: string): P
   }
 }
 
+/** What one board of a page is drawn from, beyond the config. */
+export interface PageProjectionInput {
+  readonly seed?: PageSeed | undefined
+  readonly viewer?: PageSeedAccount | undefined
+  readonly routeValues?: Readonly<Record<string, string>> | undefined
+  readonly branches?: BoardBranches | undefined
+  /** Draw every island of the page empty (`data=empty`). */
+  readonly empty?: boolean | undefined
+}
+
 /**
  * Project one page of an app for the page export.
  *
  * @param app - the validated config.
  * @param page - one of its pages.
+ * @param input - the seed folder, the account and the address it is drawn at.
  */
-export const projectPageForExport = (app: App, page: Page): ProjectedPage => {
+export const projectPageForExport = (
+  app: App,
+  page: Page,
+  input: PageProjectionInput = {}
+): ProjectedPage => {
   const context: ProjectionContext = {
     pageName: page.name,
     spacing: (app.design?.spacing ?? {}) as SpacingScale,
     templates: (app.components ?? []) as readonly Node[],
     tables: (app.tables ?? []) as ProjectionContext['tables'],
-    routeValues: sampleRouteValuesOf(app, page),
+    routeValues: input.routeValues ?? sampleRouteValuesOf(app, page),
+    seed: input.seed,
+    viewer: input.viewer,
+    secretFields: input.seed === undefined ? undefined : writeOnlyFieldsOf(app, page),
+    branches: input.branches,
+    empty: input.empty,
   }
   // The walk reads every node as an untyped record, as the identity walker does.
   const nodes: readonly unknown[] = page.components ?? []
@@ -369,6 +353,18 @@ export const projectPageForExport = (app: App, page: Page): ProjectedPage => {
       ...(page.meta === undefined ? {} : { meta: page.meta }),
       nodes: projected.flatMap((node) => node.entries),
     },
-    drawn: { ...page, components: projected.map((node) => node.drawn) } as Page,
+    drawn: { ...page, components: drawnOf(projected) } as Page,
   }
+}
+
+/** The id of every node a projected page draws: its drawn copy's export ids. */
+export const drawnIdsOf = (projected: ProjectedPage): ReadonlySet<string> => {
+  const walk = (value: unknown): readonly string[] => {
+    if (Array.isArray(value)) return value.flatMap(walk)
+    if (typeof value !== 'object' || value === null) return []
+    const node = value as Node
+    const id = node[EXPORT_NODE_ID_KEY]
+    return [...(typeof id === 'string' ? [id] : []), ...Object.values(node).flatMap(walk)]
+  }
+  return new Set(walk(projected.drawn.components))
 }

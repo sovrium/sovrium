@@ -14,10 +14,27 @@
  * fills a box of a declared `height` — required, because a frame that grows
  * with its content never scrolls.
  *
+ * ## Bound to a table, its children are the template
+ *
+ * With a `dataSource`, the frame draws one turn per readable record. Its
+ * `children` are then not the turns but the anatomy of ONE turn — a `message`,
+ * and optionally the `marker` drawn at each change of `dayField`'s day —
+ * resolving `$record.*` per record, as a data-bound `container` does. There is
+ * no second, poorer item vocabulary beside the `message` the frame already
+ * holds. The copies are drawn by the server, under the records list's read
+ * gate, and drawn again from it when the table changes, so
+ * `dataSource.refreshMode: realtime` is honoured.
+ *
+ * `authorField` names the `user` field holding who wrote a record: the
+ * reader's own turns sit at the end side, and consecutive turns by one author
+ * share one name and picture. `dayField` names the date the frame splits days
+ * on. Both only mean something on a bound frame.
+ *
  * Source: [internal ref]
  */
 
 import { Schema } from 'effect'
+import { DataSourceSchema } from '../../data-source'
 import { coreFields } from '../modules/core'
 import { visibilityFields } from '../modules/visibility'
 
@@ -64,5 +81,29 @@ export const messageScrollerFields = {
       description:
         "How many pixels of the turn before the last stay in view when the frame opens at 'last-anchor'.",
     }).pipe(Schema.check(Schema.isInt()), Schema.check(Schema.isGreaterThanOrEqualTo(0)))
+  ),
+  /**
+   * The table the conversation is read from — the shared binding, so `filter`,
+   * `sort`, `limit` and `refreshMode` read as on every data component. The
+   * shared schema carries its own identifier and description; annotating it
+   * here would fork that definition, so the field-level prose lives in the
+   * component's manual fragment.
+   */
+  dataSource: Schema.optional(DataSourceSchema),
+  authorField: Schema.optional(
+    Schema.String.annotate({
+      title: 'Author Field',
+      description:
+        "The `user` field of the bound table holding who wrote each record. The signed-in reader's own turns sit at the end side, and consecutive turns by one author share one name and picture. Only on a frame with a `dataSource`.",
+      examples: ['author'],
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
+  dayField: Schema.optional(
+    Schema.String.annotate({
+      title: 'Day Field',
+      description:
+        "The date or date-time field of the bound table the conversation is split into days on: a date marker is drawn before the first turn of each day, in the page language. Without a `marker` among the frame's children, the marker is a separator naming the day; with one, that marker is drawn instead, its `$record.<field>` read from the day's first record. Only on a frame with a `dataSource`.",
+      examples: ['created_at'],
+    }).pipe(Schema.check(Schema.isMinLength(1)))
   ),
 } as const

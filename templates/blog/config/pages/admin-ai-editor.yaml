@@ -9,6 +9,7 @@ access:
 meta:
   title: Assistant · Field Notes
   description: Ask the editorial assistant for a draft, an edit or a review.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

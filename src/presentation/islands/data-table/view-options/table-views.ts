@@ -34,8 +34,9 @@ async function fetchViews(table: string): Promise<readonly ListedView[]> {
 
 /**
  * The table's views, read once per visit and shared by every reader of them on
- * the page: the switcher draws them, and the grid waits on them before its first
- * read (`useAwaitingDefaultView`). Not read at all when `enabled` is false.
+ * the page: the switcher draws them, and a grid the server could not tell its
+ * default view waits on them before its first read (`useAwaitingDefaultView`).
+ * Not read at all when `enabled` is false.
  */
 export function useTableViews(table: string, enabled = true) {
   return useQuery({
@@ -57,8 +58,14 @@ export function useAwaitingDefaultView(params: {
   readonly table: string
   readonly hasSwitcher: boolean
   readonly opensOnDefault: boolean
+  /** The default the server already resolved (`null`: none): nothing to wait for. */
+  readonly listedDefault: string | null | undefined
 }): boolean {
-  const waits = params.hasSwitcher && params.table !== '' && params.opensOnDefault
+  const waits =
+    params.hasSwitcher &&
+    params.table !== '' &&
+    params.opensOnDefault &&
+    params.listedDefault === undefined
   const views = useTableViews(params.table, waits)
   if (!waits) return false
   if (views.isPending) return true

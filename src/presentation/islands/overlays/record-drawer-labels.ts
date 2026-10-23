@@ -32,6 +32,8 @@ export interface DrawerBuiltInLabels {
   readonly position?: string
   /** A save the records API refuses as not found or forbidden (`recordDrawer.saveRefused`). */
   readonly saveRefused?: string
+  /** A create the server failed for a reason about no field (`datatable.createFailed`). */
+  readonly createFailed?: string
   /** The name of the banner a refused save shows (`recordDrawer.validationError`). */
   readonly validationError?: string
   /** The date picker's words, keyed by catalogue key (`datePicker.pick`, `datePicker.choose`). */

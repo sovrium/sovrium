@@ -54,6 +54,7 @@ automations:
   - $ref: ./config/automations/when-resolved.yaml
   - $ref: ./config/automations/collect-ticket-notes.yaml
   - $ref: ./config/automations/morning-notes-digest.yaml
+  - $ref: ./config/automations/nightly-reset.yaml
   - $ref: ./library/recipe/record-to-linear-issue.yaml
 
 # Listed in the order of the sidebar, then the public pages.

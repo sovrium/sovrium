@@ -140,10 +140,17 @@ export const pageNodeMapEntrySchema = Schema.Struct({
   provenance: optionalField(pageNodeProvenanceSchema),
   island: optionalField(
     Schema.Struct({
-      seed: Schema.Literals(['synthetic', 'empty']).annotate({
+      seed: Schema.Literals(['synthetic', 'empty', 'file']).annotate({
         description:
-          'What the island was drawn from: the `synthetic` seed the platform ships, or its `empty` state when the seed holds nothing for it',
+          'What the island was drawn from: the `synthetic` seed the platform ships, its `empty` state when the seed holds nothing for it, or the seed `file`s of the folder `--seed` named',
       }),
+      dir: optionalField(
+        Schema.String.annotate({
+          description:
+            'For a `file` seed, the folder it was read from, relative to the config file, never an absolute path',
+          examples: ['seed'],
+        })
+      ),
     }).annotate({
       strictKeys: true,
       title: 'sovrium:strict-keys',
@@ -154,6 +161,28 @@ export const pageNodeMapEntrySchema = Schema.Struct({
   strictKeys: true,
   title: 'sovrium:strict-keys',
   identifier: 'PageNodeMapEntry',
+})
+
+/**
+ * One Claude Design board of a page and the state it was drawn at. A page has
+ * one board at its default state, and one more per state the export was asked
+ * for (`--state`) or per seeded record its route draws; an import reads every
+ * board of a page as the same page.
+ */
+export const pageNodeMapBoardSchema = Schema.Struct({
+  file: Schema.String.annotate({
+    description: 'The board file, relative to the canvas folder',
+    examples: ['vessel/Vessel.dc.html'],
+  }),
+  state: Schema.Record(Schema.String, Schema.String).annotate({
+    description:
+      'What the board was drawn at: the query values, the role, the record, the theme, the width, the data or the answer it shows, by name',
+    examples: [{ tab: 'details', role: 'admin' }, { theme: 'dark' }],
+  }),
+}).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  identifier: 'PageNodeMapBoard',
 })
 
 /** One page's entry in the map. */
@@ -171,10 +200,54 @@ export const pageNodeMapPageSchema = Schema.Struct({
   nodes: Schema.Array(pageNodeMapEntrySchema).annotate({
     description: 'One entry per node of the page, in document order',
   }),
+  boards: optionalField(
+    Schema.Array(pageNodeMapBoardSchema).annotate({
+      description:
+        'Every Claude Design board drawing the page, in canvas order, each with the state it was drawn at',
+    })
+  ),
 }).annotate({
   strictKeys: true,
   title: 'sovrium:strict-keys',
   identifier: 'PageNodeMapPage',
+})
+
+/** One row of the round-trip guide: an edit a drawing may hold, and what the import does with it. */
+export const pageRoundTripRowSchema = Schema.Struct({
+  edit: Schema.String.annotate({
+    description: 'The edit, as a designer or an agent makes it on a drawing',
+    examples: ['A container gap set in its `class` list, on the spacing scale'],
+  }),
+  outcome: Schema.String.annotate({
+    description:
+      'What the import does with it: what it writes for a carried edit, why it keeps the config value, or the refusal it reports',
+    examples: ['Written as the utility of its token, `gap-6`', 'Refused, `BINDING_EDIT`'],
+  }),
+}).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  identifier: 'PageRoundTripRow',
+})
+
+/**
+ * The import's own three tables: what a page round trip carries, what it keeps
+ * and what it refuses. The round-trip guide a canvas carries is generated from
+ * them, so a new importable edit reaches the guide with no hand edit.
+ */
+export const pageRoundTripTablesSchema = Schema.Struct({
+  carried: Schema.Array(pageRoundTripRowSchema).annotate({
+    description: 'Every edit the import writes back into the config',
+  }),
+  kept: Schema.Array(pageRoundTripRowSchema).annotate({
+    description: 'Every edit the import reports and does not write, the config value kept',
+  }),
+  refused: Schema.Array(pageRoundTripRowSchema).annotate({
+    description: 'Every edit the import refuses, each naming its refusal code',
+  }),
+}).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  identifier: 'PageRoundTripTables',
 })
 
 /**
@@ -192,6 +265,12 @@ export const pageNodeMapSchema = Schema.Struct({
   pages: Schema.Array(pageNodeMapPageSchema).annotate({
     description: 'Every exported page, in config order',
   }),
+  roundTrip: optionalField(
+    pageRoundTripTablesSchema.annotate({
+      description:
+        "The import's carried, kept and refused tables, the source of the round-trip guide a canvas carries",
+    })
+  ),
 }).annotate({
   strictKeys: true,
   title: 'sovrium:strict-keys',

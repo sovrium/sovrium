@@ -9,6 +9,7 @@ access:
 meta:
   title: Projects · Orrin OS
   description: Every project with its client, owner, dates and progress, and the tasks by status.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

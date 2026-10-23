@@ -91,8 +91,12 @@ export const tokenRunsIn = (text: string): readonly string[] =>
 export const protectLiteralTokens = (text: string): string =>
   text.includes('\\$') ? text.replace(ESCAPED_TOKEN_START, () => LITERAL_DOLLAR) : text
 
-/** The body of each `<script>` element of a document. */
-const SCRIPT_ELEMENT = /<script\b[^>]*>[\s\S]*?<\/script>/gi
+/**
+ * The body of each `<script>` element of a document. The closing tag is read
+ * as HTML reads it: any case, and with anything up to its `>` (`</script >`,
+ * `</SCRIPT\n>`), so a payload is never cut short of the tag that ends it.
+ */
+const SCRIPT_ELEMENT = /<script\b[^>]*>[\s\S]*?<\/script(?:[\s/][^>]*)?>/gi
 
 /**
  * A double-quoted attribute value holding JSON (it opens with `{` or `[`): an

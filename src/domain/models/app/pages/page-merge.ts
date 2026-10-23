@@ -57,6 +57,8 @@ import {
 } from './page-merge-edits-service'
 import type { DrawnNode, DrawnPage, DrawnStampEntry, PlacedDrawnNode } from './page-drawing'
 import type { SpacingSteps } from './page-merge-layout-service'
+import type { PaintTokens } from './page-merge-paint-service'
+import type { RuleReferences } from './page-merge-rules-service'
 import type { TranslationScope, TranslationWrite } from './page-merge-translation-service'
 import type { PageDesignTreeNode } from '@/domain/models/api/admin/design-system/page-design-tree'
 import type { PageNodeMap } from '@/domain/models/api/admin/design-system/page-node-map'
@@ -84,6 +86,10 @@ export interface PageMergeInput {
   readonly languages?: TranslationScope | undefined
   /** Each template's definition, by name, which a placement's inside is read against. */
   readonly templates?: ReadonlyMap<string, Node> | undefined
+  /** The app's colour and type tokens, which a drawn paint is read against. */
+  readonly paint?: PaintTokens | undefined
+  /** What the config declares that a rule a drawing carries may name. */
+  readonly references?: RuleReferences | undefined
 }
 
 /** The merge of one page: the patched entry when anything is written, and its report. */
@@ -375,6 +381,12 @@ const buildAdded = (context: MergeContext, entry: PlacedDrawnNode, pointer: stri
   }
 }
 
+/** The table a page reads, when its data source names one. */
+const pageTableOf = (page: Node): string | undefined => {
+  const table = (page['dataSource'] as { readonly table?: unknown } | undefined)?.table
+  return typeof table === 'string' ? table : undefined
+}
+
 /** A matched page node, written where it was drawn with its edits. */
 const buildMatched = (
   context: MergeContext,
@@ -386,7 +398,11 @@ const buildMatched = (
   const baseline = context.baseline.get(current.id) ?? treeAsDrawn(current.tree)
   const edits = nodeEdits(
     { current, drawn: entry.node, baseline, config },
-    { ...context.input, samplesDrawn: context.input.drawn.samplesDrawn }
+    {
+      ...context.input,
+      samplesDrawn: context.input.drawn.samplesDrawn,
+      pageTable: pageTableOf(context.input.page),
+    }
   )
   const self: Placement = {
     current,
@@ -583,22 +599,44 @@ const settingsRefusals = (input: PageMergeInput, pageName: string): Findings['re
       ]
     : []
 
+/**
+ * What a drawing holds less what an unedited drawing holds too, counted: a
+ * finding the export draws twice is set aside twice, and a third is new.
+ */
+const freshOf = <T>(drawn: readonly T[], unedited: readonly T[], keyOf: (entry: T) => string) => {
+  const counts = unedited.reduce<ReadonlyMap<string, number>>(
+    (acc, entry) => new Map([...acc, [keyOf(entry), (acc.get(keyOf(entry)) ?? 0) + 1]]),
+    new Map()
+  )
+  return drawn.reduce<{ readonly kept: readonly T[]; readonly left: ReadonlyMap<string, number> }>(
+    (acc, entry) => {
+      const left = acc.left.get(keyOf(entry)) ?? 0
+      return left > 0
+        ? { kept: acc.kept, left: new Map([...acc.left, [keyOf(entry), left - 1]]) }
+        : { kept: [...acc.kept, entry], left: acc.left }
+    },
+    { kept: [], left: counts }
+  ).kept
+}
+
 /** The findings a parser worded itself, less those an unedited drawing holds too. */
 const parserReports = (
   input: PageMergeInput
-): { readonly refused: Findings['refused']; readonly ignored: Findings['ignored'] } => {
+): {
+  readonly refused: Findings['refused']
+  readonly ignored: Findings['ignored']
+  readonly conflicts: NonNullable<PageImportPageReport['conflicts']>
+} => {
   const fresh = (
     pick: (
       page: DrawnPage
     ) => readonly { readonly node: string; readonly reason: string }[] | undefined
-  ) => {
-    const unedited = new Set(
-      (pick(input.baseline) ?? []).map((entry) => `${entry.node} ${entry.reason}`)
+  ) =>
+    freshOf(
+      pick(input.drawn) ?? [],
+      pick(input.baseline) ?? [],
+      (entry) => `${entry.node} ${entry.reason}`
     )
-    return (pick(input.drawn) ?? []).filter(
-      (entry) => !unedited.has(`${entry.node} ${entry.reason}`)
-    )
-  }
   return {
     refused: fresh((page) => page.reported?.notAKitComponent).map((entry) => ({
       node: entry.node,
@@ -606,6 +644,17 @@ const parserReports = (
       reason: entry.reason,
     })),
     ignored: fresh((page) => page.reported?.unread),
+    conflicts: freshOf(
+      input.drawn.reported?.conflicts ?? [],
+      input.baseline.reported?.conflicts ?? [],
+      (entry) => JSON.stringify(entry)
+    ).map(({ node, property, kept, overridden, value }) => ({
+      node,
+      property,
+      kept,
+      overridden,
+      value,
+    })),
   }
 }
 
@@ -663,6 +712,7 @@ export const planPageMerge = (input: PageMergeInput): PageMergePlan => {
     refused: [...settingsRefusals(input, pageName), ...built.findings.refused, ...reported.refused],
     translations: built.findings.translations,
     ignored: [...built.findings.ignored, ...reported.ignored],
+    ...(reported.conflicts.length === 0 ? {} : { conflicts: reported.conflicts }),
   }
   const writes =
     moved.length > 0 || built.added.length > 0 || removed.length > 0 || changes.length > 0

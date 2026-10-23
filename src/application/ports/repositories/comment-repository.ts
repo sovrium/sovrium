@@ -38,6 +38,7 @@ export interface CommentForAuth {
   readonly userId: string | null
   readonly recordId: string
   readonly tableId: string
+  readonly status: 'approved' | 'pending' | 'rejected'
 }
 
 /**
@@ -255,6 +256,8 @@ export class CommentRepository extends Context.Service<
        * guests (approved-only). Fail-closed default.
        */
       readonly includeAllStatuses?: boolean
+      /** Also the session's own pending comments: her thread shows what she posted. */
+      readonly ownPending?: boolean
     }) => Effect.Effect<readonly ListedComment[], DatabaseError>
 
     readonly getCount: (config: {
@@ -266,6 +269,7 @@ export class CommentRepository extends Context.Service<
        * matches what the viewer can see.
        */
       readonly includeAllStatuses?: boolean
+      readonly ownPending?: boolean
     }) => Effect.Effect<number, DatabaseError>
 
     /**

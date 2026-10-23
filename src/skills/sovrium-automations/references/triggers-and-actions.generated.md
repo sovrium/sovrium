@@ -4,7 +4,7 @@
 
 > Generated from the Sovrium schema by scripts/build/generate-skill-references.ts — do not edit. It carries no version on purpose: when it and the binary you run disagree, the binary is right.
 
-Every trigger an automation can start from (9) and every action a step can run (133), in the words of the schema. An action is chosen by its `type` and, within a family, its `operator`.
+Every trigger an automation can start from (9) and every action a step can run (135), in the words of the schema. An action is chosen by its `type` and, within a family, its `operator`.
 
 ## Contents
 
@@ -74,6 +74,7 @@ Read: `sovrium docs automation-actions`
 | `comment` | `create` | Post a comment on a record's thread, through the same content, reply, mention, moderation and comment-trigger rules as the comments API |
 | `comment` | `list` | Read a record's comments, oldest first, as the system or as the triggering user would read them |
 | `comment` | `delete` | Soft-delete one comment of a record's thread, as the system or under the triggering user's comment rules |
+| `notification` | `create` | Notify people of something: one notification per recipient, of a declared kind, listed in the app, sent by email, or kept for a periodic digest that this version does not yet send, as each recipient's preferences for that kind decide |
 | `webhook` | `send` | Send outgoing webhook (envelope or pass-through mode) |
 | `webhook` | `response` | Construct a custom response for synchronous webhook triggers (respondImmediately: false) |
 | `delay` | `wait` | Pause automation execution for a fixed duration or until a specific datetime |
@@ -151,6 +152,7 @@ Read: `sovrium docs automation-actions`
 | `flow` | `stop` | Immediately stop automation execution with optional status and output |
 | `sovrium` | `validateConfig` | Decode a candidate app config against AppSchema and expose { valid, errors } |
 | `sovrium` | `validateBundle` | Check a stored bundle archive — its manifest, every entry against its sha256, and the config it carries — and expose { valid, name, manifest, errors } |
+| `app` | `seed` | Seed this app's own data from its seed files, or reset it to them, as `sovrium seed` would; switched on by the host with SOVRIUM_SELF_SEED |
 | `instance` | `status` | Read a supervised app's unit state, restart count, memory use, how its last run ended, current revision and the engine it runs |
 | `instance` | `start` | Start a supervised app's socket, so the next request wakes the app |
 | `instance` | `stop` | Suspend a supervised app: stop its socket, its proxy and the app |

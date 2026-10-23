@@ -29,6 +29,8 @@ export interface ConnectionDef {
 /** The answer to "can this connection authenticate a request?". */
 export type StaticAuthHeader =
   | { readonly header: string; readonly value: string }
+  /** An `apiKey` connection with `query`: the key rides in that query parameter, no header. */
+  | { readonly query: string; readonly value: string }
   | { readonly unconfigured: UnconfiguredConnection }
   | { readonly error: string }
 
@@ -92,6 +94,18 @@ export const buildStaticAuthHeader = (
     : { unconfigured: { connection: conn.name, variable: unset } }
 }
 
+/** Where an `apiKey` connection sends its key: the query parameter it names, else its header. */
+const apiKeyPlacement = (
+  props: Readonly<Record<string, unknown>>,
+  key: string
+): StaticAuthHeader => {
+  const query = stringProp(props, 'query')
+  if (query) return { query, value: key }
+  const headerName = stringProp(props, 'header') || 'X-API-Key'
+  const prefix = stringProp(props, 'prefix')
+  return { header: headerName, value: prefix ? `${prefix} ${key}` : key }
+}
+
 /** The header a static connection's credential builds, or why it cannot. */
 const buildCredentialHeader = (
   conn: ConnectionDef,
@@ -102,9 +116,7 @@ const buildCredentialHeader = (
   if (conn.type === 'apiKey') {
     const key = secretProp('key')
     if (!key) return { error: `connection ${conn.name}: apiKey requires a key` }
-    const headerName = stringProp(props, 'header') || 'X-API-Key'
-    const prefix = stringProp(props, 'prefix')
-    return { header: headerName, value: prefix ? `${prefix} ${key}` : key }
+    return apiKeyPlacement(props, key)
   }
   if (conn.type === 'bearer') {
     const token = secretProp('token')

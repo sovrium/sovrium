@@ -53,12 +53,18 @@ const nameOf = (entry: unknown): unknown =>
     ? (entry as Readonly<Record<string, unknown>>)['name']
     : undefined
 
-/** The pages list with each patched entry in its place. */
+/** The patches naming no page of a list: new pages, written after it. */
+const newPatches = (pages: readonly unknown[], patches: readonly PagePatch[]) =>
+  patches.filter((patch) => !pages.some((page) => nameOf(page) === patch.name))
+
+/** The pages list with each patched entry in its place, and each new page after them. */
 const patchedPages = (
   pages: readonly unknown[],
   patches: readonly PagePatch[]
-): readonly unknown[] =>
-  pages.map((page) => patches.find((patch) => patch.name === nameOf(page))?.entry ?? page)
+): readonly unknown[] => [
+  ...pages.map((page) => patches.find((patch) => patch.name === nameOf(page))?.entry ?? page),
+  ...newPatches(pages, patches).map((patch) => patch.entry),
+]
 
 /**
  * A JSON root with its patched page entries in place, laid out as it was.
@@ -180,7 +186,13 @@ export const patchYamlPages = (text: string, patches: readonly PagePatch[]): str
         renderedItem(patch.entry, items.indent)
       return [...acc.slice(0, from), ...written, ...acc.slice(to)]
     }, lines)
-  return replaced.join(eol)
+  // A new page goes after the last entry, before what follows the block.
+  const added = newPatches(entries, patches).flatMap((patch) =>
+    renderedItem(patch.entry, items.indent)
+  )
+  const end = items.ranges.at(-1)?.[1] ?? 0
+  const shift = replaced.length - lines.length
+  return [...replaced.slice(0, end + shift), ...added, ...replaced.slice(end + shift)].join(eol)
 }
 
 /**

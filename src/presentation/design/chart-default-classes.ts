@@ -288,6 +288,40 @@ export const CHART_POINT_STROKE_WIDTH = 2
 /** Default area fill opacity. Canvas `fillOpacity = 0.4`; shipped default 0.3. */
 export const CHART_AREA_FILL_OPACITY = 0.4
 
+/**
+ * The paint of a bar a `barColor` rule matched, by its tone: the theme's three
+ * status roles, and the secondary text colour for `muted`.
+ *
+ * A status role is read through a variable the bar declares on itself
+ * ({@link CHART_TONE_STYLE}): the author's `design.colors.<role>` when the app
+ * sets one, else the theme's own status colour, so a bar is in the role
+ * whether or not the app names it.
+ */
+export const CHART_TONE_FILL: Readonly<Record<'success' | 'warning' | 'error' | 'muted', string>> =
+  {
+    success: 'var(--success)',
+    warning: 'var(--warning)',
+    error: 'var(--error)',
+    muted: 'var(--color-muted-foreground, var(--muted-foreground))',
+  }
+
+/** The variable each status tone's bar declares, resolving the role it is painted in. */
+export const CHART_TONE_STYLE: Readonly<
+  Record<'success' | 'warning' | 'error' | 'muted', Readonly<Record<string, string>> | undefined>
+> = {
+  success: { '--success': 'var(--color-success, var(--color-success-solid))' },
+  warning: { '--warning': 'var(--color-warning, var(--color-warning-solid))' },
+  error: { '--error': 'var(--color-error, var(--destructive))' },
+  muted: undefined,
+}
+
+/**
+ * The plot of a chart with a declared `height`: the height comes from the
+ * pixel value the author set, carried on the element itself, so the body
+ * keeps only its width and gives up the 2:1 ratio and the 10rem floor.
+ */
+export const CHART_FIXED_BODY = 'relative h-full w-full'
+
 // ──────────────────────────────────────────────────────────────────────────────
 // LEGEND (the `<ul>` strip beside the chart body)
 // ──────────────────────────────────────────────────────────────────────────────

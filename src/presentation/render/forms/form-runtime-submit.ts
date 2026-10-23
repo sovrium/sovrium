@@ -33,6 +33,11 @@
  * the page leaves (the redirect may wait a few seconds); a success that stays
  * gives it back with the focus on it.
  *
+ * The form tells its page when it sends (`sovrium:form-sending`, the values in
+ * `detail`) and when the send is refused or fails (`sovrium:form-refused`), so
+ * a composer can draw the turn at once and withdraw it; a success is the
+ * `sovrium:crud-success` the record-written fragment already dispatches.
+ *
  * The idempotency key (`_idempotency`, `form-idempotency-key.tsx`) rides with
  * every submission, in the body and as the `Idempotency-Key` header. A form
  * drawn on a page carries none, so it is minted here as the page loads; a
@@ -67,8 +72,12 @@ export const FORM_RUNTIME_SUBMIT_SCRIPT = `
   }
   // A refusal: the field errors, the focus (the first refused field, else the
   // submit, given back by now), then the notice.
+  function tellPage(name, detail) {
+    form.dispatchEvent(new CustomEvent(name, { bubbles: true, detail: detail }))
+  }
   function handleSubmissionResult(result, submitBtn) {
     if (!result.ok) {
+      tellPage('sovrium:form-refused', { status: result.status })
       var refused = (result.body && Array.isArray(result.body.fieldErrors) ? result.body.fieldErrors : [])
         .map(function (entry) {
           var input = form.querySelector('[name="' + entry.name + '"]')
@@ -120,6 +129,7 @@ export const FORM_RUNTIME_SUBMIT_SCRIPT = `
       if (config.onError && config.onError.message) renderOnError(config.onError.message)
       return
     }
+    tellPage('sovrium:form-sending', snapshotValues())
     var fetchInit
     if (hasFileInputs) {
       fetchInit = {
@@ -146,12 +156,13 @@ export const FORM_RUNTIME_SUBMIT_SCRIPT = `
           })
       })
     }, successLeaves)
-    if (!held) return
+    if (!held) return tellPage('sovrium:form-refused', { status: 0 })
     held
       .then(function (result) {
         handleSubmissionResult(result, submitBtn)
       })
       .catch(function (_err) {
+        tellPage('sovrium:form-refused', { status: 0 })
         if (submitBtn) submitBtn.focus()
         renderOnError(null)
       })

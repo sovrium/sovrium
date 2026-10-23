@@ -3,6 +3,7 @@ path: /
 meta:
   title: $t:meta.home.title
   description: $t:meta.home.description
+  favicon: ./favicon.svg
 components:
   - component: banner-top
   - component: navbar-flyout

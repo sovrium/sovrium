@@ -6,6 +6,7 @@ access:
 meta:
   title: 'Feedback blocks · App starter'
   description: 'Alerts, empty states, progress, confirmations and paging.'
+  favicon: ./favicon.svg
 components:
   - $ref: ./_nav.yaml
   - type: container

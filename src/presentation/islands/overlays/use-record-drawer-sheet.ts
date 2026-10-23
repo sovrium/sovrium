@@ -19,7 +19,8 @@ import { EMPTY_RECORD } from './record-drawer-record-read'
 import { useRelatedSlot } from './record-drawer-related-slot'
 import { useRecordSave } from './record-drawer-save'
 import { visibleForRecord } from './record-drawer-visibility'
-import { useDrawerHandlers, useDrawerRecord, useRecordDrawer } from './use-record-drawer'
+import { useDrawerRecord, useRecordDrawer } from './use-record-drawer'
+import { useDrawerHandlers } from './use-record-drawer-handlers'
 import type { DrawerAction } from './record-drawer-actions'
 import type { DrawerContentProps } from './record-drawer-content'
 import type { RecordDrawerField } from './record-drawer-field'
@@ -59,11 +60,17 @@ function useSheetSave(
   const saveWords = useMemo(
     () => ({
       failed: props.saveFailedLabel,
-      createFailed: words?.['createFailed'],
+      // A sheet listing its own fields draws no generic words: the built-in one says it.
+      createFailed: words?.['createFailed'] ?? props.builtInLabels?.createFailed,
       invalidJson: words?.['invalidJson'],
       refused: props.builtInLabels?.saveRefused,
     }),
-    [props.saveFailedLabel, props.builtInLabels?.saveRefused, words]
+    [
+      props.saveFailedLabel,
+      props.builtInLabels?.saveRefused,
+      props.builtInLabels?.createFailed,
+      words,
+    ]
   )
   return useRecordSave({
     ...{ recordFields, values: drawer.values, table: props.table, recordId: drawer.recordId },

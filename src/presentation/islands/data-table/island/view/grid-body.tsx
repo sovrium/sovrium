@@ -67,8 +67,8 @@ function GridPager({ props }: { readonly props: GridBodyProps }) {
  */
 function BottomBar({ props, paged }: { readonly props: GridBodyProps; readonly paged: boolean }) {
   const { selection } = props
-  // On a phone the three menus are one View menu, so the bar stays one line.
-  const phone = usePhoneViewport(true)
+  // On a phone, or in a bar as narrow as one, the menus are one View menu, so
+  // the bar stays one line.
   return (
     <PaginationControls
       table={props.table}
@@ -83,12 +83,14 @@ function BottomBar({ props, paged }: { readonly props: GridBodyProps; readonly p
         ) : undefined
       }
       trailing={
-        props.viewOptions === 'toolbar' ? undefined : (
-          <SessionControls
-            {...props.session}
-            frame={phone ? 'view' : 'bar'}
-          />
-        )
+        props.viewOptions === 'toolbar'
+          ? undefined
+          : (compact: boolean) => (
+              <SessionControls
+                {...props.session}
+                frame={compact ? 'view' : 'bar'}
+              />
+            )
       }
     />
   )
@@ -110,8 +112,12 @@ function BottomBar({ props, paged }: { readonly props: GridBodyProps; readonly p
  * needs no new state either.
  */
 export function GridBody(props: GridBodyProps) {
-  // `phoneLayout: rows` swaps the grid for items on a phone, and only there.
-  const phoneRows = usePhoneViewport(props.phoneLayout === 'rows')
+  // `phoneLayout: rows` swaps the grid for items on a phone, and only there —
+  // and only while there are rows to read: an empty grid keeps its empty
+  // message and its New row entry, which only the grid draws.
+  const phone = usePhoneViewport(props.phoneLayout === 'rows')
+  const empty = props.grid.table.getRowModel().rows.length === 0 && !props.grid.isLoading
+  const phoneRows = phone && !empty
   return (
     <>
       {props.viewOptions === 'toolbar' && (

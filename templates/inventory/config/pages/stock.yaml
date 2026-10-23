@@ -10,6 +10,7 @@ access:
 meta:
   title: Stock · Brunel Stock
   description: Every stock movement, signed, grouped by warehouse.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

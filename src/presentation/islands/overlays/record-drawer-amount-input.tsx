@@ -24,7 +24,7 @@ import { computeInputGroupFieldClasses } from '@/presentation/design/input-group
 import { computeInputGroupClasses } from '@/presentation/design/input-group-root-classes'
 import { RequiredMark } from '../parts/crud-form/field-label'
 import { resolvePageLocale } from '../runtime/page-locale'
-import { controlStateAttributes } from './record-drawer-control-state'
+import { useControlStateAttributes } from './record-drawer-control-state'
 import { RefusalLine } from './record-drawer-refusal-line'
 import type { TypedFieldProps } from './record-drawer-typed-input'
 
@@ -65,6 +65,7 @@ export function AmountField(props: TypedFieldProps): ReactElement {
     )
   }, [value, locale])
   const code = field.currency?.currency
+  const state = useControlStateAttributes(props)
   return (
     <label
       data-field={field.name}
@@ -99,7 +100,7 @@ export function AmountField(props: TypedFieldProps): ReactElement {
             onChange(field.name, parseGroupedAmount(event.target.value, locale))
           }}
           className={computeInputGroupFieldClasses()}
-          {...controlStateAttributes(props)}
+          {...state}
         />
       </span>
       <RefusalLine

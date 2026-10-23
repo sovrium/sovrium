@@ -14,6 +14,7 @@ access:
 meta:
   title: Home · Halden
   description: The must-read, the latest news, what is coming up and who joined.
+  favicon: ./favicon.svg
 components:
   - $ref: ./_shell.yaml
   - type: container

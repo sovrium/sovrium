@@ -8,6 +8,7 @@ access:
 meta:
   title: Tags · Field Notes
   description: The tags an essay can carry.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

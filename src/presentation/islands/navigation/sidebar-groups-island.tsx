@@ -10,6 +10,7 @@ import { computeSidebarGroupListClasses } from '@/presentation/design/sidebar-de
 import { buildSystemQueryUrl } from '../runtime/system-query-url'
 import { toProjectedEntry, type ProjectedEntry } from './sidebar-entry-projection'
 import { FetchedEntry } from './sidebar-fetched-entry'
+import { rowMarks } from './sidebar-row-marks'
 import { useFetchedSidebarCurrent } from './use-fetched-sidebar-current'
 import type { ChildrenSource } from './sidebar-fetched-children'
 
@@ -45,6 +46,10 @@ interface SidebarGroupsIslandProps {
    * someone already knows which tables exist.
    */
   readonly itemProps?: Readonly<Record<string, unknown>>
+  /** Each entry's icon, `{field}`-filled from its row: a Lucide name or one emoji. */
+  readonly icon?: string
+  /** Each entry's badge, `{field}`-filled from its row; empty or `0` draws none. */
+  readonly badge?: string
   /**
    * Static query params merged into the request — the group's own filter.
    *
@@ -89,10 +94,10 @@ async function fetchEntries(
   props: Required<
     Omit<
       SidebarGroupsIslandProps,
-      'itemProps' | 'query' | 'rail' | 'activeMatch' | 'childrenSource' | 'track'
+      'itemProps' | 'query' | 'rail' | 'activeMatch' | 'childrenSource' | 'track' | 'icon' | 'badge'
     >
   > &
-    Pick<SidebarGroupsIslandProps, 'itemProps' | 'query'>
+    Pick<SidebarGroupsIslandProps, 'itemProps' | 'query' | 'icon' | 'badge'>
 ): Promise<readonly ProjectedEntry[]> {
   try {
     const response = await fetch(buildSystemQueryUrl(props), {
@@ -105,7 +110,7 @@ async function fetchEntries(
     if (!Array.isArray(rows)) return []
     return rows.flatMap((row: Readonly<Record<string, unknown>>) => {
       const entry = toProjectedEntry(row, props)
-      return entry ? [entry] : []
+      return entry ? [{ ...entry, ...rowMarks(props, entry.row ?? row) }] : []
     })
   } catch {
     return []
@@ -118,6 +123,8 @@ export default function SidebarGroupsIsland({
   labelKey,
   hrefTemplate,
   itemProps,
+  icon,
+  badge,
   query,
   rail,
   activeMatch,
@@ -132,15 +139,14 @@ export default function SidebarGroupsIsland({
   useEffect(() => {
     if (endpoint === undefined || labelKey === undefined || hrefTemplate === undefined) return
     let live = true
-    void fetchEntries({ endpoint, rowsKey, labelKey, hrefTemplate, itemProps, query }).then(
-      (fetched) => {
-        if (live) setEntries(fetched)
-      }
-    )
+    const projection = { endpoint, rowsKey, labelKey, hrefTemplate, itemProps, icon, badge, query }
+    void fetchEntries(projection).then((fetched) => {
+      if (live) setEntries(fetched)
+    })
     return () => {
       live = false
     }
-  }, [endpoint, rowsKey, labelKey, hrefTemplate, itemProps, query])
+  }, [endpoint, rowsKey, labelKey, hrefTemplate, itemProps, icon, badge, query])
 
   // Nothing fetched (yet, or at all) renders nothing rather than an empty list:
   // the authored entries above are the sidebar until the rows arrive.

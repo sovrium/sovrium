@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { LinkPreviewReader } from '@/application/ports/services/link-preview-reader'
 import {
   CommittedRowChanges,
   RecordChangeFeed,
@@ -14,6 +15,10 @@ import {
   type CommittedRowChange,
   type RowChangeCollector,
 } from '@/application/ports/services/record-change-feed'
+import {
+  linkAddressesOfRecord,
+  linkPreviewFieldsOf,
+} from '@/domain/models/app/pages/components/component-types/display/link-preview-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
 import { writeOnlyColumnsOf } from '@/domain/models/app/tables/write-only-field-service'
 import { transformRecord } from './record-transformer'
@@ -81,11 +86,39 @@ const announceReported = (
     ? Effect.void
     : Effect.gen(function* () {
         const feed = yield* RecordChangeFeed
-        yield* feed.announce({
-          appId: app.name,
-          changes: reported.map((change) => toAnnounced(app, change)),
-        })
+        const changes = reported.map((change) => toAnnounced(app, change))
+        yield* feed.announce({ appId: app.name, changes })
+        yield* readLinkPreviewsAfterWrite(app, changes)
       })
+
+/**
+ * The link previews a write asks for: the addresses the stored records hold in
+ * the fields a previewing bubble draws (`linkPreviews: true`), read in the
+ * background once the write is over, so the write never waits on another site.
+ * A read that fails is remembered as failed by the cache; nothing here can.
+ */
+const readLinkPreviewsAfterWrite = (
+  app: App,
+  changes: readonly AnnouncedRowChange[]
+): Effect.Effect<void> => {
+  const fieldsByTable = linkPreviewFieldsOf(app)
+  if (fieldsByTable.size === 0) return Effect.void
+  const addresses = [
+    ...new Set(
+      changes.flatMap((change) => {
+        const fields = fieldsByTable.get(change.tableName)
+        return fields === undefined || change.record === undefined || change.event === 'delete'
+          ? []
+          : linkAddressesOfRecord(change.record, fields)
+      })
+    ),
+  ]
+  if (addresses.length === 0) return Effect.void
+  return Effect.gen(function* () {
+    const reader = yield* LinkPreviewReader
+    yield* reader.readInBackground(addresses)
+  })
+}
 
 /** The tables of `app` declaring `activityLog: false`. */
 const unauditedTablesOf = (app: App | undefined): ReadonlySet<string> =>

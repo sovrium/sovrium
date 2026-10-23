@@ -19,11 +19,10 @@
  */
 
 import { useCallback, useMemo } from 'react'
-import { fieldDescriptionId } from '@/presentation/design/field-display'
 import { ChoiceSelect } from '../parts/choice-select'
+import { useFieldLineIds } from '../parts/crud-form/field-id-scope'
 import { RequiredMark } from '../parts/crud-form/field-label'
 import { useAccountChoices, type DrawerChoice } from './record-drawer-choices'
-import { refusalIdOf } from './record-drawer-field'
 import { RefusalLine } from './record-drawer-refusal-line'
 import type { OptionChipPaint } from '@/presentation/design/option-chip-paint'
 import type { CSSProperties, ReactElement, ReactNode } from 'react'
@@ -51,11 +50,12 @@ const chosenHue = (paint: OptionChipPaint | undefined): CSSProperties | undefine
 /** The lines describing the choice: its guidance, then why it was refused. */
 function describedByOf(
   field: { readonly name: string; readonly description?: string },
-  error: string | undefined
+  error: string | undefined,
+  lines: { readonly description: string; readonly refusal: string }
 ): string | undefined {
   const ids = [
-    field.description === undefined ? undefined : fieldDescriptionId(field.name),
-    error === undefined ? undefined : refusalIdOf(field.name),
+    field.description === undefined ? undefined : lines.description,
+    error === undefined ? undefined : lines.refusal,
   ].filter((id): id is string => id !== undefined)
   return ids.length === 0 ? undefined : ids.join(' ')
 }
@@ -81,7 +81,8 @@ function ChoiceInput({
 }): ReactElement {
   const change = useCallback((next: string) => onChange(field.name, next), [onChange, field.name])
   const options = useMemo(() => withStoredValue(choices, value), [choices, value])
-  const describedBy = describedByOf(field, error)
+  const lines = useFieldLineIds(field.name)
+  const describedBy = describedByOf(field, error, lines)
   return (
     <ChoiceSelect
       name={field.name}

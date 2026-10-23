@@ -22,15 +22,11 @@ import {
   computeGalleryOverlayClasses,
   resolveGalleryAspectRatio,
 } from '@/presentation/design/gallery-default-classes'
-import {
-  renderCardChild,
-  resolveImageSource,
-  substitute,
-  type CardChildClasses,
-} from '../kanban/card-template'
+import { resolveImageSource, substitute, type CardChildClasses } from '../kanban/card-template'
 import { cardPathClick, openCardDrawer, seekFromCard } from '../runtime/card-click'
 import { CardClickTarget } from './card-click-target'
 import { featuredCardClasses } from './featured-card-classes'
+import { GalleryBodyChild } from './gallery-card-children'
 import { GalleryClassesContext, GallerySelectionContext } from './gallery-classes-context'
 import type { TableRecord } from '../runtime/types'
 import type { Action } from '@/domain/models/app/pages/components/action'
@@ -182,9 +178,15 @@ function GalleryCardBody({
         data-slot="card-content"
         className={pieces?.body ?? GALLERY_CARD_BODY_CLASSES}
       >
-        {card.children?.map((child, index) =>
-          renderCardChild(child, record, index, CARD_CHILD_CLASSES)
-        )}
+        {card.children?.map((child, index) => (
+          <GalleryBodyChild
+            key={`child-${String(index)}`}
+            child={child}
+            record={record}
+            index={index}
+            classes={CARD_CHILD_CLASSES}
+          />
+        ))}
       </div>
     </>
   )

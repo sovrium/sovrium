@@ -6,6 +6,7 @@ path: /404
 meta:
   title: This page is not here · Docs
   description: The page you opened is not in the documentation.
+  favicon: ./favicon.svg
 components:
   - $ref: ./_site-header.yaml
   - type: container

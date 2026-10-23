@@ -218,6 +218,7 @@ export const section = defineSection({
         'US-CLI-DESIGN-SYSTEM-PAGES-EXPORT',
         'US-CLI-DESIGN-SYSTEM-PAGES-IMPORT',
         'US-CLI-DESIGN-SYSTEM-PAGES-ADAPTERS',
+        'US-CLI-DESIGN-SYSTEM-PAGES-ROUND-TRIP',
       ],
     }),
     defineArticle({

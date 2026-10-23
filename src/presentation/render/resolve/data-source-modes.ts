@@ -28,6 +28,7 @@ import {
 } from '@/domain/models/app/tables/read-access-plan-service'
 import { pageRecordOf } from '@/presentation/render/props/record-value-format'
 import { withCallerTableView } from './caller-table-stamp'
+import { expandBoundRows } from './conversation-rows'
 import {
   SINGLE_RECORD_NOT_FOUND,
   validateDataSourceFields,
@@ -35,7 +36,6 @@ import {
   type DataSourceDb,
   type DataSourceSectionResult,
 } from './data-source-contracts'
-import { expandDataSourceChildren } from './data-source-rows'
 import { applyFieldLevelPermissions } from './field-permission-filter'
 import {
   formManyToManyFields,
@@ -48,6 +48,7 @@ import { readRowsForCaller, type CallerRowsQuery } from './record-read-gate'
 import { substituteRecordInComponent } from './record-substitution'
 import { addressRowAttachments, recordAddresser } from './row-attachment-addresses'
 import { readBoundRecordForCaller } from './single-record-read'
+import { bindReadRows } from './viewer-own-rows'
 import {
   emptyDataBoundComponent,
   isReadWithheld,
@@ -58,10 +59,7 @@ import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Component } from '@/domain/models/app/pages/components'
 
-/**
- * A render-time-only `favorites-button` child: never schema-authored, injected
- * so every single-record detail page gets a star toggle bound to its record.
- */
+/** A render-time `favorites-button` child: a star toggle bound to a detail page's record. */
 function buildFavoritesButton(tableName: string, record: Record<string, unknown>): Component {
   const recordId = record['id']
   return {
@@ -223,9 +221,10 @@ async function resolveListMode(
   const paginationMeta =
     pageSize !== undefined ? { pageSize, totalCount: total, style: pagination?.style } : undefined
   const sign = ctx.db.signFileUrl
-  const addressed = await addressRowAttachments({ component, rows, app: ctx.app, tableName, sign })
+  const own = await bindReadRows(component, rows, ctx)
+  const addressed = await addressRowAttachments({ ...own, app: ctx.app, tableName, sign })
   const pageRows = addressed.rows.map((row) => pageRecordOf(row, tableName, ctx.db.recordText))
-  return expandDataSourceChildren(addressed.component, pageRows, paginationMeta, { tableName })
+  return expandBoundRows(addressed.component, pageRows, paginationMeta, ctx)
 }
 
 function buildSearchProps(

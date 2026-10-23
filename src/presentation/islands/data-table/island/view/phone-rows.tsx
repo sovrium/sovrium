@@ -6,7 +6,11 @@
  */
 
 import { flexRender } from '@tanstack/react-table'
+import { Fragment } from 'react'
+import { useInlineExpand } from '../../inline-expand/inline-expand-context'
+import { InlineExpandToggle, InlineRecordBody } from '../../inline-expand/inline-expand-row'
 import { performRowAction, type RowActionContext } from '../../row-action'
+import { rowIdOf } from '../../row-identity'
 import type { DataTableInstance, DataTableRow } from '../table-features'
 import type { ReactNode } from 'react'
 
@@ -36,27 +40,36 @@ export function PhoneRows({
     .slice(0, 3)
   const rowAction: RowActionContext | undefined =
     onRowClickAction === undefined ? undefined : { onRowClickAction, tableName }
+  // Rows that open their record under themselves carry its toggle.
+  const expands = useInlineExpand() !== undefined
   return (
     <ul
       aria-label={ariaLabel}
       className="divide-border divide-y"
     >
       {table.getRowModel().rows.map((row) => (
-        <li
-          key={row.id}
-          data-table-phone-row=""
-          className={rowAction === undefined ? ITEM_CLASSES : undefined}
-        >
-          <PhoneRowOpener
-            row={row}
-            rowAction={rowAction}
+        <Fragment key={row.id}>
+          <li
+            data-table-phone-row=""
+            className={rowAction === undefined ? `${ITEM_CLASSES} relative` : 'relative'}
           >
-            <PhoneRowContent
+            <PhoneRowOpener
               row={row}
-              fieldColumns={fieldColumns}
-            />
-          </PhoneRowOpener>
-        </li>
+              rowAction={rowAction}
+            >
+              <PhoneRowContent
+                row={row}
+                fieldColumns={fieldColumns}
+              />
+            </PhoneRowOpener>
+            {expands && (
+              <span className="absolute top-2 right-2">
+                <InlineExpandToggle row={row} />
+              </span>
+            )}
+          </li>
+          <PhoneRowRecord row={row} />
+        </Fragment>
       ))}
     </ul>
   )
@@ -103,6 +116,17 @@ function PhoneRowContent({
 }
 
 const ITEM_CLASSES = 'flex min-w-0 flex-col gap-0.5 px-3 py-2'
+
+/** A row's open record, as the next item of the list: under its row, before the next one. */
+function PhoneRowRecord({ row }: { readonly row: DataTableRow }) {
+  const expand = useInlineExpand()
+  if (expand === undefined || !expand.isExpanded(rowIdOf(row))) return null
+  return (
+    <li data-table-phone-row-record="">
+      <InlineRecordBody row={row} />
+    </li>
+  )
+}
 
 /** The item's content, inside the button that opens its row when the grid opens rows. */
 function PhoneRowOpener({

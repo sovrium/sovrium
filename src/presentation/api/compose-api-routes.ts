@@ -38,6 +38,7 @@ import { chainAnalyticsRoutes } from '@/presentation/api/analytics/routes'
 import { chainAccountRoutes } from '@/presentation/api/auth/account-routes'
 import { chainAuthRoutes } from '@/presentation/api/auth/routes'
 import { chainScimRoutes } from '@/presentation/api/auth/scim-routes'
+import { chainNotificationRoutes } from '@/presentation/api/automations/notification-routes'
 import { chainAutomationRoutes } from '@/presentation/api/automations/routes'
 import { chainRunRetentionRoutes } from '@/presentation/api/automations/run-retention-routes'
 import { chainBucketRoutes } from '@/presentation/api/buckets/routes'
@@ -307,12 +308,15 @@ export const createApiRoutes = <T extends Hono>(
     )
   )
 
-  const honoWithFavorites = chainFavoriteRoutes(honoWithNotificationTriggers, resolveLiveApp)
+  const honoWithFavorites = chainNotificationRoutes(
+    chainFavoriteRoutes(honoWithNotificationTriggers, resolveLiveApp),
+    resolveLiveApp
+  )
 
   // Chain the user directory: GET /api/users/directory. Always registered; the
   // handler returns 401 when no session is attached (the `/api/users/*` auth
   // chain is installed above when `app.auth` is configured).
-  const honoWithUserDirectory = chainUserDirectoryRoutes(honoWithFavorites)
+  const honoWithUserDirectory = chainUserDirectoryRoutes(honoWithFavorites, resolveLiveApp)
 
   // Chain recent-item + command-palette search routes
   // GET/POST /api/recent and GET /api/command-search. Always registered; the

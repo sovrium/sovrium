@@ -6,6 +6,7 @@ path: /register
 meta:
   title: Register · Fieldday
   description: Register for a Fieldday event. It takes a minute, needs no account and is free.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

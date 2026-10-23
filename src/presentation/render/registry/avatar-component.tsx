@@ -39,6 +39,10 @@
 
 import { deriveInitials } from '@/presentation/design/avatar-initials'
 import {
+  DISABLED_CONTROL_WRAPPER_CLASSES,
+  TOOLTIP_CLASSES,
+} from '@/presentation/design/disabled-reason'
+import {
   computeAvatarBoxClasses,
   computeAvatarFallbackClasses,
   computeAvatarGroupClasses,
@@ -192,17 +196,55 @@ const renderStatus = (status: AvatarStatus | undefined): ReactElement | undefine
     />
   )
 
-/** One member of a stack: the same disc, pulled back over the one before it. */
+/**
+ * One member of a stack: the same disc, pulled back over the one before it.
+ * A group read from records (`tooltips`) makes each disc focusable and names
+ * its person in a tooltip on hover and on focus.
+ */
 const renderMember = ({
   member,
   index,
   size,
   shape,
+  tooltips = false,
 }: {
   readonly member: AvatarMember
   readonly index: number
   readonly size: AvatarSize
   readonly shape: AvatarShape
+  readonly tooltips?: boolean
+}): ReactElement => {
+  const disc = renderDisc({ member, index, size, shape, tooltips })
+  if (!tooltips || member.label === undefined) return disc
+  return (
+    <span
+      key={index}
+      className={DISABLED_CONTROL_WRAPPER_CLASSES}
+    >
+      {disc}
+      <span
+        role="tooltip"
+        className={TOOLTIP_CLASSES}
+      >
+        {member.label}
+      </span>
+    </span>
+  )
+}
+
+/** A member's disc: its picture or initials, and its presence. */
+const renderDisc = ({
+  member,
+  index,
+  size,
+  shape,
+  tooltips,
+}: {
+  readonly member: AvatarMember
+  readonly index: number
+  readonly size: AvatarSize
+  readonly shape: AvatarShape
+  readonly tooltips: boolean
 }): ReactElement => (
   <span
     key={index}
@@ -210,6 +252,7 @@ const renderMember = ({
     data-slot="avatar"
     data-size={size}
     role="img"
+    tabIndex={tooltips ? 0 : undefined}
     aria-label={member.label ?? ''}
     className={computeAvatarMemberClasses({ size, shape })}
   >
@@ -292,6 +335,9 @@ export const avatarComponent: ComponentRenderer = ({ elementPropsWithSpacing, co
     )
   }
 
+  // A group read from records names each person in a tooltip (`avatar-members-binding.ts`).
+  const tooltips =
+    (source['props'] as { _avatarTooltips?: unknown } | undefined)?._avatarTooltips === true
   const max = typeof source['max'] === 'number' ? source['max'] : undefined
   const visible = max === undefined ? items : items.slice(0, max)
   return (
@@ -302,7 +348,7 @@ export const avatarComponent: ComponentRenderer = ({ elementPropsWithSpacing, co
       data-slot="avatar-group"
       className={mergePrestyle(computeAvatarGroupClasses(), authorClassName as string | undefined)}
     >
-      {visible.map((member, index) => renderMember({ member, index, size, shape }))}
+      {visible.map((member, index) => renderMember({ member, index, size, shape, tooltips }))}
       {renderOverflow(items.length - visible.length)}
     </span>
   )

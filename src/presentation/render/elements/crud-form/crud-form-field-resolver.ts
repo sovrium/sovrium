@@ -274,8 +274,19 @@ function resolveFieldDef(
     ...resolveTypedColumnConfig(tableField.type, tf),
     ...(cfg ? resolveCfgOverrides(cfg) : undefined),
     ...autofillHintOverlay(tableField.type, cfg?.autocomplete),
+    ...textControlOf(cfg),
   }
 }
+
+/**
+ * The author's `control` a table-bound form honours: a text column drawn
+ * masked or as a multi-line box. A control the column cannot hold is refused
+ * when the config is read (`table-control-validation.ts`).
+ */
+const textControlOf = (
+  cfg: FormFieldConfig | undefined
+): { readonly control?: 'password' | 'textarea' } =>
+  cfg?.control === 'password' || cfg?.control === 'textarea' ? { control: cfg.control } : {}
 
 /**
  * Reads the optional `fields[]` array from a form component definition.

@@ -9,6 +9,7 @@ access:
 meta:
   title: Calendar · Loomwork Content
   description: What goes out this month, where, and what is late.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

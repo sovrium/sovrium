@@ -644,11 +644,12 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
     // when the viewer's admin-ness is unknown (`undefined`), default to
     // approved-only so pending/rejected comments never leak to non-admins.
     const includeAllStatuses = viewerIsAdmin === true
+    const visibility = { includeAllStatuses, ownPending: true } as const
 
     // Check record exists
     yield* verifyRecordAccess({ session, tableName, recordId })
 
-    // List comments (admins see all statuses; everyone else approved-only)
+    // List comments (admins see all statuses; everyone else approved, and her own pending)
     const commentsList = yield* comments.list({
       session,
       tableKeys,
@@ -656,7 +657,7 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
       limit,
       offset,
       sortOrder,
-      includeAllStatuses,
+      ...visibility,
     })
 
     // Get total count and pagination if requested. Count mirrors the list
@@ -666,7 +667,7 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
         ? calculatePagination({
             limit,
             offset,
-            total: yield* comments.getCount({ session, tableKeys, recordId, includeAllStatuses }),
+            total: yield* comments.getCount({ session, tableKeys, recordId, ...visibility }),
           })
         : undefined
 
@@ -678,7 +679,6 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
         ? yield* comments.countUnread({ session, tableKeys, recordId })
         : undefined
 
-    // Format response
     return {
       comments: formatCommentsList(commentsList),
       ...(pagination && { pagination }),

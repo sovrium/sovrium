@@ -18,6 +18,7 @@ import mapBody from '@/domain/models/app/pages/components/component-types/data/m
 import matrixBody from '@/domain/models/app/pages/components/component-types/data/matrix/matrix.docs.md' with { type: 'file' }
 import gridEditingBody from '@/domain/models/app/pages/components/component-types/data/table/grid-editing.docs.md' with { type: 'file' }
 import tableFormAnswersBody from '@/domain/models/app/pages/components/component-types/data/table/table-form-answers.docs.md' with { type: 'file' }
+import tableRowExpandBody from '@/domain/models/app/pages/components/component-types/data/table/table-row-expand.docs.md' with { type: 'file' }
 import dataTableBody from '@/domain/models/app/pages/components/component-types/data/table/table.docs.md' with { type: 'file' }
 import treeBody from '@/domain/models/app/pages/components/component-types/data/tree/tree.docs.md' with { type: 'file' }
 import { componentType } from './component-directives'
@@ -123,6 +124,18 @@ export const section = defineSection({
       body: tableFormAnswersBody,
       documents: [],
       stories: ['US-PAGES-DATA-COMPONENTS-DATA-TABLE-COLUMNS-FROM-FORM'],
+    }),
+    defineArticle({
+      slug: 'data-components-row-expand-inline',
+      title: 'Opening a Row Inline',
+      description:
+        'rowExpand.placement: inline — the record of a row drawn as one full-width row under it, so the rest of the list stays in sight.',
+      keywords: ['sovrium', 'data table', 'rowExpand', 'placement', 'inline', 'expand row'],
+      order: 3405,
+      sidebarLabel: 'Opening a Row Inline',
+      body: tableRowExpandBody,
+      documents: [],
+      stories: [],
     }),
     defineArticle({
       slug: 'data-components-lists',

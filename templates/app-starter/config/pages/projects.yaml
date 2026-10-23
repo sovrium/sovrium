@@ -6,6 +6,7 @@ access:
 meta:
   title: Projects · App starter
   description: Every project, each one click from its details.
+  favicon: ./favicon.svg
 components:
   - $ref: ./_nav.yaml
   - component: record-sheet

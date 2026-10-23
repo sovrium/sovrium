@@ -20,6 +20,7 @@
  * instance.
  */
 
+import { queriedSeededRows } from '@/domain/models/app/pages/seeded-rows-service'
 import {
   isRecordHistoryEndpoint,
   SPECIMEN_PERSON,
@@ -30,6 +31,7 @@ import {
 } from '@/domain/models/app/pages/specimen-sample-service'
 import type { DataSourceDb } from './data-source-contracts'
 import type { SystemRowsFetcher } from './first-object-redirect-resolver'
+import type { SpecimenSeed } from '@/application/ports/services/specimen-seed'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 
@@ -66,3 +68,47 @@ export const specimenSampleDb = (app: App): DataSourceDb => ({
 /** A system endpoint's rows: a record's sample history, and nothing for any other. */
 export const specimenSystemRows: SystemRowsFetcher = async (endpoint) =>
   isRecordHistoryEndpoint(endpoint) ? specimenHistory() : []
+
+/** Who a seeded specimen is drawn for: the seeded account it names, else the sample person. */
+export const specimenSessionOf = (seed: SpecimenSeed | undefined): SessionInfo =>
+  seed?.viewer === undefined
+    ? SPECIMEN_SESSION
+    : {
+        userId: seed.viewer.id,
+        role: seed.viewer.role,
+        name: seed.viewer.name,
+        email: seed.viewer.email,
+      }
+
+/**
+ * Readers that answer a seeded table's reads from the seed folder's rows, and
+ * every other read as {@link specimenSampleDb} does. Nothing reaches a database.
+ */
+export const specimenSeedDb = (app: App, seed: SpecimenSeed): DataSourceDb => {
+  const sample = specimenSampleDb(app)
+  return {
+    ...sample,
+    fetchRecords: async (table, options) => {
+      const rows = seed.tables[table]
+      if (rows === undefined) return sample.fetchRecords(table, options)
+      return queriedSeededRows(rows, options).map((row) => ({ ...row }))
+    },
+    countRecords: async (table, filter) => {
+      const rows = seed.tables[table]
+      return rows === undefined
+        ? sample.countRecords(table)
+        : queriedSeededRows(rows, { filter }).length
+    },
+    // eslint-disable-next-line max-params -- implements the port's positional signature
+    fetchSingleRecord: async (table, field, value, fields, options) => {
+      const rows = seed.tables[table]
+      if (rows === undefined) return sample.fetchSingleRecord(table, field, value, fields, options)
+      const row = rows.find((candidate) => String(candidate[field]) === value)
+      return row === undefined ? undefined : { ...row }
+    },
+  }
+}
+
+/** The readers a specimen is drawn with: the seed folder's, else the sample's. */
+export const specimenDbOf = (app: App, seed: SpecimenSeed | undefined): DataSourceDb =>
+  seed === undefined ? specimenSampleDb(app) : specimenSeedDb(app, seed)

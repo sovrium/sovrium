@@ -85,9 +85,15 @@ const formatOverlay = (column: Column): DrawerControlOverlay => {
   }
 }
 
-/** The value a new record starts with: the column's declared `default`, as text. */
+/**
+ * The value a new record starts with: the column's declared `default`, as text.
+ * A default the server resolves — `$currentUser`, `$now` — is no value a
+ * control can hold: the control starts empty, the untouched field is left out
+ * of the create, and the server fills it as it does for any create.
+ */
 const defaultOverlay = (column: Column): DrawerControlOverlay => {
   const declared = column?.['default']
+  if (typeof declared === 'string' && declared.startsWith('$')) return {}
   if (typeof declared === 'string' || typeof declared === 'number') {
     return { defaultValue: String(declared) }
   }

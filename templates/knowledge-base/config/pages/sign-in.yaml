@@ -6,6 +6,7 @@ path: /sign-in
 meta:
   title: Sign in · Corvel handbook
   description: Sign in to the Corvel handbook with your work email.
+  favicon: ./favicon.svg
 components:
   - $ref: ./_site-header.yaml
   - type: container

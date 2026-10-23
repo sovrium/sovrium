@@ -1,0 +1,26 @@
+# Every night at 04:07, put the demo back the way it shipped: the tables are
+# emptied and refilled from seed/, the demo accounts get their seed passwords
+# back, every visitor is signed out, and uploads no row names any more are
+# removed. Handy for a public demo that strangers are free to wreck.
+#
+# It does nothing unless the host sets SOVRIUM_SELF_SEED=reset. Without that
+# variable the automation is not scheduled at all, so an app you build from
+# this template never wipes its own data. A reset also needs
+# SOVRIUM_SEED_PASSWORD, the password the seeded accounts get back.
+#
+# `history: minimal` keeps each night's status and timing but not the report,
+# so the run history does not fill with a copy of the seed.
+name: nightly-reset
+label: Reset the demo to its seed every night
+description: At 04:07 every night, bring the app back to its seed data — only when the host sets SOVRIUM_SELF_SEED=reset.
+enabled: true
+trigger:
+  type: cron
+  expression: '7 4 * * *'
+  history: minimal
+actions:
+  - name: reset
+    type: app
+    operator: seed
+    props:
+      mode: reset

@@ -20,6 +20,7 @@
 
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import { resolveSystemSource } from '@/domain/models/app/system-sources'
+import type { ReadReadPosition } from '@/application/ports/repositories/tables/read-state-repository'
 import type { LookupReadMask } from '@/application/ports/repositories/tables/table-repository'
 import type {
   LoadRowRuleContext,
@@ -167,6 +168,13 @@ export interface DataSourceDb {
   readonly readRecordLabels?: ReadRecordLabels
 
   /**
+   * Optional — the reader's position on one parent record of a `readState`
+   * relationship, as the mark-read route keeps it. Absent, a conversation
+   * bound to that parent's children draws no New marker.
+   */
+  readonly readReadPosition?: ReadReadPosition
+
+  /**
    * Optional — the context a table's row-level rule judges a reader by, as the
    * records API loads it (her assignments, and the ids each `contains` or
    * relationship leaf admits), once per request and table. Absent, a page
@@ -216,6 +224,46 @@ export interface DataSourceDb {
    * its field type. Absent, every value prints as stored.
    */
   readonly recordText?: RecordTextContext
+
+  /**
+   * Optional — the link-preview cards the server has already read for these
+   * normalised addresses, in their order. Reads nothing from another site: a
+   * page is read when a record holding it is stored. Absent, no card is drawn.
+   */
+  readonly readLinkPreviews?: (
+    addresses: readonly string[]
+  ) => Promise<readonly LinkPreviewCardFacts[]>
+
+  /**
+   * Optional — the reply summary of each record of a table: its approved
+   * comments' count, the names of the last three people who replied and when
+   * the last reply came. What every reader of the record sees in its thread,
+   * so it is read for rows the read gate already admitted. Absent, a turn's
+   * `replies` draws nothing.
+   */
+  readonly readCommentSummaries?: (
+    table: { readonly id?: number | string | undefined; readonly name: string },
+    recordIds: readonly string[]
+  ) => Promise<ReadonlyMap<string, CommentSummaryFacts>>
+}
+
+/** The reply summary of one record. */
+export interface CommentSummaryFacts {
+  readonly count: number
+  /** The last people who replied, most recent first, each once, at most three. */
+  readonly lastRepliers: readonly string[]
+  readonly lastAt: string
+}
+
+/** One link-preview card as the server read it: text fields only. */
+export interface LinkPreviewCardFacts {
+  readonly id: string
+  readonly url: string
+  readonly title: string | undefined
+  readonly description: string | undefined
+  readonly siteName: string | undefined
+  /** True when the page's picture is kept and served by the app. */
+  readonly hasImage: boolean
 }
 
 /** Injects a _dataSourceError prop into a component's props. */

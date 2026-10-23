@@ -94,6 +94,7 @@ export const writeDesignSystemBundle = async (
   await Promise.all(bundle.files.map((file) => writeBundleFile(outputDir, file.path, file.bytes)))
   await writeBundleFile(outputDir, 'manifest.json', bundle.manifestBytes)
 
+  bundle.notices.forEach((notice) => printStderr(notice))
   const seconds = ((performance.now() - started) / 1000).toFixed(1)
   const kitPages = bundle.manifest.files.filter(
     (file) => file.role === 'kit' && file.path.endsWith('.html')

@@ -8,6 +8,7 @@ access:
 meta:
   title: People · Halden
   description: Everyone at Halden, by name, team and office.
+  favicon: ./favicon.svg
 components:
   - $ref: ./_shell.yaml
   - type: container

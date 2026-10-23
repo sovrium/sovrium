@@ -125,3 +125,35 @@ export const toSafeRedirectPath = (value: unknown): string | undefined => {
     return undefined
   }
 }
+
+/**
+ * The address `value` denotes, rebuilt by the URL parser, when it sits on one of
+ * the exact `allowOrigins` — or `undefined` when it is not a target an action
+ * may send the reader to.
+ *
+ * The other-site sibling of {@link toSafeRedirectPath}, for the one case an
+ * action leaves the site: `onSuccess.navigate` reading the address its run
+ * returned (`$response.url`) beside an `allowOrigins` list. The origin is
+ * compared EXACTLY — scheme, host and port — so a look-alike
+ * (`https://pay.example.com.evil.test`) never matches `https://pay.example.com`;
+ * a `javascript:` or `data:` value has the opaque origin `null` and never
+ * matches; an address carrying credentials is refused, and so is plain `http:`
+ * anywhere but `localhost` (which the server lists only outside production).
+ * The result is the parser's own `href`, for the reason
+ * {@link toSafeRedirectPath} gives: the sink receives a string the parser BUILT.
+ */
+export const toAllowedOriginAddress = (
+  value: unknown,
+  allowOrigins: readonly string[] | undefined
+): string | undefined => {
+  if (typeof value !== 'string' || allowOrigins === undefined) return undefined
+  try {
+    const url = new URL(value)
+    const leavable = url.protocol === 'https:' || url.hostname === 'localhost'
+    const clean = url.username === '' && url.password === ''
+    return leavable && clean && allowOrigins.includes(url.origin) ? url.href : undefined
+  } catch {
+    // Not an absolute address: nothing on another site to go to.
+    return undefined
+  }
+}

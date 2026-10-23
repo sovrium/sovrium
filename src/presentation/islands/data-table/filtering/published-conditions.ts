@@ -6,7 +6,7 @@
  */
 
 import { pageConditionsInBag } from '@/domain/models/app/pages/shared-filter-condition-service'
-import { matchesConditionOperators } from '@/domain/models/app/tables/condition-operators'
+import { matchesConditionOperators } from '@/domain/models/app/tables/condition-match-service'
 import type { TableRecord } from '../../runtime/types'
 import type { ApiCondition } from '@/domain/models/app/pages/shared-filter-condition-service'
 

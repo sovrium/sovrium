@@ -5,11 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { composerForm } from './form-composer'
 import type { Form } from '@/domain/models/app/forms'
 
 /** Whether the page's form node asks to leave its own title and description out. */
-const omitsHeader = (component: unknown): boolean =>
-  (component as { readonly showHeader?: unknown } | null | undefined)?.showHeader === false
+const omitsHeader = (component: unknown): boolean => {
+  const node = component as { readonly showHeader?: unknown; readonly presentation?: unknown }
+  return node?.showHeader === false || node?.presentation === 'composer'
+}
 
 /**
  * `showHeader: false` on a page's form node: the embedded form draws neither
@@ -21,7 +24,7 @@ const omitsHeader = (component: unknown): boolean =>
  * @returns The form to render, without its description when the header is off.
  */
 export const formForEmbedHeader = (form: Readonly<Form>, component: unknown): Readonly<Form> =>
-  omitsHeader(component) ? { ...form, description: undefined } : form
+  composerForm(omitsHeader(component) ? { ...form, description: undefined } : form, component)
 
 /**
  * The embed render option that leaves the title out when the header is off.

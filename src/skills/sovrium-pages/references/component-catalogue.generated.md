@@ -4,7 +4,7 @@
 
 > Generated from the Sovrium schema by scripts/build/generate-skill-references.ts — do not edit. It carries no version on purpose: when it and the binary you run disagree, the binary is right.
 
-Every component type a page can place (111), by category, with what it is for. Reach for the type whose purpose matches the job before composing one out of smaller parts; the article named under each category lists its options.
+Every component type a page can place (112), by category, with what it is for. Reach for the type whose purpose matches the job before composing one out of smaller parts; the article named under each category lists its options.
 
 ## Contents
 
@@ -156,6 +156,7 @@ Read: `sovrium docs components/navigation-components`
 | `dropdown-menu` | A Dropdown Menu of actions gathered behind one button, opened on click. |
 | `menubar` | A Menubar: a row of menus, as in a desktop application. |
 | `navigation-menu` | A Navigation Menu: the top navigation of a site, with menus that open on hover. |
+| `notification-bell` | A notification bell: the reader’s unread count, and her latest notifications a click away. |
 | `pagination` | Pagination: move between the pages of a long list. |
 
 ## Overlays

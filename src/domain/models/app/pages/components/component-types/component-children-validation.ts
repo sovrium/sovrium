@@ -91,6 +91,38 @@ const brokenRulesAt = (node: RawRecord, path: string): readonly string[] =>
     return [...tooMany, ...refused]
   })
 
+/**
+ * A `message-scroller` bound to a table: its children are the anatomy of ONE
+ * turn — exactly one `message`, and at most one `marker` for the day markers —
+ * and `authorField` / `dayField` mean nothing on a frame that is not bound.
+ */
+const boundFrameRulesAt = (node: RawRecord, path: string): readonly string[] => {
+  if (node['type'] !== 'message-scroller') return []
+  if (node['dataSource'] === undefined) {
+    return (['authorField', 'dayField'] as const)
+      .filter((key) => node[key] !== undefined)
+      .map(
+        (key) =>
+          `${path}: \`${key}\` names a field of the table a \`message-scroller\` is bound to, and this frame has no \`dataSource\`. Bind it to a table, or remove \`${key}\`.`
+      )
+  }
+  const types = Array.isArray(node['children']) ? childTypesOf(node['children']) : []
+  const turns = types.filter((type) => type === 'message').length
+  const markers = types.filter((type) => type === 'marker').length
+  return [
+    ...(turns === 1
+      ? []
+      : [
+          `${path}: a \`message-scroller\` bound to a table draws one turn per record from its children, which hold exactly one \`message\` — the template of a turn — and it holds ${String(turns)}.`,
+        ]),
+    ...(markers > 1
+      ? [
+          `${path}: a \`message-scroller\` bound to a table draws its day markers from at most one \`marker\` child, and it holds ${String(markers)}.`,
+        ]
+      : []),
+  ]
+}
+
 /** Walk every node depth-first, collecting rule breaks with their location. */
 const walk = (value: unknown, path: string): readonly string[] => {
   if (Array.isArray(value)) return value.flatMap((item, index) => walk(item, `${path}[${index}]`))
@@ -98,6 +130,7 @@ const walk = (value: unknown, path: string): readonly string[] => {
   const here = path === '' ? 'config' : path
   return [
     ...brokenRulesAt(value, here),
+    ...boundFrameRulesAt(value, here),
     ...Object.entries(value).flatMap(([key, child]) =>
       walk(child, path === '' ? key : `${path}.${key}`)
     ),

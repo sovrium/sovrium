@@ -39,6 +39,31 @@ import type { ActionHandler, ActionOutcome, ActionRunContext } from './shared'
  * more than the upstream's response shape — and the run-history error
  * field carries the raw status if a 4xx/5xx comes back.
  */
+/**
+ * A key read from the address (`apiKey.query`) is not sent by a webhook: the
+ * delivery would carry no credential at all, so it fails here instead of
+ * reaching the receiver unauthenticated. The `http` actions send such a
+ * connection.
+ */
+const addressKeyRefusal = (
+  merged: { readonly query?: Readonly<Record<string, string>> },
+  connectionName: string
+): ActionOutcome | undefined =>
+  merged.query !== undefined && Object.keys(merged.query).length > 0
+    ? {
+        status: 'failure',
+        error: `webhook/send cannot send connection '${connectionName}': its key is read from the address (apiKey.query); use an http action`,
+      }
+    : undefined
+
+/** Why the webhook cannot be sent with its connection's credential, or `undefined`. */
+const webhookConnectionRefusal = (
+  merged: Parameters<typeof connectionHeaderRefusal>[0] & {
+    readonly query?: Readonly<Record<string, string>>
+  },
+  connectionName: string
+) => connectionHeaderRefusal(merged) ?? addressKeyRefusal(merged, connectionName)
+
 export const handleWebhookSend: ActionHandler = (action, app, automation) =>
   Effect.gen(function* () {
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
@@ -58,7 +83,7 @@ export const handleWebhookSend: ActionHandler = (action, app, automation) =>
         ? yield* resolveConnectionHeaders(app, automation, baseHeaders, connectionName)
         : { headers: baseHeaders }
 
-    const refusal = connectionHeaderRefusal(merged)
+    const refusal = webhookConnectionRefusal(merged, connectionName)
     if (refusal !== undefined) return refusal
 
     // Serialize body if present. Receivers tolerate empty bodies on POST

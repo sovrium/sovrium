@@ -7,6 +7,7 @@
 
 import { type Context, type Hono } from 'hono'
 import { getCookie } from 'hono/cookie'
+import { resolveRequestBaseUrl } from '@/domain/kernel/url/request-base-url'
 import { requestedPath } from '@/domain/kernel/url/requested-path'
 import {
   LANGUAGE_PREFERENCE_COOKIE,
@@ -418,9 +419,9 @@ export function setupRssFeedRoute(honoApp: Readonly<Hono>, config: HonoAppConfig
       return c.html(await renderNotFoundPage(app, undefined, requestedPath(c.req.url)), 404)
     }
     try {
-      const url = new URL(c.req.url)
-      const baseUrl = `${url.protocol}//${url.host}`
-      const xml = await renderRssFeed(app, baseUrl, queryMasksReader(c))
+      // `BASE_URL` first, as the sitemap: the feed advertises the canonical
+      // address, not the internal one a proxied request came in on.
+      const xml = await renderRssFeed(app, resolveRequestBaseUrl(c), queryMasksReader(c))
       if (xml === undefined) {
         return c.html(await renderNotFoundPage(app, undefined, requestedPath(c.req.url)), 404)
       }

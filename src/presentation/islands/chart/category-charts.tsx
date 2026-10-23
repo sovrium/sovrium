@@ -91,6 +91,7 @@ export function CategoryLineChart(args: CategoryChartProps): ReactElement {
       valueLabel={valueLabel}
       barKeyOf="category"
       accessibleName={args.accessibleName ?? 'Line chart'}
+      timeScale={xAxis?.scale === 'time'}
     />
   )
 }
@@ -154,6 +155,7 @@ export function CategoryBarChart(args: CategoryChartProps): ReactElement {
       gridLines={xAxis?.gridLines === true || yAxis?.gridLines === true}
       tooltip={callout}
       accessibleName={args.accessibleName ?? 'Bar chart'}
+      timeScale={xAxis?.scale === 'time'}
     />
   )
 }

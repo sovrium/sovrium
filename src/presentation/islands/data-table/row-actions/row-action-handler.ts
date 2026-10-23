@@ -14,10 +14,12 @@ import { consoleRequestNote } from '../../runtime/toast-request-id'
 import { toastWriteRefusal } from '../../runtime/write-refusal'
 import { runAccountRowAction, type AccountRowAction } from './account-row-actions'
 import { runAutomationRowAction, type AutomationRowAction } from './automation-row-action'
+import { runClipboardRowAction } from './clipboard-row-action'
 import { removeRowThenRefreshOnce } from './deleted-row-refresh'
 import { rowPressReference } from './row-action-control'
 import type { RowActionHandler } from './row-action-types'
 import type { FetchAction } from '@/domain/models/app/pages/components/action'
+import type { ClipboardAction } from '@/domain/models/app/pages/components/action-client'
 import type { QueryClient } from '@tanstack/react-query'
 
 interface CreateRowActionHandlerParams {
@@ -173,8 +175,9 @@ async function runCrudRowAction(
 
 /**
  * The row actions that issue their own request and report whether it was
- * accepted: an item-level account method (`auth` with a `target`) and an
- * automation press, whose `inputData` is filled from the clicked row.
+ * accepted: an item-level account method (`auth` with a `target`), an
+ * automation press, whose `inputData` is filled from the clicked row, and a
+ * clipboard copy of the row's value, which never asks for a re-read.
  * `undefined` for any other action.
  */
 function runSelfReportingRowAction(
@@ -188,6 +191,10 @@ function runSelfReportingRowAction(
   }
   if (action.type === 'automation') {
     return runAutomationRowAction(action as AutomationRowAction, record, renderToast, origin)
+  }
+  // A copy writes nothing the grid holds, so it never re-reads it.
+  if (action.type === 'clipboard') {
+    return runClipboardRowAction(action as ClipboardAction, record, origin).then(() => false)
   }
   return undefined
 }

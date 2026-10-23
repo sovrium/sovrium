@@ -21,9 +21,10 @@ export const AxisFormatSchema = Schema.Literals(['date', 'currency', 'number', '
 /**
  * Axis scale type.
  */
-export const AxisScaleSchema = Schema.Literals(['linear', 'logarithmic']).annotate({
+export const AxisScaleSchema = Schema.Literals(['linear', 'logarithmic', 'time']).annotate({
   title: 'Axis Scale',
-  description: 'Scale type for numeric axes',
+  description:
+    "How values are placed along the axis. 'linear' and 'logarithmic' are for a numeric axis. 'time' places each bucket of a date or datetime axis at its instant on a bar, line or area chart, so a gap in time is a gap on the axis, and chooses regular ticks (every 6 hours across a day) rather than one per bucket, in the operator timezone.",
 })
 
 /**
@@ -38,7 +39,7 @@ export const ChartAxisSchema = Schema.Struct({
   label: optStr('Custom axis title text'),
   /** Display format for tick values */
   format: Schema.optional(AxisFormatSchema),
-  /** Axis scale type (numeric axes only) */
+  /** How values are placed: linear or logarithmic (numeric), time (dated buckets) */
   scale: Schema.optional(AxisScaleSchema),
   /** Show grid lines along this axis */
   gridLines: Schema.optional(

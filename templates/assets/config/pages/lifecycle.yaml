@@ -10,6 +10,7 @@ access:
 meta:
   title: Lifecycle · Arden Assets
   description: The assets by stage, from storage to retired.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

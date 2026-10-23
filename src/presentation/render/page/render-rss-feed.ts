@@ -127,9 +127,10 @@ async function renderMarkdownRssFeed(
 /**
  * Render the RSS XML feed for the first opted-in collection page.
  *
- * `baseUrl` is the absolute origin of the request (eg.
- * `http://localhost:3000`). The route handler derives it from
- * `c.req.url` so a deployed app's feed advertises its real host.
+ * `baseUrl` is the absolute origin the feed advertises (eg.
+ * `http://localhost:3000`). The route handler derives it with
+ * `resolveRequestBaseUrl`, `BASE_URL` first, so a proxied app's feed names
+ * its canonical host rather than the internal one the request came in on.
  */
 export async function renderRssFeed(
   app: App,

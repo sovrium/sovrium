@@ -45,6 +45,12 @@ export const isSessionEndedRead = (error: unknown): boolean => statusOf(error) =
 export const isNotFoundRead = (error: unknown): boolean => statusOf(error) === 404
 
 /**
+ * Whether a read was refused as malformed (400): the reader's own search,
+ * filter or sort. The same request is refused again, so no Retry is offered.
+ */
+export const isMalformedRead = (error: unknown): boolean => statusOf(error) === 400
+
+/**
  * The island QueryClient's two retries, kept for a FAULT and withheld from an
  * ANSWER. A read the server refused with a 4xx — a sort key it does not
  * accept (400), a session that ended (401), a reader it does not serve (404),

@@ -39,6 +39,7 @@ import {
   type CommentModerationConfig,
 } from '@/domain/models/app/tables/comment-moderation-policy'
 import { logError } from '@/infrastructure/logging/logger'
+import { announceCommentChange } from './comment-change-programs'
 import { resolveCreatedCommentMentions, type CommentMention } from './comment-mention-programs'
 import { createCommentProgram, type CreatedCommentWithGuestEmail } from './comment-programs'
 import type { UserMetadataWithOptionalImage } from '@/application/ports/contracts/user-metadata'
@@ -226,6 +227,11 @@ export const postCommentProgram = <R>(
       guestEmail: input.guestEmail,
       status: verdictOf(input, session),
       ...(input.author.kind === 'system' ? { actor: 'system' as const } : {}),
+    })
+    yield* announceCommentChange({
+      ...{ appId: input.app.name, table: input.table.name, recordId: input.recordId },
+      ...{ commentId: created.comment.id, event: 'created', status: created.comment.status },
+      authorId: created.comment.userId,
     })
     const mentioned = yield* mentionedReadersOf(input, session)
     const event = eventOf(input, session, { ...created, mentionIds: mentioned.ids })

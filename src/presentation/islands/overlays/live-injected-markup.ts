@@ -31,10 +31,11 @@
  * {@link mountNestedIslands} is the mount half on its own, for the islands that
  * inject their markup some other way but still owe its markers a mount and an
  * unmount: the record drawer's composed slot and the tabs island's panels. The
- * tabs island also owes its panels' scripts a run, so {@link runInjectedScripts}
- * is exported for it. It
- * lives here, in a component-type directory, rather than a tier below: it has
- * to reach `island-client`, which no tier may import.
+ * tabs island and the content swap of client-side navigation also owe their
+ * markup's scripts a run, which `runInjectedScripts` (a tier below, in
+ * `runtime/injected-scripts`) gives them. The rest lives here, in a
+ * component-type directory, rather than a tier below: it has to reach
+ * `island-client`, which no tier may import.
  *
  * SECURITY: the markup is server-rendered from the app's own configuration, not
  * user input — the same trust every host island (dialog, drawer, popover, scroll
@@ -50,37 +51,7 @@
  */
 
 import { useEffect, useRef, type RefObject } from 'react'
-
-/** Script types the browser executes; anything else (JSON config) stays data. */
-const isExecutableScript = (script: HTMLScriptElement): boolean => {
-  const type = script.type.trim().toLowerCase()
-  return type === '' || type === 'text/javascript' || type === 'module'
-}
-
-/**
- * Marks a script this module has already brought to life, so a host that scans
- * the same subtree more than once (the tabs island, on every tab switch) runs
- * each injected script once — and only a panel injected AGAIN, whose scripts are
- * fresh copies without the mark, runs its scripts again.
- */
-const LIVE_SCRIPT_MARK = 'data-injected-live'
-
-/**
- * Replace each executable script with a fresh copy, which the browser runs on
- * insertion. Attributes are copied so a script can still read its own markers.
- * A script already brought to life here is skipped.
- */
-export function runInjectedScripts(root: HTMLElement): void {
-  Array.from(root.querySelectorAll('script'))
-    .filter((script) => isExecutableScript(script) && !script.hasAttribute(LIVE_SCRIPT_MARK))
-    .forEach((inert) => {
-      const live = document.createElement('script')
-      Array.from(inert.attributes).forEach((attr) => live.setAttribute(attr.name, attr.value))
-      live.setAttribute(LIVE_SCRIPT_MARK, '')
-      live.textContent = inert.textContent
-      inert.replaceWith(live)
-    })
-}
+import { runInjectedScripts } from '@/presentation/islands/runtime/injected-scripts'
 
 /**
  * Hold back a native submit on injected island forms until their island takes

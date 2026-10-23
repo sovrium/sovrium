@@ -5,8 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Data, Effect } from 'effect'
+import { Cause, Data, Effect } from 'effect'
 import { CronScheduler } from '@/application/ports/services/cron-scheduler'
+import { purgeReadNotifications } from '@/infrastructure/database/notification-retention'
 import { describeSweepFailure } from '@/infrastructure/database/read-write-sweep'
 import { purgeExpiredTableRows } from '@/infrastructure/database/table-retention'
 import { logError } from '@/infrastructure/logging/logger'
@@ -41,9 +42,42 @@ const TABLE_RETENTION_CRON_EXPRESSION = '30 3 * * *'
 /** Stable scheduler job id so re-registration (config reload) is idempotent. */
 const TABLE_RETENTION_JOB_ID = 'table-retention'
 
-/** Whether any table of the app declares a retention window. */
+/**
+ * Whether any table of the app declares a retention window, or the app sends
+ * notifications, whose read ones are kept `notifications.retention.days` (90
+ * by default) and swept by the same daily run.
+ */
 const declaresRetention = (app: App): boolean =>
+  app.notifications !== undefined ||
   (app.tables ?? []).some((table) => table.retention !== undefined)
+
+/** One half of the daily sweep, its failure logged with its cause and then left behind. */
+const sweepPart = (label: string, purge: () => Promise<unknown>) =>
+  Effect.tryPromise({
+    try: purge,
+    catch: (cause) => new TableRetentionSweepError({ cause }),
+  }).pipe(
+    Effect.tapCause((cause) =>
+      Effect.sync(() => {
+        const failure = Cause.squash(cause)
+        const thrown = failure instanceof TableRetentionSweepError ? failure.cause : failure
+        logError(describeSweepFailure(`[table-retention] ${label} failed`, thrown), thrown)
+      })
+    ),
+    // effect-swallow: one half failing must neither skip the other half nor stop the timer re-arming.
+    Effect.catch(() => Effect.void),
+    Effect.asVoid
+  )
+
+/**
+ * The daily sweep: the tables' rows, then the notifications. Each half stands
+ * alone, so a table purge that throws still lets the notifications expire.
+ */
+const dailySweep = (app: App) =>
+  Effect.andThen(
+    sweepPart('scheduled table retention sweep', () => purgeExpiredTableRows(app)),
+    sweepPart('scheduled notification retention sweep', () => purgeReadNotifications(app))
+  )
 
 /**
  * Arm the daily table retention sweep. Yields the scheduled job id, or
@@ -57,29 +91,10 @@ export const registerTableRetentionScheduler = (
     if (!declaresRetention(app)) return undefined
     const scheduler = yield* CronScheduler
     return yield* scheduler
-      .schedule(
-        TABLE_RETENTION_CRON_EXPRESSION,
-        () =>
-          Effect.tryPromise({
-            try: () => purgeExpiredTableRows(app),
-            catch: (cause) => new TableRetentionSweepError({ cause }),
-          }).pipe(
-            Effect.tapError((error) =>
-              Effect.sync(() => {
-                logError(
-                  describeSweepFailure(
-                    '[table-retention] scheduled retention sweep failed',
-                    error.cause
-                  ),
-                  error.cause
-                )
-              })
-            ),
-            Effect.catch(() => Effect.void),
-            Effect.asVoid
-          ),
-        { jobId: TABLE_RETENTION_JOB_ID, timezone: resolveOperatorTimezone() }
-      )
+      .schedule(TABLE_RETENTION_CRON_EXPRESSION, () => dailySweep(app), {
+        jobId: TABLE_RETENTION_JOB_ID,
+        timezone: resolveOperatorTimezone(),
+      })
       .pipe(
         Effect.catch((err) =>
           Effect.sync(() => {

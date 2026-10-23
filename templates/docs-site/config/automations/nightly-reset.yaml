@@ -1,0 +1,24 @@
+# Every night at 04:07, put the demo back the way it shipped. The pages are
+# markdown under content/ and the app keeps no tables yet, so today a reset
+# has nothing to empty. Add tables and a seed/ folder and the same step brings
+# them back to their seed each night.
+#
+# It does nothing unless the host sets SOVRIUM_SELF_SEED=reset. Without that
+# variable the automation is not scheduled at all, so a site you build from
+# this template never wipes its own data.
+#
+# `history: minimal` keeps each night's status and timing but not the report.
+name: nightly-reset
+label: Reset the demo every night
+description: At 04:07 every night, bring the app back to its seed — only when the host sets SOVRIUM_SELF_SEED=reset.
+enabled: true
+trigger:
+  type: cron
+  expression: '7 4 * * *'
+  history: minimal
+actions:
+  - name: reset
+    type: app
+    operator: seed
+    props:
+      mode: reset

@@ -409,6 +409,98 @@ export const SharedFilterBindingSchema = Schema.Struct({
 export type SharedFilterBinding = Schema.Schema.Type<typeof SharedFilterBindingSchema>
 
 /**
+ * The three fields that find ONE reader's own row in a related table: which
+ * table holds it, which of its fields points at the item, and which of its
+ * fields names the person.
+ *
+ * Shared by `dataSource.mine` (the row joined onto every item) and by a
+ * collection page's `resume` (the first record with no such row). `user` is
+ * required on both: a join that guessed the person field would be a join a
+ * reader could not audit, and the whole point of the lookup is that it reads
+ * the reader's own rows and nobody else's.
+ */
+const viewerRowLookupFields = {
+  table: Schema.String.pipe(
+    Schema.annotate({
+      description:
+        "Table holding the reader's own rows, one per item at most: an enrolment, a completion, an RSVP, a bookmark",
+      examples: ['enrolments', 'completions'],
+    }),
+    Schema.check(Schema.isMinLength(1))
+  ),
+  link: Schema.String.pipe(
+    Schema.annotate({
+      description:
+        'Field of that table pointing at the item, a relationship to the bound table: a row whose link names the item belongs to it',
+      examples: ['course', 'lesson'],
+    }),
+    Schema.check(Schema.isMinLength(1))
+  ),
+  user: Schema.String.pipe(
+    Schema.annotate({
+      description:
+        'Field of that table naming the person, a user field. Only rows naming the reader are read, so a row of another person is never joined, counted or shown',
+      examples: ['member', 'attendee'],
+    }),
+    Schema.check(Schema.isMinLength(1))
+  ),
+} as const
+
+/**
+ * Finds the reader's own row in a related table (a collection page's `resume`).
+ */
+export const ViewerRowLookupSchema = Schema.Struct(viewerRowLookupFields).annotate({
+  title: 'Reader Row Lookup',
+  description:
+    "Finds the reader's own row in a related table: the row of `table` whose `link` points at a record and whose `user` is the reader",
+})
+
+/**
+ * `dataSource.mine` — on each item a list, gallery or progress bar reads, the
+ * reader's own related row, exposed as `$record.<as>`.
+ *
+ * A lookup or rollup field cannot answer "has THIS reader completed it": its
+ * value is the same for every reader. `mine` is the per-reader join, declared
+ * once at the binding (which table, which link, which person field) and read
+ * in one batched query per page of items, never one per item. The row goes
+ * through the related table's own read rules, and only rows naming the reader
+ * are read at all.
+ *
+ * `$record.<as>` is empty when the reader has no such row, so the existing
+ * visibility rules (`isEmpty` / `isNotEmpty`) switch a control on it, and a
+ * `crud` action with `operation: toggle` and `mine: <as>` creates or deletes
+ * it. Honoured by `list`, `gallery` and `progress`; refused on every other
+ * component when the config loads.
+ *
+ * @example
+ * ```yaml
+ * dataSource:
+ *   table: courses
+ *   mine: { table: enrolments, link: course, user: member, as: enrolment }
+ * ```
+ */
+export const DataSourceMineSchema = Schema.Struct({
+  ...viewerRowLookupFields,
+  as: Schema.String.pipe(
+    Schema.annotate({
+      description:
+        "Name the reader's row is read under on each item: `$record.<as>`, empty when there is none. A letter or underscore, then letters, digits or underscores",
+      examples: ['enrolment', 'done'],
+    }),
+    Schema.check(Schema.isPattern(/^[A-Za-z_][A-Za-z0-9_]*$/))
+  ),
+}).annotate({
+  title: 'Reader Own Row',
+  description:
+    "Joins the reader's own related row onto every item, as `$record.<as>`: the row of `table` whose `link` points at the item and whose `user` is the reader. Honoured by list, gallery and progress",
+})
+
+/** @public */
+export type DataSourceMine = Schema.Schema.Type<typeof DataSourceMineSchema>
+/** @public */
+export type ViewerRowLookup = Schema.Schema.Type<typeof ViewerRowLookupSchema>
+
+/**
  * Data Source Schema
  *
  * Binds a component to table data for read operations. Defines which table
@@ -661,6 +753,11 @@ export const DataSourceSchema = Schema.Struct({
       Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 300_000 }))
     )
   ),
+  /**
+   * The reader's own related row, joined onto every item as `$record.<as>`.
+   * See `DataSourceMineSchema`.
+   */
+  mine: Schema.optional(DataSourceMineSchema),
 }).annotate({
   identifier: 'DataSource',
   title: 'Data Source',

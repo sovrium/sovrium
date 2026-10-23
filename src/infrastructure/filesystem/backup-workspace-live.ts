@@ -12,6 +12,7 @@ import {
   mkdtemp,
   readdir,
   readFile,
+  realpath,
   rename,
   rm,
   stat,
@@ -23,6 +24,7 @@ import { Database } from 'bun:sqlite'
 import { Effect, Layer } from 'effect'
 import { BackupIoError, BackupWorkspace } from '@/application/ports/services/backup-workspace'
 import { listFilesBelow } from '@/infrastructure/filesystem/list-files-below'
+import { scanContentDirFiles } from '@/infrastructure/markdown/content-dir-enumerator'
 import { isProcessRunning, lockFilePathIn } from '@/infrastructure/server/lock-file'
 
 const isMissing = (cause: unknown): boolean =>
@@ -45,6 +47,23 @@ const readIfExists = async (path: string): Promise<Uint8Array | undefined> => {
 const listFilesOrNone = (directory: string): Promise<readonly string[]> =>
   listFilesBelow(directory).catch((cause: unknown) => {
     if (isMissing(cause)) return []
+    throw cause
+  })
+
+/** The files a `contentDir` reads below `directory`; none when the folder is missing. */
+const contentDirFilesOrNone = (
+  directory: string,
+  include: string | undefined
+): Promise<readonly string[]> =>
+  scanContentDirFiles(directory, include).catch((cause: unknown) => {
+    if (isMissing(cause)) return []
+    throw cause
+  })
+
+/** `path` with its symbolic links resolved; `undefined` when nothing is there. */
+const realPathIfExists = (path: string): Promise<string | undefined> =>
+  realpath(path).catch((cause: unknown) => {
+    if (isMissing(cause)) return undefined
     throw cause
   })
 
@@ -205,6 +224,9 @@ export const BackupWorkspaceLive = Layer.succeed(BackupWorkspace, {
     attempt(`read the config ${configPath}`, () => loadGraph(configPath)),
   readFileIfExists: (path: string) => attempt(`read ${path}`, () => readIfExists(path)),
   listFiles: (directory: string) => attempt(`list ${directory}`, () => listFilesOrNone(directory)),
+  listContentDirFiles: (directory: string, include: string | undefined) =>
+    attempt(`list ${directory}`, () => contentDirFilesOrNone(directory, include)),
+  realPath: (path: string) => attempt(`resolve ${path}`, () => realPathIfExists(path)),
   isDirectoryOccupied: (directory: string) =>
     attempt(`list ${directory}`, () =>
       readdir(directory).then(

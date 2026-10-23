@@ -65,6 +65,8 @@ Favicons accept two shapes. The **object form** above is the short one: a defaul
 
 A `./` path is read from the root of `public/`, whatever the page's address — on `/fr/` or `/blog/first-evening` as on `/`. The same holds for `meta.favicon`.
 
+An app that declares no favicon at all still answers `/favicon.ico`, the address every browser asks for on a first visit, with one neutral default icon and a cache header, so no page logs a missing-icon error. Declare a favicon to replace it: once one is declared, the default is never served in its place.
+
 ```yaml
 name: my-app
 pages:

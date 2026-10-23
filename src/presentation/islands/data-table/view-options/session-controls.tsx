@@ -195,7 +195,8 @@ export interface SessionControlsProps {
   readonly groupedBy?: string
   readonly onGroup: (grouping: SessionGrouping) => void
   readonly rowHeight: string
-  readonly onRowHeight: (height: GridRowHeight) => void
+  /** Absent on a grid that declares its `rowHeight`: no Row height control then. */
+  readonly onRowHeight?: (height: GridRowHeight) => void
 }
 
 /** The three option menus, in the bottom bar's order, each drawn in `Shell`. */
@@ -222,11 +223,13 @@ function OptionMenus({
           Shell={Shell}
         />
       )}
-      <RowHeightMenu
-        current={props.rowHeight}
-        onRowHeight={props.onRowHeight}
-        Shell={Shell}
-      />
+      {props.onRowHeight !== undefined && (
+        <RowHeightMenu
+          current={props.rowHeight}
+          onRowHeight={props.onRowHeight}
+          Shell={Shell}
+        />
+      )}
     </>
   )
 }

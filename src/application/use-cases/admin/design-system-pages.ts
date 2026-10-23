@@ -34,9 +34,8 @@
  * exports of one config are byte-identical.
  */
 
-import { Data, Deferred, Effect, Exit, type Schema } from 'effect'
+import { Deferred, Effect, Exit, type Schema } from 'effect'
 import { CSSCompiler } from '@/application/ports/services/css-compiler'
-import { PageRenderer } from '@/application/ports/services/page-renderer'
 import { figmaPageDocumentSchema } from '@/domain/models/api/admin/design-system/adapter-figma-pages'
 import { pageDesignTreeSchema } from '@/domain/models/api/admin/design-system/page-design-tree'
 import {
@@ -48,9 +47,11 @@ import {
   type PageSidecarsManifest,
 } from '@/domain/models/api/admin/design-system/page-sidecars-manifest'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { canvasBoardFilesOf } from '@/domain/models/app/design/adapters/pages/claude-design-canvas-export'
 import { figmaPagePathOf } from '@/domain/models/app/design/adapters/pages/figma-pages-export'
 import { PENPOT_DIR } from '@/domain/models/app/design/adapters/pages/penpot-pages-format'
-import { resolveExportStamps } from '@/domain/models/app/pages/export-node-stamp-service'
+import { PAGE_ROUND_TRIP_TABLES } from '@/domain/models/app/pages/page-round-trip-guide-service'
+import { collectBrandFonts, withBrandFaces } from './design-system-brand-fonts'
 import {
   buildDesignSystemBundle,
   DesignSystemBundleError,
@@ -61,44 +62,43 @@ import {
   type DesignSystemBundleEntry,
   type DesignSystemBundleFailure,
 } from './design-system-bundle'
-import { kitPageAppOf } from './design-system-kit'
-import { kitDocument, kitStylesheetOf, renderedSpecimenOf } from './design-system-kit-document'
+import { kitDocument, kitStylesheetOf } from './design-system-kit-document'
+import { prototypeStoreOf, unsimulatedFormNoticesOf } from './design-system-page-app'
+import { pageSectionOf, type PageDrawOptions } from './design-system-page-boards'
 import { canvasEntriesOf } from './design-system-page-canvas'
+import {
+  drawPagesOf,
+  type DesignSystemPageDrawError,
+  type PageDrawing,
+} from './design-system-page-draw'
 import { figmaPageDocumentsOf } from './design-system-page-figma'
+import {
+  collectPageImages,
+  pageImageEntries,
+  penpotImageEntries,
+  withImagesAt,
+  type PageImages,
+} from './design-system-page-images'
 import { penpotEntryOf } from './design-system-page-penpot'
-import { projectPageForExport, type ProjectedPage } from './design-system-page-projection'
-import { sampleRouteValuesOf } from './design-system-page-seed'
+import { seedRowCapNoticesOf } from './design-system-page-seed'
+import { appRolesOf } from './design-system-page-states'
+import type { ProjectedPage } from './design-system-page-projection'
 import type { DesignKitAssets } from '@/application/ports/services/design-kit-assets'
+import type { PageRenderer } from '@/application/ports/services/page-renderer'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 
-/** Which pages to export, and where a TypeScript config's sidecars go. */
+/** Which pages to export, where a TypeScript config's sidecars go, and how they are drawn. */
 export interface PageExportSelection {
   /** The page names to export, in any order; every page when absent. */
   readonly names?: readonly string[] | undefined
   /** A TypeScript config's sidecar entries, one per exported page; none for YAML or JSON. */
   readonly sidecars?: PageSidecarsManifest['pages'] | undefined
+  /** The seed folder, the clock and the boards to draw beyond the defaults. */
+  readonly draw?: PageDrawOptions | undefined
 }
 
-/** A page the renderer could not draw offline; nothing is handed over. */
-export class DesignSystemPageDrawError extends Data.TaggedError('DesignSystemPageDrawError')<{
-  readonly page: string
-  readonly cause: unknown
-}> {}
-
-/**
- * The failure of a page the renderer answered with something other than a
- * document: no page at all, a redirect, a refusal. The cause always says
- * which, and at what address, so a refused export names its reason.
- */
-export const pageDrawRefusal = (page: string, path: string, answer: unknown) =>
-  new DesignSystemPageDrawError({
-    page,
-    cause:
-      answer === undefined || answer === null
-        ? { reason: `the renderer answered no page at ${path}`, path }
-        : { reason: `the renderer answered ${path} with no document`, path, answer },
-  })
+export { DesignSystemPageDrawError, pageDrawRefusal, redirectOf } from './design-system-page-draw'
 
 /** Every failure building the bundle with its pages can surface. */
 export type DesignSystemPagesFailure = DesignSystemBundleFailure | DesignSystemPageDrawError
@@ -116,49 +116,20 @@ export const undeclaredPageNames = (app: App, names: readonly string[]): readonl
 const selectedPages = (app: App, names: readonly string[] | undefined): readonly Page[] =>
   (app.pages ?? []).filter((page) => names === undefined || names.includes(page.name))
 
-/**
- * The sample address a page is drawn at, each route parameter at its sample
- * value ({@link sampleRouteValuesOf}): a parameter the page binds a table to
- * names a declared table. The renderer draws a specimen at the address it is
- * handed without asking whether a visitor could reach it, so a routed page
- * whose app declares no table (or whose `params` allow-list is read from an
- * instance) is still drawn.
- */
-const drawPathOf = (app: App, page: Page): string => {
-  const values = sampleRouteValuesOf(app, page)
-  return page.path.replaceAll(/:([A-Za-z_]\w*)/g, (_segment, name: string) => values[name] ?? '1')
-}
-
-/**
- * The sample query a page is drawn with: an invitation page reads its token
- * from the address, so it is handed the sample one, and draws the invitation
- * the specimen readers answer (its accept form included) rather than a dead link.
- */
-const drawQueryOf = (page: Page): Readonly<Record<string, string>> => {
-  const { invitation } = page as { readonly invitation?: { readonly param?: string } }
-  return invitation === undefined ? {} : { [invitation.param ?? 'token']: 'specimen' }
-}
-
-/** Draw one projected page as a static document linking the pages stylesheet. */
-const drawPage = (pageApp: App, page: Page, projected: ProjectedPage) =>
-  Effect.gen(function* () {
-    const renderer = yield* PageRenderer
-    const path = drawPathOf(pageApp, page)
-    const requestQuery = drawQueryOf(page)
-    const rendered = yield* Effect.tryPromise({
-      try: async () => renderer.renderPage(pageApp, path, { specimen: true, requestQuery }),
-      catch: (cause) => new DesignSystemPageDrawError({ page: page.name, cause }),
-    })
-    if (typeof rendered !== 'string') return yield* pageDrawRefusal(page.name, path, rendered)
-    const title = `${page.name} — ${pageApp.name} pages`
-    const body = resolveExportStamps(renderedSpecimenOf(rendered))
-    const entry = textEntry(
-      `pages/${projected.tree.page}.page.html`,
-      'page',
-      kitDocument(title, `<main>\n${body}\n</main>`, 'pages.css')
+/** A drawing as its static document, its images pointed at their copies beside it. */
+const drawingEntryOf = (
+  drawing: { readonly page: string; readonly title: string; readonly body: string },
+  images: PageImages
+): DesignSystemBundleEntry =>
+  textEntry(
+    `pages/${drawing.page}.page.html`,
+    'page',
+    kitDocument(
+      drawing.title,
+      `<main>\n${withImagesAt(drawing.body, images, 'assets/')}\n</main>`,
+      'pages.css'
     )
-    return { entry, body }
-  })
+  )
 
 /** A projection that fails its own contract hands nothing over. */
 const validated = <S extends Schema.Top, A>(schema: S, value: A) => {
@@ -184,23 +155,25 @@ const figmaEntriesOf = (
     )
   })
 
-/**
- * The `pages/` files of one app (drawings, trees, the node map, the stylesheet,
- * the sidecars) and the Claude Design canvas drawn from them.
- */
-const pageEntriesOf = (app: App, bundle: DesignSystemBundle, selection: PageExportSelection) =>
+/** A TypeScript config's sidecar manifest; none for YAML or JSON. */
+const sidecarEntriesOf = (selection: PageExportSelection): readonly DesignSystemBundleEntry[] =>
+  selection.sidecars === undefined
+    ? []
+    : [
+        textEntry(
+          'pages/page-sidecars.json',
+          'page',
+          serialise({
+            format: PAGE_SIDECARS_FORMAT,
+            version: 1,
+            pages: selection.sidecars,
+          } satisfies PageSidecarsManifest)
+        ),
+      ]
+
+/** Each page's design tree and the node map, each held to its contract. */
+const mapEntriesOf = (projected: readonly ProjectedPage[]) =>
   Effect.gen(function* () {
-    const pages = selectedPages(app, selection.names)
-    const projected = pages.map((page) => projectPageForExport(app, page))
-    const pageApp = kitPageAppOf(
-      app,
-      projected.map((projection) => projection.drawn)
-    )
-    const drawings = yield* Effect.forEach(
-      pages,
-      (page, index) => drawPage(pageApp, page, projected[index] as ProjectedPage),
-      { concurrency: 4 }
-    )
     const trees = yield* Effect.forEach(projected, (projection) =>
       validated(pageDesignTreeSchema, projection.tree)
     )
@@ -208,35 +181,125 @@ const pageEntriesOf = (app: App, bundle: DesignSystemBundle, selection: PageExpo
       format: PAGE_NODE_MAP_FORMAT,
       version: 1 as const,
       pages: projected.map((projection) => projection.map),
+      roundTrip: PAGE_ROUND_TRIP_TABLES,
     })
-    const figma = yield* figmaEntriesOf(app, bundle, projected)
-    const { css } = yield* (yield* CSSCompiler).compile(pageApp)
-    const stylesheet = kitStylesheetOf(css)
-    const sidecars: PageSidecarsManifest | undefined =
-      selection.sidecars === undefined
-        ? undefined
-        : { format: PAGE_SIDECARS_FORMAT, version: 1, pages: selection.sidecars }
-    const canvas = canvasEntriesOf(
-      app,
-      bundle,
-      drawings.map((drawing, index) => ({
-        projected: projected[index] as ProjectedPage,
-        body: drawing.body,
-      })),
-      stylesheet
-    )
     return [
-      ...drawings.map((drawing) => drawing.entry),
       ...trees.map((tree) => textEntry(`pages/${tree.page}.tree.json`, 'page', serialise(tree))),
       textEntry('pages/node-map.json', 'page', serialise(nodeMap)),
+    ]
+  })
+
+/**
+ * Each page's projection, its node map entry listing every board it is drawn
+ * on with the state each is drawn at.
+ */
+const withBoardsOf = (drawings: readonly PageDrawing[]): readonly ProjectedPage[] => {
+  const files = canvasBoardFilesOf(
+    drawings.map((drawing) => ({
+      page: drawing.page,
+      states: drawing.boards.map((board) => board.plan.label),
+    }))
+  )
+  return drawings.map((drawing, at) => ({
+    ...drawing.projected,
+    map: {
+      ...drawing.projected.map,
+      boards: drawing.boards.map((board, index) => ({
+        file: files[at]?.[index] ?? '',
+        state: board.plan.state,
+      })),
+    },
+  }))
+}
+
+/** Each drawn page as the canvas draws it: its boards, its section, what each plays. */
+const canvasPagesOf = (app: App, drawings: readonly PageDrawing[], images: PageImages) =>
+  drawings.map((drawing) => ({
+    projected: drawing.projected,
+    body: withImagesAt(drawing.body, images, '../assets/'),
+    title: drawing.boards[0]?.plan.title,
+    section: pageSectionOf(app, drawing.page),
+    drawnIds: drawing.boards[0]?.drawnIds,
+    prototype: drawing.boards[0]?.prototype,
+    record: drawing.boards[0]?.plan.state['record'],
+    boards: drawing.boards.slice(1).map((board) => ({
+      state: board.plan.label ?? '',
+      title: board.plan.title,
+      body: withImagesAt(board.body, images, '../assets/'),
+      width: board.plan.width,
+      theme: board.plan.theme,
+      drawnIds: board.drawnIds,
+      prototype: board.prototype,
+    })),
+  }))
+
+/** The Prototype board's views and store, on a stateful prototype (`--prototype=app`). */
+const appCanvasOf = (
+  app: App,
+  drawings: readonly PageDrawing[],
+  selection: PageExportSelection,
+  images: PageImages
+) => {
+  if (selection.draw?.prototype !== 'app') return undefined
+  const pages = selectedPages(app, selection.names)
+  return {
+    views: drawings.flatMap((drawing) =>
+      drawing.appView === undefined
+        ? []
+        : [{ ...drawing.appView, body: withImagesAt(drawing.appView.body, images, '../assets/') }]
+    ),
+    store: prototypeStoreOf(
+      app,
+      pages.filter((page) => drawings.some((drawing) => drawing.page === page.name)),
+      selection.draw.seed
+    ),
+    roles: appRolesOf(app),
+  }
+}
+
+/**
+ * The `pages/` files of one app (drawings, trees, the node map, the stylesheet,
+ * the sidecars) and the Claude Design canvas drawn from them.
+ */
+const pageEntriesOf = (app: App, bundle: DesignSystemBundle, selection: PageExportSelection) =>
+  Effect.gen(function* () {
+    const { pageApp, drawings, notices } = yield* drawPagesOf(
+      app,
+      selectedPages(app, selection.names),
+      selection.draw
+    )
+    const projected = drawings.map((drawing) => drawing.projected)
+    const maps = yield* mapEntriesOf(withBoardsOf(drawings))
+    const figma = yield* figmaEntriesOf(app, bundle, projected)
+    const { css } = yield* (yield* CSSCompiler).compile(pageApp)
+    const stylesheet = withBrandFaces(kitStylesheetOf(css), yield* collectBrandFonts(app))
+    const images = yield* collectPageImages(drawings)
+    const canvas = yield* canvasEntriesOf(app, bundle, canvasPagesOf(app, drawings, images), {
+      stylesheet,
+      assets: pageImageEntries(images),
+      prototype: selection.draw?.prototype !== undefined,
+      app: appCanvasOf(app, drawings, selection, images),
+      recordTexts: selection.draw !== undefined,
+    })
+    const entries = [
+      ...drawings.map((drawing) => drawingEntryOf(drawing, images)),
+      ...pageImageEntries(images),
+      ...maps,
       textEntry(PAGES_STYLESHEET, 'page', stylesheet),
       ...figma,
-      ...(sidecars === undefined
-        ? []
-        : [textEntry('pages/page-sidecars.json', 'page', serialise(sidecars))]),
-      ...canvas,
-      penpotEntryOf(app, projected),
+      ...sidecarEntriesOf(selection),
+      ...canvas.files,
+      penpotEntryOf(app, projected, penpotImageEntries(images)),
     ] satisfies readonly DesignSystemBundleEntry[]
+    const unsimulated =
+      selection.draw?.prototype === 'app'
+        ? unsimulatedFormNoticesOf(app, selectedPages(app, selection.names))
+        : []
+    const capped = seedRowCapNoticesOf(selection.draw?.seed)
+    return {
+      entries,
+      notices: [...notices, ...images.notices, ...canvas.notices, ...unsimulated, ...capped],
+    }
   })
 
 const encoder = new TextEncoder()
@@ -254,13 +317,17 @@ const withPenpotAdapter = (
 const withEntries = (
   app: App,
   bundle: DesignSystemBundle,
-  entries: readonly DesignSystemBundleEntry[]
+  added: {
+    readonly entries: readonly DesignSystemBundleEntry[]
+    readonly notices: readonly string[]
+  }
 ): DesignSystemBundle => {
-  const files = [...bundle.files, ...entries].toSorted((left, right) =>
+  const files = [...bundle.files, ...added.entries].toSorted((left, right) =>
     left.path < right.path ? -1 : left.path > right.path ? 1 : 0
   )
   const manifest = withPenpotAdapter(manifestOf(app, files), files)
-  return { manifest, manifestBytes: encoder.encode(serialise(manifest)), files }
+  const notices = [...bundle.notices, ...added.notices]
+  return { manifest, manifestBytes: encoder.encode(serialise(manifest)), files, notices }
 }
 
 /** Every page's bundle, built once per config object, as the bundle itself is. */
@@ -310,7 +377,7 @@ export const buildDesignSystemBundleWithPages = (
   DesignSystemPagesFailure,
   PageRenderer | CSSCompiler | DesignKitAssets
 > =>
-  (selection.names === undefined && selection.sidecars === undefined
+  (selection.names === undefined && selection.sidecars === undefined && selection.draw === undefined
     ? memoisedAllPages(app)
     : assemble(app, selection)
   ).pipe(Effect.withSpan('design-system.bundle-pages'))

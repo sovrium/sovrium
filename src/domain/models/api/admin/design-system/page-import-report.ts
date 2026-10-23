@@ -59,9 +59,11 @@ export const pageImportRefusalCodeSchema = Schema.Literals([
   'NOT_A_KIT_COMPONENT',
   'PAGE_SETTINGS_EDIT',
   'REQUIRED_VALUE_MISSING',
+  'NOT_A_LITERAL',
+  'UNDECLARED_REFERENCE',
 ]).annotate({
   description:
-    'Why a change was refused: it edits text a binding fills (`BINDING_EDIT`), it edits inside a template, a library block or an expanded reference (`TEMPLATE_EDIT_OUT_OF_SCOPE`), the drawn layer is not a kit component (`NOT_A_KIT_COMPONENT`), it edits the page path or meta (`PAGE_SETTINGS_EDIT`), or a new node lacks a value its component requires and the drawing does not show (`REQUIRED_VALUE_MISSING`)',
+    'Why a change was refused: it edits text a binding fills (`BINDING_EDIT`), it edits inside a template, a library block or an expanded reference (`TEMPLATE_EDIT_OUT_OF_SCOPE`), the drawn layer is not a kit component (`NOT_A_KIT_COMPONENT`), it edits the page path or meta (`PAGE_SETTINGS_EDIT`), a new node lacks a value its component requires and the drawing does not show (`REQUIRED_VALUE_MISSING`), the edited value of a TypeScript config is computed rather than written as a literal in the module that owns the page, the reason naming the file and line where it is computed (`NOT_A_LITERAL`), or a rule read from the drawing names a table, field, form or page the config does not declare (`UNDECLARED_REFERENCE`)',
 })
 
 /** One node that moved within its page. */
@@ -133,6 +135,37 @@ export const pageImportRefusalSchema = Schema.Struct({
   strictKeys: true,
   title: 'sovrium:strict-keys',
   identifier: 'PageImportRefusal',
+})
+
+/** Where a drawn layout value was read from, in the order the import trusts them. */
+export const pageImportLayoutSourceSchema = Schema.Literals([
+  'style',
+  'class',
+  'data-kit-layout',
+]).annotate({
+  description:
+    'Where a drawn layout value was read from: the inline `style` a properties panel writes, the `class` list, or the `data-kit-layout` the export wrote. When they disagree, `style` wins over `class`, and `class` over `data-kit-layout`',
+})
+
+/** One property a node set in more than one place, with different values. */
+export const pageImportConflictSchema = Schema.Struct({
+  node: pageNodeIdSchema,
+  property: Schema.String.annotate({
+    description: 'The property set in more than one place, as a dotted path from the node',
+    examples: ['layout.gap', 'responsive.md.padding'],
+  }),
+  kept: pageImportLayoutSourceSchema,
+  overridden: Schema.Array(pageImportLayoutSourceSchema).annotate({
+    description: 'Every other place that set the property to a different value, never written',
+  }),
+  value: Schema.String.annotate({
+    description: 'The value the import read from the source it kept',
+    examples: ['2rem'],
+  }),
+}).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  identifier: 'PageImportConflict',
 })
 
 /** One change to translated copy: written to the default language, never to another. */
@@ -229,10 +262,99 @@ export const pageImportPageSchema = Schema.Struct({
   ignored: Schema.Array(pageImportIgnoredSchema).annotate({
     description: 'Every drawn detail the import did not read, such as an island internals',
   }),
+  conflicts: optionalField(
+    Schema.Array(pageImportConflictSchema).annotate({
+      description:
+        'Every property a node set in more than one place with different values, naming the source the import kept and the ones it overrode',
+    })
+  ),
+  created: optionalField(
+    Schema.Struct({
+      path: Schema.String.annotate({
+        description: "The new page's path: the board's `data-sovrium-path`, else `/<name>`",
+        examples: ['/usage'],
+      }),
+      like: optionalField(
+        Schema.String.annotate({
+          description:
+            "The declared page whose access the new page copies, as the board's `data-sovrium-like` names it",
+          examples: ['settings'],
+        })
+      ),
+    }).annotate({
+      strictKeys: true,
+      title: 'sovrium:strict-keys',
+      description:
+        'Present when `--new-pages` turned a board drawing an undeclared page into a new page',
+    })
+  ),
 }).annotate({
   strictKeys: true,
   title: 'sovrium:strict-keys',
   identifier: 'PageImportPage',
+})
+
+/** One design token a canvas's `tokens.json` changed. */
+export const pageImportTokenChangeSchema = Schema.Struct({
+  token: Schema.String.annotate({
+    description: 'The token, as the design names it',
+    examples: ['primary', 'muted'],
+  }),
+  theme: optionalField(
+    Schema.String.annotate({
+      description: 'The theme the value belongs to, absent for a value every theme shares',
+      examples: ['light', 'dark'],
+    })
+  ),
+  before: Schema.String.annotate({ description: 'The value the config declares' }),
+  after: Schema.String.annotate({ description: 'The value the canvas now holds' }),
+}).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  identifier: 'PageImportTokenChange',
+})
+
+/** What one board came to: its carried, kept and refused nodes. */
+export const pageImportBoardVerdictSchema = Schema.Struct({
+  drawing: Schema.String.annotate({
+    description: 'The board, as the source names it',
+    examples: ['dashboard/Dashboard.dc.html'],
+  }),
+  page: pageInterchangeNameSchema,
+  unchanged: Schema.Boolean.annotate({
+    description: 'True only when the board draws exactly what an unedited export drew',
+  }),
+  carried: Schema.Array(pageNodeIdSchema).annotate({
+    description: 'Every node whose edit the import writes',
+  }),
+  kept: Schema.Array(pageNodeIdSchema).annotate({
+    description:
+      'Every node whose edit the import reports and does not write, the config value kept',
+  }),
+  refused: Schema.Array(pageNodeIdSchema).annotate({
+    description: 'Every node whose edit the import refused, with its code in the page entry',
+  }),
+}).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  identifier: 'PageImportBoardVerdict',
+})
+
+/** One literal rewritten in place in a TypeScript module. */
+export const pageImportLiteralEditSchema = Schema.Struct({
+  file: Schema.String.annotate({
+    description: 'The module rewritten, relative to the config',
+    examples: ['app.ts', 'pages/dashboard.ts'],
+  }),
+  line: Schema.Int.annotate({ description: 'The 1-based line of the literal' }).check(
+    Schema.isGreaterThanOrEqualTo(1)
+  ),
+  before: Schema.String.annotate({ description: 'The literal before the import' }),
+  after: Schema.String.annotate({ description: 'The literal the import wrote' }),
+}).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  identifier: 'PageImportLiteralEdit',
 })
 
 /** One sidecar written beside a TypeScript config. */
@@ -282,6 +404,32 @@ export const pageImportReportSchema = Schema.Struct({
         'Every drawing that was not imported as a page, with its reason; the other drawings are imported',
     })
   ),
+  boards: optionalField(
+    Schema.Array(pageImportBoardVerdictSchema).annotate({
+      description:
+        'One verdict per board read, so a tool can check its own edit before handing a canvas back',
+    })
+  ),
+  tokens: optionalField(
+    Schema.Struct({
+      changes: Schema.Array(pageImportTokenChangeSchema).annotate({
+        description: "Every token the canvas's `tokens.json` changed, read with `--tokens`",
+      }),
+      written: Schema.Boolean.annotate({
+        description:
+          'Whether the changes were written to `design`: never for a TypeScript config, never on a dry run',
+      }),
+      reason: optionalField(
+        Schema.String.annotate({
+          description: 'Why the changes were not written, in a sentence; absent when they were',
+        })
+      ),
+    }).annotate({
+      strictKeys: true,
+      title: 'sovrium:strict-keys',
+      description: 'Present when `--tokens` read the canvas token file',
+    })
+  ),
   templates: Schema.Struct({
     imported: Schema.Literal(false).annotate({
       description: 'Always false: templates and library blocks are never imported',
@@ -301,7 +449,13 @@ export const pageImportReportSchema = Schema.Struct({
       sidecars: optionalField(
         Schema.Array(pageImportSidecarSchema).annotate({
           description:
-            'The page sidecars written beside a TypeScript config, which is never edited',
+            'The page sidecars `--sidecar` wrote beside a TypeScript config, a new page included',
+        })
+      ),
+      literals: optionalField(
+        Schema.Array(pageImportLiteralEditSchema).annotate({
+          description:
+            'The literals rewritten in place in a TypeScript config, each in the module that owns the page',
         })
       ),
     }).annotate({

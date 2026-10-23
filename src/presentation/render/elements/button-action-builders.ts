@@ -26,6 +26,7 @@ import { substituteRecordVars } from '@/domain/models/app/pages/substitute-recor
 import { confirmWeightAttribute } from '@/presentation/design/confirm-weight'
 import { substituteRecordInInputData } from '@/presentation/render/resolve/record-template-substitution'
 import { buildPendingLabelAttribute } from './button-pending-label'
+import { servedAllowOrigins, withServedAllowOrigins } from './served-allow-origins'
 import type { CrudFormAction } from './crud-form/crud-form-types'
 import type { RouteParams } from '@/domain/kernel/matching/route-matcher'
 import type { Languages } from '@/domain/models/app/languages'
@@ -73,6 +74,7 @@ export type AutomationAction = {
     close?: boolean
     refetch?: string | readonly string[]
     reload?: boolean
+    allowOrigins?: readonly string[]
   }
   onError?: { toast?: { message?: string; variant?: string } }
 }
@@ -129,7 +131,7 @@ export function resolveInputDataRecordVars(
 }
 
 /** The `data-on-<outcome>-message` / `-variant` pair one outcome's toast declares. */
-function outcomeToastAttributes(
+export function outcomeToastAttributes(
   outcome: 'success' | 'error',
   toast: { message?: string; variant?: string } | undefined
 ): Record<string, string> {
@@ -164,6 +166,14 @@ function successExitAttributes(
   }
 }
 
+/** `data-on-success-allow-origins`: the origins this server lets the page go to, space-separated. */
+function allowOriginsAttribute(
+  allowOrigins: readonly string[] | undefined
+): Record<string, string> {
+  const served = servedAllowOrigins(allowOrigins)
+  return served === undefined ? {} : { 'data-on-success-allow-origins': served.join(' ') }
+}
+
 /**
  * Build data attributes for automation actions. `data-action-input` carries
  * the JSON-serialized `inputData` (with `$record.*` already substituted) so
@@ -184,6 +194,7 @@ export function buildAutomationDataAttributes(
     ...outcomeToastAttributes('success', action.onSuccess?.toast),
     ...outcomeToastAttributes('error', action.onError?.toast),
     ...successExitAttributes(action.onSuccess, record),
+    ...allowOriginsAttribute(action.onSuccess?.allowOrigins),
   }
 }
 
@@ -376,6 +387,11 @@ export function overlayButtonSchemaFallbacks(
 export function buildFetchDataAttributes(action: FetchAction): Record<string, string> {
   return {
     'data-action-type': 'fetch',
-    'data-action-config': JSON.stringify(action),
+    'data-action-config': JSON.stringify({
+      ...action,
+      ...(action.onSuccess !== undefined && {
+        onSuccess: withServedAllowOrigins(action.onSuccess),
+      }),
+    }),
   }
 }

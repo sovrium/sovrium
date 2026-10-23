@@ -97,6 +97,7 @@ export default {
       meta: {
         title: 'Your app is running',
         description: 'A Sovrium app, running. Open app.yaml to change this page.',
+        favicon: './favicon.svg',
       },
       components: [
         {
@@ -288,6 +289,7 @@ export default {
       meta: {
         title: 'Nothing here yet',
         description: 'No page answers this address yet.',
+        favicon: './favicon.svg',
       },
       components: [
         {
@@ -370,6 +372,29 @@ export default {
               ],
             },
           ],
+        },
+      ],
+    },
+  ],
+  // Every night at 04:07, put a hosted demo back the way it shipped. It does
+  // nothing unless the host sets SOVRIUM_SELF_SEED=reset; see app.yaml.
+  automations: [
+    {
+      name: 'nightly-reset',
+      label: 'Reset the demo every night',
+      trigger: {
+        type: 'cron',
+        expression: '7 4 * * *',
+        history: 'minimal',
+      },
+      actions: [
+        {
+          name: 'reset',
+          type: 'app',
+          operator: 'seed',
+          props: {
+            mode: 'reset',
+          },
         },
       ],
     },

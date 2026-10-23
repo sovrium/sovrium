@@ -6,6 +6,7 @@ access:
 meta:
   title: Overview · App starter
   description: How the projects moved over the period.
+  favicon: ./favicon.svg
 window:
   default: 30d
   presets:

@@ -9,6 +9,7 @@ access:
 meta:
   title: Contacts · Kestrel CRM
   description: The people you sell to, each linked to a company and its deals.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

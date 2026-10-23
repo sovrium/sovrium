@@ -5,6 +5,7 @@ path: /sign-in
 meta:
   title: Sign in · Orrin OS
   description: Sign in to Orrin OS.
+  favicon: ./favicon.svg
 components:
   - type: container
     element: div

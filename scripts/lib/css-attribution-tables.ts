@@ -66,7 +66,7 @@ export const ISLANDS_BY_TYPE: Readonly<Record<string, readonly string[]>> = {
   'code-editor': ['code-editor'],
   'date-range-picker': ['date-range-picker'],
   'filter-bar': ['filter-bar'],
-  form: ['crud-form', 'auth-form'],
+  form: ['crud-form', 'auth-form', 'form-field'],
   tabs: ['tabs', 'crud-form'],
   'ai-chat': ['ai-chat'],
   dialog: ['dialog'],
@@ -75,7 +75,7 @@ export const ISLANDS_BY_TYPE: Readonly<Record<string, readonly string[]>> = {
   combobox: ['combobox'],
   accordion: ['accordion'],
   collapsible: ['collapsible'],
-  'message-scroller': ['message-scroller'],
+  'message-scroller': ['message-scroller', 'reply-thread'],
   questionnaire: ['questionnaire'],
   calendar: ['calendar'],
   checkbox: ['checkbox'],
@@ -95,6 +95,7 @@ export const ISLANDS_BY_TYPE: Readonly<Record<string, readonly string[]>> = {
   'toggle-group': ['toggle-group'],
   menubar: ['menubar'],
   'navigation-menu': ['navigation-menu'],
+  'notification-bell': ['notification-bell'],
   'scroll-area': ['scroll-area'],
   input: ['date-picker', 'file-upload', 'number-input'],
   'file-upload': ['file-upload'],
@@ -107,16 +108,17 @@ export const ISLANDS_BY_TYPE: Readonly<Record<string, readonly string[]>> = {
 }
 
 /**
- * Islands every page may mount regardless of its components → CORE. `form-field`
- * is mounted by a server-rendered form — a hosted form's own page, or a form a
- * page or a dialog embeds — which no component type of the page names.
+ * Islands every page may mount regardless of its components → CORE.
+ * `form-field` is not one: it is mounted only by a server-rendered form — a
+ * hosted form's own page, or a form a page or a dialog embeds — so it rides the
+ * `form` type, which the compiler counts as declared whenever the app declares
+ * `forms` (`resolveNativeFreeCandidates`).
  */
 export const PAGE_LEVEL_ISLANDS: readonly string[] = [
   'command',
   'presence-indicator',
   'page-record-system',
   'spa-nav',
-  'form-field',
 ]
 
 /** Islands only the operator console mounts → the console set. */
@@ -158,6 +160,9 @@ export const CORE_WALK_BOUNDARY: readonly string[] = [
   // `field-specimen` only: renders every field control through
   // `elements/field-specimen-renderer.ts` → `islands/parts/crud-form/fields`.
   'src/presentation/render/resolve/field-specimen-resolver.ts',
+  // An open specimen of `date-picker`, `date-range-picker` or `dropdown-menu`
+  // only: draws the open popup through `elements/open-specimen-renderer.ts`.
+  'src/presentation/render/resolve/open-specimen-markup.ts',
 ]
 
 /** Files whose classes belong to the console alone, by path prefix. */

@@ -24,8 +24,9 @@ import type { ReactElement } from 'react'
  */
 type TypedInputField = ControlAttributeField
 
-export function inputTypeOf(field: TypedInputField): string {
-  return nativeInputTypeOf(field.type)
+export function inputTypeOf(field: TypedInputField & { readonly control?: string }): string {
+  // A `password` control masks a text column, before the scripts run too.
+  return field.control === 'password' ? 'password' : nativeInputTypeOf(field.type)
 }
 
 /**

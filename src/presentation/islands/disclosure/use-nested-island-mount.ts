@@ -7,11 +7,8 @@
 
 import { useCallback, useEffect, useRef } from 'react'
 import { RUNTIME_READY_MARKS } from '@/presentation/design/runtime-ready-marks'
-import {
-  mountNestedIslands,
-  releaseDetachedIslands,
-  runInjectedScripts,
-} from '../overlays/live-injected-markup'
+import { runInjectedScripts } from '@/presentation/islands/runtime/injected-scripts'
+import { mountNestedIslands, releaseDetachedIslands } from '../overlays/live-injected-markup'
 
 /**
  * Panels the server rendered as markup: reading them off the host, and

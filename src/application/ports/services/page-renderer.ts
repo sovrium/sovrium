@@ -6,7 +6,9 @@
  */
 
 import { Context } from 'effect'
+import type { ReadReadPosition } from '@/application/ports/repositories/tables/read-state-repository'
 import type { LookupReadMask } from '@/application/ports/repositories/tables/table-repository'
+import type { SpecimenSeed } from '@/application/ports/services/specimen-seed'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { ViewerIdentity } from '@/domain/models/app/pages/component-session-visibility-service'
@@ -322,6 +324,7 @@ export class PageRenderer extends Context.Service<
         readonly readRecordLabels?: ReadRecordLabels
         /** The records API's row-rule context, for the rows a page judges in memory. */
         readonly loadRowRuleContext?: LoadRowRuleContext
+        readonly readReadPosition?: ReadReadPosition // a conversation's New marker
         /** The rows the records list admits this caller, for every list a page draws. */
         readonly readReaderRows?: ReadReaderRows
         /** The records list's masks of the lookups and counts a page's query names. */
@@ -339,9 +342,12 @@ export class PageRenderer extends Context.Service<
          * the instance is read), every caller-scoped reader above is dropped,
          * and no island is mounted, so the document is a picture of the
          * template in its main state rather than a live page. It is drawn at
-         * the specimen instant (`SPECIMEN_INSTANT`), whatever the clock says.
+         * the specimen instant (`SPECIMEN_INSTANT`), or at `drawnAt` when given,
+         * whatever the clock says.
          */
         readonly specimen?: boolean
+        /** With `specimen`: draw from these seeded rows, as this account, not the sample. */
+        readonly specimenSeed?: SpecimenSeed
         /**
          * The instant every clock read of the render answers, for a drawing
          * that must not depend on when it was made. Absent, a page reads the

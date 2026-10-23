@@ -28,7 +28,8 @@ const encoder = new TextEncoder()
 /** The Penpot file of the projected pages, as one bundle entry with the `adapter` role. */
 export const penpotEntryOf = (
   app: App,
-  projected: readonly ProjectedPage[]
+  projected: readonly ProjectedPage[],
+  media: readonly { readonly name: string; readonly bytes: Uint8Array }[] = []
 ): DesignSystemBundleEntry => {
   const documents = figmaPageDocumentsBoundTo(app, {}, projected)
   const entries = exportPenpotFile({
@@ -42,8 +43,9 @@ export const penpotEntryOf = (
     path: penpotFilePathOf(app.name),
     mediaType: 'application/zip',
     role: 'adapter',
-    bytes: buildDeflatedZip(
-      entries.map((entry) => ({ name: entry.path, bytes: encoder.encode(entry.text) }))
-    ),
+    bytes: buildDeflatedZip([
+      ...entries.map((entry) => ({ name: entry.path, bytes: encoder.encode(entry.text) })),
+      ...media,
+    ]),
   }
 }

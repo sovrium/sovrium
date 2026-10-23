@@ -10,6 +10,7 @@ import { resolveTranslationTokensDeep } from '@/domain/models/app/languages/tran
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import { AccordionSkeleton } from './accordion-skeleton'
+import { renderBottomBarNav } from './bottom-bar-nav'
 import { buildAccordionItems } from './island-accordion-items'
 import { asRecord, baseProps, controlLabel, pickFromComponent } from './island-form-props'
 import { renderSsrNavItem } from './island-nav-ssr'
@@ -19,6 +20,7 @@ import { selectComponents } from './select-component'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
 import type { ElemProps, RawProps } from './island-form-props'
 import type { SsrNavItem } from './island-nav-ssr'
+import type { NavItem } from '@/domain/models/app/pages/components/shared-schemas'
 
 function buildCheckboxProps(rawProps: RawProps, elementProps: ElemProps, component?: unknown) {
   const c = asRecord(component)
@@ -288,6 +290,10 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
     // hydrated island show the translated strings.
     const navItems = resolveTranslationTokensDeep(rawNavItems, currentLang, languages) as
       readonly SsrNavItem[] | undefined
+    // A phone's tab bar is served as plain links, with no island to open.
+    if (navMenuComp?.layout === 'bottom-bar' && navItems !== undefined) {
+      return renderBottomBarNav(navItems as readonly NavItem[], elementProps)
+    }
     const props = { navItems, openOnHover, triggerClassName, ...baseProps(elementProps) }
     // Respect className from schema props; default to horizontal flex when not provided.
     const userClassName = elementProps['className'] as string | undefined

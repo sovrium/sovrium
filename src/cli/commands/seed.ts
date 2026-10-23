@@ -58,6 +58,7 @@ import {
   requireApp,
 } from './app-prelude'
 import { resolveProjectRoot } from './option-parsing'
+import { settleAccountPlan } from './seed-account-plan'
 import { loadSeedFiles } from './seed-load'
 import { handleRemoteSeed, isRemoteSeed } from './seed-remote'
 import { report, seedReportOf, writeReportFile } from './seed-report'
@@ -165,22 +166,7 @@ export const requireAccountPlan = async (
   plan: SeedPlan,
   actingAs: string | undefined
 ) => {
-  const { collectAccountReferences } = await import('@/application/use-cases/seed/seed-checks')
-  const { planAccounts, readAccountIndex, readPendingInvitees } = await import('./seed-accounts')
-  const { checkSeedGrants } = await import('./seed-grants')
-  const planned = planAccounts({
-    app,
-    accounts: loaded.accounts,
-    index: await readAccountIndex(),
-    references: collectAccountReferences(plan.tables),
-    actingAs,
-    fallbackPassword: Bun.env.SOVRIUM_SEED_PASSWORD,
-    pendingInvitees: await readPendingInvitees(),
-  })
-  const accountPlan = {
-    ...planned,
-    errors: [...planned.errors, ...checkSeedGrants(app, plan, loaded.accounts)],
-  }
+  const accountPlan = await settleAccountPlan({ app, accounts: loaded.accounts, plan, actingAs })
   return accountPlan.errors.length > 0
     ? refuse(`Error: seed data was refused:\n${indent(accountPlan.errors)}`)
     : accountPlan

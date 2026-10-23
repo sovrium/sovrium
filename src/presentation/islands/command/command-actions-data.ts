@@ -51,6 +51,8 @@ export interface CommandMatch {
   readonly label: string
   readonly entityType?: string
   readonly tableName?: string
+  /** The table as a person reads it, in the page language. */
+  readonly tableLabel?: string
   readonly detailPath?: string
   readonly favorited?: boolean
   readonly excerpt?: string

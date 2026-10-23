@@ -10,12 +10,15 @@ import { AuthRepository } from '@/application/ports/repositories/auth/auth-repos
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import { PageRenderer } from '@/application/ports/services/page-renderer'
 import { SPECIMEN_INSTANT } from '@/domain/models/app/pages/specimen-sample-service'
+import { commentTableKeysOf } from '@/domain/models/app/tables/comment-address-service'
 import {
   resolveClientRuntimePreloads,
   resolveClientScriptPaths,
 } from '@/infrastructure/assets/client-entries'
 import { readInvitationFacts } from '@/infrastructure/auth/better-auth/invitation-page-reader'
 import { readTwoFactorAttempt } from '@/infrastructure/auth/better-auth/two-factor-attempt-reader'
+import { readCommentSummaries } from '@/infrastructure/database/table-queries/query-helpers/comment-summary-queries'
+import { cachedLinkPreviews } from '@/infrastructure/egress/link-preview-cache'
 import { getSovriumVersion } from '@/infrastructure/process/version'
 import { buildIslands } from '@/infrastructure/server/route-setup/island-assets'
 import { atRenderInstant } from '@/presentation/render/page/render-clock'
@@ -25,8 +28,8 @@ import { renderRssFeed } from '@/presentation/render/page/render-rss-feed'
 import { asSpecimenDrawing } from '@/presentation/render/page/specimen-drawing'
 import { signedOutReaderRows } from '@/presentation/render/resolve/reader-row-admission'
 import {
-  SPECIMEN_SESSION,
-  specimenSampleDb,
+  specimenDbOf,
+  specimenSessionOf,
   specimenSystemRows,
 } from '@/presentation/render/resolve/specimen-sample-db'
 import type { DataSourceDb } from '@/presentation/render/resolve/data-source-contracts'
@@ -65,6 +68,11 @@ function createDataSourceDbAdapter(
     // mounted console surface: a signed-out visitor's. The page route folds its
     // request's own reader over it.
     readReaderRows: signedOutReaderRows,
+    // The link-preview cards already read for a stored message; reads nothing.
+    readLinkPreviews: async (addresses) => cachedLinkPreviews(addresses),
+    // A conversation turn's reply summary: approved comments only.
+    readCommentSummaries: (table, recordIds) =>
+      readCommentSummaries(commentTableKeysOf(table), recordIds),
   }
 }
 
@@ -104,26 +112,33 @@ const splitCallerReaders = (db: DataSourceDb, requestContext: RenderRequestConte
     callerFieldReader,
     viewerIdentity,
     readRecordLabels,
+    readReadPosition,
     loadRowRuleContext,
     readReaderRows,
     readQueryMasks,
     signFileUrl,
     specimen,
+    specimenSeed,
     drawnAt,
     ...context
   } = requestContext ?? {}
+  const readers: Partial<DataSourceDb> = {
+    readTableAsCaller,
+    callerFieldReader,
+    viewerIdentity,
+    readRecordLabels,
+    readReadPosition,
+    loadRowRuleContext,
+    readReaderRows,
+    readQueryMasks,
+    signFileUrl,
+  }
+  // Only the readers the route supplied: an absent one keeps the adapter's own.
   const callerDb: DataSourceDb = {
     ...db,
-    ...(readTableAsCaller !== undefined && { readTableAsCaller }),
-    ...(callerFieldReader !== undefined && { callerFieldReader }),
-    ...(viewerIdentity !== undefined && { viewerIdentity }),
-    ...(readRecordLabels !== undefined && { readRecordLabels }),
-    ...(loadRowRuleContext !== undefined && { loadRowRuleContext }),
-    ...(readReaderRows !== undefined && { readReaderRows }),
-    ...(readQueryMasks !== undefined && { readQueryMasks }),
-    ...(signFileUrl !== undefined && { signFileUrl }),
+    ...Object.fromEntries(Object.entries(readers).filter(([, reader]) => reader !== undefined)),
   }
-  return { specimen, drawnAt, context, callerDb }
+  return { specimen, specimenSeed, drawnAt, context, callerDb }
 }
 
 export const PageRendererLive = Layer.effect(
@@ -153,17 +168,21 @@ export const PageRendererLive = Layer.effect(
 
     return {
       renderPage: (app, path, requestContext) => {
-        const { specimen, drawnAt, context, callerDb } = splitCallerReaders(db, requestContext)
-        // A specimen reads nothing of the instance: sample readers only, none of
-        // the caller's own readers, and the sample person as its viewer, at the
-        // specimen instant rather than at whatever the clock says.
+        const { specimen, specimenSeed, drawnAt, context, callerDb } = splitCallerReaders(
+          db,
+          requestContext
+        )
+        // A specimen reads nothing of the instance: sample readers (or a seed
+        // folder's rows) only, none of the caller's own readers, and the sample
+        // person (or the seeded account) as its viewer, at the specimen instant
+        // (or the one it is drawn at) rather than at whatever the clock says.
         if (specimen === true) {
-          return atRenderInstant(SPECIMEN_INSTANT, () =>
+          return atRenderInstant(drawnAt ?? SPECIMEN_INSTANT, () =>
             asSpecimenDrawing(() =>
               renderPage(app, path, {
                 ...context,
-                session: SPECIMEN_SESSION,
-                db: specimenSampleDb(app),
+                session: specimenSessionOf(specimenSeed),
+                db: specimenDbOf(app, specimenSeed),
                 fetchSystemRows: specimenSystemRows,
                 islandBuilder,
                 engineVersion,

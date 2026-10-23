@@ -35,6 +35,7 @@ import type { AutomationRepository } from '@/application/ports/repositories/auto
 import type { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
 import type { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import type { AutomationStateRepository } from '@/application/ports/repositories/automations/automation-state-repository'
+import type { NotificationRepository } from '@/application/ports/repositories/automations/notification-repository'
 import type { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import type { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
 import type { ConnectionTokenRepository } from '@/application/ports/repositories/connections/connection-token-repository'
@@ -43,6 +44,7 @@ import type { DataSourceRepository } from '@/application/ports/repositories/tabl
 import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { ConfigAccountProvisioner } from '@/application/ports/services/account-provisioner'
 import type { AiService } from '@/application/ports/services/ai-service'
+import type { AppSelfSeeder } from '@/application/ports/services/app-self-seeder'
 import type { AutomationFiberBridge } from '@/application/ports/services/automation-fiber-bridge'
 import type { DocumentRenderer } from '@/application/ports/services/document-renderer'
 import type { InstanceSupervisor } from '@/application/ports/services/instance-supervisor'
@@ -105,10 +107,7 @@ export type NestedStepRuns = Pick<ExecutedStep, 'paths' | 'iterations'>
 /** Accumulator type for `Effect.reduce` over the action list. */
 export interface RunAccumulator extends RunClientErrorField {
   readonly steps: ReadonlyArray<ExecutedStep>
-  /**
-   * Engine-internal run status. `'queued'`/`'running'` appear on persisted rows
-   * only (the scheduler writes them), listed so the status mappers pass them on.
-   */
+  /** Engine-internal run status; `'queued'`/`'running'` only on rows the scheduler persists. */
   readonly runStatus:
     | 'success'
     | 'failure'
@@ -245,6 +244,7 @@ export type StepRequirements =
   | AuthStepRequirements // the `auth` group, access-grant and invitation operators' services
   | CommentRepository // `comment` steps; record automations a write starts hydrate users too
   | UserDirectoryRepository // the people a comment step's mentions resolve to
+  | NotificationRepository // the store a `notification` step writes
   | ConnectionRepository
   | ConnectionTokenRepository
   | SentinelTokens
@@ -269,6 +269,7 @@ export type StepRequirements =
   | ConfigAccountProvisioner
   | OAuthClientRegistrar
   | InstanceSupervisor
+  | AppSelfSeeder // `app/seed`: the seeder `sovrium start` installs
   | BrowserStepRequirements
   | AgentToolRequirements // an `ai:agent` step's tool calls go through the agent's gates
 
@@ -282,10 +283,9 @@ export type RunRequirements =
   | AutomationFiberBridge // the sandbox's Promise boundary, the background event registry
 
 /**
- * Locally re-typed `app.actions[]` template entry. The runtime invoker
- * only reads `name`, `action`, and `variables` — keeping the type
- * lookup-shaped here avoids dragging the encoded-vs-decoded ActionTemplate
- * generics into the run loop.
+ * Locally re-typed `app.actions[]` template entry. The runtime invoker only
+ * reads `name`, `action` and `variables`; lookup-shaped, the type keeps the
+ * encoded-vs-decoded ActionTemplate generics out of the run loop.
  */
 export interface RuntimeActionTemplate {
   readonly name: string

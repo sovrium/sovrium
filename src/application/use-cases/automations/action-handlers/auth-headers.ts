@@ -15,6 +15,7 @@ import {
   buildStaticAuthHeader,
   unconfiguredConnectionReason,
   type ConnectionDef,
+  type StaticAuthHeader,
 } from './static-auth-header'
 import { resolveTokenExchangeHeader } from './token-exchange-token'
 import type { ConnectionServices, RefreshOutcome } from './connection-token-refresh'
@@ -131,6 +132,22 @@ export interface InjectedHeaders {
    * `instance_url`. Read by `connection/call` to resolve a `$token.FIELD` base URL.
    */
   readonly tokenFields?: Readonly<Record<string, string>>
+  /**
+   * An `apiKey` connection reading its key from the address (`props.query`):
+   * the parameter and the key, which the caller adds to the URL it sends
+   * ({@link withAuthQuery}) in place of a header.
+   */
+  readonly query?: Readonly<Record<string, string>>
+}
+
+/** The URL with the connection's key added as the query parameter it names, when it names one. */
+export const withAuthQuery = (url: string, injected: Pick<InjectedHeaders, 'query'>): string => {
+  const entries = Object.entries(injected.query ?? {})
+  if (entries.length === 0) return url
+  const parsed = URL.parse(url)
+  if (parsed === null) return url
+  entries.forEach(([name, value]) => parsed.searchParams.set(name, value))
+  return parsed.href
 }
 
 /**
@@ -149,6 +166,17 @@ export interface InjectedHeaders {
  * refusal: telling an operator the connection was deleted when the store simply
  * could not be read sends them to fix the wrong thing.
  */
+/** A static connection's credential as the headers, or the query parameter, a request carries. */
+const injectedFrom = (
+  built: StaticAuthHeader,
+  baseHeaders: Readonly<Record<string, string>>
+): InjectedHeaders => {
+  if ('unconfigured' in built) return { headers: baseHeaders, unconfigured: built.unconfigured }
+  if ('error' in built) return { headers: baseHeaders, error: built.error }
+  if ('query' in built) return { headers: baseHeaders, query: { [built.query]: built.value } }
+  return { headers: { ...baseHeaders, [built.header]: built.value } }
+}
+
 const ensureConnectionExistsInDb = (
   connectionName: string
 ): Effect.Effect<string | undefined, never, ConnectionRepository> =>
@@ -216,10 +244,7 @@ export const resolveConnectionHeaders = (
     // env substitution), so a `key: '$env.MY_TOKEN'` ref would otherwise reach
     // the wire verbatim.
     const envLookup = buildEnvLookup(app.env, process.env)
-    const built = buildStaticAuthHeader(conn, envLookup)
-    if ('unconfigured' in built) return { headers: baseHeaders, unconfigured: built.unconfigured }
-    if ('error' in built) return { headers: baseHeaders, error: built.error }
-    return { headers: { ...baseHeaders, [built.header]: built.value } }
+    return injectedFrom(buildStaticAuthHeader(conn, envLookup), baseHeaders)
   }).pipe(Effect.withSpan('automations.resolve-connection-headers'))
 
 /**

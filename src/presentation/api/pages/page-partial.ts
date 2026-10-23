@@ -33,7 +33,10 @@ const APP_CONTENT_REGION_ID = 'main-content'
  *
  * A page carrying anything rendered OUTSIDE its main region, or anything only a
  * document load runs, is declined, so the client loads it in full:
- *   - `scripts` — a swap does not run a destination's own `<script>` tags;
+ *   - `scripts` — a page's own scripts render outside the region, so a swap
+ *     would drop them. Declining also keeps the swap's script runner
+ *     (`runInjectedScripts`) to the renderer's own inline runtimes: authored
+ *     page code is never brought to life by a swap;
  *   - `presence: true` — the presence indicator mounts beside the region;
  *   - `layout.sidebar` — the record-bound layout sidebar sits beside it too.
  *

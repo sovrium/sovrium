@@ -191,14 +191,20 @@ const attributesText = (attributes: Readonly<Record<string, string>>): string =>
 /**
  * Write a tree back out as HTML: every text escaped, every attribute quoted,
  * and a raw-text element written empty.
+ *
+ * @param nodes - the tree.
+ * @param writeText - how each escaped text run is written; as it is by default.
  */
-export const serializeHtmlNodes = (nodes: readonly HtmlNode[]): string =>
+export const serializeHtmlNodes = (
+  nodes: readonly HtmlNode[],
+  writeText: (escaped: string) => string = (escaped) => escaped
+): string =>
   nodes
     .map((node) => {
-      if (node.kind === 'text') return escapeText(node.text)
+      if (node.kind === 'text') return writeText(escapeText(node.text))
       const open = `<${node.tag}${attributesText(node.attributes)}>`
       if (VOID_TAGS.has(node.tag)) return open
-      const inner = RAW_TEXT_TAGS.has(node.tag) ? '' : serializeHtmlNodes(node.children)
+      const inner = RAW_TEXT_TAGS.has(node.tag) ? '' : serializeHtmlNodes(node.children, writeText)
       return `${open}${inner}</${node.tag}>`
     })
     .join('')

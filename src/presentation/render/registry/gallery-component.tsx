@@ -15,9 +15,19 @@ import {
 import { declaredGalleryPartClasses } from '@/presentation/design/gallery-part-class-resolution'
 import { resolveWeekdayFields } from '@/presentation/render/props/resolve-weekday-fields'
 import { hostClassName, namedHost } from '@/presentation/render/registry/island-host-attributes'
+import { boundViewGroupBy } from '@/presentation/render/resolve/list-island-inputs'
 import { islandLoadingLabel, islandUiStrings } from './island-loading-label'
 import { islandFallback, specimenEmpty } from './specimen-island-states'
 import type { ComponentDispatchConfig, ComponentRenderer } from './component-dispatch-config'
+
+/** The bound view's first `groupBy` level, when the gallery reads through a grouped view. */
+const groupByProp = (dataSource: unknown, tables: ComponentDispatchConfig['tables']) => {
+  const groupBy = boundViewGroupBy(
+    dataSource as Parameters<typeof boundViewGroupBy>[0],
+    tables as Parameters<typeof boundViewGroupBy>[1]
+  )
+  return groupBy === undefined ? {} : { groupBy }
+}
 
 /** The gallery island's props, the author's piece classes merged here, on the server. */
 function extractGalleryProps(
@@ -37,6 +47,10 @@ function extractGalleryProps(
     featured: elementProps.featured,
     // The channel the gallery publishes the card a reader selects on.
     publishes: elementProps.publishes,
+    // The bound view's grouping: the cards are drawn under its groups.
+    ...groupByProp(elementProps.dataSource, tables),
+    // `dataSource.mine`: the reader's own rows, read on the server (`viewer-own-rows.ts`).
+    ...(elementProps._viewerRows === undefined ? {} : { viewerRows: elementProps._viewerRows }),
     ...declaredGalleryPartClasses(parts),
   }
 }
@@ -62,6 +76,7 @@ const galleryRenderer =
         data-island-props={JSON.stringify(islandProps)}
         {...namedHost(type, { 'data-layout': layout, 'data-gallery-layout': layout })}
         data-testid={elementProps['data-testid'] as string | undefined}
+        id={elementProps['id'] as string | undefined}
         className={hostClassName(elementProps)}
       >
         {/* Loading skeleton — preserved as Suspense fallback.

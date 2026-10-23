@@ -13,7 +13,7 @@ import {
   type GuardedResponse,
 } from '@/infrastructure/egress/guarded-fetch'
 import { buildEnvLookup, resolveEnvInString } from '../resolve-env-vars'
-import { connectionHeaderRefusal, resolveConnectionHeaders } from './auth-headers'
+import { connectionHeaderRefusal, resolveConnectionHeaders, withAuthQuery } from './auth-headers'
 import { withWholeFileParams } from './connection-file-read'
 import { firstPageUrl, itemsOf, nextPageUrl, type PagePosition } from './connection-pagination'
 import { retryAfterMs, type OperationRequest } from './connection-request'
@@ -321,7 +321,11 @@ export const handleConnectionCall: ActionHandler = (action, app, automation, run
     }
     return yield* performCall({
       label,
-      request: { ...built.success, headers: { ...built.success.headers, ...auth.headers } },
+      request: {
+        ...built.success,
+        url: withAuthQuery(built.success.url, auth),
+        headers: { ...built.success.headers, ...auth.headers },
+      },
       operation,
       bound: paginateBound(props['paginate']),
       timeoutMs: timeoutOf(props),

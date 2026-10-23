@@ -26,6 +26,27 @@ export const navigationMenuFields = {
     )
   ),
   /**
+   * How the menu is drawn. `header` (the default) is the horizontal menu with
+   * its mega-menu panels. `bottom-bar` is a phone's tab bar: fixed to the
+   * bottom of the viewport above the safe-area inset, each item an icon over
+   * its label, the current item marked `aria-current="page"`, and the page's
+   * bottom padding reserved so no content sits under it.
+   *
+   * A bottom bar holds at most five top-level items and no sub-menus; more, or
+   * an item with `children`, is refused when the config is read. WHEN it shows
+   * is not this key's job but the existing per-breakpoint `responsive` one:
+   * `responsive: { md: { visible: false } }` keeps it to phones.
+   */
+  layout: Schema.optional(
+    Schema.Literals(['header', 'bottom-bar']).annotate({
+      title: 'Layout',
+      defaultNote: 'header',
+      description:
+        "How the menu is drawn: 'header' (default), the horizontal menu with its mega-menu panels, or 'bottom-bar', a phone tab bar fixed to the bottom of the viewport above the safe-area inset, each item an icon over its label, the current one marked, the page's bottom padding reserved. A bottom bar takes at most five items and no sub-menus. Pair it with responsive: { md: { visible: false } } to show it on phones only.",
+      examples: ['bottom-bar'],
+    })
+  ),
+  /**
    * When true, a mega-menu trigger opens on pointer hover (in addition to
    * click). Click always still opens/closes the menu; hover is purely additive.
    * The pointer can travel from the trigger into the open panel without the menu

@@ -499,3 +499,28 @@ export const updateUserAccessRequestSchema = Schema.Struct({
 }).annotate({ description: 'A change to one access grant' })
 
 export type UpdateUserAccessRequest = Schema.Schema.Type<typeof updateUserAccessRequestSchema>
+
+/**
+ * `POST /api/tables/:table/records/:id/read` — mark a parent record read.
+ *
+ * Moves the caller's last-read position on every `readState` relationship
+ * pointing at this record to its newest child she may read. The parent's own
+ * rows then carry the counts (`unreadCount`, or each relationship's `as`) in
+ * their `fields`, read-only, beside its stored fields; this answer repeats
+ * them as they stand after the move. A record she may not read answers 404.
+ */
+export const markRecordReadResponseSchema = Schema.Struct({
+  recordId: Schema.String.annotate({ description: 'The parent record marked read' }),
+  counts: Schema.Record(
+    Schema.String,
+    Schema.Int.annotate({ description: 'Unread children after the move' }).pipe(
+      Schema.check(Schema.isGreaterThanOrEqualTo(0))
+    )
+  ).annotate({
+    description:
+      'Each read-state count of the record by its name (unreadCount, or the as of its relationship), after the move',
+  }),
+})
+
+/** @public */
+export type MarkRecordReadResponse = Schema.Schema.Type<typeof markRecordReadResponseSchema>

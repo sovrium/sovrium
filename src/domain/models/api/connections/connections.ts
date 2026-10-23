@@ -156,3 +156,101 @@ export const connectionUsersResponseSchema = Schema.Struct({
 }).annotate({ strictKeys: true, title: 'sovrium:strict-keys' })
 
 export type ConnectionUsersResponse = typeof connectionUsersResponseSchema.Type
+
+// ─── GIF Search ──────────────────────────────────────────────────────────────
+
+/**
+ * Wire contracts of a composer's GIF search and of the GIFs it serves.
+ *
+ * `GET /api/connections/{name}/gif-search?q=<words>` sends the search through the
+ * named connection, with the operator's key, and answers the results in ONE
+ * shape whatever the provider: the adapter named by the composer's
+ * `gif.provider` reads the provider's answer into it. The route answers only a
+ * signed-in caller, and only for a connection a composer on a page names as its
+ * `gif.connection`; any other name answers 404, so the route is not a way to
+ * call an arbitrary connection. The key never appears in the answer, and the
+ * answer is decoded with excess keys refused, so a provider field passed through
+ * by mistake fails at the boundary instead of reaching the browser.
+ *
+ * A result names no provider address. Its `url` and `previewUrl` are the app's
+ * own media routes, `GET /api/connections/{name}/gifs/{id}` (the GIF) and
+ * `GET /api/connections/{name}/gifs/{id}/preview` (its small rendition), under
+ * the same signed-in, composer-named rule. The server resolves the id to the
+ * provider's media address itself (from a search it answered, or through the
+ * connection's `get` operation), fetches the bytes through the guarded outbound
+ * fetch, accepts only an `image/*` answer within a size cap, caches it, and
+ * serves it. A media route never takes an address from the caller, and a
+ * reader's browser never contacts the provider.
+ */
+
+/** A provider's id of one GIF: letters, digits, `_` and `-`, at most 64. */
+const gifIdSchema = Schema.String.annotate({
+  description: "The provider's id of the GIF.",
+  examples: ['xT9IgG50Fb7Mi0prBC'],
+}).pipe(Schema.check(Schema.isPattern(/^[A-Za-z0-9_-]{1,64}$/)))
+
+/** The query of a GIF search. @public */
+export const gifSearchQuerySchema = Schema.Struct({
+  q: Schema.String.annotate({
+    description: 'The words searched for, 1 to 100 characters.',
+    examples: ['bravo'],
+  }).pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(100))),
+}).annotate({ title: 'GifSearchQuery' })
+
+/** @public */
+export type GifSearchQuery = typeof gifSearchQuerySchema.Type
+
+/** The path parameters of a GIF media route. @public */
+export const gifMediaParamsSchema = Schema.Struct({
+  name: Schema.String.annotate({
+    description: 'The connection a composer names as its GIF connection.',
+    examples: ['giphy'],
+  }),
+  id: gifIdSchema,
+}).annotate({ title: 'GifMediaParams' })
+
+/** @public */
+export type GifMediaParams = typeof gifMediaParamsSchema.Type
+
+/** One result a member can pick. @public */
+export const gifSearchResultSchema = Schema.Struct({
+  id: gifIdSchema,
+  title: Schema.String.annotate({
+    description: 'What the GIF shows, as the provider titles it; used as its alternative text.',
+  }),
+  url: Schema.String.annotate({
+    description:
+      "The app's path of the GIF, served by the app; its absolute form is stored in the message when it is picked.",
+    examples: ['/api/connections/giphy/gifs/xT9IgG50Fb7Mi0prBC'],
+  }).pipe(Schema.check(Schema.isPattern(/^\/api\/connections\/[^/]+\/gifs\/[A-Za-z0-9_-]{1,64}$/))),
+  previewUrl: Schema.String.annotate({
+    description:
+      "The app's path of the small rendition drawn in the results grid, served by the app.",
+    examples: ['/api/connections/giphy/gifs/xT9IgG50Fb7Mi0prBC/preview'],
+  }).pipe(
+    Schema.check(
+      Schema.isPattern(/^\/api\/connections\/[^/]+\/gifs\/[A-Za-z0-9_-]{1,64}\/preview$/)
+    )
+  ),
+  width: Schema.Finite.annotate({ description: 'The width of the GIF, in pixels.' }).pipe(
+    Schema.check(Schema.isInt())
+  ),
+  height: Schema.Finite.annotate({ description: 'The height of the GIF, in pixels.' }).pipe(
+    Schema.check(Schema.isInt())
+  ),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'GifSearchResult' })
+
+/** @public */
+export type GifSearchResult = typeof gifSearchResultSchema.Type
+
+/** The answer of a GIF search: at most 24 results, the provider's order kept. @public */
+export const gifSearchResponseSchema = Schema.Struct({
+  results: Schema.Array(gifSearchResultSchema)
+    .annotate({
+      description: "The results, at most 24, in the provider's order. Empty when nothing matched.",
+    })
+    .pipe(Schema.check(Schema.isMaxLength(24))),
+}).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'GifSearchResponse' })
+
+/** @public */
+export type GifSearchResponse = typeof gifSearchResponseSchema.Type

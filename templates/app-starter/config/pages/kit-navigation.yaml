@@ -6,6 +6,7 @@ access:
 meta:
   title: 'Navigation blocks · App starter'
   description: 'Headings, trails, tabs and menus.'
+  favicon: ./favicon.svg
 components:
   - $ref: ./_nav.yaml
   - component: app-navbar-search

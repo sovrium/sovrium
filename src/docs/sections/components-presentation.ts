@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import actionAllowOriginsBody from '@/domain/models/app/pages/components/action-allow-origins.docs.md' with { type: 'file' }
 import aiChatComponentBody from '@/domain/models/app/pages/components/component-types/ai/ai.docs.md' with { type: 'file' }
 import bubbleComponentBody from '@/domain/models/app/pages/components/component-types/display/bubble.docs.md' with { type: 'file' }
 import displayComponentsBody from '@/domain/models/app/pages/components/component-types/display/display.docs.md' with { type: 'file' }
@@ -82,7 +83,7 @@ export const presentationComponentArticles = [
     slug: 'navigation-components',
     title: 'Navigation Components',
     description:
-      'The seven types that move a reader around — navigation-menu, dropdown-menu, context-menu, menubar, breadcrumb, command-palette and pagination.',
+      'The eight types that move a reader around — navigation-menu, dropdown-menu, context-menu, menubar, breadcrumb, command-palette, notification-bell and pagination.',
     keywords: [
       'sovrium',
       'navigation menu',
@@ -101,6 +102,7 @@ export const presentationComponentArticles = [
       componentType('menubar'),
       componentType('breadcrumb'),
       componentType('command'),
+      componentType('notification-bell'),
       componentType('pagination'),
     ],
     stories: [
@@ -112,6 +114,7 @@ export const presentationComponentArticles = [
       'US-PAGES-NAVIGATION-ACTIVE-ITEM-MARKER',
       'US-PAGES-NAVIGATION-BREADCRUMB-DERIVED',
       'US-PAGES-NAVIGATION-COMMAND-PALETTE-CONFIG',
+      'US-PAGES-NAVIGATION-NOTIFICATION-BELL',
       'US-PAGES-NAVIGATION-SPLIT-BUTTON',
     ],
   }),
@@ -201,6 +204,27 @@ export const presentationComponentArticles = [
       'US-PAGES-INTERACTIVITY-INTERACTIVE-PATTERNS-SESSION-TEXT',
       'US-PAGES-NAVIGATION-006',
     ],
+  }),
+  defineArticle({
+    slug: 'action-allow-origins',
+    title: 'Sending a member to another site',
+    description:
+      'How an action sends the member to the address its run returned — a payment checkout — on the exact origins its `onSuccess.allowOrigins` lists, and refuses any other.',
+    keywords: [
+      'sovrium',
+      'allowOrigins',
+      'onSuccess',
+      'navigate',
+      '$response',
+      'checkout',
+      'redirect',
+      'origin',
+    ],
+    order: 3246,
+    sidebarLabel: 'Sending to another site',
+    body: actionAllowOriginsBody,
+    documents: [],
+    stories: [],
   }),
   defineArticle({
     slug: 'social-components',

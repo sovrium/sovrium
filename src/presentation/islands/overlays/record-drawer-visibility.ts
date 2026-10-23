@@ -21,10 +21,8 @@
  * record. A NEW record has no stored values: its conditions read that blank.
  */
 
-import {
-  satisfiesFieldCondition,
-  type FieldCondition,
-} from '@/domain/models/app/tables/condition-operators'
+import { satisfiesFieldCondition } from '@/domain/models/app/tables/condition-match-service'
+import type { FieldCondition } from '@/domain/models/app/tables/condition-operators'
 
 /** Anything the sheet may draw conditionally. */
 interface Conditional {

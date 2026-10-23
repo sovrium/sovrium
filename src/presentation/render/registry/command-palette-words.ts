@@ -42,6 +42,8 @@ const BUILT_IN_WORDS = [
   'searchPlaceholder',
   'quickActions',
   'pages',
+  // The one group every record match is listed in, each naming its table.
+  'kind.record',
   'createIn',
   'goTo',
   'toggleDarkMode',

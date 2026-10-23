@@ -9,6 +9,7 @@ access:
 meta:
   title: Gallery · Arden Assets
   description: The assets in service as cards, by location.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

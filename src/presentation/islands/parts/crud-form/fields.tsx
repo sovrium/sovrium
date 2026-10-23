@@ -323,5 +323,8 @@ const WIDGET_RENDERERS: Record<FieldWidget, (args: FieldRenderArgs) => React.Rea
  * the hydrated control and the SSR skeleton cannot disagree per field type.
  */
 export function renderField(args: FieldRenderArgs) {
+  // An author's `control` over a text column draws it masked or multi-line.
+  if (args.field.control === 'password') return renderTypedInputField(args, 'password')
+  if (args.field.control === 'textarea') return WIDGET_RENDERERS.textarea(args)
   return WIDGET_RENDERERS[fieldWidgetOf(args.field.type)](args)
 }

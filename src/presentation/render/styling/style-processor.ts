@@ -88,6 +88,43 @@ export function parseComponentStyle(
 }
 
 /**
+ * An image's `width` and `height` are its intrinsic size, read by the browser
+ * from the attributes to reserve the box at the right aspect ratio. As an
+ * inline size they would also pin the box at those pixels, beating any width
+ * class (`w-full h-auto`), so they stay attributes and never reach the style.
+ */
+function withoutAttributeSize(
+  type: Component['type'],
+  props: Record<string, unknown> | undefined
+): Record<string, unknown> | undefined {
+  if (type !== 'image' || props === undefined) return props
+  const { width: _width, height: _height, ...rest } = props
+  return rest
+}
+
+const isPositiveNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value) && value > 0
+
+/**
+ * The attributes alone map to `aspect-ratio: auto w / h`, where `auto` hands
+ * the ratio to the file once it loads: a logo declared 160 × 58 drawn from a
+ * square file would grow to 160 × 160. Pinning the declared ratio keeps the
+ * declared box (the picture cropped by the image's `object-cover`), while a
+ * size class still sizes the box at that same ratio. An `aspect-*` class, or
+ * an explicit `aspectRatio` in the style, is the author's and wins.
+ */
+function declaredImageRatio(
+  type: Component['type'],
+  props: Record<string, unknown> | undefined
+): Record<string, unknown> | undefined {
+  if (type !== 'image' || props === undefined) return undefined
+  const { width, height, className } = props
+  if (!isPositiveNumber(width) || !isPositiveNumber(height)) return undefined
+  if (typeof className === 'string' && /(^|[\s:])aspect-/.test(className)) return undefined
+  return { aspectRatio: `${width} / ${height}` }
+}
+
+/**
  * Maps component types to the bare marker class written onto the element.
  *
  * These names are INERT. `button` maps to `btn`, but no CSS components rule
@@ -235,7 +272,9 @@ export function processComponentStyle(
   design: Design | undefined,
   props?: Record<string, unknown> | undefined
 ): Record<string, unknown> | undefined {
-  const baseStyle = parseComponentStyle(styleValue, props)
+  const parsedStyle = parseComponentStyle(styleValue, withoutAttributeSize(type, props))
+  const declaredRatio = declaredImageRatio(type, props)
+  const baseStyle = declaredRatio ? { ...declaredRatio, ...parsedStyle } : parsedStyle
   const styleWithAnimations = applyComponentAnimations(type, baseStyle, design)
   return applyComponentShadow(type, styleWithAnimations, design)
 }

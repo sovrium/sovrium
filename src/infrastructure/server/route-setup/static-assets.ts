@@ -36,6 +36,7 @@ import {
   isProduction,
 } from './asset-cache-control'
 import { setupClientChunkRoutes } from './client-chunk-routes'
+import { setupDefaultFaviconRoute } from './default-favicon-route'
 import {
   setupBrandMarkRoute,
   setupDesignSystemSampleRoute,
@@ -311,5 +312,8 @@ export async function setupStaticAssets(
   const withSearch = hasPageSearchComponent(app)
     ? await setupPublicDirRoute(withAssets, searchIndexDir())
     : withAssets
-  return publicDir ? setupPublicDirRoute(withSearch, publicDir, privateRealpaths) : withSearch
+  const withPublic = publicDir
+    ? await setupPublicDirRoute(withSearch, publicDir, privateRealpaths)
+    : withSearch
+  return setupDefaultFaviconRoute(withPublic, app)
 }

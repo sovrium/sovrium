@@ -10,6 +10,7 @@ access:
 meta:
   title: Directory · Meridian People
   description: Everyone at the company, by name, role and team.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

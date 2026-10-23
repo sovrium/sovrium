@@ -22,8 +22,8 @@
  * plotted at the floor (see {@link plotValue}).
  */
 
-/** How a value axis maps data onto pixels — the `yAxis.scale` literal. */
-export type ValueAxisScale = 'linear' | 'logarithmic'
+/** How a value axis maps data onto pixels — the `yAxis.scale` literal; `time` reads as linear. */
+export type ValueAxisScale = 'linear' | 'logarithmic' | 'time'
 
 /** A resolved value axis: the span recharts draws, the values it labels, its scale. */
 export interface ValueAxis {

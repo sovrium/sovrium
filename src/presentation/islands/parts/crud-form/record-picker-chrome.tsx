@@ -23,6 +23,7 @@ import {
 } from '../../runtime/picker-contract'
 import { OptionListbox } from '../option-listbox'
 import { type FieldDef } from './field-def'
+import { useFieldLineIds } from './field-id-scope'
 import { FieldLabelText } from './field-label'
 import type { RecordPicker } from './use-record-picker'
 import type { CandidateSearch } from '../use-candidate-search'
@@ -170,8 +171,8 @@ export function LinkCount(props: {
 }
 
 /** The field's guidance, then the refusal line when there is one. */
-function describedBy(field: FieldDef, errorId: string | undefined) {
-  const own = fieldDescribedBy(field)['aria-describedby']
+function describedBy(field: FieldDef, errorId: string | undefined, descriptionId: string) {
+  const own = field.description === undefined ? undefined : descriptionId
   const ids = [own, errorId].filter((id): id is string => id !== undefined)
   return ids.length === 0 ? {} : { 'aria-describedby': ids.join(' ') }
 }
@@ -210,6 +211,7 @@ export function PickerCombobox(props: {
   readonly onClose: () => void
 }): ReactElement {
   const { field } = props
+  const { description } = useFieldLineIds(field.name)
   return (
     <input
       id={props.inputId}
@@ -227,7 +229,7 @@ export function PickerCombobox(props: {
       {...(field.required && { required: true, 'data-required': 'true' })}
       {...(field.placeholder && { placeholder: field.placeholder })}
       {...(props.invalid && { 'aria-invalid': 'true' })}
-      {...describedBy(field, props.errorId)}
+      {...describedBy(field, props.errorId, description)}
       onChange={(e) => props.onTerm(e.target.value)}
       onFocus={props.onOpen}
       onClick={props.onOpen}

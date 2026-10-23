@@ -277,6 +277,86 @@ export const realtimeConnectionStatusSchema = Schema.Struct({
  * Union of all possible realtime message types delivered over a transport
  * connection (WebSocket frames or SSE `data:` events — identical format).
  */
+// ---------------------------------------------------------------------------
+// App-wide presence, typing and the comment feed
+// ---------------------------------------------------------------------------
+
+/**
+ * A person's presence, as `auth.presence` exposes it: two read-only facts.
+ *
+ * Sent only to a reader whose role is in `auth.presence.visibleTo`, never to an
+ * anonymous connection. `lastSeen` is present only when `auth.presence.lastSeen`
+ * is on, and is null for a person never seen leaving (online now, or never
+ * connected).
+ */
+export const presenceFactsSchema = Schema.Struct({
+  online: Schema.Boolean.annotate({
+    description: 'Whether one of her realtime connections is open',
+  }),
+  lastSeen: optionalField(
+    Schema.NullOr(
+      looseIsoDateTime({ description: 'When her last realtime connection closed' })
+    ).annotate({
+      description:
+        'When her last realtime connection closed, or null; present only when auth.presence.lastSeen is on',
+    })
+  ),
+})
+
+/**
+ * A person going online or offline, pushed to readers in `visibleTo` so a
+ * members panel moves her without a reload.
+ */
+export const realtimeUserPresenceSchema = Schema.Struct({
+  type: Schema.Literal('user-presence').annotate({ description: 'Event type identifier' }),
+  userId: Schema.String.annotate({ description: 'The person whose presence changed' }),
+  ...presenceFactsSchema.fields,
+})
+
+/**
+ * Someone typing under a record, on that record's presence channel. It carries
+ * the person's id only, reaches readers of the record only, and expires on its
+ * own a few seconds after the last keystroke.
+ */
+export const realtimeTypingSchema = Schema.Struct({
+  type: Schema.Literal('typing').annotate({ description: 'Event type identifier' }),
+  userId: Schema.String.annotate({ description: 'The person typing' }),
+  pagePath: Schema.String.annotate({ description: 'Record page the typing happens on' }),
+  typing: Schema.Boolean.annotate({
+    description: 'true while she types; false once she stops or sends',
+  }),
+})
+
+/**
+ * The signed-in reader's notifications changed — one was created for her, or
+ * marked read in another tab. Sent on her own app connection only, and it
+ * names nothing: a notification bell RE-READS `GET /api/notifications`, so the
+ * count and the list it draws are always what the store answers her.
+ */
+export const realtimeNotificationsChangedSchema = Schema.Struct({
+  type: Schema.Literal('notifications-changed').annotate({
+    description: 'Event type identifier',
+  }),
+  timestamp: looseIsoDateTime({ description: 'When her notifications changed' }),
+})
+
+/**
+ * A change to a record's comment thread. It names the change, not its
+ * content: a subscriber RE-READS the thread, so what she sees is what the list
+ * answers her (a comment pending moderation reaches moderators and its author
+ * only). A subscriber who may not read the record receives none.
+ */
+export const realtimeCommentEventSchema = Schema.Struct({
+  type: Schema.Literal('comment').annotate({ description: 'Event type identifier' }),
+  event: Schema.Literals(['created', 'edited', 'deleted', 'moderated']).annotate({
+    description: 'What happened to the comment',
+  }),
+  table: Schema.String.annotate({ description: 'Table of the record the thread belongs to' }),
+  recordId: Schema.String.annotate({ description: 'Record the thread belongs to' }),
+  commentId: Schema.String.annotate({ description: 'The comment that changed' }),
+  timestamp: looseIsoDateTime({ description: 'When the change happened' }),
+})
+
 export const realtimeMessageSchema = Schema.Union([
   realtimeChangeEventSchema,
   realtimeConflictEventSchema,
@@ -288,6 +368,10 @@ export const realtimeMessageSchema = Schema.Union([
   realtimePresenceLeaveSchema,
   realtimePresenceSyncSchema,
   realtimeConnectionStatusSchema,
+  realtimeUserPresenceSchema,
+  realtimeTypingSchema,
+  realtimeCommentEventSchema,
+  realtimeNotificationsChangedSchema,
 ])
 
 // ---------------------------------------------------------------------------

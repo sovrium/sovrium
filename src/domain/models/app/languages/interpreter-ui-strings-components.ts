@@ -207,6 +207,26 @@ export const COMPONENT_UI_STRINGS: Readonly<Record<string, Readonly<Record<strin
     en: 'The messages could not be loaded. Try again.',
     fr: 'Les messages n’ont pas pu être chargés. Réessayez.',
   },
+  /** A composer's button opening the form's other fields (a voice note, a file). */
+  'composer.attach': { en: 'Attach', fr: 'Joindre' },
+  /** A composer's button opening its GIF picker. */
+  'composer.gif': { en: 'GIF', fr: 'GIF' },
+  /** The GIF picker's search box: its accessible name. */
+  'composer.gifSearch': { en: 'Search GIFs', fr: 'Rechercher des GIF' },
+  /** The GIF picker when the provider did not answer: nothing was posted. */
+  'composer.gifFailed': {
+    en: 'The GIF search did not work. Try again.',
+    fr: 'La recherche de GIF n’a pas abouti. Réessayez.',
+  },
+  /** A conversation turn's reply summary, for one reply and for more. */
+  'conversation.reply': { en: '1 reply', fr: '1 réponse' },
+  'conversation.replies': { en: '{count} replies', fr: '{count} réponses' },
+  /** The sheet a reply summary opens: its title. */
+  'conversation.thread': { en: 'Thread', fr: 'Fil de discussion' },
+  /** A conversation's marker above the first message the reader has not read. */
+  'conversation.new': { en: 'New', fr: 'Nouveau' },
+  /** A conversation's line naming someone writing in it, until they send or stop. */
+  'conversation.typing': { en: '{name} is typing', fr: '{name} est en train d’écrire' },
   ...AI_CHAT_UI_STRINGS,
   ...CONTROL_UI_STRINGS,
   ...CONSOLE_UI_STRINGS,

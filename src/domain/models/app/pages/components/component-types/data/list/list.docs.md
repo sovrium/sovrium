@@ -50,6 +50,46 @@ When the binding returns no record, a list says its `listDisplay.emptyMessage` �
     itemTemplate: { title: $record.label }
 ```
 
+## Groups come from the view
+
+Bound to one of the table's views, a list draws the view's `groupBy`: a header per group carrying the group's value and its count, in the order the view's `direction` gives, each group's records in the view's sort, and the records whose grouping field is empty in one last group under a neutral heading. Each header opens and closes its group; a view whose `groupBy` declares `collapsed: true` starts with every group closed. A list bound directly to the table is not grouped — the grouping belongs to the view, so a list has no `groupBy` of its own. Only the view's first grouping level is drawn: a `thenBy` nested inside it, which a grid draws as sub-groups, is not drawn on a list, so its records stay in one group per first-level value.
+
+```yaml
+tables:
+  - name: lessons
+    fields:
+      - { name: title, type: single-line-text }
+      - { name: section, type: single-line-text }
+    views:
+      - id: by_section
+        name: By section
+        groupBy: { field: section, direction: asc }
+pages:
+  - name: Course
+    path: /course
+    components:
+      - type: list
+        dataSource: { table: lessons, view: by_section }
+        listDisplay: { itemTemplate: { title: $record.title } }
+```
+
+## The reader's own row on each item
+
+`dataSource.mine: { table, link, user, as }` gives each item the reader's own related row — her completion of a lesson, her enrolment in a course — as `$record.<as>`, empty when she has none. `table` holds those rows, `link` is its field pointing at the item, and `user` is its field naming the person: only rows naming the reader are read, through that table's own read rules, so another reader's row is never shown. Row visibility rules switch a control on it (`visibility: { record: { field: done, isNotEmpty: true } }`), and a `crud` action with `operation: toggle` and `mine: <as>` deletes that row when the item has one and creates it, with its link and person filled, when it does not. The toggle writes under the related table's create and delete permissions; a reader without them writes nothing, and the action's `onError` answers. `mine` is honoured by `list`, `gallery` and `progress`. On a list it needs the items drawn from `children`: beside `listDisplay.itemTemplate` it is refused when the config loads, since an item template is drawn in the browser, where the reader's row is not joined. On a list drawn by the server without a `props.id`, a toggle reloads the whole page rather than refreshing the list alone; with a `props.id`, only the list is refreshed.
+
+```yaml
+- type: list
+  dataSource:
+    table: lessons
+    mine: { table: completions, link: lesson, user: member, as: done }
+  children:
+    - { type: text, content: $record.title }
+    - type: button
+      content: Mark complete
+      visibility: { record: { field: done, isEmpty: true } }
+      action: { type: crud, operation: toggle, table: completions, mine: done }
+```
+
 ## Paging is the binding's business, not the display's
 
 Page size comes from `dataSource.limit`: it sets how many records the first page holds, and each press of Load More appends another page of that size. The button reads « Load More » in the page language (`sovrium.list.loadMore` renames it; a gallery's is `sovrium.gallery.loadMore`).

@@ -19,6 +19,7 @@ import { DataRow, type DataRowContext } from './data-row'
 import { buildGroupTree, groupPathKey, type GroupLevel, type GroupNode } from './group-order'
 import { buildGroupSummaryLayout } from './group-summary'
 import { GroupSummaryCells, GroupSummaryLeadingCells } from './group-summary-cells'
+import { InlineExpansionRow } from './inline-expand/inline-expand-row'
 import { rowIdOf } from './row-identity'
 import type { GroupSummaryContext, GroupSummaryLayout } from './group-summary'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
@@ -296,12 +297,14 @@ function GroupNodes({
               />
               {!collapsed &&
                 node.dataRows.map((row, rowIndex) => (
-                  <DataRow
-                    key={rowIdOf(row)}
-                    row={row}
-                    rowIndex={rowIndex}
-                    ctx={shared.ctx}
-                  />
+                  <Fragment key={rowIdOf(row)}>
+                    <DataRow
+                      row={row}
+                      rowIndex={rowIndex}
+                      ctx={shared.ctx}
+                    />
+                    <InlineExpansionRow row={row} />
+                  </Fragment>
                 ))}
               {/* One trailing row per LEAF group, born with the group's value.
                   A parent holds only its header here — its records live in the

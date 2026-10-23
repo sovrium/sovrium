@@ -10,6 +10,7 @@ access:
 meta:
   title: Ask the handbook · Corvel handbook
   description: Ask a question and get the answer from Corvel's handbook.
+  favicon: ./favicon.svg
 components:
   - $ref: ./_kb-header.yaml
   - type: container

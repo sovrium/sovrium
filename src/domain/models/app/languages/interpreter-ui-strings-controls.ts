@@ -143,6 +143,9 @@ export const CONTROL_UI_STRINGS: Readonly<Record<string, Readonly<Record<string,
   'list.loaded': { en: '{loaded} of {total} loaded', fr: '{loaded} sur {total} chargés' },
   'gallery.loadMore': { en: 'Load More', fr: 'Charger plus' },
   'gallery.loaded': { en: '{loaded} of {total} loaded', fr: '{loaded} sur {total} chargés' },
+  /** The heading of a group whose records leave the view's grouping field empty. */
+  'list.noGroupValue': { en: 'No value', fr: 'Sans valeur' },
+  'gallery.noGroupValue': { en: 'No value', fr: 'Sans valeur' },
 
   // ---- The built-in account forms' field messages: `{label}` is the field's label ----
   'auth.required': { en: '{label} is required', fr: 'Le champ {label} est obligatoire' },

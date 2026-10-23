@@ -5,7 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { fieldDescriptionId } from '@/presentation/design/field-display'
 import type { DrawerChoice } from './record-drawer-choices'
 import type { RecordButtonConfig } from '../runtime/record-button'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
@@ -137,6 +136,3 @@ export function isStructured(field: RecordDrawerField): boolean {
 export function readsAsValue(field: RecordDrawerField): boolean {
   return field.readOnly === true && !field.button && !isStructured(field)
 }
-
-/** The id of the line saying why an entry's value was refused. */
-export const refusalIdOf = (name: string): string => `${fieldDescriptionId(name)}-error`

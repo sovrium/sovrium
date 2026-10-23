@@ -51,12 +51,124 @@ const ESCAPED_MARKER = new RegExp(
   'g'
 )
 
+const WHITESPACE = /\s/
+
+const WORD_CHARACTER = /\w/
+
+const TAG_NAME_CHARACTER = /[\w-]/
+
+const ASCII_LETTER = /[A-Za-z]/
+
+/**
+ * Where a raw-text block opened at `start` ends: `<name …>` (the name followed
+ * by a non-word character, as `\b` reads it) through the first `</name>`, or
+ * `undefined` when `start` opens no such block or the block never closes.
+ */
+const blockEnd = (drawing: string, start: number, name: string): number | undefined => {
+  const opener = `<${name}`
+  if (!drawing.startsWith(opener, start)) return undefined
+  const afterName = start + opener.length
+  if (WORD_CHARACTER.test(drawing.charAt(afterName))) return undefined
+  const openEnd = drawing.indexOf('>', afterName)
+  if (openEnd === -1) return undefined
+  const closer = `</${name}>`
+  const close = drawing.indexOf(closer, openEnd + 1)
+  return close === -1 ? undefined : close + closer.length
+}
+
+/** Where a comment opened at `start` ends, or `undefined` when there is none to end. */
+const commentEnd = (drawing: string, start: number): number | undefined => {
+  if (!drawing.startsWith('<!--', start)) return undefined
+  const close = drawing.indexOf('-->', start + 4)
+  return close === -1 ? undefined : close + 3
+}
+
+/** The index of the first non-whitespace character at or after `start`. */
+const pastWhitespace = (drawing: string, start: number): number =>
+  WHITESPACE.test(drawing.charAt(start)) ? pastWhitespace(drawing, start + 1) : start
+
+/** Where a whitespace run starting at `start` ends, or `undefined` when none starts there. */
+const whitespaceEnd = (drawing: string, start: number): number | undefined => {
+  const end = pastWhitespace(drawing, start)
+  return end === start ? undefined : end
+}
+
+/** How far a drawing's lead-in runs, and where the last block in it opened. */
+interface LeadIn {
+  readonly end: number
+  readonly lastBlockStart: number | undefined
+}
+
+/**
+ * Where the lead-in of a drawing ends: past whitespace, comments, and the
+ * `<style>` and `<script>` blocks a node may draw ahead of its root. One
+ * forward scan, each item read to its first close as HTML reads it, so the
+ * cost is linear in the drawing whatever it holds. Every recursion here is a
+ * tail call, which the runtime runs in constant stack.
+ */
+const leadInFrom = (drawing: string, start: number, lastBlockStart?: number): LeadIn => {
+  const pastSpaceOrComment = whitespaceEnd(drawing, start) ?? commentEnd(drawing, start)
+  if (pastSpaceOrComment !== undefined) {
+    return leadInFrom(drawing, pastSpaceOrComment, lastBlockStart)
+  }
+  const pastBlock = blockEnd(drawing, start, 'style') ?? blockEnd(drawing, start, 'script')
+  return pastBlock === undefined
+    ? { end: start, lastBlockStart }
+    : leadInFrom(drawing, pastBlock, start)
+}
+
+/** The index just past the run of tag-name characters starting at `start`. */
+const tagNameRunEnd = (drawing: string, start: number): number =>
+  TAG_NAME_CHARACTER.test(drawing.charAt(start)) ? tagNameRunEnd(drawing, start + 1) : start
+
+/** A tag name with the trailing hyphens a word boundary cannot end on taken off. */
+const trimmedTagNameEnd = (drawing: string, nameStart: number, end: number): number =>
+  end > nameStart + 1 && drawing.charAt(end - 1) === '-'
+    ? trimmedTagNameEnd(drawing, nameStart, end - 1)
+    : end
+
+interface LeadingElement {
+  /** What the drawing holds ahead of the element. */
+  readonly leading: string
+  readonly tag: string
+  /** The element's opening tag after its name, up to its `>`. */
+  readonly attributes: string
+  /** The index just past the opening tag's `>`. */
+  readonly end: number
+}
+
+/**
+ * The opening tag at `start`, if one is there: a letter-led name of word
+ * characters and hyphens (never ending on a hyphen), read through its first `>`.
+ */
+const elementAt = (drawing: string, start: number): LeadingElement | undefined => {
+  if (drawing.charAt(start) !== '<' || !ASCII_LETTER.test(drawing.charAt(start + 1))) {
+    return undefined
+  }
+  const nameEnd = trimmedTagNameEnd(drawing, start + 1, tagNameRunEnd(drawing, start + 1))
+  const close = drawing.indexOf('>', nameEnd)
+  if (close === -1) return undefined
+  return {
+    leading: drawing.slice(0, start),
+    tag: drawing.slice(start + 1, nameEnd),
+    attributes: drawing.slice(nameEnd, close),
+    end: close + 1,
+  }
+}
+
 /**
  * The first element of a drawing, past whitespace, comments, and the `<style>`
- * and `<script>` blocks a node may draw ahead of its root.
+ * and `<script>` blocks a node may draw ahead of its root. When nothing that
+ * opens an element follows the lead-in, the drawing's root is the last block
+ * of the lead-in itself — a node that drew only a `<style>` or a `<script>`.
  */
-const LEADING_ELEMENT =
-  /^((?:\s+|<!--[\s\S]*?-->|<style\b[^>]*>[\s\S]*?<\/style>|<script\b[^>]*>[\s\S]*?<\/script>)*)<([A-Za-z][\w-]*)\b([^>]*)>/
+const leadingElementOf = (drawing: string): LeadingElement | undefined => {
+  const { end, lastBlockStart } = leadInFrom(drawing, 0)
+  return (
+    elementAt(drawing, end) ??
+    (lastBlockStart === undefined ? undefined : elementAt(drawing, lastBlockStart))
+  )
+}
 
 const openMarkerOf = (id: string): string =>
   `<template ${EXPORT_STAMP_OPEN_ATTRIBUTE}="${id}"></template>`
@@ -68,11 +180,11 @@ const openMarkerOf = (id: string): string =>
  */
 const stampRoot = (drawing: string, id: string): string => {
   if (drawing.includes(` ${STAMP_ATTRIBUTE}="${id}"`)) return drawing
-  const match = LEADING_ELEMENT.exec(drawing)
-  if (match === null) return drawing
-  const [whole, leading = '', tag = '', attributes = ''] = match
+  const element = leadingElementOf(drawing)
+  if (element === undefined) return drawing
+  const { leading, tag, attributes, end } = element
   if (tag === 'template' || attributes.includes(` ${STAMP_ATTRIBUTE}="`)) return drawing
-  return `${leading}<${tag} ${STAMP_ATTRIBUTE}="${id}"${attributes}>${drawing.slice(whole.length)}`
+  return `${leading}<${tag} ${STAMP_ATTRIBUTE}="${id}"${attributes}>${drawing.slice(end)}`
 }
 
 /** Resolve the first closing marker, innermost first, until none is left. */

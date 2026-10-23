@@ -41,6 +41,7 @@ automations:
   - $ref: ./config/automations/approve-expense.yaml
   - $ref: ./config/automations/reject-with-reason.yaml
   - $ref: ./config/automations/mark-reimbursed.yaml
+  - $ref: ./config/automations/nightly-reset.yaml
   - $ref: ./library/recipe/qonto-transactions-to-table.yaml
 
 # Listed in the order of the sidebar: your own claims first, then the two

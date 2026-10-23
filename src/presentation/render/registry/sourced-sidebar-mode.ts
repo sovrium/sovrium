@@ -36,13 +36,14 @@ function itemNeedsIsland(item: unknown): boolean {
  * an entry that EXPANDS (`sidebar-disclosure`), a sidebar re-deriving its
  * current-entry mark after a same-document navigation (`sidebar-current`), a
  * sidebar folding into a drawer below a breakpoint (`sidebar-drawer`), or a
- * sidebar opting the app into client-side navigation (`spa-nav`, mounted by
- * the page beside its main region rather than by the sidebar itself).
+ * sidebar taking part in client-side navigation, which every sidebar does
+ * unless it sets `clientSideNavigation: false` (`spa-nav`, mounted by the page
+ * beside its main region rather than by the sidebar itself).
  *
- * `sidebar` is deliberately NOT in `ISLAND_COMPONENT_TYPES`: an authored-only
- * grouped sidebar with no disclosures is entirely server-rendered, and listing
- * the type would build the island bundle — and inject its hydration `<script>` —
- * for every sidebar in every app, most of which need none of this.
+ * `sidebar` is deliberately NOT in `ISLAND_COMPONENT_TYPES`: a sidebar that
+ * opts out of the navigation, with authored-only groups and no disclosures, is
+ * entirely server-rendered, and listing the type would build the island bundle
+ * — and inject its hydration `<script>` — for it as well.
  *
  * Shared by the TWO call-sites that must agree, exactly as `isListIslandMode`
  * is: the page renderer's `selfNeedsIslands` (BUILD the bundle) and
@@ -59,9 +60,9 @@ export function isSourcedSidebar(component: Component): boolean {
     clientSideNavigation?: unknown
   }
   // The navigation island is the page's, not the sidebar's, but the bundle it
-  // ships in is the same one — so the opt-in builds and injects it like any
-  // other sidebar island.
-  if (clientSideNavigation === true) return true
+  // ships in is the same one — so a sidebar taking part (the default; `false`
+  // opts out) builds and injects it like any other sidebar island.
+  if (clientSideNavigation !== false) return true
   // Checked before `groups`: a drawer folds whatever the sidebar holds, authored
   // children included, and its menu button opens nothing without the island.
   if (drawer !== undefined) return true

@@ -10,6 +10,7 @@ access:
 meta:
   title: Home · Orrin OS
   description: One figure from every module, and what needs you across all four.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

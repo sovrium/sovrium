@@ -15,7 +15,12 @@
  */
 
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
-import type { FillAction, SeekAction } from '@/domain/models/app/pages/components/action-client'
+import { outcomeToastAttributes } from './button-action-builders'
+import type {
+  ClipboardAction,
+  FillAction,
+  SeekAction,
+} from '@/domain/models/app/pages/components/action-client'
 
 /** A fill action: writes a value into a form control on the page (`fill-runtime.ts`). */
 export type FillButtonAction = FillAction
@@ -80,5 +85,32 @@ export function buildSeekDataAttributes(
       time: Number.isFinite(time) ? time : null,
       ...(action.play === false && { play: false }),
     }),
+  }
+}
+
+/**
+ * Returns true if the given action is a clipboard copy
+ */
+export function isClipboardAction(action: unknown): action is ClipboardAction {
+  return (action as { type?: string })?.type === 'clipboard'
+}
+
+/**
+ * The copy a button runs on click (`clipboard-runtime.ts`), its `value`
+ * resolved against the button's record, so the client copies text and never a
+ * `$record.` token. A field the record does not carry for this reader resolves
+ * to empty, so a hidden value is never written into the page.
+ */
+export function buildClipboardDataAttributes(
+  action: ClipboardAction,
+  record: Readonly<Record<string, unknown>> | undefined
+): Record<string, string> {
+  return {
+    'data-action-type': 'clipboard',
+    'data-action-config': JSON.stringify({
+      value: record === undefined ? action.value : substituteRecordVars(action.value, record),
+    }),
+    ...outcomeToastAttributes('success', action.onSuccess?.toast),
+    ...outcomeToastAttributes('error', action.onError?.toast),
   }
 }

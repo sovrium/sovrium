@@ -12,6 +12,10 @@ export interface ProjectedEntry {
   readonly label: string
   readonly href: string
   readonly props?: Readonly<Record<string, unknown>>
+  /** The icon the row names: one emoji drawn as text, or a Lucide icon by name. */
+  readonly icon?: { readonly emoji: string } | { readonly lucide: string }
+  /** The badge the row fills, absent when it resolves to empty or `0`. */
+  readonly badge?: string
   /** The flattened row, which a second fetched level fills its `query` from. */
   readonly row?: Readonly<Record<string, unknown>>
 }

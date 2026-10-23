@@ -83,6 +83,10 @@ A collection page that declares `rss` publishes its newest records as an RSS 2.0
 
 `rss.title` and `rss.description` name the feed itself, before the page's `meta`; use them when the page title names one record. Both accept a `$t:` key.
 
+A page with no collection publishes its `markdown.file` instead, one item per level-2 heading, linked to the heading's anchor on the page. When that page serves a folder of articles (`contentDir`, at an address such as `/changelog/:slug`), each item links to the article's own address with the slug filled in, and the `index` article's items link to the bare address (`/changelog#v1-2-0`), so no item names an address that does not exist.
+
+The channel link, the feed's own `atom:link` and every item link are built on `BASE_URL`, like the sitemap; the address the request came in on is used only when `BASE_URL` is unset.
+
 Only a page anyone may open can publish the feed: a page whose `access` requires signing in or a role never builds it, even for a reader who is signed in, because `/feed.xml` is one publicly cached document for every reader. When a public page also declares `rss`, the feed is built from the first one; when none does, the route answers 404, never 403, so the existence of a restricted feed is not revealed.
 
 The feed carries what the records API would hand a signed-out visitor, and nothing more. Its records are read as an anonymous reader: a table she may not read feeds no item, a record the table's row-level rule hides from her is left out, a record in the trash is left out, and every item is built only from the fields she may read, so a field restricted to a role never reaches the title, the description or the link. A table whose every field is closed to her feeds no item at all: the channel is published, empty, rather than with one blank item per record.

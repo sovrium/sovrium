@@ -301,6 +301,8 @@ export const COMPONENT_TYPE_PURPOSES: Readonly<Record<string, string>> = {
   menubar: 'A Menubar: a row of menus, as in a desktop application.',
   'navigation-menu':
     'A Navigation Menu: the top navigation of a site, with menus that open on hover.',
+  'notification-bell':
+    'A notification bell: the reader’s unread count, and her latest notifications a click away.',
   pagination: 'Pagination: move between the pages of a long list.',
 
   // overlays

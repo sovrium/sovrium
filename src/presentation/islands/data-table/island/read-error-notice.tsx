@@ -10,6 +10,7 @@ import { RETRY_BUTTON_CLASS, reportStringsOf } from '../../parts/report-read'
 import { AlertGlyph, FAILURE_ALERT_CLASS, ReportedFailure } from '../../parts/reported-failure'
 import { dispatch } from '../../runtime/event-bus'
 import {
+  isMalformedRead,
   isNotFoundRead,
   isRateLimitedRead,
   isSessionEndedRead,
@@ -34,6 +35,21 @@ function useFailureSentence(
 }
 
 /**
+ * The notice's one action: Retry, or — for a malformed read (400), which the
+ * same request cannot change — Clear search while a search narrows the grid,
+ * and nothing otherwise.
+ */
+function useNoticeAction(
+  onRetry: () => void,
+  onClearSearch: (() => void) | false | undefined
+): { readonly label: string; readonly onClick: () => void } | undefined {
+  const retry = useGridString('datatable.retry', 'Retry')
+  const clearSearch = useGridString('datatable.clearSearch', 'Clear search')
+  if (onClearSearch === false) return { label: retry, onClick: onRetry }
+  return onClearSearch && { label: clearSearch, onClick: onClearSearch }
+}
+
+/**
  * What the grid says when a records read failed.
  *
  * The STATUS chooses the sentence and the response body is never read for
@@ -48,6 +64,9 @@ function useFailureSentence(
  *  - 429 — the shared rate-limit line, with its own Retry.
  *  - 404 — the table is not there for this reader. Asking again cannot change
  *    that, so the sentence says so and no Retry is offered.
+ *  - 400 — the server refused the reader's own search, filter or sort as
+ *    malformed. The same request would be refused again, so there is no Retry;
+ *    while a search narrows the grid, "Clear search" takes it out instead.
  *  - a refused SORT — names the column, because the sort was undone and the
  *    reader needs to know why the header went back.
  *  - anything else — "Couldn’t load <table>." with a Retry that reads again.
@@ -66,6 +85,7 @@ function LoadFailedNotice({
   named,
   notFound,
   requestId,
+  onClearSearch,
 }: {
   readonly onRetry: () => void
   readonly sortColumnLabel: string | undefined
@@ -73,18 +93,19 @@ function LoadFailedNotice({
   readonly notFound: boolean
   /** The request a console's server error was answered under, when it named one. */
   readonly requestId: string | undefined
+  readonly onClearSearch: (() => void) | false | undefined
 }) {
   const failure = useFailureSentence(sortColumnLabel, named, notFound)
-  const retry = useGridString('datatable.retry', 'Retry')
   const strings = useContext(GridStringsContext)
-  const retryButton = sortColumnLabel === undefined && !notFound && (
+  const action = useNoticeAction(onRetry, onClearSearch)
+  const retryButton = sortColumnLabel === undefined && !notFound && action !== undefined && (
     <button
       type="button"
-      onClick={onRetry}
+      onClick={action.onClick}
       data-slot="button"
       className={RETRY_BUTTON_CLASS}
     >
-      {retry}
+      {action.label}
     </button>
   )
   const reported = requestId !== undefined && sortColumnLabel === undefined
@@ -125,6 +146,7 @@ export function ReadErrorNotice({
   onRetry,
   sortColumnLabel,
   named,
+  onClearSearch,
 }: {
   readonly error: unknown
   readonly onRetry: () => void
@@ -132,6 +154,8 @@ export function ReadErrorNotice({
   readonly sortColumnLabel: string | undefined
   /** The table-naming sentences of a grid bound to a table. */
   readonly named?: { readonly loadFailed: string; readonly notFound: string } | undefined
+  /** Takes the search narrowing the grid out, when one does. */
+  readonly onClearSearch?: () => void
 }) {
   const strings = useContext(GridStringsContext)
   const sessionEnded = isSessionEndedRead(error)
@@ -157,6 +181,7 @@ export function ReadErrorNotice({
       named={named}
       notFound={isNotFoundRead(error)}
       requestId={consoleRequestIdOfRead(error)}
+      onClearSearch={isMalformedRead(error) && onClearSearch}
     />
   )
 }

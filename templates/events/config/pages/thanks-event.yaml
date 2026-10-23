@@ -11,6 +11,7 @@ dataSource:
 meta:
   title: You are registered · Fieldday
   description: Your registration is confirmed. A confirmation is on its way to your inbox.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

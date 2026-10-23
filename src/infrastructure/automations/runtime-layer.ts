@@ -30,6 +30,7 @@ import { AutomationRunOutcomeRepositoryLive } from '@/infrastructure/database/re
 import { AutomationRunRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-run-repository-live'
 import { AutomationStateRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-state-repository-live'
 import { BrowserSessionRepositoryLive } from '@/infrastructure/database/repositories/automations/browser-session-repository-live'
+import { NotificationRepositoryLive } from '@/infrastructure/database/repositories/automations/notification-repository-live'
 import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-repository-live'
 import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
 import { LinkRepositoryLive } from '@/infrastructure/database/repositories/links/link-repository-live'
@@ -41,6 +42,7 @@ import { DocumentRendererLive } from '@/infrastructure/export/document-renderer-
 import { OfficeConverterLive } from '@/infrastructure/export/office-converter-live'
 import { PdfEditorLive } from '@/infrastructure/export/pdf-editor-live'
 import { PdfToolkitLive } from '@/infrastructure/export/pdf-toolkit-live'
+import { AppSelfSeederLive } from '@/infrastructure/process/app-self-seeder-live'
 import { ProcessRunnerLive } from '@/infrastructure/process/process-runner-live'
 import { SystemdSupervisorLive } from '@/infrastructure/process/systemd-supervisor-live'
 import { ServerOriginLive } from '@/infrastructure/server/server-origin-live'
@@ -142,6 +144,9 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   UserAccessRepositoryLive,
   AutomationStateRepositoryLive,
   AutomationDigestRepositoryLive,
+  // `NotificationRepository` — the store a `notification` step writes and
+  // `/api/notifications` reads, one recipient at a time.
+  NotificationRepositoryLive,
   ConnectionRepositoryLive,
   ConnectionTokenRepositoryLive,
   // `SentinelTokens` — the connection-authenticated steps refuse to send the
@@ -229,6 +234,8 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   // nothing and reads no environment, so a deployment that never switches
   // SOVRIUM_HOST_ACTIONS on pays nothing for it.
   Layer.provide(SystemdSupervisorLive, ProcessRunnerLive),
+  // `AppSelfSeeder` — the `app/seed` step: the seeder `sovrium start` installs.
+  AppSelfSeederLive,
   // `LinkRepository` — the links write use-cases (`createLink`/`updateLink`/
   // `deleteLink`) an automation step reaches for. Unlike its neighbours this
   // Layer is built from `Database`, so it is provided here rather than merged

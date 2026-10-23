@@ -117,6 +117,7 @@ function drawerControlLabels(
       navigation: resolve('recordDrawer.navigation'),
       position: resolve('recordDrawer.position'),
       saveRefused: resolve('recordDrawer.saveRefused'),
+      createFailed: resolve('datatable.createFailed'),
       validationError: resolve('recordDrawer.validationError'),
       datePicker: {
         'datePicker.pick': resolve('datePicker.pick'),

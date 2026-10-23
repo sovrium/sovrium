@@ -7,6 +7,7 @@
 
 import { Layer } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
+import { getCommentForAuth } from '@/infrastructure/database/table-queries/query-helpers/comment-auth-queries'
 import {
   listCommentAuthorsForRecord,
   listCommentAuthorEmailsForRecord,
@@ -17,7 +18,6 @@ import { hasApprovedGuestComment } from '@/infrastructure/database/table-queries
 import {
   createComment,
   getCommentWithUser,
-  getCommentForAuth,
   deleteComment,
   listComments,
   getCommentsCount,

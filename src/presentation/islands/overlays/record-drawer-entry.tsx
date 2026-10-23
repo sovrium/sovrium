@@ -6,7 +6,7 @@
  */
 
 import { withDisplayLabels } from '@/domain/models/app/pages/substitute-record-vars'
-import { fieldDescriptionId } from '@/presentation/design/field-display'
+import { useFieldLineIds } from '../parts/crud-form/field-id-scope'
 import { AiRefinementMarker } from '../runtime/ai-refinement-marker'
 import { readAiRefinementStatus } from '../runtime/ai-refinement-status'
 import { RecordButton, type RecordButtonConfig } from '../runtime/record-button'
@@ -39,10 +39,11 @@ function entryLabel(field: RecordDrawerField): string {
 
 /** One entry's guidance line, or nothing when the entry carries no description. */
 function EntryDescription({ field }: { readonly field: RecordDrawerField }) {
+  const { description } = useFieldLineIds(field.name)
   if (field.description === undefined) return undefined
   return (
     <span
-      id={fieldDescriptionId(field.name)}
+      id={description}
       className="text-muted-foreground text-sm"
     >
       {field.description}

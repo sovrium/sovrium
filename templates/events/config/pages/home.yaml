@@ -10,6 +10,7 @@ path: /
 meta:
   title: What's on · Fieldday
   description: Fieldday's workshops and meetups across France — when, where and how many seats are left. Registration takes a minute and is free.
+  favicon: ./favicon.svg
 # The page is a flat list of full-width sections rather than one wrapper: a
 # data-bound section draws its rows on the server only at the top level of a
 # page. Each section pads itself to the same centred 880px column.

@@ -6,6 +6,7 @@ access:
 meta:
   title: 'Client · App starter'
   description: 'One client, its facts and its discussion.'
+  favicon: ./favicon.svg
 dataSource:
   table: clients
   mode: single

@@ -19,7 +19,12 @@
 import { useCallback, useMemo, useState } from 'react'
 import { ComposedChart } from 'recharts'
 import { ChartTooltip, ChartTooltipContent } from '../parts/chart-primitives'
-import { categoryAxisElement, gridElement, valueAxisElement } from './cartesian-axes'
+import {
+  categoryAxisElement,
+  gridElement,
+  timeAxisElement,
+  valueAxisElement,
+} from './cartesian-axes'
 import { seriesMark, type CartesianMark, type CartesianSeries } from './cartesian-marks'
 import {
   drawnRows,
@@ -32,6 +37,7 @@ import {
 import { formatTooltipText } from './chart-format'
 import { ChartFrame, type ChartFrameLegend } from './chart-frame'
 import { toggleHidden, type LegendPosition } from './chart-series-shared'
+import { useChartShape } from './chart-shape'
 import type { ChartTooltipConfig } from './chart-canvas-types'
 import type { ValueAxisScale } from './value-axis'
 import type { ChartConfig, ChartTooltipLine, ChartTooltipRow } from '../parts/chart-primitives'
@@ -62,6 +68,8 @@ export interface CartesianChartProps {
   /** The declared legend; absent draws none. Its entries toggle their series. */
   readonly legend?: { readonly position?: LegendPosition; readonly visible?: boolean }
   readonly accessibleName: string
+  /** `xAxis.scale: time` — each category key is an instant, placed at its time. */
+  readonly timeScale?: boolean
 }
 
 /** One callout row: the `format` line when declared, else the entry's name and value. */
@@ -77,6 +85,29 @@ function tooltipRow(
 }
 
 const CHART_MARGIN = { top: 16, right: 16, bottom: 0, left: 0 } as const
+
+/** A strip draws its marks edge to edge: there is no axis to leave room for. */
+const STRIP_MARGIN = { top: 0, right: 0, bottom: 0, left: 0 } as const
+
+/**
+ * Below this plot height the top margin is given to the marks: a 32 px chart
+ * with its axes keeps a few pixels of bars rather than none.
+ */
+const SHORT_PLOT_PX = 96
+
+/** The plot's margin: none for a strip, no top for a short plot, else the default. */
+const marginOf = (strip: boolean, height: number | undefined) =>
+  strip
+    ? STRIP_MARGIN
+    : height !== undefined && height < SHORT_PLOT_PX
+      ? SHORT_MARGIN
+      : CHART_MARGIN
+
+/** A short plot's margin: the default without its top. */
+const SHORT_MARGIN = { ...CHART_MARGIN, top: 0 } as const
+
+/** A strip's callout when none is declared: the hovered category and its value. */
+const STRIP_TOOLTIP: CartesianTooltip = { labelOf: 'category' }
 
 /**
  * The callout for one hovered entry: the author's `format` line when declared,
@@ -159,6 +190,36 @@ function useFrameLegend(
   )
 }
 
+/**
+ * What a strip leaves out and keeps: no axis, grid line or legend, the
+ * callout always drawn, and a name carrying the figure the marks add up to,
+ * since no tick says it.
+ */
+function useStrip(
+  props: CartesianChartProps,
+  rows: readonly CartesianRowInput[],
+  shown: readonly CartesianSeries[]
+): { readonly strip: boolean; readonly name: string; readonly tooltip?: CartesianTooltip } {
+  const { strip = false } = useChartShape()
+  const { accessibleName, valueLabel } = props
+  const name = useMemo(() => {
+    if (!strip) return accessibleName
+    const total = rows.reduce(
+      (sum, row) => shown.reduce((acc, series) => acc + (row.raw[series.field] ?? 0), sum),
+      0
+    )
+    return `${accessibleName}, ${valueLabel(total)}`
+  }, [strip, accessibleName, valueLabel, rows, shown])
+  return { strip, name, tooltip: strip ? (props.tooltip ?? STRIP_TOOLTIP) : props.tooltip }
+}
+
+/** The category axis: placed by time on a time scale, else one slot per category. */
+function categoryAxisOf(props: CartesianChartProps, rows: readonly CartesianRowInput[]) {
+  return props.timeScale === true
+    ? timeAxisElement(rows, props.xTitle)
+    : categoryAxisElement(props.categoryLabel, props.xTitle, rows.length)
+}
+
 export function CartesianChart(props: CartesianChartProps): ReactElement {
   const { mark, rows, series } = props
   const { shown, hidden, toggle } = useShownSeries(series)
@@ -168,8 +229,14 @@ export function CartesianChart(props: CartesianChartProps): ReactElement {
     () => valueAxisOver(rows, shown, { stacked, scale: props.scale }),
     [rows, shown, stacked, props.scale]
   )
-  const data = useMemo(() => drawnRows(rows, shown, axis) as CartesianRow[], [rows, shown, axis])
-  const content = useTooltipContent(props.tooltip, props)
+  const timed = props.timeScale === true
+  const data = useMemo(
+    () => drawnRows(rows, shown, axis, timed) as CartesianRow[],
+    [rows, shown, axis, timed]
+  )
+  const { strip, name, tooltip } = useStrip(props, rows, shown)
+  const { height } = useChartShape()
+  const content = useTooltipContent(tooltip, props)
   const legend = useFrameLegend(props, hidden, toggle)
   const ctx = {
     singlePoint: rows.length === 1,
@@ -179,20 +246,21 @@ export function CartesianChart(props: CartesianChartProps): ReactElement {
   return (
     <ChartFrame
       config={props.config}
-      legend={legend}
+      legend={strip ? undefined : legend}
+      height={height}
     >
       <ComposedChart
         data={data}
-        margin={CHART_MARGIN}
+        margin={marginOf(strip, height)}
         barCategoryGap="20%"
         barGap={0}
         role="img"
-        aria-label={props.accessibleName}
+        aria-label={name}
       >
-        {props.gridLines === true ? gridElement() : undefined}
-        {categoryAxisElement(props.categoryLabel, props.xTitle, rows.length)}
-        {valueAxisElement(axis, props.valueLabel, props.yTitle)}
-        {props.tooltip === undefined ? undefined : (
+        {props.gridLines === true && !strip ? gridElement() : undefined}
+        {strip ? undefined : categoryAxisOf(props, rows)}
+        {strip ? undefined : valueAxisElement(axis, props.valueLabel, props.yTitle)}
+        {tooltip === undefined ? undefined : (
           <ChartTooltip
             cursor={false}
             isAnimationActive={false}

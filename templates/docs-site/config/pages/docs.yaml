@@ -116,3 +116,4 @@ components:
 meta:
   title: $frontmatter.title · Docs
   description: $frontmatter.description
+  favicon: ./favicon.svg

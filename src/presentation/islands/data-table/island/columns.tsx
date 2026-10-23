@@ -9,6 +9,7 @@ import { computeTableRowNumberClasses } from '@/presentation/design/table-defaul
 import { resolvePageLocale } from '../../runtime/page-locale'
 import { autoGenerateColumns, autoGenerateColumnsFromFields } from '../auto-columns'
 import { mapColumnsToColumnDefs } from '../formatting'
+import { InlineExpandToggle } from '../inline-expand/inline-expand-row'
 import { SelectAllCheckbox, SelectRowCheckbox } from '../selection/selection-checkboxes'
 import type { DataTableColumnDef } from './table-features'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
@@ -43,6 +44,18 @@ function buildSelectionColumn(mode?: string): DataTableColumnDef {
     enableSorting: false,
     enableColumnFilter: false,
     meta: { selection: true },
+  }
+}
+
+/** The toggle column of a grid whose rows open their record under themselves. */
+function buildInlineExpandColumn(): DataTableColumnDef {
+  return {
+    id: '__inline_expand',
+    header: '',
+    enableSorting: false,
+    enableColumnFilter: false,
+    size: 40,
+    cell: ({ row }) => <InlineExpandToggle row={row} />,
   }
 }
 
@@ -96,6 +109,8 @@ export interface BuildColumnsOptions {
   readonly autoColumnsEditable?: boolean
   /** Draw the leading row-number column (schema `showRowNumbers`). */
   readonly showRowNumbers?: boolean
+  /** Draw the leading toggle each row opens its record under itself with. */
+  readonly inlineExpand?: boolean
   /** Rows that precede the current page — `pageIndex * pageSize`. */
   readonly rowNumberOffset?: number
   /**
@@ -172,7 +187,11 @@ export function buildColumns(options: BuildColumnsOptions): DataTableColumnDef[]
         ? [...autoGenerateColumnsFromFields(tableFields, autoOptions)]
         : [...autoGenerateColumns(records, autoOptions)]
 
-  return [...buildLeadingColumns(selectionConfig, showRowNumbers, rowNumberOffset), ...baseColumns]
+  return [
+    ...(options.inlineExpand === true ? [buildInlineExpandColumn()] : []),
+    ...buildLeadingColumns(selectionConfig, showRowNumbers, rowNumberOffset),
+    ...baseColumns,
+  ]
 }
 
 /**

@@ -9,6 +9,7 @@ path: /
 meta:
   title: Docs · write docs as files, publish them as a site
   description: A documentation site whose every page is a markdown file in your repository.
+  favicon: ./favicon.svg
 
 # The title and the lead are markdown, set in the reading typography of the
 # `prose` layout and styled by part: a wider measure, the large title, the

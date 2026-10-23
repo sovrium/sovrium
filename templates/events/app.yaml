@@ -76,6 +76,7 @@ automations:
   - $ref: ./config/automations/recount-seats.yaml
   - $ref: ./config/automations/announce-event.yaml
   - $ref: ./config/automations/track-registration.yaml
+  - $ref: ./config/automations/nightly-reset.yaml
   - $ref: ./library/recipe/google-calendar-events-to-table.yaml
 
 # Listed in the order of the sidebar, then the public pages.

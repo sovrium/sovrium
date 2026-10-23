@@ -79,6 +79,9 @@ export function acceptEntryAdmits(entry: string, type: string, name: string): bo
     if (!name.toLowerCase().endsWith(entry)) return false
     return !scriptable || markupByExtension[entry] === type
   }
+  // `.webm` names a container, read as `video/webm` whatever it holds: a voice
+  // note picked as `.webm` is audio, so `audio/*` admits the container too.
+  if (entry === 'audio/*' && type === 'video/webm') return true
   if (entry.endsWith('/*')) return !scriptable && type.startsWith(entry.slice(0, -1))
   return entry === type
 }

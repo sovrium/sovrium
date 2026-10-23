@@ -178,7 +178,8 @@ export const staticTableComponent: ComponentRenderer = ({
   } = omitInternalMarkers(elementPropsWithSpacing)
   const mergedClassName = mergePrestyle(
     computeStaticTableShellClasses(),
-    authorClassName as string | undefined
+    authorClassName as string | undefined,
+    designStyles?.replace
   )
   return (
     <div

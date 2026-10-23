@@ -35,10 +35,14 @@ import type { Tables } from '@/domain/models/app/tables'
  */
 
 /** `rowExpand` in its object form, or `undefined` when the grid does not expand. */
-function normalizeRowExpand(
-  rowExpand: DataTableRowExpand | undefined
-):
-  | { readonly fields?: readonly string[]; readonly canEdit?: boolean; readonly title?: string }
+function normalizeRowExpand(rowExpand: DataTableRowExpand | undefined):
+  | {
+      readonly fields?: readonly string[]
+      readonly canEdit?: boolean
+      readonly title?: string
+      readonly placement?: 'drawer' | 'inline'
+      readonly single?: boolean
+    }
   | undefined {
   if (rowExpand === undefined || rowExpand === false) return undefined
   // `true` carries no options, so it reads as the empty object — the derived
@@ -118,7 +122,7 @@ const withStructuredRendering = (
  * `label` and `description`. Deriving from the grid's `columns` was refused:
  * the reason to expand a row is to see what the row cannot show.
  */
-export function resolveRowExpandDrawerProps(params: {
+function resolveRowExpandDrawerProps(params: {
   readonly component: Component | undefined
   readonly tables: Tables | undefined
   readonly languages: Languages | undefined
@@ -151,6 +155,61 @@ export function resolveRowExpandDrawerProps(params: {
   }
 }
 
+/** Whether the grid draws its expanded record under the row rather than in a drawer. */
+function expandsInline(component: Component | undefined): boolean {
+  const comp = (component ?? {}) as Record<string, unknown>
+  return (
+    normalizeRowExpand(comp['rowExpand'] as DataTableRowExpand | undefined)?.placement === 'inline'
+  )
+}
+
+/**
+ * The drawer a grid expanding into a panel is given, or `undefined` — for a
+ * grid that does not expand, and for one that draws its record inline.
+ */
+export function resolveRowExpandDrawerHostProps(params: {
+  readonly component: Component | undefined
+  readonly tables: Tables | undefined
+  readonly languages: Languages | undefined
+  readonly currentLang: string | undefined
+}): Record<string, unknown> | undefined {
+  return expandsInline(params.component) ? undefined : resolveRowExpandDrawerProps(params)
+}
+
+/**
+ * What a grid declaring `rowExpand.placement: inline` hands its island: the
+ * record the panel would show — the same fields for the same reader, the same
+ * `canEdit`, `title` and words — drawn under the row from the row the grid
+ * already holds, and whether one row open closes the others (`single`, true
+ * unless declared false). `undefined` for every other grid.
+ */
+export function resolveRowExpandInlineProps(params: {
+  readonly component: Component | undefined
+  readonly tables: Tables | undefined
+  readonly languages: Languages | undefined
+  readonly currentLang: string | undefined
+}): Record<string, unknown> | undefined {
+  if (!expandsInline(params.component)) return undefined
+  const panel = resolveRowExpandDrawerProps(params)
+  if (panel === undefined) return undefined
+  const comp = (params.component ?? {}) as Record<string, unknown>
+  const expand = normalizeRowExpand(comp['rowExpand'] as DataTableRowExpand | undefined)
+  return {
+    title: panel['title'],
+    recordFields: panel['recordFields'],
+    canEdit: panel['canEdit'],
+    saveLabel: panel['saveLabel'],
+    savingLabel: panel['savingLabel'],
+    actionStrings: panel['actionStrings'],
+    toggleLabel: resolveInterpreterString(
+      'datatable.expandRow',
+      params.currentLang,
+      params.languages
+    ),
+    single: expand?.single !== false,
+  }
+}
+
 /**
  * The row-click the grid island runs when the grid expands: open the drawer
  * synthesized above.
@@ -165,5 +224,7 @@ export function resolveRowExpandRowClick(
 ): { readonly action: 'openSheet'; readonly component: string } | undefined {
   const comp = (component ?? {}) as Record<string, unknown>
   if (!normalizeRowExpand(comp['rowExpand'] as DataTableRowExpand | undefined)) return undefined
+  // An inline expand opens from its row's own toggle: the row keeps no click.
+  if (expandsInline(component)) return undefined
   return { action: 'openSheet', component: rowExpandDrawerId(component) }
 }

@@ -8,6 +8,7 @@ access:
 meta:
   title: Resources · Halden
   description: Guides, policies and the internal tools, grouped.
+  favicon: ./favicon.svg
 components:
   - $ref: ./_shell.yaml
   - type: container

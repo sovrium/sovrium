@@ -10,6 +10,7 @@ access:
 meta:
   title: Board · Fernhill Projects
   description: Open tasks by status, each with its project, due date and assignee.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

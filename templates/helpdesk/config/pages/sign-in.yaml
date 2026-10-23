@@ -6,6 +6,7 @@ path: /sign-in
 meta:
   title: Team sign-in · Tallyline Support
   description: Sign in to Tallyline Support.
+  favicon: ./favicon.svg
 components:
   - type: container
     element: div

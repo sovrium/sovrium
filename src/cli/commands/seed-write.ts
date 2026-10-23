@@ -76,14 +76,14 @@ export interface ExecuteSeedPlanInput {
 type TableOutcome = Resolved<readonly string[]>
 
 /** Total rows in a table, INCLUDING soft-deleted ones. */
-const countRows = (tableName: string): Promise<number> => {
+export const countRows = (tableName: string): Promise<number> => {
   return executeRaw(db, sql`SELECT COUNT(*) AS n FROM ${tableIdentifier(tableName)}`).then((rows) =>
     Number(rows[0]?.n ?? 0)
   )
 }
 
 /** Hard-delete every row of a table, soft-deleted ones included. */
-const deleteAllRows = (tableName: string): Promise<void> => {
+export const deleteAllRows = (tableName: string): Promise<void> => {
   return executeRaw(db, sql`DELETE FROM ${tableIdentifier(tableName)}`).then(() => undefined)
 }
 
@@ -96,7 +96,7 @@ const deleteAllRows = (tableName: string): Promise<void> => {
  * A junction that does not exist is not an error — the pair may be declared
  * from one side only.
  */
-const clearJunctions = (tableName: string, config: SeedTableConfig | undefined): Promise<void> => {
+export const clearJunctions = (tableName: string, config?: SeedTableConfig): Promise<void> => {
   const related = (config?.fields ?? [])
     .filter((field) => field.type === 'relationship' && field.relationType === 'many-to-many')
     .flatMap((field) => (field.relatedTable === undefined ? [] : [field.relatedTable]))

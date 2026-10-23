@@ -5,6 +5,7 @@ path: /rate
 meta:
   title: Rate this answer · Tallyline
   description: One question about the answer you got from the Tallyline support team.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

@@ -3,6 +3,7 @@ path: /guide
 meta:
   title: 'Guide · [Product]'
   description: '[A long read with its outline.]'
+  favicon: ./favicon.svg
 components:
   - component: navbar-simple
   - component: content-with-toc

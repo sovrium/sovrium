@@ -27,6 +27,7 @@
  * so the caller can run a full navigation instead.
  */
 
+import { runInjectedScripts } from '@/presentation/islands/runtime/injected-scripts'
 import { hydrateSessionBindings } from '@/presentation/islands/runtime/session-resolver'
 import {
   adoptDensity,
@@ -127,6 +128,11 @@ async function replaceRegion(
   const current = incoming ?? region
   await client.preloadIslandsWithin(current)
   client.mountIslandsWithin(current)
+  // A region parsed from markup carries its inline scripts inert — a `formRef`
+  // form's submit runtime among them, without which the form falls back to a
+  // native POST and never runs its `onSuccess`. Bring them to life once; each
+  // runtime guards its own element, so a revisited surface binds nothing twice.
+  runInjectedScripts(current)
 
   // Re-fill the session-bound markers the swap just brought in.
   //

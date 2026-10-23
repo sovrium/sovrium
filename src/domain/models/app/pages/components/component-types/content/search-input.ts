@@ -132,7 +132,7 @@ export const searchInputFields = {
     Schema.Finite.pipe(
       Schema.annotate({
         description:
-          'Delay in milliseconds after the last keystroke before a bound subscriber applies the query. Default 0 (apply immediately).',
+          'Delay in milliseconds after the last keystroke before a bound subscriber applies the query. Default 250, so a typed word reaches the subscribers once; a pasted term and Enter apply at once whatever the delay. 0 applies every keystroke.',
         examples: [300, 500],
       }),
       Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))

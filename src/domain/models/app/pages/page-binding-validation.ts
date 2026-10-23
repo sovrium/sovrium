@@ -9,6 +9,7 @@ import { extractParamNames } from '@/domain/kernel/matching/route-matcher'
 import { normalizeRouteParamRef } from '@/domain/models/app/pages/route-param-ref'
 import { PAGE_WINDOW_DEFAULT_PARAM, PAGE_WINDOW_PRESET_ID } from '@/domain/models/app/pages/window'
 import { actionPlacementViolations } from './action-placement-validation'
+import { bottomBarViolations } from './bottom-bar-validation'
 import {
   activeMarkerViolations,
   codeContentFromViolations,
@@ -175,6 +176,7 @@ export function collectPageBindingViolations(page: unknown): readonly string[] {
     ...queryViolations(page, label),
     ...sidebarGroupViolations(nodes, label),
     ...sidebarNavigationViolations(nodes, label),
+    ...bottomBarViolations(nodes, label),
     ...recordVisibilityViolations(page, label),
     ...windowViolations(page, label),
     ...editSelectOptionViolations(nodes, label),

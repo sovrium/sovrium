@@ -9,6 +9,7 @@ access:
 meta:
   title: Registrations · Fieldday
   description: Every registration by event, the waitlist, and the check-in at the door.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

@@ -3,6 +3,7 @@ path: /features
 meta:
   title: 'Features · [Product]'
   description: '[What the product does, feature by feature.]'
+  favicon: ./favicon.svg
 components:
   - component: navbar-simple
   - component: header-centered

@@ -9,6 +9,7 @@ access:
 meta:
   title: Dashboard · Fernhill Projects
   description: What needs the team this week, and how every project is doing.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

@@ -49,6 +49,8 @@
  *           better spelling.
  */
 
+import { PERSONAL_STORE_TABLES } from './account-purge-personal-stores'
+
 /** What erasure does about one user-referencing table. */
 export type ErasureVerdict = 'delete' | 'cascade' | 'shed' | 'exempt'
 
@@ -93,13 +95,8 @@ export const PURGED_SYSTEM_TABLES = [
       'Derived long-term memory the agent inferred ABOUT the user — personal data ' +
       'by construction. Cascades; named for the same reason.',
   },
-  { table: 'user_favorites', column: 'user_id', reason: 'Per-user bookmarks. Cascades; named.' },
-  { table: 'calendar_feed_tokens', column: 'user_id', reason: 'Feed addresses. Cascades; named.' },
-  {
-    table: 'user_recent_items',
-    column: 'user_id',
-    reason: 'Per-user browsing history — a behavioural trail. Cascades; named.',
-  },
+  // The per-person stores: bookmarks, feed addresses, browsing, read state, presence, notices.
+  ...PERSONAL_STORE_TABLES,
   {
     table: 'connection_tokens',
     column: 'user_id',

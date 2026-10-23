@@ -11,14 +11,16 @@ import { withWeekdayDates, type WeekdayFields } from '../parts/weekday-dates'
 import { hasDataBinding } from '../runtime/data-binding'
 import { isRefusedRead } from '../runtime/records-api'
 import { GalleryCarousel } from './carousel-layout'
+import { GalleryCards, ViewerRowsScope } from './gallery-cards'
 import { GalleryClassesContext, GallerySelectionContext } from './gallery-classes-context'
 import { GalleryContinuation } from './gallery-continuation'
-import { GalleryGrid } from './gallery-grid'
 import { GalleryPager } from './gallery-pager'
 import { computePaginationView, type PaginationConfig } from './gallery-pagination'
 import { GalleryEmpty, GalleryError, GalleryLoading, GalleryMissingTable } from './gallery-states'
 import { useGalleryRecords } from './use-gallery-records'
+import { useViewerRows, type GalleryViewerRowsStamp } from './use-gallery-viewer-rows'
 import type { SharedFilterPublisherConfig } from '../hooks/use-shared-filter-publisher'
+import type { RecordGroupBy } from '../parts/grouped-records'
 import type { TableRecord } from '../runtime/types'
 import type {
   GalleryCard,
@@ -56,6 +58,10 @@ interface GalleryIslandProps {
   readonly galleryClasses?: GalleryPartClasses
   /** The channel the gallery publishes the card a reader selects on. */
   readonly publishes?: SharedFilterPublisherConfig
+  /** The bound view's grouping: the cards are drawn under a header per group. */
+  readonly groupBy?: RecordGroupBy
+  /** `dataSource.mine`: the reader's own rows, joined onto each card as `$record.<as>`. */
+  readonly viewerRows?: GalleryViewerRowsStamp
 }
 
 /**
@@ -66,6 +72,12 @@ interface GalleryIslandProps {
 function buildLoadMoreHandler(setPage: (updater: (prev: number) => number) => void): () => void {
   return () => setPage((prev) => prev + 1)
 }
+
+/** What the populated gallery draws from. */
+type GalleryContentProps = Pick<
+  GalleryIslandProps,
+  'dataSource' | 'galleryCard' | 'gridColumns' | 'layout' | 'featured' | 'uiStrings' | 'groupBy'
+> & { readonly records: readonly TableRecord[] }
 
 /**
  * Renders the populated gallery (records + whichever paging control the
@@ -86,12 +98,8 @@ function GalleryContent({
   layout,
   featured,
   uiStrings,
-}: Pick<
-  GalleryIslandProps,
-  'dataSource' | 'galleryCard' | 'gridColumns' | 'layout' | 'featured' | 'uiStrings'
-> & {
-  readonly records: readonly TableRecord[]
-}): ReactElement {
+  groupBy,
+}: GalleryContentProps): ReactElement {
   const pagination = dataSource?.pagination
   const [page, setPage] = useState<number>(1)
   const { visibleRecords, showLoadMore, showPager, pageCount, currentPage } = computePaginationView(
@@ -110,7 +118,9 @@ function GalleryContent({
           table={dataSource?.table}
         />
       ) : (
-        <GalleryGrid
+        <GalleryCards
+          groupBy={groupBy}
+          uiStrings={uiStrings}
           records={visibleRecords}
           card={galleryCard}
           table={dataSource?.table}
@@ -170,31 +180,37 @@ export default function GalleryIsland({
   galleryClasses,
   publishes,
   uiStrings,
+  viewerRows,
+  groupBy,
 }: GalleryIslandProps): ReactElement {
   const { data, isLoading, isError, error } = useGalleryRecords(dataSource)
   const select = useRecordSelectionToggle(publishes)
+  const own = useViewerRows(viewerRows)
 
   // A binding is required: either a DB table or a system read endpoint.
   if (!hasDataBinding(dataSource)) return <GalleryMissingTable strings={uiStrings} />
   if (isLoading) return <GalleryLoading strings={uiStrings} />
   if (isError) return <GalleryFailure {...{ error, emptyMessage, strings: uiStrings }} />
 
-  const records = withWeekdayDates(data?.records ?? [], weekdays)
+  const records = own.join(withWeekdayDates(data?.records ?? [], weekdays))
   if (records.length === 0)
     return <GalleryEmpty {...{ message: emptyMessage, strings: uiStrings }} />
 
   return (
     <GalleryClassesContext.Provider value={galleryClasses}>
       <GallerySelectionContext.Provider value={select}>
-        <GalleryContent
-          records={records}
-          dataSource={dataSource}
-          galleryCard={galleryCard}
-          gridColumns={gridColumns}
-          layout={layout}
-          featured={featured}
-          uiStrings={uiStrings}
-        />
+        <ViewerRowsScope control={own.control}>
+          <GalleryContent
+            records={records}
+            dataSource={dataSource}
+            galleryCard={galleryCard}
+            gridColumns={gridColumns}
+            layout={layout}
+            featured={featured}
+            uiStrings={uiStrings}
+            groupBy={groupBy}
+          />
+        </ViewerRowsScope>
       </GallerySelectionContext.Provider>
     </GalleryClassesContext.Provider>
   )

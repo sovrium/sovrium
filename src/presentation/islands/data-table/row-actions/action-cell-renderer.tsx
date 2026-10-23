@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { satisfiesFieldCondition } from '@/domain/models/app/tables/condition-operators'
+import { satisfiesFieldCondition } from '@/domain/models/app/tables/condition-match-service'
 import { computeTableActionRowClasses } from '@/presentation/design/table-default-classes'
 import { rowIdOf } from '../row-identity'
 import { isInlineAccountAction } from './account-action-kind'

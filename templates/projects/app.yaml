@@ -40,6 +40,7 @@ tables:
 automations:
   - $ref: ./config/automations/notify-assignee-on-blocked.yaml
   - $ref: ./config/automations/chase-blocked-tasks.yaml
+  - $ref: ./config/automations/nightly-reset.yaml
   - $ref: ./library/recipe/record-to-teams-channel.yaml
 
 # The forms the app's "Add" dialogs open, each placed with `formRef`.

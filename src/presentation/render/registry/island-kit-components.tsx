@@ -260,6 +260,8 @@ const filterBarComponent: ComponentRenderer = ({
     conditions: pick(c, rawProps, 'conditions'),
     combinator: pick(c, rawProps, 'combinator'),
     allowAdd: pick(c, rawProps, 'allowAdd'),
+    // Present only for a reader shown presence: `gatePresenceChoices` drops it otherwise.
+    online: c['online'],
     // The add control and chip names in the page language, where they differ from English.
     uiStrings: resolveInterpreterStringOverrides(['filterBar.'], currentLang, languages),
   })

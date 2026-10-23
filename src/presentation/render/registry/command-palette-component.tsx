@@ -275,25 +275,32 @@ const unreadableFieldsOf = (
     : {}
 }
 
-/** The tables the page pass found this reader may not read at all. */
-const unreadableTablesOf = (component: ComponentDispatchConfig['component']): readonly string[] => {
+/** The tables the page pass stamped under `key`: those this reader may not read, or not create in. */
+const stampedTablesOf = (
+  component: ComponentDispatchConfig['component'],
+  key: '_unreadableTables' | '_uncreatableTables'
+): readonly string[] => {
   const stamped = (component as { readonly props?: Record<string, unknown> } | undefined)?.props?.[
-    '_unreadableTables'
+    key
   ]
   return Array.isArray(stamped) ? (stamped as readonly string[]) : []
 }
 
 /**
- * The tables the create dialogs offer — those the reader may read — each named
+ * The tables the create dialogs offer — those the reader may read and create
+ * in — each named
  * in the page language, with its readable text columns labelled as the hosted
  * form labels them: by the column's label, its name when it has none.
  */
 const paletteTables = (config: ComponentDispatchConfig) => {
   const lang = config.currentLang ?? config.languages?.default ?? ''
   const unreadable = unreadableFieldsOf(config.component)
-  const hiddenTables = unreadableTablesOf(config.component)
+  const hiddenTables = new Set([
+    ...stampedTablesOf(config.component, '_unreadableTables'),
+    ...stampedTablesOf(config.component, '_uncreatableTables'),
+  ])
   const readable = ((config.tables ?? []) as ReadonlyArray<PaletteTable>).filter(
-    (table) => !hiddenTables.includes(table.name)
+    (table) => !hiddenTables.has(table.name)
   )
   const translate = (text: string) => resolveTranslationPattern(text, lang, config.languages)
   return readable.map((table) => ({

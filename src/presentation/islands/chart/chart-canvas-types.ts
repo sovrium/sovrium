@@ -15,7 +15,8 @@ export interface ChartAxisConfig {
   readonly field: string
   readonly label?: string
   readonly format?: 'date' | 'currency' | 'number' | 'percent'
-  readonly scale?: 'linear' | 'logarithmic'
+  /** `time` places a dated category axis' buckets at their instants. */
+  readonly scale?: 'linear' | 'logarithmic' | 'time'
   readonly gridLines?: boolean
 }
 

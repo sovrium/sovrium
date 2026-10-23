@@ -103,7 +103,7 @@ Editing replaces the content; deleting removes the comment. Both honour the role
 
 Every comment route — list, read one, create, edit, delete, mark read and the mention picker — answers to the same gates as a read of the record: the table's read permission, then the rows the records list admits you — on a table whose field rules leave your role no field to read, only the rows a grant opens to you — then its row-level read rule, judged on the record the comment belongs to. A `group:` read grant opens the thread of a table with a row-level rule just as a role grant does. A record you may not open answers `404` exactly as a missing one does, and nothing is written.
 
-On a moderated table, reading one comment by its id follows the thread's rule: only an admin reads a pending or rejected comment, and anyone else gets the `404` a comment that does not exist gets. Every comment the list, read-one and edit responses return carries its stored `status` — `approved`, `pending` or `rejected`.
+On a moderated table, the list shows an admin every comment and anyone else the approved ones and her own pending ones, so a comment she posted appears in her thread while it waits. Reading one comment by its id is stricter: only an admin reads a pending or rejected comment, and anyone else gets the `404` a comment that does not exist gets. Every comment the list, read-one and edit responses return carries its stored `status` — `approved`, `pending` or `rejected`.
 
 The `user` object on a comment is projected to a display shape carrying `id` and `name` only. Email and everything else a user record holds are never returned here, so a comment thread cannot be used to read the directory behind it.
 

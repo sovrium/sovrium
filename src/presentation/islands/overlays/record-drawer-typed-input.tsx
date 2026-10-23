@@ -41,7 +41,7 @@ import { readsAsTrue } from '../runtime/cell-value-semantics'
 import { AmountField } from './record-drawer-amount-input'
 import { AttachmentField } from './record-drawer-attachment-input'
 import { isFormControlEntry } from './record-drawer-choices'
-import { controlStateAttributes } from './record-drawer-control-state'
+import { useControlStateAttributes } from './record-drawer-control-state'
 import { DateTextField } from './record-drawer-date-input'
 import { FormControl } from './record-drawer-form-control'
 import { RefusalLine } from './record-drawer-refusal-line'
@@ -106,6 +106,7 @@ function boxInputOf(
 function BoxField(props: TypedFieldProps) {
   const { field, label, value, disabled, onChange, children } = props
   const input = boxInputOf(field.type, value)
+  const state = useControlStateAttributes(props)
   return (
     <label className="text-md flex flex-col gap-1">
       <span className="text-muted-foreground">
@@ -122,7 +123,7 @@ function BoxField(props: TypedFieldProps) {
         onChange={(event) => onChange(field.name, event.target.value)}
         className={input.type === 'color' ? cn(CONTROL_CLASS, 'w-16 p-1') : CONTROL_CLASS}
         {...(input.type === 'number' ? numericInputAttributes({ type: field.type }) : {})}
-        {...controlStateAttributes(props)}
+        {...state}
       />
       <RefusalLine
         name={field.name}
@@ -137,6 +138,7 @@ function BoxField(props: TypedFieldProps) {
 function TextAreaField(props: TypedFieldProps) {
   const { field, label, value, disabled, onChange, children } = props
   const json = field.type === 'json'
+  const state = useControlStateAttributes(props)
   return (
     <label className="text-md flex flex-col gap-1">
       <span className="text-muted-foreground">
@@ -152,7 +154,7 @@ function TextAreaField(props: TypedFieldProps) {
         onChange={(event) => onChange(field.name, event.target.value)}
         className={json ? cn(TEXTAREA_CLASS, 'font-mono') : TEXTAREA_CLASS}
         {...(json ? { spellCheck: false } : {})}
-        {...controlStateAttributes(props)}
+        {...state}
       />
       <RefusalLine
         name={field.name}
@@ -166,6 +168,7 @@ function TextAreaField(props: TypedFieldProps) {
 /** A checkbox: ticked as the grid reads the stored value, sent as `true` / `false`. */
 function CheckboxField(props: TypedFieldProps) {
   const { field, label, value, disabled, onChange, children } = props
+  const state = useControlStateAttributes(props)
   return (
     <div className="text-md flex flex-col gap-1">
       <label className="text-foreground flex items-center gap-2">
@@ -177,7 +180,7 @@ function CheckboxField(props: TypedFieldProps) {
           disabled={disabled}
           onChange={(event) => onChange(field.name, String(event.target.checked))}
           className="accent-primary h-4 w-4 disabled:cursor-not-allowed"
-          {...controlStateAttributes(props)}
+          {...state}
         />
         <span className="text-muted-foreground">
           {label}

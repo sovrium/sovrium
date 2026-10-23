@@ -1,6 +1,6 @@
 # Navigation Components
 
-> The seven types that move a reader around — navigation-menu, dropdown-menu, context-menu, menubar, breadcrumb, command and pagination.
+> The eight types that move a reader around — navigation-menu, dropdown-menu, context-menu, menubar, breadcrumb, command, notification-bell and pagination.
 
 Navigation components carry a reader from one place to another: top-level menus, dropdown and context menus, an application menu bar, a breadcrumb trail, a command palette and pagination controls. All accept the shared `props` bag plus the `visibility` and `responsive` modules.
 
@@ -27,6 +27,8 @@ A top-level navigation bar supporting nested items and mega-menu layouts. Refere
 <!-- sovrium:options type:navigation-menu depth=3 -->
 
 Each nav item takes `label`, `href` (omitted on a parent carrying `children`), `description` for the second line in a mega-menu, `icon`, `target` and `rel`, and `children` for a sub-menu.
+
+`layout: bottom-bar` draws the menu as a phone's tab bar instead: fixed to the bottom of the screen above the safe area, each item its `icon` over its `label`, the current page marked, and the page's bottom padding reserved so nothing hides under it. It holds at most five items and no `children`; more, or a sub-menu, is refused at startup. When it shows is the `responsive` key's job — `responsive: { md: { visible: false } }` keeps it to phones — and `props: { aria-label: Sections }` names its navigation landmark.
 
 ## `dropdown-menu`
 
@@ -166,7 +168,17 @@ The palette's "Go to" actions list only the pages the visitor may open. An anony
 
 `groups` replaces the built-in quick actions with your own commands: each group has a `label` and its `items`, and each item a `label`, an optional `icon`, an optional `shortcut` drawn as one keycap per key (`['G', 'I']`), and either an `href` or an `action` (`toast` or `navigate`). Typing narrows the items across groups, keeping an item when the words match its label or its group's name (typing `help` keeps every item of a Help group), and hides a group left with no match; choosing an item closes the command, then goes where it points or runs its action. In search mode (`search`), your groups are drawn above the result groups and narrowed by typing the same way; drop `groups` to show the results alone. Search mode also matches, as you type, the pages your sidebar names — under **Pages**, each by its sidebar label, only those the visitor may open — and the **Toggle dark mode** action under **Quick actions**; a group with no match is not drawn. The no-results line appears only when nothing matched at all, your own items included.
 
+The built-in palette also finds records: as the reader types, one **Records** group lists the matches of every table she may read, each with its table's name in her language. A row or a column she may not read through the records API is never searched nor shown, and typing sends one search for the settled words. Its **Create new record in** actions are offered only on the tables she may create in.
+
 A group or an item takes the same `visibility` a component takes — `runtime: ai`, `capability`, `roles`, `when` — and one whose conditions do not hold is left out of the page entirely, not hidden in it. An item's `label` and `href` may carry `$query`, the words typed so far (URL-encoded in `href`): `label: Ask "$query" about this app` with `href: /?q=$query` turns what the reader typed into a question carried to another page. Such an item always matches the words it reads. While nothing is typed it shows its `emptyLabel`, or is not drawn if it has none. Bare `$query` is the palette's own; a page's `$query.<name>` is a different thing.
+
+## `notification-bell`
+
+The signed-in reader's own notifications, from the top bar: a button carrying her unread count, and a popover listing her latest `limit` notifications (20 by default), newest first. It reads the store the app's `notifications` key declares, and the count rises as notifications are created for her, without a reload. Opening the popover marks nothing read; clicking a notification marks that one read and opens its record, and **Mark all read** clears the rest. `emptyLabel` is shown when she has none. A visitor who is not signed in gets no bell.
+
+<!-- sovrium:options type:notification-bell -->
+
+A notification names its record by table and id and copies none of its fields, so `sourceHrefs` says where each table's records open: `sourceHrefs: { tickets: /tickets/{recordId} }`. A notification about a table you leave out is listed and marked read when clicked, and opens nothing.
 
 ## `pagination`
 

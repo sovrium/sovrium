@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-// sovrium-library: block/console-shell@0.37.0#c9216eb18438
+// sovrium-library: block/console-shell@0.37.0#b963e736c463
 // sovrium-library: block/command@0.37.0#11d80c9163ba
 
 // The operator console shell: the sidebar, the sticky header, the command palette and the
@@ -677,6 +677,8 @@ export const consoleShell = {
           },
           railHandle: true,
           trackNavigation: true,
+          // The console brings its own navigation (`admin-spa-nav`), so the app's swap stays off.
+          clientSideNavigation: false,
           props: {
             className: '[--sidebar-trigger-top:0.625rem]',
             'data-testid': 'admin-sidebar',

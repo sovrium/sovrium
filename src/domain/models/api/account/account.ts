@@ -11,6 +11,11 @@ import { optionalField } from '@/domain/models/api/combinators/optional-field'
 import { transformed } from '@/domain/models/api/combinators/transform'
 import { isIssuedAvatarUrl } from '@/domain/models/app/auth/avatar-url'
 import { timestampSchema } from '../combinators/common'
+import {
+  accountExportNotificationPreferenceSchema,
+  accountExportNotificationSchema,
+  accountExportReadStateSchema,
+} from './export'
 
 /**
  * Account self-service & GDPR API schemas
@@ -494,6 +499,20 @@ export const accountExportResponseSchema = Schema.Struct({
   }),
   recentItems: Schema.Array(accountExportRecentItemSchema).annotate({
     description: 'Every record or page the caller opened recently, most recent first',
+  }),
+  readState: Schema.Array(accountExportReadStateSchema).annotate({
+    description: 'How far the caller has read each parent record that keeps read state',
+  }),
+  presence: Schema.Struct({
+    lastSeen: Schema.NullOr(
+      looseIsoDateTime({ description: 'When her last realtime connection closed' })
+    ).annotate({ description: 'When she was last seen, or null' }),
+  }).annotate({ description: 'The presence the app keeps about the caller' }),
+  notifications: Schema.Array(accountExportNotificationSchema).annotate({
+    description: 'Every notification the caller received and still has, newest first',
+  }),
+  notificationPreferences: Schema.Array(accountExportNotificationPreferenceSchema).annotate({
+    description: 'The notification channels the caller chose, per kind she changed',
   }),
 }).annotate({ identifier: 'AccountExportResponse' })
 

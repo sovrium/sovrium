@@ -6,7 +6,7 @@
  */
 
 import { useMemo } from 'react'
-import { ChartCanvas } from './chart-canvas'
+import { ShapedChartCanvas, type ChartShapeProps } from './chart-shape-canvas'
 import {
   ChartEmpty,
   ChartError,
@@ -47,7 +47,7 @@ interface ChartTableSource {
  */
 type ChartDataSourceProp = ChartTableSource | { readonly system: ChartSystemSource }
 
-interface ChartIslandProps {
+interface ChartIslandProps extends ChartShapeProps {
   readonly uiStrings?: Readonly<Record<string, string>>
   readonly dataSource?: ChartDataSourceProp
   readonly chartType?: ChartType
@@ -189,26 +189,26 @@ function useChartData(
   return { records: data?.records ?? [], isLoading, isError, error }
 }
 
-export default function ChartIsland({
-  dataSource,
-  chartType,
-  xAxis,
-  yAxis,
-  series,
-  legend,
-  tooltip,
-  chartAggregate,
-  emptyMessage,
-  emptyState,
-  ariaLabel: accessibleName,
-  categoryOptions,
-  valueCurrency,
-  aggregateRead,
-  dataLabels,
-  uiStrings,
-}: ChartIslandProps): ReactElement {
-  // Grouped by the database when the server says the read can answer it.
-  // A view-bound chart reads the view's records, whatever the server resolved.
+export default function ChartIsland(props: ChartIslandProps): ReactElement {
+  const {
+    dataSource,
+    chartType,
+    xAxis,
+    yAxis,
+    series,
+    legend,
+    tooltip,
+    chartAggregate,
+    emptyMessage,
+    emptyState,
+    ariaLabel: accessibleName,
+    categoryOptions,
+    valueCurrency,
+    aggregateRead,
+    dataLabels,
+    uiStrings,
+  } = props
+  // The database groups when the server says it can; a view-bound chart reads its view.
   const viewBound = typeof (dataSource as ChartTableSource | undefined)?.view === 'string'
   const readAggregate = aggregateRead === true && !viewBound ? chartAggregate : undefined
   const { records, isLoading, isError, error } = useChartData(dataSource, readAggregate)
@@ -216,7 +216,6 @@ export default function ChartIsland({
     () => ({ categoryOptions, valueCurrency, dataLabels }),
     [categoryOptions, valueCurrency, dataLabels]
   )
-
   const guard = evaluateChartGuards({
     dataSource,
     xAxis,
@@ -234,7 +233,8 @@ export default function ChartIsland({
   if (guard.element) return guard.element
 
   return (
-    <ChartCanvas
+    <ShapedChartCanvas
+      shape={props}
       records={records}
       chartType={chartType}
       xAxis={xAxis}

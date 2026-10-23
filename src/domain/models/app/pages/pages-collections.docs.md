@@ -104,3 +104,24 @@ pages:
 - **SEO & Metadata** — per-record and per-article metadata.
 - **Content Components** — inline markdown fragments.
 - **llms.txt** — the machine-readable index derived from content directories.
+
+## Staying inside a parent, and resuming
+
+`$collection.previous` and `$collection.next` follow the collection's whole order. On a lesson page that crosses courses: Next on the last lesson of one course opens the first lesson of the next. `collection.scope: <field>` keeps them among the records sharing the current record's value of that field, so the last lesson of a course has no Next.
+
+`collection.resume: { table, link, user }` exposes `$collection.resume`: the first record of the scope, in the collection's order, for which the reader has no row of `table` — a row whose `link` points at the record and whose `user` names the reader. On a course, that is the first lesson she has not completed. It is empty once she has a row for every record of the scope, and a link built on it is then not drawn. A record the reader may not read is skipped by all three, and nothing of it reaches the page.
+
+```yaml
+pages:
+  - name: lesson
+    path: /lessons/:slug
+    collection:
+      table: lessons
+      slugField: slug
+      scope: course
+      resume: { table: completions, link: lesson, user: member }
+    components:
+      - type: link
+        props: { href: '/lessons/$collection.resume.slug' }
+        content: 'Resume: $collection.resume.title'
+```

@@ -3,6 +3,7 @@ path: /article
 meta:
   title: 'Article · [Product]'
   description: '[A single article, set for reading.]'
+  favicon: ./favicon.svg
 components:
   - component: navbar-simple
   - component: content-prose

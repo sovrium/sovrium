@@ -38,9 +38,12 @@
  * It belongs to fetching a configuration, where the document becomes the app; an
  * http action the operator pointed at `http://` may be redirected over `http://`.
  *
- * Hostnames are not resolved: a name that resolves to a private address passes,
- * here as on the first URL. Closing that needs resolve-then-connect-to-the-
- * checked-address, which `fetch` cannot express.
+ * Hostnames are resolved only when the caller passes `resolveHost`: a name
+ * that resolves to a private address, or that cannot be resolved outside a
+ * proxy, is then refused on every hop, and the hop is SENT to the address that
+ * was checked (`host-resolution.ts`), so the name cannot answer differently
+ * between the check and the connection. Without `resolveHost`, a name is
+ * judged by its spelling alone.
  *
  * ## Errors
  *
@@ -55,6 +58,12 @@ import {
   MAX_REDIRECT_HOPS,
   REDIRECT_STATUSES,
 } from '@/infrastructure/egress/follow-redirects'
+import {
+  judgeHost,
+  pinnedRequest,
+  type HostVerdict,
+  type ResolveHost,
+} from '@/infrastructure/egress/host-resolution'
 import {
   validateOutboundUrl,
   type OutboundUrlReason,
@@ -72,6 +81,13 @@ export interface GuardedFetchOptions {
    * caller knows — dropped, like `Authorization`, on a hop to another origin.
    */
   readonly credentialHeaders?: readonly string[]
+  /**
+   * Resolve each hop's host name, refuse it when it points at an address the
+   * guard refuses as a literal or cannot be resolved outside a proxy, and send
+   * the hop to the address checked (`host-resolution.ts`). Absent, a name is
+   * judged by its spelling alone, as it always was.
+   */
+  readonly resolveHost?: ResolveHost
 }
 
 /** The final answer, its body already read up to the cap. @public */
@@ -206,7 +222,15 @@ const requestHop = async (
   options: GuardedFetchOptions,
   hopsLeft: number
 ): Promise<GuardedFetchResult> => {
-  const response = await withFetchTimeout(url, { ...init, redirect: 'manual' }, options.timeoutMs)
+  const verdict: HostVerdict =
+    options.resolveHost === undefined
+      ? { kind: 'as-is' }
+      : await judgeHost(url, options.resolveHost)
+  if (verdict.kind === 'refused') return refusal('private-host', verdict.detail)
+  // The request goes to the address that was checked; `url` stays the address
+  // every redirect, origin and credential decision below is made against.
+  const sent = pinnedRequest(url, { ...init, redirect: 'manual' as const }, verdict)
+  const response = await withFetchTimeout(sent.target, sent.init, options.timeoutMs)
   const location = REDIRECT_STATUSES.has(response.status) ? response.headers.get('location') : null
   // A 3xx without a Location has nowhere to go: like `fetch`, hand it back as the answer.
   if (location === null || location === '') {

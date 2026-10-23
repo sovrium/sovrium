@@ -123,6 +123,55 @@ export const InlinePrefillSchema = Schema.Struct({
 })
 
 /**
+ * How a `formRef` form is drawn. `composer` is the box at the foot of a
+ * conversation: one auto-growing text input with the send button inside it,
+ * Enter to send and Shift+Enter for a new line, and the form's other fields
+ * behind an attach button. The form, its fields and its pipeline are the
+ * referenced `forms[]` entry, unchanged: a composer is a presentation, not a
+ * second way to create a record.
+ */
+export const FormPresentationSchema = Schema.Literals(['form', 'composer']).annotate({
+  title: 'Form Presentation',
+  defaultNote: 'form',
+  description:
+    "How the placed form is drawn: 'form' (the default, its fields one under the other with a submit button) or 'composer' (the box at the foot of a conversation — one auto-growing text input for the form's first text field, the send button inside it, Enter to send and Shift+Enter for a new line, and the other fields behind an attach button). Only on a form placed with `formRef`.",
+})
+
+/**
+ * The GIF picker of a composer: a search box and a grid of results, the
+ * search sent by the SERVER through a connection holding the operator's key,
+ * so the key never reaches the browser. Thumbnails and posted GIFs are served
+ * by the app too (fetched once by the server, cached), so no reader's browser
+ * contacts the provider. The connection is provider-agnostic (search, then
+ * pick); `provider` names the adapter that reads the provider's answer, GIPHY
+ * first.
+ */
+export const ComposerGifSchema = Schema.Struct({
+  connection: Schema.String.annotate({
+    description:
+      'The name of the connection the search is sent through, as declared under `connections` — for example the one `sovrium library add connection/giphy` installs. Its key stays on the server.',
+    examples: ['giphy'],
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  field: Schema.String.annotate({
+    description:
+      "The field of the form's table the picked GIF's address is stored in — a `url` field, drawn by the turn template with an `image` reading `$record.<field>`. The address stored is the app's own address of the GIF, never the provider's. Picking a GIF posts the message at once with that field filled.",
+    examples: ['gif'],
+  }).pipe(Schema.check(Schema.isMinLength(1))),
+  provider: Schema.optional(
+    Schema.Literals(['giphy']).annotate({
+      defaultNote: 'giphy',
+      description:
+        "Which provider's answer the connection returns, so its results can be read: 'giphy'.",
+    })
+  ),
+}).annotate({
+  identifier: 'ComposerGif',
+  title: 'Composer GIF Picker',
+  description:
+    "Adds a GIF button to a composer: a member searches, picks a result, and a message carrying the GIF is posted. The search goes through the server with the operator key, and the thumbnails and the posted GIF are served by the app, which fetches each one from the provider once and caches it, so no reader's browser contacts the provider. A failed search shows an error and posts nothing. Opt-in: without it, no GIF button is drawn.",
+})
+
+/**
  * Success handler of an endpoint form — the fetch success slot, plus the one
  * effect only a FORM can honour.
  *
@@ -412,6 +461,28 @@ export const formFields = {
    * server-side parent revalidation on submit (404 → 422 mapping).
    */
   inlinePrefill: Schema.optional(InlinePrefillSchema),
+  /**
+   * How a `formRef` form is drawn — see {@link FormPresentationSchema}.
+   */
+  presentation: Schema.optional(FormPresentationSchema),
+  /**
+   * The conversation a composer posts into: the `props.id` of a bound
+   * `message-scroller` on the same page (a component's id lives in its
+   * `props`, as for every other component). The sent record is drawn there at
+   * once and replaced by the stored one on answer; a refusal withdraws it and
+   * shows the error in the composer.
+   */
+  appendTo: Schema.optional(
+    Schema.String.annotate({
+      description:
+        "The `props.id` of a `message-scroller` bound to the form's table, on the same page. The sent message is drawn in it at once, then replaced by the stored record when the server answers; if the server refuses it, the turn is withdrawn and the error is shown in the composer, the text kept. Only with `presentation: composer`.",
+      examples: ['channel-feed'],
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
+  /**
+   * The composer's opt-in GIF picker — see {@link ComposerGifSchema}.
+   */
+  gif: Schema.optional(ComposerGifSchema),
   /**
    * Custom-endpoint submit target. When set, the form POSTs its collected field
    * values as JSON to an arbitrary `url` (NOT the records API), then fires

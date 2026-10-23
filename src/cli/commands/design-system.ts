@@ -52,6 +52,7 @@ import {
 } from '@/domain/kernel/config-parsing/default-config-files'
 import { designSystemModeSchema } from '@/domain/models/api/admin/design-system'
 import { printStderr } from '@/infrastructure/logging/cli-output'
+import { drawFlagsOf, refuseDrawFlags, type PageDrawFlags } from './design-system-page-flags'
 import { resolveDocumentFormat, writeDocument } from './document-output'
 import { lazyImportSchema } from './utils'
 import { loadConfigForValidationWithSources } from './validate'
@@ -76,6 +77,8 @@ export interface DesignSystemCommandOptions {
   readonly pages?: boolean
   /** Every `--page <name>`: export only these pages with `--pages`. */
   readonly pageNames?: readonly string[]
+  /** The whole argv, for `--seed`, `--records`, `--now`, `--state` and `--prototype`. */
+  readonly argv?: readonly string[]
 }
 
 /** The colour modes a token document describes, named once by the wire schema; light first. */
@@ -192,6 +195,32 @@ const decodeForExport = async (configPath: string) => {
   return decoded.app
 }
 
+/** Write the bundle of a decoded app, with its pages drawn as the flags ask. */
+const writeBundleFor = async (
+  app: Awaited<ReturnType<typeof decodeForExport>>,
+  configPath: string,
+  options: DesignSystemCommandOptions,
+  drawFlags: PageDrawFlags
+): Promise<void> => {
+  const { writeDesignSystemBundle } = await import('./design-system-bundle')
+  const { pageSelectionFor } = await import('./design-system-pages')
+  const { pageDrawRequestFor } = await import('./design-system-page-flags')
+  // The logo files are read from the `public/` beside the config, as `sovrium start` serves it.
+  const { assetProjectDir } = await import('@/infrastructure/assets/private-assets')
+  const draw = await pageDrawRequestFor(app, configPath, drawFlags)
+  await writeDesignSystemBundle(app, options.outputPath, options.force ?? false, {
+    publicDir: join(assetProjectDir(configPath), 'public'),
+    ...(options.pages === true
+      ? {
+          pages: {
+            ...(await pageSelectionFor(app, configPath, options.pageNames ?? [])),
+            ...(draw === undefined ? {} : { draw }),
+          },
+        }
+      : {}),
+  })
+}
+
 /**
  * Handle the `design-system` command.
  *
@@ -209,21 +238,14 @@ export const handleDesignSystemCommand = async (
   )
   refuseModeOutsideJson(options.mode, format)
   refusePagesOutsideBundle(options, format)
+  const drawFlags = drawFlagsOf(options.argv ?? [])
+  refuseDrawFlags(drawFlags, options.pages === true)
   const mode = resolveColorMode(options.mode)
   const configPath = options.configFile ?? (await discoverDesignSystemConfig())
   const app = await decodeForExport(configPath)
 
   if (format === BUNDLE_FORMAT) {
-    const { writeDesignSystemBundle } = await import('./design-system-bundle')
-    const { pageSelectionFor } = await import('./design-system-pages')
-    // The logo files are read from the `public/` beside the config, as `sovrium start` serves it.
-    const { assetProjectDir } = await import('@/infrastructure/assets/private-assets')
-    await writeDesignSystemBundle(app, options.outputPath, options.force ?? false, {
-      publicDir: join(assetProjectDir(configPath), 'public'),
-      ...(options.pages === true
-        ? { pages: await pageSelectionFor(app, configPath, options.pageNames ?? []) }
-        : {}),
-    })
+    await writeBundleFor(app, configPath, options, drawFlags)
     return
   }
 

@@ -5,9 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useRealtimeReconciliation } from '../../../hooks/use-realtime-reconciliation'
 import { useCursorFeedView } from '../../../hooks/use-system-cursor-pages'
+import { hasPendingSearch } from '../../../runtime/search-input-publisher'
 import { narrowByPublishedConditions } from '../../filtering/published-conditions'
 import { useContinuationOverlap } from '../../pagination/use-continuation-overlap'
 import { createRowActionHandler } from '../../row-actions/row-action-handler'
@@ -72,7 +73,15 @@ export function useGridRecords(
     return narrowsHere ? narrowByPublishedConditions(capped, published) : capped
   }, [cursorFeed.records, limit, offset, narrowsHere, published])
   const totalRecords = narrowsHere ? rows.length : cappedTotal(total, limit)
-  return { cursorFeed, rows, totalRecords }
+  // While a search box on the grid's channel waits out its pause, the rows held
+  // are about to be replaced by that term's: continuing them would append a page
+  // of the list the reader is searching away from.
+  const { bindTo } = ctx.params.dataSource
+  const continueFeed = cursorFeed.onLoadMore
+  const onLoadMore = useCallback(() => {
+    if (bindTo === undefined || !hasPendingSearch(bindTo)) continueFeed()
+  }, [bindTo, continueFeed])
+  return { cursorFeed: { ...cursorFeed, onLoadMore }, rows, totalRecords }
 }
 
 /**
@@ -107,6 +116,7 @@ export function buildGridColumns(
     onActionClick: executeRowAction,
     fieldMeta: params.fieldMeta,
     showRowNumbers: params.showRowNumbers === true,
+    inlineExpand: params.inlineExpand === true,
     // Row numbers count through the VIEW, not the page: a per-page 1..N would
     // make two different rows both "row 1", which is the one thing a row number
     // exists to prevent. The grid pages server-side, so the page's own row

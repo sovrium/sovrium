@@ -14,7 +14,12 @@ import {
 import { toInertTemplateValue } from '@/presentation/design/session-template'
 import { substituteRecordVars } from '@/presentation/render/resolve/data-source-contracts'
 import { editSelectRecordPatch } from './edit-select-record'
-import { RECORD_DISPLAY_KEY, recordDisplayOf } from './record-display-labels'
+import {
+  substituteRecordInCrumbs,
+  substituteRecordInPanels,
+  withCrumbText,
+} from './record-crumb-text'
+import { recordDisplayOf } from './record-display-labels'
 
 /**
  * `$record.*` template substitution for the non-prop/content/children surfaces of
@@ -137,6 +142,12 @@ export function substituteRecordInProps(
  */
 function substituteRecordInAction(action: unknown, record: Record<string, unknown>): unknown {
   if (action === null || typeof action !== 'object') return action
+  // A clipboard copy keeps the stored value, from the record already projected
+  // for its reader: a field she may not read copies as empty.
+  const { type, value } = action as { readonly type?: unknown; readonly value?: unknown }
+  if (type === 'clipboard' && typeof value === 'string') {
+    return { ...action, value: substituteRecordVars(value, record) }
+  }
   const { inputData } = action as { inputData?: unknown }
   if (inputData === null || typeof inputData !== 'object' || Array.isArray(inputData)) return action
   const substituted = substituteRecordInInputData(
@@ -234,6 +245,7 @@ export function buildRecordTemplatePatch(
     readonly breadcrumbItems?: unknown
     readonly type?: string
     readonly items?: unknown
+    readonly panels?: unknown
   },
   record: Record<string, unknown>,
   tableName?: string
@@ -254,6 +266,7 @@ export function buildRecordTemplatePatch(
   const confirm = substituteRecordInConfirm(component.confirm, record)
   const { confirmText, currentLabel } = component
   const breadcrumbItems = substituteRecordInCrumbs(component.breadcrumbItems, record)
+  const panels = substituteRecordInPanels(component.panels, record)
   return {
     ...(action !== undefined && { action }),
     ...(fields !== undefined && { fields }),
@@ -264,51 +277,9 @@ export function buildRecordTemplatePatch(
     }),
     ...(breadcrumbItems !== undefined && { breadcrumbItems }),
     ...(items !== undefined && { items }),
+    ...(panels !== undefined && { panels }),
     ...editSelectRecordPatch(component, record),
   }
-}
-
-/**
- * A record projected for a breadcrumb's words: {@link withRecordText}, and
- * every field the record carries a display label for — a relationship's linked
- * record by its display field, a `user` field's person by name — prints that
- * label, as the description list beside it does; `<field>.raw` keeps the
- * stored value.
- */
-function withCrumbText(
-  record: Readonly<Record<string, unknown>>
-): Readonly<Record<string, unknown>> {
-  const prose = withRecordText(record)
-  const block = record[RECORD_DISPLAY_KEY]
-  if (block === null || typeof block !== 'object') return prose
-  const labelled = Object.keys(block).flatMap((field) => {
-    const label = recordDisplayOf(record, field)
-    return label === undefined ? [] : [[field, label] as const]
-  })
-  return {
-    ...prose,
-    ...Object.fromEntries(labelled.map(([field]) => [`${field}.raw`, record[field]])),
-    ...Object.fromEntries(labelled),
-  }
-}
-
-/**
- * An enumerated breadcrumb's crumbs filled from the record: each `label` is
- * prose and prints a value formatted — a linked record by its display field —
- * as a derived trail's `currentLabel` does; an `href` keeps the stored value.
- * `undefined` when there are no crumbs.
- */
-function substituteRecordInCrumbs(crumbs: unknown, record: Record<string, unknown>): unknown {
-  if (!Array.isArray(crumbs)) return undefined
-  const prose = withCrumbText(record)
-  return crumbs.map((crumb: unknown) => {
-    if (crumb === null || typeof crumb !== 'object') return crumb
-    const { label } = crumb as { readonly label?: unknown }
-    return {
-      ...(mapStringsDeep(crumb, (value) => substituteRecordVars(value, record)) as object),
-      ...(typeof label === 'string' && { label: substituteRecordVars(label, prose) }),
-    }
-  })
 }
 
 /** The printed text a page record carries for `field`, when it carries one. */

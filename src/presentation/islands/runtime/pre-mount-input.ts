@@ -164,13 +164,15 @@ interface PendingFocus {
   readonly selection?: { readonly start: number; readonly end: number }
 }
 
-type NamedControl = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+type FormControl = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
 
-const isNamedControl = (node: Element | null): node is NamedControl =>
-  (node instanceof HTMLInputElement ||
-    node instanceof HTMLTextAreaElement ||
-    node instanceof HTMLSelectElement) &&
-  node.name !== ''
+const isFormControl = (node: Element | null): node is FormControl =>
+  node instanceof HTMLInputElement ||
+  node instanceof HTMLTextAreaElement ||
+  node instanceof HTMLSelectElement
+
+const isNamedControl = (node: Element | null): node is FormControl =>
+  isFormControl(node) && node.name !== ''
 
 /**
  * Note which control inside `el` has the keyboard, and where its caret is.
@@ -186,15 +188,33 @@ const isNamedControl = (node: Element | null): node is NamedControl =>
  */
 export function capturePendingFocus(el: HTMLElement): PendingFocus | undefined {
   const active = document.activeElement
-  if (!isNamedControl(active) || !el.contains(active)) return undefined
+  if (!isFormControl(active) || !el.contains(active)) return undefined
+  const selector = isNamedControl(active)
+    ? controlSelector(active)
+    : adoptedControlSelector(el, active)
+  if (selector === undefined) return undefined
   const selection = selectionOf(active)
-  return selection
-    ? { selector: controlSelector(active), selection }
-    : { selector: controlSelector(active) }
+  return selection ? { selector, selection } : { selector }
+}
+
+/**
+ * A selector for an UNNAMED control (a page's search box) inside a host that
+ * adopts its own server markup (`data-island-ssr="true"`, the tabs island).
+ * The island redraws that same markup, so the control's twin carries the same
+ * attributes; its value is left out, since the live value is written into the
+ * markup before the capture. Any other host renders different markup, and an
+ * unnamed control in it has no twin to find.
+ */
+function adoptedControlSelector(el: HTMLElement, active: FormControl): string | undefined {
+  if (el.dataset.islandSsr !== 'true') return undefined
+  const attributes = [...active.attributes]
+    .filter((attribute) => attribute.name !== 'value')
+    .map((attribute) => `[${CSS.escape(attribute.name)}="${CSS.escape(attribute.value)}"]`)
+  return `${active.tagName.toLowerCase()}${attributes.join('')}`
 }
 
 /** A selector finding the mounted twin of `control`: same tag, same name (and value, in a group). */
-function controlSelector(control: NamedControl): string {
+function controlSelector(control: FormControl): string {
   const byName = `${control.tagName.toLowerCase()}[name="${CSS.escape(control.name)}"]`
   const inGroup =
     control instanceof HTMLInputElement && (control.type === 'radio' || control.type === 'checkbox')
@@ -202,7 +222,7 @@ function controlSelector(control: NamedControl): string {
 }
 
 /** The caret or selection of `control`, when its type has one (not email, number or a select). */
-function selectionOf(control: NamedControl): PendingFocus['selection'] {
+function selectionOf(control: FormControl): PendingFocus['selection'] {
   if (control instanceof HTMLSelectElement) return undefined
   const { selectionStart: start, selectionEnd: end } = control
   return start !== null && end !== null ? { start, end } : undefined
@@ -217,7 +237,7 @@ export function restorePendingFocus(el: HTMLElement, pending: PendingFocus): voi
   whenIslandReady(el, () => {
     const current = document.activeElement
     if (current !== null && current !== document.body) return
-    const control = el.querySelector<NamedControl>(pending.selector)
+    const control = el.querySelector<FormControl>(pending.selector)
     if (!control) return
     control.focus()
     if (pending.selection && !(control instanceof HTMLSelectElement)) {

@@ -11,12 +11,16 @@ import { AssetSchema } from '@/domain/models/app/assets'
 import assetsBody from '@/domain/models/app/assets/assets.docs.md' with { type: 'file' }
 import { DecisionSchema } from '@/domain/models/app/decisions'
 import decisionsBody from '@/domain/models/app/decisions/decisions.docs.md' with { type: 'file' }
+import { InstallSchema } from '@/domain/models/app/install'
+import installBody from '@/domain/models/app/install/install.docs.md' with { type: 'file' }
 import { LanguagesSchema } from '@/domain/models/app/languages'
 import languagesBody from '@/domain/models/app/languages/languages.docs.md' with { type: 'file' }
 import { LinkLifecycleSchema, LinkSchema } from '@/domain/models/app/links'
 import shortLinksBody from '@/domain/models/app/links/links.docs.md' with { type: 'file' }
 import { LlmsSchema } from '@/domain/models/app/llms'
 import llmsTxtBody from '@/domain/models/app/llms/llms.docs.md' with { type: 'file' }
+import { NotificationsSchema } from '@/domain/models/app/notifications'
+import notificationsBody from '@/domain/models/app/notifications/notifications.docs.md' with { type: 'file' }
 import { RedirectSchema } from '@/domain/models/app/redirects'
 import redirectsBody from '@/domain/models/app/redirects/redirects.docs.md' with { type: 'file' }
 import schemaOverviewBody from '@/domain/models/app/schema-overview.docs.md' with { type: 'file' }
@@ -154,6 +158,26 @@ export const section = defineSection({
       stories: ['US-PAGES-REDIRECTS', 'US-PAGES-REDIRECTS-NON-LOCALIZED'],
     }),
     defineArticle({
+      slug: 'app-notifications',
+      title: 'Notifications',
+      description:
+        'Declare the kinds of notification your app sends; each person lists hers, marks them read and chooses, per kind, the app, email or a digest.',
+      keywords: [
+        'sovrium',
+        'notifications',
+        'notification preferences',
+        'unread count',
+        'mark all read',
+        'in-app notifications',
+        'retention',
+      ],
+      order: 9035,
+      sidebarLabel: 'Notifications',
+      body: notificationsBody,
+      documents: [NotificationsSchema],
+      stories: [],
+    }),
+    defineArticle({
       slug: 'short-links',
       title: 'Short Links',
       description:
@@ -249,6 +273,27 @@ export const section = defineSection({
         'US-PAGES-LLMS-TXT-GENERATION-001',
         'US-PAGES-LLMS-TXT-LOCALE-SCOPING-001',
       ],
+    }),
+    defineArticle({
+      slug: 'install',
+      title: 'Make the app installable',
+      description:
+        'Serve a web app manifest generated from your app so it installs to a home screen, and, opt-in, an offline shell that caches only static assets.',
+      keywords: [
+        'sovrium',
+        'install',
+        'manifest.webmanifest',
+        'web app manifest',
+        'service worker',
+        'offline',
+        'home screen',
+        'app.install',
+      ],
+      order: 9070,
+      sidebarLabel: 'Installable app',
+      body: installBody,
+      documents: [InstallSchema],
+      stories: ['US-PAGES-META-INSTALL'],
     }),
   ],
 })

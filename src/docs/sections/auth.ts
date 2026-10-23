@@ -14,6 +14,7 @@ import {
   MagicLinkStrategySchema,
   OAuthStrategySchema,
   PasskeysConfigSchema,
+  AuthPresenceSchema,
   ScimConfigSchema,
   SsoOidcConfigSchema,
   SsoProviderSchema,
@@ -25,6 +26,7 @@ import authEmailTemplatesBody from '@/domain/models/app/auth/auth-email-template
 import authOverviewBody from '@/domain/models/app/auth/auth-overview.docs.md' with { type: 'file' }
 import authPasskeysBody from '@/domain/models/app/auth/auth-passkeys.docs.md' with { type: 'file' }
 import authPasswordlessBody from '@/domain/models/app/auth/auth-passwordless.docs.md' with { type: 'file' }
+import authPresenceBody from '@/domain/models/app/auth/auth-presence.docs.md' with { type: 'file' }
 import authRegistrationBody from '@/domain/models/app/auth/auth-registration.docs.md' with { type: 'file' }
 import authScimBody from '@/domain/models/app/auth/auth-scim.docs.md' with { type: 'file' }
 import authSocialOauthBody from '@/domain/models/app/auth/auth-social-oauth.docs.md' with { type: 'file' }
@@ -275,6 +277,25 @@ export const auth = defineSection({
       body: authPasskeysBody,
       documents: [PasskeysConfigSchema],
       stories: ['US-AUTH-PASSKEYS-001', 'US-AUTH-PASSKEYS-002', 'US-AUTH-PASSKEYS-003'],
+    }),
+    defineArticle({
+      slug: 'auth-presence',
+      title: 'Presence',
+      description:
+        'Show who is online, when each person was last seen and who is typing — to the roles you name, never to anonymous visitors.',
+      keywords: [
+        'sovrium',
+        'presence',
+        'online status',
+        'last seen',
+        'typing indicator',
+        'visibleTo',
+      ],
+      order: 7025,
+      sidebarLabel: 'Presence',
+      body: authPresenceBody,
+      documents: [AuthPresenceSchema],
+      stories: [],
     }),
     defineArticle({
       slug: 'auth-scim',

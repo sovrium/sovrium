@@ -83,3 +83,15 @@ The count is read from the comments API pagination metadata and includes only ap
 ## Sharing
 
 **There is no `sharing` component type.** Share controls are composed from types that already exist: `link` and `button` components carrying `navigate` interactions for the social targets, and a clipboard interaction for copy-link. A config declaring `type: sharing` is refused when it is decoded, because the catalogue does not hold that name.
+
+## A thread that follows its record
+
+`refreshMode: realtime` on a `comments` thread re-reads it whenever a comment on its record is posted, edited, deleted or moderated, so a reply another member posts appears without a reload. `poll` re-reads every 30 seconds; `none`, the default, reads once.
+
+```yaml
+- type: comments
+  table: tickets
+  refreshMode: realtime
+```
+
+Every re-read applies the same rules as the first: a comment awaiting moderation appears to moderators and its author only, and a reader who may not read the record receives nothing.

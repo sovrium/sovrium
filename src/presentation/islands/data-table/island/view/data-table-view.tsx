@@ -6,6 +6,7 @@
  */
 
 import { computeTableFillShellClasses } from '@/presentation/design/table-default-classes'
+import { InlineExpandProvider } from '../../inline-expand/inline-expand-state'
 import { ArmedConfirmProvider } from '../../row-actions/armed-confirm-provider'
 import { useViewProps } from '../use-view-props'
 import { ResultCountAnnouncer } from './result-count-announcer'
@@ -32,43 +33,48 @@ export function DataTableView(props: DataTableViewProps) {
 
   return (
     <ArmedConfirmProvider>
-      <div
-        ref={props.containerRef}
-        // Chrome-less: the surface tokens (`bg-card`, `border-border`,
-        // rounding, border) live on the `[data-component="data-table"]` island
-        // host (see island-data-components.tsx), which this view is rendered
-        // INTO via `createRoot`. Repeating the chrome here would double the
-        // border. The host owns the visible surface; this view owns layout only.
-        //
-        // Under `layout: fill` this view is the second link in the chain running
-        // from the bounded ancestor down to the rows. The host grew into the
-        // height its parent left it; this element has to pass that height on
-        // rather than fall back to its content's. It is also the one link in that
-        // chain hydration OWNS, so a frame dressed server-side comes undone here
-        // if this element keeps its natural height.
-        //
-        // It carries the floor as well as the height, from the row height the
-        // rows are drawn at, so the frame's minimum tracks their rhythm.
-        className={`w-full overflow-hidden${
-          props.layout === 'fill'
-            ? ` ${computeTableFillShellClasses({ rowHeight: props.currentRowHeight })}`
-            : ''
-        }`}
-        // Realtime transport connectivity: exposes the
-        // logical connection state (connected/reconnecting/disconnected) so a
-        // page section can render a connection indicator. Absent when the data
-        // source is not in `realtime` refresh mode.
-        data-connection-status={props.connectionStatus}
+      <InlineExpandProvider
+        config={props.inlineExpand}
+        table={props.tableName}
       >
-        <StatusBanners {...regions.banners} />
-        <TableSurface {...regions.surface} />
-        <ResultCountAnnouncer
-          subscribed={props.subscribed}
-          narrowed={props.narrowed}
-          isLoading={props.isLoading}
-          count={props.totalRecords}
-        />
-      </div>
+        <div
+          ref={props.containerRef}
+          // Chrome-less: the surface tokens (`bg-card`, `border-border`,
+          // rounding, border) live on the `[data-component="data-table"]` island
+          // host (see island-data-components.tsx), which this view is rendered
+          // INTO via `createRoot`. Repeating the chrome here would double the
+          // border. The host owns the visible surface; this view owns layout only.
+          //
+          // Under `layout: fill` this view is the second link in the chain running
+          // from the bounded ancestor down to the rows. The host grew into the
+          // height its parent left it; this element has to pass that height on
+          // rather than fall back to its content's. It is also the one link in that
+          // chain hydration OWNS, so a frame dressed server-side comes undone here
+          // if this element keeps its natural height.
+          //
+          // It carries the floor as well as the height, from the row height the
+          // rows are drawn at, so the frame's minimum tracks their rhythm.
+          className={`w-full overflow-hidden${
+            props.layout === 'fill'
+              ? ` ${computeTableFillShellClasses({ rowHeight: props.currentRowHeight })}`
+              : ''
+          }`}
+          // Realtime transport connectivity: exposes the
+          // logical connection state (connected/reconnecting/disconnected) so a
+          // page section can render a connection indicator. Absent when the data
+          // source is not in `realtime` refresh mode.
+          data-connection-status={props.connectionStatus}
+        >
+          <StatusBanners {...regions.banners} />
+          <TableSurface {...regions.surface} />
+          <ResultCountAnnouncer
+            subscribed={props.subscribed}
+            narrowed={props.narrowed}
+            isLoading={props.isLoading}
+            count={props.totalRecords}
+          />
+        </div>
+      </InlineExpandProvider>
     </ArmedConfirmProvider>
   )
 }

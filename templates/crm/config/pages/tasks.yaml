@@ -8,6 +8,7 @@ access:
 meta:
   title: Tasks · Kestrel CRM
   description: Follow-ups by date, and the ones you owe next.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

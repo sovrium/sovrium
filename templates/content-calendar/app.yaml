@@ -57,6 +57,7 @@ automations:
   - $ref: ./config/automations/approve-for-scheduling.yaml
   - $ref: ./config/automations/monday-digest.yaml
   - $ref: ./config/automations/mint-tracked-link.yaml
+  - $ref: ./config/automations/nightly-reset.yaml
   - $ref: ./library/recipe/record-to-linkedin-post.yaml
 
 # Listed in the order of the sidebar, then sign-in.

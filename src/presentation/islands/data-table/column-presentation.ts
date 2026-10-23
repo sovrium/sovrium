@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { matchesConditionOperators } from '@/domain/models/app/tables/condition-operators'
+import { matchesConditionOperators } from '@/domain/models/app/tables/condition-match-service'
 import { cn } from '@/presentation/design/class-merge'
 import type { CellMeta } from './data-row-types'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'

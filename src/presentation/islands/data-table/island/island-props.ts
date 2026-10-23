@@ -8,6 +8,7 @@
 import type { GridStrings } from './grid-strings'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 import type { SharedFilterPublisherConfig } from '../../hooks/use-shared-filter-publisher'
+import type { InlineExpandConfig } from '../inline-expand/inline-expand-context'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
 import type {
   DataTableBulkAction,
@@ -172,9 +173,16 @@ export interface DataTableIslandProps {
   /**
    * The bound table declares `views[]`: the grid draws its view switcher, whose
    * first entry reads `allLabel` (`All <plural>`, resolved server-side).
-   * Absent on a table with no views and on a system source.
+   * Absent on a table with no views and on a system source. `defaultView` is the
+   * default view the reader may open (`null`: none), resolved server-side from
+   * the views the table API lists her; absent when the server could not tell.
    */
-  readonly viewSwitcher?: { readonly allLabel: string }
+  readonly viewSwitcher?: { readonly allLabel: string; readonly defaultView?: string | null }
+  /**
+   * `rowExpand.placement: inline`: the record each row opens under itself,
+   * resolved server-side for this reader. Absent on every other grid.
+   */
+  readonly rowExpandInline?: InlineExpandConfig
   /**
    * Interpreter-provided commit / dismiss labels, resolved server-side the same
    * way. They label the inline select-editor's commit + cancel pair (an `editSelect.saveLabel` still wins

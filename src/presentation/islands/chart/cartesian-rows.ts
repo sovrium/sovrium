@@ -24,6 +24,8 @@ export interface CartesianRowInput {
   readonly label?: string
   /** The row's own paint, which wins over its series' (an option's colour). */
   readonly fill?: string
+  /** The variable the row's own paint reads, declared on its mark (a `barColor` tone). */
+  readonly fillStyle?: Readonly<Record<string, string>>
   /** The callout heading, read from the tooltip's `labelKey` field. */
   readonly heading?: string
   /** The name each callout entry takes, read from the tooltip's `nameKey` field. */
@@ -40,6 +42,9 @@ export type CartesianRow = CartesianRowInput & { readonly [drawn: string]: unkno
  * `key`, `label` or `raw` can never overwrite the row's own properties.
  */
 export const drawnKey = (field: string): string => `plot:${field}`
+
+/** Where a row holds its instant on a time scale — never a series' drawn key. */
+export const TIME_KEY = 'time:at'
 
 /** The field a drawn key was made from. */
 export const fieldOfDrawnKey = (key: string): string =>
@@ -85,14 +90,17 @@ export function valueAxisOver(
   })
 }
 
-/** Each row with every shown series' value as drawn on `axis`. */
+/** Each row with every shown series' value as drawn on `axis`, and its instant on a time scale. */
 export function drawnRows(
   rows: readonly CartesianRowInput[],
   shown: readonly MeasuredSeries[],
-  axis: ValueAxis
+  axis: ValueAxis,
+  timed = false
 ): readonly CartesianRow[] {
   return rows.map((row) => ({
     ...row,
+    // On a time scale the category key is an instant, placed by its time.
+    ...(timed ? { [TIME_KEY]: Date.parse(row.key) } : {}),
     ...Object.fromEntries(
       shown.map((series) => [drawnKey(series.field), plotValue(axis, valueOf(row, series.field))])
     ),

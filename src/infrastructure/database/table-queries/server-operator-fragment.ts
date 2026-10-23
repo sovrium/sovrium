@@ -7,11 +7,16 @@
 
 import { sql, type SQL } from 'drizzle-orm'
 import {
+  isNotLoggedCreatorValue,
+  NOT_LOGGED_CREATOR_OPERATOR,
+} from '@/domain/models/app/tables/read-state-service'
+import {
   isRelatedTextValue,
   RELATED_TEXT_OPERATOR,
 } from '@/domain/models/app/tables/related-text-filter-service'
 import { LIST_MEMBER_OPERATOR } from '@/domain/models/app/tables/user-list-field-service'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { notLoggedCreatorFragment } from './logged-creator-fragment'
 import { relatedTextFragment } from './related-text-fragment'
 
 /**
@@ -19,7 +24,8 @@ import { relatedTextFragment } from './related-text-fragment'
  * caller's condition: a text match against a linked record's display field,
  * and membership in a list of people. A caller cannot send either — the records
  * API vocabulary refuses them — so each is compiled here, apart from the
- * operators a caller names.
+ * operators a caller names. The unread count writes a third: a row not created
+ * by its reader, as the activity log records it.
  */
 
 /**
@@ -47,5 +53,8 @@ export const serverOperatorFragment = (
     return relatedTextFragment(field, value)
   }
   if (operator === LIST_MEMBER_OPERATOR) return listMemberFragment(sql.identifier(field), value)
+  if (operator === NOT_LOGGED_CREATOR_OPERATOR && isNotLoggedCreatorValue(value)) {
+    return notLoggedCreatorFragment(field, value)
+  }
   return undefined
 }

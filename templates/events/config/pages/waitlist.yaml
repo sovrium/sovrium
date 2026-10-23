@@ -11,6 +11,7 @@ dataSource:
 meta:
   title: Join the waitlist · Fieldday
   description: This Fieldday event is full. Join its waitlist and we email you if a seat frees up.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

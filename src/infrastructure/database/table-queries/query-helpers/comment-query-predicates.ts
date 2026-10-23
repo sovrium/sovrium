@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { eq, and, inArray, isNull } from 'drizzle-orm'
+import { eq, and, inArray, isNull, or } from 'drizzle-orm'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import { recordComments as recordCommentsPg } from '@/infrastructure/database/drizzle/schema/record-comments'
 import { recordComments as recordCommentsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/record-comments'
@@ -77,8 +77,9 @@ export function approvedGuestCommentByEmail(tableKeys: readonly string[], guestE
  * viewer is allowed to see.
  *
  * Non-admin viewers (guests, members, viewers — anyone who is not an admin)
- * may only see `'approved'` comments; `'pending'`/`'rejected'` rows are
- * hidden. Admins (`includeAllStatuses: true`) see every status.
+ * see `'approved'` comments, and their own `'pending'` ones when `viewerId`
+ * names them; other `'pending'` and every `'rejected'` row is hidden. Admins
+ * (`includeAllStatuses: true`) see every status.
  *
  * Fail-closed: callers that cannot establish admin-ness must pass
  * `includeAllStatuses: false` so the safe default (approved-only) applies.
@@ -93,9 +94,18 @@ export function approvedGuestCommentByEmail(tableKeys: readonly string[], guestE
 export function visibleCommentsByRecordId(
   tableKeys: readonly string[],
   recordId: string,
-  includeAllStatuses: boolean
+  includeAllStatuses: boolean,
+  viewerId?: string
 ) {
-  return includeAllStatuses
-    ? activeCommentsByRecordId(tableKeys, recordId)
-    : and(activeCommentsByRecordId(tableKeys, recordId), eq(recordComments.status, 'approved'))
+  if (includeAllStatuses) return activeCommentsByRecordId(tableKeys, recordId)
+  const approved = eq(recordComments.status, 'approved')
+  // Her own comment waiting for moderation is hers to see, as a moderator sees it.
+  const ownPending =
+    viewerId === undefined
+      ? undefined
+      : and(eq(recordComments.status, 'pending'), eq(recordComments.userId, viewerId))
+  return and(
+    activeCommentsByRecordId(tableKeys, recordId),
+    ownPending === undefined ? approved : or(approved, ownPending)
+  )
 }

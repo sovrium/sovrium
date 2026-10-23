@@ -14,9 +14,11 @@ import {
 } from '../../design/message-default-classes'
 import { splitSlots } from '../elements/slot-children'
 import { omitInternalMarkers } from '../props/internal-marker-props'
+import { REPLY_SUMMARY_KEY } from '../resolve/conversation-extras'
 import { AUTHOR_CONTINUED_KEY } from '../resolve/message-author-resolver'
 import { avatarComponent } from './avatar-component'
 import { mergePrestyle } from './interactive-prestyle-builders'
+import { ReplySummary } from './reply-summary'
 import type { ComponentDispatchConfig, ComponentRenderer } from './component-dispatch-config'
 import type { Languages } from '@/domain/models/app/languages'
 import type { ReactElement } from 'react'
@@ -146,6 +148,11 @@ const messageComponent: ComponentRenderer = (config) => {
         {renderSlot('message-header', header, computeMessageHeaderClasses())}
         {slots['$children']}
         {renderSlot('message-footer', footer, computeMessageFooterClasses())}
+        <ReplySummary
+          summary={source[REPLY_SUMMARY_KEY]}
+          config={config}
+          locale={localeOf(currentLang, languages)}
+        />
       </div>
     </div>
   )

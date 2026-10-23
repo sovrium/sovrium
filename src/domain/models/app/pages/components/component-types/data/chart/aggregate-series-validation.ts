@@ -17,6 +17,8 @@
  * `sovrium validate` and a watch reload reach the same verdict. Pure.
  */
 
+import { validateFillEmptyWindows } from './fill-empty-validation'
+
 type RawRecord = Readonly<Record<string, unknown>>
 
 const isRecord = (value: unknown): value is RawRecord =>
@@ -38,15 +40,21 @@ function aggregateSeriesViolation(node: RawRecord): string | undefined {
 }
 
 /**
- * Refuse a chart declaring more than one series under `chartAggregate`.
+ * Refuse a chart declaring more than one series under `chartAggregate`, and
+ * one whose `fillEmpty` window exceeds the aggregate read (`fill-empty-validation.ts`).
  *
  * @returns one message per offending chart, empty otherwise
  */
 export function validateAggregateSeries(config: unknown): readonly string[] {
   const pages = isRecord(config) ? config['pages'] : undefined
   if (!Array.isArray(pages)) return []
-  return collectNodes(pages).flatMap((node) => {
-    const message = aggregateSeriesViolation(node)
-    return message === undefined ? [] : [message]
-  })
+  return [
+    ...collectNodes(pages).flatMap((node) => {
+      const message = aggregateSeriesViolation(node)
+      return message === undefined ? [] : [message]
+    }),
+    // The other `chartAggregate` rule read at the same boundary: a filled
+    // window the aggregate read cannot return.
+    ...validateFillEmptyWindows(config),
+  ]
 }

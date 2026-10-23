@@ -26,6 +26,9 @@ export function buildTabsItems(
   readonly content: string
   readonly disabled?: boolean
   readonly description?: string
+  readonly count?: unknown
+  readonly countLabel?: unknown
+  readonly showZero?: boolean
 }> {
   const panels = (Array.isArray(rawPanels) ? rawPanels : []) as ReadonlyArray<{
     readonly id?: string
@@ -33,6 +36,9 @@ export function buildTabsItems(
     readonly description?: string
     readonly disabled?: boolean
     readonly body?: string
+    readonly count?: unknown
+    readonly countLabel?: unknown
+    readonly showZero?: boolean
   }>
   return panels
     .map((panel, index) => {
@@ -68,6 +74,11 @@ export function buildTabsItems(
         content: renderedBody,
         disabled: panel.disabled,
         description: resolvedDescription,
+        // A counted tab's binding travels to the island, which reads the figure
+        // as the reader; an uncounted panel's props are unchanged.
+        ...(panel.count === undefined
+          ? {}
+          : { count: panel.count, countLabel: panel.countLabel, showZero: panel.showZero }),
       }
     })
     .filter((item) => item.id !== '' || item.label !== '' || item.content !== '')

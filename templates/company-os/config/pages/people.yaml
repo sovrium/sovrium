@@ -8,6 +8,7 @@ access:
 meta:
   title: Team & time off · Orrin OS
   description: Who is away this month, the time off waiting on a decision, and the team.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

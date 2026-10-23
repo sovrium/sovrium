@@ -24,6 +24,12 @@ import {
   computeTabIndicatorClasses,
   computeTabLabelClasses,
 } from './tabs-default-classes'
+import {
+  countedTabLabel,
+  useTabCount,
+  type TabCountLabel,
+  type TabCountSource,
+} from './use-tab-count'
 import type { ReactElement } from 'react'
 
 export interface TabItem {
@@ -45,6 +51,12 @@ export interface TabItem {
    * trigger's accessible name — see {@link TabTrigger}.
    */
   readonly description?: string
+  /** A live figure drawn after the label as `Label · N`, read as the reader. */
+  readonly count?: TabCountSource
+  /** The noun after the figure, singular and plural. */
+  readonly countLabel?: TabCountLabel
+  /** Draw a count of 0 rather than the bare label. */
+  readonly showZero?: boolean
 }
 
 /**
@@ -72,17 +84,19 @@ function TabTrigger({
   readonly descriptionId: string
 }): ReactElement {
   const described = tab.description !== undefined && tab.description.length > 0
+  // The figure is part of the caption, so it is part of the accessible name.
+  const label = countedTabLabel(tab.label, useTabCount(tab.count), tab.countLabel, tab.showZero)
   return (
     <Tabs.Tab
       value={tab.id}
       disabled={tab.disabled}
       className={computeTabClasses({ orientation })}
-      aria-label={described ? tab.label : undefined}
+      aria-label={described ? label : undefined}
       aria-describedby={described ? descriptionId : undefined}
     >
       {described ? (
         <>
-          <span className={computeTabLabelClasses()}>{tab.label}</span>
+          <span className={computeTabLabelClasses()}>{label}</span>
           <span
             id={descriptionId}
             className={computeTabDescriptionClasses()}
@@ -91,7 +105,7 @@ function TabTrigger({
           </span>
         </>
       ) : (
-        tab.label
+        label
       )}
     </Tabs.Tab>
   )

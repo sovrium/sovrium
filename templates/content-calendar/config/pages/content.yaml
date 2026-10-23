@@ -9,6 +9,7 @@ access:
 meta:
   title: All content · Loomwork Content
   description: Every piece grouped by campaign, and the campaigns on a strip.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

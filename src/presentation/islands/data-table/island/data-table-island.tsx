@@ -20,6 +20,7 @@ import {
 import { GridStringsContext, type GridStrings } from './grid-strings'
 import { usePhoneRowOpen } from './phone-row-open'
 import { ReadErrorNotice } from './read-error-notice'
+import { readFailureWiring } from './read-failure-wiring'
 import { pagerPagination } from './setup/row-cap'
 import { effectiveSelection } from './setup/use-grid-table'
 import { useClipboardCopy } from './use-clipboard-copy'
@@ -105,11 +106,18 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
   // grid never asked the server. So neither the empty state nor the pager's
   // "No results" is drawn under a failure; a refused RE-read keeps both, over
   // the rows it is still showing.
-  const rowCount = setup.table.getRowModel().rows.length
-  const failedEmpty = setup.readError !== undefined && rowCount === 0
   const noRecords = props.uiStrings?.['datatable.noRecords'] ?? 'No records found'
   const searching = setup.searchQuery.trim() !== ''
-  const emptyMessage = failedEmpty
+  const failure = readFailureWiring({
+    error: setup.readError,
+    isError: setup.isError,
+    rowCount: setup.table.getRowModel().rows.length,
+    total: setup.totalRecords,
+    channel: props.dataSource.bindTo,
+    searching,
+    clearReadError: setup.clearReadError,
+  })
+  const emptyMessage = failure.failedEmpty
     ? ''
     : (props.emptyMessage ?? (searching ? undefined : props.tableEmptyMessage) ?? noRecords)
   // A grid of the reader's own sessions marks each row current or not.
@@ -135,6 +143,7 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
           onRetry={setup.handleRefresh}
           sortColumnLabel={columnLabelOf(props, setup.refusedSortColumn)}
           named={props.tableReadFailure}
+          {...failure.clear}
         />
       )}
       {props.viewSwitcher !== undefined && tableName !== '' && (
@@ -161,16 +170,18 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
           viewChannel={props.dataSource.bindTo ?? props.dataSource.system?.bindTo}
           tableName={tableName}
           allColumns={setup.allColumns}
-          totalRecords={setup.totalRecords}
+          totalRecords={failure.totalRecords}
           isLoading={setup.isLoading}
-          unanswered={(setup.isError || setup.readError !== undefined) && rowCount === 0}
+          unanswered={failure.unanswered}
           selectionConfig={effectiveSelection({
             selectionConfig: props.selection,
             publishesSelection: props.publishes !== undefined,
           })}
           bulkActionsConfig={props.bulkActions}
           paginationConfig={
-            failedEmpty ? undefined : pagerPagination(props.pagination, props.dataSource.limit)
+            failure.failedEmpty
+              ? undefined
+              : pagerPagination(props.pagination, props.dataSource.limit)
           }
           cursorPaged={setup.cursorFeed.cursorPaged}
           hasMore={setup.cursorFeed.hasMore}
@@ -188,6 +199,8 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
           rowColorField={props.rowColorField}
           rowColorFieldColors={props.rowColorFieldColors}
           currentRowHeight={setup.currentRowHeight}
+          rowHeightDeclared={props.rowHeight !== undefined}
+          inlineExpand={props.rowExpandInline}
           cellClass={setup.cellClass}
           borderClass={setup.borderClass}
           emptyMessage={emptyMessage}

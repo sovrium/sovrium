@@ -10,6 +10,7 @@ access:
 meta:
   title: Assistant · Kestrel CRM
   description: Ask about deals, contacts and tasks, and act on the answer.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

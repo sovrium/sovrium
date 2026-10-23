@@ -3,6 +3,7 @@ path: /product
 meta:
   title: 'Product tour · [Product]'
   description: '[The product, screen by screen.]'
+  favicon: ./favicon.svg
 components:
   - component: navbar-simple
   - component: hero-split-image

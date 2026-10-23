@@ -11,6 +11,7 @@ access:
 meta:
   title: Assistant · Orrin OS
   description: Ask one question across sales, delivery, support and the team.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

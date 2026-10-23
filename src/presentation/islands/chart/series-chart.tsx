@@ -15,6 +15,7 @@ import { CartesianChart, type CartesianTooltip } from './cartesian-chart'
 import { seriesConfig, seriesKey } from './chart-config'
 import { dayKeyLabeller, formatAxisValue, timeKeyLabeller } from './chart-format'
 import { numericValue, xKeys } from './chart-series-shared'
+import { barPaintOf, useChartShape, type ChartBarColorRule } from './chart-shape'
 import type { CartesianMark } from './cartesian-marks'
 import type { CartesianRowInput } from './cartesian-rows'
 import type {
@@ -69,7 +70,9 @@ function seriesRows(
   records: readonly TableRecord[],
   xField: string,
   series: readonly ChartSeriesConfig[],
-  keys: Pick<ChartTooltipConfig, 'labelKey' | 'nameKey'> = {}
+  keys: Pick<ChartTooltipConfig, 'labelKey' | 'nameKey'> & {
+    readonly barColor?: readonly ChartBarColorRule[]
+  } = {}
 ): readonly CartesianRowInput[] {
   const textOf = (record: TableRecord | undefined, field: string | undefined) =>
     field === undefined || record?.[field] == null ? undefined : String(record[field])
@@ -77,8 +80,11 @@ function seriesRows(
     const record = records.find((candidate) => String(candidate[xField]) === key)
     const heading = textOf(record, keys.labelKey)
     const name = textOf(record, keys.nameKey)
+    // A `barColor` rule the row's record matches paints its bars in the rule's tone.
+    const paint = barPaintOf(keys.barColor, record)
     return {
       key,
+      ...paint,
       ...(heading === undefined ? {} : { heading }),
       ...(name === undefined ? {} : { name }),
       raw: Object.fromEntries(
@@ -138,6 +144,15 @@ function useLegendConfig(legend: ChartLegendConfig | undefined): ChartLegendConf
   return useMemo(() => ({ position, visible }), [position, visible])
 }
 
+/** The `barColor` rules a bar chart paints by; no other mark reads them. */
+function useBarColor(mark: CartesianMark): readonly ChartBarColorRule[] | undefined {
+  const { barColor } = useChartShape()
+  return mark === 'bar' ? barColor : undefined
+}
+
+/** Is the category axis placed by time (`xAxis.scale: time`)? */
+const isTimeScale = (xAxis: ChartAxisConfig | undefined): boolean => xAxis?.scale === 'time'
+
 /**
  * Renders a multi-series chart with an interactive legend. Each declared
  * `series` entry gets its own mark, shaped by the `chartType`: `bar` draws
@@ -150,9 +165,10 @@ export function SeriesChart(args: SeriesChartArgs): ReactElement {
   const mark = seriesMarkOf(chartType)
   const labelKey = tooltip?.labelKey
   const nameKey = tooltip?.nameKey
+  const barColor = useBarColor(mark)
   const rows = useMemo(
-    () => seriesRows(records, xField, series, { labelKey, nameKey }),
-    [records, xField, series, labelKey, nameKey]
+    () => seriesRows(records, xField, series, { labelKey, nameKey, barColor }),
+    [records, xField, series, labelKey, nameKey, barColor]
   )
   const config = useMemo(() => seriesConfig(series), [series])
   const drawn = useMemo(
@@ -185,6 +201,7 @@ export function SeriesChart(args: SeriesChartArgs): ReactElement {
       tooltip={callout}
       legend={legendConfig}
       accessibleName={args.accessibleName ?? DEFAULT_NAMES[mark]}
+      timeScale={isTimeScale(xAxis)}
     />
   )
 }

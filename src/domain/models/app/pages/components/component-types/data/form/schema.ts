@@ -79,7 +79,7 @@ export const FormFieldControlSchema = Schema.Literals([
 ]).annotate({
   title: 'Form Field Control',
   description:
-    'Explicit input control for an endpoint-bound form field (text/email/password/number/tel/url/textarea/select/switch/rating). `rating` draws a scale of `max` ranks (default 5) and sends the rank picked as a number. `switch` is an on/off switch that submits a JSON boolean — `true` when on, `false` when off, never omitted — and takes no options. Omitted for table-bound forms (control derived from the column type).',
+    'Explicit input control for a form field (text/email/password/number/tel/url/textarea/select/switch/rating). Required on an endpoint-bound form. On a table-bound form it is optional and overrides the control the column type gives: `password` draws a text column as a masked input and `textarea` as a multi-line box, the value still saved as the column type. A control that cannot hold the column’s values (`password` on a number column) is refused when the config is read, naming the field and the column type. `rating` draws a scale of `max` ranks (default 5) and sends the rank picked as a number. `switch` is an on/off switch that submits a JSON boolean — `true` when on, `false` when off, never omitted — and takes no options.',
 })
 
 /** The controls a `minLength` / `maxLength` rule means something on: the ones a visitor types text into. */
@@ -96,9 +96,12 @@ export const FormFieldConfigSchema = Schema.Struct({
       'Field identifier: a table column name (table-bound form) OR the JSON body key (endpoint-bound form)',
   }),
   /**
-   * Explicit input control. Omitted for a table-bound form (derived from the
-   * column type); REQUIRED per field for an endpoint-bound form (no table to
-   * derive from). `select` additionally needs `options`.
+   * Explicit input control. REQUIRED per field for an endpoint-bound form (no
+   * table to derive from). On a table-bound form it is optional: omitted, the
+   * column type decides; set, it overrides the drawing of a column that can
+   * hold what it collects — a text column drawn as a password or a textarea —
+   * and a control that cannot (a password over a number column) is refused
+   * when the config is read. `select` additionally needs `options`.
    */
   control: Schema.optional(FormFieldControlSchema),
   /** Options for a `control: select` field ({ value, label? }; at least one). */

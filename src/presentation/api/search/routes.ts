@@ -12,6 +12,10 @@ import {
 } from '@/application/use-cases/command-search'
 import { getUserAccessRoles, getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
+import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
+import { commandSearchResponseSchema } from '@/domain/models/api/command-search'
+import { tableLabelsFor } from '@/domain/models/app/auth/readable-name-service'
+import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import {
   provideDomain,
   runDomainPromise,
@@ -115,6 +119,17 @@ const resolveRecordScope = async (c: Context, app: App): Promise<RecordSearchSco
   return { kind: 'scoped', reader: { userId: session.userId, role, groups, accessRoles } }
 }
 
+/**
+ * A table's plural label in the app's default language, a readable name where
+ * it declares none — what the palette's one "Records" group prints beside a match.
+ */
+const tableLabelOf = (app: App, tableName: string): string => {
+  const table = app.tables?.find((candidate) => candidate.name === tableName)
+  const translate = (text: string) =>
+    resolveTranslationPattern(text, app.languages?.default ?? 'en', app.languages)
+  return tableLabelsFor(table ?? { name: tableName }, translate).labelPlural
+}
+
 const buildSearchHandler =
   (app: App, getSession: PageReaderResolver | undefined) =>
   async (c: Context): Promise<Response> => {
@@ -142,7 +157,13 @@ const buildSearchHandler =
       )
     )
 
-    return c.json(results, 200, CACHE_HEADERS)
+    // Shaped by the wire contract, each record naming its table as a person reads it.
+    const shaped = results.map((result) =>
+      result.tableName === undefined
+        ? result
+        : { ...result, tableLabel: tableLabelOf(app, result.tableName) }
+    )
+    return c.json(decodeOrThrow(commandSearchResponseSchema)(shaped), 200, CACHE_HEADERS)
   }
 
 /**

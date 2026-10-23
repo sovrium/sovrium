@@ -421,6 +421,7 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // Phase 3 — Navigation & Advanced
   menubar: lazy(() => import('./overlays/menubar-island')),
   'navigation-menu': lazy(() => import('./overlays/nav-menu-island')),
+  'notification-bell': lazy(() => import('./navigation/notification-bell-island')),
   'scroll-area': lazy(() => import('./overlays/scroll-area-island')),
   // Wave-6 — page-level presence awareness. Mounted by `DynamicPage` on every
   // page configured with `presence: true` (not a schema-authored component).
@@ -583,6 +584,9 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // SSR-rendered count label is the user-visible fallback until hydration).
   comments: lazy(() => import('./comments/comment-thread-island')),
   'comment-count': lazy(() => import('./comments/comment-count-island')),
+  // The reply summary under a conversation turn: opens the record's thread in
+  // a sheet. Lazy — the server draws the same summary button until it mounts.
+  'reply-thread': lazy(() => import('./comments/comment-reply-sheet-island')),
 }
 
 /**

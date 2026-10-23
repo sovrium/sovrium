@@ -24,6 +24,8 @@ import { CommentThreadForm } from './comment-thread-form'
 import { CommentList } from './comment-thread-list'
 import { useCommentMutations } from './use-comment-mutations'
 import { useScrollFetch } from './use-scroll-fetch'
+import { useThreadFollow } from './use-thread-follow'
+import { useMarkThreadRead } from './use-thread-read-state'
 import type { CommentsListResponse, CommentThreadIslandProps } from './comment-thread-types'
 
 /** The provider value of a thread whose host sent no strings: English throughout. */
@@ -107,6 +109,8 @@ export default function CommentThreadIsland(props: CommentThreadIslandProps): Re
     onListReset: restartFromFirstPage,
   })
 
+  useMarkThreadRead({ tableName, recordId, unreadCount: listQuery.data?.unreadCount })
+  useThreadFollow({ tableName, recordId, refreshMode: props.refreshMode })
   const visible = paginationStyle === 'loadMore' ? loadedComments : (listQuery.data?.comments ?? [])
   const pagination = listQuery.data?.pagination
   const mentionSource = useMemo(() => ({ tableName, recordId }), [tableName, recordId])

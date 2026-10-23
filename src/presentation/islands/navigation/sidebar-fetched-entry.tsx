@@ -10,6 +10,8 @@ import {
   computeSidebarEntryClasses,
   computeSidebarMenuItemClasses,
 } from '@/presentation/design/sidebar-default-classes'
+import { computeSidebarEntryBadgeClasses } from '@/presentation/design/sidebar-menu-default-classes'
+import { FetchedEntryIcon } from './sidebar-fetched-icon'
 import type { ProjectedEntry } from './sidebar-entry-projection'
 import type { ChildrenSource } from './sidebar-fetched-children'
 
@@ -54,7 +56,20 @@ export function FetchedEntry(props: FetchedEntryProps) {
       className={computeSidebarEntryClasses(current)}
       {...(rail !== true || entry.props?.['title'] !== undefined ? {} : { title: entry.label })}
     >
+      <FetchedEntryIcon icon={entry.icon} />
       <span>{entry.label}</span>
+      {entry.badge !== undefined && (
+        // Outside the accessible name, as an authored entry's badge is
+        // (`renderBadge`): a count must not rename the link.
+        <span
+          aria-hidden="true"
+          data-slot="sidebar-menu-badge"
+          data-component-type="badge"
+          className={computeSidebarEntryBadgeClasses()}
+        >
+          {entry.badge}
+        </span>
+      )}
     </a>
   )
   return (

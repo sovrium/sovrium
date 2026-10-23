@@ -14,8 +14,22 @@ import {
   usePublishedValueInAddress,
   useSharedFilterPublisher,
 } from '../hooks/use-shared-filter-publisher'
+import type { OnlineChoiceValue } from './online-choice'
 import type { FilterBarCondition, FilterBarField } from '@/presentation/design/filter-expression'
 import type { KeyboardEvent } from 'react'
+
+/**
+ * The expression with the Online / Offline choice added beside the bar's other
+ * conditions — always under the outer `and`, so an `or` bar still narrows to
+ * the people it names.
+ */
+function withOnlineLeaf(expression: string, online: OnlineChoiceValue): string {
+  if (online === undefined) return expression
+  const leaf = { field: 'online', operator: 'eq', value: online }
+  if (expression === '') return JSON.stringify({ and: [leaf] })
+  const parsed = JSON.parse(expression) as { readonly and: readonly unknown[] }
+  return JSON.stringify({ and: [...parsed.and, leaf] })
+}
 
 /**
  * Publish the bar's expression whenever it changes, except an EMPTY opening
@@ -53,12 +67,15 @@ export function useFilterBarState({
   fields,
   combinator,
   initialConditions,
+  online,
 }: {
   readonly bindTo: string
   readonly url: boolean
   readonly fields: readonly FilterBarField[]
   readonly combinator: 'and' | 'or'
   readonly initialConditions: readonly FilterBarCondition[] | undefined
+  /** The Online / Offline choice, published beside the conditions. */
+  readonly online: OnlineChoiceValue
 }) {
   const publishes = { bindTo, param: 'filter', url }
   const restored = usePublishedValueInAddress(publishes)
@@ -70,8 +87,8 @@ export function useFilterBarState({
   const [open, setOpen] = useState(false)
 
   const expression = useMemo(
-    () => buildFilterExpression(conditions, fields, combinator),
-    [conditions, fields, combinator]
+    () => withOnlineLeaf(buildFilterExpression(conditions, fields, combinator), online),
+    [conditions, fields, combinator, online]
   )
 
   // A fresh object literal per render is deliberate and free: the hook memoizes

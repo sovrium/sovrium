@@ -212,6 +212,8 @@ import {
   menubarFields,
   NavigationMenuTypeLiteral,
   navigationMenuFields,
+  NotificationBellTypeLiteral,
+  notificationBellFields,
   PaginationTypeLiteral,
   paginationFields,
 } from './navigation'
@@ -345,6 +347,7 @@ const interactionAndDisplayComponents = [
   [ContextMenuTypeLiteral, contextMenuFields],
   [MenubarTypeLiteral, menubarFields],
   [NavigationMenuTypeLiteral, navigationMenuFields],
+  [NotificationBellTypeLiteral, notificationBellFields],
   [PaginationTypeLiteral, paginationFields],
   // Overlays
   [AlertDialogTypeLiteral, alertDialogFields],
@@ -506,6 +509,7 @@ export const ComponentTypeSchema = Schema.Union(
     ContextMenuTypeLiteral,
     MenubarTypeLiteral,
     NavigationMenuTypeLiteral,
+    NotificationBellTypeLiteral,
     PaginationTypeLiteral,
     AlertDialogTypeLiteral,
     DialogTypeLiteral,

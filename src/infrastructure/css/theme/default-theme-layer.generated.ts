@@ -57,6 +57,7 @@ export const V1_THEME_COLOR_REGISTRATIONS = `@theme {
     /* Warmth accent */
 
     /* Success */
+    --color-success: var(--sv-success-fg);
     --color-success-bg: var(--sv-success-bg);
     --color-success-border: var(--sv-success-border);
     --color-success-fg: var(--sv-success-fg);
@@ -74,6 +75,7 @@ export const V1_THEME_COLOR_REGISTRATIONS = `@theme {
     --color-success-950: var(--sv-success-950);
 
     /* Warning */
+    --color-warning: var(--sv-warning-fg);
     --color-warning-bg: var(--sv-warning-bg);
     --color-warning-border: var(--sv-warning-border);
     --color-warning-fg: var(--sv-warning-fg);
@@ -89,6 +91,7 @@ export const V1_THEME_COLOR_REGISTRATIONS = `@theme {
     --color-warning-950: var(--sv-warning-950);
 
     /* Error */
+    --color-error: var(--destructive);
     --color-error-bg: var(--sv-error-bg);
     --color-error-border: var(--sv-error-border);
     --color-error-fg: var(--sv-error-fg);

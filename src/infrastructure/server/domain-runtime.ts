@@ -71,8 +71,10 @@ import { AiFactsRepositoryLive } from '@/infrastructure/database/repositories/ai
 import { AiMemoryRepositoryLive } from '@/infrastructure/database/repositories/ai/ai-memory-repository-live'
 import { ApprovalRepositoryLive } from '@/infrastructure/database/repositories/ai/approval-repository-live'
 import { ChatAttachmentRepositoryLive } from '@/infrastructure/database/repositories/ai/chat-attachment-repository-live'
+import { UserPresenceRepositoryLive } from '@/infrastructure/database/repositories/auth/user-presence-repository-live'
 import { FormSubmissionRepositoryLive } from '@/infrastructure/database/repositories/forms/form-submission-repository-live'
 import { DynamicRecordRepositoryLive } from '@/infrastructure/database/repositories/tables/dynamic-record-repository-live'
+import { ReadStateRepositoryLive } from '@/infrastructure/database/repositories/tables/read-state-repository-live'
 import { createAppServicesLayer } from '@/infrastructure/layers/app-services-layer'
 import { logError } from '@/infrastructure/logging/logger'
 import type { App } from '@/domain/models/app'
@@ -142,6 +144,10 @@ const domainLayerFor = (
     ChatAttachmentRepositoryLive,
     AiActivityLogRepositoryLive,
     DynamicRecordRepositoryLive,
+    // How far each person has read each parent record of a `readState` relationship.
+    ReadStateRepositoryLive,
+    // When each person's last realtime connection closed (`auth.presence.lastSeen`).
+    UserPresenceRepositoryLive,
     // The agent-approval mirror, reached from the cron-driven schedule runner
     // as well as from the approval routes.
     ApprovalRepositoryLive,

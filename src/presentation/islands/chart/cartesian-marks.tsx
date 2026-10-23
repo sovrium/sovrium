@@ -25,7 +25,7 @@ import {
 } from '@/presentation/design/chart-default-classes'
 import { drawnKey, type CartesianRow } from './cartesian-rows'
 import { chartColorVar } from './chart-config'
-import type { ReactElement } from 'react'
+import type { CSSProperties, ReactElement } from 'react'
 import type { BarShapeProps, LineDrawShapeProps } from 'recharts'
 
 /** The mark a cartesian series is drawn as. */
@@ -53,7 +53,7 @@ function barShape(
 ): (props: BarShapeProps) => ReactElement {
   return function BarMark(props) {
     const row = props.payload as CartesianRow
-    return (
+    const bar = (
       <rect
         x={props.x}
         y={props.y}
@@ -65,6 +65,9 @@ function barShape(
         data-series-field={field}
       />
     )
+    // A `barColor` tone reads a variable its group declares, so the role it
+    // names resolves on the bar and on anything drawn beside it.
+    return row.fillStyle === undefined ? bar : <g style={row.fillStyle as CSSProperties}>{bar}</g>
   }
 }
 

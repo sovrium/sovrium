@@ -12,6 +12,7 @@ import { AuthDeviceAuthorizationConfigSchema } from './device-authorization'
 import { AuthEmailTemplatesSchema } from './email-templates'
 import { GroupSchema } from './groups'
 import { PasskeysConfigSchema } from './passkeys'
+import { AuthPresenceSchema } from './presence'
 import {
   DefaultRoleSchema,
   ADMIN_TIER_ROLE_NAMES,
@@ -459,6 +460,13 @@ export const AuthSchema = Schema.Struct({
    * authenticated by the bearer token the `$env.` reference names.
    */
   scim: Schema.optional(ScimConfigSchema),
+
+  /**
+   * App-wide presence (optional): who is online, when each person was last
+   * seen, and who is typing, shown only to the roles named in `visibleTo` and
+   * never to anonymous visitors.
+   */
+  presence: Schema.optional(AuthPresenceSchema),
 
   // ============================================================================
   // Groups (optional)

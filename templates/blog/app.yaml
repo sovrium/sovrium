@@ -63,6 +63,7 @@ automations:
   - $ref: ./config/automations/publish-scheduled.yaml
   - $ref: ./config/automations/stamp-new-comment.yaml
   - $ref: ./config/automations/triage-comment.yaml
+  - $ref: ./config/automations/nightly-reset.yaml
   - $ref: ./library/recipe/form-to-brevo.yaml
 
 # The public pages first, then the desk in the order of its navigation.

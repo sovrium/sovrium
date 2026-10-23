@@ -99,6 +99,18 @@ const CANONICAL_BORDER = [
   'border-info-border',
 ] as const
 
+/**
+ * The `text-<step>` utilities of `design.typeScale.steps` (font-size conflict
+ * group). Unregistered, tailwind-merge reads `text-h1` as a text COLOUR, so a
+ * `text-foreground` beside it evicted the step. The step names are a closed
+ * vocabulary (`TYPE_SCALE_STEPS`); they are matched here rather than imported
+ * because this module ships in the island bundle, and the unit test holds the
+ * two together. A step the app did not declare emits no CSS, so matching every
+ * name changes nothing for it.
+ */
+const isTypeScaleStep = (value: string): boolean =>
+  /^(display|h[1-6]|lead|body(Small)?|caption|overline)$/.test(value)
+
 /** Canonical `ring-*` role utilities (ring-color conflict group). */
 const CANONICAL_RING = ['ring-ring'] as const
 
@@ -114,6 +126,7 @@ const twMergeCanonical = extendTailwindMerge({
       'text-color': [...CANONICAL_TEXT],
       'border-color': [...CANONICAL_BORDER],
       'ring-color': [...CANONICAL_RING],
+      'font-size': [{ text: [isTypeScaleStep] }],
     },
   },
 })

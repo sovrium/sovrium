@@ -36,6 +36,9 @@ import { visibilityFields } from '../modules/visibility'
 
 export const MessageTypeLiteral = Schema.Literal('message')
 
+/** A field of the record a bound turn is drawn for. */
+const RECORD_REFERENCE = /^\$record\.[A-Za-z_][A-Za-z0-9_]*$/
+
 /** Which side of the thread a turn sits on. */
 export const MessageAlignSchema = Schema.Literals(['start', 'end']).annotate({
   title: 'Message Align',
@@ -76,16 +79,25 @@ export const messageFields = {
     Schema.String.annotate({
       title: 'Timestamp',
       description:
-        'When it was said, as an ISO date-time. Drawn as a time element, formatted in the page language.',
-      examples: ['2026-10-12T09:14:00Z'],
+        'When it was said, as an ISO date-time, or `$record.<field>` naming a date-time field when the turn is the template of a bound `message-scroller`. Drawn as a time element, formatted in the page language.',
+      examples: ['2026-10-12T09:14:00Z', '$record.created_at'],
     }).pipe(
       Schema.check(
         Schema.makeFilter(
           (value: string) =>
+            RECORD_REFERENCE.test(value) ||
             !Number.isNaN(Date.parse(value)) ||
-            'A timestamp is an ISO date-time, for example 2026-10-12T09:14:00Z.'
+            'A timestamp is an ISO date-time, for example 2026-10-12T09:14:00Z, or a $record.<field> reference.'
         )
       )
     )
+  ),
+  replies: Schema.optional(
+    Schema.Boolean.annotate({
+      title: 'Replies',
+      defaultNote: 'false',
+      description:
+        "Draws the summary of the record's comment thread under the turn: how many replies, the pictures of the last three people who replied and when the last reply was posted. Opening it shows the thread in a sheet. Only on the turn template of a bound `message-scroller`, whose table allows comments; a turn with no reply draws no summary.",
+    })
   ),
 } as const

@@ -5,6 +5,7 @@ path: /sign-in
 meta:
   title: Sign in · Arden Assets
   description: Sign in to Arden Assets.
+  favicon: ./favicon.svg
 components:
   - type: container
     element: div

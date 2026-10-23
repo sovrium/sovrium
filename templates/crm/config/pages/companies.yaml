@@ -8,6 +8,7 @@ access:
 meta:
   title: Companies · Kestrel CRM
   description: Your accounts, with their people and their deals.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

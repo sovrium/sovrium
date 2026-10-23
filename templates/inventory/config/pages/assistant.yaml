@@ -10,6 +10,7 @@ access:
 meta:
   title: Assistant · Brunel Stock
   description: Ask about products, stock or orders.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

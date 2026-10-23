@@ -110,6 +110,24 @@ export const ChartAggregateSchema = Schema.Struct({
   ),
   /** Date grouping interval (when groupBy is a date field) */
   interval: Schema.optional(ChartDateIntervalSchema),
+  /**
+   * Draw every bucket of the window, not only the buckets holding a record.
+   *
+   * With an `interval`, an empty hour is an empty slot rather than a missing
+   * one, so a reader sees WHEN a burst happened. The window is the data
+   * source's filter on the grouping field when it is a relative range
+   * (`$now-24h` gives the 24 hours up to the current one), else the span from
+   * the first to the last bucket holding data. Empty buckets are drawn at 0,
+   * and their tooltip says 0. The aggregate read's 500-bucket ceiling still
+   * holds: a window that would need more is refused when the config is read.
+   */
+  fillEmpty: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'With an interval, draws every bucket of the window at 0 where no record falls, so an empty hour is an empty slot. The window is the filter on the grouping field when it is a relative range ($now-24h → 24 hourly buckets up to the current hour), else the first to the last bucket holding data. A window needing more than 500 buckets is refused when the config is read.',
+      defaultNote: 'false',
+    })
+  ),
   /** Category order (defaults by grouping field type) */
   order: Schema.optional(ChartAggregateOrderSchema),
   /**

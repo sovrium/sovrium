@@ -196,3 +196,5 @@ number; quote it in YAML to keep it a string [CHECK constraint failed: check_siz
 sovrium seed --dry-run                       # the plan, nothing written
 sovrium seed --table contacts --mode replace # iterate on one file
 ```
+
+The same folder can draw a designer's canvas: `sovrium design-system app.yaml --format bundle --pages --seed seed` draws each page from these files rather than from a synthetic sample, without opening a database. A password from `users.yaml` and the value of a write-only field are drawn as `••••••••` and never leave the folder. An app can also reseed itself, or reset itself to its seed every night, from one of its own automations, with no command run on the host: see the `app/seed` action in [App Actions](/en/docs/automation-app-actions).

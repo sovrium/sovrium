@@ -140,7 +140,9 @@ export const FORM_RUNTIME_CONDITIONS_SCRIPT = `
     var payload = {}
     // Repeated keys (multi-select / checkbox groups / array hidden inputs) must
     // collect into an array — a plain overwrite keeps only the last value.
-    formData.forEach(function (value, key) {
+    // A textarea's value as typed: FormData spells its line breaks CRLF.
+    formData.forEach(function (raw, key) {
+      var value = typeof raw === 'string' ? raw.replace(/\\r\\n/g, '\\n') : raw
       if (Object.prototype.hasOwnProperty.call(payload, key)) {
         if (Array.isArray(payload[key])) payload[key].push(value)
         else payload[key] = [payload[key], value]

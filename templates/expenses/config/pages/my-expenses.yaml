@@ -10,6 +10,7 @@ access:
 meta:
   title: My expenses · Halden Expenses
   description: Your claims, what you are owed, and the decision each one waits for.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

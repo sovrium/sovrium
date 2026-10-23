@@ -50,6 +50,18 @@ export class BackupWorkspace extends Context.Service<
     ) => Effect.Effect<Uint8Array | undefined, BackupIoError>
     /** Every file below a directory, recursively; empty when the directory is missing. */
     readonly listFiles: (directory: string) => Effect.Effect<readonly string[], BackupIoError>
+    /**
+     * The files below a directory that a `contentDir` include glob matches —
+     * every `.md` file, recursively, when `include` is `undefined` — exactly as
+     * the server reads them. Symbolic links are never listed; empty when the
+     * directory is missing.
+     */
+    readonly listContentDirFiles: (
+      directory: string,
+      include: string | undefined
+    ) => Effect.Effect<readonly string[], BackupIoError>
+    /** A path with every symbolic link resolved, or `undefined` when nothing is there. */
+    readonly realPath: (path: string) => Effect.Effect<string | undefined, BackupIoError>
     /** Whether a directory exists and holds anything at all. */
     readonly isDirectoryOccupied: (directory: string) => Effect.Effect<boolean, BackupIoError>
     /** Whether anything exists at a path. */

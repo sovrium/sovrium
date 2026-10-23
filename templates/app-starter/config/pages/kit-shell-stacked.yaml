@@ -6,6 +6,7 @@ access:
 meta:
   title: 'Stacked shell · App starter'
   description: 'An application frame with a top bar.'
+  favicon: ./favicon.svg
 components:
   - $ref: ./_nav.yaml
   - component: shell-stacked

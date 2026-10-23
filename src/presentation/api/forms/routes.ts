@@ -234,10 +234,9 @@ async function readSubmissionFields(c: Context): Promise<Record<string, unknown>
     const json = await c.req.json().catch(() => undefined)
     return ((json as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>
   }
-  // `parseBody({ all: true })` collects repeated keys into arrays. The
-  // inline-create flow renders multi-value prefills (e.g. `tags` inherited
-  // from `$parent.tags`) as several `<input type="hidden" name="tags">`
-  // entries; without `all: true` Hono would only surface the first value.
+  // `parseBody({ all: true })` collects repeated keys into arrays: the inline-create
+  // flow renders a multi-value prefill (`tags` from `$parent.tags`) as several
+  // `<input type="hidden" name="tags">`; without it Hono surfaces the first.
   const parsed = await c.req.parseBody({ all: true }).catch(() => undefined)
   const raw = ((parsed as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>
   return Object.fromEntries(
@@ -249,7 +248,9 @@ async function readSubmissionFields(c: Context): Promise<Record<string, unknown>
           const filtered = value.filter((entry) => entry !== '')
           return [key, filtered]
         }
-        return [key, value]
+        // A form encodes a line break as CRLF (a lone CR from older clients);
+        // it is stored as a JSON write would send it.
+        return [key, typeof value === 'string' ? value.replace(/\r\n?/g, '\n') : value]
       })
       .filter(([, value]) => {
         if (value === '') return false

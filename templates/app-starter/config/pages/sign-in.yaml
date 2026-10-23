@@ -3,5 +3,6 @@ path: /sign-in
 meta:
   title: Sign in · App starter
   description: Sign in to the app.
+  favicon: ./favicon.svg
 components:
   - component: auth-sign-in

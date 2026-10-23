@@ -69,10 +69,11 @@ import {
   applyFetchSuccessEffects,
   buildRequestInit,
   emptyBody,
-  fetchSuccessNavigate,
+  fetchSuccessExit,
   settleErrorStatus,
 } from './fetch-action-effects'
 import { substituteRecord } from './fetch-action-substitution'
+import { exitOutcome, type SuccessExit } from './success-exit'
 import type { FetchActionResult, ExecuteFetchActionOptions } from './fetch-action-effects'
 import type { FetchAction } from '@/domain/models/app/pages/components/action'
 
@@ -123,8 +124,11 @@ async function performFetchAction(
   try {
     const res = await fetch(url, buildRequestInit(action, options.record))
     const body = await res.json().catch(emptyBody)
-    const ok = evaluateFetchEnvelope(envelope, res.status, body)
-    if (ok) runFetchSuccess(action, body, options)
+    // An address the request returned on no origin the action lists is a failure.
+    const exit = fetchSuccessExit(action.onSuccess, body, options.record)
+    const answered = evaluateFetchEnvelope(envelope, res.status, body)
+    const ok = answered && exit !== 'refused'
+    if (answered && exit !== 'refused') runFetchSuccess(action, body, exit, options)
     else renderActionToast(action.onError, options, again, options.failureNote?.(res.status, body))
     return { ok, status: res.status, body }
   } catch {
@@ -143,6 +147,7 @@ async function performFetchAction(
 function runFetchSuccess(
   action: FetchAction,
   body: unknown,
+  exit: Exclude<SuccessExit, 'refused'>,
   options: ExecuteFetchActionOptions
 ): void {
   const { onSuccess } = action
@@ -156,7 +161,7 @@ function runFetchSuccess(
       options.successEffects?.()
     },
     close: onSuccess?.close,
-    navigate: fetchSuccessNavigate(onSuccess, body, options.record),
+    ...exitOutcome(exit),
   })
 }
 

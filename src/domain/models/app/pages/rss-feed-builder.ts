@@ -34,6 +34,7 @@
 import { markdownToText } from '@/domain/kernel/markdown/markdown-to-text'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { isPublicPage } from './is-public'
+import { markdownFeedArticlePath } from './rss-feed-article-path'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 
@@ -400,8 +401,9 @@ interface BuildMarkdownRssItemsInput {
  * Build one `RssFeedItem` per level-2 section for a single `markdown: { file }`
  * page (no DB collection). Each item:
  *   - `title`       — the heading text verbatim.
- *   - `link`/`guid` — `${baseUrl}${page.path}#${slugify(heading)}` (deep-link to
- *     the on-page anchor).
+ *   - `link`/`guid` — `${baseUrl}${path}#${slugify(heading)}` (deep-link to
+ *     the on-page anchor), the path the article is served at
+ *     ({@link markdownFeedArticlePath}).
  *   - `description` — the section body as plain text (`markdownToText`), capped
  *     at 280 chars (mirrors `pickItemDescription`).
  *   - `pubDate`     — RFC-822 from the heading's trailing date phrase, or omitted
@@ -413,6 +415,7 @@ interface BuildMarkdownRssItemsInput {
 export function buildMarkdownRssItems(input: BuildMarkdownRssItemsInput): readonly RssFeedItem[] {
   const { sections, page, baseUrl, limit, slugify } = input
   const trimmedBase = baseUrl.replace(/\/$/, '')
+  const pagePath = markdownFeedArticlePath(page)
   return sections.slice(0, limit).map((section): RssFeedItem => {
     const slug = slugify(section.heading)
     const plainBody = markdownToText(section.body)
@@ -420,7 +423,7 @@ export function buildMarkdownRssItems(input: BuildMarkdownRssItemsInput): readon
     const pubDate = formatRfc822(extractHeadingDatePhrase(section.heading))
     return {
       title: section.heading,
-      link: `${trimmedBase}${page.path}#${slug}`,
+      link: `${trimmedBase}${pagePath}#${slug}`,
       description,
       ...(pubDate !== undefined ? { pubDate } : {}),
     }

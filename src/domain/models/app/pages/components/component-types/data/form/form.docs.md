@@ -62,6 +62,8 @@ An edit form draws an input only for a field its reader may write — whether th
 
 On a table-bound form, every field takes its control from the column it is bound to, the same control the data table uses to edit that column. A `decimal`, `integer` or `currency` column is a number input stepped by its `precision`, and `currency` shows its symbol beside the input; a `percentage` column is a number input with a `%` sign; a `date` column is the date picker — a box that shows and reads the day in the page's own date format, whatever the browser's language, with a calendar button beside it — and a `datetime` column a date-and-time input, read in the column's `timeZone`; a `rating` column is a row of choices from 1 to its `max`; a `single-select` or `status` column is the design system's Select, led by an empty choice, and a `multi-select` column is one checkbox per option, each option offered by its `label` — a `$t:` key translated into the page language — while the record stores the option's `value`; a `user` column is a people picker that searches accounts by name. What the form sends is the column's own kind of value — a number, an ISO date or timestamp, a list, an account id — never the text typed into a box, so a form never posts an empty string into a column that cannot hold one.
 
+A field's `control` can draw a text column another way: `password` draws it as a masked input, carrying the `autocomplete` hint only when the field names one, and `textarea` as a multi-line box; the value is still saved as the column's text, each line ending as it was typed. A control that cannot hold the column's values — `password` on an `integer` column — is refused when the configuration is read, naming the field and the column type.
+
 The fields are drawn on the field anatomy. Reference: shadcn/ui Field. They stand in one field group, each field holding its label, its control and its help text; a titled section is a field set named by its legend. When a submit refuses a field, the field is marked invalid: its control is outlined and the reason under it is written in the destructive colour, while the fields that passed stay as they were.
 
 Pressing the form's submit saves what changed: an optional field left empty stays as it was. To clear one, press its **Clear** control — offered on an optional date, number, choice or relationship that holds a value, never on a required field — and save: the form sends the field as cleared (`<field>__clear` when posted without scripts, `null` otherwise), and the records API stores it empty; clearing a to-many relationship removes every link its reader can see. A file input left untouched keeps the stored file, and a relationship saves the record it names. An edit form opens with the record's links — only the linked records its reader may read; links it hides are kept when the form is saved. A link to many records into a table its reader may not read carries no value in her form at all, not even an empty list, and saving the form leaves it as it was. A to-many relationship shows each linked record by name, and its count against `maxLinked` when the column declares one ("3 of 5 linked"). A to-one relationship shows the linked record's name.
@@ -132,3 +134,21 @@ A form's `props.className` lands on the `<form>` element itself, merged with the
 ## It is the one type a specimen may not draw
 
 `form` is excluded from the design-system catalogue. It emits a submit control unconditionally, whichever of its jobs it does, and a preview frame may carry no write path — so the catalogue reports the type and its reason rather than drawing it. That is a safety rule rather than a gap in the kit.
+
+## A composer at the foot of a conversation
+
+`presentation: composer` draws a `formRef` form as the box under a conversation: one auto-growing input for the form's first text field with the send button inside it, Enter to send and Shift+Enter for a new line, and the form's other fields — a voice note, a file — behind an attach button. `appendTo` names the `props.id` of a `message-scroller` on the same page bound to the form's table: the sent message is drawn there at once and replaced by the stored record when the server answers, and a refusal withdraws it and shows the error in the composer, the text kept. Fill the conversation's parent with `inlinePrefill` and `lockPrefill: true`, so the member chooses nothing but what they write.
+
+```yaml
+components:
+  - type: form
+    formRef: new-message
+    presentation: composer
+    appendTo: channel-feed
+    inlinePrefill:
+      prefill: { channel: $parent.id }
+      lockPrefill: true
+    gif: { connection: giphy, field: gif }
+```
+
+`gif` adds a GIF button: a member searches, picks a result, and a message is posted with the GIF's address in the `url` field `gif.field` names. The search is sent by the server through the connection `gif.connection` names — `sovrium library add connection/giphy` installs one — so the key stays on the server, and `gif.provider` (`giphy`, the default) says how to read the provider's answer. The thumbnails and the posted GIF are served by your app: the server fetches each GIF from the provider once, accepts only an image within a size cap, and caches it, and the address stored in the field is the app's own address of the GIF. No reader's browser contacts the provider. A failed search shows an error and posts nothing. Without `gif`, no GIF button is drawn.

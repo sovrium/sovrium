@@ -15,6 +15,7 @@ import {
 } from '@/application/use-cases/account'
 import { EmitAuditEvent } from '@/application/use-cases/admin/audit-log/emit'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
+import { loadSocialExport } from '@/application/use-cases/auth/account-export-social'
 import { accountRemovalRefusal } from '@/application/use-cases/auth/last-admin-rail'
 import { getUserGroups } from '@/application/use-cases/tables/user-groups'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
@@ -137,20 +138,24 @@ async function handleExport(c: Context, app: App): Promise<Response> {
     c,
     provideDomain(
       c,
-      ExportAccount(
-        userId,
-        // Candidate authorship columns resolved from the DECLARED FIELD TYPES,
-        // matching the erasure sweep. Probing the literal `created_by` alone made
-        // the export blind to a config that names the field anything else.
-        (app.tables ?? []).map((t) => {
-          const resolved = resolvePurgeTableAuthorship(app.tables, t.name)
-          return {
-            tableName: resolved.name,
-            columns: resolved.createdByColumns,
-            writeOnly: writeOnlyFieldNames(app, t.name),
-            withheld: withheldFieldNames(app, t.name, { role, groups }),
-          }
-        })
+      // The read positions, last-seen time and notifications first: the export carries them.
+      Effect.flatMap(loadSocialExport(userId), (social) =>
+        ExportAccount(
+          userId,
+          // Candidate authorship columns resolved from the DECLARED FIELD TYPES,
+          // matching the erasure sweep. Probing the literal `created_by` alone made
+          // the export blind to a config that names the field anything else.
+          (app.tables ?? []).map((t) => {
+            const resolved = resolvePurgeTableAuthorship(app.tables, t.name)
+            return {
+              tableName: resolved.name,
+              columns: resolved.createdByColumns,
+              writeOnly: writeOnlyFieldNames(app, t.name),
+              withheld: withheldFieldNames(app, t.name, { role, groups }),
+            }
+          }),
+          social
+        )
       )
     )
   )

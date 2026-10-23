@@ -22,6 +22,29 @@ import { ComponentPropsSchema } from '../../props'
 import { SystemSourceSchema } from '../../system-source'
 import { SidebarSourceLoadingSchema } from './sidebar-shell'
 
+/** Whether `value` is a kebab-case Lucide icon name (`folder`, `message-circle`). */
+const isLucideName = (value: string): boolean => /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(value)
+
+/** Whether `value` is exactly one emoji grapheme (`🎨`, `👩‍💻`, `🇫🇷`). */
+const isSingleEmoji = (value: string): boolean => {
+  const graphemes = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(value)]
+  return (
+    graphemes.length === 1 &&
+    /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(graphemes[0]?.segment ?? '')
+  )
+}
+
+/**
+ * A fetched source's `icon`: a `{field}` template is judged per row when it is
+ * drawn, so it passes here; a value written out must already be a Lucide name
+ * or one emoji, because it is the same for every row and nothing later could
+ * make it right.
+ */
+const sidebarSourceIconCheck = (value: string): string | true =>
+  /\{[^{}]+\}/.test(value) || isLucideName(value) || isSingleEmoji(value)
+    ? true
+    : `icon "${value}" is neither a Lucide icon name (such as "folder") nor one emoji, and holds no {field} placeholder to fill from the row`
+
 /**
  * The fields every fetched sidebar source has: the shared rows-envelope system
  * source plus the projections that turn an arbitrary row into an entry.
@@ -69,6 +92,51 @@ const sidebarSourceFields = {
       description:
         'Attributes rendered on each fetched entry; values may carry {field} placeholders filled from the row',
     })
+  ),
+  /**
+   * The icon drawn before each fetched entry's label: a Lucide name or one
+   * emoji, either written out or filled from the row with `hrefTemplate`'s
+   * `{field}` grammar (`'{emoji}'`).
+   *
+   * A first-class key rather than an `itemProps` attribute, because an icon is
+   * drawn content, not an HTML attribute. A value written out is judged when
+   * the config is read; a value filled from a row is judged per row, and one
+   * that names neither a Lucide icon nor a single emoji draws no icon for that
+   * row rather than refusing the sidebar, since no check can see row data.
+   */
+  icon: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          "Icon drawn before each fetched entry's label: a Lucide name (`folder`) or one emoji (`🎨`), written out or filled from the row with {field} placeholders (`{emoji}`). A row whose value is neither draws no icon; a value written out that is neither is refused when the config is read.",
+        examples: ['{emoji}', '{icon}', 'folder', '🎨'],
+      }),
+      Schema.check(Schema.makeFilter(sidebarSourceIconCheck))
+    )
+  ),
+  /**
+   * The badge drawn after each fetched entry's label, filled from the row with
+   * the `{field}` grammar — a field of the row, or the reader's own unread
+   * count a `readState` relationship gives the row (`'{unreadCount}'`).
+   *
+   * A row whose value resolves to empty or to `0` draws no badge, so an entry
+   * with nothing new stays quiet. An authored entry's count keeps its own
+   * `badge: { endpoint, valuePath }` source; this key is the fetched rows'.
+   */
+  badge: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          "Badge drawn after each fetched entry's label, filled from the row with {field} placeholders: a field of the row, or the reader's own unread count (`{unreadCount}`). A value that resolves to empty or 0 draws no badge.",
+        examples: ['{unreadCount}', '{openTickets}', '{count} new'],
+      }),
+      Schema.check(
+        Schema.isPattern(/\{[^{}]+\}/, {
+          message:
+            'a fetched source badge must carry at least one {field} placeholder — without one every fetched entry would show the same badge',
+        })
+      )
+    )
   ),
   /**
    * How each fetched entry decides it is the current page — the authored

@@ -64,6 +64,7 @@ export interface CommentsFields {
   readonly placeholder: string
   readonly table: string | undefined
   readonly recordId: string | undefined
+  readonly refreshMode: string
 }
 
 export function resolveCommentsFields(
@@ -83,6 +84,7 @@ export function resolveCommentsFields(
     placeholder: pickString(c, props, 'placeholder', defaultPlaceholder),
     table: pickString(c, props, 'table', undefined),
     recordId: pickString(c, props, 'recordId', undefined),
+    refreshMode: pickString(c, props, 'refreshMode', 'none'),
   }
 }
 
@@ -237,6 +239,9 @@ export function buildCommentThreadIslandProps(input: {
     ...(sessionIsAdmin(session) ? { currentUserIsAdmin: true } : {}),
     ...(threading === true ? { threading: true } : {}),
     ...(uiStrings !== undefined ? { uiStrings } : {}),
+    ...(fields.refreshMode === 'poll' || fields.refreshMode === 'realtime'
+      ? { refreshMode: fields.refreshMode }
+      : {}),
   }
 }
 

@@ -10,6 +10,7 @@ import reusableActionsBody from '@/domain/models/app/actions/actions.docs.md' wi
 import {
   ActionBaseSchema,
   ActionRefSchema,
+  AppActionSchema,
   ApprovalRequestActionSchema,
   AutomationCallActionSchema,
   AutomationReturnActionSchema,
@@ -29,6 +30,7 @@ import {
   StateActionSchema,
 } from '@/domain/models/app/automations/actions'
 import automationActionsOverviewBody from '@/domain/models/app/automations/actions/actions-overview.docs.md' with { type: 'file' }
+import automationAppActionsBody from '@/domain/models/app/automations/actions/app-actions.docs.md' with { type: 'file' }
 import automationApprovalDelayBody from '@/domain/models/app/automations/actions/approval-delay-actions.docs.md' with { type: 'file' }
 import automationBrowserActionsBody from '@/domain/models/app/automations/actions/browser-actions.docs.md' with { type: 'file' }
 import automationBrowserAgentBody from '@/domain/models/app/automations/actions/browser-agent.docs.md' with { type: 'file' }
@@ -327,6 +329,18 @@ export const automationActions = defineSection({
         'US-AUTOMATIONS-ACTIONS-INSTANCE-SEED',
         'US-AUTOMATIONS-ACTIONS-INSTANCE-ENGINE',
       ],
+    }),
+    defineArticle({
+      slug: 'automation-app-actions',
+      title: 'App Actions',
+      description:
+        "Seed an app's own data from its own seed files, or reset the whole app to them every night — rows, accounts, sessions and uploads — behind a host switch.",
+      keywords: ['sovrium', 'app action', 'seed', 'reset', 'demo reset', 'SOVRIUM_SELF_SEED'],
+      order: 5246,
+      sidebarLabel: 'App Actions',
+      body: automationAppActionsBody,
+      documents: [AppActionSchema],
+      stories: ['US-AUTOMATIONS-ACTIONS-APP'],
     }),
     defineArticle({
       slug: 'automation-browser-actions',

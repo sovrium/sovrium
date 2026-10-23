@@ -18,7 +18,7 @@
  * technology.
  */
 
-import { satisfiesFieldCondition } from '@/domain/models/app/tables/condition-operators'
+import { satisfiesFieldCondition } from '@/domain/models/app/tables/condition-match-service'
 import { disabledOnRecord } from '@/presentation/design/disabled-verdict'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import {

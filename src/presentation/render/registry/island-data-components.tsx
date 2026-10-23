@@ -13,7 +13,8 @@ import { TIMELINE_SHELL_CLASSES } from '@/presentation/design/timeline-anatomy-c
 import { withGridChipPart } from '@/presentation/render/props/option-badge-paints'
 import { withRecordTextProp } from '@/presentation/render/props/record-value-format'
 import {
-  resolveRowExpandDrawerProps,
+  resolveRowExpandDrawerHostProps,
+  resolveRowExpandInlineProps,
   resolveRowExpandRowClick,
 } from '@/presentation/render/props/resolve-row-expand'
 import { hostClassName } from '@/presentation/render/registry/island-host-attributes'
@@ -298,11 +299,14 @@ export const islandDataComponents: Partial<Record<DispatchableComponentType, Com
     // drawer beside the grid, opened by an `openSheet` row-click. The grid
     // island learns nothing new, and a row that expands is a row carrying a row
     // action — so it keeps its focusability and its Enter route for free.
-    const expandDrawer = resolveRowExpandDrawerProps({ component, tables, languages, currentLang })
+    const expandInputs = { component, tables, languages, currentLang }
+    const expandDrawer = resolveRowExpandDrawerHostProps(expandInputs)
+    const expandInline = resolveRowExpandInlineProps(expandInputs)
     const expandRowClick = resolveRowExpandRowClick(component)
     const propsJson = JSON.stringify({
       ...withGridChipPart(extractDataTableProps(elementProps), ctx.designStyles?.parts?.['chip']),
       ...(expandRowClick && { onRowClick: expandRowClick }),
+      ...(expandInline && { rowExpandInline: expandInline }),
     })
     // `layout: 'fill'` dresses the mount host SERVER-side, before a line of
     // JavaScript runs. The skeleton this host renders is what the reader sees

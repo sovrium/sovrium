@@ -63,6 +63,16 @@ const renderContent = (title: string | undefined, description: string | undefine
     </div>
   )
 
+/** The row's state, `disabled` winning over `selected`. */
+const rowStateOf = (
+  elementProps: Readonly<Record<string, unknown>>
+): 'disabled' | 'selected' | 'default' =>
+  elementProps['disabled'] === true
+    ? 'disabled'
+    : elementProps['selected'] === true
+      ? 'selected'
+      : 'default'
+
 /**
  * `item` — one row of a list, on shadcn/ui's Item anatomy: `header` above,
  * then the `media`, the content (`title`, `description`, and any children),
@@ -71,7 +81,15 @@ const renderContent = (title: string | undefined, description: string | undefine
  * `itemSize` are named on the row (`data-variant`, `data-size`).
  */
 export const itemComponent: ComponentRenderer = (config) => {
-  const { elementProps, content, renderedChildren, component, currentLang, languages } = config
+  const {
+    elementProps,
+    content,
+    renderedChildren,
+    component,
+    currentLang,
+    languages,
+    designStyles,
+  } = config
   const source = (component ?? {}) as Readonly<Record<string, unknown>>
   const text = (key: string): string | undefined =>
     typeof source[key] === 'string'
@@ -86,12 +104,7 @@ export const itemComponent: ComponentRenderer = (config) => {
     Boolean(elementProps['onClick']) ||
     Boolean(elementProps['href']) ||
     elementProps['interactive'] === true
-  const state =
-    elementProps['disabled'] === true
-      ? 'disabled'
-      : elementProps['selected'] === true
-        ? 'selected'
-        : 'default'
+  const state = rowStateOf(elementProps)
   const rowClasses = mergePrestyle(
     computeListItemClasses({ state, interactive }),
     computeItemVariantClasses(variant, size)
@@ -108,7 +121,11 @@ export const itemComponent: ComponentRenderer = (config) => {
   return Renderers.renderListItem(
     {
       ...elementProps,
-      className: mergePrestyle(rowClasses, elementProps['className'] as string | undefined),
+      className: mergePrestyle(
+        rowClasses,
+        elementProps['className'] as string | undefined,
+        designStyles?.replace
+      ),
       'data-slot': 'item',
       'data-variant': variant,
       'data-size': size,

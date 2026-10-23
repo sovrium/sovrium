@@ -7,12 +7,18 @@
 
 import { Effect } from 'effect'
 import { UserDirectoryRepository } from '@/application/ports/repositories/auth/user-directory-repository'
+import { lastSeenOfProgram } from '@/application/use-cases/auth/user-presence-programs'
+import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { ApiErrorCode } from '@/domain/models/api/combinators/error'
+import { seesPresence } from '@/domain/models/app/auth/presence-audience-service'
 import { UserDirectoryRepositoryLive } from '@/infrastructure/database/repositories/auth/user-directory-repository-live'
 import { logError } from '@/infrastructure/logging/logger'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
+import { isPersonOnline } from '@/infrastructure/realtime/app-connections'
 import { errorBody, unauthorized } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext, requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
+import { runOnRequest } from '@/presentation/api/runtime/run-effect'
+import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
 /**
@@ -82,10 +88,82 @@ function resolveLimit(raw: string | undefined): number {
   return Math.min(Math.floor(parsed), MAX_LIMIT)
 }
 
+/** One person's presence facts as a reader shown presence reads them. */
+type PresenceFacts = { readonly online: boolean; readonly lastSeen?: string | null }
+
 /**
- * `GET /api/users/directory?q=&limit=`
+ * The presence facts of the listed people, for a reader whose role is in
+ * `auth.presence.visibleTo`: whether each is online, and, under `lastSeen`,
+ * when she was last seen (null while she is online, or when she never was).
+ * Any other reader gets none, so her entries carry neither key.
  */
-const handleDirectory = async (c: Context): Promise<Response> => {
+const presenceFactsFor = async (
+  c: Context,
+  app: App,
+  input: { readonly readerId: string; readonly userIds: readonly string[] }
+): Promise<ReadonlyMap<string, PresenceFacts>> => {
+  const presence = app.auth?.presence
+  if (presence === undefined) return new Map()
+  const role = await runOnRequest(c, getUserRole(input.readerId, app))
+  if (role._tag === 'Failure' || !seesPresence(app, { role: role.success, signedIn: true })) {
+    return new Map()
+  }
+  const seen =
+    presence.lastSeen === true ? await runOnRequest(c, lastSeenOfProgram(input.userIds)) : undefined
+  if (seen?._tag === 'Failure') logError('[users] last-seen read failed', seen.failure)
+  const lastSeen = seen?._tag === 'Success' ? seen.success : new Map<string, Date>()
+  return new Map(
+    input.userIds.map((userId) => {
+      const online = isPersonOnline(app.name, userId)
+      const last = online ? null : (lastSeen.get(userId)?.toISOString() ?? null)
+      return [userId, { online, ...(presence.lastSeen === true && { lastSeen: last }) }] as const
+    })
+  )
+}
+
+/**
+ * The presence the `?filter=` expression asks for — `true` for people
+ * connected, `false` for the others — read off its `{ field: online, operator:
+ * eq }` condition, the one a filter bar's Online / Offline choice publishes.
+ * `undefined` when it names none; other conditions are not this route's.
+ */
+function onlineAskedBy(raw: string | undefined): boolean | undefined {
+  if (raw === undefined || raw === '') return undefined
+  try {
+    const parsed = JSON.parse(raw) as { readonly and?: unknown }
+    const leaves = Array.isArray(parsed.and) ? parsed.and : [parsed]
+    const leaf = leaves.find(
+      (candidate: unknown): candidate is { readonly value: unknown } =>
+        typeof candidate === 'object' &&
+        candidate !== null &&
+        (candidate as Record<string, unknown>)['field'] === 'online' &&
+        (candidate as Record<string, unknown>)['operator'] === 'eq'
+    )
+    return leaf === undefined ? undefined : String(leaf.value) === 'true'
+  } catch {
+    // A filter that is not JSON narrows nothing here.
+    return undefined
+  }
+}
+
+/**
+ * The people a reader asked for. Asked who is (or is not) online, a reader
+ * shown presence gets exactly those people; any other reader gets no one, so
+ * the answer never tells her who is connected.
+ */
+function keepAsked<T extends { readonly id: string }>(
+  users: readonly T[],
+  facts: ReadonlyMap<string, PresenceFacts>,
+  online: boolean | undefined
+): readonly T[] {
+  if (online === undefined) return users
+  return users.filter((user) => facts.get(user.id)?.online === online)
+}
+
+/**
+ * `GET /api/users/directory?q=&limit=&filter=`
+ */
+const handleDirectory = async (c: Context, app: App): Promise<Response> => {
   const session = getSessionContext(c)
   if (!session) return unauthorized(c)
 
@@ -109,7 +187,12 @@ const handleDirectory = async (c: Context): Promise<Response> => {
     )
   }
 
-  return c.json({ users: result.success }, 200)
+  const facts = await presenceFactsFor(c, app, {
+    readerId: session.userId,
+    userIds: result.success.map((user) => user.id),
+  })
+  const listed = keepAsked(result.success, facts, onlineAskedBy(c.req.query('filter')))
+  return c.json({ users: listed.map((user) => ({ ...user, ...facts.get(user.id) })) }, 200)
 }
 
 /**
@@ -120,6 +203,6 @@ const handleDirectory = async (c: Context): Promise<Response> => {
  * resolve the caller. The handler returns 401 itself when no session is
  * attached, so the route behaves the same whether or not auth is wired.
  */
-export function chainUserDirectoryRoutes<T extends Hono>(honoApp: T): T {
-  return honoApp.get('/api/users/directory', handleDirectory) as T
+export function chainUserDirectoryRoutes<T extends Hono>(honoApp: T, resolveApp: () => App): T {
+  return honoApp.get('/api/users/directory', (c) => handleDirectory(c, resolveApp())) as T
 }

@@ -121,7 +121,8 @@ function buildBodyProps(props: DataTableViewProps, derived: ViewDerived): GridBo
       ...(props.groupByConfig !== undefined && { groupedBy: props.groupByConfig.field }),
       onGroup: props.ui.setGrouping,
       rowHeight: props.currentRowHeight,
-      onRowHeight: props.ui.setRowHeight,
+      // A declared row height is the author's: the reader is offered no control over it.
+      ...(props.rowHeightDeclared !== true && { onRowHeight: props.ui.setRowHeight }),
     },
     grid: buildGridProps(props, derived),
     phoneLayout: props.phoneLayout,

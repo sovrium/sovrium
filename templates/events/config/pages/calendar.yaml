@@ -9,6 +9,7 @@ access:
 meta:
   title: Overview · Fieldday
   description: Registrations, the waitlist and the month of events.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

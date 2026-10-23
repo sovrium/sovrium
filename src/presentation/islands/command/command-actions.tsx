@@ -107,7 +107,7 @@ function MatchItem({
           data-command-palette-table={match.tableName}
           className="text-muted-foreground ml-auto shrink-0 text-xs"
         >
-          {match.tableName}
+          {match.tableLabel ?? match.tableName}
         </span>
       ) : (
         <span />
@@ -116,19 +116,27 @@ function MatchItem({
   )
 }
 
-/** The page matches, then one group per table of record matches. */
+/**
+ * The page matches, then ONE "Records" group: every record match, its table
+ * named beside it, in the order the tables are declared.
+ */
 function ContentMatches({
   matches,
   pagesHeading,
+  recordsHeading,
   onActivate,
 }: {
   readonly matches: readonly CommandMatch[]
   readonly pagesHeading: string
+  readonly recordsHeading: string
   readonly onActivate: ActivateItem
 }): ReactElement {
   const pages = matches.filter((match) => match.entityType === 'page')
   const records = useMemo(
-    () => groupRecordMatches(matches.filter((match) => match.entityType !== 'page')),
+    () =>
+      groupRecordMatches(matches.filter((match) => match.entityType !== 'page')).flatMap(
+        (group) => group.matches
+      ),
     [matches]
   )
   return (
@@ -144,20 +152,17 @@ function ContentMatches({
           ))}
         </CommandGroup>
       )}
-      {records.map(({ table, matches: rows }) => (
-        <CommandGroup
-          key={table}
-          heading={table}
-        >
-          {rows.map((match) => (
+      {records.length > 0 && (
+        <CommandGroup heading={recordsHeading}>
+          {records.map((match) => (
             <MatchItem
-              key={`${table}:${match.detailPath ?? match.label}`}
+              key={`${match.tableName ?? ''}:${match.detailPath ?? match.label}`}
               match={match}
               onActivate={onActivate}
             />
           ))}
         </CommandGroup>
-      ))}
+      )}
     </>
   )
 }
@@ -187,6 +192,7 @@ export function BuiltInActions({
         <ContentMatches
           matches={matches}
           pagesHeading={config.strings['pages'] ?? 'Pages'}
+          recordsHeading={config.strings['kind.record'] ?? 'Records'}
           onActivate={onActivate}
         />
       )}

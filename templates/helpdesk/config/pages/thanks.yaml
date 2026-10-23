@@ -5,6 +5,7 @@ path: /thanks
 meta:
   title: We have your ticket · Tallyline
   description: Your ticket is with the team. A person replies by email within one business day.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

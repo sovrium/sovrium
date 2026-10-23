@@ -55,6 +55,14 @@ function extractChartProps(elementProps: Record<string, unknown>): Record<string
     tooltip: elementProps.tooltip,
     chartAggregate: elementProps.chartAggregate,
     dataLabels: elementProps.dataLabels,
+    // How much is drawn around the marks: a fixed plot height, the `strip`
+    // variant, and the bar colour rules. Absent unless declared.
+    height: elementProps.height,
+    chartVariant: elementProps.chartVariant,
+    barColor: elementProps.barColor,
+    // The window `chartAggregate.fillEmpty` draws every bucket of, resolved
+    // on the server's clock; absent unless the chart fills.
+    fillWindow: elementProps.fillWindow,
     // What `app.tables` says about the fields the chart names: the grouping
     // field's options (order, labels, colours) and the plotted field's
     // currency. Absent when the chart names no such field.

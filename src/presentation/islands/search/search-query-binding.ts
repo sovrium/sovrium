@@ -26,12 +26,14 @@
  *
  * Both paths share {@link useDebouncedDispatch}, so "debounced" means the same
  * thing on either side of the split. A delay of `0` applies synchronously with
- * no timer at all. That is not an optimisation — several green specs type and
- * assert without waiting, so even a zero-length `setTimeout` would defer the
- * update by a macrotask tick.
+ * no timer at all; a box declaring no delay waits the default pause, and a
+ * paste or Enter applies at once. Running a zero delay synchronously is not an
+ * optimisation — several green specs type and assert without waiting, so even
+ * a zero-length `setTimeout` would defer the update by a macrotask tick.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { DEFAULT_SEARCH_DEBOUNCE_MS } from '../runtime/search-input-defaults'
 import type { ChangeEvent } from 'react'
 
 /** Per-publisher query controls, as declared on a `search-input` component. */
@@ -40,8 +42,11 @@ export interface SearchInputConfig {
   readonly minQueryLength: number
 }
 
-/** Both attributes absent means "no delay, no minimum" — the documented defaults. */
-const ZERO_CONFIG: SearchInputConfig = { debounceMs: 0, minQueryLength: 0 }
+/** Both attributes absent means the documented defaults: the default pause, no minimum. */
+const DEFAULT_CONFIG: SearchInputConfig = {
+  debounceMs: DEFAULT_SEARCH_DEBOUNCE_MS,
+  minQueryLength: 0,
+}
 
 function parseNonNegativeInt(raw: string | null): number {
   if (raw === null) return 0
@@ -57,9 +62,11 @@ function parseNonNegativeInt(raw: string | null): number {
  * the renderer deliberately emits nothing rather than a phantom fallback.
  */
 export function readSearchInputConfig(input: Element | null | undefined): SearchInputConfig {
-  if (!input) return ZERO_CONFIG
+  if (!input) return DEFAULT_CONFIG
+  const declaredDelay = input.getAttribute('data-search-debounce')
   return {
-    debounceMs: parseNonNegativeInt(input.getAttribute('data-search-debounce')),
+    debounceMs:
+      declaredDelay === null ? DEFAULT_SEARCH_DEBOUNCE_MS : parseNonNegativeInt(declaredDelay),
     minQueryLength: parseNonNegativeInt(input.getAttribute('data-search-min-length')),
   }
 }
@@ -139,15 +146,23 @@ export function useBoundQuery(bindTo: string | undefined, setQuery: (value: stri
     if (!input) return undefined
 
     const { debounceMs, minQueryLength } = readSearchInputConfig(input)
-    const onInput = (e: Event) => {
-      const gated = applyMinQueryLength((e.target as HTMLInputElement).value, minQueryLength)
-      dispatch(debounceMs, () => setQuery(gated))
+    // A paste, a drop and Enter end a term: none of them waits.
+    const onEvent = (e: Event) => {
+      const finished =
+        e instanceof KeyboardEvent
+          ? e.key === 'Enter'
+          : e instanceof InputEvent && e.inputType.startsWith('insertFrom')
+      if (e instanceof KeyboardEvent && !finished) return
+      const gated = applyMinQueryLength(input.value, minQueryLength)
+      dispatch(finished ? 0 : debounceMs, () => setQuery(gated))
     }
 
-    input.addEventListener('input', onInput)
+    input.addEventListener('input', onEvent)
+    input.addEventListener('keydown', onEvent)
     return () => {
       cancel()
-      input.removeEventListener('input', onInput)
+      input.removeEventListener('input', onEvent)
+      input.removeEventListener('keydown', onEvent)
     }
   }, [bindTo, setQuery, dispatch, cancel])
 }

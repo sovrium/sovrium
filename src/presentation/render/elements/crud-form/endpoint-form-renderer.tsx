@@ -65,6 +65,7 @@ import {
 } from '../../../design/forms-default-classes'
 import { omitInternalMarkers } from '../../props/internal-marker-props'
 import { PENDING_LABEL_ATTR } from '../button-pending-label'
+import { withServedAllowOrigins } from '../served-allow-origins'
 import {
   renderEndpointControl,
   renderEndpointHiddenField,
@@ -205,7 +206,9 @@ function buildEndpointConfig(endpoint: EndpointConfig): SerializedEndpointConfig
     ...(endpoint.responseEnvelope !== undefined && {
       responseEnvelope: endpoint.responseEnvelope,
     }),
-    ...(endpoint.onSuccess !== undefined && { onSuccess: endpoint.onSuccess }),
+    ...(endpoint.onSuccess !== undefined && {
+      onSuccess: withServedAllowOrigins(endpoint.onSuccess),
+    }),
     ...(endpoint.onError !== undefined && { onError: endpoint.onError }),
   }
 }

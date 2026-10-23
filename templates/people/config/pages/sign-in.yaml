@@ -5,6 +5,7 @@ path: /sign-in
 meta:
   title: Sign in · Meridian People
   description: Sign in to Meridian People.
+  favicon: ./favicon.svg
 components:
   - type: container
     element: div

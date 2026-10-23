@@ -9,6 +9,7 @@ access:
 meta:
   title: Tickets · Orrin OS
   description: Open tickets by status, with the contact, the client and who holds each one.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

@@ -5,6 +5,7 @@ path: /accept-invitation
 meta:
   title: Invitation · App starter
   description: Accept an invitation.
+  favicon: ./favicon.svg
 invitation: {}
 components:
   - component: auth-invitation-accept

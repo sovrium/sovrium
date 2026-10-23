@@ -51,3 +51,21 @@ groups:
 ```
 
 The sidebar stops at two fetched levels under a group: `childrenSource` is not accepted on an entry's own `source`, nor inside itself. A fetched tree deeper than that is the `tree` component's job. A `childrenSource` whose `itemProps` names an attribute the renderer owns (`href`, `aria-current`, `class` and the like) is refused at startup, as a group's `itemProps` is.
+
+## An icon and a badge per row
+
+A fetched entry can draw its own icon and its own count, filled from its row with the `{field}` grammar `hrefTemplate` speaks. `icon` is a Lucide name or one emoji; `badge` is any field of the row, or `{unreadCount}`, the reader's own count of unread children a `readState` relationship gives each row of its parent table.
+
+```yaml
+groups:
+  - label: Spaces
+    source:
+      endpoint: /api/tables/spaces/records
+      rowsKey: records
+      labelKey: name
+      hrefTemplate: /spaces/{id}
+      icon: '{emoji}'
+      badge: '{unreadCount}'
+```
+
+A row whose icon value is neither a Lucide name nor one emoji draws no icon; an icon written out as anything else is refused at startup. A badge that resolves to empty or `0` draws nothing, and an unread count drops for the reader who read the space and for no one else.

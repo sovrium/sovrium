@@ -5,6 +5,7 @@ path: /sign-in
 meta:
   title: Sign in · Fernhill Projects
   description: Sign in to Fernhill Projects.
+  favicon: ./favicon.svg
 components:
   - type: container
     element: div

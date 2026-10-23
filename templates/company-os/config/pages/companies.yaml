@@ -9,6 +9,7 @@ access:
 meta:
   title: Companies · Orrin OS
   description: Every client with its account manager, and its deals, projects and tickets in one place.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

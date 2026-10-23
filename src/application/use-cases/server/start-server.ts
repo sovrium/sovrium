@@ -23,8 +23,13 @@ import {
   validateBootEnvironment,
   type BootEnvironmentError,
 } from '@/application/use-cases/server/validate-boot-environment'
+import {
+  selfSeedBootNotice,
+  withholdSelfSeedAutomations,
+} from '@/domain/models/app/automations/actions/app/self-seed-gate-service'
 import { ENGINE_KEY_NOTICE_TOKENS } from '@/domain/models/app/languages/engine-key-prefix-validation'
 import { prunePagesByRequirements } from '@/domain/models/app/pages/page-requires'
+import { parseSovriumSelfSeed } from '@/domain/models/process-env/self-seed'
 import { Logger } from '@/infrastructure/logging/logger'
 import { publishServerBootInstant } from '@/infrastructure/process/server-boot-instant'
 import { getSovriumVersion } from '@/infrastructure/process/version'
@@ -99,6 +104,27 @@ const bootNoticesOf = (notices: readonly string[]): readonly string[] =>
   notices.filter((notice) =>
     ENGINE_KEY_NOTICE_TOKENS.some((token) => notice.startsWith(`${token}:`))
   )
+
+/**
+ * The app the server runs, and the notices it prints once at boot: pages whose
+ * `requires` the app does not meet are dropped, and so is every automation an
+ * `app/seed` step the host's `SOVRIUM_SELF_SEED` does not allow would run —
+ * withheld before anything reads `automations`, so no trigger is armed, no
+ * listing shows it and no route can start it.
+ */
+const servedAppOf = (decoded: {
+  readonly app: App
+  readonly authoredTableIds: AuthoredTableIds
+  readonly bootNotices: readonly string[]
+}) => {
+  const gate = parseSovriumSelfSeed(process.env)
+  const { app, withheld } = withholdSelfSeedAutomations(prunePagesByRequirements(decoded.app), gate)
+  return {
+    app,
+    authoredTableIds: decoded.authoredTableIds,
+    notices: [...decoded.bootNotices, ...withheld.map((entry) => selfSeedBootNotice(entry, gate))],
+  }
+}
 
 /**
  * Run migrations and bootstrap the admin (env-var or no-config-token).
@@ -289,8 +315,8 @@ export const startServer = (
     // the search index all take their view of the app from this object. Gating
     // later would deliver the 404 and none of the rest, leaving the app
     // advertising URLs it refuses to serve.
-    const { app: decodedApp, authoredTableIds, bootNotices } = yield* decodeAndValidateApp(app)
-    const validatedApp = prunePagesByRequirements(decodedApp)
+    const served = servedAppOf(yield* decodeAndValidateApp(app))
+    const { app: validatedApp, authoredTableIds, notices: bootNotices } = served
     yield* validateBootEnvironment(validatedApp)
     // No encryption-key gate here. A server does not refuse to boot without
     // `SOVRIUM_ENCRYPTION_KEY`; it runs on a key it provisions for

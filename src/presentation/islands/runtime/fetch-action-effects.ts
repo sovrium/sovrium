@@ -5,7 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { leavesPage } from './action-outcome'
 import { dispatch as dispatchIslandEvent } from './event-bus'
 import {
   substituteRecord,
@@ -13,6 +12,7 @@ import {
   substituteRecordInBody,
 } from './fetch-action-substitution'
 import { refreshServerRenderedRegions } from './refetch-server-rendered-region'
+import { exitLeavesPage, judgeSuccessExit, type SuccessExit } from './success-exit'
 import type { ToastControls, ToastRetry } from './toast-accessibility'
 import type {
   FetchAction,
@@ -318,6 +318,25 @@ export function fetchSuccessNavigate(
 }
 
 /**
+ * Where a fetch action's success goes, judged (`judgeSuccessExit`): on this
+ * site, to an origin `onSuccess.allowOrigins` lists, or `'refused'` when the
+ * address the request returned is on neither.
+ */
+export function fetchSuccessExit(
+  onSuccess: FetchAction['onSuccess'],
+  body: unknown,
+  record?: Record<string, unknown>
+): SuccessExit {
+  const allowOrigins = (onSuccess as { readonly allowOrigins?: readonly string[] } | undefined)
+    ?.allowOrigins
+  return judgeSuccessExit(
+    onSuccess?.navigate,
+    fetchSuccessNavigate(onSuccess, body, record),
+    allowOrigins
+  )
+}
+
+/**
  * True when a fetch action's success leaves the page — it reloads the document
  * (`onSuccess.reload`), or navigates to another one: the control that sent it
  * then stays pending until the page goes.
@@ -327,7 +346,7 @@ export function fetchSuccessLeaves(
   onSuccess: FetchAction['onSuccess']
 ): boolean {
   if (result?.ok !== true || onSuccess === undefined) return false
-  return onSuccess.reload === true || leavesPage(fetchSuccessNavigate(onSuccess, result.body))
+  return onSuccess.reload === true || exitLeavesPage(fetchSuccessExit(onSuccess, result.body))
 }
 
 /**

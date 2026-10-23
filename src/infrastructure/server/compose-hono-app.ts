@@ -65,6 +65,8 @@ import { createApiRoutes } from '@/presentation/api/compose-api-routes'
 import { setupLinkRoutes } from '@/presentation/api/links/routes'
 import { setupMcpRoutes } from '@/presentation/api/mcp/routes'
 import { setupOpenApiRoutes } from '@/presentation/api/openapi/routes'
+import { setupIconGeometryRoutes } from '@/presentation/api/pages/icon-geometry-routes'
+import { setupInstallRoutes } from '@/presentation/api/pages/install-routes'
 import { setupPageRoutes } from '@/presentation/api/pages/page-routes'
 import { setupRedirectRoutes } from '@/presentation/api/pages/redirect-routes'
 import { setupSeoRoutes } from '@/presentation/api/pages/seo-routes'
@@ -349,52 +351,62 @@ export async function createHonoApp(
               setupDevReloadRoute(
                 await setupStaticAssets(
                   setupSeoRoutes(
-                    setupMcpRoutes(
-                      setupAuthRoutes(
-                        setupAuthMiddleware(
-                          setupOpenApiRoutes(
-                            createApiRoutes(
-                              app,
-                              honoWithBootstrap as Hono,
-                              authInstance,
-                              getSession
+                    // The install routes sit here — after every API route, ahead of the
+                    // static assets and the page catch-all — and NOT ahead of
+                    // `createApiRoutes`: mounted there, the walk that serves three releases
+                    // one after another on one port failed. The cause was not isolated;
+                    // keep this slot until it is.
+                    setupInstallRoutes(
+                      setupIconGeometryRoutes(
+                        setupMcpRoutes(
+                          setupAuthRoutes(
+                            setupAuthMiddleware(
+                              setupOpenApiRoutes(
+                                createApiRoutes(
+                                  app,
+                                  honoWithBootstrap as Hono,
+                                  authInstance,
+                                  getSession
+                                ),
+                                app,
+                                authInstance
+                              ),
+                              app
                             ),
                             app,
-                            authInstance
+                            {
+                              authInstance,
+                              runtime,
+                              emailHandlers,
+                              // The admin-invitation store and engine over the same
+                              // instance — built here so the invitation use-cases
+                              // hold no query module and no engine type.
+                              invitations: createInvitationServices(
+                                authInstance,
+                                () => mountedInvitationPages(adminMountsFor(app)),
+                                // An acceptance starts the app's auth automations.
+                                { appMeta: app, domainContext: config.domainContext }
+                              ),
+                            }
                           ),
-                          app
-                        ),
-                        app,
-                        {
-                          authInstance,
-                          runtime,
-                          emailHandlers,
-                          // The admin-invitation store and engine over the same
-                          // instance — built here so the invitation use-cases
-                          // hold no query module and no engine type.
-                          invitations: createInvitationServices(
+                          app,
+                          {
+                            domainContext: config.domainContext,
                             authInstance,
-                            () => mountedInvitationPages(adminMountsFor(app)),
-                            // An acceptance starts the app's auth automations.
-                            { appMeta: app, domainContext: config.domainContext }
-                          ),
-                        }
+                            // The two file-backed facts the A8 config tools publish.
+                            // Supplied HERE because this is the one composition root
+                            // that may name both `infrastructure-server` and the
+                            // presentation tree; a route may not reach the status
+                            // file itself.
+                            configHash: configHash ?? '',
+                            readStatusDocument,
+                            // The admin read tools answer against the same host the
+                            // admin routes build, which belongs to the admin slug.
+                            makeAdminReadHost,
+                          }
+                        )
                       ),
-                      app,
-                      {
-                        domainContext: config.domainContext,
-                        authInstance,
-                        // The two file-backed facts the A8 config tools publish.
-                        // Supplied HERE because this is the one composition root
-                        // that may name both `infrastructure-server` and the
-                        // presentation tree; a route may not reach the status
-                        // file itself.
-                        configHash: configHash ?? '',
-                        readStatusDocument,
-                        // The admin read tools answer against the same host the
-                        // admin routes build, which belongs to the admin slug.
-                        makeAdminReadHost,
-                      }
+                      app
                     ),
                     app,
                     config.fetchSitemapRecords

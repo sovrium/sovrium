@@ -11,6 +11,7 @@ access:
 meta:
   title: Ticket · Tallyline Support
   description: One ticket, with what the requester wrote and the team's internal notes.
+  favicon: ./favicon.svg
 dataSource:
   table: tickets
   mode: single

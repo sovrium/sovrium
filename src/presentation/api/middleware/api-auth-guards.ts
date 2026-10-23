@@ -285,6 +285,9 @@ export const applyApiAuthGuards = (
         // handlers return 401 themselves when no session is attached, so
         // requireAuth is not chained.
         .use('/api/favorites', authMiddleware(auth))
+        // The caller's own notifications: the handlers answer 401 themselves.
+        .use('/api/notifications', authMiddleware(auth))
+        .use('/api/notifications/*', authMiddleware(auth))
         // User directory — the candidate source a `user` field's picker reads.
         // authMiddleware attaches the session; the handler returns 401 itself
         // when there is none, so requireAuth is not chained. Deliberately NOT
@@ -303,6 +306,8 @@ export const applyApiAuthGuards = (
         // name. requireAuth is NOT chained — the handler returns 401 itself
         // so the SSE response shape stays under the handler's control.
         .use('/api/realtime/presence', authMiddleware(auth))
+        // The app connection: the handler answers 401 itself without a session.
+        .use('/api/realtime/connection', authMiddleware(auth))
     : honoWithAnalyticsGuards
 
   return honoWithAuth

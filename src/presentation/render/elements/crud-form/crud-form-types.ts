@@ -73,6 +73,11 @@ export type CrudFormAction = {
  */
 export type ResolvedFieldDef = TypedColumnConfig & {
   readonly name: string
+  /**
+   * The author's `control` over a text column: drawn masked (`password`) or as
+   * a multi-line box (`textarea`), the value still saved as the column's text.
+   */
+  readonly control?: 'password' | 'textarea'
   /** Narrowed to the domain field-type union so every dispatch over it is total. */
   readonly type: FieldType
   readonly required?: boolean

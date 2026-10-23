@@ -11,6 +11,7 @@ access:
 meta:
   title: Pipeline · Orrin OS
   description: Open deals by stage, each with its client, value, close date and owner.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

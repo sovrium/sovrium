@@ -140,7 +140,7 @@ The links read in the muted foreground and turn to the foreground on hover, a de
 
 ## `search-input`
 
-The search box. It either searches pages or narrows data, and says which: `scope: page` searches the content of your pages, and `publishes: { bindTo, param: q }` sends what the reader types on a shared-filter channel, so every data component subscribed to that channel narrows to the records the full-text search matches, together with the channel's other controls. `debounceMs` waits for the reader to pause before sending, `minQueryLength` sends nothing below that length, and clearing the box takes the search back out. A box declaring neither, or both, is refused at load. `scope: subscribers`, where a sibling named this box's id, was removed in 0.39 and is refused at load, naming `publishes`.
+The search box. It either searches pages or narrows data, and says which: `scope: page` searches the content of your pages, and `publishes: { bindTo, param: q }` sends what the reader types on a shared-filter channel, so every data component subscribed to that channel narrows to the records the full-text search matches, together with the channel's other controls. `debounceMs` waits for the reader to pause before sending — a short pause by default, so a typed word sends one search, while a pasted term or `Enter` sends at once — `minQueryLength` sends nothing below that length, and clearing the box takes the search back out. A box declaring neither, or both, is refused at load. `scope: subscribers`, where a sibling named this box's id, was removed in 0.39 and is refused at load, naming `publishes`.
 
 <!-- sovrium:options type:search-input -->
 

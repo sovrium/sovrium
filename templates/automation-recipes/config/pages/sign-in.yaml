@@ -6,6 +6,7 @@ path: /sign-in
 meta:
   title: Sign in · Kerlo Automations
   description: Sign in to Kerlo Automations.
+  favicon: ./favicon.svg
 components:
   - type: container
     element: div

@@ -18,3 +18,20 @@ export const GalleryClassesContext = createContext<GalleryPartClasses | undefine
 export const GallerySelectionContext = createContext<((recordId: unknown) => void) | undefined>(
   undefined
 )
+
+/**
+ * The reader's own rows a gallery joins onto its cards (`dataSource.mine`), as
+ * the server read them (`_viewerRows`), and how a card's toggle records a
+ * switch: the row it created, or `null` once deleted.
+ */
+export interface GalleryViewerRows {
+  readonly as: string
+  readonly table: string
+  readonly link: string
+  readonly user: string
+  readonly userId: string
+  readonly rows: Readonly<Record<string, unknown>>
+  readonly setRow: (item: string, row: unknown) => void
+}
+
+export const GalleryViewerRowsContext = createContext<GalleryViewerRows | undefined>(undefined)

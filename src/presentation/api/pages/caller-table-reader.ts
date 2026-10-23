@@ -48,6 +48,7 @@ import { fieldsReadOrWritable } from '@/domain/models/app/tables/field-write-per
 import { decodeUserListValuesIn } from '@/domain/models/app/tables/user-list-field-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { runOnRequest } from '@/presentation/api/runtime/run-effect'
+import { readPositionReader } from './read-position-reader'
 import type {
   CallerTableView,
   LoadRowRuleContext,
@@ -288,5 +289,6 @@ export const callerTableReaders = (c: Context) => {
     loadRowRuleContext: rowRuleContextLoader(c),
     readReaderRows,
     readQueryMasks: queryMasksReader(c),
+    readReadPosition: readPositionReader(c),
   }
 }

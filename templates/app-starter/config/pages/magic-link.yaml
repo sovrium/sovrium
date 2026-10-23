@@ -3,5 +3,6 @@ path: /magic-link
 meta:
   title: Sign in with a link · App starter
   description: Get a sign-in link by email.
+  favicon: ./favicon.svg
 components:
   - component: auth-magic-link

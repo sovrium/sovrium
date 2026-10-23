@@ -124,6 +124,14 @@ Severity:
 | 9   | Help users recognise, diagnose and recover from errors | Every error says what, why and what next, beside its source, without colour alone, keeping the visitor's input                                                               |
 | 10  | Help and documentation                                 | Hints beside complex fields; empty states that teach the one thing a first-time visitor needs; links to help where the task is genuinely complex                             |
 
+## Iterating through a design canvas
+
+A page can also be reworked in a Claude Design canvas and brought back: `sovrium design-system <config> --format bundle --pages --output <dir>` draws every page onto a canvas, and `sovrium design-system import <canvas> --pages --config <config>` reads the edited canvas back. The canvas carries its own guide, `project/SOVRIUM.md`, generated from what the import carries, keeps and refuses: read it before editing a board, and design within it. Manual: `sovrium docs theming/design-pages-import`.
+
+- **Edit the canvas** for polish: layout on the spacing scale, copy, variants and sizes, order, adding or removing kit components, colours and type that match a token, and the rules a component carries in its `data-sovrium-*` attributes (a binding, a visibility rule, a data source, a form).
+- **Edit the config** for anything new in kind: a table, a field, a form, an automation, an action, a component outside the kit, a value off the scale. The import refuses those, by name, rather than guessing.
+- **The loop**: export, edit, `import --pages --dry-run --json` to read each board's verdict (carried, kept, refused, with node ids), fix what was refused, then `--write` and review the diff. A board for a page the config does not have needs `--new-pages`; a TypeScript config is edited literal by literal, and an edit to a computed value is refused with the file and line to change by hand.
+
 ## Verify
 
 One bounded browser pass (see `sovrium-app`, `references/browser-loop.md`), then at most one confirmation pass:

@@ -60,6 +60,7 @@ import {
 import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
 import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
 import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
+import type { SocialExport } from '@/application/use-cases/auth/account-export-social'
 
 /** Grace period (days) before a scheduled erasure is hard-purged. */
 export const GRACE_PERIOD_DAYS = 7
@@ -117,6 +118,7 @@ interface ExportSources {
   readonly uploads: readonly AccountChatAttachmentRow[]
   readonly ai: AccountAiFootprint
   readonly entityLists: AccountEntityLists
+  readonly social: SocialExport
 }
 
 /** Assemble the export payload from the caller's rows. Pure shaping logic. */
@@ -177,6 +179,7 @@ function buildExportPayload(sources: Readonly<ExportSources>) {
     // The AI sections, each scoped as erasure scopes it, without tool payloads or store metadata.
     ...shapeAiSections(sources.ai, sources.uploads),
     ...shapeEntityLists(sources.entityLists),
+    ...sources.social,
   }
 }
 
@@ -225,7 +228,8 @@ export type ExportAccountOutcome =
  */
 export const ExportAccount = (
   userId: string,
-  tables: readonly AuthoredTableCandidate[]
+  tables: readonly AuthoredTableCandidate[],
+  social: SocialExport
 ): Effect.Effect<ExportAccountOutcome, AccountDatabaseError, AccountRepository> =>
   Effect.gen(function* () {
     const repo = yield* AccountRepository
@@ -271,8 +275,7 @@ export const ExportAccount = (
         formSubmissions: submissionRows.map(shapeFormSubmission),
         auditRows,
         uploads,
-        ai,
-        entityLists,
+        ...{ ai, entityLists, social },
       })
     )
     return { _tag: 'Ok', body } as const

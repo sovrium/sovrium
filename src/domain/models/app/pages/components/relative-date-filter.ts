@@ -51,14 +51,26 @@ const claimsRelativeDate = (value: unknown): value is string =>
   typeof value === 'string' &&
   (value.startsWith('$today') || value.startsWith('$startOf') || value.startsWith('$now'))
 
-/** The instant a `$now` token names, relative to `now` (an ISO instant), or `undefined`. */
-const resolveInstant = (value: string, now: string): string | undefined => {
+/**
+ * The signed offset, in milliseconds, a `$now` token names (`$now-1h` is
+ * -3,600,000, a bare `$now` 0), or `undefined` when the value is not a `$now`
+ * token of the grammar. The one reader of the instant grammar: a chart's
+ * `fillEmpty` window reads its span through it too.
+ */
+export const instantTokenOffsetMs = (value: string): number | undefined => {
   const match = INSTANT_TOKEN.exec(value)
   if (match === null) return undefined
   const [, sign, amount, unit] = match
-  if (sign === undefined) return now
+  if (sign === undefined) return 0
   const offset = Number(amount) * (UNIT_MS[unit ?? 'm'] ?? 0)
-  return new Date(Date.parse(now) + (sign === '-' ? -offset : offset)).toISOString()
+  return sign === '-' ? -offset : offset
+}
+
+/** The instant a `$now` token names, relative to `now` (an ISO instant), or `undefined`. */
+const resolveInstant = (value: string, now: string): string | undefined => {
+  const offset = instantTokenOffsetMs(value)
+  if (offset === undefined) return undefined
+  return offset === 0 ? now : new Date(Date.parse(now) + offset).toISOString()
 }
 
 /** The year, month (1-12) and day of a `YYYY-MM-DD` day. */

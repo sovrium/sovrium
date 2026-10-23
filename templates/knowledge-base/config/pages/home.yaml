@@ -6,6 +6,7 @@ path: /
 meta:
   title: Corvel handbook · how we work, written down
   description: Onboarding, IT and the policies Corvel keeps — one handbook, readable by everyone at Corvel once they sign in.
+  favicon: ./favicon.svg
 components:
   - $ref: ./_site-header.yaml
   - type: container

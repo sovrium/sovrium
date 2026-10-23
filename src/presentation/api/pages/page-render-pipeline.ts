@@ -55,6 +55,7 @@ import {
 import { isPartialEligible, pagePartialOf } from './page-partial'
 import { sendRevalidatedPage } from './page-revalidation'
 import type { HonoAppConfig } from '../../../application/ports/contracts/hono-app-config'
+import type { ReadReadPosition } from '@/application/ports/repositories/tables/read-state-repository'
 import type {
   LoadRowRuleContext,
   PageRenderResult,
@@ -152,6 +153,7 @@ export interface PageRequestContext {
   readonly readTableAsCaller?: ReadTableAsCaller
   readonly readRecordLabels?: ReadRecordLabels
   readonly loadRowRuleContext?: LoadRowRuleContext
+  readonly readReadPosition?: ReadReadPosition
   readonly readReaderRows?: ReadReaderRows
   readonly signFileUrl?: SignFileUrl // the `file-preview` signer, attached beside the readers
 }

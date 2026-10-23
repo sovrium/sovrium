@@ -33,3 +33,10 @@
  */
 export const isLocalDevDefault = (nodeEnv: string | undefined): boolean =>
   nodeEnv === undefined || nodeEnv === ''
+
+/**
+ * True when `NODE_ENV` says production — the one value `isProduction` in
+ * `infrastructure/process/env.ts` keys on, for a layer that may not import it.
+ */
+export const isProductionNodeEnv = (nodeEnv: string | undefined): boolean =>
+  nodeEnv === 'production'

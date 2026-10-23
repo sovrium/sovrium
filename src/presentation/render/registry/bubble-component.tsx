@@ -6,7 +6,9 @@
  */
 
 import { computeBubbleClasses } from '../../design/bubble-default-classes'
+import { LINK_PREVIEW_CARDS_KEY } from '../resolve/conversation-extras'
 import { mergePrestyle } from './interactive-prestyle-builders'
+import { LinkPreviewCards } from './link-preview-cards'
 import type { ComponentRenderer } from './component-dispatch-config'
 
 /**
@@ -33,6 +35,11 @@ const bubbleComponent: ComponentRenderer = ({
     >
       {content}
       {renderedChildren}
+      <LinkPreviewCards
+        cards={
+          (component as Readonly<Record<string, unknown>> | undefined)?.[LINK_PREVIEW_CARDS_KEY]
+        }
+      />
     </div>
   )
 }

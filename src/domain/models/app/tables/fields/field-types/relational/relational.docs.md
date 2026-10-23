@@ -106,3 +106,21 @@ A SUM, AVG, MIN or MAX rollup over a `currency` field is money in that field's c
 **Soft-deleted related rows do not contribute.** The aggregate skips any related record whose `deleted_at` is set, so trashing a child row lowers its parent's rollup immediately — and restoring it raises the rollup again.
 
 **A rollup or a count reads through every kind of link**, on both database engines. Through a `one-to-many` link it aggregates the related records that point at this one. Through a `many-to-many` link it aggregates the linked records, whichever table wrote the link — with or without a `reciprocalField` on the other side — and counts each linked record once. Through a `many-to-one` or `one-to-one` link it aggregates the one linked record, or none: a `count` reads `1` or `0`, and a `sum` over no linked record reads `0`, as the table above says.
+
+## Read state
+
+`readState: true` on the link field of a child table — a message's `channel` — keeps, for each reader and each parent record, how far she has read its children.
+
+```yaml
+tables:
+  - name: messages
+    fields:
+      - name: channel
+        type: relationship
+        relatedTable: channels
+        readState: true
+```
+
+Each `channels` row then carries `unreadCount` for the reader who asked: the messages created after her last-read position that she may read, her own excepted. A row read without a reader carries no count. Name the count with `readState: { as: unreadMessages }`; a name is required when two relationships with `readState` point at the same table.
+
+A message scroller showing a channel's messages marks the channel read as it draws them, and places a "New" marker above the first message she had not read. Any other surface marks it read with `POST /api/tables/channels/records/:id/read`, which answers `404` for a channel she may not read. Read positions are personal data: listed in her account export and deleted with her account.

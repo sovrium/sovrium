@@ -37,6 +37,7 @@
 
 import { withRecordText } from '@/domain/models/app/pages/substitute-record-vars'
 import { pageRecordOf } from '@/presentation/render/props/record-value-format'
+import { filledFromRecord } from '@/presentation/render/resolve/avatar-members-binding'
 import { substituteRecordVars } from '@/presentation/render/resolve/data-source-contracts'
 import { substituteRecordInCollectionTemplate } from '@/presentation/render/resolve/data-source-rows'
 import { recordMatchesCollectionFilter } from '@/presentation/render/resolve/page-collection-filter'
@@ -45,6 +46,7 @@ import {
   substituteCollectionInMeta,
   substituteCollectionInPageComponents,
   type CollectionRowsReader,
+  type CollectionViewerRowsReader,
 } from '@/presentation/render/resolve/page-collection-prevnext'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -434,6 +436,13 @@ interface ResolveCollectionOptions {
    * are read as they are.
    */
   readonly readRows?: CollectionRowsReader
+  /** How the reader's own rows are read, for `$collection.resume`. Omitted: no resume. */
+  readonly readViewerRows?: CollectionViewerRowsReader
+  /** The components given what the record's labels say of them (an avatar group's `users`). */
+  readonly fillFromRecord?: (
+    components: Page['components'],
+    record: Readonly<Record<string, unknown>>
+  ) => Promise<Page['components']>
 }
 
 export async function resolveCollectionPage(
@@ -451,7 +460,7 @@ export async function resolveCollectionPage(
   const pageRecord = pageRecordOf(record, collection.table, db.recordText)
   const substitutedMeta = substituteRecordInMeta(page.meta, pageRecord)
   const substitutedComponents = substituteRecordInPageComponents(
-    page.components,
+    await filledFromRecord(options?.fillFromRecord, page.components, record),
     pageRecord,
     collection.table
   )
@@ -466,19 +475,10 @@ export async function resolveCollectionPage(
       ? autoBindCommentComponents(substitutedComponents, collection.table, String(recordIdValue))
       : substitutedComponents
 
-  // Resolve adjacent records for
-  // `$collection.previous.*` / `$collection.next.*` substitution. Boundary
-  // records (first/last) get `undefined` neighbours; the substitution pass
-  // drops any component referencing a null side so prev/next links don't
-  // emit empty anchors at the edges of the collection.
-  // The neighbours are located from the WHOLE record: the ordering column is
-  // a navigation key, not something this page prints.
-  const adjacency = await fetchCollectionAdjacency(
-    collection,
-    resolved.record,
-    db,
-    options?.readRows
-  )
+  // The `$collection.previous` / `.next` / `.resume` records: a side with none
+  // drops the component naming it, so no empty anchor is drawn. The neighbours
+  // are located from the WHOLE record: its ordering column is a navigation key.
+  const adjacency = await fetchCollectionAdjacency(collection, resolved.record, db, options)
   const adjMeta = substituteCollectionInMeta(substitutedMeta, adjacency)
   const adjComponents = substituteCollectionInPageComponents(autoBoundComponents, adjacency)
 

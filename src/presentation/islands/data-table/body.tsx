@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Fragment, type ReactElement } from 'react'
 import {
   computeTableBodyClasses,
   computeTableEmptyStateClasses,
@@ -12,10 +13,10 @@ import {
 import { AddRow } from './add-row'
 import { DataRow, type DataRowContext } from './data-row'
 import { GroupedTableBodyRows } from './group-body'
+import { InlineExpansionRow } from './inline-expand/inline-expand-row'
 import { rowIdOf } from './row-identity'
 import { SkeletonRows } from './skeleton-rows'
 import type { TableBodyRowsProps } from './body-rows-props'
-import type { ReactElement } from 'react'
 
 /**
  * Renders the table body: loading skeletons, data rows, or empty state.
@@ -219,12 +220,14 @@ export function TableBodyRows({
       {...(loadingMore === true && { 'aria-busy': true })}
     >
       {rows.map((row, rowIndex) => (
-        <DataRow
-          key={rowIdOf(row)}
-          row={row}
-          rowIndex={rowIndex}
-          ctx={ctx}
-        />
+        <Fragment key={rowIdOf(row)}>
+          <DataRow
+            row={row}
+            rowIndex={rowIndex}
+            ctx={ctx}
+          />
+          <InlineExpansionRow row={row} />
+        </Fragment>
       ))}
       {addRow && <AddRow config={addRow} />}
     </tbody>

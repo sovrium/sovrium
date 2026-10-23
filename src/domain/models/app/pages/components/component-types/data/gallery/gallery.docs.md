@@ -41,6 +41,12 @@ A card child whose `$record.*` names a field its reader may not read is left out
 
 `featured: first` leads a grid with one larger card — the latest essay on a blog's index, a shop's flagship product. From the `md` breakpoint up the first card spans two columns and sets its cover beside its text rather than above it — the cover taking the larger share, about 1.25 to 1, and the text centred on its height; below `md` it is an ordinary card. It applies to `layout: grid` only, since a masonry wall has no column span to give. The featured card carries `data-featured`, so a class on a card's own children can follow it: `md:group-data-featured:text-2xl` on a title, with `group` on the `card` part.
 
+## Groups, and the reader's own row
+
+Bound to one of the table's views, a gallery draws the view's `groupBy` as a header per group, with the group's value and its card count, in the view's order; the cards whose grouping field is empty come last. A view whose `groupBy` declares `collapsed: true` starts with every group closed, and each header opens its group. Only the view's first grouping level is drawn: a `thenBy` nested inside it, which a grid draws as sub-groups, is not drawn on a gallery. A gallery has no `groupBy` of its own.
+
+`dataSource.mine` joins the reader's own related row onto each card as `$record.<as>` — her enrolment in a course, say — and a button in the card with a `crud` `operation: toggle` creates or deletes it, as on a list.
+
 ## Styling a gallery by part
 
 A gallery's own elements take classes by part through `classes`: `grid` (the grid holding the cards), `card` (each card), `cover` (the frame around a card's cover image) and `body` (the block holding the card's children). The children of `galleryCard` are your own components, so a title, an excerpt or a chip is styled on its own `props.className` rather than by part.

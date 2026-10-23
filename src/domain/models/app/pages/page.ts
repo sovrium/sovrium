@@ -7,8 +7,8 @@
 
 import { Schema } from 'effect'
 import { PageAccessSchema } from './access'
+import { PageCollectionSchema } from './collection'
 import { PageComponentsSchema } from './components'
-import { DataFilterSchema } from './components/data-source'
 import { SystemDetailSourceSchema } from './components/system-detail-source'
 import { ContentDirSchema } from './content-dir'
 import { deriveContentDirIndexBasePath } from './content-dir-index-base-path'
@@ -318,28 +318,7 @@ export const PageSchema = Schema.Struct({
    * }
    * ```
    */
-  collection: Schema.optional(
-    Schema.Struct({
-      /** Table name to generate pages from (must exist in app.tables) */
-      table: Schema.String.annotate({
-        description: 'Table name to generate collection pages from',
-      }),
-      /** Field name whose value becomes the URL parameter */
-      slugField: Schema.String.annotate({
-        description: 'Field used as the URL slug parameter',
-      }),
-      /** Optional filter to limit which records generate pages */
-      filter: Schema.optional(
-        Schema.Array(DataFilterSchema).annotate({
-          description: 'Filter conditions to limit which records generate pages',
-        })
-      ),
-    }).annotate({
-      identifier: 'PageCollection',
-      title: 'Page Collection',
-      description: 'Template page configuration that generates one route per table record',
-    })
-  ),
+  collection: Schema.optional(PageCollectionSchema),
 
   /**
    * Sitemap configuration for this page

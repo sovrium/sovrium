@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { useState } from 'react'
 import {
   FILTER_BAR_ADD_CLASSES,
   FILTER_BAR_ANCHOR_CLASSES,
@@ -12,8 +13,10 @@ import {
   FILTER_BAR_ROW_CLASSES,
 } from '@/presentation/design/filter-bar-default-classes'
 import { computePopoverContentClasses } from '../overlays/popover-default-classes'
+import { AddGlyph } from './add-glyph'
 import { ConditionBuilder } from './condition-builder'
 import { FilterChip } from './filter-chip'
+import { OnlineChoice, type OnlineChoiceLabels, type OnlineChoiceValue } from './online-choice'
 import { useFilterBarState } from './use-filter-bar-state'
 import type { FilterBarCondition, FilterBarField } from '@/presentation/design/filter-expression'
 import type { ReactElement, RefObject } from 'react'
@@ -64,28 +67,11 @@ interface FilterBarIslandProps {
   readonly url?: boolean
   /** The bar's own words (`filterBar.*`), server-resolved, where they differ from English. */
   readonly uiStrings?: Readonly<Record<string, string>>
+  /** The Online / Offline choice, drawn only for a reader shown presence. */
+  readonly online?: OnlineChoiceLabels
 }
 
-/** lucide's `circle-plus`, the add control's glyph. */
-const ADD_GLYPH = (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <circle
-      cx="12"
-      cy="12"
-      r="10"
-    />
-    <path d="M8 12h8" />
-    <path d="M12 8v8" />
-  </svg>
-)
+const NO_FIELDS: readonly FilterBarField[] = [] // a bar of only the Online / Offline choice
 
 const POPOVER_CLASSES = `${computePopoverContentClasses()} ${FILTER_BAR_POPOVER_PLACEMENT_CLASSES}`
 
@@ -125,7 +111,7 @@ function AddFilter({
         data-icon="inline-start"
         className={FILTER_BAR_ADD_CLASSES}
       >
-        {ADD_GLYPH}
+        <AddGlyph />
         {label}
       </button>
       {open && (
@@ -193,7 +179,7 @@ function ChipRow({
           onRemove={onRemove}
         />
       ))}
-      {allowAdd && (
+      {allowAdd && fields.length > 0 && (
         <AddFilter
           label={addLabel}
           strings={strings}
@@ -211,20 +197,34 @@ function ChipRow({
 export default function FilterBarIsland({
   className,
   bindTo,
-  fields,
+  fields = NO_FIELDS,
   conditions: initialConditions,
   combinator = 'and',
   allowAdd = true,
   url = false,
   uiStrings,
+  online,
 }: FilterBarIslandProps): ReactElement {
-  const state = useFilterBarState({ bindTo, url, fields, combinator, initialConditions })
+  const [choice, setChoice] = useState<OnlineChoiceValue>(undefined)
+  const state = useFilterBarState({
+    bindTo,
+    url,
+    fields,
+    combinator,
+    initialConditions,
+    online: choice,
+  })
 
   return (
     <div
       className={className}
       onKeyDown={state.closeOnEscape}
     >
+      <OnlineChoice
+        labels={online}
+        value={choice}
+        onChange={setChoice}
+      />
       <ChipRow
         addLabel={uiStrings?.['filterBar.addFilter'] ?? 'Add filter'}
         removeLabel={uiStrings?.['filterBar.removeFilter'] ?? 'Remove {field} filter'}

@@ -126,16 +126,18 @@ export function hasIslandComponents(page: Page, components?: Components): boolea
 }
 
 /**
- * Whether a page's navigation opts into client-side navigation: a `sidebar`
- * anywhere in its tree (referenced templates included) declaring
- * `clientSideNavigation: true`. Such a page mounts the `spa-nav` island beside
- * its main region, and its island runtime is already shipped through
- * `isSourcedSidebar`.
+ * Whether a page's navigation takes part in client-side navigation: a `sidebar`
+ * anywhere in its tree (referenced templates included) that does not set
+ * `clientSideNavigation: false` — the option is on by default. Such a page
+ * mounts the `spa-nav` island beside its main region, and its island runtime is
+ * already shipped through `isSourcedSidebar`. A static build hands the renderer
+ * sidebars that already say `false` when they left the option out
+ * (`withStaticBuildNavigation`).
  */
 export function hasClientSideNavigation(page: Page, components?: Components): boolean {
   return someComponentInTree(
     page.components,
     components,
-    (item) => item.type === 'sidebar' && item.clientSideNavigation === true
+    (item) => item.type === 'sidebar' && item.clientSideNavigation !== false
   )
 }

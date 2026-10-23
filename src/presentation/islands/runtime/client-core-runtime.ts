@@ -23,6 +23,7 @@
  *   the inline confirm gate) via the shared `executeFetchAction` runtime
  * - The `fill` action, from a button or an island's `sovrium:fill` event
  * - The `seek` action, from a button or an island's `sovrium:seek` event
+ * - The `clipboard` action, from a button
  *
  * Everything here binds through {@link delegate} — one listener on `document`,
  * matched per event — rather than by sweeping the document for elements at load
@@ -37,15 +38,18 @@ import { setupEndpointFormHandlers } from '@/presentation/islands/runtime/endpoi
 import { setupNativeSelectPublishers } from '@/presentation/islands/runtime/native-select-publisher'
 import { setupSearchInputPublishers } from '@/presentation/islands/runtime/search-input-publisher'
 import { hydrateSessionBindings } from '@/presentation/islands/runtime/session-resolver'
-import { leavesPage, runErrorOutcome, runSuccessOutcome } from './action-outcome'
+import { runErrorOutcome, runSuccessOutcome } from './action-outcome'
 import { automationPressHeaders } from './automation-press-headers'
 import { delegate, bindActionButtons, parseActionInput } from './client-event-delegate'
 import { showToast } from './client-toast'
+import { setupClipboardHandlers } from './clipboard-runtime'
 import { applyFetchSuccessEffects } from './fetch-action-effects'
+import { substituteResponse } from './fetch-action-substitution'
 import { dispatchToastResponse, setupFetchButtonHandlers } from './fetch-button-runtime'
 import { setupFillHandlers } from './fill-runtime'
 import { withPending } from './pending-control'
 import { setupSeekHandlers } from './seek-runtime'
+import { exitLeavesPage, exitOutcome, judgeSuccessExit } from './success-exit'
 
 // ─── Modal lifecycle ────────────────────────────────────────────────────────
 
@@ -177,7 +181,7 @@ function showOutcomeToast(button: Element, outcome: 'success' | 'error'): void {
 async function pressAutomation(
   button: HTMLElement,
   name: string
-): Promise<'success' | 'error' | undefined> {
+): Promise<{ readonly sent: 'success' | 'error'; readonly body?: unknown }> {
   const awaitValue = button.getAttribute('data-action-await') === 'true'
   const inputData = parseActionInput(button.getAttribute('data-action-input'))
   // A button drawn on a record names it, so the server judges the press on it.
@@ -192,10 +196,11 @@ async function pressAutomation(
     })
     const body = (await response.json().catch(() => undefined)) as
       { readonly status?: unknown } | undefined
-    return !response.ok || (awaitValue && body?.status === 'failed') ? 'error' : 'success'
+    const failed = !response.ok || (awaitValue && body?.status === 'failed')
+    return { sent: failed ? 'error' : 'success', body }
   } catch {
     // Network/dispatch failure: the automation did not run.
-    return 'error'
+    return { sent: 'error' }
   }
 }
 
@@ -216,17 +221,27 @@ function setupAutomationButtonHandlers(): void {
     // means `reload: true`, and the ids are joined by single spaces.
     const reload = button.hasAttribute('data-on-success-reload')
     const refetch = button.getAttribute('data-on-success-refetch')?.split(' ')
-    const keepPending = (sent: 'success' | 'error' | undefined) =>
-      sent === 'success' && (reload || leavesPage(navigate))
-    const press = () => pressAutomation(button, name)
-    const outcome = await withPending(button, { label, keepPending }, press)
-    if (outcome === undefined) return
-    if (outcome === 'error') return runErrorOutcome(button, () => showOutcomeToast(button, 'error'))
+    const allowOrigins = button.getAttribute('data-on-success-allow-origins')?.split(' ')
+    // `$response.<path>` reads the run's answer, judged before anything is shown.
+    const exitOf = (body: unknown) =>
+      judgeSuccessExit(
+        navigate,
+        navigate === undefined ? undefined : substituteResponse(navigate, body),
+        allowOrigins
+      )
+    const keepPending = (press: { readonly sent: string; readonly body?: unknown } | undefined) =>
+      press?.sent === 'success' && (reload || exitLeavesPage(exitOf(press.body)))
+    const pressed = await withPending(button, { label, keepPending }, () =>
+      pressAutomation(button, name)
+    )
+    if (pressed === undefined) return
+    const exit = pressed.sent === 'success' ? exitOf(pressed.body) : 'refused'
+    if (exit === 'refused') return runErrorOutcome(button, () => showOutcomeToast(button, 'error'))
     runSuccessOutcome(button, {
       toast: () => showOutcomeToast(button, 'success'),
       effects: () => applyFetchSuccessEffects({ refetch, reload }),
       close: button.getAttribute('data-on-success-close') === 'true',
-      navigate,
+      ...exitOutcome(exit),
     })
   })
 }
@@ -305,6 +320,7 @@ function initClientRuntime(): void {
   setupFetchButtonHandlers()
   setupFillHandlers()
   setupSeekHandlers()
+  setupClipboardHandlers()
   setupEndpointFormHandlers(dispatchToastResponse)
   setupSessionBoundChrome()
   setupNativeSelectPublishers()

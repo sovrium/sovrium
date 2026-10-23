@@ -1,3 +1,87 @@
+## [0.42.0](https://github.com/sovrium/sovrium/compare/v0.41.0...v0.42.0) (2026-10-23)
+
+### Features
+
+- **pages**: the composer signals typing and the conversation shows who is writing
+- **pages**: a bound conversation marks where the reader left off
+- **automations**: let an app seed or reset itself with the app/seed action
+- **cli**: the design-system export writes a round-trip guide and per-board verdicts
+- **cli**: drawn pages carry their bindings and rules through a round trip
+- **cli**: a TypeScript page is rewritten in place or refused with its line
+- **cli**: the page import can create pages drawn on new boards
+- **cli**: colour and type edits import as design tokens
+- **pages**: an app can be installed with a manifest and an optional offline shell
+- **pages**: the command palette searches records across readable tables
+- **pages**: a notification bell lists and marks the reader's notifications
+- **pages**: member lists filter on who is online
+- **pages**: a navigation menu can render as a bottom tab bar on phones
+- **pages**: fetched sidebar entries carry an icon and a badge from their fields
+- **pages**: an action may follow a returned URL to an allowed origin
+- **cli**: the design-system export draws at most 300 seeded rows per table
+- **cli**: a stateful prototype board shares one store across pages
+- **cli**: the design-system export can write a clickable prototype
+- **pages**: an avatar group draws related people with an overflow count
+- **pages**: lists and galleries draw their view's groups
+- **pages**: a progress bar binds to a ratio of records
+- **pages**: collection pages scope previous and next to a parent and offer a resume link
+- **pages**: a list item can show and toggle the viewer's own related row
+- **cli**: exported boards mount the kit's components and lay out by section
+- **cli**: the design-system export draws one board per state and variant
+- **tables**: link previews on message bubbles, fetched safely and served by the app
+- **pages**: messages show a reply summary that opens the thread
+- **library**: a pinned-messages block
+- **pages**: a GIF picker through a declared connection, served by the app
+- **pages**: a composer sends on Enter and attaches files or voice notes
+- **pages**: a conversation frame binds to a table
+- **cli**: the design-system export draws pages from a seed folder
+- **records-api**: comment threads follow a live change feed
+- **automations**: a notification store, action and per-user preferences
+- **realtime**: app-wide presence with last seen and typing
+- **tables**: per-user read state on a relationship with unread counts
+- **pages**: charts fill empty time buckets and draw a time axis
+- **pages**: charts take a height, a strip variant and per-bar tones
+- **pages**: a clipboard action copies a value
+- **pages**: tab labels can carry a count bound to a table
+- **tables**: a row can expand inline under its row
+- **pages**: a neutral favicon answers when none is declared
+- **pages**: sidebars swap page content on in-app links by default
+
+### Bug Fixes
+
+- **pages**: scan page markup in linear time when exporting pages and importing forms
+- **cli**: pack a page's source.file markdown into sovrium bundle
+- **cli**: the page import keeps the spaces and line breaks of a code block
+- **cli**: pack the markdown files pages read into sovrium bundle
+- **cli**: the page import names every edit it cannot carry and reads layout from classes
+- **pages**: refuse the reader's own row on a list drawn from an item template
+- **automations**: unread digest notifications expire with the retention window
+- **pages**: tab counts resolve the reader and route tokens before asking the server
+- **pages**: a create sheet leaves defaulted fields to the server and speaks the page language
+- **pages**: table-bound forms honour password and textarea controls
+- **cli**: canvas boards match the drawn page height
+- **cli**: a page that redirects is skipped and named in the design-system export
+- **cli**: drawn forms keep their title and leak no option as an attribute
+- **cli**: drawn pages carry their images into the bundle
+- **cli**: the design-system bundle ships self-hosted brand fonts
+- **tables**: phone rows layout keeps the empty message and the new-row control
+- **pages**: feed links resolve the article slug and use BASE_URL
+- **pages**: image width and height no longer force an inline size
+- **tables**: grid refusal offers to clear the refused search; row height control hidden when declared; bottom bar stays on one line
+- **design**: type-scale utilities survive a text colour in the same class list
+- **pages**: tabs keep typed text and focus while a nested table mounts
+- **design**: status tones draw their own colours with the default palette
+- **tables**: grid first read no longer waits for the views list
+- **tables**: grid search sends one request per settled term
+- **design**: apps without a form no longer ship form-field styles
+- **design**: item replace drops the recipe like button does
+- **pages**: retry the entry script and reload once before giving up
+- **pages**: run a swapped page's inline scripts so forms keep their onSuccess
+- **design**: refuse spacing token names that collide with display utilities
+
+### Performance Improvements
+
+- **tables**: unread counts are computed in one grouped query per page
+
 ## [0.41.0](https://github.com/sovrium/sovrium/compare/v0.40.0...v0.41.0) (2026-10-21)
 
 ### BREAKING CHANGES

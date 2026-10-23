@@ -5,14 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { refusalIdOf } from './record-drawer-field'
+import { useFieldLineIds } from '../parts/crud-form/field-id-scope'
 
 /** The line saying why the value was refused. */
 export function RefusalLine({ name, error }: { readonly name: string; readonly error?: string }) {
+  const { refusal } = useFieldLineIds(name)
   if (error === undefined) return undefined
   return (
     <span
-      id={refusalIdOf(name)}
+      id={refusal}
       className="text-destructive text-sm"
     >
       {error}

@@ -64,6 +64,8 @@ interface ProgressFields {
   /** The named positions a `steps` rail draws. Empty for the other variants. */
   readonly steps: readonly StepRailStep[]
   readonly testId: string | undefined
+  /** A bound bar's filled `labelTemplate`, printed instead of the percentage. */
+  readonly labelText: string | undefined
   /** The type stamp every rendered component carries. */
   readonly componentType: string | undefined
 }
@@ -100,6 +102,7 @@ function resolveProgressFields(
     label: typeof props.label === 'string' ? props.label : undefined,
     steps: resolveSteps(c.steps),
     testId: typeof props['data-testid'] === 'string' ? props['data-testid'] : undefined,
+    labelText: typeof props['_progressLabel'] === 'string' ? props['_progressLabel'] : undefined,
     componentType,
   }
 }
@@ -178,7 +181,7 @@ function renderCircle(f: ProgressFields): ReactElement {
           data-slot="progress-value"
           className={`absolute ${computeProgressLabelClasses()}`}
         >
-          {f.percent}%
+          {f.labelText ?? `${String(f.percent)}%`}
         </span>
       )}
     </div>
@@ -218,7 +221,7 @@ function renderLinear(f: ProgressFields): ReactElement {
           data-slot="progress-value"
           className={computeProgressLabelClasses()}
         >
-          {f.percent}%
+          {f.labelText ?? `${String(f.percent)}%`}
         </span>
       )}
     </div>

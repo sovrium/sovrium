@@ -47,6 +47,55 @@ const columnReference = (description: string) =>
  * a field union is not expressible without a validator pass.
  */
 
+/**
+ * `readState` keeps, per reader and per PARENT record, the last child she has
+ * read. It is declared on the link field of the CHILD table (a message's
+ * `channel`), because the relationship that makes a record a child already
+ * lives there; a second key on the parent naming the relation again would be
+ * a second way to say the same thing.
+ *
+ * The parent's rows then carry a read-only per-reader count of unread children
+ * (`unreadCount`, or the name `as` gives). `as` is required only when two
+ * `readState` relationships point at the same parent, and the uniqueness of
+ * the names is an app-level rule (it needs the other tables), not this
+ * field's.
+ */
+const READ_STATE_COUNT_NAME = /^[a-z][a-zA-Z0-9_]*$/
+
+const ReadStateOptionsSchema = Schema.Struct({
+  as: Schema.String.pipe(
+    Schema.annotate({
+      description:
+        "Name of the read-only unread count the parent's rows carry for this relationship. Required when two relationships with readState point at the same parent table.",
+      examples: ['unreadMessages', 'unreadReplies'],
+    }),
+    Schema.check(
+      Schema.isPattern(READ_STATE_COUNT_NAME, {
+        message:
+          'readState.as names a count on the parent row: a letter first, then letters, digits or _ (for example unreadMessages).',
+      })
+    )
+  ),
+}).pipe(
+  Schema.annotate({
+    title: 'Read State Options',
+    description: 'Read state under a chosen count name.',
+  })
+)
+
+export const RelationshipReadStateSchema = Schema.Union([
+  Schema.Boolean,
+  ReadStateOptionsSchema,
+]).pipe(
+  Schema.annotate({
+    title: 'Read State',
+    defaultNote: 'false',
+    description:
+      "Keeps, per reader, how far she has read the children of each parent record this field links to. The parent's rows then carry a read-only unreadCount: the children created after her last-read position that she may read, her own excepted. A message scroller showing those children marks them read as they are drawn and places a New marker above the first unread one. true uses the name unreadCount; { as } names the count, which is required when two relationships with readState point at the same parent.",
+    examples: [true, { as: 'unreadMessages' }],
+  })
+)
+
 export const RelationshipFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
     type: Schema.Literal('relationship').pipe(
@@ -136,6 +185,7 @@ export const RelationshipFieldSchema = BaseFieldSchema.pipe(
         Schema.check(Schema.isGreaterThan(0))
       )
     ),
+    readState: Schema.optional(RelationshipReadStateSchema),
   }),
   Schema.annotate({
     title: 'Relationship Field',

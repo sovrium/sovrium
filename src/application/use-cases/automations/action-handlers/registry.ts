@@ -10,6 +10,7 @@ import { handleAiClassify, handleAiExtract, handleAiGenerate } from './ai'
 import { handleAiAgent } from './ai-agent'
 import { handleAiTranscribe } from './ai-transcribe'
 import { handleAnalyticsTrack } from './analytics'
+import { handleAppSeed } from './app-seed'
 import { handleApprovalRequest } from './approval'
 import {
   handleAuthAssignRole,
@@ -114,6 +115,7 @@ import { handleInstanceEngineInstall, handleInstanceEnginePrune } from './instan
 import { handleInstanceSeed } from './instance-seed'
 import { handleLinkCreate, handleLinkDelete, handleLinkUpdate } from './link'
 import { handleLoopEach } from './loop'
+import { handleNotificationCreate } from './notification'
 import { handlePathBranch } from './path'
 import { handlePdfFillForm } from './pdf-fill-form'
 import { handlePdfFromImages } from './pdf-from-images'
@@ -221,6 +223,7 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['comment/create', handleCommentCreate],
   ['comment/list', handleCommentList],
   ['comment/delete', handleCommentDelete],
+  ['notification/create', handleNotificationCreate],
   ['record/create', handleRecordCreate],
   ['record/read', handleRecordRead],
   ['record/list', handleRecordList],
@@ -279,6 +282,7 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['instance/backup', handleInstanceBackup],
   ['instance/restore', handleInstanceRestore],
   ['instance/seed', handleInstanceSeed],
+  ['app/seed', handleAppSeed],
   ['instance/engineInstall', handleInstanceEngineInstall],
   ['instance/enginePrune', handleInstanceEnginePrune],
   ['flow/stop', handleFlowStop],

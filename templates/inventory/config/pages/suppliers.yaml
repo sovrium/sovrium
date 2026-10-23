@@ -8,6 +8,7 @@ access:
 meta:
   title: Suppliers · Brunel Stock
   description: The suppliers of the catalogue, with their lead times.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

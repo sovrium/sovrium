@@ -35,6 +35,12 @@ const translationLine = (change: ReportPage['translations'][number]): string => 
 /** Every line one page's report holds, or one line saying it holds nothing. */
 const pageLines = (page: ReportPage): readonly string[] => {
   const lines = [
+    ...(page.created === undefined
+      ? []
+      : [
+          `  new page at ${page.created.path}` +
+            (page.created.like === undefined ? '' : `, with the access of ${page.created.like}`),
+        ]),
     ...page.moved.map((move) => `  moved ${move.node} to ${move.to}`),
     ...page.added.map((addition) => `  + ${addition.type} added at ${addition.node}, unbound`),
     ...page.removed.map((node) => `  - ${node} removed`),
@@ -52,9 +58,29 @@ const pageLines = (page: ReportPage): readonly string[] => {
     ),
     ...page.translations.map(translationLine),
     ...page.ignored.map((entry) => `  not read: ${entry.node}: ${entry.reason}`),
+    ...(page.conflicts ?? []).map(
+      (conflict) =>
+        `  set twice: ${conflict.node} ${conflict.property}: kept ${conflict.kept} (${conflict.value}) over ${conflict.overridden.join(', ')}`
+    ),
   ]
   return lines.length === 0 ? ['  No change: the config already draws this page.'] : lines
 }
+
+/** The colours `--tokens` read from the canvas, and whether they were written. */
+const tokenLines = (tokens: PageImportReport['tokens']): readonly string[] =>
+  tokens === undefined
+    ? []
+    : [
+        '',
+        'design tokens',
+        ...tokens.changes.map(
+          (change) =>
+            `  ~ ${change.token} (${change.theme ?? 'every theme'}): ${quoted(change.before)} -> ${quoted(change.after)}`
+        ),
+        tokens.written
+          ? '  written to design'
+          : `  not written: ${tokens.reason ?? 'no reason given'}`,
+      ]
 
 /** What `--write` did, or what a dry run would do. */
 const writtenLines = (report: PageImportReport, dryRun: boolean): readonly string[] => {
@@ -64,6 +90,14 @@ const writtenLines = (report: PageImportReport, dryRun: boolean): readonly strin
   }
   if (written.bytes === 0 && (written.sidecars ?? []).length === 0) {
     return ['Nothing to change, so nothing was written.']
+  }
+  if (written.literals !== undefined) {
+    return [
+      `Rewrote ${written.literals.length} literal${written.literals.length === 1 ? '' : 's'} in place (${written.bytes} bytes changed):`,
+      ...written.literals.map(
+        (edit) => `  ${edit.file}:${edit.line} ${quoted(edit.before)} -> ${quoted(edit.after)}`
+      ),
+    ]
   }
   if (written.sidecars === undefined) {
     return [
@@ -104,6 +138,7 @@ export const renderPagesReport = (
       `  not imported: ${entry.reason}`,
     ]),
     ...merged.flatMap(({ name, plan }) => ['', name, ...pageLines(plan.report)]),
+    ...tokenLines(report.tokens),
     ...(templates.found === 0
       ? []
       : [

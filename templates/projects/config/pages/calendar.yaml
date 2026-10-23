@@ -8,6 +8,7 @@ access:
 meta:
   title: Calendar · Fernhill Projects
   description: The month's deadlines, and your own open tasks beside them.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

@@ -58,6 +58,8 @@ export interface CommentsListResponse {
     readonly offset: number
     readonly hasMore: boolean
   }
+  /** Comments the reader has not read; present only on a read-tracked table. */
+  readonly unreadCount?: number
 }
 
 export interface CommentCreateResponse {
@@ -92,6 +94,8 @@ export interface CommentThreadIslandProps {
    * sent only where they differ from English — absent on an English page.
    */
   readonly uiStrings?: Readonly<Record<string, string>>
+  /** How the open thread follows its record; absent when it reads once. */
+  readonly refreshMode?: 'poll' | 'realtime'
   readonly 'data-testid'?: string
 }
 

@@ -3,5 +3,6 @@ path: /sso
 meta:
   title: Single sign-on · App starter
   description: Sign in with your company account.
+  favicon: ./favicon.svg
 components:
   - component: auth-sso

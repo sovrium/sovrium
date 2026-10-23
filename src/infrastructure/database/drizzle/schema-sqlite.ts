@@ -57,10 +57,13 @@ export * from './schema-sqlite/favorites'
 export * from './schema-sqlite/form-submissions'
 export * from './schema-sqlite/links'
 export * from './schema-sqlite/migration-audit'
+export * from './schema-sqlite/notifications'
+export * from './schema-sqlite/read-state'
 export * from './schema-sqlite/record-comments'
 export * from './schema-sqlite/search'
 export * from './schema-sqlite/storage'
 export * from './schema-sqlite/user-access'
+export * from './schema-sqlite/user-presence'
 export * from './schema-sqlite/webhook'
 
 // Better Auth inferred types (kept alongside the public surface, mirroring

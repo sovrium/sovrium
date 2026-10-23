@@ -27,6 +27,8 @@ import {
   handleUpdateComment,
 } from './comment-handlers'
 import { handleListMentionable } from './comment-mention-handler'
+import { handleLinkPreviewPicture, handleListLinkPreviews } from './link-preview-handlers'
+import { handleMarkRecordRead } from './read-state-handlers'
 import { refuseUnreadableTable } from './readable-table-gate'
 import { handleInvokeRecordButton } from './record-button-handlers'
 import {
@@ -103,11 +105,22 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, resolveApp:
         '/api/tables/:tableId/records/:recordId/delete',
         acceptsFormBody((c: Context) => handleFormDeleteRecord(c, resolveApp()))
       )
+      .post('/api/tables/:tableId/records/:recordId/read', (c) =>
+        handleMarkRecordRead(c, resolveApp())
+      )
       .post('/api/tables/:tableId/records/:recordId/restore', (c) =>
         handleRestoreRecord(c, resolveApp())
       )
       .post('/api/tables/:tableId/records/:recordId/buttons/:fieldName', (c) =>
         handleInvokeRecordButton(c, resolveApp())
+      )
+      // The link previews of a stored message: reads of the server's cache,
+      // through the record's own read gate; neither takes an address.
+      .get('/api/tables/:tableId/records/:recordId/link-previews', (c) =>
+        handleListLinkPreviews(c, resolveApp())
+      )
+      .get('/api/tables/:tableId/records/:recordId/link-previews/:previewId', (c) =>
+        handleLinkPreviewPicture(c, resolveApp())
       )
       .get('/api/tables/:tableId/records/:recordId/history', (c) =>
         handleGetRecordHistory(c, resolveApp())

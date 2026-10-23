@@ -33,6 +33,8 @@ export interface CanvasLinkRoute {
 export interface CanvasLinkContext {
   readonly routes: readonly CanvasLinkRoute[]
   readonly page: string
+  /** On a clickable canvas: the board an in-app address leads to, relative to this board. */
+  readonly hrefOf?: ((target: string) => string | undefined) | undefined
 }
 
 /** The attributes a board link carries its target in. */
@@ -84,17 +86,19 @@ export const pageOfAddress = (
 
 /**
  * The attributes a board draws for a link's `href`: `#` or its own fragment,
- * plus, for a target inside the app, the target and the page it draws.
+ * plus, for a target inside the app, the target and the page it draws. On a
+ * clickable canvas an in-app link leads to `board`, the board drawing its target.
  */
 export const boardLinkAttributes = (
   href: string,
-  context: CanvasLinkContext
+  context: CanvasLinkContext,
+  board?: string
 ): readonly (readonly [string, string])[] => {
   const target = href.trim()
   if (target.startsWith('#')) return [['href', target]]
   if (target.startsWith('?')) {
     return [
-      ['href', '#'],
+      ['href', board ?? '#'],
       [CANVAS_LINK_STAMP.href, target],
       [CANVAS_LINK_STAMP.page, context.page],
     ]
@@ -102,7 +106,7 @@ export const boardLinkAttributes = (
   if (!/^\/(?!\/)/.test(target)) return [['href', '#']]
   const page = pageOfAddress(context.routes, target)
   return [
-    ['href', '#'],
+    ['href', board ?? '#'],
     [CANVAS_LINK_STAMP.href, target],
     ...(page === undefined ? [] : [[CANVAS_LINK_STAMP.page, page] as const]),
   ]

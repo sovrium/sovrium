@@ -72,7 +72,9 @@ const normalizeValue = (field: TableField | undefined, value: unknown): unknown 
   if (field === undefined || typeof value !== 'string') return value
   if (value.trim() === '' && !storesEmpty(field)) return undefined
   if (holdsList(field)) return parseLinkList(value.trim())
-  return value
+  // A form-encoded body ends every line of a multi-line box with CRLF, whatever
+  // the reader typed; the column keeps the line ends a JSON write would send.
+  return value.replace(/\r\n?/g, '\n')
 }
 
 /** The suffix a natively posted form marks a cleared field with: `<field>__clear`. */

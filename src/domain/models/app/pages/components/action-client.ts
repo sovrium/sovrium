@@ -7,7 +7,7 @@
 
 /*
  * The Action variants the browser resolves on its own — `navigate`, `toast`,
- * `openSheet`, `openImport`, `fill` and `seek`. None of them invokes an engine
+ * `openSheet`, `openImport`, `fill`, `seek` and `clipboard`. None of them invokes an engine
  * operation, which is what separates them from the variants in
  * `action-operations.ts` and from the arbitrary HTTP call in `action-fetch.ts`.
  */
@@ -393,6 +393,67 @@ export const SeekActionSchema = Schema.Struct({
     'Moves a `video` or `audio` player on the same page to a moment, and plays it from there unless `play` is false.',
 })
 
+/** A reference a clipboard value may never name: the server's environment. */
+const ENV_REFERENCE = /\$env\.[A-Za-z_][A-Za-z0-9_]*/
+
+/**
+ * Clipboard action - copies a value to the reader's clipboard.
+ *
+ * The copy control beside an address, a command line, a webhook URL or a key
+ * prefix: one inline value and a small button, where a `code` block would draw
+ * a framed, monospace block. `value` is resolved on the server with the same
+ * substitution and the same hidden-field rule as an action's `href` or a
+ * confirm title, so a field the reader may not read copies as empty and never
+ * reaches the page. The browser writes it with `navigator.clipboard.writeText`
+ * on the click; when the write is refused (an insecure context, a denied
+ * permission) `onError` runs and the control returns to its idle state.
+ *
+ * The clipboard is only ever written, on a gesture, never read. `$env.*` is
+ * refused in `value`, so no server secret can be copied by config.
+ *
+ * @example
+ * ```yaml
+ * action:
+ *   type: clipboard
+ *   value: $record.heartbeat_url
+ *   onSuccess: { toast: { message: Copied } }
+ *   onError: { toast: { message: Could not copy, variant: error } }
+ * ```
+ */
+export const ClipboardActionSchema = Schema.Struct({
+  type: Schema.Literal('clipboard').annotate({
+    description: 'Which kind of action this is. It decides which of the other keys apply.',
+  }),
+  /** The text copied: a literal, or a template of `$record`, `$param`, `$app` and `$t:` references. */
+  value: Schema.String.pipe(
+    Schema.annotate({
+      description:
+        'The text copied: a literal, or a template reading `$record.<field>`, `$param.<name>`, `$app.<key>` or a `$t:` key, resolved on the server. A field the reader may not read resolves to an empty value. `$env.*` is refused.',
+      examples: ['$record.heartbeat_url', 'sovrium deploy $record.slug'],
+    }),
+    Schema.check(
+      Schema.isMinLength(1),
+      Schema.makeFilter((value: string) => {
+        const reference = value.match(ENV_REFERENCE)?.[0]
+        return (
+          reference === undefined ||
+          `A clipboard value cannot read ${reference}: the server's environment is never copied to a page. Copy a record field or a literal instead.`
+        )
+      })
+    )
+  ),
+  /** What follows a successful copy, typically a toast. */
+  onSuccess: Schema.optional(ActionResponseSchema),
+  /** What follows a refused write: no clipboard, a denied permission. */
+  onError: Schema.optional(ActionResponseSchema),
+}).annotate({
+  title: 'Clipboard Action',
+  description:
+    'Copies a value to the reader’s clipboard on the click, then runs onSuccess; when the browser refuses the write, onError runs and the control is idle again. The value is resolved on the server, a field the reader may not read copying as empty.',
+})
+
+/** @public */
+export type ClipboardAction = Schema.Schema.Type<typeof ClipboardActionSchema>
 /** @public */
 export type SeekAction = Schema.Schema.Type<typeof SeekActionSchema>
 /** @public */

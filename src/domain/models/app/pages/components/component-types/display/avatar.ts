@@ -41,6 +41,12 @@
  * `label` is the exception: on a group it names the group for a screen reader,
  * because a stack of four discs is one thing to a reader and four to the DOM.
  *
+ * A group's members come from exactly one of three places: `items` written in
+ * the config, `dataSource` + `userField` (one person per row of a join table),
+ * or `users` (a multi-person `user` field of the bound record). The two bound
+ * forms draw each person from her account and count only the people the reader
+ * may see, so `+N` never reveals a row she cannot read.
+ *
  * ## Sizes are a three-rung ladder, not a free length
  *
  * `sm` 24px, `md` 32px, `lg` 40px — the three the canvas draws. A free pixel
@@ -54,6 +60,7 @@
  */
 
 import { Schema } from 'effect'
+import { DataSourceSchema } from '../../data-source'
 import { coreFields } from '../modules/core'
 import { i18nFields } from '../modules/i18n'
 import { visibilityFields } from '../modules/visibility'
@@ -205,6 +212,50 @@ export const avatarFields = {
           'Members of an overlapping stack. Present ⇒ this is a group: `src`, `initials`, `alt` and `status` are read per item instead of from the component, and `label` names the stack. At least one member — `items: []` says "this is a group" and then names nobody, which draws an empty box no reader can interpret.',
         examples: [[{ label: 'Ada Lovelace' }, { label: 'Grace Hopper' }]],
       })
+  ),
+  /**
+   * The members of a group, read from records: one row per person, its
+   * `userField` naming her. The join table of an event's attendances, filtered
+   * by the page's record, is the usual shape.
+   *
+   * Each person is drawn from her account (picture, else initials, her name as
+   * the label and the tooltip), once even when two rows name her. A row the
+   * reader may not read is neither drawn nor counted in `+N`: the count is taken
+   * after the reader's read rules. `items`, `dataSource` and `users` are
+   * mutually exclusive, refused together when the config loads.
+   */
+  dataSource: Schema.optional(
+    DataSourceSchema.annotate({
+      description:
+        "Records whose `userField` names the group's members, one person per row (an event's attendances, filtered by the page's record). Each person is drawn once, from her account; a row the reader may not read is neither drawn nor counted in +N. Not combined with items or users",
+    })
+  ),
+  /** With `dataSource`, the user field of each row naming the member. */
+  userField: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        title: 'Person Field',
+        description:
+          'With dataSource, the user field of each row that names the member to draw. Required by dataSource, read by nothing else',
+        examples: ['attendee', 'member'],
+      }),
+      Schema.check(Schema.isMinLength(1))
+    )
+  ),
+  /**
+   * The members of a group, read straight from a multi-person `user` field of
+   * the bound record — no join table.
+   */
+  users: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        title: 'People',
+        description:
+          'A multi-person user field of the bound record, as `$record.<field>`: each person it names becomes a member, drawn from her account, once. A person the reader may not see is neither drawn nor counted. Not combined with items or dataSource',
+        examples: ['$record.attendees', '$record.crew'],
+      }),
+      Schema.check(Schema.isMinLength(1))
+    )
   ),
   /**
    * How many members to draw before collapsing the rest into a `+N` disc.

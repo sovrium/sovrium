@@ -23,6 +23,7 @@ import {
 import { formatLine, printStderr, renderStderr } from '@/infrastructure/logging/cli-output'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
 import { activateLogFormat } from '@/infrastructure/logging/log-format'
+import { installAppSelfSeedRunner } from '@/infrastructure/process/app-self-seeder-live'
 import {
   isProcessRunning,
   listenLabel,
@@ -254,6 +255,11 @@ export const handleStartCommand = async (
   // The `$ref` source map, so a refusal names the partial each problem lives in
   // exactly as `sovrium validate` does — the report is meant to be the same one.
   const attribution = await collectConfigAttribution(configFile)
+  // The seeder an `app/seed` step runs: `sovrium seed`'s, on the seed folder
+  // beside this config, loaded on the first run rather than at every start.
+  installAppSelfSeedRunner(async (request) =>
+    (await import('./seed-self')).createAppSelfSeedRunner(configPath)(request)
+  )
   const server = await start(app, { ...options, configHash, configPath }, attribution).catch(
     (error) => {
       Effect.runSync(

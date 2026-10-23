@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Suspense, lazy } from 'react'
 import { withRecordTextFields } from '@/domain/models/app/tables/record-text-service'
 import { computeListShellClasses } from '@/presentation/design/list-default-classes'
 import {
@@ -20,6 +21,7 @@ import { useListRowClick } from './list-row-click'
 import { ListError, ListLoading, ListMissing, type ListStrings } from './list-status'
 import { useListRecords, type ListRecordsDataSource } from './use-list-records'
 import type { SharedFilterPublisherConfig } from '../hooks/use-shared-filter-publisher'
+import type { RecordGroupBy } from '../parts/grouped-records'
 import type { ReactElement } from 'react'
 
 interface ListIslandProps extends ListRowInputs {
@@ -62,7 +64,12 @@ interface ListIslandProps extends ListRowInputs {
    * helper: this island's mount budget has no room for another module.
    */
   readonly uiStrings?: Readonly<Record<string, string>>
+  /** The bound view's grouping: the items are drawn under a header per group. */
+  readonly groupBy?: RecordGroupBy
 }
+
+/** A grouped view's headers, fetched only by a list bound to one. */
+const GroupedRecords = lazy(() => import('../parts/grouped-records'))
 
 /** A fetched record with the text its formatted fields print, in the page's language. */
 const withText = (record: Record<string, unknown>, inputs: ListRowInputs) =>
@@ -77,13 +84,36 @@ function renderRows(input: {
   readonly emptyMessage: string | undefined
   readonly itemTemplate: ItemTemplate | undefined
   readonly inputs: ListRowInputs
+  readonly groupBy?: RecordGroupBy | undefined
+  readonly uiStrings?: Readonly<Record<string, string>> | undefined
 }): ReactElement | undefined {
-  const { records, emptyMessage, itemTemplate, inputs } = input
+  const { records, emptyMessage, itemTemplate, inputs, groupBy } = input
   if (records.length === 0 && emptyMessage) return renderEmptyList(emptyMessage, inputs.ariaLabel)
   if (itemTemplate === undefined) return undefined
+  if (groupBy === undefined) return renderItems(records, itemTemplate, inputs)
+  return (
+    <Suspense fallback={null}>
+      <GroupedRecords
+        records={records}
+        groupBy={groupBy}
+        emptyLabel={input.uiStrings?.['list.noGroupValue'] ?? 'No value'}
+        renderRecords={(group, value) => renderItems(group, itemTemplate, inputs, value)}
+      />
+    </Suspense>
+  )
+}
+
+/** The items of the list — or of one of its groups, named on `data-group`. */
+function renderItems(
+  records: readonly Record<string, unknown>[],
+  itemTemplate: ItemTemplate,
+  inputs: ListRowInputs,
+  group?: string
+): ReactElement {
   return (
     <ul
       data-slot="item-group"
+      data-group={group}
       aria-label={inputs.ariaLabel}
       className={inputs.listClasses ?? computeListShellClasses()}
       onClick={inputs.onItemEvent}
@@ -162,27 +192,17 @@ export default function ListIsland({
   onRowClick,
   publishes,
   uiStrings,
+  groupBy,
   ...rowInputs
 }: ListIslandProps): ReactElement | null {
-  const {
-    records,
-    isLoading,
-    isError,
-    error,
-    hasMore,
-    isLoadingMore,
-    loadMore: fetchMore,
-    retry,
-    total,
-  } = useListRecords(dataSource)
+  const read = useListRecords(dataSource)
+  const { records, hasMore, isLoadingMore, loadMore: fetchMore, retry, total } = read
   const drawn = maxItems === undefined ? records : records.slice(0, maxItems)
   const onItemEvent = useListRowClick(onRowClick, drawn, dataSource?.table, publishes)
 
   const status = renderListStatus({
+    ...read,
     dataSource,
-    isLoading,
-    isError,
-    error,
     onRetry: retry,
     strings: uiStrings,
     hideWhenEmpty,
@@ -199,6 +219,8 @@ export default function ListIsland({
         emptyMessage,
         itemTemplate,
         inputs: { ...rowInputs, onItemEvent },
+        groupBy,
+        uiStrings,
       })}
       <ListContinuation
         mode={loadMore}

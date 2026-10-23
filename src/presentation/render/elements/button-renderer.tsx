@@ -31,6 +31,8 @@ import {
   buildSeekDataAttributes,
   isFillAction,
   isSeekAction,
+  isClipboardAction,
+  buildClipboardDataAttributes,
 } from './button-page-action-builders'
 import {
   buttonPressAttributes,
@@ -38,7 +40,9 @@ import {
   renderRecordDisabledButton,
   type ButtonRecordControl,
 } from './button-record-control'
+import { crudToggleFetchAction } from './button-toggle-action'
 import { renderCrudDeleteButton } from './crud-form/crud-delete-button-renderer'
+import { buildCrudRecordUpdateAttributes, isCrudRecordUpdate } from './crud-record-update-button'
 import { renderOpenImportButton } from './open-import-button'
 import type { ElementProps } from './html-element-renderer'
 import type { RouteParams } from '@/domain/kernel/matching/route-matcher'
@@ -152,10 +156,27 @@ function clientActionAttributes(
 ): Record<string, string> | undefined {
   if (isAuthAction(action)) return buildAuthDataAttributes(action)
   if (isFetchAction(action)) return buildFetchDataAttributes(action)
+  const toggle = crudToggleFetchAction(action, props as Record<string, unknown>)
+  if (toggle !== undefined) return buildFetchDataAttributes(toggle)
   if (isToastAction(action)) return buildToastDataAttributes(action)
-  if (!isFillAction(action) && !isSeekAction(action)) return undefined
+  return recordBoundActionAttributes(action, props, routeParams)
+}
+
+/**
+ * The client actions resolved against the record the button is drawn for:
+ * a record update, a clipboard copy, a fill and a seek — `undefined` for any other.
+ */
+function recordBoundActionAttributes(
+  action: unknown,
+  props: ElementProps,
+  routeParams: RouteParams | undefined
+): Record<string, string> | undefined {
   const boundRecord = (props as { _record?: Readonly<Record<string, unknown>> })._record
+  if (isCrudRecordUpdate(action))
+    return buildCrudRecordUpdateAttributes(action, boundRecord?.['id'])
+  if (!isFillAction(action) && !isSeekAction(action) && !isClipboardAction(action)) return undefined
   const record = buildRecordContext(boundRecord, routeParams)
+  if (isClipboardAction(action)) return buildClipboardDataAttributes(action, record)
   return isFillAction(action)
     ? buildFillDataAttributes(action, record)
     : buildSeekDataAttributes(action, record)

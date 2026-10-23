@@ -9,6 +9,7 @@ access:
 meta:
   title: Posts · Field Notes
   description: Every post and its state.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

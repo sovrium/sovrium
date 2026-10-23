@@ -45,3 +45,4 @@ components:
 meta:
   title: $frontmatter.title · Corvel handbook
   description: How Corvel works, written down — onboarding, IT and the policies we keep.
+  favicon: ./favicon.svg

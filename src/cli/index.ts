@@ -54,7 +54,7 @@
 import { Effect, Console } from 'effect'
 import { getCommandHelp } from '@/cli/runtime/command-help'
 import { parseArgs } from '@/cli/runtime/dispatch'
-import { findUnknownFlag, getFlagValues } from '@/cli/runtime/flag-vocabulary'
+import { findUnknownFlag, getFlagValue, getFlagValues } from '@/cli/runtime/flag-vocabulary'
 import { printFailure } from '@/infrastructure/logging/cli-output'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
 
@@ -355,13 +355,17 @@ const persistentCommands: Readonly<Record<string, () => Promise<void>>> = {
           parsed.positionalArgs
         )
       : (await import('@/cli/commands/design-system')).handleDesignSystemCommand({
-          configFile: parsed.configFile,
+          // `--seed` is a switch to `deploy`, so its folder is read among the positionals.
+          configFile: (parsed.positionalArgs ?? []).find(
+            (arg) => arg !== getFlagValue(rawArgs, '--seed')
+          ),
           outputPath: parsed.outputPath,
           format: parsed.format,
           mode: parsed.mode,
           force: parsed.forceFlag,
           pages: rawArgs.includes('--pages'),
           pageNames: getFlagValues(rawArgs, '--page'),
+          argv: rawArgs,
         }),
   docs: async () =>
     (await import('@/cli/commands/docs')).handleDocsCommand({

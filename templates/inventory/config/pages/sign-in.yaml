@@ -5,6 +5,7 @@ path: /sign-in
 meta:
   title: Sign in · Brunel Stock
   description: Sign in to Brunel Stock.
+  favicon: ./favicon.svg
 components:
   - type: container
     element: div

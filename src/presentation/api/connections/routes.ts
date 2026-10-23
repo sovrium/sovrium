@@ -12,6 +12,7 @@
  *   GET    /api/connections/:name/callback    → exchange the code, store the token
  *   GET    /api/connections/:name/status      → connection state for this caller
  *   GET    /api/connections/:name/users       → see `users-handler.ts`
+ *   GET    /api/connections/:name/gif-search  → see `gif-handlers.ts` (and `/gifs/:id`)
  *   DELETE /api/connections/:name/disconnect  → drop this caller's credential
  *
  * ─── WHAT THIS FILE IS ──────────────────────────────────────────────────────
@@ -65,6 +66,7 @@ import {
 } from '@/infrastructure/logging/request-effect'
 import { requireSession, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { connectionError } from './error-envelopes'
+import { handleGifMedia, handleGifSearch } from './gif-handlers'
 import {
   buildAuthorizeUrl,
   exchangeCodeForToken,
@@ -370,5 +372,8 @@ export function chainConnectionRoutes<T extends Hono>(honoApp: T, app: App): T {
     .get('/api/connections/:name/callback', (c) => handleCallback(c, app))
     .get('/api/connections/:name/status', (c) => handleStatus(c, app))
     .get('/api/connections/:name/users', (c) => handleListUsers(c, app))
+    .get('/api/connections/:name/gif-search', (c) => handleGifSearch(c, app))
+    .get('/api/connections/:name/gifs/:id', (c) => handleGifMedia(c, app, false))
+    .get('/api/connections/:name/gifs/:id/preview', (c) => handleGifMedia(c, app, true))
     .delete('/api/connections/:name/disconnect', (c) => handleDisconnect(c, app)) as T
 }

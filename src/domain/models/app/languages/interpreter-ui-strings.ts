@@ -123,6 +123,10 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   },
   /** The control that reads a failed grid again. */
   'datatable.retry': { en: 'Retry', fr: 'Réessayer' },
+  /** The toggle that draws a row's record under it (`rowExpand.placement: inline`). */
+  'datatable.expandRow': { en: 'Show details', fr: 'Afficher le détail' },
+  /** In place of Retry when the server refused the grid's search as malformed (400). */
+  'datatable.clearSearch': { en: 'Clear search', fr: 'Effacer la recherche' },
   /** A create the server failed for a reason that is not about one field. */
   'datatable.createFailed': {
     en: 'Couldn’t save the record. Try again.',

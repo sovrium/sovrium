@@ -10,6 +10,7 @@ access:
 meta:
   title: All tickets · Tallyline Support
   description: Every ticket ever filed, with its requester, its status and who holds it.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

@@ -72,6 +72,15 @@ import { Schema } from 'effect'
  *
  * @example
  * ```yaml
+ * # Drawn under the row rather than beside the grid; several may stay open.
+ * rowExpand:
+ *   placement: inline
+ *   single: false
+ *   fields: [report]
+ * ```
+ *
+ * @example
+ * ```yaml
  * # Narrowed and read-only.
  * rowExpand:
  *   fields: [name, stage, amount, notes] # `notes` need not be a column
@@ -127,6 +136,35 @@ export const DataTableRowExpandSchema = Schema.Struct({
       }),
       Schema.check(Schema.isNonEmpty({ message: 'rowExpand.title must not be empty' }))
     )
+  ),
+  /**
+   * Where the expanded record is drawn: `drawer` (the default) opens the record
+   * panel beside the grid; `inline` draws it as one full-width row directly
+   * under the row it expands, so the reader keeps the rest of the list in sight.
+   *
+   * Both placements draw the same record — the same derived or declared
+   * `fields`, the same `canEdit`, the same `title` — from the row the grid
+   * already holds, under the same field permissions. Only where it sits
+   * differs. Inline rows answer to a per-row toggle carrying `aria-expanded`,
+   * because a click on the row can no longer be the only way in once the
+   * expanded content lives inside the table itself.
+   */
+  placement: Schema.optional(
+    Schema.Literals(['drawer', 'inline']).annotate({
+      description:
+        'Where the expanded record is drawn: drawer (default) opens the record panel beside the grid; inline draws it as one full-width row directly under the expanded row, opened and closed by a toggle on that row',
+      examples: ['inline'],
+    })
+  ),
+  /**
+   * Inline placement only: whether expanding a row closes the one already
+   * expanded. Ignored by the drawer, which shows one record at a time anyway.
+   */
+  single: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'With placement inline, whether expanding a row closes the row already expanded (default: true). false lets several rows stay open at once. Ignored by the drawer placement',
+    })
   ),
 }).annotate({
   title: 'Data Table Row Expand',

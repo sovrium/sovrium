@@ -8,6 +8,7 @@
 import { Schema } from 'effect'
 import { AiActionSchema } from './ai'
 import { AnalyticsActionSchema } from './analytics'
+import { AppActionSchema } from './app'
 import { ApprovalActionSchema } from './approval'
 import { AuthActionSchema } from './auth'
 import { AutomationActionSchema } from './automation'
@@ -30,6 +31,7 @@ import { HttpActionSchema } from './http'
 import { InstanceActionSchema } from './instance'
 import { LinkActionSchema } from './link'
 import { LoopActionSchema } from './loop'
+import { NotificationActionSchema } from './notification'
 import { PathActionSchema } from './path'
 import { PdfActionSchema } from './pdf'
 import { RecordActionSchema } from './record'
@@ -475,6 +477,19 @@ export type Action =
         readonly recordId: string
         readonly commentId: string
         readonly runAs?: 'system' | 'triggering-user'
+      }>)
+  // ── notification (1 operator variant) ──
+  // `recipients`, `recordId`, `title` and `body` are templates; `recipients` is
+  // one template rendering a list, or a list of templates.
+  | (ActionBase & {
+      readonly type: 'notification'
+      readonly operator: 'create'
+    } & Props<{
+        readonly kind: string
+        readonly recipients: string | readonly string[]
+        readonly source?: { readonly table: string; readonly recordId: string }
+        readonly title: string
+        readonly body?: string
       }>)
   // ── webhook (2 operator variants) ──
   | (ActionBase & {
@@ -1344,6 +1359,16 @@ export type Action =
       readonly type: 'sovrium'
       readonly operator: 'validateBundle'
     } & Props<{ readonly objectKey: string }>)
+  // ── app ──
+  | (ActionBase & {
+      readonly type: 'app'
+      readonly operator: 'seed'
+    } & Props<{
+        readonly mode: 'if-empty' | 'upsert' | 'replace' | 'reset'
+        readonly tables?: readonly string[]
+        readonly today?: string
+        readonly dryRun?: boolean | string
+      }>)
   // ── instance (14 operator variants) ──
   | (ActionBase & {
       readonly type: 'instance'
@@ -1456,6 +1481,7 @@ export const ActionSchema: Schema.Codec<Action, unknown> = Schema.Union([
   AnalyticsActionSchema,
   LinkActionSchema,
   CommentActionSchema,
+  NotificationActionSchema,
   WebhookActionSchema,
   DelayActionSchema,
   AutomationActionSchema,
@@ -1474,6 +1500,7 @@ export const ActionSchema: Schema.Codec<Action, unknown> = Schema.Union([
   DateActionSchema,
   FlowActionSchema,
   SovriumActionSchema,
+  AppActionSchema,
   InstanceActionSchema,
   ActionRefSchema,
 ]).pipe(

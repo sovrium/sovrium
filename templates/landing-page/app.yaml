@@ -52,6 +52,8 @@ badge: false
 # and its connection; both stay idle until PIPEDRIVE_API_TOKEN is set.
 automations:
   - $ref: ./library/recipe/form-to-pipedrive-lead.yaml
+  # The demo empties itself every night, on hosts that opt in.
+  - $ref: ./config/automations/nightly-reset.yaml
 
 connections:
   - $ref: ./library/connection/pipedrive.yaml

@@ -9,7 +9,7 @@ import { Effect } from 'effect'
 import { HTTP_REQUEST_TIMEOUT_MS } from '@/domain/kernel/time/timeouts'
 import { appendQueryObject } from '@/domain/kernel/url/query-string'
 import { guardedFetch, guardedText } from '@/infrastructure/egress/guarded-fetch'
-import { connectionHeaderRefusal, resolveConnectionHeaders } from './auth-headers'
+import { connectionHeaderRefusal, resolveConnectionHeaders, withAuthQuery } from './auth-headers'
 import { blockedRequestFailure, httpStatusFailure, requestFailure } from './http-failure'
 import { actionAttributes, numberProp, serializeActionBody, stringProp } from './shared'
 import type { ActionHandler, ActionOutcome, BodySerializationError } from './shared'
@@ -87,7 +87,7 @@ export const handleHttpRequest: ActionHandler = (action, app, automation) =>
     // effect-promise: total -- `performHttpWithResponseOutput` returns an `ActionOutcome`; a blocked URL, a non-2xx and a thrown `fetch` are all caught inside and returned as `{ status: 'failure' }`.
     return yield* Effect.promise(() =>
       performHttpWithResponseOutput({
-        url,
+        url: withAuthQuery(url, merged),
         method,
         headers,
         body,
@@ -240,7 +240,7 @@ export const handleHttpGet: ActionHandler = (action, app, automation) =>
     // effect-promise: total -- `performHttpWithResponseOutput` returns an `ActionOutcome`; a blocked URL, a non-2xx and a thrown `fetch` are all caught inside and returned as `{ status: 'failure' }`.
     return yield* Effect.promise(() =>
       performHttpWithResponseOutput({
-        url,
+        url: withAuthQuery(url, merged),
         method: 'GET',
         headers: merged.headers,
         timeoutMs: timeoutMsOf(props),
@@ -414,7 +414,7 @@ const makeHttpBodyVerbHandler =
       // effect-promise: total -- `performHttpWithResponseOutput` returns an `ActionOutcome`; a blocked URL, a non-2xx and a thrown `fetch` are all caught inside and returned as `{ status: 'failure' }`.
       return yield* Effect.promise(() =>
         performHttpWithResponseOutput({
-          url,
+          url: withAuthQuery(url, merged),
           method,
           headers,
           body,
@@ -466,7 +466,7 @@ export const handleHttpDelete: ActionHandler = (action, app, automation) =>
     // effect-promise: total -- `performHttpWithResponseOutput` returns an `ActionOutcome`; a blocked URL, a non-2xx and a thrown `fetch` are all caught inside and returned as `{ status: 'failure' }`.
     return yield* Effect.promise(() =>
       performHttpWithResponseOutput({
-        url,
+        url: withAuthQuery(url, merged),
         method: 'DELETE',
         headers: merged.headers,
         body: bodyResult.success,

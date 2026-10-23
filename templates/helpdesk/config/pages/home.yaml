@@ -6,6 +6,7 @@ path: /
 meta:
   title: Contact support · Tallyline
   description: Tell us what went wrong. A person on the team reads every ticket and usually replies within one business day.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

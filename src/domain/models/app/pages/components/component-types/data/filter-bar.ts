@@ -333,4 +333,50 @@ export const filterBarFields = {
         'Whether the reader may add conditions (default: true). Off leaves the existing chips removable — a filter that can be seen and not lifted is a dead end.',
     })
   ),
+  /**
+   * An "Online / Offline" choice over the people a subscriber lists, read from
+   * app-wide presence (`auth.presence`).
+   *
+   * Choosing one adds `{ field: online, operator: eq, value: 'true' | 'false' }`
+   * to the expression the bar publishes, beside its other conditions; choosing
+   * neither lists everyone. Its subscriber is a people source — the user
+   * directory (`/api/users/directory`), whose rows carry the `online` fact —
+   * and it follows people as they connect and leave when that source polls.
+   *
+   * Presence is shown only to the roles `auth.presence.visibleTo` names, so for
+   * any other reader, and for an anonymous one, the choice is not drawn at all,
+   * and the directory answers a condition on `online` with no one rather than
+   * with the true set: the filter never reveals who is connected. With `online`,
+   * `fields` and `fieldsFrom` may both be left out.
+   */
+  online: Schema.optional(
+    Schema.Struct({
+      onlineLabel: Schema.optional(
+        Schema.String.pipe(
+          Schema.annotate({
+            description:
+              'Label of the choice listing connected people; accepts a $t: key (default: Online)',
+            examples: ['Online', '$t:people.online'],
+          }),
+          Schema.check(Schema.isMinLength(1))
+        )
+      ),
+      offlineLabel: Schema.optional(
+        Schema.String.pipe(
+          Schema.annotate({
+            description:
+              'Label of the choice listing people not connected; accepts a $t: key (default: Offline)',
+            examples: ['Offline', '$t:people.offline'],
+          }),
+          Schema.check(Schema.isMinLength(1))
+        )
+      ),
+    }).annotate({
+      identifier: 'FilterBarOnline',
+      title: 'Online Filter',
+      description:
+        'An Online / Offline choice over the people a subscriber lists, from app-wide presence (auth.presence). It publishes a condition on the online fact beside the bar’s other conditions. Drawn only for a reader whose role auth.presence.visibleTo names; for anyone else it is not drawn, and a condition on online matches no one. With online, fields and fieldsFrom may both be left out.',
+      examples: [{}, { onlineLabel: 'Connected', offlineLabel: 'Away' }],
+    })
+  ),
 } as const

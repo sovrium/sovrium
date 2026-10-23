@@ -196,8 +196,14 @@ function useHeldForDefaultView(ctx: SetupContext): boolean {
   return useAwaitingDefaultView({
     table: ctx.tableKey,
     hasSwitcher: ctx.params.hasViewSwitcher === true,
-    opensOnDefault: ctx.ui.view === undefined && configuredViewOf(ctx) === undefined,
+    opensOnDefault: opensOnDefault(ctx),
+    listedDefault: ctx.params.listedDefaultView,
   })
+}
+
+/** The reader picked no view and the grid is configured with none: it opens on the default. */
+function opensOnDefault(ctx: SetupContext): boolean {
+  return ctx.ui.view === undefined && configuredViewOf(ctx) === undefined
 }
 
 /** The view the grid is configured to read through (`dataSource.view` of a view-bound grid). */
@@ -230,7 +236,11 @@ function requestParams(
   const aggregateParam = buildSummaryAggregateParam(summaryConfig)
   const groupByParam = buildGroupByParam(groupBy)
   const labelsParam = buildLabelsParam(columnConfig)
-  const view = sessionViewOf(ctx.ui.view, configuredViewOf(ctx))
+  // A grid opening on the default view the server resolved reads through it at
+  // once, before the switcher has listed the views and selected it.
+  const view =
+    sessionViewOf(ctx.ui.view, configuredViewOf(ctx)) ??
+    (opensOnDefault(ctx) ? (ctx.params.listedDefaultView ?? undefined) : undefined)
   return {
     table: ctx.tableKey,
     ...(view !== undefined && { view }),

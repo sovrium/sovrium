@@ -8,6 +8,7 @@ path: /sign-in
 meta:
   title: Sign in · Halden Expenses
   description: Sign in to Halden Expenses.
+  favicon: ./favicon.svg
 components:
   - type: container
     element: div

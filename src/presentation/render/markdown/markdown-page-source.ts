@@ -10,6 +10,7 @@ import { isAbsolute, resolve } from 'node:path'
 import { splitFrontmatter } from '@/domain/kernel/markdown/markdown-renderer'
 import { matchesContentDirFilter } from '@/domain/models/app/pages/content-dir-filter'
 import { deriveContentDirSlugFromRouteParams } from '@/domain/models/app/pages/content-dir-slug'
+import { isMarkdownSourceFile } from '@/domain/models/app/pages/markdown-source-file-service'
 import { getContentBaseDir } from '@/presentation/render/resolve/content-base-dir'
 import type { Page } from '@/domain/models/app/pages'
 import type { ContentDir } from '@/domain/models/app/pages/content-dir'
@@ -87,13 +88,6 @@ const loadMarkdownSource = async (
   }
   return ''
 }
-
-/**
- * `.md`-extension predicate used by the page-level `source.file` shortcut so
- * non-markdown source files (e.g. `.html` for `htmlSrc` integrations) do not
- * spuriously trigger the markdown article wrapper.
- */
-const isMarkdownFile = (path: string): boolean => path.toLowerCase().endsWith('.md')
 
 /**
  * Predicate identifying a contentDir page that has opted into a frontmatter
@@ -212,7 +206,7 @@ export const loadContentDirSource = async (
  * integrations) do not spuriously trigger the markdown article wrapper.
  */
 export const derivePageSourceFile = (page: Page): string | undefined =>
-  typeof page.source?.file === 'string' && isMarkdownFile(page.source.file)
+  typeof page.source?.file === 'string' && isMarkdownSourceFile(page.source.file)
     ? page.source.file
     : undefined
 

@@ -52,6 +52,48 @@ export interface DrawnLayout {
   readonly width?: DrawnLayoutEntry | undefined
 }
 
+/** One paint value as drawn; `wrapped` when an element inside the node painted it. */
+export interface DrawnPaintEntry {
+  readonly value: string
+  readonly wrapped?: true | undefined
+}
+
+/** A node's paint: its background, its text colour and its text size, each as drawn. */
+export interface DrawnPaint {
+  readonly background?: DrawnPaintEntry | undefined
+  readonly color?: DrawnPaintEntry | undefined
+  readonly fontSize?: DrawnPaintEntry | undefined
+}
+
+/** One layout property a node set in more than one place, with different values. */
+export interface DrawnConflict {
+  readonly node: string
+  /** The property, as a dotted path from the node: `layout.gap`, `responsive.md.padding`. */
+  readonly property: string
+  /** The source kept: an inline `style` over the `class` list over the export's `data-kit-layout`. */
+  readonly kept: 'style' | 'class' | 'data-kit-layout'
+  readonly overridden: readonly ('style' | 'class' | 'data-kit-layout')[]
+  /** The value the kept source holds. */
+  readonly value: string
+}
+
+/**
+ * What a node DOES, as a canvas carries it: each rule as the config writes
+ * it, a JSON value as its text. Only a Claude Design canvas carries rules.
+ */
+export interface DrawnRules {
+  /** The text a binding fills, as the config writes it. */
+  readonly bind?: string | undefined
+  /** The node's `visibility`, as JSON. */
+  readonly visible?: string | undefined
+  /** The node's `dataSource`, as JSON. */
+  readonly source?: string | undefined
+  /** The form a form node embeds. */
+  readonly form?: string | undefined
+  /** On a button, the page its `navigate` action opens. */
+  readonly href?: string | undefined
+}
+
 /** One node of a drawing. */
 export interface DrawnNode {
   /** The path id the layer is tagged with; absent on a layer the designer added. */
@@ -71,6 +113,10 @@ export interface DrawnNode {
   readonly vars?: Readonly<Record<string, string>> | undefined
   /** A digest of what a locked node draws inside, only ever compared with an unedited one. */
   readonly inside?: string | undefined
+  /** The colours and text size the node was drawn with. */
+  readonly paint?: DrawnPaint | undefined
+  /** What the node does, as the drawing carries it. */
+  readonly rules?: DrawnRules | undefined
   readonly children: readonly DrawnNode[]
 }
 
@@ -91,6 +137,12 @@ export interface DrawnPage {
   /** The page title the drawing shows, when the tool draws one. */
   readonly title?: string | undefined
   /**
+   * What the drawing says of a page the config may not declare yet: the path
+   * it is at, and the declared page whose access it copies.
+   */
+  readonly declares?:
+    { readonly path?: string | undefined; readonly like?: string | undefined } | undefined
+  /**
    * Whether the drawing may show a SAMPLE value where the export drew a bound
    * value as its field name (`[name]`): a canvas a prototype was built on.
    * A sample in a placeholder's place is then no edit of the binding.
@@ -109,6 +161,7 @@ export interface DrawnPage {
     | {
         readonly notAKitComponent?: readonly DrawnReport[] | undefined
         readonly unread?: readonly DrawnReport[] | undefined
+        readonly conflicts?: readonly DrawnConflict[] | undefined
       }
     | undefined
 }
@@ -167,6 +220,10 @@ export interface PageDrawingReading {
   readonly variables?: Readonly<Record<string, Readonly<Record<string, string>>>> | undefined
   /** What each locked node draws inside, serialised, by node id. */
   readonly drawings?: Readonly<Record<string, string>> | undefined
+  /** The colours and text size each node was drawn with, by node id. */
+  readonly paints?: Readonly<Record<string, DrawnPaint>> | undefined
+  /** What each node does, as the drawing carries it, by node id. */
+  readonly rules?: Readonly<Record<string, DrawnRules>> | undefined
   /** The lengths drawn off the scale, which the tree leaves out. */
   readonly offScale?:
     | readonly { readonly node: string; readonly property: string; readonly value: string }[]
@@ -181,6 +238,8 @@ export interface PageDrawingReading {
     | undefined
   /** The page title the drawing shows, when the tool draws one. */
   readonly title?: string | undefined
+  /** What the drawing says of a page the config may not declare (see {@link DrawnPage}). */
+  readonly declares?: DrawnPage['declares']
   /** The drawing it was read from (see {@link DrawnPage}). */
   readonly drawing?: string | undefined
   /** Whether a sample may stand in a placeholder's place (see {@link DrawnPage}). */
@@ -266,6 +325,8 @@ const drawnNodeOf = (reading: PageDrawingReading, node: PageDesignTreeNode): Dra
     content: node.content,
     vars: reading.variables?.[node.id],
     inside: reading.drawings?.[node.id],
+    paint: reading.paints?.[node.id],
+    rules: reading.rules?.[node.id],
     children: withStrays(
       reading,
       node.id,
@@ -285,6 +346,7 @@ export const drawnPageOfReading = (reading: PageDrawingReading): DrawnPage => ({
   ...(reading.drawing === undefined ? {} : { drawing: reading.drawing }),
   ...(reading.samplesDrawn === undefined ? {} : { samplesDrawn: reading.samplesDrawn }),
   ...(reading.title === undefined ? {} : { title: reading.title }),
+  ...(reading.declares === undefined ? {} : { declares: reading.declares }),
   nodes: withStrays(
     reading,
     undefined,

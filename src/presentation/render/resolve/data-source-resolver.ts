@@ -367,6 +367,7 @@ export async function resolvePageDataSources(
     cookies: ctx.cookies,
     db: ctx.db,
     scopeTables: scopeTablesOf(app),
+    routeParams,
   })
   if (components === UNAUTHORIZED) return { unauthorized: true }
   const componentCtx = {

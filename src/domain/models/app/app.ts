@@ -40,12 +40,15 @@ import { validateAllEnvReferences } from './env-reference-validation'
 import { FormsSchema } from './forms'
 import { validateAllFormsReferences } from './forms/forms-validation'
 import { validateAllShareRules } from './forms/share-validation'
+import { InstallSchema } from './install'
 import { LanguagesSchema } from './languages'
 import { LinksSchema } from './links'
 import { validateAllLinkRules } from './links/links-validation'
 import { validateAllQrCodePayloads } from './links/qr-code-validation'
 import { LlmsSchema } from './llms'
 import { NameSchema } from './name'
+import { NotificationsSchema } from './notifications'
+import { validateNotificationKinds } from './notifications/notifications-validation'
 import { PagesSchema } from './pages'
 import { validateAllComboboxChips } from './pages/combobox-chips-validation'
 import { validateAllPageAccessGroups } from './pages/page-access-validation'
@@ -58,6 +61,7 @@ import { RedirectsSchema } from './redirects'
 import { validateAllRedirectRules } from './redirects/redirects-validation'
 import { SystemSourceCatalogSchema } from './system-sources'
 import { TablesSchema } from './tables'
+import { validateReadStateCountNames } from './tables/read-state-validation'
 import { validateRowRuleGrantRoles } from './tables/row-rule-grant-role-validation'
 import { isResolvableColumnName } from './tables/system-fields'
 import { validateAllTablePermissionGroups } from './tables/table-permission-groups-validation'
@@ -263,7 +267,8 @@ const validateDeclaredReferences = (
   app: Parameters<typeof validateAllTablePermissionGroups>[0] &
     Parameters<typeof validateAllAuthActionReferences>[0] &
     Parameters<typeof validateAllEnvReferences>[0] &
-    Parameters<typeof validateAllCalendarImports>[0]
+    Parameters<typeof validateAllCalendarImports>[0] &
+    Parameters<typeof validateNotificationKinds>[0]
 ): true | string => {
   const permissionGroupError = validateAllTablePermissionGroups(app)
   if (permissionGroupError !== true) return permissionGroupError
@@ -272,7 +277,8 @@ const validateDeclaredReferences = (
   // The table a `calendar/importIcs` step writes into, and the fields it maps.
   const calendarImportError = validateAllCalendarImports(app)
   if (calendarImportError !== true) return calendarImportError
-  return validateAllEnvReferences(app)
+  const socialError = [validateNotificationKinds(app), validateReadStateCountNames(app)]
+  return socialError.find((verdict) => verdict !== true) ?? validateAllEnvReferences(app)
 }
 
 export const AppSchema = Schema.Struct({
@@ -459,6 +465,9 @@ export const AppSchema = Schema.Struct({
    */
   automations: Schema.optional(AutomationsSchema),
 
+  /** In-app notifications (optional): the kinds the app sends, their channels and retention. */
+  notifications: Schema.optional(NotificationsSchema),
+
   /**
    * AI agent configurations (optional).
    *
@@ -495,14 +504,13 @@ export const AppSchema = Schema.Struct({
   buckets: Schema.optional(BucketsSchema),
 
   /**
-   * LLMs.txt configuration (optional).
-   *
-   * Controls the auto-generated `/llms.txt` and `/llms-full.txt` routes
-   * (llmstxt.org). When omitted, the routes are auto-derived from any
-   * content-directory pages. Use `enabled: false` to disable, or
-   * `title`/`description` to override the generated heading and blockquote.
+   * LLMs.txt (optional): the generated `/llms.txt` and `/llms-full.txt` routes (llmstxt.org),
+   * derived from content-directory pages when omitted; `enabled: false` turns them off.
    */
   llms: Schema.optional(LlmsSchema),
+
+  /** Installable app (optional): a generated web app manifest and, opt-in, an offline shell. */
+  install: Schema.optional(InstallSchema),
 
   /**
    * Command-palette configuration (optional).
@@ -1055,20 +1063,13 @@ export const AppSchema = Schema.Struct({
       // for the deep-instantiation reason documented above.
       const selectError = validateSelectDeclarations(app)
       if (selectError !== true) return selectError
-      // Design cross-validation: every `design.colorRoles` key names
-      // a declared colour token or declares its own value, every ramp reference
-      // resolves, and every `design.density.byZone` key names a declared zone.
-      // Bundled here rather than added as three new
-      // `Schema.check` calls for the deep-instantiation reason documented
-      // above — three more links in this chain is the fastest way to collapse
-      // `App` to `never`, which fails silently at every consumer.
+      // Design cross-validation: every `design.colorRoles` key names a declared colour token or
+      // declares its own value, every ramp reference resolves, every `density.byZone` key names
+      // a zone. Bundled here for the deep-instantiation reason documented above.
       const designError = validateAllDesignReferences(app)
       if (designError !== true) return designError
-      // QR payload cross-validation: a
-      // `qr-code` component encodes exactly one of `link` or `value`. Neither
-      // half can be stated at the field level, and the per-branch struct has no
-      // refinement hook. Bundled here (not a new `Schema.filter`) for the
-      // deep-instantiation reason documented above.
+      // QR payload cross-validation: a `qr-code` component encodes exactly one of `link` or
+      // `value`, which no field-level rule can state. Bundled here for the reason above.
       const qrCodeError = validateAllQrCodePayloads(app)
       if (qrCodeError !== true) return qrCodeError
       // Design-console cross-validation: a plotted easing token must name a
@@ -1085,8 +1086,7 @@ export const AppSchema = Schema.Struct({
       // at its complexity budget.
       const componentError = validateComponentPlacements(app)
       if (componentError !== true) return componentError
-      // Declarations: table permission groups, and every `$env` reference
-      // anywhere in the configuration naming a variable the app declares. One
+      // Declarations (permission groups, `$env`, notification kinds, read-state counts): one
       // branch, for the complexity budget — see `validateDeclaredReferences`.
       return validateDeclaredReferences(app)
     })

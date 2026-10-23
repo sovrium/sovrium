@@ -28,10 +28,10 @@ import { ChevronDownGlyph } from '@/presentation/design/control-glyphs'
 import { computeInputGroupIconButtonClasses } from '@/presentation/design/input-group-default-classes'
 import { computeInputGroupFieldClasses } from '@/presentation/design/input-group-field-classes'
 import { computeInputGroupClasses } from '@/presentation/design/input-group-root-classes'
+import { useFieldLineIds } from '../parts/crud-form/field-id-scope'
 import { RequiredMark } from '../parts/crud-form/field-label'
 import { PickerControl } from '../parts/crud-form/record-picker-chrome'
 import { useRecordPicker } from '../parts/crud-form/use-record-picker'
-import { refusalIdOf } from './record-drawer-field'
 import { RefusalLine } from './record-drawer-refusal-line'
 import type { FieldDef } from '../parts/crud-form/field-def'
 
@@ -115,6 +115,7 @@ function LinkPickerGroup({
   readonly picker: ReturnType<typeof useRecordPicker>
   readonly error: string | undefined
 }): ReactElement {
+  const { refusal } = useFieldLineIds(field.name)
   return (
     <span
       data-slot="input-group"
@@ -128,7 +129,7 @@ function LinkPickerGroup({
           allowMultiple={false}
           componentType="record-picker"
           controlClassName={PICKER_CLASS}
-          {...(error === undefined ? {} : { invalid: true, errorId: refusalIdOf(field.name) })}
+          {...(error === undefined ? {} : { invalid: true, errorId: refusal })}
         />
       </span>
       <span

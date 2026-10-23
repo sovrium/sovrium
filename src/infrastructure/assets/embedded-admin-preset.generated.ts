@@ -383,6 +383,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         {
           children: [
             {
+              clientSideNavigation: false,
               collapsible: 'icon',
               drawer: {
                 below: 'md',

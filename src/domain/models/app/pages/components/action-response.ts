@@ -8,6 +8,11 @@
 import { Schema } from 'effect'
 import { formAddressCheck } from '../../forms/form-address-validation'
 import { SuccessPageActionSchema } from '../../forms/on-success'
+import {
+  AllowOriginsSchema,
+  allowOriginsNavigateConflict,
+  successNavigateCheck,
+} from './action-allow-origins'
 
 /**
  * Toast notification variant
@@ -133,10 +138,16 @@ const actionResponseFields = {
   navigate: Schema.optional(
     Schema.String.annotate({
       description:
-        'URL path to navigate to. Supports $variable references. A path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`): an answered action moves the reader within the app, so on a page an `http://` or `https://` address is refused — use a link to send the reader to another site. Any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — is refused when the config is read.',
-      examples: ['/dashboard', '/posts/$record.slug'],
-    }).pipe(Schema.check(formAddressCheck))
+        'URL path to navigate to. Supports $variable references. A path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`): an answered action moves the reader within the app, so on a page an `http://` or `https://` address is refused — use a link to send the reader to another site. Any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — is refused when the config is read. A lone `$response.<path>` reads the address the run returned and is checked when it is followed: an address on this site, or one on an origin `allowOrigins` lists.',
+      examples: ['/dashboard', '/posts/$record.slug', '$response.output.url'],
+    }).pipe(Schema.check(successNavigateCheck))
   ),
+  /**
+   * The other sites this action may send the reader to, when `navigate` is a
+   * lone `$response.<path>` reference to the address its run returned. See
+   * `action-allow-origins.ts`.
+   */
+  allowOrigins: Schema.optional(AllowOriginsSchema),
   /**
    * Field names whose values are retained after a `type: reset` response.
    * All other fields are cleared to their default values. Only meaningful
@@ -231,10 +242,14 @@ const actionResponseFields = {
 const refuseCloseBesideSuccessPage = (response: {
   readonly close?: boolean | undefined
   readonly type?: string | undefined
+  readonly navigate?: string | undefined
+  readonly allowOrigins?: ReadonlyArray<string> | undefined
 }): string | true =>
-  response.close === true && response.type === 'successPage'
-    ? "onSuccess declares both 'close: true' and type 'successPage' — the success page is drawn where the form was, so closing its dialog would hide it before anyone read it. Keep one: type 'successPage' to show the page in the dialog, or 'close' with a toast to close it and confirm on the page below."
-    : true
+  allowOriginsNavigateConflict(response) !== true
+    ? allowOriginsNavigateConflict(response)
+    : response.close === true && response.type === 'successPage'
+      ? "onSuccess declares both 'close: true' and type 'successPage' — the success page is drawn where the form was, so closing its dialog would hide it before anyone read it. Keep one: type 'successPage' to show the page in the dialog, or 'close' with a toast to close it and confirm on the page below."
+      : true
 
 export const ActionResponseSchema = Schema.Struct(actionResponseFields).pipe(
   Schema.annotate({

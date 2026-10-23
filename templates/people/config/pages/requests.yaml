@@ -9,6 +9,7 @@ access:
 meta:
   title: Requests · Meridian People
   description: Every time-off request, the ones waiting on a decision first.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

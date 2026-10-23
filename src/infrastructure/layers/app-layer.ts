@@ -10,6 +10,7 @@ import {
   DesignKitAssetsLive,
   makeDesignKitAssetsLive,
 } from '@/infrastructure/assets/design-kit-assets-live'
+import { PageMeasureLive } from '@/infrastructure/browser/page-measure-live'
 import { CSSCompilerLive } from '@/infrastructure/css/css-compiler-live'
 import { DevToolsLayerOptional } from '@/infrastructure/devtools'
 import {
@@ -72,9 +73,10 @@ export const createStaticBuildLayer = Layer.mergeAll(
 
 /**
  * The static-build layer for the design-system bundle: the same services, with
- * the bundle's files able to read the app's public directory (its logo).
+ * the bundle's files able to read the app's public directory (its logo), and
+ * the page measure the pages export sizes its canvas boards with.
  *
  * @param publicDir - the directory the app's public files sit in, if any.
  */
 export const createDesignBundleLayer = (publicDir: string | undefined) =>
-  Layer.merge(createStaticBuildLayer, makeDesignKitAssetsLive(publicDir))
+  Layer.mergeAll(createStaticBuildLayer, makeDesignKitAssetsLive(publicDir), PageMeasureLive)

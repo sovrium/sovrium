@@ -8,6 +8,7 @@ access:
 meta:
   title: Leads · Kerlo Automations
   description: The leads the recipes captured, newest first.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

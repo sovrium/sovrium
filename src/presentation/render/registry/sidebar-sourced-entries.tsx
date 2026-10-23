@@ -74,6 +74,8 @@ export function renderSourcedEntries(
         labelKey: source.labelKey,
         hrefTemplate: source.hrefTemplate,
         ...(source.itemProps === undefined ? {} : { itemProps: source.itemProps }),
+        ...(source.icon === undefined ? {} : { icon: source.icon }),
+        ...(source.badge === undefined ? {} : { badge: source.badge }),
         ...(source.query === undefined ? {} : { query: source.query }),
         ...(source.activeMatch === undefined ? {} : { activeMatch: source.activeMatch }),
         ...(source.childrenSource === undefined

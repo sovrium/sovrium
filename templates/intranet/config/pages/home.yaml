@@ -7,6 +7,7 @@ path: /
 meta:
   title: Halden · for everyone who works here
   description: The company's news, people and tools in one place. Sign in with your work email.
+  favicon: ./favicon.svg
 components:
   - $ref: ./_site-header.yaml
   - type: container

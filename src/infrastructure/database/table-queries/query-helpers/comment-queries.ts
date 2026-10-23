@@ -29,6 +29,15 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 const recordComments = resolveDialectSchema(recordCommentsPg, recordCommentsSqlite)
 
+/** The account whose own pending comments a list shows, when it shows them; never a guest. */
+const viewerOf = (config: {
+  readonly session: Readonly<Session>
+  readonly ownPending?: boolean
+}): string | undefined =>
+  config.ownPending !== true || isGuestSession(config.session.userId)
+    ? undefined
+    : config.session.userId
+
 /**
  * Build the insert values for a new comment row.
  *
@@ -208,60 +217,23 @@ export function deleteComment(config: {
 }
 
 /**
- * Get comment by ID for authorization check
- */
-export function getCommentForAuth(config: {
-  readonly session: Readonly<Session>
-  readonly commentId: string
-}): Effect.Effect<
-  | {
-      readonly id: string
-      readonly userId: string | null
-      readonly recordId: string
-      readonly tableId: string
-    }
-  | undefined,
-  DatabaseError
-> {
-  const { commentId } = config
-  return Effect.gen(function* () {
-    const result = yield* Effect.tryPromise({
-      try: () =>
-        db
-          .select({
-            id: recordComments.id,
-            userId: recordComments.userId,
-            recordId: recordComments.recordId,
-            tableId: recordComments.tableId,
-          })
-          .from(recordComments)
-          .where(activeCommentById(commentId))
-          .limit(1),
-      catch: (error) => new DatabaseError('Failed to get comment', error),
-    })
-
-    if (result.length === 0 || !result[0]) {
-      return undefined
-    }
-
-    return result[0]
-  })
-}
-
-/**
  * Build base comments query with user join.
  *
  * `includeAllStatuses` controls moderation visibility
  * non-admin viewers see approved-only,
  * admins see every status. See {@link visibleCommentsByRecordId}.
  */
-function buildCommentsQuery(tableKeys: readonly string[], recordId: string, allStatuses: boolean) {
+function buildCommentsQuery(
+  tableKeys: readonly string[],
+  recordId: string,
+  visibility: { readonly all: boolean; readonly viewerId?: string }
+) {
   const users = authUsersTable()
   return db
     .select(buildCommentSelectFields())
     .from(recordComments)
     .leftJoin(users, eq(recordComments.userId, users.id))
-    .where(visibleCommentsByRecordId(tableKeys, recordId, allStatuses))
+    .where(visibleCommentsByRecordId(tableKeys, recordId, visibility.all, visibility.viewerId))
 }
 
 /**
@@ -275,9 +247,13 @@ function executeListCommentsQuery(
     readonly offset?: number
     readonly sortOrder?: 'asc' | 'desc'
     readonly includeAllStatuses?: boolean
+    readonly viewerId?: string
   }
 ) {
-  const query = buildCommentsQuery(tableKeys, recordId, options?.includeAllStatuses ?? false)
+  const query = buildCommentsQuery(tableKeys, recordId, {
+    all: options?.includeAllStatuses ?? false,
+    viewerId: options?.viewerId,
+  })
 
   // Apply sorting (default: DESC for newest first)
   const sortedQuery =
@@ -314,6 +290,7 @@ export function listComments(config: {
    * comments are returned. Fail-closed by default.
    */
   readonly includeAllStatuses?: boolean
+  readonly ownPending?: boolean
 }): Effect.Effect<
   readonly {
     readonly id: string
@@ -340,6 +317,7 @@ export function listComments(config: {
           offset,
           sortOrder,
           includeAllStatuses,
+          viewerId: viewerOf(config),
         }),
       catch: (error) => new DatabaseError('Failed to list comments', error),
     })
@@ -369,6 +347,7 @@ export function getCommentsCount(config: {
    * admins (`true`) count every status. Fail-closed by default.
    */
   readonly includeAllStatuses?: boolean
+  readonly ownPending?: boolean
 }): Effect.Effect<number, DatabaseError> {
   const { tableKeys, recordId, includeAllStatuses } = config
   return Effect.gen(function* () {
@@ -377,7 +356,14 @@ export function getCommentsCount(config: {
         db
           .select({ count: castToInt(sql`COUNT(*)`) })
           .from(recordComments)
-          .where(visibleCommentsByRecordId(tableKeys, recordId, includeAllStatuses ?? false)),
+          .where(
+            visibleCommentsByRecordId(
+              tableKeys,
+              recordId,
+              includeAllStatuses ?? false,
+              viewerOf(config)
+            )
+          ),
       catch: (error) => new DatabaseError('Failed to count comments', error),
     })
 

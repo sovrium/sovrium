@@ -10,6 +10,7 @@ access:
 meta:
   title: Queue · Tallyline Support
   description: Every open ticket by status, with who asked, its priority and who holds it.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

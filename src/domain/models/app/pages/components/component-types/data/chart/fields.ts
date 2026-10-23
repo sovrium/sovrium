@@ -6,6 +6,8 @@
  */
 
 import { Schema } from 'effect'
+import { FieldConditionSchema } from '@/domain/models/app/tables/condition-operators'
+import { ToneSchema } from '../../../shared-schemas'
 import { coreFields } from '../../modules/core'
 import { dataBoundFields } from '../../modules/data-bound'
 import { i18nFields } from '../../modules/i18n'
@@ -43,6 +45,37 @@ export const ChartTypeSchema = Schema.Literals([
 /** @public */
 export type ChartType = Schema.Schema.Type<typeof ChartTypeSchema>
 
+/**
+ * How much of a chart is drawn around its marks.
+ *
+ * `full` is every chart as it has always been drawn: axes, ticks, grid lines
+ * when asked for, a legend when declared. `strip` draws the marks alone — a
+ * row of hourly bars or a line of uptime checks beside a KPI — and keeps what
+ * a reader still needs from them: the tooltip on hover, and an accessible
+ * name on the frame built from the chart's label and its figure.
+ */
+const ChartVariantSchema = Schema.Literals(['full', 'strip']).annotate({
+  title: 'Chart Variant',
+  description:
+    "How much is drawn around the marks. 'full' (default) draws the axes, their tick labels, the grid lines asked for and the legend. 'strip' draws the marks alone, with no axis, tick label, grid line or legend: the tooltip still answers a hover, the bars keep a fixed gap so 24 or 30 of them read as cells, and the frame is named by the chart's label and its total.",
+})
+
+/**
+ * One colour rule for the bars of a bar chart: the bars whose record matches
+ * `when` are painted in `tone`. The same vocabulary a grid's `cellStyle` and an
+ * action's `visibleWhen` use — a field and its operators, a semantic tone — so
+ * a check strip reads failed checks in the error colour without a new grammar.
+ * The first matching rule wins; a bar no rule matches keeps the series colour.
+ */
+const ChartBarColorRuleSchema = Schema.Struct({
+  when: FieldConditionSchema,
+  tone: ToneSchema,
+}).annotate({
+  title: 'Bar Colour Rule',
+  description:
+    "Paints the bars whose record matches `when` (a field and its operators, as in a grid's visibleWhen) in `tone`: success, warning, error or muted. The first matching rule wins; a bar no rule matches keeps the series colour.",
+})
+
 // ---------------------------------------------------------------------------
 // Component type definition
 // ---------------------------------------------------------------------------
@@ -72,6 +105,35 @@ export const chartFields = {
   legend: Schema.optional(ChartLegendSchema),
   tooltip: Schema.optional(ChartTooltipSchema),
   chartAggregate: Schema.optional(ChartAggregateSchema),
+  /**
+   * A fixed plot height in pixels. Omitted, the height follows the width, as
+   * it always has; set, the plot is that tall at every width and the width
+   * stays fluid — a 32 px row of bars beside a KPI.
+   */
+  height: Schema.optional(
+    Schema.Int.pipe(
+      Schema.annotate({
+        description:
+          'Plot height in pixels, the same at every width; the width stays fluid. Omitted, the engine derives the height from the width, keeping the plot wider than it is tall.',
+        examples: [32, 240],
+      }),
+      Schema.check(Schema.isGreaterThanOrEqualTo(8), Schema.isLessThanOrEqualTo(1200))
+    )
+  ),
+  chartVariant: Schema.optional(ChartVariantSchema),
+  /**
+   * Per-bar colours on a bar chart drawn from records: a check strip paints
+   * its failed checks in the error tone. See {@link ChartBarColorRuleSchema}.
+   */
+  barColor: Schema.optional(
+    Schema.Array(ChartBarColorRuleSchema).pipe(
+      Schema.annotate({
+        description:
+          'Colour rules for the bars of a bar chart, matched against the record each bar draws, first match wins: [{ when: { field: ok, eq: false }, tone: error }].',
+      }),
+      Schema.check(Schema.isMinLength(1))
+    )
+  ),
   /**
    * Whether a pie or donut writes each slice's label on the ring. Turn it off
    * when a legend beside the chart already names every slice, or when a small

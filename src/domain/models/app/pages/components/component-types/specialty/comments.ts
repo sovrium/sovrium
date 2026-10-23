@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { RefreshModeSchema } from '../../data-source'
 import { coreFields } from '../modules/core'
 import { i18nFields } from '../modules/i18n'
 import { visibilityFields } from '../modules/visibility'
@@ -106,6 +107,24 @@ export const commentsFields = {
    * them before knowing they were the same thing.
    */
   display: Schema.optional(CommentsDisplaySchema),
+  /**
+   * Whether an open thread follows its record live.
+   *
+   * The values a `dataSource` takes, with the same meaning: `realtime` follows
+   * the record's comment feed over the realtime connection, `poll` re-reads
+   * every 30 seconds, `none` (the default) reads once. On an event the thread
+   * RE-READS the list rather than drawing the event's payload, so what is
+   * drawn is always what the list answers this reader: a comment pending
+   * moderation reaches moderators and its author only, and a reader who may
+   * not read the record receives nothing.
+   */
+  refreshMode: Schema.optional(
+    RefreshModeSchema.annotate({
+      defaultNote: 'none',
+      description:
+        "How an open thread follows its record: 'none' (default) reads it once, 'poll' re-reads it every 30 seconds, 'realtime' re-reads it whenever a comment on the record is posted, edited, deleted or moderated, over the app's realtime connection. Each re-read applies the same rules as the first, so a comment pending moderation appears only to moderators and its author.",
+    })
+  ),
   /**
    * Count format, with an optional `{count}` placeholder. Default
    * `"{count} comments"`.

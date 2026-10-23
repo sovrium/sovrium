@@ -11,7 +11,10 @@
  * caller, and the tables and fields it may not read are never named.
  */
 
-import { hasReadPermission } from '@/domain/models/app/auth/permission-evaluator-service'
+import {
+  hasCreatePermission,
+  hasReadPermission,
+} from '@/domain/models/app/auth/permission-evaluator-service'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { resolveAppVarValues } from '@/domain/models/app/pages/app-vars'
 import { checkPageAccess } from '@/domain/models/app/pages/page-access-check'
@@ -123,6 +126,15 @@ export const buildCommandPaletteComponent = (
   const unreadableFields = unreadableTableFields(app, session)
   // A table this caller may not read is not named at all, nor its fields.
   const hiddenTables = unreadableTables(app, session)
+  // "Create new record in" is offered only where this caller may create: in an
+  // app with no `auth` block every table, as the records API admits anyone.
+  const uncreatable = (app.auth === undefined ? [] : (app.tables ?? []))
+    .filter(
+      (table) =>
+        session === undefined ||
+        !hasCreatePermission(table, session.role, app, session.groups ?? [])
+    )
+    .map((table) => table.name)
   return {
     type: 'command',
     props: {
@@ -131,6 +143,7 @@ export const buildCommandPaletteComponent = (
         ? {}
         : { _unreadableFields: unreadableFields }),
       ...(hiddenTables.length === 0 ? {} : { _unreadableTables: hiddenTables }),
+      ...(uncreatable.length === 0 ? {} : { _uncreatableTables: uncreatable }),
     },
   } as Component
 }

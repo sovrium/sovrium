@@ -6,6 +6,7 @@ access:
 meta:
   title: 'Sidebar shell · App starter'
   description: 'An application frame with a side menu.'
+  favicon: ./favicon.svg
 components:
   - $ref: ./_nav.yaml
   - component: shell-sidebar

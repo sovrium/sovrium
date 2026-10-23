@@ -14,6 +14,7 @@ import type { EditingCell, FieldMetaMap, SaveStatus } from '../../hooks/use-inli
 import type { DetectedConflict } from '../../hooks/use-realtime-reconciliation'
 import type { RealtimeConnectionState } from '../../hooks/use-realtime-subscription'
 import type { CellCommit, DataTableRowClickAction, InlineAutoSave } from '../data-row-types'
+import type { InlineExpandConfig } from '../inline-expand/inline-expand-context'
 import type { SummaryAggregations } from '../summary-aggregate'
 import type { SessionControlsProps } from '../view-options/session-controls'
 import type {
@@ -91,6 +92,10 @@ export interface DataTableViewProps {
   readonly rowColorField?: string
   readonly rowColorFieldColors?: Readonly<Record<string, string>>
   readonly currentRowHeight: string
+  /** The grid declares its `rowHeight`: the height is the author's, so no Row height control. */
+  readonly rowHeightDeclared?: boolean
+  /** The record each row opens under itself (`rowExpand.placement: inline`). */
+  readonly inlineExpand?: InlineExpandConfig | undefined
   /**
    * How the grid occupies its parent. `fill` turns the view's own container
    * into a column that grows into the height its bounded ancestor left it;

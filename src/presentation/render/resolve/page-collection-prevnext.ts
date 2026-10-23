@@ -46,6 +46,40 @@ import type { DataSourceDb } from '@/presentation/render/resolve/data-source-con
 export interface CollectionAdjacency {
   readonly previous: Readonly<Record<string, unknown>> | undefined
   readonly next: Readonly<Record<string, unknown>> | undefined
+  /** With `collection.resume`: the first record of the scope the reader has no row for. */
+  readonly resume?: Readonly<Record<string, unknown>> | undefined
+}
+
+/** The three `$collection.<side>` records a page may name. */
+type CollectionSide = 'previous' | 'next' | 'resume'
+
+/**
+ * How the reader's own rows of a `collection.resume` table are read, supplied
+ * by the caller holding the session: the item each points at, to its row.
+ */
+export type CollectionViewerRowsReader = (
+  lookup: NonNullable<NonNullable<Page['collection']>['resume']>
+) => Promise<ReadonlyMap<string, unknown>>
+
+/** The records sharing the current record's `scope` value — every record without one. */
+const withinScope = (
+  records: readonly Readonly<Record<string, unknown>>[],
+  scope: string | undefined,
+  current: Readonly<Record<string, unknown>>
+): readonly Readonly<Record<string, unknown>>[] =>
+  scope === undefined
+    ? records
+    : records.filter((record) => String(record[scope] ?? '') === String(current[scope] ?? ''))
+
+/** The first record, in order, the reader has no row of `resume.table` for. */
+async function firstWithoutRow(
+  collection: NonNullable<Page['collection']>,
+  records: readonly Readonly<Record<string, unknown>>[],
+  readViewerRows: CollectionViewerRowsReader | undefined
+): Promise<Readonly<Record<string, unknown>> | undefined> {
+  if (collection.resume === undefined || readViewerRows === undefined) return undefined
+  const own = await readViewerRows(collection.resume)
+  return records.find((record) => !own.has(String(record['id'])))
 }
 
 /**
@@ -84,21 +118,29 @@ export async function fetchCollectionAdjacency(
   collection: NonNullable<Page['collection']>,
   resolvedRecord: Readonly<Record<string, unknown>>,
   db: DataSourceDb,
-  readRows: CollectionRowsReader = (query) => db.fetchRecords(collection.table, query)
+  readers: {
+    readonly readRows?: CollectionRowsReader | undefined
+    readonly readViewerRows?: CollectionViewerRowsReader | undefined
+  } = {}
 ): Promise<CollectionAdjacency> {
-  const records = await readRows({
+  const readRows = readers.readRows ?? ((query) => db.fetchRecords(collection.table, query))
+  const read = await readRows({
     filter: collection.filter as readonly DataFilter[] | undefined,
     sort: [{ field: 'id', direction: 'asc' }],
     liveOnly: true,
   })
+  // `scope` keeps the neighbours (and the resume) among the records sharing
+  // the current record's value — a lesson's course.
+  const records = withinScope(read, collection.scope, resolvedRecord)
+  const resume = await firstWithoutRow(collection, records, readers.readViewerRows)
 
   // The `id` is a system column no field grant strips, where the slug may be
   // a field the visitor may not read.
   const key = resolvedRecord['id'] !== undefined ? 'id' : collection.slugField
   const index = records.findIndex((r) => r[key] === resolvedRecord[key])
-  if (index < 0) return { previous: undefined, next: undefined }
+  if (index < 0) return { previous: undefined, next: undefined, resume }
 
-  return { previous: records[index - 1], next: records[index + 1] }
+  return { previous: records[index - 1], next: records[index + 1], resume }
 }
 
 /**
@@ -111,9 +153,9 @@ export async function fetchCollectionAdjacency(
  */
 export function substituteCollectionVars(text: string, adjacency: CollectionAdjacency): string {
   return text.replace(
-    /\$collection\.(previous|next)\.([a-zA-Z0-9_]+)/g,
-    (_, side: 'previous' | 'next', fieldName: string) => {
-      const record = side === 'previous' ? adjacency.previous : adjacency.next
+    /\$collection\.(previous|next|resume)\.([a-zA-Z0-9_]+)/g,
+    (_, side: CollectionSide, fieldName: string) => {
+      const record = adjacency[side]
       if (record === undefined) return ''
       const value = record[fieldName]
       return value !== undefined ? String(value) : ''
@@ -127,9 +169,9 @@ export function substituteCollectionVars(text: string, adjacency: CollectionAdja
  * the caller can decide whether the component must be dropped because
  * the corresponding record is null.
  */
-function detectCollectionSides(text: string): ReadonlySet<'previous' | 'next'> {
-  const matches = [...text.matchAll(/\$collection\.(previous|next)\./g)]
-  return new Set(matches.map((m) => m[1] as 'previous' | 'next'))
+function detectCollectionSides(text: string): ReadonlySet<CollectionSide> {
+  const matches = [...text.matchAll(/\$collection\.(previous|next|resume)\./g)]
+  return new Set(matches.map((m) => m[1] as CollectionSide))
 }
 
 /**
@@ -137,7 +179,7 @@ function detectCollectionSides(text: string): ReadonlySet<'previous' | 'next'> {
  * `$collection.<side>.<field>` reference. Used to decide whether the
  * component should be filtered out (when the referenced side is null).
  */
-function gatherCollectionSides(component: Component): ReadonlySet<'previous' | 'next'> {
+function gatherCollectionSides(component: Component): ReadonlySet<CollectionSide> {
   const contentSides =
     typeof component.content === 'string' ? [...detectCollectionSides(component.content)] : []
   const propSides = component.props
@@ -154,10 +196,7 @@ function gatherCollectionSides(component: Component): ReadonlySet<'previous' | '
  * rendered.
  */
 function componentRefsNullSide(component: Component, adjacency: CollectionAdjacency): boolean {
-  const sides = gatherCollectionSides(component)
-  if (sides.has('previous') && adjacency.previous === undefined) return true
-  if (sides.has('next') && adjacency.next === undefined) return true
-  return false
+  return [...gatherCollectionSides(component)].some((side) => adjacency[side] === undefined)
 }
 
 function substituteCollectionInProps(

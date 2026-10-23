@@ -9,6 +9,35 @@ import { Schema } from 'effect'
 import { DimensionValueSchema, ladderRecord } from './token-value-schemas'
 
 /**
+ * Step names a spacing ladder may not use, because the utility a step name
+ * produces would collide with a display utility that already exists.
+ *
+ * A step's name becomes the suffix of every spacing utility, the logical sizes
+ * among them. A step named after a display keyword therefore spells, as a
+ * size utility, a class that already means something else — the inline-size
+ * utility of a step named for the block display IS the inline-block display
+ * class, so every inline-block element on the site would take that width. The
+ * names are refused at the decode boundary, naming the step, rather than left
+ * to change an unrelated utility silently.
+ */
+const RESERVED_SPACING_STEP_NAMES: ReadonlySet<string> = new Set([
+  'block',
+  'inline',
+  'flex',
+  'grid',
+  'table',
+  'hidden',
+  'contents',
+])
+
+/** The refusal for a reserved step name, or `true` when the ladder has none. */
+const refuseReservedStepNames = (entries: Readonly<Record<string, unknown>>): string | true => {
+  const offender = Object.keys(entries).find((name) => RESERVED_SPACING_STEP_NAMES.has(name))
+  if (offender === undefined) return true
+  return `\`design.spacing\` declares the step '${offender}', a reserved name: a step's name becomes the suffix of every spacing utility, and '${offender}' would turn a display utility (such as \`inline-${offender}\`) into a size. Rename the step — any other name works.`
+}
+
+/**
  * The SPACE foundation: one ordered ladder of lengths.
  *
  * `design.spacing` is the single key for "how much room". Each step's NAME
@@ -55,11 +84,12 @@ export const DesignSpacingSchema = ladderRecord(
       "The app's spacing ladder. Each step's name becomes the suffix of every spacing utility — padding, margin, gap and the rest.",
   }
 ).pipe(
+  Schema.check(Schema.makeFilter(refuseReservedStepNames)),
   Schema.annotate({
     identifier: 'DesignSpacing',
     title: 'Spacing Ladder',
     description:
-      "The app's spacing ladder. Each step's name becomes the suffix of every spacing utility — padding, margin, gap and the rest.",
+      "The app's spacing ladder. Each step's name becomes the suffix of every spacing utility — padding, margin, gap and the rest. A display keyword (`block`, `inline`, `flex`, `grid`, `table`, `hidden`, `contents`) is refused as a step name.",
     examples: [{ '0': '0px', px: '1px', '0-5': '0.125rem', '4': '1rem' }],
   })
 )

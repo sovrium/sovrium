@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { DataSourceSchema } from '../../data-source'
 import { TabsOrientationSchema } from '../../form-controls'
 import { coreFields } from '../modules/core'
 import { i18nFields } from '../modules/i18n'
@@ -53,7 +54,16 @@ export const TabPanelSchema = Schema.Struct({
       description: 'Stable id for the tab; defaults to a slug of the label',
     })
   ),
-  label: Schema.String.annotate({ description: 'Text on the tab trigger button' }),
+  /**
+   * The trigger's caption. On a page bound to one record it reads
+   * `$record.<field>` and `$param.*` like the page's own title does, so a tab
+   * can say "Editor · 2" from a field the record carries.
+   */
+  label: Schema.String.annotate({
+    description:
+      'Text on the tab trigger button. On a page bound to one record it may read `$record.<field>` and `$param.<name>`, resolved on the server like the page title; a `$t:` reference is translated.',
+    examples: ['Health', 'Editor · $record.pending_changes'],
+  }),
   description: Schema.optional(
     Schema.String.annotate({
       description:
@@ -69,12 +79,53 @@ export const TabPanelSchema = Schema.Struct({
         'Text content of the panel. Omit when the panel body is the index-aligned entry of the parent’s `children`.',
     })
   ),
+  /**
+   * A live figure drawn after the label, as `Label · N`: how many records of a
+   * table match. The binding is the same one a `kpi` or a `table` takes — the
+   * table, its filter or view, and `refreshMode` / `pollIntervalMs` — so the
+   * figure is read as the reader, through the table's row rules, and follows
+   * the same refresh. A table the reader may not read draws the bare label.
+   */
+  count: Schema.optional(DataSourceSchema),
+  /**
+   * The noun written after the figure, singular and plural: `Health · 1
+   * problem`, `Health · 2 problems`. Without it the figure stands alone.
+   */
+  countLabel: Schema.optional(
+    Schema.Struct({
+      one: Schema.String.pipe(
+        Schema.annotate({
+          description: 'The word written after a count of exactly 1.',
+          examples: ['problem'],
+        }),
+        Schema.check(Schema.isMinLength(1))
+      ),
+      other: Schema.String.pipe(
+        Schema.annotate({
+          description: 'The word written after any other count.',
+          examples: ['problems'],
+        }),
+        Schema.check(Schema.isMinLength(1))
+      ),
+    }).annotate({
+      title: 'Tab Count Label',
+      description:
+        'The word written after the figure, singular (`one`) and plural (`other`): Health · 1 problem, Health · 2 problems. Omitted, the figure stands alone. Inert without `count`.',
+    })
+  ),
+  showZero: Schema.optional(
+    Schema.Boolean.annotate({
+      description:
+        'Draws the figure when the count is 0 (Backlog · 0). Omitted, a count of 0 draws the bare label. Inert without `count`.',
+      defaultNote: 'false',
+    })
+  ),
 }).pipe(
   Schema.annotate({
     identifier: 'TabPanel',
     title: 'Tab Panel',
     description:
-      'One tab: the trigger label, plus an optional id, description, disabled flag and body',
+      'One tab: the trigger label, plus an optional id, description, disabled flag, body and live count. A counted trigger reads Label · N, and the figure is part of its accessible name.',
   })
 )
 

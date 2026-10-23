@@ -8,6 +8,7 @@
 export * from './aggregate'
 export * from './calendar-feed'
 export * from './comments'
+export * from './link-previews'
 export * from './params'
 export * from './records'
 export * from './search'

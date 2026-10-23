@@ -97,11 +97,28 @@ export const fileNameOfUrl = (url: string): string => {
   }
 }
 
+/**
+ * Markup with every tag removed: from each `<` to the next `>`, the same span
+ * `/<[^>]*>/g` drops, found by a scan rather than a pattern-replace, so the
+ * text is cut once, at the tag boundaries of the source. A `<` no `>` follows
+ * is kept as text, as is a `>` no `<` opened.
+ *
+ * Every segment that a `>` closes held at most one tag's tail: the first `<` in
+ * it opens the tag that `>` ends, and everything after that `<` is inside it.
+ */
+const withoutTags = (html: string): string =>
+  html
+    .split('>')
+    .map((segment, index, segments) => {
+      if (index === segments.length - 1) return segment
+      const open = segment.indexOf('<')
+      return open === -1 ? `${segment}>` : segment.slice(0, open)
+    })
+    .join('')
+
 /** Text with its HTML tags removed and its entities read, for a label written in HTML. */
 export const plainText = (html: string): string =>
-  html
-    .replace(/<br\s*\/?>/gi, ' ')
-    .replace(/<[^>]*>/g, '')
+  withoutTags(html.replace(/<br\s*\/?>/gi, ' '))
     .replaceAll('&nbsp;', ' ')
     .replaceAll('&lt;', '<')
     .replaceAll('&gt;', '>')

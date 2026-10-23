@@ -95,6 +95,17 @@ const buildPath = (pagePath: string, slug: string): string => {
   return `${normalisedPrefix}/${slug}`
 }
 
+/**
+ * The files a `contentDir` reads below an absolute directory, relative to it,
+ * shared by the server and `sovrium bundle`. Symbolic links are never listed;
+ * rejects with `ENOENT` when the directory is missing.
+ */
+export const scanContentDirFiles = (
+  absoluteDir: string,
+  include: string | undefined
+): Promise<string[]> =>
+  Array.fromAsync(new Bun.Glob(include ?? '**/*.md').scan({ cwd: absoluteDir }))
+
 /** Glob-scan a directory for `.md` files (relative paths). */
 const scanMarkdownFiles = async (
   directory: string,
@@ -102,9 +113,7 @@ const scanMarkdownFiles = async (
 ): Promise<readonly string[]> => {
   try {
     const absoluteDir = isAbsolute(directory) ? directory : resolve(getContentBaseDir(), directory)
-    const pattern = include ?? '**/*.md'
-    const glob = new Bun.Glob(pattern)
-    return await Array.fromAsync(glob.scan({ cwd: absoluteDir }))
+    return await scanContentDirFiles(absoluteDir, include)
   } catch {
     return []
   }

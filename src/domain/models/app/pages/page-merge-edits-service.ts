@@ -34,7 +34,9 @@ import {
   type LayoutProperty,
   type SpacingSteps,
 } from './page-merge-layout-service'
+import { paintFindings, type PaintTokens } from './page-merge-paint-service'
 import { insideVariableEdits } from './page-merge-placement-service'
+import { ruleFindings, type RuleReferences } from './page-merge-rules-service'
 import {
   translationOutcome,
   type TranslationScope,
@@ -112,6 +114,12 @@ export interface EditScale {
   readonly templates?: ReadonlyMap<string, Node> | undefined
   /** Whether a sample value may stand where the export drew a placeholder (`DrawnPage`). */
   readonly samplesDrawn?: boolean | undefined
+  /** The app's colour and type tokens, which a drawn paint is read against. */
+  readonly paint?: PaintTokens | undefined
+  /** What the config declares that a rule a drawing carries may name. */
+  readonly references?: RuleReferences | undefined
+  /** The table the page reads, which a visibility rule's field is read against. */
+  readonly pageTable?: string | undefined
 }
 
 /** What reading one drawn node against its page node found, and how to write it. */
@@ -248,6 +256,21 @@ const writtenLayoutEdit = (
   return {
     findings: { ...NO_FINDINGS, changes: [change] },
     apply: (node) => withLayoutUtility(node, site.property, utility, site.breakpoint),
+  }
+}
+
+/** A node's paint: what it was drawn with that an unedited export does not draw. */
+const paintEdits = (
+  { current, drawn, baseline, config }: MatchedSubject,
+  scale: EditScale
+): NodeEdits => {
+  const found = paintFindings(
+    { node: current.id, config, drawn: drawn.paint, baseline: baseline.paint },
+    scale.paint
+  )
+  return {
+    findings: { ...NO_FINDINGS, changes: found.changes, offScale: found.offScale },
+    apply: found.apply,
   }
 }
 
@@ -575,12 +598,29 @@ export const nodeEdits = (subject: MatchedSubject, scale: EditScale): NodeEdits 
   const { current, drawn, baseline } = subject
   if (current.entry?.provenance !== undefined) return placementEdits(subject, scale.templates)
   const island = current.entry?.island !== undefined || current.tree.locked === 'island'
+  const rules = ruleFindings(
+    { node: current.id, entry: current.entry, drawn: drawn.rules, baseline: baseline.rules },
+    { references: scale.references, pageTable: scale.pageTable }
+  )
+  const ruled: NodeEdits = {
+    findings: {
+      ...NO_FINDINGS,
+      changes: rules.changes,
+      refused: rules.refused,
+      ignored: rules.ignored,
+    },
+    apply: rules.apply,
+  }
+  // A rebound node draws a sample of its new binding, which is no copy.
+  const text = island ? islandEdits(subject) : rules.rebound ? NO_EDITS : textEdits(subject, scale)
   const breakpoints = [
     ...new Set([...Object.keys(drawn.responsive ?? {}), ...Object.keys(baseline.responsive ?? {})]),
   ].toSorted()
   return joinEdits([
-    island ? islandEdits(subject) : textEdits(subject, scale),
+    text,
+    ruled,
     enumEdits(subject),
+    paintEdits(subject, scale),
     layoutEdits(
       current.id,
       { drawn: drawn.layout, baseline: baseline.layout, current: current.tree.layout },

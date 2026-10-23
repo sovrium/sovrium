@@ -30,6 +30,27 @@ Every key below is declared beside `type`, not inside `props` — the renderer r
 
 `showLabel` displays the percentage; `size` picks a preset, so `sm` gives a thinner bar. The two keys `props` still owns are `label`, which names the bar for a screen reader, and `id`.
 
+### A bar bound to records
+
+A bar can count records instead of showing a written `progressValue`. It takes the binding a ratio KPI takes: a `dataSource`, and a `kpiAggregate` with `function: ratio` whose `numerator` and `denominator` each count the source's records matching their own filter, after the reader's read rules. `labelTemplate` replaces the bare percentage: `{numerator}`, `{denominator}` and `{percent}` are filled in. The bar reports the numerator as its value and the denominator as its maximum. A denominator of zero draws an empty bar and `0 of 0`, never an error. `progressValue` and `progressMax` are refused beside a `dataSource`, and a `kpiAggregate` other than `ratio` is refused, since a bar plots a share.
+
+With `dataSource.mine` (see the data binding guide), a side can count only the records the reader has a row for, so each reader sees her own progress — here, the lessons of the course she has completed:
+
+```yaml
+- type: progress
+  showLabel: true
+  dataSource:
+    table: lessons
+    filter:
+      - { field: course, operator: eq, value: $record.id }
+    mine: { table: completions, link: lesson, user: member, as: done }
+  kpiAggregate:
+    function: ratio
+    numerator: { filter: [{ field: done, operator: isNotEmpty }] }
+    denominator: { filter: [{ field: id, operator: isNotEmpty }] }
+  labelTemplate: '{numerator} of {denominator} completed'
+```
+
 ## `spinner`
 
 An indeterminate spinner for a short wait, where there is no progress to report. Reference: shadcn/ui Spinner.

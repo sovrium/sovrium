@@ -14,6 +14,7 @@ import {
 import { usePhoneViewport } from '../../hooks/use-phone-viewport'
 import { useGridString, useResultCount } from '../island/grid-strings'
 import { PagerEdgeButton } from './pager-edge-button'
+import { useNarrowBar } from './use-narrow-bar'
 import type { DataTableInstance } from '../island/table-features'
 
 interface PaginationControlsProps {
@@ -40,8 +41,12 @@ interface PaginationControlsProps {
    * reader is.
    */
   readonly leading?: ReactNode
-  /** The reader's session controls, first in the right half. */
-  readonly trailing?: ReactNode
+  /**
+   * The reader's session controls, first in the right half — or a function of
+   * whether the bar is folded (a phone, or a bar narrower than one), so they
+   * can fold with it.
+   */
+  readonly trailing?: ReactNode | ((compact: boolean) => ReactNode)
   /**
    * The page-size select and the steps. Off on a bar drawn for a grid that does
    * not number its pages — one that only selects — which keeps the bar for
@@ -186,7 +191,8 @@ function StepButton({
  * A phone's page readout. The compact `1/6` is for the eye; assistive tech reads
  * the full "Page 1 of 6", since a generic span's own aria-label is not
  * announced. The readout is a block, so it is exactly one line tall, and the
- * hidden sentence is pinned to its top, so neither leaves the bar's one line.
+ * hidden sentence is a transparent one-pixel column of exactly that height, so
+ * neither leaves the bar's one line.
  */
 function PhoneReadout({
   readout,
@@ -203,7 +209,9 @@ function PhoneReadout({
       >
         {readout}
       </span>
-      <span className="sr-only top-0">{sentence}</span>
+      <span className="absolute inset-y-0 left-0 w-px overflow-hidden whitespace-nowrap opacity-0">
+        {sentence}
+      </span>
     </span>
   )
 }
@@ -217,13 +225,14 @@ function PhoneReadout({
 function PagerSteps({
   table,
   labels,
+  short,
 }: {
   readonly table: DataTableInstance
   readonly labels: ReturnType<typeof usePagerLabels>
+  readonly short: boolean
 }) {
   const canBack = table.getCanPreviousPage()
   const canOn = table.getCanNextPage()
-  const short = usePhoneViewport(true)
   const readout = labels.pageShort === '' ? labels.pageCompact : labels.pageShort
   return (
     <>
@@ -268,6 +277,21 @@ function PagerSteps({
 }
 
 /**
+ * A phone, or a bar as narrow as one (a grid in a side card): its steps become
+ * chevrons and its session controls one menu, so it keeps one line.
+ */
+function useCompactBar(trailing: PaginationControlsProps['trailing']) {
+  const phone = usePhoneViewport(true)
+  const [barRef, narrow] = useNarrowBar()
+  const compact = phone || narrow
+  return {
+    barRef,
+    compact,
+    trailing: typeof trailing === 'function' ? trailing(compact) : trailing,
+  }
+}
+
+/**
  * The page-number pager.
  *
  * Two placement decisions stay at this call site rather than moving into the
@@ -297,9 +321,11 @@ export function PaginationControls(props: PaginationControlsProps) {
 
   const labels = usePagerLabels({ pageIndex, pageSize, pageCount, total, paged })
   const summary = props.reading === true && total === 0 ? '' : labels.summary
+  const bar = useCompactBar(props.trailing)
 
   return (
     <nav
+      ref={bar.barRef}
       aria-label="pagination"
       data-slot="data-table-pagination"
       data-pagination
@@ -310,7 +336,7 @@ export function PaginationControls(props: PaginationControlsProps) {
     >
       {props.leading ?? <span className="whitespace-nowrap">{summary}</span>}
       <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
-        {props.trailing}
+        {bar.trailing}
         {paged && pageSizeOptions && pageSizeOptions.length > 0 && (
           <PageSizeSelect
             pageSize={pageSize}
@@ -322,6 +348,7 @@ export function PaginationControls(props: PaginationControlsProps) {
           <PagerSteps
             table={table}
             labels={labels}
+            short={bar.compact}
           />
         )}
       </div>

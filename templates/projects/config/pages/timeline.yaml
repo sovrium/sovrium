@@ -9,6 +9,7 @@ access:
 meta:
   title: Timeline · Fernhill Projects
   description: Every task on a time axis, grouped by project, with what it waits on.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

@@ -123,6 +123,7 @@ function hasSidebarGroups(value: unknown): boolean {
   if (Array.isArray(value)) return value.some(hasSidebarGroups)
   if (!isRecord(value)) return false
   if (value['type'] === 'sidebar' && Array.isArray(value['groups'])) return true
+  if (isBottomBar(value)) return true
   return Object.values(value).some(hasSidebarGroups)
 }
 
@@ -133,9 +134,25 @@ function transform(value: unknown, matcher: EntryMatcher): unknown {
   const mapped = Object.fromEntries(
     Object.entries(value).map(([key, child]) => [key, transform(child, matcher)])
   )
+  if (isBottomBar(value)) return { ...mapped, navItems: markItems(value['navItems'], matcher) }
   if (value['type'] !== 'sidebar' || !Array.isArray(value['groups'])) return mapped
 
   return { ...mapped, groups: markGroups(value['groups'], matcher) }
+}
+
+/**
+ * A `navigation-menu` drawn as a phone's tab bar: its tabs are marked by the
+ * same rule as a sidebar's entries, so the current one is `aria-current`
+ * before, and without, JavaScript.
+ */
+function isBottomBar(value: Readonly<Record<string, unknown>>): value is Record<string, unknown> & {
+  readonly navItems: readonly unknown[]
+} {
+  return (
+    value['type'] === 'navigation-menu' &&
+    value['layout'] === 'bottom-bar' &&
+    Array.isArray(value['navItems'])
+  )
 }
 
 function markGroups(groups: readonly unknown[], matcher: EntryMatcher): readonly unknown[] {

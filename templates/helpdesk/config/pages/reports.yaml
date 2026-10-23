@@ -9,6 +9,7 @@ access:
 meta:
   title: Reports · Tallyline Support
   description: Where the tickets stand, and the volume by topic.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

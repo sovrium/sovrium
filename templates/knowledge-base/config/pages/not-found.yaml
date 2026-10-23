@@ -8,6 +8,7 @@ path: /404
 meta:
   title: Not in the handbook · Corvel handbook
   description: The page you opened is not in the Corvel handbook.
+  favicon: ./favicon.svg
 components:
   - $ref: ./_site-header.yaml
   - component: not-found-with-links

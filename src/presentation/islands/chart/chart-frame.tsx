@@ -18,7 +18,9 @@
  * the box the legend is placed relative to, and that box is the plot.
  */
 
+import { useMemo } from 'react'
 import {
+  CHART_FIXED_BODY,
   computeChartBodyClasses,
   computeChartLayoutClasses,
   computeChartShellClasses,
@@ -47,26 +49,70 @@ export interface ChartFrameLegend {
 const showsLegend = (legend: ChartFrameLegend | undefined): legend is ChartFrameLegend =>
   legend !== undefined && legend.visible !== false && legend.position !== 'none'
 
+/** The class of the plot: filling a fixed box, beside a side legend, else sized by its width. */
+const bodyClassesOf = (fixed: boolean, beside: boolean): string =>
+  fixed ? CHART_FIXED_BODY : beside ? BODY_BESIDE_CLASSES : BODY_CLASSES
+
+/**
+ * The plot: the container sized by the width, or, with a declared `height`,
+ * filling a box of that many pixels — a number no class can carry, so it sits
+ * on the element holding the plot.
+ */
+function ChartPlot({
+  config,
+  height,
+  beside,
+  children,
+}: {
+  readonly config: ChartConfig
+  readonly height: number | undefined
+  readonly beside: boolean
+  readonly children: ReactNode
+}): ReactElement {
+  const fixed = useMemo(() => (height === undefined ? undefined : { height }), [height])
+  const body = (
+    <ChartContainer
+      config={config}
+      className={bodyClassesOf(fixed !== undefined, beside)}
+      data-chart-body="true"
+    >
+      {children}
+    </ChartContainer>
+  )
+  if (fixed === undefined) return body
+  return (
+    <div
+      className="w-full"
+      style={fixed}
+    >
+      {body}
+    </div>
+  )
+}
+
 export function ChartFrame({
   config,
   legend,
+  height,
   children,
 }: {
   readonly config: ChartConfig
   readonly legend?: ChartFrameLegend
+  /** A fixed plot height in pixels, the same at every width; absent, it follows the width. */
+  readonly height?: number
   /** The recharts chart, sized by the container. */
   readonly children: ReactNode
 }): ReactElement {
   const position = legend?.position
   const beside = showsLegend(legend) && (position === 'left' || position === 'right')
   const plot = (
-    <ChartContainer
+    <ChartPlot
       config={config}
-      className={beside ? BODY_BESIDE_CLASSES : BODY_CLASSES}
-      data-chart-body="true"
+      height={height}
+      beside={beside}
     >
       {children}
-    </ChartContainer>
+    </ChartPlot>
   )
   if (!showsLegend(legend)) return <div className={SHELL_CLASSES}>{plot}</div>
   const legendNode = (

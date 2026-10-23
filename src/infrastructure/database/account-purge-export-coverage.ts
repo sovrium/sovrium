@@ -56,6 +56,10 @@ export const EXPORT_COVERAGE: Readonly<Record<string, ExportStatus>> = {
   'system.ai_tool_calls': 'exported',
   'system.user_favorites': 'exported',
   'system.user_recent_items': 'exported',
+  'system.read_state': 'exported',
+  'system.user_presence': 'exported',
+  'system.notifications': 'exported',
+  'system.notification_preferences': 'exported',
 
   // Deliberately withheld — credentials and pure derivations.
   'auth.two_factor': 'withheld',

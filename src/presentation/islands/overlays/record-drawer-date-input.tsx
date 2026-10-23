@@ -20,7 +20,7 @@ import { pageDatePattern } from '@/domain/kernel/format/page-date-text'
 import { RequiredMark } from '../parts/crud-form/field-label'
 import { DateTextBox } from '../parts/date-text-box'
 import { resolvePageLocale } from '../runtime/page-locale'
-import { controlStateAttributes } from './record-drawer-control-state'
+import { useControlStateAttributes } from './record-drawer-control-state'
 import { useDatePickerWords } from './record-drawer-date-words'
 import { RefusalLine } from './record-drawer-refusal-line'
 import type { TypedFieldProps } from './record-drawer-typed-input'
@@ -32,7 +32,7 @@ export function DateTextField(props: TypedFieldProps): ReactElement {
   const placeholder = useMemo(() => pageDatePattern(locale), [locale])
   const words = useDatePickerWords()
   const change = useCallback((day: string) => onChange(field.name, day), [onChange, field.name])
-  const state = controlStateAttributes(props)
+  const state = useControlStateAttributes(props)
   const describedBy = state['aria-describedby']
   return (
     <div className="text-md flex flex-col gap-1">

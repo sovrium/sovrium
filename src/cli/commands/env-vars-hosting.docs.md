@@ -78,3 +78,13 @@ A machine can run many Sovrium apps, each as its own systemd unit, with one more
 | `SOVRIUM_UPDATE_DOWNLOAD_HOST` | `github.com`               | Host Sovrium releases are downloaded from, by `instance/engineInstall` and `sovrium update`, reached over HTTPS     |
 
 The switch is deliberately an environment variable and never a config key: a config cannot grant itself reach over the machine it runs on. Set it only on a host dedicated to supervising other Sovrium apps — the **Instance Actions** article lists what it allows and what it forbids.
+
+## An app that resets itself
+
+A demo, sandbox or training app can bring itself back to its seed from one of its own automations, with the `app/seed` action. Whether it may is decided by the host:
+
+| Variable            | Default     | Description                                                                                                                                                                          |
+| ------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SOVRIUM_SELF_SEED` | unset (off) | Switches on the `app/seed` automation action: `reset` allows every mode, any other value allows `if-empty` and `upsert` only; unset, an automation holding the step is not scheduled |
+
+Like the switch above, it is an environment variable and never a config key: a template that ships a nightly reset must not wipe the data of an app built from it. An automation whose step the variable does not allow is not scheduled at all, and the server names it once at boot — the **App Actions** article has the details.

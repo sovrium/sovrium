@@ -68,6 +68,12 @@ import {
 } from '@/domain/models/app/design/adapters/export'
 import { buildDesignSystem } from './design-system'
 import {
+  collectBrandFonts,
+  isReplacedFont,
+  withBrandFaces,
+  type BrandFonts,
+} from './design-system-brand-fonts'
+import {
   renderLlmsIndex,
   renderResolverDocument,
   renderTailwindStylesheet,
@@ -98,6 +104,8 @@ export interface DesignSystemBundle {
   readonly manifest: DesignSystemBundleManifest
   readonly manifestBytes: Uint8Array
   readonly files: ReadonlyArray<DesignSystemBundleEntry>
+  /** One sentence per thing the config names that the bundle could not carry. */
+  readonly notices: readonly string[]
 }
 
 /** A token document failed its own wire schema; nothing is handed over. */
@@ -266,13 +274,29 @@ const adapterEntries = (
     })),
   }).map((file) => textEntry(file.path, 'adapter', file.content))
 
+/** The kit with its stylesheet declaring the app's own faces in place of the Geist it replaced. */
+const brandedKit = (kit: DesignSystemKit, brand: BrandFonts): DesignSystemKit => {
+  const stylesheet = withBrandFaces(kit.stylesheet, brand)
+  return {
+    ...kit,
+    stylesheet,
+    files: kit.files.map((file) =>
+      file.path === kit.manifest.stylesheet ? { ...file, text: stylesheet } : file
+    ),
+  }
+}
+
 const assembleBundle = (app: App) =>
   Effect.gen(function* () {
     const light = yield* validatedDocument(app, 'light')
     const dark = yield* validatedDocument(app, 'dark')
-    const kit = yield* buildDesignSystemKit(app)
+    const brand = yield* collectBrandFonts(app)
+    const kit = brandedKit(yield* buildDesignSystemKit(app), brand)
     const assets = yield* DesignKitAssets
-    const fonts = yield* assets.webFonts
+    const fonts = [
+      ...(yield* assets.webFonts).filter((font) => !isReplacedFont(brand, font)),
+      ...brand.files,
+    ]
     const samples = (yield* Effect.forEach(kit.sampleMedia, assets.sampleMedia)).flatMap((file) =>
       Option.isSome(file) ? [file.value] : []
     )
@@ -296,6 +320,7 @@ const assembleBundle = (app: App) =>
       manifest,
       manifestBytes: encoder.encode(serialise(manifest)),
       files,
+      notices: brand.notices,
     } satisfies DesignSystemBundle
   })
 

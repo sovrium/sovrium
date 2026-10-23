@@ -21,7 +21,7 @@ import { ReadFailed } from './record-drawer-read-failed'
 import { useTableRecordRead } from './record-drawer-record-read'
 import { useRecordSave } from './record-drawer-save'
 import { holdsLoadedValues, type Values } from './record-drawer-values'
-import { useDrawerHandlers } from './use-record-drawer'
+import { useDrawerHandlers } from './use-record-drawer-handlers'
 import type { LinkedPick } from './record-drawer-linked-from'
 
 /** What a stacked record is drawn with. */

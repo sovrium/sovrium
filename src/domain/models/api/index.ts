@@ -22,6 +22,7 @@
  * - buckets: Public bucket file endpoints
  * - connections: Connection authorization and per-user roster endpoints
  * - health: Health check endpoint
+ * - notifications: The caller's notifications and notification preferences
  * - realtime: WebSocket/SSE real-time subscription endpoints
  * - scim: SCIM 2.0 provisioning endpoints
  * - tables: Table, record, comment, view, search, webhook endpoints
@@ -57,11 +58,20 @@ export * from './connections'
 // Health check schemas
 export * from './health'
 
+// The caller's own notifications and notification preferences
+export * from './notifications'
+
 // Real-time subscription schemas
 export * from './realtime'
+
+// What the ⌘K palette of an app finds: pages and readable records
+export * from './command-search'
 
 // SCIM 2.0 provisioning schemas
 export * from './scim'
 
 // Table, record, comment, view, search, and webhook schemas
 export * from './tables'
+
+// The people a user field resolves to, with their presence facts
+export * from './users'

@@ -160,6 +160,10 @@ export const FLAG_VALUE_OPTIONS = [
   // `sovrium design-system --format bundle --pages --page dashboard`. Both lists:
   // absent here, `dashboard` would be read as the config path.
   '--page',
+  // `sovrium design-system --pages --records 2 --now <instant> --state <page>:<k>=<v>`.
+  '--records',
+  '--now',
+  '--state',
 ] as const
 
 /** Commands that use two-level noun-verb dispatch (verb in 2nd positional slot). */
@@ -239,6 +243,14 @@ const KNOWN_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   '--skip-attachments',
   // `sovrium design-system --format bundle --pages`: add the app's pages to the bundle.
   '--pages',
+  // `sovrium design-system --pages --prototype[=app]`: clickable Claude Design boards.
+  '--prototype',
+  // `sovrium design-system import --pages --tokens`: the canvas's Theme colours too.
+  '--tokens',
+  // `sovrium design-system import --pages --new-pages`: a board of an undeclared page is a new page.
+  '--new-pages',
+  // `sovrium design-system import --pages --sidecar`: a TypeScript config's pages to sidecars.
+  '--sidecar',
 ])
 
 const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
@@ -319,6 +331,10 @@ const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--token-env',
   // `sovrium design-system --pages --page <name>`, repeatable.
   '--page',
+  // `sovrium design-system --pages --records <n> --now <instant> --state <page>:<k>=<v>`.
+  '--records',
+  '--now',
+  '--state',
 ])
 
 /** Strip `=value` from `--flag=value` so the bare flag name can be matched. */

@@ -10,6 +10,7 @@ dataSource:
 meta:
   title: On the waitlist · Fieldday
   description: You are on the waitlist. We email you if a seat frees up.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

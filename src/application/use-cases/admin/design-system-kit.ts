@@ -209,9 +209,9 @@ const kitAppOf = (app: App, pages: readonly Page[]): App =>
 
 /**
  * The app a page export draws its pages in: the specimen app above, plus the
- * four keys a page cannot be drawn without — its `languages` (the `$t:` copy),
- * its `components` (the templates a page places), its `tables` (the field
- * definitions the synthetic seed is made from) and its `auth` (the roles and
+ * keys a page cannot be drawn without — its `languages` (the `$t:` copy), its
+ * `components` (the templates a page places), its `forms` (what a placed form
+ * draws), its `tables` (the seed's field definitions) and its `auth` (roles and
  * groups a page's `access` rule and a node's `visibility` are judged against,
  * and the sign-in methods a sign-in page draws). `auth` is configuration, never
  * a session: the renderer draws a specimen as the synthetic sample admin, so a
@@ -223,6 +223,7 @@ export const kitPageAppOf = (app: App, pages: readonly Page[]): App =>
     ...kitAppOf(app, pages),
     ...(app.languages === undefined ? {} : { languages: app.languages }),
     ...(app.components === undefined ? {} : { components: app.components }),
+    ...(app.forms === undefined ? {} : { forms: app.forms }),
     ...(app.tables === undefined ? {} : { tables: app.tables }),
     ...(app.auth === undefined ? {} : { auth: app.auth }),
   }) as App

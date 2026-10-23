@@ -46,7 +46,7 @@ Keeping this in actions rather than as a field on every action is what makes a r
 
 ## The families
 
-One row per family the schema accepts. The `instance` family supervises other apps on the same machine and is off unless the operator enables it — see **Instance Actions**.
+One row per family the schema accepts. The `instance` family supervises other apps on the same machine and is off unless the operator enables it — see **Instance Actions**. The `app` family seeds or resets the app itself and is off unless the host enables it — see **App Actions**.
 
 | Family       | Operators                                                                                                                                 |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
@@ -77,6 +77,7 @@ One row per family the schema accepts. The `instance` family supervises other ap
 | `code`       | runTypescript                                                                                                                             |
 | `sovrium`    | validateConfig, validateBundle                                                                                                            |
 | `instance`   | status, start, stop, restart, apply, rollback, remove, health, logs, backup, restore                                                      |
+| `app`        | seed                                                                                                                                      |
 | `ref`        | none — it is the one action with no operator                                                                                              |
 
 ## A step used twice

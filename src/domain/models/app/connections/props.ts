@@ -241,6 +241,16 @@ export const ApiKeyPropsSchema = Schema.Struct({
       })
     )
   ),
+  query: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          'Name of the query-string parameter that carries the key, for a service that reads it from the address rather than a header (GIPHY reads `api_key`). When set, the key is sent there and no header is sent; `header` and `prefix` are not used. The address with the key is never logged.',
+        examples: ['api_key'],
+      }),
+      Schema.check(Schema.isPattern(/^[A-Za-z0-9_.-]+$/))
+    )
+  ),
 }).pipe(
   Schema.annotate({
     identifier: 'ApiKeyProps',

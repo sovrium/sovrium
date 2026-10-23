@@ -30,6 +30,11 @@ export interface IslandSetupParams {
   readonly isViewBound?: boolean
   /** The grid draws a view switcher: its table declares views (`viewSwitcher`). */
   readonly hasViewSwitcher?: boolean
+  /**
+   * The default view the server found the reader may open (`null`: none), so
+   * the first read needs no views list; `undefined` when it could not tell.
+   */
+  readonly listedDefaultView?: string | null
   readonly dataSource: {
     /** Bound DB table name — ABSENT for a system-source binding. */
     readonly table?: string
@@ -86,6 +91,8 @@ export interface IslandSetupParams {
    * island's prop type, and then never read.
    */
   readonly showRowNumbers: boolean | undefined
+  /** Rows open their record under themselves: each carries a leading toggle. */
+  readonly inlineExpand?: boolean
   readonly bordered: boolean
   readonly autoSaveConfig: AutoSaveConfig | undefined
   /**

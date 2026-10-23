@@ -13,6 +13,7 @@ import {
   withCallerWritableColumns,
   withoutInlineEditing,
 } from './caller-table-inputs'
+import { chartShapeProps } from './chart-shape-props'
 import {
   dataTableInterpreterStrings,
   tableEmptyMessage,
@@ -196,7 +197,7 @@ const TYPE_BUILDERS: {
       // The create / update / delete gates the resolver stamped (`grid-write-gates.ts`).
       ...gridWriteGates(component, componentProps),
       // The view switcher, on a table that declares views (`viewSwitcher.allLabel`).
-      ...viewSwitcherProps(resolved, currentLang, languages),
+      ...viewSwitcherProps(resolved, currentLang, languages, callerTableOf(component)?.views),
       // The grid's interpreter-provided strings in the page language.
       ...dataTableInterpreterStrings(currentLang, languages),
     }
@@ -251,6 +252,7 @@ const TYPE_BUILDERS: {
     legend: component.legend,
     tooltip: component.tooltip,
     chartAggregate: component.chartAggregate,
+    ...chartShapeProps(component),
     categoryOptions: resolved.categoryOptions,
     valueCurrency: resolved.valueCurrency,
     aggregateRead: resolved.aggregateRead,

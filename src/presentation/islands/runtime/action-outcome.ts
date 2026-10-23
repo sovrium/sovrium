@@ -18,8 +18,9 @@
  *     bubbling `sovrium:close-dialog` event each overlay matches against its own
  *     panel, so in two nested overlays only the innermost closes;
  *  4. `navigate` — after a short wait, so the toast can be read and a write the
- *     next page reads has landed; to a path on this site only, through the
- *     canonical redirect check.
+ *     next page reads has landed; to a path on this site, through the
+ *     canonical redirect check — or, for an address the run returned, to an
+ *     origin the action's `allowOrigins` lists (`leave`, `success-exit.ts`).
  *
  * The keep-pending decision is the caller's and comes first: a success that
  * leaves the page ({@link leavesPage}) keeps the control pending until it
@@ -48,6 +49,11 @@ export interface SuccessOutcome {
   readonly close?: boolean | undefined
   /** Where to go next, every `$record` / `$response` reference already filled. */
   readonly navigate?: string | undefined
+  /**
+   * Leave for another site instead of `navigate`: an address the run returned,
+   * already judged against the action's `allowOrigins` (`success-exit.ts`).
+   */
+  readonly leave?: (() => void) | undefined
   /**
    * Where the caller moves on by itself, when it does not hand the move over
    * as `navigate` (an edit form, which holds its submit until the page goes):
@@ -141,6 +147,7 @@ export function runSuccessOutcome(control: Element | undefined, outcome: Success
   if (outcome.shownToast !== undefined && leavesPage(leavingFor)) carryToast(outcome.shownToast)
   outcome.effects?.()
   if (outcome.close === true && control !== undefined) requestOverlayClose(control)
+  if (outcome.leave !== undefined) return outcome.leave()
   const target = toSafeRedirectPath(onThisSite(outcome.navigate))
   if (target !== undefined) setTimeout(() => window.location.assign(target), NAVIGATE_DELAY_MS)
 }

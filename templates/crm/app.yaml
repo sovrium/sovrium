@@ -40,6 +40,7 @@ agents:
 # Automations run on the server, with their history kept in your own database.
 automations:
   - $ref: ./config/automations/deal-won-notification.yaml
+  - $ref: ./config/automations/nightly-reset.yaml
   - $ref: ./library/recipe/record-to-slack.yaml
   - $ref: ./library/recipe/form-to-hubspot.yaml
 

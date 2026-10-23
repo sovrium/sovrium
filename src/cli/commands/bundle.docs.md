@@ -1,6 +1,6 @@
 # Bundle an App
 
-> Package an app for deployment with `sovrium bundle`: one archive holding the config resolved and validated into JSON, the static files and the seed data — every entry checksummed.
+> Package an app for deployment with `sovrium bundle`: one archive holding the config resolved and validated into JSON, the static files, the seed data and the files its pages read — every entry checksummed.
 
 A deployment target should not have to run your TypeScript, chase your `$ref` files or guess which files belong to the app. `sovrium bundle` does that work once, on your machine, and writes the result into one gzipped tar a host can verify before it trusts anything.
 
@@ -28,19 +28,22 @@ The config is read and validated exactly as `sovrium validate` reads and validat
 
 ### What the archive holds
 
-| Entry              | Holds                                                                                                             |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `manifest.json`    | The format, the engine version, the app's name and slug, the date, and every other entry with its size and sha256 |
-| `project/app.json` | The config **resolved**: every `$ref` inlined, a TypeScript config evaluated — written as JSON, never as code     |
-| `public/…`         | The static files `sovrium start` would serve, when the app has a `public/` directory                              |
-| `seed/…`           | The `seed/<table>.yaml` files, when the app has a `seed/` directory                                               |
-| `project/<path>`   | Each file the config declares under `assets`, at the path it declares, beside `project/app.json`                  |
+| Entry              | Holds                                                                                                                                                                                              |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `manifest.json`    | The format, the engine version, the app's name and slug, the date, and every other entry with its size and sha256                                                                                  |
+| `project/app.json` | The config **resolved**: every `$ref` inlined, a TypeScript config evaluated — written as JSON, never as code                                                                                      |
+| `public/…`         | The static files `sovrium start` would serve, when the app has a `public/` directory                                                                                                               |
+| `seed/…`           | The `seed/<table>.yaml` files, when the app has a `seed/` directory                                                                                                                                |
+| `project/<path>`   | Each file the config declares under `assets`, at the path it declares, beside `project/app.json`                                                                                                   |
+| `project/<path>`   | Each markdown file a page reads — the files a `contentDir` matches, the file a `markdown.file` names, and a page's `source.file` when it is a `.md` file — at its path from the config's directory |
 
 `project/app.json` is the document you wrote, with its references followed — not a copy with every default filled in, so the engine that boots it applies its own defaults. `$env.NAME` references stay references: no environment value is ever written into a bundle, and the `.env` file is never included.
 
 The static files follow the same rules as `sovrium start`: `SOVRIUM_PUBLIC_DIR` points at another directory, and `SOVRIUM_PUBLIC_DIR=none` leaves them out.
 
 The private files declared under `assets` travel too, so an email template or a document model the config reads is there when the app starts: `templates/invoice.html` is written to `project/templates/invoice.html`, where the unpacked config finds it. They are checked first, exactly as `sovrium validate` checks them — a declared file that is missing, outside the project or inside `public/` stops the bundle with its name, and nothing is written. An asset declared as `app.json` is refused, since that name is the config's own entry. An engine older than 0.38 refuses a bundle that carries an asset when it reads its manifest; a bundle without one is unchanged.
+
+The markdown a page reads from disk travels the same way. Every file a page's `contentDir` matches — its `directory` expanded by `include`, `**/*.md` when none is set — and the file a `markdown.file` names, or a page's `source.file` that ends in `.md`, are written under `project/`, at their path from the config's directory, so `content/docs/en/intro.md` becomes `project/content/docs/en/intro.md` and an unpacked bundle renders the same articles and serves the same `/feed.xml` as its source. Only the files `include` matches are carried, and a file two pages read, or that is also declared under `assets`, is carried once. A path that is absolute or leads outside the config's directory stops the bundle with its name, as does one that would be written over `project/app.json`, and nothing is written. A `source.file` with another extension is not markdown to the renderer, so the bundle neither carries nor checks it. A `contentDir` directory that does not exist yet is not an error: the page carries no file, as `sovrium start` serves it with none.
 
 Unpacked, a bundle runs as it is: `sovrium start <root>/project/app.json` serves `<root>/public/` and `sovrium seed <root>/project/app.json` reads `<root>/seed/`, unless `SOVRIUM_PUBLIC_DIR` (or `none`) or `--dir` says otherwise. Sovrium recognises an unpacked bundle by its config sitting at `project/app.json` with `manifest.json` one level up.
 

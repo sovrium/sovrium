@@ -26,6 +26,7 @@ import { resolvePageWindow } from '@/domain/models/app/pages/window-props'
 import { renderNow } from '@/presentation/render/page/render-clock'
 import { resolveActiveMarkers } from '@/presentation/render/resolve/active-marker-resolver'
 import { resolvePageAppVars } from '@/presentation/render/resolve/app-vars-resolver'
+import { withAvatarUsers } from '@/presentation/render/resolve/avatar-members-binding'
 import { resolveAddressedDrawerTitle } from '@/presentation/render/resolve/drawer-record-title-resolver'
 import { resolvePageInvitation } from '@/presentation/render/resolve/invitation-resolver'
 import { resolveCollectionPage } from '@/presentation/render/resolve/page-collection-resolver'
@@ -43,6 +44,7 @@ import { type RowLevelReadCheck } from '@/presentation/render/resolve/row-rule-r
 import { resolveTabsLazyPanels } from '@/presentation/render/resolve/tabs-lazy-resolver'
 import { translateReferencedKeys } from '@/presentation/render/resolve/translated-references-resolver'
 import { resolvePageTwoFactorAttempt } from '@/presentation/render/resolve/two-factor-attempt-resolver'
+import { readViewerRowIds } from '@/presentation/render/resolve/viewer-own-rows'
 import { resolvePageWindowProps } from '@/presentation/render/resolve/window-props-resolver'
 import { resolveSidebarState } from '../resolve/sidebar-state-resolver'
 import { withListedFilter } from './collection-listed-filter'
@@ -54,6 +56,7 @@ import type { Page } from '@/domain/models/app/pages'
 import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
 import type { DataSourceDb } from '@/presentation/render/resolve/data-source-contracts'
 import type { SystemRowsFetcher } from '@/presentation/render/resolve/first-object-redirect-resolver'
+import type { CollectionViewerRowsReader } from '@/presentation/render/resolve/page-collection-prevnext'
 import type { SystemRecordFetcher } from '@/presentation/render/resolve/page-system-record-binding'
 
 /**
@@ -327,6 +330,11 @@ function collectionReadGateOf(
     record: Readonly<Record<string, unknown>>
   ) => Promise<Readonly<Record<string, unknown>>>
   readonly readRows?: (query: CallerRowsQuery) => Promise<readonly Record<string, unknown>[]>
+  readonly readViewerRows?: CollectionViewerRowsReader
+  readonly fillFromRecord?: (
+    components: Page['components'],
+    record: Readonly<Record<string, unknown>>
+  ) => Promise<Page['components']>
 } {
   if (page.collection === undefined) return {}
   const tableName = page.collection.table
@@ -338,6 +346,11 @@ function collectionReadGateOf(
     ...(gate.rowCheck !== undefined ? { rowLevelReadCheck: gate.rowCheck } : {}),
     readRows: async (query) =>
       (await readRowsForCaller({ app, tableName, session, db, query })).rows,
+    // `$collection.resume`: the reader's own rows, through their table's read gate.
+    readViewerRows: (lookup) => readViewerRowIds(lookup, { app, session, db }),
+    // An avatar group's `users`: the people the record names, by the names she may read.
+    fillFromRecord: async (components, record) =>
+      withAvatarUsers(components, await db.readRecordLabels?.(app, tableName, record, session)),
   }
 }
 

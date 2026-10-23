@@ -6,6 +6,8 @@
  */
 
 import { Layer } from 'effect'
+import { LinkPreviewReaderLive } from '@/infrastructure/egress/link-preview-reader-live'
+import { CommentChangeFeedLive } from '@/infrastructure/realtime/comment-change-feed-live'
 import { RecordChangeFeedLive } from '@/infrastructure/realtime/record-change-feed-live'
 import { RecordWebhookDispatcherLive } from '@/infrastructure/webhooks/record-webhook-dispatcher-live'
 import { AiComputeStatusRepositoryLive } from './repositories/ai/ai-compute-status-repository-live'
@@ -43,6 +45,10 @@ export const TableLive = Layer.mergeAll(
   AuthRepositoryLive,
   UserDirectoryRepositoryLive,
   RecordChangeFeedLive,
+  // The live comment feed a comment's post, edit, delete and moderation announce on.
+  CommentChangeFeedLive,
+  // The link previews a stored message asks for, read in the background.
+  LinkPreviewReaderLive,
   // The table webhooks every record write fires, through the durable outbox.
   RecordWebhookDispatcherLive,
   // The AI-compute status store: the `_aiCompute` read projection on record

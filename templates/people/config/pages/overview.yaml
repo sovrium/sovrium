@@ -8,6 +8,7 @@ access:
 meta:
   title: HR overview · Meridian People
   description: Headcount by team, and where time off stands.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

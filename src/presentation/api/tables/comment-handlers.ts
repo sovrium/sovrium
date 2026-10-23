@@ -7,6 +7,10 @@
 
 import { Effect } from 'effect'
 import {
+  announceCommentChange,
+  commentAudienceProgram,
+} from '@/application/use-cases/tables/comment-change-programs'
+import {
   attachCommentMentions,
   attachSingleCommentMentions,
 } from '@/application/use-cases/tables/comment-mention-programs'
@@ -68,13 +72,16 @@ export async function handleDeleteComment(c: Context, app: App) {
   const target = await resolveGatedComment(c, app)
   if (target instanceof Response) return target
 
-  // Delete comment
-  const program = deleteCommentProgram({
-    app,
-    session,
-    commentId: target.commentId,
-    tableName: target.table.name,
-    address: target.address,
+  // Delete comment, then announce it to whoever could read it before
+  const { commentId, table, address } = target
+  const program = Effect.gen(function* () {
+    const audience = yield* commentAudienceProgram(session, commentId)
+    yield* deleteCommentProgram({ app, session, commentId, tableName: table.name, address })
+    if (audience === undefined) return
+    yield* announceCommentChange({
+      ...{ appId: app.name, table: table.name, recordId: address.recordId, commentId },
+      ...{ event: 'deleted', ...audience },
+    })
   })
 
   const result = await runOnRequest(c, program)
@@ -209,12 +216,39 @@ async function handleModerationStatusUpdate(input: {
     return handleUpdateCommentError(c, result.failure)
   }
 
-  // Comment exists → echo the persisted envelope; missing → genuine 404.
+  // Comment exists → announce and echo the persisted envelope; missing → genuine 404.
   if (result.success !== undefined) {
+    const { id, recordId, userId } = result.success
+    await runOnRequest(
+      c,
+      announceCommentChange({
+        ...{ appId: input.app.name, table: table.name, recordId, commentId: id },
+        ...{ event: 'moderated', status: result.success.status, authorId: userId },
+      })
+    )
     return c.json(result.success, 200)
   }
   return notFound(c)
 }
+
+/** Announce an edit to whoever may see the comment as it now stands. */
+const announceCommentEdit = (input: {
+  readonly app: App
+  readonly table: { readonly name: string }
+  readonly recordId: string
+  readonly commentId: string
+  readonly session: ReturnType<typeof getTableContext>['session']
+}) =>
+  commentAudienceProgram(input.session, input.commentId).pipe(
+    Effect.flatMap((audience) =>
+      audience === undefined
+        ? Effect.void
+        : announceCommentChange({
+            ...{ appId: input.app.name, table: input.table.name, recordId: input.recordId },
+            ...{ commentId: input.commentId, event: 'edited', ...audience },
+          })
+    )
+  )
 
 /**
  * Handle update comment
@@ -261,6 +295,9 @@ export async function handleUpdateComment(
       content: validated.content,
       address,
     }).pipe(
+      Effect.tap(() =>
+        announceCommentEdit({ app, table, recordId: address.recordId, commentId, session })
+      ),
       Effect.flatMap((envelope) =>
         attachSingleCommentMentions({ app, table, recordId: address.recordId, session }, envelope)
       )

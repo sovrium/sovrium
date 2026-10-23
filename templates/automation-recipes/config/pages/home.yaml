@@ -9,6 +9,7 @@ path: /
 meta:
   title: Kerlo Automations
   description: Four automations that run inside this app, each shown as the configuration that declares it, with every run kept.
+  favicon: ./favicon.svg
 components:
   - type: container
     element: header

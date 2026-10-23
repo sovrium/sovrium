@@ -217,6 +217,17 @@ const narrowedCandidates = (app: App, declared: ReadonlySet<string>): readonly s
   )
 
 /**
+ * The declared types, with `form` added when the app declares `forms`: a form
+ * is drawn on its own hosted page or inside a dialog with no `form` component
+ * on any page, and the form-field controls it mounts ride the `form` group.
+ */
+const withHostedForms = (app: App): ReadonlySet<string> | 'all' => {
+  const declared = collectDeclaredComponentTypes(app)
+  if (declared === 'all' || (app.forms ?? []).length === 0) return declared
+  return new Set([...declared, 'form'])
+}
+
+/**
  * Per-`App`-instance memo of {@link resolveNativeFreeCandidates}. The resolver
  * runs at boot and on every stylesheet request, each time walking the whole
  * config; the result is a pure function of the instance.
@@ -240,7 +251,7 @@ export const resolveNativeFreeCandidates = (app?: App): readonly string[] => {
   if (app === undefined) return BUILTIN_CSS_CANDIDATES
   const cached = candidatesByApp.get(app)
   if (cached !== undefined) return cached
-  const declared = isOperatorConsoleApp(app) ? 'all' : collectDeclaredComponentTypes(app)
+  const declared = isOperatorConsoleApp(app) ? 'all' : withHostedForms(app)
   const resolved =
     declared === 'all'
       ? sortedUnion(BUILTIN_CSS_CANDIDATES, collectAppCandidates(app))

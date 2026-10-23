@@ -9,6 +9,7 @@ import { islandDataComponents } from './island-data-components'
 import { islandFormComponents } from './island-form-components'
 import { islandKitComponents } from './island-kit-components'
 import { islandOverlayComponents } from './island-overlay-components'
+import { notificationBellComponent } from './notification-bell-component'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
 
 /**
@@ -31,4 +32,5 @@ export const islandComponents: Partial<Record<DispatchableComponentType, Compone
   ...islandOverlayComponents,
   ...islandFormComponents,
   ...islandKitComponents,
+  'notification-bell': notificationBellComponent,
 }

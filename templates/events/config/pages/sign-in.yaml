@@ -6,6 +6,7 @@ path: /sign-in
 meta:
   title: Organizer sign-in · Fieldday
   description: Sign in to run Fieldday's events.
+  favicon: ./favicon.svg
 components:
   - type: container
     element: div

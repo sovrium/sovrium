@@ -23,6 +23,11 @@ import type {
 export interface FieldDef extends TypedColumnConfig {
   readonly name: string
   /**
+   * The author's `control` over a text column: drawn masked (`password`) or as
+   * a multi-line box (`textarea`), the value still saved as the column's text.
+   */
+  readonly control?: 'password' | 'textarea'
+  /**
    * The field's type discriminator, narrowed to the domain field-type union
    * so every dispatch over it can be made total (see
    * `@/presentation/utils/field-type-behavior`). The value is rehydrated from

@@ -39,3 +39,4 @@ components:
 meta:
   title: $frontmatter.title · Corvel handbook
   description: Hiring and pay reviews at Corvel.
+  favicon: ./favicon.svg

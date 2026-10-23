@@ -28,9 +28,11 @@ export const DISABLED_CONTROL_WRAPPER_CLASSES = 'group/disabled relative inline-
 
 /**
  * The tooltip, shadcn's tooltip anatomy (`bg-foreground text-background`,
- * `text-xs`, `rounded-md`, `px-3 py-1.5`), shown only on hover and on focus.
+ * `text-xs`, `rounded-md`, `px-3 py-1.5`), shown only on hover and on focus of
+ * its {@link DISABLED_CONTROL_WRAPPER_CLASSES} wrapper — a bound avatar group's
+ * discs name their people with it too.
  */
-const TOOLTIP_CLASSES =
+export const TOOLTIP_CLASSES =
   'bg-foreground text-background pointer-events-none absolute bottom-full left-1/2 z-50 mb-1 hidden w-max max-w-64 -translate-x-1/2 rounded-md px-3 py-1.5 text-xs whitespace-normal text-balance group-focus-within/disabled:block group-hover/disabled:block'
 
 /** The attributes a control disabled on its record carries. */

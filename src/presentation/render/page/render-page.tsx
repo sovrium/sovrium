@@ -44,10 +44,13 @@ import { highlightComponentCodeBlocks } from '@/presentation/render/resolve/comp
 import { expandMatchedPageReferences } from '@/presentation/render/resolve/component-reference-expansion'
 import { stampTemplateIslands } from '@/presentation/render/resolve/data-source-rows'
 import { resolveDerivedBreadcrumbs } from '@/presentation/render/resolve/derived-breadcrumb-resolver'
+import { gatePresenceChoices } from '@/presentation/render/resolve/presence-choice-resolver'
 import { routeParamsAreServed } from '@/presentation/render/resolve/route-param-allow-list-resolver'
 import { stampChannelControls } from '@/presentation/render/resolve/shared-channel-controls'
 import { resolveSidebarCurrentEntries } from '@/presentation/render/resolve/sidebar-current-resolver'
 import { resolvePageSidebar } from '@/presentation/render/resolve/sidebar-resolver'
+import { withAppConnectionScript } from '@/presentation/render/scripts/app-connection-script'
+import { withInstallTags } from '@/presentation/render/scripts/install-tags'
 import { resolveSidebarScopedEntries } from '../resolve/sidebar-scope-resolver'
 import { rootRelativeFavicons, servedBelowRoot } from './favicon-address'
 import { documentRequestFacts, requestPathOf } from './head-references'
@@ -290,21 +293,17 @@ async function renderDeclaredPage(
   // sees: a `derive: 'path'` breadcrumb becomes a trail, and the renderer stays free
   // of a prop that would be inert for every other component.
   //
-  // G2b runs BEFORE G3 and is a separate pass for a reason: it can DELETE its
-  // input, and a current-entry mark resolved onto a row the gate then removes
-  // would be an `aria-current` in a document nobody can reach. Pruning first
-  // also keeps both island call-sites honest — `resolveIslandAssets` and
-  // `DynamicPage`'s `hasIslandComponents` are handed this same `page`, so they
-  // see one tree and cannot disagree about whether a bundle is needed.
+  // G2b runs BEFORE G3: it can DELETE its input, and a mark resolved onto a row it then
+  // removes would be an `aria-current` nobody can reach. Both island call-sites are handed
+  // this same `page`, so they cannot disagree about whether a bundle is needed.
   //
-  // G3 additionally takes the RAW request query — undefaulted, straight off
-  // `c.req.query()`. An entry whose href declares `?category=…` is current only
-  // when the reader actually carries it, so a page's `query` DEFAULTS must not
-  // reach this pass or every filter row would mark itself on the unfiltered page.
+  // G3 takes the RAW request query: an entry whose href declares `?category=…` is current
+  // only when the reader carries it, so a page's `query` DEFAULTS must not reach it.
+  // A filter bar's Online / Offline choice is kept only for a reader shown presence.
   const page: Page = rootRelativeFavicons(
     resolveSidebarCurrentEntries(
       resolveSidebarScopedEntries(
-        resolveDerivedBreadcrumbs(resolvedPage, path, basePath),
+        resolveDerivedBreadcrumbs(gatePresenceChoices(resolvedPage, app, session), path, basePath),
         path,
         basePath,
         { session, app, granted: callerCapabilities }
@@ -368,15 +367,16 @@ async function renderDeclaredPage(
     demoNotice: options?.demoNotice,
     ...documentRequestFacts(app, routeParams, path, options),
   })
-  // A standalone `code` component emits a synchronous
-  // pre-highlight placeholder (Shiki's dynamic import can't run inside
-  // `renderToString`). This async pass splices in the Shiki class-based markup,
-  // drawn with shadcn/ui's default light/dark pair. A no-op for pages without
-  // `code` components.
-  // The one filter over every island payload: nothing names a field the
-  // reader may not read, whichever renderer serialised it.
+  // Shiki splices its markup into each standalone `code` placeholder (a no-op without one), after
+  // the one filter over every island payload: nothing names a field the reader may not read.
   const readerHtml = await pagePayloadForReader(pageHtml, { app, session, db })
-  return highlightComponentCodeBlocks(absolutizeSharingImage(readerHtml, requestOrigin))
+  return withInstallTags(
+    withAppConnectionScript(
+      await highlightComponentCodeBlocks(absolutizeSharingImage(readerHtml, requestOrigin)),
+      { app, session }
+    ),
+    { app, engine: engineVersion ?? '' }
+  )
 }
 
 /** What `renderPage` takes beside the app and the path: exactly `renderPageByPath`'s options. */

@@ -32,6 +32,7 @@ children:
       below: md
       label: Menu
     # Sidebar clicks swap only the main region; revisited views open from cache.
+    # On by default; written out so a static build keeps it. `false` loads whole pages.
     clientSideNavigation: true
     props:
       # Row metrics tuned to a compact five-entry navigation: 32px rows, 13.5px

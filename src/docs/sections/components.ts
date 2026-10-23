@@ -175,7 +175,7 @@ export const section = defineSection({
       slug: 'sidebar-client-navigation',
       title: 'Client-side Navigation',
       description:
-        'Moving between pages without a reload — clientSideNavigation swaps the content region on a sidebar link click and keeps loaded data on screen, and trackNavigation keeps the current-entry mark true after a swap.',
+        'Moving between pages without a reload — a sidebar swaps the content region on an in-app link click by default and keeps loaded data on screen (clientSideNavigation: false opts out), and trackNavigation keeps the current-entry mark true after a swap.',
       keywords: ['sovrium', 'sidebar', 'navigation', 'client-side navigation', 'spa', 'no reload'],
       order: 3214,
       sidebarLabel: 'Client-side Navigation',

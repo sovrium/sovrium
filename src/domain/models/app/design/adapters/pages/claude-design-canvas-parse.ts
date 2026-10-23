@@ -22,19 +22,30 @@ import {
   parseJson,
   type ImportSource,
 } from '@/domain/models/app/design/adapters/import/canonical-tokens-service'
-import {
-  layoutsOfClassName,
-  type SpacingScale,
-} from '@/domain/models/app/pages/page-layout-service'
+import { type SpacingScale } from '@/domain/models/app/pages/page-layout-service'
+import { PROTOTYPE_BOARD_ATTRIBUTE } from './claude-design-canvas-app'
+import { mergedStateBoards } from './claude-design-canvas-boards'
 import { lockedDigestOf } from './claude-design-canvas-digest'
-import { CANVAS_STAMP, CANVAS_STAMP_FORMAT } from './claude-design-canvas-export'
+import { CANVAS_STAMP, CANVAS_STAMP_FILE, CANVAS_STAMP_FORMAT } from './claude-design-canvas-export'
 import { CANVAS_LINK_STAMP } from './claude-design-canvas-links'
+import { drawnRulesOf } from './claude-design-canvas-rules'
+import {
+  canvasLayoutOf,
+  shownText,
+  shownTextOf,
+  textWrappersOf,
+  withWrappedPaint,
+  type CanvasLayoutConflict,
+  type CanvasNodeLayout,
+  type CanvasPaint,
+} from './claude-design-canvas-style'
 import {
   addedNodeIdOf,
   type PageDrawingFinding,
   type PageDrawingParse,
   type ParsedPageDrawing,
 } from './page-drawing'
+import type { DrawnRules } from '@/domain/models/app/pages/page-drawing'
 
 /**
  * The Claude Design page adapter, parse half: a canvas project folder (its
@@ -144,132 +155,6 @@ const ownTextOf = (nodes: readonly HtmlNode[]): string =>
     )
     .join('')
 
-type Layout = NonNullable<PageDesignTreeNode['layout']>
-type LayoutValue = NonNullable<Layout['gap']>
-
-const DIRECTION_VALUES: Readonly<Record<string, string>> = {
-  row: 'row',
-  column: 'column',
-  'row-reverse': 'row-reverse',
-  'column-reverse': 'column-reverse',
-}
-const ALIGN_VALUES: Readonly<Record<string, string>> = {
-  start: 'start',
-  'flex-start': 'start',
-  center: 'center',
-  end: 'end',
-  'flex-end': 'end',
-  stretch: 'stretch',
-  baseline: 'baseline',
-}
-const JUSTIFY_VALUES: Readonly<Record<string, string>> = {
-  start: 'start',
-  'flex-start': 'start',
-  center: 'center',
-  end: 'end',
-  'flex-end': 'end',
-  'space-between': 'space-between',
-  'space-around': 'space-around',
-  'space-evenly': 'space-evenly',
-}
-
-/** The keyword style properties a designer may set, the layout property each is, and its values. */
-const KEYWORD_STYLES: Readonly<
-  Record<string, readonly [keyof Layout, Readonly<Record<string, string>>]>
-> = {
-  'flex-direction': ['direction', DIRECTION_VALUES],
-  'align-items': ['align', ALIGN_VALUES],
-  'justify-content': ['justify', JUSTIFY_VALUES],
-}
-
-/** The length style properties a designer may set, resolved to the spacing scale. */
-const LENGTH_STYLES: Readonly<Record<string, keyof Layout>> = {
-  gap: 'gap',
-  padding: 'padding',
-  width: 'width',
-}
-
-const WIDTH_KEYWORDS: ReadonlySet<string> = new Set(['100%', '100vw', 'auto'])
-
-/** A CSS length in rem, `px` read at the browser's 16 px root; `undefined` for anything else. */
-const remOf = (length: string): number | undefined => {
-  const [, amount = '', unit = ''] = /^(\d+(?:\.\d+)?)(px|rem)$/.exec(length.trim()) ?? []
-  if (amount === '') return undefined
-  return unit === 'px' ? Number(amount) / 16 : Number(amount)
-}
-
-/**
- * A length on the scale: the declared step it equals (with its token), else
- * the `0.25rem` grid the utility classes are on, else nothing.
- */
-const scaledLength = (length: string, spacing: SpacingScale): LayoutValue | undefined => {
-  const rem = remOf(length)
-  if (rem === undefined) return undefined
-  const step = Object.entries(spacing).find(([, value]) => remOf(value) === rem)?.[0]
-  if (step !== undefined) return { value: spacing[step] as string, token: `spacing.${step}` }
-  return Number.isInteger(rem * 8) ? { value: `${rem}rem` } : undefined
-}
-
-/** One inline style declaration as a layout setting, or why it is not one. */
-const styleSetting = (
-  property: string,
-  value: string,
-  spacing: SpacingScale
-): readonly [keyof Layout, LayoutValue] | string => {
-  const offScale = `${property}: ${value} is off the scale`
-  const keyword = KEYWORD_STYLES[property]
-  if (keyword !== undefined) {
-    const resolved = keyword[1][value]
-    return resolved === undefined ? offScale : [keyword[0], { value: resolved }]
-  }
-  const length = LENGTH_STYLES[property]
-  if (length === undefined) return `${property} is not a layout property the import reads`
-  if (length === 'width' && WIDTH_KEYWORDS.has(value)) return ['width', { value }]
-  // A length off the scale is drawn as it is: the merge reports it with its nearest step.
-  if (remOf(value) === undefined) return offScale
-  return [length, scaledLength(value, spacing) ?? { value }]
-}
-
-/** The `property: value` pairs of an inline style, lower-cased, in order. */
-const declarationsOf = (style: string): readonly (readonly [string, string])[] =>
-  style
-    .split(';')
-    .map((declaration) => declaration.split(':'))
-    .filter((parts) => parts.length >= 2 && (parts[0] ?? '').trim() !== '')
-    .map(
-      (parts) => [(parts[0] ?? '').trim().toLowerCase(), parts.slice(1).join(':').trim()] as const
-    )
-
-/** A node's layout: its stamped classes, then any inline layout a designer set on top. */
-const layoutOf = (
-  element: HtmlElementNode,
-  spacing: SpacingScale
-): {
-  readonly base: Layout | undefined
-  readonly responsive: Readonly<Record<string, Layout>> | undefined
-  readonly offScale: readonly string[]
-} => {
-  const stamped = layoutsOfClassName(
-    { props: { className: attribute(element, CANVAS_STAMP.layout) ?? '' } },
-    spacing
-  )
-  const settings = declarationsOf(attribute(element, 'style') ?? '').map(([property, value]) =>
-    styleSetting(property, value, spacing)
-  )
-  const applied = settings.filter((setting): setting is readonly [keyof Layout, LayoutValue] =>
-    Array.isArray(setting)
-  )
-  const base = applied.reduce<Layout | undefined>(
-    (layout, [property, value]) => ({ ...layout, [property]: value }),
-    stamped.base
-  )
-  return {
-    base,
-    responsive: stamped.responsive,
-    offScale: settings.filter((setting): setting is string => typeof setting === 'string'),
-  }
-}
-
 // ─── one board ─────────────────────────────────────────────────────────────
 
 /**
@@ -284,6 +169,12 @@ interface Walk {
   readonly notAKitComponent: Chunk.Chunk<PageDrawingFinding>
   /** What each locked node draws inside, as a digest, by node id. */
   readonly drawings: Chunk.Chunk<readonly [string, string]>
+  /** Every layout property a node set in two places with two values, by node id. */
+  readonly conflicts: Chunk.Chunk<readonly [string, CanvasLayoutConflict]>
+  /** The colours and text size each node was drawn with, by node id. */
+  readonly paints: Chunk.Chunk<readonly [string, CanvasPaint]>
+  /** What each node the export drew does, as the board carries it, by node id. */
+  readonly rules: Chunk.Chunk<readonly [string, DrawnRules]>
 }
 
 interface BoardContext {
@@ -300,6 +191,9 @@ const EMPTY_WALK: Walk = {
   offScale: Chunk.empty(),
   notAKitComponent: Chunk.empty(),
   drawings: Chunk.empty(),
+  conflicts: Chunk.empty(),
+  paints: Chunk.empty(),
+  rules: Chunk.empty(),
 }
 
 const merged = (left: Walk, right: Walk): Walk => ({
@@ -308,6 +202,9 @@ const merged = (left: Walk, right: Walk): Walk => ({
   offScale: Chunk.appendAll(left.offScale, right.offScale),
   notAKitComponent: Chunk.appendAll(left.notAKitComponent, right.notAKitComponent),
   drawings: Chunk.appendAll(left.drawings, right.drawings),
+  conflicts: Chunk.appendAll(left.conflicts, right.conflicts),
+  paints: Chunk.appendAll(left.paints, right.paints),
+  rules: Chunk.appendAll(left.rules, right.rules),
 })
 
 /** A walk with findings added to what it is not a kit component. */
@@ -350,20 +247,29 @@ const holdsKitElement = (nodes: readonly HtmlNode[]): boolean =>
  */
 const contentOf = (element: HtmlElementNode, stampedId: string | undefined): string => {
   if (attribute(element, CANVAS_STAMP.locked) !== undefined) return ''
-  if (stampedId === undefined) return ownTextOf(element.children).trim()
-  if (attribute(element, CANVAS_STAMP.content) !== undefined) return ownTextOf(element.children)
-  return holdsKitElement(element.children) ? '' : ownTextOf(element.children).trim()
+  const shown = () => shownTextOf(element, ownTextOf(element.children), isKitElement)
+  if (stampedId === undefined || attribute(element, CANVAS_STAMP.content) !== undefined) {
+    return shown()
+  }
+  return holdsKitElement(element.children) ? '' : shown()
 }
+
+/**
+ * A mounted component's prop, which is what the canvas lets a designer change,
+ * else the stamp a board drew the node with.
+ */
+const propOrStamp = (element: HtmlElementNode, prop: string, stamp: string): string | undefined =>
+  (element.tag === 'x-import' ? attribute(element, prop) : undefined) ?? attribute(element, stamp)
 
 /** A tree node's optional fields, each present only when the drawing sets it. */
 const optionalFieldsOf = (
   element: HtmlElementNode,
   key: string | undefined,
-  layout: ReturnType<typeof layoutOf> | undefined,
+  layout: CanvasNodeLayout | undefined,
   content: string
 ): Partial<PageDesignTreeNode> => {
-  const variant = attribute(element, CANVAS_STAMP.variant)
-  const size = attribute(element, CANVAS_STAMP.size)
+  const variant = propOrStamp(element, 'variant', CANVAS_STAMP.variant)
+  const size = propOrStamp(element, 'size', CANVAS_STAMP.size)
   const locked = attribute(element, CANVAS_STAMP.locked)
   return {
     ...(key === undefined ? {} : { key }),
@@ -395,10 +301,6 @@ const slottedNodes = (context: BoardContext, nodes: readonly HtmlNode[], added: 
   )
 
 /**
- * One kit element as a tree node, its own kit children walked; a locked node's
- * inside is not, but for the page nodes a template placement draws in its slots.
- */
-/**
  * What a kit element holds: its own kit children walked; a locked node's
  * inside only as its digest, but for the page nodes a template placement
  * draws in its slots.
@@ -429,13 +331,85 @@ const innerWalkOf = (
       }
 }
 
+/** A locked node's layout: none is read. */
+const UNREAD_LAYOUT: CanvasNodeLayout = {
+  base: undefined,
+  responsive: undefined,
+  offScale: [],
+  unread: [],
+  conflicts: [],
+  paint: undefined,
+}
+
+/**
+ * What a node the export drew says beyond its tree node: every class it holds
+ * that the import does not read, every element wrapping its text (no kit
+ * component, named), every layout property set twice, and its paint.
+ */
+const stampedExtrasOf = (
+  context: BoardContext,
+  element: HtmlElementNode,
+  at: { readonly id: string; readonly layout: CanvasNodeLayout | undefined }
+): Pick<Walk, 'offScale' | 'notAKitComponent' | 'conflicts' | 'paints'> => {
+  const { id } = at
+  const layout = at.layout ?? UNREAD_LAYOUT
+  // Only a node drawing its own copy is read for wrappers: a component drawing
+  // records (a seed's values) wraps them in its own markup.
+  const copy =
+    attribute(element, CANVAS_STAMP.content) !== undefined ||
+    attribute(element, CANVAS_STAMP.kit) === 'text'
+  const wrappers =
+    at.layout === undefined || !copy
+      ? []
+      : textWrappersOf(element.children, isKitElement, (inner) => SKIPPED_TAGS.has(inner.tag))
+  const finding = (detail: string): PageDrawingFinding => ({
+    board: context.board,
+    node: id,
+    detail,
+  })
+  const paint = withWrappedPaint(layout.paint, wrappers)
+  return {
+    offScale: Chunk.fromIterable([
+      ...layout.offScale.map(finding),
+      ...layout.unread.map((token) => finding(`the class ${token} is not one the import reads`)),
+    ]),
+    notAKitComponent: Chunk.fromIterable(
+      wrappers.map((wrapper) =>
+        finding(
+          `<${wrapper.tag}> wraps text inside this node and is no kit component, so it was not imported; style the node with a token instead`
+        )
+      )
+    ),
+    conflicts: Chunk.fromIterable(layout.conflicts.map((conflict) => [id, conflict] as const)),
+    paints: paint === undefined ? Chunk.empty() : Chunk.of([id, paint] as const),
+  }
+}
+
+/** What a kit element says of itself: its layout when it is open, its rules when the export drew it. */
+const ownReadOf = (
+  context: BoardContext,
+  element: HtmlElementNode,
+  stampedId: string | undefined
+): { readonly layout: CanvasNodeLayout | undefined; readonly rules: DrawnRules | undefined } => ({
+  layout:
+    attribute(element, CANVAS_STAMP.locked) === undefined
+      ? canvasLayoutOf(element, stampedId !== undefined, {
+          layoutAttribute: CANVAS_STAMP.layout,
+          spacing: context.spacing,
+        })
+      : undefined,
+  rules:
+    stampedId === undefined
+      ? undefined
+      : drawnRulesOf(element.attributes, attribute(element, CANVAS_STAMP.kit) ?? ''),
+})
+
 function kitNode(context: BoardContext, element: HtmlElementNode, added: number): Walk {
   const stampedId = stampedIdOf(context, element)
   const id = stampedId ?? addedNodeIdOf(context.page, added)
   const next = stampedId === undefined ? added + 1 : added
-  const open = attribute(element, CANVAS_STAMP.locked) === undefined
   const inner = innerWalkOf(context, element, { id, stampedId, added: next })
-  const layout = open ? layoutOf(element, context.spacing) : undefined
+  const { layout, rules } = ownReadOf(context, element, stampedId)
   const key = stampedId === undefined ? undefined : context.keys.get(stampedId)
   const node: PageDesignTreeNode = {
     id,
@@ -443,17 +417,24 @@ function kitNode(context: BoardContext, element: HtmlElementNode, added: number)
     ...optionalFieldsOf(element, key, layout, contentOf(element, stampedId)),
     children: Chunk.toReadonlyArray(inner.nodes),
   }
+  const extras =
+    stampedId === undefined
+      ? {
+          ...EMPTY_WALK,
+          offScale: Chunk.fromIterable(
+            (layout?.offScale ?? []).map((detail) => ({ board: context.board, node: id, detail }))
+          ),
+        }
+      : stampedExtrasOf(context, element, { id, layout })
   return {
     nodes: Chunk.of(node),
     added: inner.added,
-    offScale: Chunk.prependAll(
-      inner.offScale,
-      Chunk.fromIterable(
-        (layout?.offScale ?? []).map((detail) => ({ board: context.board, node: id, detail }))
-      )
-    ),
-    notAKitComponent: inner.notAKitComponent,
+    offScale: Chunk.appendAll(extras.offScale, inner.offScale),
+    notAKitComponent: Chunk.appendAll(extras.notAKitComponent, inner.notAKitComponent),
     drawings: inner.drawings,
+    conflicts: Chunk.appendAll(extras.conflicts, inner.conflicts),
+    paints: Chunk.appendAll(extras.paints, inner.paints),
+    rules: rules === undefined ? inner.rules : Chunk.prepend(inner.rules, [id, rules] as const),
   }
 }
 
@@ -523,11 +504,16 @@ const findElement = (nodes: readonly HtmlNode[], tag: string): HtmlElementNode |
     undefined
   )
 
-/** The stamp a board's root carries, decoded; `undefined` when it is missing or broken. */
-const stampOf = (
-  root: HtmlElementNode | undefined
-): { readonly page: string; readonly exported: PageExportStamp } | undefined => {
-  const document = parseJson(root === undefined ? '' : (attribute(root, CANVAS_STAMP.stamp) ?? ''))
+/** One board's export stamp: the page it draws and every node it draws. */
+type BoardStamp = {
+  readonly page: string
+  readonly exported: PageExportStamp
+  /** The text the export drew on each node whose text the config does not keep literally. */
+  readonly texts?: Readonly<Record<string, string>> | undefined
+}
+
+/** A stamp document decoded; `undefined` when it is not one. */
+const stampDocumentOf = (document: unknown): BoardStamp | undefined => {
   if (
     !isRecord(document) ||
     document['format'] !== CANVAS_STAMP_FORMAT ||
@@ -536,11 +522,42 @@ const stampOf = (
     return undefined
   }
   const exported = decodeSafe(pageExportStampSchema)(document['exported'])
-  return exported.success ? { page: document['page'], exported: exported.data } : undefined
+  const texts = isRecord(document['texts'])
+    ? Object.fromEntries(
+        Object.entries(document['texts']).flatMap(([id, text]) =>
+          typeof text === 'string' ? [[id, text] as const] : []
+        )
+      )
+    : undefined
+  return exported.success
+    ? { page: document['page'], exported: exported.data, ...(texts === undefined ? {} : { texts }) }
+    : undefined
+}
+
+/** The stamp a board's root carries, decoded; `undefined` when it is missing or broken. */
+const stampOf = (root: HtmlElementNode | undefined): BoardStamp | undefined =>
+  stampDocumentOf(parseJson(root === undefined ? '' : (attribute(root, CANVAS_STAMP.stamp) ?? '')))
+
+/**
+ * Each board's stamp, by board file, from the canvas's stamp file beside its
+ * index; none when the canvas carries no such file.
+ */
+const stampFileOf = (source: ImportSource, folder: string): ReadonlyMap<string, BoardStamp> => {
+  const path = folder === '' ? CANVAS_STAMP_FILE : `${folder}/${CANVAS_STAMP_FILE}`
+  const document = parseJson(source.files.find((file) => file.path === path)?.text ?? '')
+  const boards = isRecord(document) && isRecord(document['boards']) ? document['boards'] : {}
+  return new Map(
+    Object.entries(boards).flatMap(([board, entry]) => {
+      const stamp = isRecord(entry)
+        ? stampDocumentOf({ format: CANVAS_STAMP_FORMAT, ...entry })
+        : undefined
+      return stamp === undefined ? [] : [[board, stamp] as const]
+    })
+  )
 }
 
 type BoardResult =
-  | { readonly ok: true; readonly drawing: ParsedPageDrawing }
+  | { readonly ok: true; readonly drawing: ParsedPageDrawing; readonly state?: string | undefined }
   | { readonly ok: false; readonly finding: PageDrawingFinding }
 
 const refusal = (board: string, detail: string): BoardResult => ({
@@ -573,50 +590,93 @@ const boardRootIn = (nodes: readonly HtmlNode[]): HtmlElementNode | undefined =>
  * link in the board's navigation carries the name of the page it leads to.
  */
 const boardPageOf = (
-  canvas: HtmlElementNode
+  canvas: HtmlElementNode,
+  filed: BoardStamp | undefined
 ): {
   readonly page: string | undefined
   readonly stamp: ReturnType<typeof stampOf>
+  readonly state: string | undefined
+  readonly declares: ParsedPageDrawing['declares']
 } => {
   const root = boardRootIn(canvas.children)
-  const stamp = stampOf(root)
+  const stamp = filed ?? stampOf(root)
+  const own = root?.attributes ?? {}
   return {
-    page: stamp?.page ?? (root === undefined ? undefined : attribute(root, CANVAS_STAMP.page)),
+    page: stamp?.page ?? own[CANVAS_STAMP.page],
     stamp,
+    state: own[CANVAS_STAMP.state],
+    declares: declaresOf(own),
   }
 }
+
+/** What a board's root says of a page the config may not declare, when it says anything. */
+const declaresOf = (own: Readonly<Record<string, string>>): ParsedPageDrawing['declares'] => {
+  const path = own[NEW_PAGE_ATTRIBUTES.path]
+  const like = own[NEW_PAGE_ATTRIBUTES.like]
+  if (path === undefined && like === undefined) return undefined
+  return { ...(path === undefined ? {} : { path }), ...(like === undefined ? {} : { like }) }
+}
+
+/** What a board's root may say of the page it draws, when the config does not declare it yet. */
+const NEW_PAGE_ATTRIBUTES = { path: 'data-sovrium-path', like: 'data-sovrium-like' } as const
 
 const SIZE_REFUSALS: Readonly<Record<'too-large' | 'too-deep', string>> = {
   'too-large': 'the board is too large to read',
   'too-deep': 'the board is nested too deep to read',
 }
 
+/**
+ * A board's nodes, each text the export drew where the config keeps none (a
+ * seeded record's value, a role's name) left unread when it is still the text
+ * drawn: it is no edit, whatever an unedited export draws there today.
+ */
+const withoutDrawnTexts = (
+  nodes: readonly PageDesignTreeNode[],
+  texts: Readonly<Record<string, string>>
+): readonly PageDesignTreeNode[] =>
+  nodes.map(({ content, ...node }) => ({
+    ...node,
+    ...(content === undefined ||
+    (texts[node.id] !== undefined && shownText(texts[node.id] ?? '') === shownText(content))
+      ? {}
+      : { content }),
+    children: withoutDrawnTexts(node.children, texts),
+  }))
+
+/** What one board's nodes are read against: its page, the scale, and the keys its stamp names. */
+const boardContextOf = (
+  board: string,
+  page: string,
+  options: ClaudeDesignCanvasParseOptions,
+  stamp: BoardStamp | undefined
+): BoardContext => ({
+  board,
+  page,
+  spacing: options.spacing ?? {},
+  kitTypes: options.kitTypes,
+  keys: new Map(
+    (stamp?.exported ?? []).flatMap((entry) =>
+      entry.key === undefined ? [] : [[entry.id, entry.key] as const]
+    )
+  ),
+})
+
 /** One board read back into its page's design tree. */
 const parseBoard = (
   board: string,
   text: string,
-  options: ClaudeDesignCanvasParseOptions
+  options: ClaudeDesignCanvasParseOptions,
+  filed?: BoardStamp
 ): BoardResult => {
   const parsed = parseHtmlElementTree(text)
   if (!parsed.ok) return refusal(board, SIZE_REFUSALS[parsed.reason])
   const canvas = findElement(parsed.nodes, 'x-dc')
   if (canvas === undefined) return refusal(board, 'the board holds no <x-dc> drawing')
-  const { page, stamp } = boardPageOf(canvas)
+  const { page, stamp, state, declares } = boardPageOf(canvas, filed)
   if (page === undefined) {
     return refusal(board, 'the board draws no Sovrium page: it carries no page name')
   }
-  const context: BoardContext = {
-    board,
-    page,
-    spacing: options.spacing ?? {},
-    kitTypes: options.kitTypes,
-    keys: new Map(
-      (stamp?.exported ?? []).flatMap((entry) =>
-        entry.key === undefined ? [] : [[entry.id, entry.key] as const]
-      )
-    ),
-  }
-  const walk = walkNodes(context, canvas.children, 0, undefined)
+  const walk = walkNodes(boardContextOf(board, page, options, stamp), canvas.children, 0, undefined)
   const tree = decodeSafe(pageDesignTreeSchema)({
     format: 'sovrium.design-system.page-tree',
     version: 1,
@@ -624,16 +684,25 @@ const parseBoard = (
     nodes: Chunk.toReadonlyArray(walk.nodes),
   })
   if (!tree.success) return refusal(board, `the board's nodes do not form a page tree of ${page}`)
+  const nodes = withoutDrawnTexts(tree.data.nodes, stamp?.texts ?? {})
   return {
     ok: true,
+    state,
     drawing: {
       board,
-      tree: tree.data,
+      tree: { ...tree.data, nodes },
       exported: stamp?.exported ?? [],
       stamped: stamp !== undefined,
       offScale: Chunk.toReadonlyArray(walk.offScale),
       notAKitComponent: Chunk.toReadonlyArray(walk.notAKitComponent),
       drawings: Object.fromEntries(Chunk.toReadonlyArray(walk.drawings)),
+      conflicts: Chunk.toReadonlyArray(walk.conflicts).map(([node, conflict]) => ({
+        node,
+        ...conflict,
+      })),
+      paints: Object.fromEntries(Chunk.toReadonlyArray(walk.paints)),
+      rules: Object.fromEntries(Chunk.toReadonlyArray(walk.rules)),
+      ...(declares === undefined ? {} : { declares }),
     },
   }
 }
@@ -643,7 +712,11 @@ const parseBoard = (
 /** The boards a source names: every board of every index it holds, or the lone board given. */
 const boardsOf = (
   source: ImportSource
-): readonly { readonly board: string; readonly path: string | undefined }[] => {
+): readonly {
+  readonly board: string
+  readonly path: string | undefined
+  readonly stamp?: BoardStamp | undefined
+}[] => {
   const indexes = source.files.filter(
     (file) => baseName(file.path) === INDEX_NAME && isCanvasIndex(parseJson(file.text))
   )
@@ -658,6 +731,7 @@ const boardsOf = (
       readonly order?: unknown
     }
     const folder = folderOf(file.path)
+    const stamps = stampFileOf(source, folder)
     const order = Array.isArray(index.order)
       ? index.order.filter((entry): entry is string => typeof entry === 'string')
       : []
@@ -667,6 +741,7 @@ const boardsOf = (
     return names.map((name) => ({
       board: name,
       path: isUnsafeBoardPath(name) ? undefined : folder === '' ? name : `${folder}/${name}`,
+      stamp: stamps.get(name),
     }))
   })
 }
@@ -675,38 +750,32 @@ const boardsOf = (
  * Read a Claude Design canvas back into one design tree per page it draws.
  *
  * A board that draws no Sovrium page (a designer's own sketch) is refused by
- * name and the rest are read; two boards drawing one page are both refused,
- * since nothing says which one is the design.
+ * name and the rest are read. A page's state boards are read as that page
+ * (`claude-design-canvas-boards.ts`); two default boards drawing one page are
+ * both refused, since nothing says which one is the design.
  */
 export const fromClaudeDesignCanvas = (
   source: ImportSource,
   options: ClaudeDesignCanvasParseOptions = {}
 ): ClaudeDesignCanvasParse => {
-  const results = boardsOf(source).map(({ board, path }): BoardResult => {
+  const results = boardsOf(source).flatMap(({ board, path, stamp }): readonly BoardResult[] => {
     if (path === undefined)
-      return refusal(board, 'the board path climbs out of the canvas, so it names no file')
+      return [refusal(board, 'the board path climbs out of the canvas, so it names no file')]
     const file = source.files.find((candidate) => candidate.path === path)
     if (file === undefined)
-      return refusal(board, 'the canvas lists the board, but the export holds no such file')
-    return parseBoard(board, file.text, options)
+      return [refusal(board, 'the canvas lists the board, but the export holds no such file')]
+    // The Prototype board plays the pages; it is none of them, and nothing on it is read.
+    if (file.text.includes(` ${PROTOTYPE_BOARD_ATTRIBUTE}=`)) return []
+    return [parseBoard(board, file.text, options, stamp)]
   })
-  const drawings = results.flatMap((result) => (result.ok ? [result.drawing] : []))
-  const twice = new Set(
-    drawings
-      .map((drawing) => drawing.tree.page)
-      .filter((page, index, pages) => pages.indexOf(page) !== index)
+  const read = mergedStateBoards(
+    results.flatMap((result) =>
+      result.ok ? [{ drawing: result.drawing, state: result.state }] : []
+    )
   )
   return {
     format: 'claude-design',
-    pages: drawings.filter((drawing) => !twice.has(drawing.tree.page)),
-    refused: [
-      ...results.flatMap((result) => (result.ok ? [] : [result.finding])),
-      ...drawings
-        .filter((drawing) => twice.has(drawing.tree.page))
-        .map((drawing) => ({
-          board: drawing.board,
-          detail: `the page ${drawing.tree.page} is drawn on more than one board; keep one`,
-        })),
-    ],
+    pages: read.pages,
+    refused: [...results.flatMap((result) => (result.ok ? [] : [result.finding])), ...read.refused],
   }
 }

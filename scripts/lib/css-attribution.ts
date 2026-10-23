@@ -616,14 +616,20 @@ export const attributeCorpus = (
   const targetsOf = (keys: readonly string[]): readonly string[] =>
     keys.map((key) => islandTarget.get(key) ?? fail(`no island target for '${key}'`))
 
-  // 1. Type walks — the renderer's leaf module plus the islands it mounts.
+  // 1. Type walks — the renderer's leaf module plus the islands it mounts. A
+  //    synthesized or engine-page type is marked CORE, so its walk is a CORE
+  //    walk and stops at the same boundary as step 3: a leaf module shared
+  //    with `field-specimen` (`structural-components.tsx` reaches it) must not
+  //    carry that one type's subtree into every page.
+  const boundary = CORE_WALK_BOUNDARY.map((path) => repoKey(path))
+  const coreStop = new Set([...stop, ...boundary])
   for (const { key, leafModule } of registry) {
     if (stop.has(leafModule)) {
       fail(`registry key '${key}' resolves to the stop file ${rel(leafModule)} — no leaf module`)
     }
     const roots = [leafModule, ...targetsOf(ISLANDS_BY_TYPE[key] ?? [])]
     const core = synthesized.has(key) || enginePageTypes.has(key)
-    mark(walkPresentation(roots, stop), core ? CORE : key)
+    mark(walkPresentation(roots, core ? coreStop : stop), core ? CORE : key)
   }
   // 2. Page-level islands → CORE; console islands and console paths → CONSOLE.
   mark(walkPresentation(targetsOf(PAGE_LEVEL_ISLANDS), stop), CORE)
@@ -632,7 +638,6 @@ export const attributeCorpus = (
   // 3. Everything else reached by no type is a CORE root: the page shell, the
   //    resolvers, the API routes — and what they import is CORE too, even when
   //    a type also reaches it (a shared recipe the shell uses must always ship).
-  const boundary = CORE_WALK_BOUNDARY.map((path) => repoKey(path))
   for (const path of boundary) {
     const labels = marks.get(path)
     if (labels === undefined || ![...labels].some((label) => label !== CORE && label !== CONSOLE)) {
@@ -642,7 +647,7 @@ export const attributeCorpus = (
   const coreRoots = corpus
     .map((file) => file.path)
     .filter((path) => isPresentationModule(path) && !marks.has(path) && !stop.has(path))
-  mark(walkPresentation(coreRoots, new Set([...stop, ...boundary])), CORE)
+  mark(walkPresentation(coreRoots, coreStop), CORE)
   const marksOf = (path: string): ReadonlySet<string> =>
     marks.get(path) ??
     (stop.has(path) || !isPresentationModule(path)

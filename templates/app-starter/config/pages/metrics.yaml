@@ -6,6 +6,7 @@ access:
 meta:
   title: Metrics · App starter
   description: Where the budget goes.
+  favicon: ./favicon.svg
 window:
   default: 30d
   presets:

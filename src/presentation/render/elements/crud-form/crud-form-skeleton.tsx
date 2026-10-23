@@ -31,6 +31,11 @@ import type {
 
 export type SkeletonFieldDef = TypedColumnConfig & {
   readonly name: string
+  /**
+   * The author's `control` over a text column: drawn masked (`password`) or as
+   * a multi-line box (`textarea`), the value still saved as the column's text.
+   */
+  readonly control?: 'password' | 'textarea'
   /** Narrowed to the domain field-type union so the render dispatch is total. */
   readonly type: FieldType
   readonly required?: boolean

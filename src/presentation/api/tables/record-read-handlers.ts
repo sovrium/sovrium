@@ -33,6 +33,7 @@ import { parseFilter } from './list-records-filter'
 import { buildSearchFilter, readSearchTerm } from './list-records-search'
 import { validatePaginationParams } from './pagination-validation'
 import { parseListRecordsParams } from './param-parsers'
+import { countsOnList, countsOnRecord } from './read-state-handlers'
 import { guardForTable, type RowLevelGuardContext } from './row-level-guard'
 import {
   buildListFilter,
@@ -333,7 +334,10 @@ function listAfterGuard(input: {
       ...params,
       sort: effectiveSort,
       origin: new URL(c.req.url).origin,
-    }).pipe(Effect.map((response) => ({ ...response, appliedQuery }))),
+    }).pipe(
+      Effect.map((response) => ({ ...response, appliedQuery })),
+      countsOnList({ c, app, tableName })
+    ),
     listRecordsResponseSchema
   )
 }
@@ -460,13 +464,9 @@ export async function handleGetRecord(c: Context, app: App) {
           timezone,
           origin: new URL(c.req.url).origin,
           admits: readRuleAdmits(guard, table),
-        }),
+        }).pipe(countsOnRecord({ c, app, tableName })),
         getRecordResponseSchema
       )
     })
   )
 }
-
-// retrigger
-
-// retrigger

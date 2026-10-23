@@ -25,6 +25,8 @@ import {
   CHART_AXIS_LABEL_FONT_WEIGHT,
   CHART_AXIS_TICK_FILL,
 } from '@/presentation/design/chart-default-classes'
+import { TIME_KEY, type CartesianRowInput } from './cartesian-rows'
+import { timeKeyLabeller } from './chart-format'
 import type { ValueAxis } from './value-axis'
 import type { ReactElement } from 'react'
 
@@ -199,6 +201,80 @@ export function valueAxisElement(
       tickMargin={6}
       tick={valueTick(format)}
       label={title === undefined ? undefined : axisTitle('y', title)}
+    />
+  )
+}
+
+/** The tick steps a time axis may take, shortest first. */
+const TIME_STEPS_MS = [
+  60_000, 300_000, 900_000, 1_800_000, 3_600_000, 7_200_000, 10_800_000, 21_600_000, 43_200_000,
+  86_400_000, 172_800_000, 604_800_000,
+] as const
+
+/** At most this many ticks: regular instants, never one per bucket. */
+const MAX_TIME_TICKS = 8
+
+/**
+ * Regular instants over `[from, to]`: every multiple of the shortest step that
+ * keeps them to {@link MAX_TIME_TICKS} — every 6 hours across two days.
+ */
+export function timeTicks(from: number, to: number): readonly number[] {
+  const step: number =
+    TIME_STEPS_MS.find((candidate) => (to - from) / candidate <= MAX_TIME_TICKS) ?? 604_800_000
+  const first = Math.ceil(from / step) * step
+  return Array.from({ length: Math.max(0, Math.floor((to - first) / step) + 1) }, (_, i) => {
+    return first + i * step
+  })
+}
+
+/** The span a time axis draws: its domain and its regular ticks. */
+interface TimeSpan {
+  readonly domain: [number, number]
+  readonly ticks: number[]
+}
+
+/**
+ * The domain reaches half the shortest gap between buckets past each end, so
+ * the outer bars are drawn whole; the ticks are regular instants over it.
+ */
+function timeSpanOf(rows: readonly CartesianRowInput[]): TimeSpan {
+  const sorted = rows
+    .map((row) => Date.parse(row.key))
+    .filter((time) => Number.isFinite(time))
+    .toSorted((a, b) => a - b)
+  const gaps = sorted.slice(1).map((time, index) => time - (sorted[index] ?? time))
+  const pad = Math.max(30_000, Math.min(...gaps, 3_600_000) / 2)
+  const from = (sorted[0] ?? 0) - pad
+  const to = (sorted[sorted.length - 1] ?? 0) + pad
+  return { domain: [from, to], ticks: [...timeTicks(from, to)] }
+}
+
+/**
+ * The category axis of `xAxis.scale: time`: each bucket at its instant, so a
+ * gap in time is a gap on the axis, labelled at regular instants rather than
+ * once per bucket.
+ */
+export function timeAxisElement(
+  rows: readonly CartesianRowInput[],
+  title: string | undefined
+): ReactElement {
+  const span = timeSpanOf(rows)
+  const label = timeKeyLabeller(span.ticks.map((tick) => new Date(tick).toISOString()))
+  return (
+    <XAxis
+      dataKey={TIME_KEY}
+      type="number"
+      scale="time"
+      domain={span.domain}
+      ticks={span.ticks}
+      interval={0}
+      axisLine={false}
+      tickLine={false}
+      tickSize={0}
+      tickMargin={8}
+      height={title === undefined ? 28 : 44}
+      tick={categoryTick((key) => label?.(new Date(Number(key)).toISOString()) ?? key)}
+      label={title === undefined ? undefined : axisTitle('x', title)}
     />
   )
 }

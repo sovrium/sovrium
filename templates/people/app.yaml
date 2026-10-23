@@ -42,6 +42,7 @@ tables:
 automations:
   - $ref: ./config/automations/approve-time-off.yaml
   - $ref: ./config/automations/join-new-account-to-directory.yaml
+  - $ref: ./config/automations/nightly-reset.yaml
   - $ref: ./library/recipe/record-to-google-doc.yaml
 
 # The forms the app's "Add" dialogs open, each placed with `formRef`.

@@ -133,6 +133,13 @@ export function gridReadFailure(args: {
  * The view switcher a grid bound to a table that declares `views[]` draws: its
  * first entry's words, `All <plural>`. Nothing at all for a table that declares
  * none, nor for a system source.
+ *
+ * `defaultView` is the default view the reader may open, read off the views the
+ * table API lists her (`views`, stamped as `_callerTable`): its id, or `null`
+ * when she may open no default. With it the grid sends its first read through
+ * the right view at once, instead of waiting for the switcher to fetch the same
+ * list. Absent when no list was stamped (no auth, a render outside the page
+ * route), where the grid waits for the list as before.
  */
 export function viewSwitcherProps(
   resolved: {
@@ -140,12 +147,23 @@ export function viewSwitcherProps(
     readonly dataTableDeclaresViews?: boolean
   },
   currentLang: string | undefined,
-  languages: Languages | undefined
-): { readonly viewSwitcher?: { readonly allLabel: string } } {
+  languages: Languages | undefined,
+  listedViews?: readonly unknown[]
+): {
+  readonly viewSwitcher?: { readonly allLabel: string; readonly defaultView?: string | null }
+} {
   const names = resolved.dataTableNames
   if (names === undefined || resolved.dataTableDeclaresViews !== true) return {}
+  const allLabel = tableMessage('datatable.viewAll', names, currentLang, languages)
+  if (listedViews === undefined) return { viewSwitcher: { allLabel } }
+  const listedDefault = listedViews.find(
+    (view) => (view as { readonly isDefault?: unknown }).isDefault === true
+  ) as { readonly id: string | number } | undefined
   return {
-    viewSwitcher: { allLabel: tableMessage('datatable.viewAll', names, currentLang, languages) },
+    viewSwitcher: {
+      allLabel,
+      defaultView: listedDefault === undefined ? null : String(listedDefault.id),
+    },
   }
 }
 

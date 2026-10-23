@@ -288,16 +288,20 @@ export const entry = defineLibraryEntry({
         className: 'flex h-svh w-full flex-col items-stretch overflow-hidden md:flex-row',
       },
       children: [
-        shellSidebar({
-          collapsible: 'icon',
-          railHandle: true,
-          // The site header is 48px (`h-12`), not the kit's 44px bar: the
-          // fold controls stand 10px down so they sit on its centre.
-          extra: '[--sidebar-trigger-top:0.625rem]',
-          header: [identityRow()],
-          groups: [platformGroup()],
-          footer: [accountRow(p('roleLabel'), p('readOnlyRoleLabel'))],
-        }),
+        {
+          ...shellSidebar({
+            collapsible: 'icon',
+            railHandle: true,
+            // The site header is 48px (`h-12`), not the kit's 44px bar: the
+            // fold controls stand 10px down so they sit on its centre.
+            extra: '[--sidebar-trigger-top:0.625rem]',
+            header: [identityRow()],
+            groups: [platformGroup()],
+            footer: [accountRow(p('roleLabel'), p('readOnlyRoleLabel'))],
+          }),
+          // A console brings its own navigation, so the app's content swap stays off.
+          clientSideNavigation: false,
+        },
         {
           type: 'container',
           element: 'div',

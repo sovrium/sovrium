@@ -26,6 +26,7 @@ import { resolveRelativeDatesIn } from '@/domain/models/app/pages/components/rel
 import { isComponentReferenceNode } from '@/presentation/render/resolve/component-reference'
 import { hasCurrentUserRef, resolveFilters } from './current-user-resolver'
 import { UNAUTHORIZED, type DataSourceDb } from './data-source-contracts'
+import { bindRouteParams } from './route-param-binding'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Component } from '@/domain/models/app/pages/components'
 
@@ -41,6 +42,12 @@ export interface CurrentUserFilterContext {
   readonly cookies: Readonly<Record<string, string>> | undefined
   readonly db: DataSourceDb
   readonly scopeTables: readonly string[]
+  /**
+   * The matched route's segments, for the bindings this pass resolves beyond a
+   * component's own `dataSource` — a tab panel's `count`, whose `$param.<name>`
+   * value no later walk reaches. Omitted: such a value is left as written.
+   */
+  readonly routeParams?: Readonly<Record<string, string>>
 }
 
 /**
@@ -93,6 +100,48 @@ function withRelativeDates(component: Component, now: string | undefined): Compo
   return resolved === filter
     ? component
     : { ...component, dataSource: { ...component.dataSource!, filter: resolved } }
+}
+
+/**
+ * One tab panel's `count` binding, made concrete as a component's own is: each
+ * `$param.<name>` the matched segment, each `$currentUser` reference and
+ * relative date its value. The island reads the figure from the browser, so a
+ * token left here would reach the aggregate route as literal text.
+ *
+ * `undefined` when the request has no session and the count needs one: the
+ * figure is then not this reader's to know, so the panel draws its bare label
+ * — a count is an ornament on a tab, and never makes the whole page 401.
+ */
+async function concreteCount(
+  count: NonNullable<Component['dataSource']>,
+  ctx: CurrentUserFilterContext
+): Promise<NonNullable<Component['dataSource']> | undefined> {
+  const host = { type: 'container', dataSource: count } as Component
+  const routed = ctx.routeParams === undefined ? host : bindRouteParams(host, ctx.routeParams)
+  const resolved = await resolveCurrentUserFilters(routed, ctx)
+  return resolved === UNAUTHORIZED ? undefined : (resolved.dataSource ?? count)
+}
+
+/** A tab set's panels with every `count` made concrete; the node by reference when none changed. */
+async function resolvePanelCounts(
+  node: Component,
+  ctx: CurrentUserFilterContext
+): Promise<Component> {
+  const { panels } = node as { readonly panels?: unknown }
+  if (!Array.isArray(panels)) return node
+  const next = await Promise.all(
+    panels.map(async (panel: unknown) => {
+      const { count } = (panel ?? {}) as { readonly count?: Component['dataSource'] }
+      if (typeof count !== 'object' || count === null) return panel
+      const concrete = await concreteCount(count, ctx)
+      if (concrete === count) return panel
+      const { count: _dropped, ...rest } = panel as Record<string, unknown>
+      return concrete === undefined ? rest : { ...rest, count: concrete }
+    })
+  )
+  return next.every((panel, index) => panel === panels[index])
+    ? node
+    : ({ ...node, panels: next } as Component)
 }
 
 type TreeNode = unknown
@@ -162,8 +211,9 @@ async function resolveDescendants(
  */
 async function resolveNode(node: TreeNode, ctx: CurrentUserFilterContext): Promise<Resolved> {
   if (typeof node !== 'object' || node === null || isComponentReferenceNode(node)) return node
-  const own = await resolveCurrentUserFilters(node as Component, ctx)
-  if (own === UNAUTHORIZED) return UNAUTHORIZED
+  const filtered = await resolveCurrentUserFilters(node as Component, ctx)
+  if (filtered === UNAUTHORIZED) return UNAUTHORIZED
+  const own = await resolvePanelCounts(filtered, ctx)
   const patch = await resolveDescendants(own as Record<string, unknown>, ctx)
   if (patch === UNAUTHORIZED) return UNAUTHORIZED
   if (own === node && Object.keys(patch).length === 0) return node

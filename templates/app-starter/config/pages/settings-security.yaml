@@ -6,6 +6,7 @@ access:
 meta:
   title: Security · App starter
   description: Passkeys, two-step and devices.
+  favicon: ./favicon.svg
 # Marks this page's link in the settings sections.
 query:
   section:

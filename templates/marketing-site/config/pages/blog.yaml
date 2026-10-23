@@ -3,6 +3,7 @@ path: /blog
 meta:
   title: 'Blog · [Product]'
   description: '[Articles from the team.]'
+  favicon: ./favicon.svg
 components:
   - component: navbar-simple
   # The page's one heading; the blocks below carry the second-level ones.

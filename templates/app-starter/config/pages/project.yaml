@@ -6,6 +6,7 @@ access:
 meta:
   title: Project · App starter
   description: One project.
+  favicon: ./favicon.svg
 dataSource:
   table: projects
   mode: single

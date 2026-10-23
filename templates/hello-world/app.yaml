@@ -99,6 +99,7 @@ pages:
     meta:
       title: Your app is running
       description: A Sovrium app, running. Open app.yaml to change this page.
+      favicon: ./favicon.svg
     components:
       - type: container
         element: div
@@ -227,6 +228,7 @@ pages:
     meta:
       title: Nothing here yet
       description: No page answers this address yet.
+      favicon: ./favicon.svg
     components:
       - type: container
         element: div
@@ -273,6 +275,26 @@ pages:
                       - type: text
                         element: span
                         content: Back to the start
+
+# Every night at 04:07, put a hosted demo back the way it shipped. The app has
+# no tables yet, so today a reset has nothing to empty; add tables and a seed/
+# folder and the same step brings them back to their seed each night. It does
+# nothing unless the host sets SOVRIUM_SELF_SEED=reset: without that variable
+# the automation is not scheduled at all, so your own app never wipes itself.
+automations:
+  - name: nightly-reset
+    label: Reset the demo every night
+    trigger:
+      type: cron
+      expression: '7 4 * * *'
+      # Keep each night's status and timing, not the report.
+      history: minimal
+    actions:
+      - name: reset
+        type: app
+        operator: seed
+        props:
+          mode: reset
 
 # "Built with Sovrium" once, as a small line after the page rather than a
 # floating pill over it. Set `badge: false` to remove it.

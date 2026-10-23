@@ -1,0 +1,23 @@
+# Every night at 04:07, put the demo back the way it shipped. This template
+# has no seed/ folder, so a reset empties the demo requests table and keeps
+# every account: the page starts each day with no requests in it.
+#
+# It does nothing unless the host sets SOVRIUM_SELF_SEED=reset. Without that
+# variable the automation is not scheduled at all, so a landing page you build
+# from this template never deletes the requests it collects.
+#
+# `history: minimal` keeps each night's status and timing but not the report.
+name: nightly-reset
+label: Reset the demo every night
+description: At 04:07 every night, empty the demo requests table — only when the host sets SOVRIUM_SELF_SEED=reset.
+enabled: true
+trigger:
+  type: cron
+  expression: '7 4 * * *'
+  history: minimal
+actions:
+  - name: reset
+    type: app
+    operator: seed
+    props:
+      mode: reset

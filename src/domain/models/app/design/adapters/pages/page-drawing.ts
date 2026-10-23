@@ -9,6 +9,12 @@ import type {
   PageDesignTree,
   PageExportStamp,
 } from '@/domain/models/api/admin/design-system/page-design-tree'
+import type {
+  DrawnConflict,
+  DrawnPage,
+  DrawnPaint,
+  DrawnRules,
+} from '@/domain/models/app/pages/page-drawing'
 
 /**
  * What every page adapter's PARSE half hands the page import: one design tree
@@ -57,6 +63,14 @@ export interface ParsedPageDrawing {
   readonly notAKitComponent: readonly PageDrawingFinding[]
   /** What each locked node draws inside, as a digest, by node id; only ever compared. */
   readonly drawings?: Readonly<Record<string, string>> | undefined
+  /** Every layout property a node set in two places with two values. */
+  readonly conflicts?: readonly DrawnConflict[] | undefined
+  /** The colours and text size each node was drawn with, by node id. */
+  readonly paints?: Readonly<Record<string, DrawnPaint>> | undefined
+  /** What each node does, as the board carries it, by node id. */
+  readonly rules?: Readonly<Record<string, DrawnRules>> | undefined
+  /** What the board's root says of a page the config may not declare: its path, the page it is like. */
+  readonly declares?: DrawnPage['declares']
 }
 
 /** A drawing source read back: each page, and each drawing or path refused. */

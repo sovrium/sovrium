@@ -8,6 +8,7 @@ access:
 meta:
   title: Locations · Arden Assets
   description: The places assets sit.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

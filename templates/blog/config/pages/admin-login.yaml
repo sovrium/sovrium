@@ -6,6 +6,7 @@ path: /admin/login
 meta:
   title: Sign in · Field Notes
   description: Sign in to write and publish Field Notes.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

@@ -72,7 +72,7 @@ const loadAccounts = (fileName: string, parsed: unknown): LoadOutcome => {
 }
 
 /** Parse one file's text into a plain object, or the reason it could not be. */
-const parseSeedText = (
+export const parseSeedText = (
   fileName: string,
   text: string
 ):
@@ -141,6 +141,8 @@ type SeedLoad =
       readonly ok: true
       readonly files: readonly LoadedSeedFile[]
       readonly accounts: readonly SeedAccount[]
+      /** Whether the folder holds an accounts file at all, even one listing nobody. */
+      readonly accountsFile: boolean
     }
   | { readonly ok: false; readonly errors: readonly string[] }
 
@@ -189,5 +191,6 @@ export const loadSeedFiles = async (seedDir: string, layered = false): Promise<S
         ok: true,
         files,
         accounts,
+        accountsFile: outcomes.some((outcome) => 'accounts' in outcome),
       }
 }

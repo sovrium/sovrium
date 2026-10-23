@@ -9,6 +9,7 @@ access:
 meta:
   title: Time off · Meridian People
   description: Who is away this month, and the requests waiting on a decision.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

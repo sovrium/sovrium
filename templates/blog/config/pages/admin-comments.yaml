@@ -8,6 +8,7 @@ access:
 meta:
   title: Comments · Field Notes
   description: The comments readers wrote, held until you approve them.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

@@ -31,3 +31,5 @@ components:
 <!-- sovrium:options type:message -->
 
 `align: end` sets the turn on the other side of the thread; the sides are logical, so a right-to-left page mirrors them. Consecutive messages by the same `author` print the name and the picture once, at the first turn of the run: a group is something the page sees, not a key to declare. `avatar` draws a picture from `src`, or up to two `initials` when there is none. `timestamp` is an ISO date-time drawn as a time element, formatted in the page's language. `header` and `footer` hold components drawn above and below the turn's content — a marker saying it was edited, the files it carried.
+
+When the message is the turn template of a bound `message-scroller`, `timestamp` may name the record's date-time field as `$record.<field>`, and `replies: true` draws under the turn the summary of the record's comment thread: how many replies, the pictures of the last three people who replied and when the last reply came. Opening the summary shows the thread in a sheet. A turn with no reply draws no summary, and the table must allow comments.

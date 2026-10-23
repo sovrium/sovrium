@@ -88,6 +88,8 @@ export function buildIslandSetupResult(input: SetupResultInput) {
     readError: refresh.sortRefusal.readError,
     /** The column whose refused sort the read error undid, if it undid one. */
     refusedSortColumn: refresh.sortRefusal.refusedSortColumn,
+    /** Withdraw the notice without reading again — the reader changed the question. */
+    clearReadError: refresh.sortRefusal.clearReadError,
     inlineEditing: input.inlineEditing,
     inlineAutoSave: input.inlineSave.inlineAutoSave,
     saveIndicator: input.inlineSave.saveIndicator,

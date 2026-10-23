@@ -9,4 +9,5 @@ access:
 meta:
   title: Halden Expenses
   description: Halden Expenses.
+  favicon: ./favicon.svg
 components: []

@@ -9,6 +9,7 @@ import { Effect, Schema } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
 import { AppSchema } from '@/domain/models/app'
 import { getPublicPagePaths } from '@/domain/models/app/pages/public-pages'
+import { withStaticBuildNavigation } from '@/domain/models/app/pages/static-build-navigation-service'
 import { logDebug } from '@/infrastructure/logging'
 import type { CSSCompilationError } from '@/application/ports/services/css-compiler'
 import type { PageRenderer as PageRendererService } from '@/application/ports/services/page-renderer'
@@ -27,6 +28,10 @@ import type { TransformPresetError } from '@/infrastructure/errors/transform-pre
 type ServerFactory = ServerFactoryService['Service']
 type PageRenderer = PageRendererService['Service']
 type StaticSiteGenerator = StaticSiteGeneratorService['Service']
+
+// Every page below renders through `withStaticBuildNavigation`: a static host
+// answers no partial request, so a sidebar that leaves `clientSideNavigation`
+// out renders as off in a build, and only an explicit `true` keeps the swap.
 
 /**
  * Generate static files for multi-language configuration
@@ -54,6 +59,9 @@ export const generateMultiLanguageFiles = (
   Effect.gen(function* () {
     logDebug('[ssg] generating multi-language static site...')
     const supportedLanguages = validatedApp.languages!.supported
+    // Rewritten once for the whole pass: every language render and the root
+    // index below start from the same build-mode app.
+    const staticApp = withStaticBuildNavigation(validatedApp)
 
     // Generate files for each language using Effect.forEach
     const langFiles = yield* Effect.forEach(
@@ -63,7 +71,7 @@ export const generateMultiLanguageFiles = (
           logDebug(`Generating pages for language: ${lang.code}...`)
 
           // Replace tokens for this language
-          const langApp = replaceAppTokens(validatedApp, lang.code)
+          const langApp = replaceAppTokens(staticApp, lang.code)
 
           // Validate the language-specific app
           const validatedLangApp = yield* Schema.decodeEffect(AppSchema)(langApp).pipe(
@@ -127,7 +135,7 @@ export const generateMultiLanguageFiles = (
     // Generate root index.html with default language
     logDebug('Generating root index.html with default language...')
     const defaultLang = validatedApp.languages!.default
-    const defaultLangApp = replaceAppTokens(validatedApp, defaultLang)
+    const defaultLangApp = replaceAppTokens(staticApp, defaultLang)
     const validatedDefaultApp = yield* Schema.decodeEffect(AppSchema)(defaultLangApp).pipe(
       Effect.mapError((error) => new AppValidationError(error))
     )
@@ -176,7 +184,7 @@ export const generateSingleLanguageFiles = (
     // No multi-language - generate normally
     logDebug('Creating application instance...')
     const renderApp = yield* serverFactory.buildRenderApp({
-      app: validatedApp,
+      app: withStaticBuildNavigation(validatedApp),
       renderPage: pageRenderer.renderPage,
       renderNotFoundPage: pageRenderer.renderNotFound,
       renderErrorPage: pageRenderer.renderError,

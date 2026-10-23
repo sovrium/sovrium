@@ -11,6 +11,7 @@ import {
   AuthActionSchema,
   CalendarActionSchema,
   CommentActionSchema,
+  NotificationActionSchema,
   EmailSendActionSchema,
   FileActionSchema,
   HttpActionSchema,
@@ -28,6 +29,7 @@ import automationEmailActionsBody from '@/domain/models/app/automations/actions/
 import automationFileActionsBody from '@/domain/models/app/automations/actions/file-actions.docs.md' with { type: 'file' }
 import automationHttpActionsBody from '@/domain/models/app/automations/actions/http-webhook-actions.docs.md' with { type: 'file' }
 import automationLinkActionsBody from '@/domain/models/app/automations/actions/link-actions.docs.md' with { type: 'file' }
+import automationNotificationActionsBody from '@/domain/models/app/automations/actions/notification-actions.docs.md' with { type: 'file' }
 import { PdfActionSchema } from '@/domain/models/app/automations/actions/pdf'
 import automationPdfActionsBody from '@/domain/models/app/automations/actions/pdf-actions.docs.md' with { type: 'file' }
 import automationRecordActionsBody from '@/domain/models/app/automations/actions/record-actions.docs.md' with { type: 'file' }
@@ -371,6 +373,25 @@ export const automationIntegrations = defineSection({
       body: automationCommentActionsBody,
       documents: [CommentActionSchema],
       stories: ['US-AUTOMATIONS-ACTIONS-COMMENT'],
+    }),
+    defineArticle({
+      slug: 'automation-notification-actions',
+      title: 'Notification Actions',
+      description:
+        'Notify people from a workflow — one notification per recipient, of a declared kind, sent in the app, by email or in a digest as each recipient chose.',
+      keywords: [
+        'sovrium',
+        'automation notification action',
+        'notification/create',
+        'mention notification',
+        'in-app notification',
+        'notification preferences',
+      ],
+      order: 5457,
+      sidebarLabel: 'Notification Actions',
+      body: automationNotificationActionsBody,
+      documents: [NotificationActionSchema],
+      stories: ['US-AUTOMATIONS-ACTIONS-NOTIFICATION'],
     }),
   ],
 })

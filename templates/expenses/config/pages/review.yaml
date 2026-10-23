@@ -9,6 +9,7 @@ access:
 meta:
   title: Review · Halden Expenses
   description: The claims waiting on finance, spend by category and by month, and the decision on each.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

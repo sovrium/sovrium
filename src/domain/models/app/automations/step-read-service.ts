@@ -215,8 +215,12 @@ const READS_NOTHING: ReadonlySet<string> = new Set([
   // Engine versions and their place in the host's engine store: never any app's data.
   'instance/engineInstall',
   'instance/enginePrune',
+  // Per-table counts of this app's own seed and what a reset removed: never data it read.
+  'app/seed',
   'link/create',
   'link/delete',
+  // Counts of the notifications written and emailed: no stored value comes back.
+  'notification/create',
   'pdf/merge',
   'pdf/split',
   'pdf/pages',

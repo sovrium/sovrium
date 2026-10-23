@@ -32,6 +32,7 @@
 import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { readEmbeddedFormRef } from '@/domain/models/app/pages/embedded-form-ref'
 import { isComponentHiddenForSession } from '@/presentation/render/resolve/visibility-filter'
+import { composerWrapper } from './form-composer'
 import { resolveDocumentLang, resolveText } from './form-field-resolver'
 import { applyNodeFormParts } from './form-part-classes'
 import { type FormPrefillContext } from './form-prefill-resolver'
@@ -252,7 +253,6 @@ function readHeadingLevel(originalProps: Record<string, unknown> | undefined): '
  * `resolveText(form.display?.submitLabel, …)` call `buildFormBodyShared` already
  * makes — which means a `$t:` token in the override localizes to the host page's
  * active language for free, with no second resolution path to keep in step.
- *
  * The clone is local to this render: `app.forms[]` is never mutated, so the same
  * form embedded on another page (or served standalone at `/forms/:name`) keeps
  * its own label. A non-string or empty override is ignored — an override has to
@@ -288,10 +288,9 @@ function isFormRefEmbedding(component: Component): boolean {
 /**
  * Expand a single page-form component that references a top-level form into
  * an equivalent `customHTML` component. Returns the original component
- * unchanged if the component is not a `formRef` form OR if the referenced
- * form cannot be located (cross-validation should prevent this; it is a
- * defensive fallback to avoid runtime crashes in malformed schemas that
- * bypassed validation).
+ * unchanged if the component is not a `formRef` form OR if the referenced form
+ * cannot be located (cross-validation should prevent this; a defensive
+ * fallback for a malformed schema that bypassed validation).
  *
  * When `inlinePrefill` is present and `ctx.parentRecord` is supplied,
  * `$parent.<field>` tokens resolve against the host page's record so
@@ -312,7 +311,7 @@ function expandFormRefComponent(
   // Defaults + `$query` prefill are EDITABLE starting values; the inline prefill
   // wins on the keys it names and, when locked, renders them as hidden inputs.
   const titleAs = readHeadingLevel(formRefInfo.originalProps)
-
+  const composed = composerWrapper(app, component, ctx.activeLang)
   const formBodyHtml = scopeControlIds(
     renderEmbeddedFormBody(
       app,
@@ -332,16 +331,17 @@ function expandFormRefComponent(
   // `trustedContent` is safe from injection: this component is synthesized at
   // render time, AFTER schema decode, so a schema author can never supply it.
   //
-  // `authoredType` keeps the element NAMED as the author wrote it, and the
-  // node's `classes` ride along: their `root` part styles the wrapper, and the
-  // inner parts are already written onto the markup.
-  const { classes } = component as { readonly classes?: unknown }
+  // `authoredType` keeps the element NAMED as the author wrote it; the node's
+  // `classes` ride along (their `root` part styles the wrapper, the inner parts
+  // are on the markup), and so does a page export's node id, stamped on it.
+  const { classes, _exportNodeId } = component as Readonly<Record<string, unknown>>
   return {
     type: 'customHTML',
     props: buildWrapperProps(formRefInfo.formRef, formRefInfo.originalProps),
-    trustedContent: applyNodeFormParts(formBodyHtml, app.design, component),
+    trustedContent: composed(applyNodeFormParts(formBodyHtml, app.design, component)),
     authoredType: 'form',
     ...(classes === undefined ? {} : { classes }),
+    ...(_exportNodeId === undefined ? {} : { _exportNodeId }),
   } as Component
 }
 

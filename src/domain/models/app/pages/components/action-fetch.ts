@@ -6,7 +6,11 @@
  */
 
 import { Schema } from 'effect'
-import { formAddressCheck } from '../../forms/form-address-validation'
+import {
+  AllowOriginsSchema,
+  allowOriginsNavigateConflict,
+  successNavigateCheck,
+} from './action-allow-origins'
 
 /**
  * Fetch Toast Response Schema
@@ -236,9 +240,9 @@ const FetchSuccessCloseSchema = Schema.Boolean.annotate({
 const FetchSuccessNavigateSchema = Schema.String.annotate({
   title: 'Fetch Success Navigate',
   description:
-    'Address the browser goes to once the request succeeds. Supports $response.<field> (a dot path into the JSON body the request returned; absent resolves to empty), $record.<field> where the control has a record, and a $t: key. A path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`): an answered action moves the reader within the app, so an `http://` or `https://` address is refused — use a link to send the reader to another site. Any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — is refused when the config is read. Refused beside reload, status and refetch, and on a fetch action whose mode is not fetch.',
-  examples: ['/invoices/$response.id', '/orders/$record.id/receipt'],
-}).pipe(Schema.check(formAddressCheck))
+    'Address the browser goes to once the request succeeds. Supports $response.<field> (a dot path into the JSON body the request returned; absent resolves to empty), $record.<field> where the control has a record, and a $t: key. A path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`): an answered action moves the reader within the app, so an `http://` or `https://` address is refused — use a link to send the reader to another site. Any other address — `javascript:`, `data:`, `mailto:`, or one starting with `//` — is refused when the config is read. A lone `$response.<path>` is checked when it is followed: an address on this site, or one on an origin `allowOrigins` lists. Refused beside reload, status and refetch, and on a fetch action whose mode is not fetch.',
+  examples: ['/invoices/$response.id', '/orders/$record.id/receipt', '$response.url'],
+}).pipe(Schema.check(successNavigateCheck))
 
 /**
  * The fields of {@link FetchSuccessResponseSchema}, before its check. Exported so
@@ -259,6 +263,8 @@ export const fetchSuccessResponseFields = {
   close: Schema.optional(FetchSuccessCloseSchema),
   /** Go to another address on success. */
   navigate: Schema.optional(FetchSuccessNavigateSchema),
+  /** Other sites a `$response.<path>` navigate may reach — see `action-allow-origins.ts`. */
+  allowOrigins: Schema.optional(AllowOriginsSchema),
 } as const
 
 /**
@@ -278,7 +284,10 @@ export const fetchSuccessExitConflict = (response: {
   readonly refetch?: unknown
   readonly close?: boolean | undefined
   readonly navigate?: string | undefined
+  readonly allowOrigins?: ReadonlyArray<string> | undefined
 }): true | string => {
+  const origins = allowOriginsNavigateConflict(response)
+  if (origins !== true) return origins
   if (response.reload === true) {
     if (response.status !== undefined) {
       return "onSuccess declares both 'reload' and 'status' — the reload replaces the document the status region lives in, so the message would be destroyed before anyone read it. Keep one: 'reload' to recompose the page server-side, or 'status' to write a persistent inline message into the page that stays."

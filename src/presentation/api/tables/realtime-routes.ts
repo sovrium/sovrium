@@ -9,11 +9,13 @@
  * Real-time presence-awareness route chain.
  *
  * Registers `GET /api/realtime/presence` — the page-path-scoped presence
- * SSE endpoint. Always registered; the handler returns 401 when no session
+ * SSE endpoint — and `GET /api/realtime/connection`, the app connection each
+ * open page of a signed-in reader holds (`app-connection-handlers.ts`). Always registered; the handler returns 401 when no session
  * is attached, so apps without auth behave identically.
  */
 
 import { enrichUserRole } from '@/presentation/api/middleware/table'
+import { handleAppConnection } from './app-connection-handlers'
 import { handlePresence, type PresenceReaderResolver } from './presence-handlers'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
@@ -35,9 +37,15 @@ export function chainRealtimeRoutes<T extends Hono>(
   app: App,
   getSession?: PresenceReaderResolver
 ) {
-  return honoApp.get(
-    '/api/realtime/presence',
-    enrichUserRole(() => app),
-    (c) => handlePresence(c, app, getSession)
-  )
+  return honoApp
+    .get(
+      '/api/realtime/presence',
+      enrichUserRole(() => app),
+      (c) => handlePresence(c, app, getSession)
+    )
+    .get(
+      '/api/realtime/connection',
+      enrichUserRole(() => app),
+      (c) => handleAppConnection(c, app)
+    )
 }

@@ -33,6 +33,7 @@ import {
   type TranslationWrite,
 } from '@/domain/models/app/pages/page-merge-translation-service'
 import { refuse } from './app-prelude'
+import { holdsColours, patchColours, type ColourWrite } from './design-system-import-pages-tokens'
 import {
   changedBytes,
   patchJsonPages,
@@ -53,6 +54,8 @@ type JsonObject = Readonly<Record<string, unknown>>
 /** One page's merge, by page name. */
 export interface MergedPage {
   readonly name: string
+  /** The drawing it was read from, as the source names it. */
+  readonly drawing?: string | undefined
   readonly plan: PageMergePlan
 }
 
@@ -74,12 +77,17 @@ const pagesOf = (root: unknown): readonly JsonObject[] => {
   return Array.isArray(pages) ? (pages as readonly JsonObject[]) : []
 }
 
-/** The parsed root with each patched page entry in its place. */
+/** The parsed root with each patched page entry in its place, and each new page after them. */
 const withPatches = (parsed: unknown, patches: readonly PagePatch[]): JsonObject => ({
   ...(parsed as JsonObject),
-  pages: pagesOf(parsed).map(
-    (page) => patches.find((patch) => patch.name === page['name'])?.entry ?? page
-  ),
+  pages: [
+    ...pagesOf(parsed).map(
+      (page) => patches.find((patch) => patch.name === page['name'])?.entry ?? page
+    ),
+    ...patches
+      .filter((patch) => !pagesOf(parsed).some((page) => page['name'] === patch.name))
+      .map((patch) => patch.entry),
+  ],
 })
 
 const objectAt = (value: unknown, key: string): JsonObject => {
@@ -151,19 +159,28 @@ const rawRootOf = (text: string, format: 'yaml' | 'json'): unknown => {
 
 const sameJson = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b)
 
-/** A config's text with its page entries and its translation entries patched, or `undefined`. */
+/** What one write changes in a YAML or JSON config. */
+interface ConfigChange {
+  readonly patches: readonly PagePatch[]
+  readonly writes: readonly TranslationWrite[]
+  readonly colours: readonly ColourWrite[]
+}
+
+/** A config's text with its pages, translations and colours patched, or `undefined`. */
 const patchedConfig = (
   text: string,
   format: 'yaml' | 'json',
-  change: { readonly patches: readonly PagePatch[]; readonly writes: readonly TranslationWrite[] }
+  change: ConfigChange
 ): string | undefined => {
   const { patches, writes } = change
-  if (format === 'json') {
-    const paged = patches.length === 0 ? text : patchJsonPages(text, patches)
-    return patchJsonTranslations(paged, writes)
-  }
-  const paged = patches.length === 0 ? text : patchYamlPages(text, patches)
-  return paged === undefined ? undefined : patchYamlTranslations(paged, writes)
+  const translated =
+    format === 'json'
+      ? patchJsonTranslations(patches.length === 0 ? text : patchJsonPages(text, patches), writes)
+      : (() => {
+          const paged = patches.length === 0 ? text : patchYamlPages(text, patches)
+          return paged === undefined ? undefined : patchYamlTranslations(paged, writes)
+        })()
+  return translated === undefined ? undefined : patchColours(translated, format, change.colours)
 }
 
 /** Patch a YAML or JSON config's page entries, after judging the patched bytes. */
@@ -171,7 +188,7 @@ const writeIntoConfig = async (
   configPath: string,
   format: 'yaml' | 'json',
   loaded: LoadedConfig,
-  change: { readonly patches: readonly PagePatch[]; readonly writes: readonly TranslationWrite[] }
+  change: ConfigChange
 ): Promise<Written> => {
   const { patches, writes } = change
   const text = await Bun.file(configPath).text()
@@ -179,7 +196,8 @@ const writeIntoConfig = async (
   const included = patches.filter((patch) => {
     const own = raw.find((page) => page['name'] === patch.name)
     const resolved = pagesOf(loaded.parsed).find((page) => page['name'] === patch.name)
-    return own === undefined || !sameJson(own, resolved)
+    // A new page is no one's include.
+    return resolved !== undefined && (own === undefined || !sameJson(own, resolved))
   })
   if (included.length > 0) {
     return refuse(
@@ -197,7 +215,11 @@ const writeIntoConfig = async (
   const judged = await judgeConfig(configPath, new Map([[configPath, next]]))
   if (judged.errors.length > 0) return refuseInvalid(judged.errors)
   const expected = withPatches(loaded.parsed, patches)['pages']
-  if (!sameJson(pagesOf(judged.parsed), expected) || !holdsTranslations(judged.parsed, writes)) {
+  if (
+    !sameJson(pagesOf(judged.parsed), expected) ||
+    !holdsTranslations(judged.parsed, writes) ||
+    !holdsColours(judged.parsed, change.colours)
+  ) {
     return refuse(
       `Error: The pages of "${configPath}" could not be patched in place, so nothing was written.\n\n` +
         '  Write `pages:` as a plain top-level list, or copy the dry-run changes into the file.'
@@ -309,14 +331,15 @@ const writeSidecars = async (
  * @param configPath - the config the pages belong to.
  * @param source - the drawing, beside which the bundle's sidecar manifest may sit.
  * @param loaded - the config as loaded and judged.
- * @param merged - every page's merge.
+ * @param change - every page's merge, and the design colours `--tokens` writes beside them.
  */
 export const writeMergedPages = async (
   configPath: string,
   source: string,
   loaded: LoadedConfig,
-  merged: readonly MergedPage[]
+  change: { readonly merged: readonly MergedPage[]; readonly colours?: readonly ColourWrite[] }
 ): Promise<Written> => {
+  const { merged, colours = [] } = change
   const patches = merged.flatMap(({ name, plan }) =>
     plan.patch === undefined ? [] : [{ name, entry: plan.patch }]
   )
@@ -325,9 +348,9 @@ export const writeMergedPages = async (
   if (format === 'typescript') {
     return patches.length === 0 ? { bytes: 0 } : writeSidecars(configPath, source, loaded, patches)
   }
-  return patches.length === 0 && writes.length === 0
+  return patches.length === 0 && writes.length === 0 && colours.length === 0
     ? { config: configPath, bytes: 0 }
-    : writeIntoConfig(configPath, format, loaded, { patches, writes })
+    : writeIntoConfig(configPath, format, loaded, { patches, writes, colours })
 }
 
 /** Every translation entry the pages write, one per key; a key drawn two ways is refused. */

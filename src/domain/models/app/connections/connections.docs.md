@@ -98,7 +98,7 @@ An OAuth2 connection nobody has authorized yet holds no token, and the console l
   props: { key: $env.GITHUB_TOKEN, header: Authorization, prefix: Bearer }
 ```
 
-`header` defaults to `X-API-Key`. `prefix` is what sits before the value when the service expects one, which is how an API key is sent through an `Authorization` header.
+`header` defaults to `X-API-Key`. `prefix` is what sits before the value when the service expects one, which is how an API key is sent through an `Authorization` header. A service that reads its key from the address instead of a header takes `query`, the name of the query-string parameter the key is sent in (`query: api_key` for GIPHY); `header` and `prefix` are then not used. Such a connection is sent by `connection/call` and the `http` actions; a `webhook/send` naming it fails rather than deliver without the key.
 
 ## Basic auth
 

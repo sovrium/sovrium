@@ -63,6 +63,11 @@ interface KeyPairRule {
   readonly keys: readonly [string, string]
   /** The sentence appended after the location. */
   readonly explanation: string
+  /**
+   * A one-of rule only: a third key that gives the component something to work
+   * on by itself, so with it neither of the two is required.
+   */
+  readonly unlessKey?: string
 }
 
 const XOR_RULES: readonly KeyPairRule[] = [
@@ -113,6 +118,36 @@ const XOR_RULES: readonly KeyPairRule[] = [
     keys: ['field', 'file'],
     explanation:
       'A file preview shows EITHER the file held by an attachment `field` of the bound record, OR one fixed `file` in a bucket — never both, and one would be dropped without a trace. Remove whichever one you did not mean: drop `file` to preview the record’s attachment, or drop `field` to preview the fixed file.',
+  },
+  {
+    type: 'progress',
+    keys: ['progressValue', 'dataSource'],
+    explanation:
+      'A bar draws EITHER the value you wrote, OR the share its `dataSource` counts through `kpiAggregate` — two answers to one question, and the bound one wins, so the written value would be dropped without a trace. Remove `progressValue` (and `progressMax`) to keep the binding, or drop `dataSource` to keep the written value.',
+  },
+  {
+    type: 'progress',
+    keys: ['progressMax', 'dataSource'],
+    explanation:
+      'A bound bar takes its maximum from the denominator its `dataSource` counts, so a written `progressMax` would be dropped without a trace. Remove `progressMax` to keep the binding, or drop `dataSource` to keep the written bar.',
+  },
+  {
+    type: 'avatar',
+    keys: ['items', 'dataSource'],
+    explanation:
+      'A group takes its members from ONE place: the `items` you wrote, the rows its `dataSource` reads, or the people a `users` field names. Two of them would leave one dropped without a trace. Keep `items` for a fixed group, or `dataSource` (with `userField`) for one read from records.',
+  },
+  {
+    type: 'avatar',
+    keys: ['items', 'users'],
+    explanation:
+      'A group takes its members from ONE place: the `items` you wrote, the rows its `dataSource` reads, or the people a `users` field names. Keep `items` for a fixed group, or `users` for the people of the bound record.',
+  },
+  {
+    type: 'avatar',
+    keys: ['users', 'dataSource'],
+    explanation:
+      'A group takes its members from ONE place: the people a `users` field of the bound record names, or the rows its `dataSource` reads. Keep `users` for a multi-person field, or `dataSource` (with `userField`) for a join table.',
   },
 ]
 
@@ -388,8 +423,10 @@ const ONE_OF_RULES: readonly KeyPairRule[] = [
   {
     type: 'filter-bar',
     keys: ['fields', 'fieldsFrom'],
+    // An Online / Offline choice is a filter of its own: a people bar may hold only it.
+    unlessKey: 'online',
     explanation:
-      'A bar with neither offers nothing to filter on. Declare `fieldsFrom: { table }` to offer a table’s fields, or `fields` to write them out.',
+      'A bar with neither offers nothing to filter on. Declare `fieldsFrom: { table }` to offer a table’s fields, `fields` to write them out, or `online` to filter people on presence.',
   },
   {
     type: 'search-input',
@@ -408,11 +445,77 @@ const brokenOneOfRulesAt = (
   path: string
 ): readonly string[] =>
   ONE_OF_RULES.filter(
-    (rule) => node['type'] === rule.type && rule.keys.every((key) => node[keyOf(key)] === undefined)
+    (rule) =>
+      node['type'] === rule.type &&
+      (rule.unlessKey === undefined || node[rule.unlessKey] === undefined) &&
+      rule.keys.every((key) => node[keyOf(key)] === undefined)
   ).map(
     (rule) =>
       `${path}: a \`${rule.type}\` declares neither \`${rule.keys[0]}\` nor \`${rule.keys[1]}\`. ${rule.explanation}`
   )
+
+/** A declared table as the reader-row rule reads it: its name and its fields' names. */
+interface DeclaredTable {
+  readonly name?: unknown
+  readonly fields?: readonly { readonly name?: unknown }[]
+}
+
+/** The components that join the reader's own row onto their items (`dataSource.mine`). */
+const MINE_HOSTS: ReadonlySet<string> = new Set(['list', 'gallery', 'progress'])
+
+/** Is this a list drawing its items from `listDisplay.itemTemplate` (an island, in the browser)? */
+const drawsItemTemplate = (node: Readonly<Record<string, unknown>>): boolean => {
+  const display = node['listDisplay']
+  return node['type'] === 'list' && isRecord(display) && display['itemTemplate'] !== undefined
+}
+
+/**
+ * `dataSource.mine` where it cannot work, as finished messages.
+ *
+ * The join is honoured by the three components that draw items one by one; on
+ * any other the reader would find no `$record.<as>` and no toggle working, with
+ * a config that looks right. And an alias spelling one of the bound table's own
+ * fields would hide that field behind the reader's row on every item.
+ */
+const brokenMineRulesAt = (
+  node: Readonly<Record<string, unknown>>,
+  path: string,
+  tables: readonly DeclaredTable[]
+): readonly string[] => {
+  const binding = node['dataSource']
+  const mine = isRecord(binding) ? binding['mine'] : undefined
+  if (!isRecord(binding) || !isRecord(mine) || typeof node['type'] !== 'string') return []
+  if (!MINE_HOSTS.has(node['type']))
+    return [
+      `${path}: a \`${node['type']}\` declares \`dataSource.mine\`, which only a list, a gallery or a progress bar honours: they join the reader's own row onto each item they draw. Move the join to a list, gallery or progress bar, or remove \`mine\`.`,
+    ]
+  if (drawsItemTemplate(node))
+    return [
+      `${path}: a \`list\` declares both \`dataSource.mine\` and \`listDisplay.itemTemplate\`. An \`itemTemplate\` list draws its items in the browser, where the reader's own row is not joined, so \`$record.${String(mine['as'])}\` would always be empty and a toggle on it would never work. Draw the items from \`children\` to keep \`mine\`, or remove \`mine\`.`,
+    ]
+  const table = tables.find((candidate) => candidate.name === binding['table'])
+  const shadowed = (table?.fields ?? []).some((field) => field.name === mine['as'])
+  return shadowed
+    ? [
+        `${path}: \`dataSource.mine.as: ${String(mine['as'])}\` is also a field of \`${String(binding['table'])}\`, so \`$record.${String(mine['as'])}\` would read the reader's row instead of that field on every item. Name the join something the table does not use.`,
+      ]
+    : []
+}
+
+/**
+ * A key that needs a sibling to mean anything, as finished messages: an
+ * avatar group bound to records names, in `userField`, the field of each row
+ * holding the person — without it the rows name nobody.
+ */
+const brokenRequiredKeyRulesAt = (
+  node: Readonly<Record<string, unknown>>,
+  path: string
+): readonly string[] =>
+  node['type'] === 'avatar' && node['dataSource'] !== undefined && node['userField'] === undefined
+    ? [
+        `${path}: an \`avatar\` declares \`dataSource\` without \`userField\`. A group read from records draws one person per row, and \`userField\` names the user field of each row holding her. Add \`userField: <field>\`, or drop \`dataSource\`.`,
+      ]
+    : []
 
 /**
  * Walk every node of the config, depth-first, collecting rule breaks.
@@ -425,19 +528,26 @@ const brokenOneOfRulesAt = (
  * DIFFERENT expression — it appends the key rather than falling back to the root
  * label — so the two ternaries are not the same one repeated.
  */
-const walk = (value: unknown, path: string): readonly string[] => {
-  if (Array.isArray(value)) return value.flatMap((item, index) => walk(item, `${path}[${index}]`))
+const walk = (
+  value: unknown,
+  path: string,
+  tables: readonly DeclaredTable[]
+): readonly string[] => {
+  if (Array.isArray(value))
+    return value.flatMap((item, index) => walk(item, `${path}[${index}]`, tables))
   if (!isRecord(value)) return []
   const here = path === '' ? 'config' : path
   return [
     ...brokenRulesAt(value, here),
+    ...brokenMineRulesAt(value, here, tables),
+    ...brokenRequiredKeyRulesAt(value, here),
     ...brokenLengthRulesAt(value, here),
     ...brokenOrderRulesAt(value, here),
     ...brokenMembershipRulesAt(value, here),
     ...brokenArmConflictRulesAt(value, here),
     ...brokenOneOfRulesAt(value, here),
     ...Object.entries(value).flatMap(([key, child]) =>
-      walk(child, path === '' ? key : `${path}.${key}`)
+      walk(child, path === '' ? key : `${path}.${key}`, tables)
     ),
   ]
 }
@@ -451,7 +561,10 @@ const walk = (value: unknown, path: string): readonly string[] => {
  *
  * @param config - The parsed config object, before or after decoding.
  */
-export const validateComponentXorRules = (config: unknown): readonly string[] => walk(config, '')
+export const validateComponentXorRules = (config: unknown): readonly string[] => {
+  const declared = isRecord(config) ? config['tables'] : undefined
+  return walk(config, '', Array.isArray(declared) ? (declared as readonly DeclaredTable[]) : [])
+}
 
 /** The rules, for the tests that keep each one's type and keys real. */
 export const COMPONENT_XOR_RULES = XOR_RULES

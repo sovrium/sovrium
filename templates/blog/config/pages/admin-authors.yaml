@@ -7,6 +7,7 @@ access:
 meta:
   title: Authors · Field Notes
   description: The people who sign the essays.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

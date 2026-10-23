@@ -10,6 +10,7 @@ access:
 meta:
   title: Orders · Brunel Stock
   description: Customer orders by status, from draft to shipped.
+  favicon: ./favicon.svg
 components:
   - type: container
     props:

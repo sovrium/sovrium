@@ -18,6 +18,7 @@
 
 import { readOoxmlPackage } from '@/application/use-cases/automations/ooxml/ooxml-package'
 import { parseHtmlElementTree, type HtmlNode } from '@/domain/kernel/sanitize/html-element-tree'
+import { CANVAS_STAMP_FILE } from '@/domain/models/app/design/adapters/pages/claude-design-canvas-export'
 import { fromClaudeDesignCanvas } from '@/domain/models/app/design/adapters/pages/claude-design-canvas-parse'
 import { parseFigmaPage } from '@/domain/models/app/design/adapters/pages/figma-pages-parse'
 import {
@@ -117,10 +118,14 @@ const drawnPageOfBoard = (drawing: ParsedPageDrawing, text: string): DrawnPage =
     drawing: drawing.board,
     samplesDrawn: true,
     ...(drawing.drawings === undefined ? {} : { drawings: drawing.drawings }),
+    ...(drawing.paints === undefined ? {} : { paints: drawing.paints }),
+    ...(drawing.rules === undefined ? {} : { rules: drawing.rules }),
+    ...(drawing.declares === undefined ? {} : { declares: drawing.declares }),
     ...(title === undefined ? {} : { title }),
     reported: {
       notAKitComponent: worded(drawing.notAKitComponent),
       unread: worded(drawing.offScale),
+      ...(drawing.conflicts === undefined ? {} : { conflicts: drawing.conflicts }),
     },
   })
 }
@@ -146,9 +151,17 @@ const readCanvas: PageDrawingReader = async (view, files, scale) => {
       return bytes === undefined ? [] : [{ path: name, text: decoder.decode(bytes) }]
     })
   )
+  // The stamp file beside the index says what each board drew when it was exported.
+  const stampBytes = await view.read(at(CANVAS_STAMP_FILE))
   const source = {
     entry: undefined,
-    files: [{ path: 'canvas.json', text: indexText }, ...boards.flat()],
+    files: [
+      { path: 'canvas.json', text: indexText },
+      ...(stampBytes === undefined
+        ? []
+        : [{ path: CANVAS_STAMP_FILE, text: decoder.decode(stampBytes) }]),
+      ...boards.flat(),
+    ],
   }
   const parsed = fromClaudeDesignCanvas(source, {
     spacing: scale.spacing,
