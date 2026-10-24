@@ -115,19 +115,19 @@
 
   /**
    * This page's address in `code`, keeping query and hash: the one the server named (a
-   * translated slug), else the same path under `/{code}/` (/fr/about => /en/about).
-   * Read off the parser's `href`, never reassembled from `search` and `hash` (the
-   * address bar's own text), relative like every server-rendered link, and never off
-   * this site: a target the parser places on another origin falls back to `/{code}/`.
+   * translated slug), else the same path under `/{code}/` (/fr/about => /en/about), the
+   * DOM-read code encoded as one segment. Read off the parser's `href`, relative, and
+   * never off this site: a target on another origin falls back to `/{code}/`.
    */
   function addressIn(code) {
+    const lang = encodeURIComponent(code)
     const segments = window.location.pathname.split('/').filter(Boolean)
     const rest = languageFromPath() ? segments.slice(1) : segments
-    const target = pageAlternates()[code] || `/${code}/${rest.join('/')}`
+    const target = pageAlternates()[code] || `/${lang}/${rest.join('/')}`
     const url = new URL(target, window.location.origin)
     url.search = window.location.search
     url.hash = window.location.hash
-    return url.origin === window.location.origin ? url.href.slice(url.origin.length) : `/${code}/`
+    return url.origin === window.location.origin ? url.href.slice(url.origin.length) : `/${lang}/`
   }
 
   /**

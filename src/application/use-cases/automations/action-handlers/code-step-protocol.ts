@@ -12,9 +12,12 @@ import type { StepLogEntry } from './shared'
  * the step runs on ([internal ref] D3). Pure: no worker, no clock, no I/O, so every
  * shape is unit-tested.
  *
- * - The server starts the step with `start`: the JavaScript to run (already
- *   transpiled) and the step's DATA context — `inputData`, `env`, `run` —
- *   copied by structured clone.
+ * - The server starts the worker with a `CodeStepStart` as its `workerData`:
+ *   the JavaScript to run (already transpiled) and the step's DATA context —
+ *   `inputData`, `env`, `run` — copied by structured clone. It is never a
+ *   message: the worker runs what it was CREATED with, and treats the message
+ *   channel as answers to its own calls, so nothing posted to it later can
+ *   become code.
  * - The step's FUNCTION members cross as messages: an `action` call is
  *   answered by an `action-result` with the same id; `log` entries and
  *   `console` output are one-way.
@@ -28,16 +31,20 @@ export interface CodeStepData {
   readonly run: { readonly attempt: number }
 }
 
-/** Server → worker. */
-export type ToWorker =
-  | { readonly type: 'start'; readonly source: string; readonly data: CodeStepData }
-  | {
-      readonly type: 'action-result'
-      readonly id: string
-      readonly ok: boolean
-      readonly value?: unknown
-      readonly error?: string
-    }
+/** What a worker is created with (`workerData`): the code to run and its data context. */
+export interface CodeStepStart {
+  readonly source: string
+  readonly data: CodeStepData
+}
+
+/** Server → worker: the answer to one `action` call. */
+export type ToWorker = {
+  readonly type: 'action-result'
+  readonly id: string
+  readonly ok: boolean
+  readonly value?: unknown
+  readonly error?: string
+}
 
 /** Which action a step called: a template by name, or a native type and operator. */
 export type ActionTarget =

@@ -10,8 +10,10 @@
  * `Worker` per step, terminated when the step ends, so a step that computes
  * for minutes never holds the server's own thread.
  *
- * It receives the step's JavaScript (already transpiled by the server) and
- * the data half of its `context`, runs `execute(context)` in a `vm` context
+ * It is created with the step's JavaScript (already transpiled by the server)
+ * and the data half of its `context` as its `workerData` — never as a
+ * message, so the message channel carries only answers to the step's own
+ * calls and nothing posted to it can become code. It runs `execute(context)` in a `vm` context
  * with the same restricted globals as before, and talks back through
  * `code-step-protocol.ts`: `context.actions.*` calls and `context.log`
  * entries become messages, `console.*` output is forwarded to the server's
@@ -27,8 +29,15 @@
  */
 
 import vm from 'node:vm'
+import { workerData } from 'node:worker_threads'
 import { renderArgument } from './code-log-collector'
-import type { ActionTarget, CodeStepData, FromWorker, ToWorker } from './code-step-protocol'
+import type {
+  ActionTarget,
+  CodeStepData,
+  CodeStepStart,
+  FromWorker,
+  ToWorker,
+} from './code-step-protocol'
 
 /** The worker's side of the message channel. */
 interface WorkerPort {
@@ -187,7 +196,7 @@ const execute = async (source: string, data: CodeStepData): Promise<unknown> => 
 }
 
 /** Settle the call the server answered. */
-const settleCall = (message: Extract<ToWorker, { readonly type: 'action-result' }>): void => {
+const settleCall = (message: ToWorker): void => {
   const waiting = pending.get(message.id)
   if (waiting === undefined) return
   // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements -- the table of calls awaiting the server's answer
@@ -196,9 +205,22 @@ const settleCall = (message: Extract<ToWorker, { readonly type: 'action-result' 
   return waiting.reject(new Error(message.error ?? 'action failed'))
 }
 
-const handleMessage = (message: ToWorker): void => {
-  if (message.type === 'action-result') return settleCall(message)
-  execute(message.source, message.data).then(
+/** The start the server created this worker with, or `undefined` when it is not one. */
+const startOf = (value: unknown): CodeStepStart | undefined => {
+  if (value === null || typeof value !== 'object') return undefined
+  const { source, data } = value as Readonly<Record<string, unknown>>
+  return typeof source === 'string' && data !== null && typeof data === 'object'
+    ? { source, data: data as CodeStepData }
+    : undefined
+}
+
+/** Run the step this worker was created for, and post how it ended. */
+const runStep = (start: CodeStepStart | undefined): void => {
+  if (start === undefined) {
+    port.postMessage({ type: 'done', ok: false, error: 'code action received no code to run' })
+    return
+  }
+  execute(start.source, start.data).then(
     (value) => {
       port.postMessage({ type: 'done', ok: true, output: plainOutput(value) })
     },
@@ -212,6 +234,10 @@ const handleMessage = (message: ToWorker): void => {
   )
 }
 
+// The channel only ever answers the step's own `action` calls; anything else is ignored.
 port.addEventListener('message', (event) => {
-  handleMessage(event.data as ToWorker)
+  const message = event.data as ToWorker | undefined
+  if (message?.type === 'action-result') settleCall(message)
 })
+
+runStep(startOf(workerData))

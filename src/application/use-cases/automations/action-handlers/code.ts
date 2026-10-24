@@ -18,6 +18,7 @@ import {
   timeoutMessage,
   type ActionTarget,
   type CodeStepData,
+  type CodeStepStart,
   type FromWorker,
   type ToWorker,
 } from './code-step-protocol'
@@ -32,8 +33,9 @@ import type Typescript from 'typescript'
  * ([internal ref], `code-step-worker.ts`).
  *
  * The server transpiles the operator's TypeScript, starts one fresh Bun
- * `Worker` for the step and hands it the JavaScript and the data half of the
- * `context` (`inputData`, `env`, `run`, copied by structured clone). The
+ * `Worker` for the step, created with the JavaScript and the data half of the
+ * `context` (`inputData`, `env`, `run`, copied by structured clone) as its
+ * `workerData`. The
  * step's `context.actions.*` calls come back as messages and run here,
  * through the same handler pipeline as any step — the database, the mailer
  * and every credential stay on this thread. `context.log` entries come back
@@ -246,9 +248,21 @@ const converse = (worker: Readonly<Worker>, session: WorkerSession): Effect.Effe
     worker.addEventListener('error', (event: Readonly<ErrorEvent>) => {
       settle({ status: 'failure', error: event.message || 'code action failed' })
     })
-    postTo(worker, { type: 'start', source: session.source, data: session.data })
     return Effect.sync(() => clearTimeout(clock))
   })
+
+/**
+ * The worker's options: the step's code and data context travel as its
+ * `workerData` (structured clone), never as a message — Bun's `Worker` takes
+ * the option though its typings do not name it.
+ */
+const workerOptions = (
+  session: WorkerSession
+): Readonly<Bun.WorkerOptions & { readonly workerData: CodeStepStart }> => ({
+  smol: true,
+  ref: false,
+  workerData: { source: session.source, data: session.data },
+})
 
 /**
  * Run the step on a worker of its own. The worker is acquired and released
@@ -259,7 +273,7 @@ const runOnWorker = (session: WorkerSession): Effect.Effect<ActionOutcome> =>
   Effect.scoped(
     Effect.gen(function* () {
       const worker = yield* Effect.acquireRelease(
-        Effect.sync(() => new Worker(workerUrl(), { smol: true, ref: false })),
+        Effect.sync(() => new Worker(workerUrl(), workerOptions(session))),
         (started) => Effect.sync(() => started.terminate())
       )
       return yield* converse(worker, session)

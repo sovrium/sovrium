@@ -1,3 +1,12 @@
+## [0.43.1](https://github.com/sovrium/sovrium/compare/v0.43.0...v0.43.1) (2026-10-24)
+
+### Bug Fixes
+
+- **automations**: start a code step's worker with its code instead of sending it as a message
+- **pages**: keep the language switch on the app's own paths
+- **pages**: trim a published address's slashes without backtracking
+- **desktop**: build the Linux app again so the updater manifest is published
+
 ## [0.43.0](https://github.com/sovrium/sovrium/compare/v0.42.0...v0.43.0) (2026-10-24)
 
 ### Features

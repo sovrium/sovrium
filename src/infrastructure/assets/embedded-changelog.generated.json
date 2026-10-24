@@ -3,6 +3,35 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.43.1",
+      "date": "2026-10-24",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.43.0...v0.43.1",
+      "sections": [
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "automations",
+              "text": "start a code step's worker with its code instead of sending it as a message"
+            },
+            {
+              "scope": "pages",
+              "text": "keep the language switch on the app's own paths"
+            },
+            {
+              "scope": "pages",
+              "text": "trim a published address's slashes without backtracking"
+            },
+            {
+              "scope": "desktop",
+              "text": "build the Linux app again so the updater manifest is published"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.43.0",
       "date": "2026-10-24",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.42.0...v0.43.0",
