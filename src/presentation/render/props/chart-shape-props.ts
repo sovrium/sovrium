@@ -14,8 +14,19 @@ import type { ComponentOfType } from '@/domain/models/app/pages/components'
  * `chartVariant`, the `barColor` rules — and the window `fillEmpty` fills,
  * resolved at this render's "now" so the island never reads a clock of its own.
  * Every key is absent unless the chart declares it.
+ *
+ * The `chartAggregate` travels as declared, marked `numericKeys` when it groups
+ * by a number field, so the island's `label` order counts its categories up
+ * (2, 8, 9, 10) — the island sees records, never the field's type.
  */
-export const chartShapeProps = (component: ComponentOfType<'chart'>): Record<string, unknown> => ({
+export const chartShapeProps = (
+  component: ComponentOfType<'chart'>,
+  numericCategories?: true
+): Record<string, unknown> => ({
+  chartAggregate:
+    numericCategories === true && component.chartAggregate !== undefined
+      ? { ...component.chartAggregate, numericKeys: true }
+      : component.chartAggregate,
   height: component.height,
   chartVariant: component.chartVariant,
   barColor: component.barColor,

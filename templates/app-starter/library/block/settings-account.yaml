@@ -1,4 +1,4 @@
-# sovrium-library: block/settings-account@0.38.0
+# sovrium-library: block/settings-account@0.42.0
 # sovrium-library-params: headline=Account
 name: settings-account
 type: container
@@ -239,6 +239,71 @@ children:
                         control: password
                         label: New password
                         autocomplete: new-password
+  - type: container
+    element: section
+    props:
+      className: flex flex-col gap-3
+    children:
+      - type: flex
+        props:
+          className: flex flex-wrap items-end justify-between gap-3
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-1
+            children:
+              - type: text
+                element: h2
+                props:
+                  className: text-lg font-semibold text-foreground
+                content: Download my data
+              - type: text
+                element: p
+                props:
+                  className: text-md text-muted-foreground
+                content: A copy of everything this app holds about you.
+      - type: container
+        props:
+          className: flex flex-col divide-y rounded-lg border bg-card divide-border border-border
+        children:
+          - type: flex
+            props:
+              className: flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8
+            children:
+              - type: flex
+                props:
+                  className: flex min-w-0 flex-col gap-0.5 sm:max-w-64
+                children:
+                  - type: text
+                    element: p
+                    props:
+                      className: text-md font-medium text-foreground
+                    content: Your data
+                  - type: text
+                    element: p
+                    props:
+                      className: text-sm text-muted-foreground
+                    content: 'Your profile, your sessions and what you created, as one JSON file.'
+              - type: container
+                props:
+                  className: flex min-w-0 flex-1 flex-col gap-2 sm:max-w-sm
+                children:
+                  - type: button
+                    label: Download my data
+                    variant: outline
+                    props:
+                      className: self-start
+                    action:
+                      type: fetch
+                      mode: download
+                      url: /api/account/export
+                      filename: my-account-data.json
+                      onError:
+                        type: toast
+                        variant: destructive
+                        message: Your data could not be downloaded. Try again.
+    visibility:
+      when: authenticated
   - type: container
     element: section
     props:

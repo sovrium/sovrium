@@ -71,6 +71,7 @@ export type TypeSpecificResolvedInputs = {
    * `resolve-chart-field-context.ts`. Absent for every other component type. */
   readonly categoryOptions?: readonly ChartCategoryOptionInput[]
   readonly valueCurrency?: CurrencyDisplayOptions
+  readonly numericCategories?: true // a chart's categories are numbers, ordered counting up
   readonly aggregateRead?: boolean // figures from one aggregate read, not a page of records
   /** A calendar's day-valued fields, and its fields declaring a `timeZone`. */
   readonly dateOnlyFields?: readonly string[]

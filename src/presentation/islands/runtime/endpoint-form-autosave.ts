@@ -10,7 +10,9 @@
  * (`form.endpoint.submitOn: 'change'`, drawn `data-submit-on="change"` with no
  * submit button).
  *
- * - A switch or a select sends the moment it changes, with no timer between.
+ * - A switch or a Select sends the moment it changes, with no timer between:
+ *   a Select changes when the reader takes an option, never when the list
+ *   opens, the highlight moves, or it closes with nothing taken.
  * - A control the reader TYPES into sends once typing pauses, or at once when
  *   the reader leaves it or presses Enter in a single-line field — which drops
  *   the pending pause, so the value leaves once.
@@ -21,7 +23,7 @@
  *   form for exactly one more, sent once the first is answered with the values
  *   the form holds THEN; the intermediate states never leave. The form carries
  *   `aria-busy="true"` meanwhile, and its controls stay usable.
- * - A refusal puts every switch and select back to the value the server last
+ * - A refusal puts every switch and Select back to the value the server last
  *   accepted — the one the page opened with until a send succeeds — so a
  *   setting never shows what was not kept. A typed control keeps its text, for
  *   the reader to correct rather than retype.
@@ -70,29 +72,33 @@ const isTyped = (target: EventTarget | null): boolean =>
 
 const SWITCH = 'input[data-control="switch"]'
 
-const switchesOf = (form: HTMLFormElement) => form.querySelectorAll<HTMLInputElement>(SWITCH)
-
-/** Remember the sent values as the ones to fall back on: the switches' and the selects'. */
+/**
+ * Remember the sent values as the ones to fall back on: every switch's, and
+ * every Select's that has changed — a Select marks its named control with the
+ * value it held before the reader's first change (`form-field-island.tsx`).
+ */
 function keepAccepted(form: HTMLFormElement, sent: Record<string, unknown>): void {
-  switchesOf(form).forEach((control) =>
-    control.setAttribute('data-saved', String(sent[control.name] === true))
-  )
-  form.querySelectorAll('select').forEach((select) => {
-    for (const option of select.options) option.defaultSelected = option.value === sent[select.name]
-  })
+  for (const control of form.querySelectorAll<HTMLInputElement>(`${SWITCH},[data-saved]`)) {
+    const value = sent[control.name]
+    control.setAttribute('data-saved', String(control.type === 'checkbox' ? value === true : value))
+  }
 }
 
-/** Put every switch and select back to the value last accepted. */
+/**
+ * Put every switch and Select back to the value last accepted. A Select's
+ * named control is rewritten, then the form says so (`sovrium:values-reset`),
+ * which the island reads back onto its trigger.
+ */
 function restoreAccepted(form: HTMLFormElement): void {
-  for (const control of switchesOf(form)) {
-    const saved = control.getAttribute('data-saved')
-    if (saved === null) continue
-    control.checked = saved === 'true'
-    control.setAttribute('aria-checked', saved)
+  for (const control of form.querySelectorAll<HTMLInputElement>('[data-saved]')) {
+    const saved = control.getAttribute('data-saved') ?? ''
+    if (control.type !== 'checkbox') control.value = saved
+    else {
+      control.checked = saved === 'true'
+      control.setAttribute('aria-checked', saved)
+    }
   }
-  form.querySelectorAll('select').forEach((select) => {
-    for (const option of select.options) option.selected = option.defaultSelected
-  })
+  form.dispatchEvent(new Event('sovrium:values-reset'))
 }
 
 /** What sends a form: the endpoint runtime's submit with no button, and the body it sends. */

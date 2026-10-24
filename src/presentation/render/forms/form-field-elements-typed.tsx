@@ -5,6 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable react-refresh/only-export-components -- SSR-only field
+   parts, never part of client-side HMR; same rationale as the sibling
+   `form-field-elements.tsx`. */
+
 /**
  * The hosted-form parts that follow a TYPED column or carry no answer at all —
  * the required mark every label shares, the rating scale, and a section's
@@ -20,6 +24,7 @@
  * and the glyphs up to the chosen rank are drawn filled.
  */
 
+import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import {
   computeRatingGlyphClasses,
   computeRatingRankClasses,
@@ -33,6 +38,7 @@ import {
   computeFormRequiredMarkClasses,
 } from '@/presentation/design/form-layout-classes'
 import { RatingGlyph } from '@/presentation/design/rating-glyph'
+import { toLocalInputValue } from '@/presentation/design/zoned-datetime'
 import { ariaRequired, FIELD_LABEL_CLASS, fieldWrapperAttributes } from './form-field-chrome'
 import { DescriptionText, HelpText } from './form-help-text'
 import type { ResolvedFormField } from './form-field-elements'
@@ -176,4 +182,25 @@ export function SectionHeading({ field }: { readonly field: ResolvedFormField })
       />
     </div>
   )
+}
+
+/** A value a `datetime-local` control holds already: a wall-clock minute, no zone. */
+const WALL_CLOCK_MINUTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/
+
+/**
+ * The value a date-and-time control starts from. Whatever a `datetime` field
+ * starts from — `$now`, a literal instant, a query parameter — is an instant,
+ * which the browser's control refuses; it is written as that instant's
+ * wall-clock minute in the column's `timeZone` (the app's when it names
+ * none), at the offset in force at that instant, so a November value reads
+ * winter time even on a summer day. A wall-clock minute already (a resumed
+ * draft) is kept as it is; every other control's value passes through.
+ */
+export function zonedValue(
+  field: ResolvedFormField,
+  value: string | undefined
+): string | undefined {
+  if (field.inputElement !== 'datetime-local' || value === undefined) return value
+  if (WALL_CLOCK_MINUTE.test(value)) return value
+  return toLocalInputValue(value, field.column?.timeZone ?? parseSovriumTimezone().zoneId)
 }

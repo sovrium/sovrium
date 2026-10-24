@@ -22,14 +22,15 @@
  * Either way the result is judged as `sovrium validate` judges it BEFORE a
  * byte is written, and a write that would change nothing writes nothing. The
  * bytes land through a temp file and a rename beside the target, so a crash
- * mid-write never leaves a half-written config or sidecar.
+ * mid-write never leaves a half-written config or sidecar, and the file keeps
+ * the permission bits it had.
  *
  * A `design` assembled from another file — a `$ref` on it or anywhere inside
  * it, or a root include that supplies it — is refused rather than patched: a
  * rewrite would silently inline the include and orphan the file it names.
  */
 
-import { rename, writeFile } from 'node:fs/promises'
+import { chmod, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { refuse } from './app-prelude'
 import { indented, judgeConfig, type RootFormat } from './library-add-config'
@@ -59,8 +60,26 @@ const DESIGN_HEADER = /^design\s*:/
  */
 export const writeAtomically = async (path: string, content: string): Promise<void> => {
   const temp = `${path}.${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}.tmp`
-  await writeFile(temp, content, 'utf-8')
-  await rename(temp, path)
+  // The file it replaces keeps its permission bits: a new file would take the
+  // umask default, and widen a config its owner had restricted. Only the
+  // read/write/execute bits are carried; a set-id or sticky bit never is.
+  const mode = await stat(path).then(
+    (found) => found.mode & 0o777,
+    // No file there yet: the new one takes the default mode of a new file.
+    () => undefined
+  )
+  // Created with that mode already, so the temp file is never more open than
+  // the config it replaces, not even between its creation and the chmod; the
+  // chmod then sets it exactly, past the umask.
+  await writeFile(temp, content, mode === undefined ? 'utf-8' : { encoding: 'utf-8', mode })
+  try {
+    if (mode !== undefined) await chmod(temp, mode)
+    await rename(temp, path)
+  } catch (error) {
+    // The target is untouched; the temp file is not left beside it.
+    await rm(temp, { force: true })
+    throw error
+  }
 }
 
 /** The line ending a text uses, so a patch keeps a CRLF file CRLF. */

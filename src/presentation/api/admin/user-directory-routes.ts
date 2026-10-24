@@ -14,7 +14,7 @@ import { seesPresence } from '@/domain/models/app/auth/presence-audience-service
 import { UserDirectoryRepositoryLive } from '@/infrastructure/database/repositories/auth/user-directory-repository-live'
 import { logError } from '@/infrastructure/logging/logger'
 import { runRequestEffect } from '@/infrastructure/logging/request-effect'
-import { isPersonOnline } from '@/infrastructure/realtime/app-connections'
+import { isPersonOnline, onlinePeopleOf } from '@/infrastructure/realtime/app-connections'
 import { errorBody, unauthorized } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext, requestLogAttributes } from '@/presentation/api/runtime/context-helpers'
 import { runOnRequest } from '@/presentation/api/runtime/run-effect'
@@ -91,23 +91,26 @@ function resolveLimit(raw: string | undefined): number {
 /** One person's presence facts as a reader shown presence reads them. */
 type PresenceFacts = { readonly online: boolean; readonly lastSeen?: string | null }
 
+/** Whether the reader's role is in `auth.presence.visibleTo`, so she is shown presence. */
+const isShownPresence = async (c: Context, app: App, readerId: string): Promise<boolean> => {
+  if (app.auth?.presence === undefined) return false
+  const role = await runOnRequest(c, getUserRole(readerId, app))
+  return role._tag === 'Success' && seesPresence(app, { role: role.success, signedIn: true })
+}
+
 /**
- * The presence facts of the listed people, for a reader whose role is in
- * `auth.presence.visibleTo`: whether each is online, and, under `lastSeen`,
- * when she was last seen (null while she is online, or when she never was).
- * Any other reader gets none, so her entries carry neither key.
+ * The presence facts of the listed people, for a reader shown presence:
+ * whether each is online, and, under `lastSeen`, when she was last seen (null
+ * while she is online, or when she never was). Any other reader gets none, so
+ * her entries carry neither key.
  */
 const presenceFactsFor = async (
   c: Context,
   app: App,
-  input: { readonly readerId: string; readonly userIds: readonly string[] }
+  input: { readonly shown: boolean; readonly userIds: readonly string[] }
 ): Promise<ReadonlyMap<string, PresenceFacts>> => {
   const presence = app.auth?.presence
-  if (presence === undefined) return new Map()
-  const role = await runOnRequest(c, getUserRole(input.readerId, app))
-  if (role._tag === 'Failure' || !seesPresence(app, { role: role.success, signedIn: true })) {
-    return new Map()
-  }
+  if (presence === undefined || !input.shown) return new Map()
   const seen =
     presence.lastSeen === true ? await runOnRequest(c, lastSeenOfProgram(input.userIds)) : undefined
   if (seen?._tag === 'Failure') logError('[users] last-seen read failed', seen.failure)
@@ -147,20 +150,6 @@ function onlineAskedBy(raw: string | undefined): boolean | undefined {
 }
 
 /**
- * The people a reader asked for. Asked who is (or is not) online, a reader
- * shown presence gets exactly those people; any other reader gets no one, so
- * the answer never tells her who is connected.
- */
-function keepAsked<T extends { readonly id: string }>(
-  users: readonly T[],
-  facts: ReadonlyMap<string, PresenceFacts>,
-  online: boolean | undefined
-): readonly T[] {
-  if (online === undefined) return users
-  return users.filter((user) => facts.get(user.id)?.online === online)
-}
-
-/**
  * `GET /api/users/directory?q=&limit=&filter=`
  */
 const handleDirectory = async (c: Context, app: App): Promise<Response> => {
@@ -169,10 +158,22 @@ const handleDirectory = async (c: Context, app: App): Promise<Response> => {
 
   const term = c.req.query('q')?.trim()
   const limit = resolveLimit(c.req.query('limit'))
+  const shown = await isShownPresence(c, app, session.userId)
+  // Asked who is (or is not) online, a reader shown presence gets exactly those
+  // people; any other reader gets no one, so the answer never tells her who is
+  // connected.
+  const online = onlineAskedBy(c.req.query('filter'))
+  if (online !== undefined && !shown) return c.json({ users: [] }, 200)
 
   const program = Effect.gen(function* () {
     const repository = yield* UserDirectoryRepository
-    return yield* repository.listPickableUsers({ term, limit })
+    // Narrowed to who is (or is not) online in the query itself: one page in
+    // the directory's order, however far into it those people sort.
+    return yield* repository.listPickableUsers({
+      term,
+      limit,
+      ids: online === undefined ? undefined : { within: online, ids: onlinePeopleOf(app.name) },
+    })
   }).pipe(Effect.provide(UserDirectoryRepositoryLive))
 
   const result = await runRequestEffect(c, program.pipe(Effect.result))
@@ -188,11 +189,10 @@ const handleDirectory = async (c: Context, app: App): Promise<Response> => {
   }
 
   const facts = await presenceFactsFor(c, app, {
-    readerId: session.userId,
+    shown,
     userIds: result.success.map((user) => user.id),
   })
-  const listed = keepAsked(result.success, facts, onlineAskedBy(c.req.query('filter')))
-  return c.json({ users: listed.map((user) => ({ ...user, ...facts.get(user.id) })) }, 200)
+  return c.json({ users: result.success.map((user) => ({ ...user, ...facts.get(user.id) })) }, 200)
 }
 
 /**

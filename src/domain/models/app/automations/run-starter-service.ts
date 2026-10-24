@@ -14,10 +14,13 @@
  * erased names nobody and so acts as no one.
  *
  * And who a webhook run starts as: a `session` webhook's run is started by hand
- * by the person who called it — unless its answer reveals write-only fields to
- * a machine, the one reader those values are for, whose run reads as the system.
+ * by the person who called it — unless it acts as the system for a machine
+ * caller (its answer reveals write-only fields to it, or it declares
+ * `auth.runAs: 'system'`), whose run reads and writes as the system. Every run
+ * of a webhook declaring `runAs: 'system'` is read by an admin only.
  */
 
+import { triggersOfType } from './trigger-entries-service'
 import type { Trigger } from './trigger'
 
 /** The starter columns of a stored run. */
@@ -43,15 +46,24 @@ export const handStarterOfStoredRun = (run: StoredRunStarter): StoredHandStarter
 
 /**
  * Whether a webhook run is started by hand by its caller: only behind a
- * `session` webhook a person called, and never when the answer reveals
- * write-only fields to a machine — a run acting as a person reads none.
+ * `session` webhook a person called, and never when it acts as the system for
+ * a machine caller (`actsAsSystem`, decided at the webhook's door).
  */
 export const webhookStartsByHand = (
   trigger: Trigger,
   userId: string | undefined,
-  revealsToMachine: boolean | undefined
+  actsAsSystem: boolean | undefined
 ): boolean =>
   trigger.type === 'webhook' &&
   trigger.auth?.type === 'session' &&
   userId !== undefined &&
-  revealsToMachine !== true
+  actsAsSystem !== true
+
+/**
+ * Whether only an admin reads the runs of this automation: one of its webhooks
+ * declares `auth.runAs: 'system'`. Decided by the configuration, whoever started
+ * a run and however — a cookie caller's run, which acted as her, included.
+ */
+export const runsReadByAdminOnly = (automation: {
+  readonly triggers: ReadonlyArray<Trigger>
+}): boolean => triggersOfType(automation, 'webhook').some((t) => t.auth?.runAs === 'system')

@@ -172,6 +172,16 @@ function resolveAllowedFileTypes(
 }
 
 /**
+ * A relationship's `allowMultiple` as written, else as the schema defaults it:
+ * true for a many-to-many relation, which holds several links whether or not
+ * its column says so.
+ */
+function allowMultipleOf(tf: Readonly<Record<string, unknown>>): Record<string, unknown> {
+  if (typeof tf['allowMultiple'] === 'boolean') return { allowMultiple: tf['allowMultiple'] }
+  return tf['relationType'] === 'many-to-many' ? { allowMultiple: true } : {}
+}
+
+/**
  * Carry a `relationship` column's picker configuration onto the resolved field
  * def, so the form renders a real record picker instead of a text box.
  *
@@ -196,12 +206,11 @@ function resolveRelationshipConfig(
 ): Record<string, unknown> {
   if (fieldType !== 'relationship') return {}
   const stringProp = (key: string) => (typeof tf[key] === 'string' ? { [key]: tf[key] } : {})
-  const boolProp = (key: string) => (typeof tf[key] === 'boolean' ? { [key]: tf[key] } : {})
   return {
     ...stringProp('relatedTable'),
     ...stringProp('displayField'),
     ...stringProp('relationType'),
-    ...boolProp('allowMultiple'),
+    ...allowMultipleOf(tf),
     ...(typeof tf['maxLinked'] === 'number' ? { maxLinked: tf['maxLinked'] } : {}),
   }
 }

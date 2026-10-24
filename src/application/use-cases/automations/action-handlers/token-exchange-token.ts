@@ -16,7 +16,7 @@ import {
 import { SentinelTokens } from '@/application/ports/services/sentinel-tokens'
 import { logError } from '@/infrastructure/logging/logger'
 import { resolveEnvInString } from '../resolve-env-vars'
-import type { ConnectionDef } from './static-auth-header'
+import { unsetEnvReference, type ConnectionDef } from './static-auth-header'
 
 /**
  * The `tokenExchange` connection type: a stored credential traded at
@@ -48,6 +48,19 @@ interface TokenExchangeConfig {
 
 const stringOr = (value: unknown, fallback: string): string =>
   typeof value === 'string' ? value : fallback
+
+/**
+ * The first variable a value of the token exchange's `body` reads that is not
+ * set on this instance, checked BEFORE the token request; `undefined` when
+ * every value is set or literal.
+ */
+export const unsetTokenExchangeVariable = (
+  conn: ConnectionDef,
+  envLookup: Readonly<Record<string, string>>
+): string | undefined =>
+  Object.values((conn.props['body'] ?? {}) as Readonly<Record<string, unknown>>)
+    .map((value) => unsetEnvReference(String(value), envLookup))
+    .find((variable) => variable !== undefined)
 
 /** Read the connection's props, every `$env.VAR` resolved. */
 const readConfig = (

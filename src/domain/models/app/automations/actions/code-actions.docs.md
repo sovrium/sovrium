@@ -79,6 +79,16 @@ The log is for narrating what the step decided; anything a later step has to rea
       }
 ```
 
-## Checked at startup, fenced at runtime
+## Checked at startup, stopped at its timeout
 
-The `execute` body is type-checked when the app boots, so a malformed function fails immediately rather than in the middle of a run at three in the morning. At runtime the step is fenced by `props.timeout` for its own work, and by the action's top-level `timeout` for the step as a whole; the smaller wins.
+The `execute` body is type-checked when the app boots, so a malformed function fails immediately rather than in the middle of a run at three in the morning.
+
+Each code step runs on a thread of its own, started for the step and stopped when it ends. `props.timeout` (default 30 000 ms) and the action's top-level `timeout` both **stop the step** when they elapse, whatever the code is doing, a tight loop included; the smaller wins. The step fails with `code action exceeded timeout of <n>ms` and the run goes on as for any failed step. While a step computes, the app keeps answering: pages, the API, webhooks and other automations do not wait for it.
+
+- **What the step had already done stays done.** An action called through `context.actions` before the timeout keeps its effect; one still in flight finishes on its own and its result is dropped. Nothing is rolled back.
+- **Each run starts clean.** Nothing a step leaves in a variable or on a global survives into the next run.
+- **The context is data.** `context.inputData`, `context.env` and `context.run` reach the code as copies of plain data — text, numbers, booleans, `null`, lists, objects, dates — and `context.actions` and `context.log` are the same calls as ever. A value that cannot be copied fails the step before the code runs, naming its path, never its content.
+- **Memory is the process's.** A step's memory is the server's memory, bounded by the limit you set on the process (see "A memory limit" in **Environment Variables: Hosting Under a Supervisor**). A step that allocates without end can still exhaust it.
+- **It is not a sandbox.** Running on its own thread protects the app's availability, not the host from the code: the code is your own, as trusted as the configuration it sits in, and an app that must not run arbitrary code declares no code step. The globals the code sees — the JavaScript standard library, `Buffer`, WebCrypto, `Intl` — are unchanged.
+
+There is no setting to run code steps on the server's own thread.

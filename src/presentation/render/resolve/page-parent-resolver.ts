@@ -17,10 +17,10 @@
 
 import { utcMinuteInstant } from '@/domain/models/app/pages/components/relative-date-filter'
 import { renderNow } from '@/presentation/render/page/render-clock'
+import { withLinksAndLabels } from './bound-record-links'
 import { resolveCurrentUserFilters } from './current-user-filter-pass'
 import { scopeTablesOf } from './current-user-resolver'
 import { UNAUTHORIZED, type DataSourceDb } from './data-source-contracts'
-import { RECORD_DISPLAY_KEY } from './record-display-labels'
 import { bindRouteParams } from './route-param-binding'
 import { readBoundRecordForCaller, type SingleBindingQuery } from './single-record-read'
 import type { App } from '@/domain/models/app'
@@ -137,19 +137,7 @@ export async function resolvePageParentRecord(
   return {
     kind: 'record',
     table: dataSource.table,
-    record: await withLabels(record, dataSource.table, reader),
+    // Its many-to-many links and its labels, as the records API reads it for her.
+    record: await withLinksAndLabels(record, { ...reader, tableName: dataSource.table }),
   }
-}
-
-/**
- * The record with the labels the records API gives this reader (`_display`), so
- * a `user` or relationship field of the page's record reads by name, not by id.
- */
-async function withLabels(
-  record: Readonly<Record<string, unknown>>,
-  tableName: string,
-  reader: PageParentReader
-): Promise<Readonly<Record<string, unknown>>> {
-  const labels = await reader.db.readRecordLabels?.(reader.app, tableName, record, reader.session)
-  return labels === undefined ? record : { ...record, [RECORD_DISPLAY_KEY]: labels }
 }

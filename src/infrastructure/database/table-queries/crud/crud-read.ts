@@ -8,7 +8,7 @@
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { db } from '@/infrastructure/database'
-import { withTransaction } from '@/infrastructure/database/transaction'
+import { retryOnceOnStaleColumns } from '@/infrastructure/database/sql/catalog-request-cache'
 import { traceDbQuery } from '@/infrastructure/telemetry/db-query-trace'
 import {
   buildAggregationSelects,
@@ -47,8 +47,18 @@ import type {
   PercentileFigures,
 } from '@/domain/models/app/tables/aggregate-percentile-service'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
-import type { DatabaseError, DrizzleTransaction } from '@/infrastructure/database'
+import type { DatabaseError } from '@/infrastructure/database'
 import type { SQL } from 'drizzle-orm'
+
+/**
+ * A one-statement read, traced as a `select`, retried once when the database
+ * refuses a column a cached catalog answer named ({@link retryOnceOnStaleColumns}).
+ */
+const tracedRead = <A>(
+  tableName: string,
+  read: Effect.Effect<A, DatabaseError>
+): Effect.Effect<A, DatabaseError> =>
+  traceDbQuery('select', tableName, retryOnceOnStaleColumns(read))
 
 /**
  * List all records from a table
@@ -121,40 +131,36 @@ export function listRecords(config: {
   const { tableName, filter, includeDeleted, limit, offset, columns } = config
   const { lookupMasks } = config
   const onFailure = wrapDatabaseError(`Failed to list records from ${tableName}`)
-  return traceDbQuery(
-    'select',
+  return tracedRead(
     tableName,
-    withTransaction(
-      db,
-      (tx) =>
-        Effect.gen(function* () {
-          const hasDeletedAt = yield* checkDeletedAtColumnHelper(tx, tableName)
+    Effect.gen(function* () {
+      // Every clause is built BEFORE the read runs, and the read is one
+      // SELECT, so it opens no transaction: no connection waits on the event
+      // loop between BEGIN and COMMIT. The catalog answers below come from
+      // the per-process column cache after the first read of the table.
+      const hasDeletedAt = yield* checkDeletedAtColumnHelper(db, tableName)
+      const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
+      const ordering = listOrdering(config)
+      // Empty when the caller passes neither `limit` nor `offset`, which is
+      // every pre-pagination call site — the statement below is unchanged
+      // for them, down to the byte.
+      const pageClause = buildPageClause(limit, offset)
+      // `*` unless the caller projected. `ORDER BY` deliberately runs
+      // against the FULL relation rather than the projected list: a plain
+      // non-DISTINCT select may order by a column it does not return, on
+      // both dialects, so a sort key never has to be force-projected.
+      const selectList = yield* buildSelectListClause(db, tableName, columns)
+      const relation = yield* maskedRelation(db, tableName, lookupMasks)
 
-          // Build query clauses
-          const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
-          const ordering = listOrdering(config)
-          // Empty when the caller passes neither `limit` nor `offset`, which is
-          // every pre-pagination call site — the statement below is unchanged
-          // for them, down to the byte.
-          const pageClause = buildPageClause(limit, offset)
-          // `*` unless the caller projected. `ORDER BY` deliberately runs
-          // against the FULL relation rather than the projected list: a plain
-          // non-DISTINCT select may order by a column it does not return, on
-          // both dialects, so a sort key never has to be force-projected.
-          const selectList = yield* buildSelectListClause(tx, tableName, columns)
-          const relation = yield* maskedRelation(tx, tableName, lookupMasks)
-
-          return yield* Effect.tryPromise({
-            try: () =>
-              typedExecute(
-                tx,
-                sql`${ordering.prefix}SELECT ${selectList} FROM ${relation}${whereClause}${ordering.orderBy}${pageClause}`
-              ),
-            catch: onFailure,
-          })
-        }),
-      onFailure
-    )
+      return yield* Effect.tryPromise({
+        try: () =>
+          typedExecute(
+            db,
+            sql`${ordering.prefix}SELECT ${selectList} FROM ${relation}${whereClause}${ordering.orderBy}${pageClause}`
+          ),
+        catch: onFailure,
+      })
+    })
   )
 }
 
@@ -177,15 +183,13 @@ type AggregationResult = PercentileFigures & {
 }
 
 /**
- * The aggregation SELECT, as it runs against the open transaction.
+ * The aggregation SELECT: one statement, run without a transaction once every
+ * clause is built.
  *
  * Extracted from {@link computeAggregations} only so that function stays inside
- * the size limit — its inline result type is most of its length. `onFailure` is
- * the SAME mapper the surrounding `withTransaction` uses, so a rejection here
- * and a rejection from the transaction itself produce the identical error.
+ * the size limit — its inline result type is most of its length.
  */
-const runAggregationsInTx = (
-  tx: Readonly<DrizzleTransaction>,
+const runAggregations = (
   params: {
     readonly tableName: string
     readonly filter?: { readonly and?: readonly FilterNode[] }
@@ -197,7 +201,7 @@ const runAggregationsInTx = (
 ): Effect.Effect<AggregationResult, DatabaseError> =>
   Effect.gen(function* () {
     const { tableName, filter, includeDeleted, aggregate, lookupMasks } = params
-    const hasDeletedAt = yield* checkDeletedAtColumnHelper(tx, tableName)
+    const hasDeletedAt = yield* checkDeletedAtColumnHelper(db, tableName)
     const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
     const aggregationSelects = buildAggregationSelects(aggregate)
     const percentileSelects = buildPercentileSelects(aggregate)
@@ -211,11 +215,11 @@ const runAggregationsInTx = (
       ],
       sql`, `
     )
-    const relation = yield* maskedRelation(tx, tableName, lookupMasks)
+    const relation = yield* maskedRelation(db, tableName, lookupMasks)
     // SQLite ranks each percentile field first; the source is unchanged otherwise.
     const source = rankForPercentiles(sql`${relation}${whereClause}`, aggregate)
     const rows = yield* Effect.tryPromise({
-      try: () => typedExecute(tx, sql`SELECT ${selectClause} FROM ${source}`),
+      try: () => typedExecute(db, sql`SELECT ${selectClause} FROM ${source}`),
       catch: onFailure,
     })
     if (rows.length === 0) return {}
@@ -250,19 +254,9 @@ export function computeAggregations(config: {
 }): Effect.Effect<AggregationResult, DatabaseError> {
   const { tableName, filter, includeDeleted, aggregate, lookupMasks } = config
   const onFailure = wrapDatabaseError(`Failed to compute aggregations from ${tableName}`)
-  return traceDbQuery(
-    'select',
+  return tracedRead(
     tableName,
-    withTransaction(
-      db,
-      (tx) =>
-        runAggregationsInTx(
-          tx,
-          { tableName, filter, includeDeleted, aggregate, lookupMasks },
-          onFailure
-        ),
-      onFailure
-    )
+    runAggregations({ tableName, filter, includeDeleted, aggregate, lookupMasks }, onFailure)
   )
 }
 
@@ -287,43 +281,37 @@ export function listTrash(config: {
 }): Effect.Effect<readonly Record<string, unknown>[], DatabaseError> {
   const { tableName, filter, sort, lookupMasks } = config
   const onFailure = wrapDatabaseError(`Failed to list trash from ${tableName}`)
-  return traceDbQuery(
-    'select',
+  return tracedRead(
     tableName,
-    withTransaction(
-      db,
-      (tx) =>
-        Effect.gen(function* () {
-          const hasDeletedAt = yield* checkDeletedAtColumnHelper(tx, tableName)
+    Effect.gen(function* () {
+      const hasDeletedAt = yield* checkDeletedAtColumnHelper(db, tableName)
 
-          if (!hasDeletedAt) {
-            return [] as readonly Record<string, unknown>[]
-          }
+      if (!hasDeletedAt) {
+        return [] as readonly Record<string, unknown>[]
+      }
 
-          const authorshipColumns = yield* checkAuthorshipColumns(tx, tableName)
+      const authorshipColumns = yield* checkAuthorshipColumns(db, tableName)
 
-          const selectFields = buildAuthorshipSelectFields(authorshipColumns)
-          // sql-literal: identifier -- fixed authorship column list
-          const selectClause = sql.raw(selectFields.join(', '))
-          // A lookup the reader may not read is evaluated as empty wherever the
-          // filter or the sort names it, as the live list does.
-          const relation = yield* maskedRelation(tx, tableName, lookupMasks, 't')
-          const initialQuery = sql`SELECT ${selectClause} FROM ${relation}`
+      const selectFields = buildAuthorshipSelectFields(authorshipColumns)
+      // sql-literal: identifier -- fixed authorship column list
+      const selectClause = sql.raw(selectFields.join(', '))
+      // A lookup the reader may not read is evaluated as empty wherever the
+      // filter or the sort names it, as the live list does.
+      const relation = yield* maskedRelation(db, tableName, lookupMasks, 't')
+      const initialQuery = sql`SELECT ${selectClause} FROM ${relation}`
 
-          const queryWithJoins = buildAuthorshipJoins(initialQuery, authorshipColumns)
-          const queryWithWhere = sql`${queryWithJoins} WHERE t.deleted_at IS NOT NULL`
-          const queryWithFilters = buildTrashFilters(queryWithWhere, filter?.and)
-          const query = addTrashSorting(queryWithFilters, sort)
+      const queryWithJoins = buildAuthorshipJoins(initialQuery, authorshipColumns)
+      const queryWithWhere = sql`${queryWithJoins} WHERE t.deleted_at IS NOT NULL`
+      const queryWithFilters = buildTrashFilters(queryWithWhere, filter?.and)
+      const query = addTrashSorting(queryWithFilters, sort)
 
-          const rows = yield* Effect.tryPromise({
-            try: () => typedExecute(tx, query),
-            catch: onFailure,
-          })
+      const rows = yield* Effect.tryPromise({
+        try: () => typedExecute(db, query),
+        catch: onFailure,
+      })
 
-          return rows.map(transformRowWithAuthorship)
-        }),
-      onFailure
-    )
+      return rows.map(transformRowWithAuthorship)
+    })
   )
 }
 
@@ -346,34 +334,25 @@ export function getRecord(
   includeDeleted?: boolean
 ): Effect.Effect<Record<string, unknown> | null, DatabaseError> {
   const onFailure = wrapDatabaseError(`Failed to get record ${recordId} from ${tableName}`)
-  return traceDbQuery(
-    'select',
+  return tracedRead(
     tableName,
-    withTransaction(
-      db,
-      (tx) =>
-        Effect.gen(function* () {
-          const hasDeletedAt = yield* checkDeletedAtColumnHelper(tx, tableName)
+    Effect.gen(function* () {
+      const hasDeletedAt = yield* checkDeletedAtColumnHelper(db, tableName)
 
-          // Build WHERE clause with soft-delete filter if applicable
-          const whereClause =
-            hasDeletedAt && !includeDeleted
-              ? sql` WHERE id = ${recordId} AND deleted_at IS NULL`
-              : sql` WHERE id = ${recordId}`
+      // Build WHERE clause with soft-delete filter if applicable
+      const whereClause =
+        hasDeletedAt && !includeDeleted
+          ? sql` WHERE id = ${recordId} AND deleted_at IS NULL`
+          : sql` WHERE id = ${recordId}`
 
-          // Use parameterized query for recordId (automatic via template literal)
-          const rows = yield* Effect.tryPromise({
-            try: () =>
-              typedExecute(
-                tx,
-                sql`SELECT * FROM ${tableIdentifier(tableName)}${whereClause} LIMIT 1`
-              ),
-            catch: onFailure,
-          })
+      // Use parameterized query for recordId (automatic via template literal)
+      const rows = yield* Effect.tryPromise({
+        try: () =>
+          typedExecute(db, sql`SELECT * FROM ${tableIdentifier(tableName)}${whereClause} LIMIT 1`),
+        catch: onFailure,
+      })
 
-          return rows[0] ?? null
-        }),
-      onFailure
-    )
+      return rows[0] ?? null
+    })
   )
 }

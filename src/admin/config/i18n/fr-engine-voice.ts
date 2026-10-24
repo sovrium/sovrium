@@ -38,8 +38,7 @@ export default {
   'sovrium.apiKeys.emptyBody':
     'Crées-en une pour qu’un script ou une tâche planifiée appelle l’API en ton nom.',
   'sovrium.apiKeys.list': 'Tes clés d’API',
-  'sovrium.apiKeys.loadFailed':
-    'Tes clés d’API n’ont pas pu se charger. Recharge la page pour réessayer.',
+  'sovrium.apiKeys.loadFailed': 'Tes clés d’API n’ont pas pu se charger.',
   'sovrium.apiKeys.loading': 'Chargement de tes clés…',
   'sovrium.apiKeys.nameHint':
     'Nomme-la d’après la tâche qui l’utilisera : c’est à ce nom que tu la reconnaîtras.',
@@ -53,6 +52,7 @@ export default {
   'sovrium.component.refreshToRetry': 'Actualise la page pour réessayer.',
   'sovrium.csvImport.drop': 'Glisse-dépose un fichier CSV ici',
   'sovrium.datatable.createFailed': 'Impossible d’enregistrer. Réessaie.',
+  'sovrium.datatable.loadFailedIn': '{table} : chargement impossible.',
   'sovrium.dialog.typeToConfirm': 'Pour confirmer, saisis « {text} »',
   'sovrium.dialog.typeToConfirmAsked': 'Pour confirmer, saisis le texte demandé',
   'sovrium.filePreview.cannotShow':

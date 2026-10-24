@@ -6,6 +6,7 @@
  */
 
 import { Switch } from '@base-ui/react/switch'
+import { useState, type ReactElement } from 'react'
 import { cn } from '@/presentation/design/class-merge'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import {
@@ -14,7 +15,6 @@ import {
 } from '@/presentation/islands/form-controls/toggle-default-classes'
 import { useLazySharedFilterPublisher } from '@/presentation/islands/hooks/use-lazy-shared-filter-publisher'
 import type { SharedFilterPublisherConfig } from '@/presentation/islands/hooks/use-shared-filter-publisher'
-import type { ReactElement } from 'react'
 
 interface SwitchIslandProps {
   readonly checked?: boolean
@@ -31,6 +31,30 @@ interface SwitchIslandProps {
   readonly ariaLabel?: string
   /** The channel the control publishes its value on, as a condition or a param. */
   readonly publishes?: SharedFilterPublisherConfig
+}
+
+/**
+ * Whether the switch opens ON because its mirrored value is in the page
+ * address: its `publishes.url` left `<bindTo>.<param>` (or `<bindTo>.<field>`
+ * for the condition form) behind. Read once, at mount
+ * and synchronously, so the control is drawn in the state the address names
+ * rather than flipping once the publisher runtime arrives. An address naming
+ * nothing for it, an empty value or `false` keeps `fallback`, the declared
+ * opening state.
+ */
+function useSwitchedOnInAddress(
+  publishes: SharedFilterPublisherConfig | undefined,
+  fallback: boolean
+): boolean {
+  const [on] = useState(() => {
+    const name = publishes?.param ?? publishes?.field
+    if (publishes?.url !== true || name === undefined || typeof window === 'undefined') {
+      return fallback
+    }
+    const text = new URLSearchParams(window.location.search).get(`${publishes.bindTo}.${name}`)
+    return text === null ? fallback : text !== '' && text !== 'false'
+  })
+  return on
 }
 
 /** shadcn/ui `Label`, beside the switch. */
@@ -61,6 +85,8 @@ export default function SwitchIsland({
   publishes,
 }: SwitchIslandProps): ReactElement {
   const publish = useLazySharedFilterPublisher(publishes)
+  // A switch mirrored in the address opens in the state the address names.
+  const openOn = useSwitchedOnInAddress(publishes, checked ?? false)
   const Wrapper = label ? 'label' : 'span'
   return (
     <Wrapper
@@ -75,8 +101,9 @@ export default function SwitchIsland({
         id={id}
         aria-label={ariaLabel}
         aria-labelledby={ariaLabelledBy}
-        defaultChecked={checked}
-        onCheckedChange={(on) => publish(on)}
+        defaultChecked={openOn}
+        // Off withdraws the value: the param form publishes nothing rather than `false`.
+        onCheckedChange={(on) => publish(on ? true : '')}
         disabled={disabled}
         name={name}
         className={computeSwitchTrackClasses()}

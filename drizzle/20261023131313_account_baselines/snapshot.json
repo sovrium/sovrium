@@ -1,0 +1,161 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "463a3ad0-8715-47c0-a0ed-8b7244a7a3d8",
+  "prevIds": [
+    "d82af6b6-1754-422e-a1db-3fcf3b7b82ca"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "system",
+        "account_baselines"
+      ],
+      "writes": [
+        "s|tbl|system.account_baselines",
+        "n|tbl|system.account_baselines",
+        "e|tbl|system.account_baselines",
+        "n|rel|system.account_baselines",
+        "n|type|system.account_baselines",
+        "n|rel|system.account_baselines_pkey"
+      ],
+      "reads": [
+        "n|sch|system"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "system",
+        "account_baselines"
+      ],
+      "writes": [
+        "s|fk|system.account_baselines.account_baselines_user_id_user_id_fkey",
+        "n|fk|system.account_baselines.account_baselines_user_id_user_id_fkey",
+        "e|fk|system.account_baselines.account_baselines_user_id_user_id_fkey",
+        "n|con|system.account_baselines.account_baselines_user_id_user_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|system.account_baselines",
+        "n|sch|system",
+        "n|tbl|auth.user",
+        "n|sch|auth",
+        "n|col|system.account_baselines.user_id",
+        "n|col|auth.user.id",
+        "e|uniqueness|auth.user.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "name": "account_baselines",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "account_baselines",
+        "name": "user_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "account_baselines",
+        "name": "email",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "account_baselines",
+        "name": "snapshot",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "account_baselines",
+        "name": "recorded_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "account_baselines",
+        "name": "account_baselines_user_id_user_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "auth",
+        "tableTo": "user",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "CASCADE",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "account_baselines",
+        "name": "account_baselines_pkey",
+        "columns": [
+          "user_id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    }
+  ]
+}

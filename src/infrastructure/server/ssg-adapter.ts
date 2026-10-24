@@ -5,9 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { join } from 'node:path'
 import { Effect, Data } from 'effect'
 import { toSSG } from 'hono/bun'
 import { defaultExtensionMap } from 'hono/ssg'
+import { islandFilesReachedBy } from '@/infrastructure/server/route-setup/island-assets'
 import type { Hono } from 'hono'
 
 /**
@@ -113,6 +115,35 @@ function normalizeFilePath(file: string, outputDir: string): string {
 }
 
 /**
+ * Write the part of the island bundle the generated pages reach, each file as
+ * the app serves it, under `assets/islands/`; the paths written, relative to
+ * the output directory. A literal route per file would have the crawl request
+ * the whole bundle, which no page of the build can fetch from a static host.
+ */
+async function writeReachedIslandFiles(
+  app: Hono | Readonly<Hono>,
+  outputDir: string,
+  pageFiles: readonly string[]
+): Promise<readonly string[]> {
+  const pages = await Promise.all(
+    pageFiles
+      .filter((file) => file.endsWith('.html'))
+      .map((file) => Bun.file(join(outputDir, file)).text())
+  )
+  const islands = await islandFilesReachedBy(app, pages)
+  const written = await Promise.all(
+    islands.map(async (island) => {
+      const response = await app.request(`/assets/islands/${island}`)
+      if (!response.ok) return []
+      const file = `assets/islands/${island}`
+      await Bun.write(join(outputDir, file), await response.arrayBuffer())
+      return [file]
+    })
+  )
+  return written.flat()
+}
+
+/**
  * Generate static site using Hono's SSG functionality
  *
  * This adapter wraps Hono's toSSG function with Effect.ts patterns
@@ -162,9 +193,13 @@ export const generateStaticSite = (
       }
 
       // Normalize file paths to be relative to outputDir
-      const normalizedFiles = (result.files as readonly string[]).map((file) =>
+      const pageFiles = (result.files as readonly string[]).map((file) =>
         normalizeFilePath(file, outputDir)
       )
+      const normalizedFiles = [
+        ...pageFiles,
+        ...(await writeReachedIslandFiles(app, outputDir, pageFiles)),
+      ]
 
       // Return output directory and generated files from toSSG
       return {

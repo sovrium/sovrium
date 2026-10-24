@@ -33,10 +33,16 @@ import {
 import { handleAutomationCall, handleAutomationReturn } from './automation'
 import { handleBrowserRun } from './browser'
 import { handleBrowserAgent } from './browser-agent'
+import { handleCalendarExportIcs } from './calendar-export-ics'
 import { handleCalendarImportIcs } from './calendar-import-ics'
 import { handleCodeRun } from './code'
 import { handleCommentCreate } from './comment'
-import { handleCommentDelete, handleCommentList } from './comment-thread'
+import {
+  handleCommentDelete,
+  handleCommentList,
+  handleCommentModerate,
+  handleCommentUpdate,
+} from './comment-thread'
 import { handleConnectionCall } from './connection'
 import { handleCryptoHash, handleCryptoHmac, handleCryptoSign, handleCryptoVerify } from './crypto'
 import {
@@ -67,6 +73,7 @@ import { handleDocumentGenerateDocx } from './document-docx'
 import { handleDocumentGenerateImage } from './document-image'
 import { handleDocumentGeneratePdf } from './document-pdf'
 import { handleEmailSend } from './email'
+import { handleEmailStats, handleEmailSuppress } from './email-deliverability'
 import {
   handleFileDownload,
   handleFileGenerateCsv,
@@ -131,6 +138,7 @@ import {
   handleRecordRead,
   handleRecordUpdate,
 } from './record'
+import { handleRecordAggregate } from './record-aggregate'
 import {
   handleRecordBatchCreate,
   handleRecordBatchUpdate,
@@ -173,6 +181,7 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['browser/run', handleBrowserRun],
   ['browser/agent', handleBrowserAgent],
   ['calendar/importIcs', handleCalendarImportIcs],
+  ['calendar/exportIcs', handleCalendarExportIcs],
   ['code/runTypescript', handleCodeRun],
   ['connection/call', handleConnectionCall],
   ['crypto/hash', handleCryptoHash],
@@ -223,6 +232,8 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['comment/create', handleCommentCreate],
   ['comment/list', handleCommentList],
   ['comment/delete', handleCommentDelete],
+  ['comment/update', handleCommentUpdate],
+  ['comment/moderate', handleCommentModerate],
   ['notification/create', handleNotificationCreate],
   ['record/create', handleRecordCreate],
   ['record/read', handleRecordRead],
@@ -234,6 +245,7 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['record/batchUpdate', handleRecordBatchUpdate],
   ['record/batchDelete', handleRecordBatchDelete],
   ['record/batchUpsert', handleRecordBatchUpsert],
+  ['record/aggregate', handleRecordAggregate],
   ['file/upload', gatedFileOperator('upload', handleFileUpload)],
   ['file/download', gatedFileOperator('download', handleFileDownload)],
   ['file/parseCsv', gatedFileOperator('parseCsv', handleFileParseCsv)],
@@ -289,6 +301,8 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['sovrium/validateConfig', handleSovriumValidateConfig],
   ['sovrium/validateBundle', handleSovriumValidateBundle],
   ['email/send', handleEmailSend],
+  ['email/suppress', handleEmailSuppress],
+  ['email/stats', handleEmailStats],
   ['webhook/send', handleWebhookSend],
   ['webhook/response', handleWebhookResponse],
   ['state/set', handleStateSet],

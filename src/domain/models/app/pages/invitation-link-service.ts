@@ -15,15 +15,17 @@
  * open a page that does not exist.
  */
 
+import { primaryPagePath, type DeclaredPagePath } from '@/domain/kernel/matching/localized-path'
+
 /** The built-in invitation page, kept for an app that declares none. */
 export const BUILT_IN_INVITATION_PATH = '/accept-invitation'
 
 /** The query key an invitation page reads its token from when it names none. */
 export const DEFAULT_INVITATION_PARAM = 'token'
 
-/** The page fields the link reads. */
+/** The page fields the link reads. A path per language opens at its first address. */
 export interface InvitationLinkPage {
-  readonly path: string
+  readonly path: DeclaredPagePath
   readonly invitation?: { readonly param?: string | undefined } | undefined
 }
 
@@ -38,11 +40,15 @@ export const invitationLinkTarget = (
   pages: readonly InvitationLinkPage[] | undefined
 ): InvitationLinkTarget => {
   const page = (pages ?? []).find(
-    (candidate) => candidate.invitation !== undefined && !candidate.path.includes(':')
+    (candidate) =>
+      candidate.invitation !== undefined && !primaryPagePath(candidate.path).includes(':')
   )
   return page === undefined
     ? { path: BUILT_IN_INVITATION_PATH, param: DEFAULT_INVITATION_PARAM }
-    : { path: page.path, param: page.invitation?.param ?? DEFAULT_INVITATION_PARAM }
+    : {
+        path: primaryPagePath(page.path),
+        param: page.invitation?.param ?? DEFAULT_INVITATION_PARAM,
+      }
 }
 
 /**
@@ -78,9 +84,12 @@ export interface InvitationLinkMount {
  */
 export const mountedInvitationPages = (
   mounts: readonly InvitationLinkMount[]
-): readonly InvitationLinkPage[] =>
+): readonly (InvitationLinkPage & { readonly path: string })[] =>
   mounts.flatMap(({ basePath, presetApp }) =>
     (presetApp.pages ?? [])
-      .filter((page) => page.invitation !== undefined && !page.path.includes(':'))
-      .map((page) => ({ ...page, path: `${basePath.replace(/\/$/, '')}${page.path}` }))
+      .filter((page) => page.invitation !== undefined && !primaryPagePath(page.path).includes(':'))
+      .map((page) => ({
+        ...page,
+        path: `${basePath.replace(/\/$/, '')}${primaryPagePath(page.path)}`,
+      }))
   )

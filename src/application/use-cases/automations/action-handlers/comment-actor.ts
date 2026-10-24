@@ -39,8 +39,24 @@ import type { AuthRepository } from '@/application/ports/repositories/auth/auth-
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { App, Table } from '@/domain/models/app'
 
-/** The three operators of the `comment` family. */
-export type CommentOperator = 'create' | 'list' | 'delete'
+/** The operators of the `comment` family. */
+export type CommentOperator = 'create' | 'list' | 'delete' | 'update' | 'moderate'
+
+/** The longest comment the comments API stores. */
+const MAX_COMMENT_LENGTH = 10_000
+
+/**
+ * Why a comment's rendered content cannot be stored, or `undefined` when it
+ * can: 1 to 10,000 characters, as a posted body — judged on the text a
+ * template produced, for a post and an edit alike.
+ */
+export const commentContentRefusal = (content: string): string | undefined => {
+  if (content.length === 0) return 'the content is empty once rendered'
+  if (content.length > MAX_COMMENT_LENGTH) {
+    return `the content holds ${content.length.toLocaleString('en-US')} characters once rendered, past the limit of 10,000`
+  }
+  return undefined
+}
 
 /** A step that failed for a reason the run history shows. */
 export const commentFailure = (operator: CommentOperator, reason: string): ActionOutcome => ({

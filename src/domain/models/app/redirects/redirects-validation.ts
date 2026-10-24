@@ -32,6 +32,7 @@
  * derived `App` type to `never`.
  */
 
+import { claimedPagePaths, type DeclaredPagePath } from '@/domain/kernel/matching/localized-path'
 import { isAbsoluteRedirectTarget, stripLanguagePrefix } from '.'
 
 /** A single redirect rule, in the shape this cross-validation needs. */
@@ -45,7 +46,7 @@ interface RedirectRuleForValidation {
 /** Minimal shape needed to validate redirect rules against pages. */
 interface AppForRedirectValidation {
   readonly redirects?: ReadonlyArray<RedirectRuleForValidation>
-  readonly pages?: ReadonlyArray<{ readonly name: string; readonly path: string }>
+  readonly pages?: ReadonlyArray<{ readonly name: string; readonly path: DeclaredPagePath }>
   readonly languages?: { readonly supported: ReadonlyArray<{ readonly code: string }> }
 }
 
@@ -69,7 +70,7 @@ const isLocaleAgnosticFrom = (from: string, languageCodes: ReadonlyArray<string>
  */
 const validateNoPageShadowing = (
   redirects: ReadonlyArray<RedirectRuleForValidation>,
-  pages: ReadonlyArray<{ readonly name: string; readonly path: string }> | undefined,
+  pages: ReadonlyArray<{ readonly name: string; readonly path: DeclaredPagePath }> | undefined,
   languageCodes: ReadonlyArray<string>
 ): true | string => {
   if (!pages) return true
@@ -78,9 +79,9 @@ const validateNoPageShadowing = (
   // Only STATIC page paths participate — a path carrying a `:param` segment is a
   // pattern, not an address, and retiring one member of it is legitimate.
   const staticPagePaths = new Map(
-    pages
-      .filter((page) => !page.path.includes(':'))
-      .map((page) => [normalize(page.path), page.name])
+    claimedPagePaths(pages)
+      .filter((claim) => !claim.path.includes(':'))
+      .map((claim) => [normalize(claim.path), claim.page.name])
   )
 
   const collision = redirects.find((rule) => staticPagePaths.has(normalize(rule.from)))

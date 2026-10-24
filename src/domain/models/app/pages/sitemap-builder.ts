@@ -18,6 +18,7 @@
  * were a second, older spelling for the same two values and have been removed.
  */
 
+import { pageRoutePatterns } from '@/domain/kernel/matching/localized-path'
 import { type PermissionCaller } from '@/domain/models/app/auth/permission-evaluation'
 import { readOpensToEveryone } from '@/domain/models/app/auth/permission-evaluator-service'
 import { isPublicPage } from '@/domain/models/app/pages/is-public'
@@ -105,7 +106,7 @@ export function isPageInSitemap(page: Page): boolean {
   return (
     isPublicPage(page) &&
     !isNoindexPage(page) &&
-    !page.path.startsWith('/_') &&
+    !pageRoutePatterns(page.path).some((path) => path.startsWith('/_')) &&
     page.sitemap !== false
   )
 }
@@ -140,7 +141,6 @@ const isAnonymouslyAddressable = (
   slugField: string
 ): boolean =>
   readOpensToEveryone(table, app.tables) &&
-  table.rowLevelPermissions?.read === undefined &&
   isFieldReadableByCaller(app, table.name, ANONYMOUS_CRAWLER, slugField)
 
 /**
@@ -156,8 +156,9 @@ const ANONYMOUS_CRAWLER: PermissionCaller = { role: '' }
  * A record is listed only where an anonymous visitor could open it — the same
  * rule {@link isPageInSitemap} applies to a page — so the table must be open to
  * everyone (its read, resolved through `inherit` and `override`, is `'all'`,
- * the one rung that admits anonymous reads) and carry no row-level read predicate, which is evaluated per visitor
- * and cannot be answered for a crawler. The field the address is built from
+ * the one rung that admits anonymous reads). A row-level read rule does not
+ * refuse the table: the record fan-out applies it per row, as the records API
+ * applies it to a signed-out visitor. The field the address is built from
  * must be readable by an anonymous caller too, decided by the same
  * field-level predicate the records API applies — listing an address the API
  * would strip publishes what it hides. A page that is not itself in the

@@ -45,7 +45,7 @@ import {
   SelectInput,
 } from './form-field-elements-design'
 import { FileInput, UserInput } from './form-field-elements-media'
-import { RatingInput, RequiredMark, SectionHeading } from './form-field-elements-typed'
+import { RatingInput, RequiredMark, SectionHeading, zonedValue } from './form-field-elements-typed'
 import { HelpText } from './form-help-text'
 import type { ControlAttributeField } from '@/presentation/design/field-control-attributes'
 import type { ReactElement } from 'react'
@@ -485,5 +485,5 @@ export function FormFieldElement({
     )
   }
   const defaultValue = prefillValue !== undefined ? prefillValueToString(prefillValue) : undefined
-  return dispatchFieldInput(field, defaultValue)
+  return dispatchFieldInput(field, zonedValue(field, defaultValue))
 }

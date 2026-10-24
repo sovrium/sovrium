@@ -16,6 +16,7 @@
 
 import { Effect, Option } from 'effect'
 import { PageMeasure } from '@/application/ports/services/page-measure'
+import { claimedPagePaths } from '@/domain/kernel/matching/localized-path'
 import {
   CANVAS_BOARD_LIMIT,
   CANVAS_BOARD_WIDTH,
@@ -153,7 +154,8 @@ const canvasInputOf = (
   paint: { readonly tokens: string; readonly stylesheet: string }
 ) => ({
   appName: app.name,
-  routes: (app.pages ?? []).map((page) => ({ name: page.name, path: page.path })),
+  routes: claimedPagePaths(app.pages ?? []).map(({ page, path }) => ({ name: page.name, path })),
+  languages: app.languages?.supported.map((language) => language.code),
   pages: pages.map((page) => ({
     tree: page.projected.tree,
     exported: stampOf(page.projected, page.drawnIds),

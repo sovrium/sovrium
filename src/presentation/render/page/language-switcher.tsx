@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { type HTMLAttributes, type ReactElement } from 'react'
+import { type HTMLAttributes, type ReactElement, useContext } from 'react'
 import { computePartButtonClasses } from '@/presentation/design/button-variant-classes'
 import { cn } from '@/presentation/design/class-merge'
 import { CheckGlyph, ChevronDownGlyph, GlobeGlyph } from '@/presentation/design/control-glyphs'
@@ -15,6 +15,7 @@ import {
   computeDropdownMenuRadioItemClasses,
 } from '@/presentation/design/dropdown-menu-default-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { PageLanguageAlternatesContext } from '@/presentation/render/page/page-alternates'
 import type { Languages } from '@/domain/models/app/languages'
 
 /** Stable identity for `style={{ display: 'none' }}` reuse to satisfy react-perf. */
@@ -63,7 +64,11 @@ export interface LanguageSwitcherLinkPart {
  */
 function wrapperAttributes(
   attributes: LanguageSwitcherWrapperAttributes | undefined,
-  own: { readonly variant: string; readonly fallbackLanguage: string | undefined }
+  own: {
+    readonly variant: string
+    readonly fallbackLanguage: string | undefined
+    readonly addresses: Readonly<Record<string, string>>
+  }
 ): Record<string, unknown> {
   const authorClass = typeof attributes?.className === 'string' ? attributes.className : ''
   return {
@@ -73,8 +78,19 @@ function wrapperAttributes(
     className: ['relative', authorClass].filter((part) => part !== '').join(' '),
     'data-variant': own.variant,
     'data-fallback-language': own.fallbackLanguage,
+    // Each language's address of this page — a translated slug where the page
+    // declares one — so a pick lands on it rather than on a swapped segment.
+    ...(Object.keys(own.addresses).length > 0 && {
+      'data-alternates': JSON.stringify(own.addresses),
+    }),
   }
 }
+
+/** This page's address in each language it exists in, keyed by language code. */
+const usePageAddresses = (): Readonly<Record<string, string>> =>
+  Object.fromEntries(
+    useContext(PageLanguageAlternatesContext).map((entry) => [entry.language, entry.path])
+  )
 
 /**
  * Helper to check if flag is an image path (starts with /)
@@ -138,25 +154,28 @@ function LanguageSwitcherButton({
  * The `toggle` variant, for an app with exactly two languages: one link to the
  * same page in the other language, reading its code and named by its label.
  *
- * Its `href` is the other language's root, which is where it leads without
+ * Its `href` is the page's own address in that language when the server knows
+ * it, else the other language's root, which is where it leads without
  * JavaScript; `language-switcher.js` retargets it to the same page in that
  * language once the page loads, since only the browser holds the full address.
  */
 function LanguageToggle({
   other,
   fallbackLanguage,
+  addresses,
   attributes,
   linkPart,
 }: {
   readonly other: Languages['supported'][number]
   readonly fallbackLanguage: string | undefined
+  readonly addresses: Readonly<Record<string, string>>
   readonly attributes: LanguageSwitcherWrapperAttributes | undefined
   readonly linkPart: LanguageSwitcherLinkPart | undefined
 }): ReactElement {
   return (
-    <div {...wrapperAttributes(attributes, { variant: 'toggle', fallbackLanguage })}>
+    <div {...wrapperAttributes(attributes, { variant: 'toggle', fallbackLanguage, addresses })}>
       <a
-        href={`/${other.code}/`}
+        href={addresses[other.code] ?? `/${other.code}/`}
         hrefLang={other.code}
         lang={other.locale ?? other.code}
         aria-label={other.label}
@@ -224,12 +243,15 @@ export function LanguageSwitcher({
     languages.supported.find((lang) => lang.code === currentLang || lang.locale === currentLang) ??
     languages.supported.find((lang) => lang.code === languages.default)
   const other = languages.supported.find((lang) => lang.code !== activeLanguage?.code)
+  const addresses = usePageAddresses()
+  const fallbackLanguage = languages.fallback
 
   if (variant === 'toggle' && languages.supported.length === 2 && other !== undefined) {
     return (
       <LanguageToggle
         other={other}
-        fallbackLanguage={languages.fallback}
+        fallbackLanguage={fallbackLanguage}
+        addresses={addresses}
         attributes={attributes}
         linkPart={linkPart}
       />
@@ -237,7 +259,7 @@ export function LanguageSwitcher({
   }
 
   return (
-    <div {...wrapperAttributes(attributes, { variant, fallbackLanguage: languages.fallback })}>
+    <div {...wrapperAttributes(attributes, { variant, fallbackLanguage, addresses })}>
       <LanguageSwitcherButton
         activeLanguage={activeLanguage}
         activeCode={activeLanguage?.code ?? languages.default}

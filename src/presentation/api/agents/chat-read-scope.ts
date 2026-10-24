@@ -94,9 +94,10 @@ export const roleOnlyReader = (role: string, agent: boolean): ChatReader => ({
  * A caller signed in to nothing, in an app that has sign-in. The empty role is
  * the read plan's "no session" ({@link ReadPrincipal}): she reads a table only
  * where its resolved read is `'all'`, only its public fields, and no row a
- * row-level rule governs.
+ * row-level rule governs. A new object per turn: a turn's answers are kept on
+ * its reader (`chatReaderRows`), so a shared one would outlive the turn.
  */
-export const signedOutReader: ChatReader = roleOnlyReader('', false)
+export const signedOutReader = (): ChatReader => roleOnlyReader('', false)
 
 /**
  * A declared agent's reader: its declared role alone, narrowed to `caller`'s
@@ -384,5 +385,5 @@ export const agentCaller = async (c: Context, app: App): Promise<ChatReader | un
   if (getSessionContext(c) !== undefined) {
     return (await resolveUserPrincipal(c)).reader
   }
-  return app.auth === undefined ? undefined : signedOutReader
+  return app.auth === undefined ? undefined : signedOutReader()
 }

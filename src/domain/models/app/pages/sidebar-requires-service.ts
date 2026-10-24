@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { pageRoutePatterns, type DeclaredPagePath } from '@/domain/kernel/matching/localized-path'
+
 /**
  * Drop the sidebar entries that lead to a page `requires` pruned.
  *
@@ -130,7 +132,7 @@ const pruneTree = (node: unknown, paths: PrunedPaths): unknown => {
 
 /** The two halves of an app this service rewrites: its pages and its templates. */
 interface PrunableApp {
-  readonly pages?: readonly { readonly path: string }[]
+  readonly pages?: readonly { readonly path: DeclaredPagePath }[]
   readonly components?: readonly unknown[]
 }
 
@@ -149,7 +151,7 @@ export const pruneSidebarEntriesToDroppedPages = <T extends PrunableApp>(
   if (droppedPaths.length === 0) return app
   const paths: PrunedPaths = {
     dropped: droppedPaths,
-    kept: (app.pages ?? []).map((page) => page.path),
+    kept: (app.pages ?? []).flatMap((page) => pageRoutePatterns(page.path)),
   }
   const pages = app.pages === undefined ? undefined : pruneTree(app.pages, paths)
   const components = app.components === undefined ? undefined : pruneTree(app.components, paths)

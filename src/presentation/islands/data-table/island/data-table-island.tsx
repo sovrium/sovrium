@@ -17,11 +17,12 @@ import {
   toSetupParams,
   useColumnDisplayFieldMeta,
 } from './entry-wiring'
+import { GridCaptionContext, useGridCaption } from './grid-caption'
 import { GridStringsContext, type GridStrings } from './grid-strings'
 import { usePhoneRowOpen } from './phone-row-open'
 import { ReadErrorNotice } from './read-error-notice'
 import { readFailureWiring } from './read-failure-wiring'
-import { pagerPagination } from './setup/row-cap'
+import { gridPagination, pagerPagination } from './setup/row-cap'
 import { effectiveSelection } from './setup/use-grid-table'
 import { useClipboardCopy } from './use-clipboard-copy'
 import { useDataTableIslandSetup } from './use-island-setup'
@@ -73,6 +74,7 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
   const isReadOnly = isReadOnlyBinding(props)
   const setup = useDataTableIslandSetup(toSetupParams(props))
   const gridStrings = useGridStrings(props.uiStrings, setup.resultSummary)
+  const caption = useGridCaption(props.caption)
   // Clipboard + paste-import: cell/row selection + Ctrl/Cmd+C / +V handlers.
   // Paste-import (CSV-via-clipboard) targets a DB table; for a system source
   // there is no records table to write to, so it is gated OFF.
@@ -159,78 +161,83 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
         />
       )}
       <AccountSessionsContext.Provider value={sessionsList}>
-        <DataTableView
-          containerRef={clipboardRef}
-          table={setup.table}
-          {...optionalProps}
-          readOnly={isReadOnly}
-          layout={props.layout}
-          phoneLayout={props.phoneLayout}
-          viewOptions={props.viewOptions}
-          viewChannel={props.dataSource.bindTo ?? props.dataSource.system?.bindTo}
-          tableName={tableName}
-          allColumns={setup.allColumns}
-          totalRecords={failure.totalRecords}
-          isLoading={setup.isLoading}
-          unanswered={failure.unanswered}
-          selectionConfig={effectiveSelection({
-            selectionConfig: props.selection,
-            publishesSelection: props.publishes !== undefined,
-          })}
-          bulkActionsConfig={props.bulkActions}
-          paginationConfig={
-            failure.failedEmpty
-              ? undefined
-              : pagerPagination(props.pagination, props.dataSource.limit)
-          }
-          cursorPaged={setup.cursorFeed.cursorPaged}
-          hasMore={setup.cursorFeed.hasMore}
-          isLoadingMore={setup.cursorFeed.isLoadingMore}
-          onLoadMore={setup.cursorFeed.onLoadMore}
-          groupByConfig={setup.effectiveGroupByConfig}
-          {...(setup.groupCounts && { groupCounts: setup.groupCounts })}
-          {...(setup.groupAggregations && { groupAggregations: setup.groupAggregations })}
-          summaryConfig={props.summary}
-          summaryAggregations={setup.summaryAggregations}
-          columnConfig={props.columns}
-          tableFields={props.tableFields}
-          fieldMeta={props.fieldMeta}
-          striped={striped}
-          rowColorField={props.rowColorField}
-          rowColorFieldColors={props.rowColorFieldColors}
-          currentRowHeight={setup.currentRowHeight}
-          rowHeightDeclared={props.rowHeight !== undefined}
-          inlineExpand={props.rowExpandInline}
-          cellClass={setup.cellClass}
-          borderClass={setup.borderClass}
-          emptyMessage={emptyMessage}
-          {...(props.noMatchMessage !== undefined && { noMatchMessage: props.noMatchMessage })}
-          selectedCount={Object.keys(setup.rowSelection).length}
-          editingCell={setup.inlineEditing.editingCell}
-          autoSave={setup.inlineAutoSave}
-          saveError={setup.inlineEditing.saveError}
-          saveConflict={setup.inlineEditing.saveConflict}
-          onRetrySave={() => void setup.inlineEditing.retryFailedSave()}
-          saveStatus={setup.inlineEditing.saveStatus}
-          saveIndicator={setup.saveIndicator}
-          onRowClickAction={onRowClickAction}
-          onCellDoubleClick={setup.inlineEditing.startEditing}
-          onEditSave={setup.inlineEditing.saveEdit}
-          onEditCancel={setup.inlineEditing.cancelEditing}
-          onCellCommit={setup.inlineEditing.commitCellValue}
-          onRefresh={setup.handleRefresh}
-          canCreate={showCreate}
-          canDelete={!isReadOnly && props.canDelete !== false}
-          isViewBound={props.isViewBound === true}
-          globalFilter={setup.searchQuery}
-          subscribed={(props.dataSource.bindTo ?? props.dataSource.system?.bindTo) !== undefined}
-          narrowed={setup.narrowed}
-          onBulkExecute={setup.onBulkExecute}
-          conflict={setup.conflict}
-          onDismissConflict={setup.dismissConflict}
-          connectionStatus={setup.connectionStatus}
-          ui={setup.ui}
-        />
+        <GridCaptionContext.Provider value={caption}>
+          <DataTableView
+            containerRef={clipboardRef}
+            table={setup.table}
+            {...optionalProps}
+            readOnly={isReadOnly}
+            layout={props.layout}
+            phoneLayout={props.phoneLayout}
+            viewOptions={props.viewOptions}
+            viewChannel={props.dataSource.bindTo ?? props.dataSource.system?.bindTo}
+            tableName={tableName}
+            allColumns={setup.allColumns}
+            totalRecords={failure.totalRecords}
+            isLoading={setup.isLoading}
+            unanswered={failure.unanswered}
+            selectionConfig={effectiveSelection({
+              selectionConfig: props.selection,
+              publishesSelection: props.publishes !== undefined,
+            })}
+            bulkActionsConfig={props.bulkActions}
+            paginationConfig={
+              failure.failedEmpty
+                ? undefined
+                : pagerPagination(
+                    gridPagination(props.pagination, props.dataSource),
+                    props.dataSource.limit
+                  )
+            }
+            cursorPaged={setup.cursorFeed.cursorPaged}
+            hasMore={setup.cursorFeed.hasMore}
+            isLoadingMore={setup.cursorFeed.isLoadingMore}
+            onLoadMore={setup.cursorFeed.onLoadMore}
+            groupByConfig={setup.effectiveGroupByConfig}
+            {...(setup.groupCounts && { groupCounts: setup.groupCounts })}
+            {...(setup.groupAggregations && { groupAggregations: setup.groupAggregations })}
+            summaryConfig={props.summary}
+            summaryAggregations={setup.summaryAggregations}
+            columnConfig={props.columns}
+            tableFields={props.tableFields}
+            fieldMeta={props.fieldMeta}
+            striped={striped}
+            rowColorField={props.rowColorField}
+            rowColorFieldColors={props.rowColorFieldColors}
+            currentRowHeight={setup.currentRowHeight}
+            rowHeightDeclared={props.rowHeight !== undefined}
+            inlineExpand={props.rowExpandInline}
+            cellClass={setup.cellClass}
+            borderClass={setup.borderClass}
+            emptyMessage={emptyMessage}
+            {...(props.noMatchMessage !== undefined && { noMatchMessage: props.noMatchMessage })}
+            selectedCount={Object.keys(setup.rowSelection).length}
+            editingCell={setup.inlineEditing.editingCell}
+            autoSave={setup.inlineAutoSave}
+            saveError={setup.inlineEditing.saveError}
+            saveConflict={setup.inlineEditing.saveConflict}
+            onRetrySave={() => void setup.inlineEditing.retryFailedSave()}
+            saveStatus={setup.inlineEditing.saveStatus}
+            saveIndicator={setup.saveIndicator}
+            onRowClickAction={onRowClickAction}
+            onCellDoubleClick={setup.inlineEditing.startEditing}
+            onEditSave={setup.inlineEditing.saveEdit}
+            onEditCancel={setup.inlineEditing.cancelEditing}
+            onCellCommit={setup.inlineEditing.commitCellValue}
+            onRefresh={setup.handleRefresh}
+            canCreate={showCreate}
+            canDelete={!isReadOnly && props.canDelete !== false}
+            isViewBound={props.isViewBound === true}
+            globalFilter={setup.searchQuery}
+            subscribed={(props.dataSource.bindTo ?? props.dataSource.system?.bindTo) !== undefined}
+            narrowed={setup.narrowed}
+            onBulkExecute={setup.onBulkExecute}
+            conflict={setup.conflict}
+            onDismissConflict={setup.dismissConflict}
+            connectionStatus={setup.connectionStatus}
+            ui={setup.ui}
+          />
+        </GridCaptionContext.Provider>
       </AccountSessionsContext.Provider>
     </GridStringsContext.Provider>
   )

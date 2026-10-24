@@ -321,6 +321,33 @@
                           "to": "to"
                         }
                       }
+                    },
+                    {
+                      "type": "container",
+                      "key": "routine-runs-toggle-row",
+                      "element": "div",
+                      "props": {
+                        "className": "flex items-center gap-2"
+                      },
+                      "children": [
+                        {
+                          "type": "switch",
+                          "props": {
+                            "id": "routine-runs-toggle",
+                            "aria-label": "$t:admin.automations.runs.filter.showRoutine"
+                          },
+                          "publishes": {
+                            "bindTo": "automation-runs-filter",
+                            "param": "routine",
+                            "url": true
+                          }
+                        },
+                        {
+                          "type": "label",
+                          "for": "routine-runs-toggle",
+                          "text": "$t:admin.automations.runs.filter.showRoutine"
+                        }
+                      ]
                     }
                   ]
                 },
@@ -338,7 +365,15 @@
                         "totalKey": "total",
                         "bindTo": "automation-runs-filter",
                         "sharedFilter": {
-                          "params": ["q", "automationName", "triggerName", "status", "from", "to"]
+                          "params": [
+                            "q",
+                            "automationName",
+                            "triggerName",
+                            "status",
+                            "from",
+                            "to",
+                            "routine"
+                          ]
                         },
                         "refreshMode": "poll",
                         "pollIntervalMs": 15000
@@ -512,7 +547,8 @@
                     "onRowClick": {
                       "type": "navigate",
                       "path": "/runs/$record.id"
-                    }
+                    },
+                    "viewOptions": "toolbar"
                   }
                 }
               ]
@@ -635,7 +671,8 @@
                         ]
                       }
                     ],
-                    "emptyMessage": "$t:admin.automations.catalog.empty"
+                    "emptyMessage": "$t:admin.automations.catalog.empty",
+                    "viewOptions": "toolbar"
                   }
                 }
               ]

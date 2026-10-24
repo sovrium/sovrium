@@ -81,6 +81,8 @@
  * trailing slashes.
  */
 
+import { findPageRoute, withLanguageSegment } from '@/domain/kernel/matching/localized-path'
+import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { requestSearch } from '@/domain/kernel/url/request-search'
 import {
   detectLanguageIfEnabled,
@@ -172,9 +174,20 @@ const resolveTargetLanguage = (app: App, header: string | undefined): string | u
   return detectLanguageIfEnabled(app, header) ?? languages.default
 }
 
-/** The `/{language}`-prefixed twin of a root-relative path. */
-const withLanguagePrefix = (language: string, path: string): string =>
-  path === '/' ? `/${language}/` : `/${language}${path}`
+/**
+ * Where the fallback sends an unprefixed `path`: its twin in `language`, or —
+ * when that answers nothing and `path` is the translated slug of a page with a
+ * path per language (`/manifeste`) — the language that slug belongs to
+ * (`/fr/manifeste`). A plain page path keeps its one candidate, unchanged.
+ */
+const fallbackTargetOf = (app: App, path: string, language: string): string => {
+  const preferred = withLanguageSegment(language, path)
+  if (resolvesToPublicDeclaredPage(app, preferred)) return preferred
+  const owner = (app.languages?.supported ?? [])
+    .map((supported) => withLanguageSegment(supported.code, path))
+    .find((candidate) => findPageRoute(app.pages ?? [], candidate)?.language !== undefined)
+  return owner ?? preferred
+}
 
 /**
  * Whether `path` is unreachable as authored but WOULD resolve once prefixed
@@ -198,7 +211,37 @@ const resolvesViaLanguageFallback = (
   if (validateLanguageSubdirectory(app, path) !== undefined) return false
   const language = resolveTargetLanguage(app, header)
   if (language === undefined) return false
-  return resolvesToPublicDeclaredPage(app, withLanguagePrefix(language, path))
+  return resolvesToPublicDeclaredPage(app, fallbackTargetOf(app, path, language))
+}
+
+/**
+ * Where the trailing-slash normalizer sends `path`, or `undefined` when it
+ * leaves it alone: the path with its trailing slashes stripped, when that
+ * resolves to a public page directly or through the language fallback.
+ */
+const trailingSlashHop = (
+  app: App,
+  path: string,
+  c: Context
+): { readonly location: string; readonly viaLanguage: boolean } | undefined => {
+  // `/\/+$/` and not `slice(0, -1)`: `/docs//` must collapse in ONE hop, or the
+  // emitted `Location` itself still ends in a slash and re-fires this handler.
+  const stripped = path.replace(/\/+$/, '')
+  // Access-gated, unlike the handler's pass-through guard: this one decides
+  // whether to EMIT a 301, and `/vault/` → 301 `/vault` where `/nope/` → 404
+  // announces that `/vault` exists to a visitor its 404 keeps in the dark.
+  const direct = resolvesToPublicDeclaredPage(app, stripped)
+  // The disjunction is required: on a config whose docs pages exist only as
+  // `/en/docs` and `/fr/docs`, the stripped `/docs` resolves to nothing, so a
+  // direct-only gate would leave `/docs/` a plain 404 and the motivating bug
+  // unfixed.
+  const viaLanguage =
+    !direct && resolvesViaLanguageFallback(app, stripped, c.req.header('Accept-Language'))
+  if (!direct && !viaLanguage) return undefined
+  // The target is the request's own path: `//host/` strips to `//host`, so the
+  // canonical same-origin check decides before anything is sent.
+  const location = toSafeRedirectPath(`${stripped}${requestSearch(c)}`)
+  return location === undefined ? undefined : { location, viaLanguage }
 }
 
 /**
@@ -218,26 +261,13 @@ function handleTrailingSlash(app: App, reservedPrefixes: readonly string[]) {
     // resolves WITH its slash is served, never stripped into a 404.
     if (resolvesToDeclaredPage(app, path)) return next()
 
-    // `/\/+$/` and not `slice(0, -1)`: `/docs//` must collapse in ONE hop, or the
-    // emitted `Location` itself still ends in a slash and re-fires this handler.
-    const stripped = path.replace(/\/+$/, '')
-    // Access-gated, unlike the pass-through guard above: this one decides
-    // whether to EMIT a 301, and `/vault/` → 301 `/vault` where `/nope/` → 404
-    // announces that `/vault` exists to a visitor its 404 keeps in the dark.
-    const direct = resolvesToPublicDeclaredPage(app, stripped)
-    // The disjunction is required: on a config whose docs pages exist only as
-    // `/en/docs` and `/fr/docs`, the stripped `/docs` resolves to nothing, so a
-    // direct-only gate would leave `/docs/` a plain 404 and the motivating bug
-    // unfixed.
-    const viaLanguage =
-      !direct && resolvesViaLanguageFallback(app, stripped, c.req.header('Accept-Language'))
-    if (!direct && !viaLanguage) return next()
-
+    const hop = trailingSlashHop(app, path, c)
+    if (hop === undefined) return next()
     // Conditional, and this is the branch that operationally matters: a 301 is
     // heuristically cacheable and browsers keep it near-permanently, so a hop
     // whose eligibility was decided by `Accept-Language` must say so.
-    if (viaLanguage) varyOnAcceptLanguage(c)
-    return c.redirect(`${stripped}${requestSearch(c)}`, 301)
+    if (hop.viaLanguage) varyOnAcceptLanguage(c)
+    return c.redirect(hop.location, 301)
   }
 }
 
@@ -263,14 +293,16 @@ function handleLanguageFallback(app: App, reservedPrefixes: readonly string[]) {
 
     const language = resolveTargetLanguage(app, c.req.header('Accept-Language'))
     if (language === undefined) return next()
-    const target = withLanguagePrefix(language, path)
+    const target = fallbackTargetOf(app, path, language)
     // Access-gated: `/private` → 302 `/en/private` where `/nope` → 404 leaks the
     // page's existence, and typing `/en/private` recovers nothing because it
     // 404s for this visitor too.
     if (!resolvesToPublicDeclaredPage(app, target)) return next()
 
+    const location = toSafeRedirectPath(`${target}${requestSearch(c)}`)
+    if (location === undefined) return next()
     varyOnAcceptLanguage(c)
-    return c.redirect(`${target}${requestSearch(c)}`, 302)
+    return c.redirect(location, 302)
   }
 }
 

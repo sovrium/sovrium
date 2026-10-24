@@ -84,7 +84,8 @@ export const CodeRunTypescriptActionSchema = Schema.Struct({
     timeout: Schema.optional(
       Schema.Finite.pipe(
         Schema.annotate({
-          description: 'Execution timeout in ms (1000-300000, default: 30000)',
+          description:
+            'Execution timeout in ms (1000-300000, default: 30000). The step is stopped when it elapses, whatever its code is doing, and fails with the timeout message.',
         }),
         Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 300_000 }))
       )

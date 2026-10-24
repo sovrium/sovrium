@@ -33,7 +33,11 @@ import {
 import { discoverConfigFile } from './app-prelude'
 import { isPublicDirOptOut, readPublicDirEnv, resolveDefaultPublicDir } from './option-parsing'
 import { getCurrentVersion } from './update'
-import { loadConfigForValidationWithSources, validateParsedConfig } from './validate'
+import {
+  loadConfigForValidationWithSources,
+  printValidationWarnings,
+  validateParsedConfig,
+} from './validate'
 import type { BundleSummary } from '@/application/use-cases/server/bundle-programs'
 
 /** Everything `sovrium bundle` reads from the command line. */
@@ -89,6 +93,9 @@ export const buildValidatedBundle = async (request: BuildBundleRequest): Promise
       `Fix the problems above, then run 'sovrium ${request.command}' again.`
     )
   }
+  // The same warnings `sovrium validate` prints: they change nothing the
+  // archive holds, but a page that will be served without its body is told.
+  printValidationWarnings(outcome)
 
   const result = await Effect.runPromise(
     createBundle({

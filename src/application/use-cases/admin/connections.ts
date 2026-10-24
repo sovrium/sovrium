@@ -63,10 +63,14 @@ import {
   latestRunOfUses,
   type ConnectionUse,
 } from '@/domain/models/app/connections/connection-usage-service'
-import type { App } from '@/domain/models/app'
-
-/** The declared connections and automations a connection's labels and uses are read from. */
-type DeclaredConfig = Pick<App, 'connections' | 'automations'>
+import {
+  connectionLabel,
+  declaredLabelsOf,
+  NO_DECLARED_LABELS,
+  unconfiguredNamesOf,
+  type DeclaredConfig,
+  type DeclaredConnectionLabels,
+} from './connection-declared-facts'
 
 /** Where a connection is used and when a call to it last ran. */
 interface ConnectionUsage {
@@ -135,41 +139,6 @@ function expiryToIso(raw: Readonly<Date> | string | null | undefined): string | 
 }
 
 /**
- * The `label` each declared connection gives itself, keyed by its `name` — the
- * key a `system.connections` row shares with its `app.connections[]` entry.
- * A connection declaring no label (or an empty one) is absent from the map.
- */
-type DeclaredConnectionLabels = ReadonlyMap<string, string>
-
-/** No declared labels: every connection is named by `name · provider`. */
-const NO_DECLARED_LABELS: DeclaredConnectionLabels = new Map()
-
-/** Read the declared labels off `app.connections[]`. */
-function declaredLabelsOf(
-  connections: ReadonlyArray<{ readonly name: string; readonly label?: string }> | undefined
-): DeclaredConnectionLabels {
-  return new Map(
-    (connections ?? []).flatMap((connection) =>
-      connection.label === undefined || connection.label.length === 0
-        ? []
-        : [[connection.name, connection.label] as const]
-    )
-  )
-}
-
-/**
- * The connection named in one reading, for a console cell that shows one
- * field: the `label` its configuration declares when it declares one;
- * otherwise `name · provider`, or the name alone when the two are the same word
- * (compared without regard to case). Built from the configuration's own words,
- * so it does not depend on the operator's language.
- */
-function connectionLabel(name: string, provider: string, declared: string | undefined): string {
-  if (declared !== undefined) return declared
-  return name.toLowerCase() === provider.toLowerCase() ? name : `${name} · ${provider}`
-}
-
-/**
  * Project a raw `system.connections` row + its token summary to the canonical
  * HARD ALLOW-LIST list item. Reads ONLY the allow-listed columns by name — the
  * raw row is NEVER spread, so `credentials` (NOT NULL on the table) cannot ride
@@ -181,9 +150,13 @@ function buildConnectionItem(
   row: Readonly<Record<string, unknown>>,
   tokens: readonly ConnectionUserSummary[],
   appToken: Readonly<ConnectionAppTokenSummary> | undefined,
-  named: { readonly declaredLabels: DeclaredConnectionLabels; readonly usage: ConnectionUsage }
+  named: {
+    readonly declaredLabels: DeclaredConnectionLabels
+    readonly usage: ConnectionUsage
+    readonly unconfigured?: ReadonlySet<string>
+  }
 ): ConnectionListItem {
-  const { declaredLabels, usage } = named
+  const { declaredLabels, usage, unconfigured } = named
   // The count is the UNION of the two stores, derived from which rows actually
   // exist rather than from the connection's declared `scope`. That matters:
   // these rows are read from `system.connections`, which is also populated by
@@ -195,12 +168,14 @@ function buildConnectionItem(
     ...(appToken === undefined ? [] : [appToken.expiresAt]),
   ])
   const type = String(row['type'])
-  const status = deriveConnectionListStatus(type, [
-    ...tokens,
-    ...(appToken === undefined ? [] : [appToken]),
-  ])
-  const tokenCount = tokens.length + (appToken === undefined ? 0 : 1)
   const name = String(row['name'])
+  const status = deriveConnectionListStatus(
+    type,
+    [...tokens, ...(appToken === undefined ? [] : [appToken])],
+    Date.now(),
+    unconfigured?.has(name) === true
+  )
+  const tokenCount = tokens.length + (appToken === undefined ? 0 : 1)
   const provider = String(row['provider'])
   return {
     id: String(row['id']),
@@ -255,7 +230,8 @@ const noUsage: UsageReader<never, never> = () => Effect.succeed(new Map())
 /** The list build, naming each connection with `declaredLabels` where it has one. */
 const buildConnectionsList = <E = never, R = never>(
   declaredLabels: DeclaredConnectionLabels,
-  readUsage: UsageReader<E, R>
+  readUsage: UsageReader<E, R>,
+  unconfigured: ReadonlySet<string> = new Set()
 ): Effect.Effect<
   ConnectionsListOutcome,
   ConnectionDatabaseError | ConnectionTokenDatabaseError | E,
@@ -274,7 +250,7 @@ const buildConnectionsList = <E = never, R = never>(
         const tokens = yield* tokenRepo.listUsersForConnection({ connectionId })
         const appToken = yield* tokenRepo.findAppSummary({ connectionId })
         const usage = usages.get(String(row['name'])) ?? NO_USAGE
-        return buildConnectionItem(row, tokens, appToken, { declaredLabels, usage })
+        return buildConnectionItem(row, tokens, appToken, { declaredLabels, usage, unconfigured })
       })
     )
 
@@ -315,8 +291,10 @@ export const BuildConnectionsListWithUsage = (
   ConnectionDatabaseError | ConnectionTokenDatabaseError | AdminAutomationsDatabaseError,
   ConnectionRepository | ConnectionTokenRepository | AdminAutomationsRepository
 > =>
-  buildConnectionsList(declaredLabelsOf(config.connections), (names) =>
-    usagesOf(config, names)
+  buildConnectionsList(
+    declaredLabelsOf(config.connections),
+    (names) => usagesOf(config, names),
+    unconfiguredNamesOf(config)
   ).pipe(Effect.withSpan('admin.build-connections-list-with-usage'))
 
 /**
@@ -385,6 +363,7 @@ export const BuildConnectionDetail = (
       connection: buildConnectionItem(row, summaries, appToken, {
         declaredLabels: declaredLabelsOf(config.connections),
         usage,
+        unconfigured: unconfiguredNamesOf(config),
       }),
       tokens: summaries.map((summary) => buildUserToken(summary)),
     }

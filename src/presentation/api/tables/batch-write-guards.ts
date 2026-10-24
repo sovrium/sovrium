@@ -18,6 +18,10 @@ import {
   hasCreatePermissionForRoles,
   hasReadPermissionForRoles,
 } from '@/domain/models/app/auth/permission-evaluator-service'
+import {
+  findWritableComputedFieldWrites,
+  readonlyFieldWriteMessage,
+} from '@/domain/models/app/tables/computed-field-write-validation'
 import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
@@ -29,6 +33,24 @@ import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
 type Records = readonly { readonly fields: Record<string, unknown> }[]
+
+/**
+ * Refuse a batch that names a computed field the caller may write, on any of
+ * its records — the first in the table's field order — with one `400` for the
+ * whole request, so none of it is written. A computed field she may not write
+ * is the field write rule's: refused or stripped as any field she may not
+ * write. Run after the table- and row-level gates, so the name reaches only a
+ * caller who may write the table.
+ */
+function refuseComputedFieldWrites(c: Context, app: App, records: Records): Response | undefined {
+  const { tableName, userRole, userGroups } = getTableContext(c)
+  const writer = { role: userRole, groups: userGroups }
+  const payloads = records.map((record) => record.fields)
+  const [first] = findWritableComputedFieldWrites(app, tableName, writer, payloads)
+  if (first === undefined) return undefined
+  const message = readonlyFieldWriteMessage(first)
+  return c.json({ success: false, message, code: 'VALIDATION_ERROR' }, 400)
+}
 
 /**
  * Resolve the create-authorisation gate for batch create. Returns the
@@ -108,6 +130,26 @@ export async function guardBatchCreate(
     (await resolveBatchCreateAuth({ c, app, tableName, userRole, userGroups, session, records })) ??
     checkBatchFieldPermissions({ records, app, tableName, userRole, userGroups, c }) ??
     validateReadonlyFields(table, records, c) ??
+    refuseComputedFieldWrites(c, app, records) ??
+    (await validateBulkFieldValues(c, app, records))
+  )
+}
+
+/**
+ * The rules a batch update's records pass once its table and row-level gates
+ * have admitted them, in order: the readonly columns, a computed field the
+ * caller may write, then the per-value rules — all before the field write
+ * strip, and over every record, so a refusal writes none of the batch.
+ */
+export async function guardBatchUpdateValues(
+  c: Context,
+  app: App,
+  records: Records
+): Promise<Response | undefined> {
+  const table = app.tables?.find((t) => t.name === getTableContext(c).tableName)
+  return (
+    validateReadonlyFields(table, records, c) ??
+    refuseComputedFieldWrites(c, app, records) ??
     (await validateBulkFieldValues(c, app, records))
   )
 }
@@ -116,7 +158,8 @@ export async function guardBatchCreate(
  * Every gate an upsert passes: a merge field the caller may not read is refused
  * first, `id` is never written, the readonly and per-value rules BEFORE the
  * permission checks, then the create and update grants and the required fields
- * (`validateUpsertRequest`), which strip the fields the caller may not write.
+ * (`validateUpsertRequest`), which strip the fields the caller may not write,
+ * and last a computed field she may write.
  *
  * The merge-field refusal is the one a filter on that field gets — `404`, the
  * table-missing body — and it comes before any lookup, so it reads the same
@@ -145,9 +188,13 @@ export async function guardUpsert(
   const fieldGuard =
     validateReadonlyFields(table, records, c) ?? (await validateBulkFieldValues(c, app, records))
   if (fieldGuard) return { success: false, response: fieldGuard }
-  return validateUpsertRequest({
+  const validation = await validateUpsertRequest({
     ...{ c, app, tableName, userRole, userGroups, session },
     records,
     fieldsToMergeOn,
   })
+  // A computed field is judged after the create and update grants, so a caller
+  // who may do neither gets their refusal, never a column's name.
+  const computed = validation.success ? refuseComputedFieldWrites(c, app, records) : undefined
+  return computed ? { success: false, response: computed } : validation
 }

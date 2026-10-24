@@ -16,6 +16,11 @@ import {
   TemplateLocaleSchema,
   templateSourceSchema,
 } from '../document/shared'
+import {
+  EMAIL_CATEGORY_MANAGED_HEADER_NAMES,
+  EmailCategorySchema,
+  EmailHeadersSchema,
+} from './send-headers'
 
 /**
  * Email Action (type: email, operator: send)
@@ -140,6 +145,30 @@ export const EmailSendActionSchema = Schema.Struct({
         })
       )
     ),
+    // ── Deliverability (additive) ──
+    // `headers` adds allow-listed extra headers; `category` makes the message a
+    // bulk send with a managed one-click unsubscribe and a suppression check;
+    // `campaign` groups messages for `email/stats`; `trackOpens` adds the
+    // opt-in open pixel.
+    headers: Schema.optional(EmailHeadersSchema),
+    category: Schema.optional(EmailCategorySchema),
+    campaign: Schema.optional(
+      TemplateStringSchema.pipe(
+        Schema.annotate({
+          description:
+            'A name grouping messages for counting, such as `spring-sale` or `broadcast-{{trigger.data.id}}`: `email/stats` counts the messages sent, opened, bounced, complained about and unsubscribed from under it. At most 128 characters once filled; it is never shown to the recipient.',
+        })
+      )
+    ),
+    trackOpens: Schema.optional(
+      Schema.Boolean.pipe(
+        Schema.annotate({
+          defaultNote: 'false',
+          description:
+            "Add an invisible one-pixel image to the HTML part so the first time a recipient's mail client loads it, the message counts as opened in `email/stats`. Off by default: open tracking tells you when someone read your message, which is a privacy choice to make on purpose and to state in your privacy notice. Many mail clients block or preload images, so the count is a lower bound, not a fact. The image address is built from BASE_URL, like the unsubscribe link.",
+        })
+      )
+    ),
   })
     .annotate({
       description:
@@ -160,7 +189,19 @@ export const EmailSendActionSchema = Schema.Struct({
             message:
               'email/send takes exactly one of `body` and `template`; `data`, `text`, a templated `subject`, `inlineCss` and `locale` require `template`',
           }
-        )
+        ),
+        Schema.makeFilter((props) => {
+          if (props.category === undefined) return true
+          if (props.cc !== undefined || props.bcc !== undefined) {
+            return 'email/send with `category` sends to one recipient per message: remove `cc` and `bcc` (each recipient gets their own unsubscribe link)'
+          }
+          const managed = Object.keys(props.headers ?? {}).find((name) =>
+            EMAIL_CATEGORY_MANAGED_HEADER_NAMES.includes(name.toLowerCase())
+          )
+          return managed === undefined
+            ? true
+            : `email/send header "${managed}" is written by the engine when \`category\` is set: remove it from \`headers\``
+        })
       )
     ),
 }).pipe(

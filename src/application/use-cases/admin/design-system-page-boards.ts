@@ -26,6 +26,7 @@
  * for when the page shows a role a different branch.
  */
 
+import { pageRoutePatterns } from '@/domain/kernel/matching/localized-path'
 import {
   evaluatePermission,
   OPEN_WHEN_UNDECLARED,
@@ -33,10 +34,11 @@ import {
 } from '@/domain/models/app/auth/permission-evaluation'
 import { SPECIMEN_PERSON } from '@/domain/models/app/pages/specimen-sample-service'
 import { syntheticTitleOf } from '@/domain/models/app/pages/synthetic-seed-service'
+import { recordAddressesOf } from './design-system-page-records'
 import { sampleRouteValuesOf } from './design-system-page-seed'
 import { appRolesOf, type PageStateRequest } from './design-system-page-states'
 import type { BoardBranches } from './design-system-page-branches'
-import type { PageSeed, PageSeedAccount, PageSeedRow } from './design-system-page-seed-folder'
+import type { PageSeed, PageSeedAccount } from './design-system-page-seed-folder'
 import type { App } from '@/domain/models/app'
 import type { PermissionValue } from '@/domain/models/app/auth/permissions'
 import type { Page } from '@/domain/models/app/pages'
@@ -80,9 +82,6 @@ export interface PageBoardPlan {
   /** The form drawn as the server refused its submission. */
   readonly refusedForm?: string | undefined
 }
-
-/** How many record boards a routed record page gets when `--records` says nothing. */
-export const DEFAULT_RECORD_BOARDS = 5
 
 /** The role every page is drawn for by default: the one every gate opens to. */
 const DEFAULT_ROLE = 'admin'
@@ -143,38 +142,12 @@ const PAGE_ACCESS_POLICY = {
   adminOverride: 'no-admin-override',
 } as const
 
-/** The routed record table of a page: a single-record data source read at a route parameter. */
-export const recordSourceOf = (
-  page: Page
-): { readonly table: string; readonly param: string } | undefined => {
-  const source = (page as { readonly dataSource?: unknown }).dataSource as
-    { readonly table?: unknown; readonly mode?: unknown; readonly param?: unknown } | undefined
-  return source?.mode === 'single' &&
-    typeof source.table === 'string' &&
-    typeof source.param === 'string'
-    ? { table: source.table, param: source.param }
-    : undefined
-}
-
-/** The seeded records a routed record page is drawn at, at most `limit`. */
-const recordRowsOf = (
-  page: Page,
-  options: PageDrawOptions
-): { readonly param: string; readonly table: string; readonly rows: readonly PageSeedRow[] } => {
-  const source = recordSourceOf(page)
-  const rows = source === undefined ? [] : (options.seed?.tables[source.table] ?? [])
-  return {
-    param: source?.param ?? '',
-    table: source?.table ?? '',
-    rows: rows.slice(0, options.records ?? DEFAULT_RECORD_BOARDS),
-  }
-}
-
 /** The page's default board and one board per seeded record its route draws. */
 const recordPlansOf = (
   app: App,
   page: Page,
-  options: PageDrawOptions
+  options: PageDrawOptions,
+  contentSlugs: readonly string[] | undefined
 ): readonly PageBoardPlan[] => {
   const viewer = viewerFor(options.seed, DEFAULT_ROLE)
   const role = viewer?.role ?? DEFAULT_ROLE
@@ -187,25 +160,26 @@ const recordPlansOf = (
     branches: { query, role },
   }
   const roleTitle = hasRoleBranch(page) ? [role] : []
-  const records = recordRowsOf(page, options)
-  const fields = (app.tables?.find((table) => table.name === records.table)?.fields ??
+  const addresses = recordAddressesOf(page, options, contentSlugs)
+  const fields = (app.tables?.find((table) => table.name === addresses.table)?.fields ??
     []) as readonly SpecimenFieldShape[]
-  if (records.rows.length === 0) {
+  if (addresses.records.length === 0) {
     return [{ ...base, label: undefined, title: [pageTitleOf(page), ...roleTitle].join(' · ') }]
   }
-  return records.rows.map((row, at) => {
-    const id = String(row['id'])
-    return {
-      ...base,
-      label: at === 0 ? undefined : `record=${id}`,
-      state: { ...base.state, record: id },
-      title: [pageTitleOf(page), syntheticTitleOf(fields, row), ...roleTitle]
-        .filter((part) => part !== '')
-        .join(' · '),
-      routeValues: { ...base.routeValues, [records.param]: id },
-      branches: { ...base.branches, record: row },
-    }
-  })
+  return addresses.records.map(({ value, row }, at) => ({
+    ...base,
+    label: at === 0 ? undefined : `record=${value}`,
+    state: { ...base.state, record: value },
+    title: [
+      pageTitleOf(page),
+      row === undefined ? value : syntheticTitleOf(fields, row),
+      ...roleTitle,
+    ]
+      .filter((part) => part !== '')
+      .join(' · '),
+    routeValues: { ...base.routeValues, [addresses.param]: value },
+    branches: row === undefined ? base.branches : { ...base.branches, record: row },
+  }))
 }
 
 /** What each answer a `page` or `session` state draws in place of the page. */
@@ -267,9 +241,10 @@ const statePlanOf = (
 export const boardPlansOf = (
   app: App,
   page: Page,
-  options: PageDrawOptions
+  options: PageDrawOptions,
+  contentSlugs?: readonly string[]
 ): readonly PageBoardPlan[] => {
-  const records = recordPlansOf(app, page, options)
+  const records = recordPlansOf(app, page, options, contentSlugs)
   const [defaultBoard] = records
   if (defaultBoard === undefined) return records
   const states = (options.states ?? [])
@@ -310,7 +285,7 @@ export const pageSectionOf = (app: App, name: string): PageSection => {
   const page = (app.pages ?? []).find((candidate) => candidate.name === name)
   const required = (page as { readonly access?: { readonly require?: unknown } } | undefined)
     ?.access?.require
-  if (page !== undefined && signInPathsOf(app).has(page.path)) {
+  if (page !== undefined && pageRoutePatterns(page.path).some((p) => signInPathsOf(app).has(p))) {
     return { id: 'sign-in', title: 'Sign-in' }
   }
   if (Array.isArray(required)) {

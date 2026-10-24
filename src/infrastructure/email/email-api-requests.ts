@@ -6,6 +6,7 @@
  */
 
 import { parseJsonObjectCell } from '@/domain/kernel/sql/sqlite-json-cell'
+import { headersOf, sesContent, sesSubjectAndHeaders } from './email-api-headers'
 import { signSigV4 } from './ses-signature-v4'
 import type { SendMailOptions } from './nodemailer'
 import type { EmailApiProvider, EmailTransport } from '@/domain/models/process-env/email-transport'
@@ -28,6 +29,8 @@ export interface OutgoingMessage {
   readonly text?: string
   /** Files attached to the message, their content base64-encoded. */
   readonly attachments?: readonly MessageAttachment[]
+  /** Extra headers (the unsubscribe pair of a bulk send, `X-` headers). */
+  readonly headers?: Readonly<Record<string, string>>
 }
 
 export interface MessageAttachment {
@@ -138,6 +141,7 @@ export const toOutgoingMessage = (options: Readonly<SendMailOptions>): OutgoingM
     ...(html !== undefined ? { html } : {}),
     ...(text !== undefined ? { text } : {}),
     ...(attachments.length > 0 ? { attachments } : {}),
+    ...headersOf(options),
   }
 }
 
@@ -210,6 +214,7 @@ const brevoRequestOf = (
       htmlContent: message.html,
       textContent: message.text,
       attachment: message.attachments?.map((a) => ({ name: a.filename, content: a.base64 })),
+      headers: message.headers,
     })
   ),
 })
@@ -238,6 +243,7 @@ const resendRequest = (
         content_type: a.contentType,
         ...(a.contentId === undefined ? {} : { content_id: a.contentId }),
       })),
+      headers: message.headers,
     })
   ),
 })
@@ -279,11 +285,6 @@ export const apiMessageRefusal = (
     : `${PROVIDER_LABEL.ses} refuses the attachment "${offending.filename}": its content type is ${String(Array.from(offending.contentType).length)} characters long, over the ${String(SES_CONTENT_TYPE_MAX)} SES accepts`
 }
 
-const sesContent = (data: string): Readonly<Record<string, string>> => ({
-  Data: data,
-  Charset: 'UTF-8',
-})
-
 /**
  * Amazon SES API v2 `POST /v2/email/outbound-emails` (SendEmail), a simple
  * content message signed with Signature Version 4 for the service `ses`.
@@ -305,7 +306,7 @@ const sesRequest = (
       ReplyToAddresses: message.replyTo.map((mailbox) => formatMailbox(mailbox, true)),
       Content: {
         Simple: {
-          Subject: sesContent(message.subject),
+          ...sesSubjectAndHeaders(message),
           Body: compact({
             Html: message.html !== undefined ? sesContent(message.html) : undefined,
             Text: message.text !== undefined ? sesContent(message.text) : undefined,

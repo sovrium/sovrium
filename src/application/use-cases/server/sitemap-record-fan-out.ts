@@ -13,19 +13,26 @@
 import { Effect } from 'effect'
 import { buildSignedOutReader } from '@/application/use-cases/automations/build-guest-session'
 import { lookupReadMasks } from '@/application/use-cases/tables/lookup-read-masks'
+import { pageRoutePatterns, primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import {
   SITEMAP_MAX_URLS,
   buildCollectionRecordPath,
   resolveSitemapCollectionSource,
   type SitemapCollectionSource,
 } from '@/domain/models/app/pages/sitemap-builder'
+import {
+  isPredicateGroup,
+  signedOutContext,
+} from '@/domain/models/app/tables/row-level-evaluator-service'
 import { signedOutRowAdmission } from '@/domain/models/app/tables/row-read-admission-service'
+import { visitorRowRule } from '@/domain/models/app/tables/visitor-row-rule-service'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { LookupReadMask } from '@/application/ports/repositories/tables/table-repository'
 import type { FetchSitemapRecords } from '@/application/ports/services/page-renderer'
 import type { App, Page } from '@/domain/models/app'
 import type { DataFilter } from '@/domain/models/app/pages/components/data-source'
+import type { RowLevelWhen } from '@/domain/models/app/tables/permissions'
 
 /** A concrete URL path plus its `<lastmod>`, when one is actually known. */
 export interface RecordPath {
@@ -69,6 +76,8 @@ export interface RecordFanOut {
 type ListedSource = SitemapCollectionSource & {
   readonly filter: readonly DataFilter[]
   readonly lookupMasks: readonly LookupReadMask[]
+  /** The columns the table's row-level read rule reads, fetched beside the address. */
+  readonly ruleFields: readonly string[]
 }
 
 /**
@@ -92,7 +101,13 @@ const readRecordPages = async (
   source: ListedSource,
   page: number
 ): Promise<readonly Readonly<Record<string, unknown>>[]> => {
-  const fields = [source.slugField, ...(source.updatedAtField ? [source.updatedAtField] : [])]
+  const fields = [
+    ...new Set([
+      source.slugField,
+      ...(source.updatedAtField ? [source.updatedAtField] : []),
+      ...source.ruleFields,
+    ]),
+  ]
   const rows = await records.fetchRecords(source.table, {
     fields,
     ...(source.filter.length > 0 ? { filter: source.filter } : {}),
@@ -134,18 +149,71 @@ export const expandCollectionRecords = async (
     own.length > 0 && records.readMasks !== undefined
       ? await records.readMasks(found.table, own)
       : []
-  const source = { ...found, filter: [...own, ...granted], lookupMasks }
-  const rows = await readRecordPages(records, source, 1)
+  // Her row-level read rule, applied to each row as the records API applies it
+  // to a signed-out visitor; a rule naming the signed-in person admits none.
+  const rule = signedOutRowRule(records.app, found.table)
+  if (rule === undefined) return []
+  const source = { ...found, filter: [...own, ...granted], lookupMasks, ruleFields: rule.fields }
+  const rows = rule.admitted(await readRecordPages(records, source, 1))
   return rows.flatMap((row) => {
     const slug = row[source.slugField]
-    const path =
-      typeof slug === 'string' || typeof slug === 'number'
-        ? buildCollectionRecordPath(page.path, String(slug))
-        : undefined
-    if (path === undefined) return []
+    if (typeof slug !== 'string' && typeof slug !== 'number') return []
     const updatedAt = source.updatedAtField ? row[source.updatedAtField] : undefined
-    return [{ path, lastmod: toSitemapLastmod(toDateInput(updatedAt)) }]
+    const lastmod = toSitemapLastmod(toDateInput(updatedAt))
+    // One address per language a path-per-language page is served in.
+    return pageRoutePatterns(page.path).flatMap((pattern) => {
+      const path = buildCollectionRecordPath(pattern, String(slug))
+      return path === undefined ? [] : [{ path, lastmod }]
+    })
   })
+}
+
+/** The declared table `name` of `app`. */
+const tableOf = (app: App, name: string) => app.tables?.find((table) => table.name === name)
+
+/**
+ * The fields a table's row-level read rule compares, across every condition
+ * of a group. A relationship chain or a `contains` lookup reads no column of
+ * the row here: a signed-out visitor is admitted by no such leaf.
+ */
+const ruleFieldsOf = (app: App, tableName: string): readonly string[] => {
+  const table = tableOf(app, tableName)
+  const declared = new Set(table?.fields.map((field) => field.name) ?? [])
+  const walk = (when: RowLevelWhen): readonly string[] =>
+    isPredicateGroup(when)
+      ? when.conditions.flatMap(walk)
+      : declared.has(when.field)
+        ? [when.field]
+        : []
+  const when = table?.rowLevelPermissions?.read?.when
+  return when === undefined ? [] : walk(when)
+}
+
+type Row = Readonly<Record<string, unknown>>
+
+/**
+ * A table's row-level read rule for a signed-out crawler, judged as the records
+ * API judges a signed-out visitor: the columns it reads, and the rows it admits
+ * of those read. `undefined` when it admits no row at all.
+ */
+const signedOutRowRule = (
+  app: App,
+  tableName: string
+):
+  | {
+      readonly fields: readonly string[]
+      readonly admitted: (rows: readonly Row[]) => readonly Row[]
+    }
+  | undefined => {
+  const rule = visitorRowRule(tableOf(app, tableName), undefined)
+  if (rule.kind === 'none') return undefined
+  if (rule.kind === 'all') return { fields: [], admitted: (rows) => rows }
+  const reader = buildSignedOutReader(app)
+  const context = signedOutContext(reader.session.userId, reader.role)
+  return {
+    fields: ruleFieldsOf(app, tableName),
+    admitted: (rows) => rows.filter((row) => rule.admits(row, context)),
+  }
 }
 
 /** The memo key of one collection filter's masks. */
@@ -195,7 +263,7 @@ export const recordResolverFor =
   (sources: RecordSources | undefined) =>
   (page: Page): Promise<readonly RecordPath[] | undefined> => {
     const index = sources?.collectionRecords
-    if (index !== undefined) return Promise.resolve(index.get(page.path))
+    if (index !== undefined) return Promise.resolve(index.get(primaryPagePath(page.path)))
     const { app, fetchRecords, readMasks } = sources ?? {}
     if (app === undefined || fetchRecords === undefined) return Promise.resolve(undefined)
     const masks = readMasks === undefined ? {} : { readMasks }
@@ -208,7 +276,8 @@ const toDateInput = (value: unknown): Readonly<Date> | string | undefined =>
 
 /**
  * The record addresses of every listed collection page, keyed by the page's
- * route template (`/blog/:slug`). A page absent from the map lists no record.
+ * route template (`/blog/:slug`; a path per language by its `primaryPagePath`).
+ * A page absent from the map lists no record.
  */
 export type CollectionRecordIndex = ReadonlyMap<string, readonly RecordPath[]>
 
@@ -231,7 +300,9 @@ export const enumerateCollectionRecords = async (
   >(async (previous, page) => {
     const collected = await previous
     const paths = await expandCollectionRecords(page, records)
-    return paths === undefined ? collected : [...collected, [page.path, paths] as const]
+    return paths === undefined
+      ? collected
+      : [...collected, [primaryPagePath(page.path), paths] as const]
   }, Promise.resolve([]))
   return new Map(entries)
 }

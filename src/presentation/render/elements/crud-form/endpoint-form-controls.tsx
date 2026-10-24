@@ -11,8 +11,8 @@
  *
  * The form itself — its `<form>`, the label and help-text chrome around each
  * control, the submit — is `endpoint-form-renderer.tsx`; this module draws what
- * sits INSIDE the label: the typed input, the textarea, the native select, the
- * switch, and the hidden input a `hidden` field becomes.
+ * sits INSIDE the label: the typed input, the textarea, the design system's
+ * Select, the switch, and the hidden input a `hidden` field becomes.
  *
  * Two field flags change how a control is drawn without changing what it sends:
  *
@@ -23,16 +23,15 @@
  *  - `readOnly`: shown, not editable, still submitted. A text control carries
  *    the browser's own `readonly`, never `disabled` — a disabled control drops
  *    out of the form data set and the tab order, a read-only one stays in both.
- *    A native `<select>` and a checkbox have no `readonly` of their own, so a
- *    read-only one is drawn `disabled` and says why with `aria-readonly="true"`.
- *    A disabled select contributes nothing to `FormData`, so it is given a
- *    hidden twin under the same `name` carrying the same prefill (the twin is
- *    the one the browser sends, and the session resolver fills both). A select
- *    with no `defaultValue` SHOWS its first option — the browser selects it on
- *    any select with nothing marked — so its twin carries that first option
- *    too: what is shown is what is posted, never an empty string. A switch
- *    needs no twin: the submit runtime reads every switch's `checked` directly,
- *    disabled ones included (`islands/runtime/endpoint-form-runtime.ts`).
+ *    A Select and a checkbox have no `readonly` of their own, so a read-only
+ *    one is drawn `disabled` and says why with `aria-readonly="true"`. A
+ *    disabled control contributes nothing to `FormData`, so a read-only Select
+ *    is given a hidden twin under the same `name` carrying the same prefill.
+ *    A Select with no `defaultValue` holds its first option, so its twin
+ *    carries that first option too: what is shown is what is posted, never an
+ *    empty string. A switch needs no twin: the submit runtime reads every
+ *    switch's `checked` directly, disabled ones included
+ *    (`islands/runtime/endpoint-form-runtime.ts`).
  */
 
 import { type ReactElement } from 'react'
@@ -47,6 +46,7 @@ import {
   computeFormSwitchClasses,
   computeFormSwitchFieldClasses,
 } from '../../../design/forms-default-classes'
+import { ChoiceSelectSkeleton } from '../form-control-skeletons'
 import { passwordRuleId, type PasswordAid } from './endpoint-form-password'
 import { ruleProps } from './endpoint-form-rules'
 import type { FormPart } from './endpoint-form-parts'
@@ -61,6 +61,9 @@ const TEXTAREA_CLASS = computeTextareaDefaultClasses()
 
 /** A `select` option as read off an endpoint-bound field (`{ value, label? }`). */
 type EndpointFieldOption = { readonly value: string; readonly label?: string }
+
+/** A `select` option as the Select draws it, its label defaulting to its value. */
+type ChoiceSelectOption = { readonly value: string; readonly label: string }
 
 /**
  * The `aria-describedby` for one field's control, or nothing when the field
@@ -208,78 +211,116 @@ export function renderEndpointSwitchField(field: FormFieldConfig): ReactElement 
  * The field a read-only select's hidden twin is prefilled from. A declared
  * `defaultValue` — a `$session.*` one included, which {@link prefillProps}
  * still turns into the client-filled marker — is kept as is; with none, the
- * twin takes the FIRST option, the one the browser shows on a select with
- * nothing marked, so the body says what the visitor read and never `''`.
+ * twin takes the option the Select holds, so the body says what the visitor
+ * read and never `''`.
  */
-function selectTwinField(
-  field: FormFieldConfig,
-  options: readonly EndpointFieldOption[]
-): FormFieldConfig {
-  if (field.defaultValue !== undefined) return field
-  const shown = options[0]?.value
-  return shown === undefined ? field : { ...field, defaultValue: shown }
+function selectTwinField(field: FormFieldConfig, held: string): FormFieldConfig {
+  if (field.defaultValue !== undefined || held === '') return field
+  return { ...field, defaultValue: held }
 }
 
 /** The language code of a code or a locale: `fr` for `fr-FR` and for `fr`. */
 const languageCodeOf = (locale: string): string | undefined => locale.split('-')[0]?.toLowerCase()
 
 /**
- * The option a `$session.language` dropdown starts on before the browser has
+ * The option a `$session.language` Select starts on before the browser has
  * read the caller's session: the language this page is rendered in, matched by
  * locale or by language code. An account that saved no language resolves the
- * token to nothing, and the resolver leaves a dropdown alone on an empty
- * resolution — so the select shows the language the reader is reading rather
- * than its first option, and nothing is saved by showing it.
+ * token to nothing, and the Select keeps its authored option on an empty
+ * resolution — so it shows the language the reader is reading rather than its
+ * first option, and nothing is saved by showing it.
  */
 function renderedLanguageDefault(
   field: FormFieldConfig,
-  options: readonly EndpointFieldOption[],
+  options: readonly ChoiceSelectOption[],
   lang: string | undefined
-): Record<string, string> {
-  if (lang === undefined || field.defaultValue !== '$session.language') return {}
-  const match =
+): string | undefined {
+  if (lang === undefined || field.defaultValue !== '$session.language') return undefined
+  return (
     options.find((option) => option.value === lang) ??
     options.find((option) => languageCodeOf(option.value) === languageCodeOf(lang))
-  return match === undefined ? {} : { defaultValue: match.value }
+  )?.value
 }
 
 /**
- * A `select` field's dropdown. A read-only one is inert and keeps its `name`
- * (a disabled control is not in the form data set, so no key is sent twice)
- * beside a hidden twin carrying the same prefill — the control the browser DOES
- * send, filled from the same session marker when the default is the caller's,
- * and from the first option when the field names no default at all.
+ * The option a Select holds as served: a static `defaultValue` naming one of
+ * its options, the page's language for a `$session.language` default, and
+ * otherwise its FIRST option — an endpoint Select has no "no answer" entry, so
+ * an untouched form sends what it shows, as the browser's drop-down did.
+ */
+function heldOption(
+  field: FormFieldConfig,
+  options: readonly ChoiceSelectOption[],
+  session: string | undefined,
+  lang: string | undefined
+): string {
+  const authored =
+    session === undefined
+      ? field.defaultValue === undefined
+        ? undefined
+        : String(field.defaultValue)
+      : renderedLanguageDefault(field, options, lang)
+  const named = options.some((option) => option.value === authored) ? authored : undefined
+  return named ?? options[0]?.value ?? ''
+}
+
+/**
+ * A `select` field: the design system's Select (`form-field` island), over a
+ * server skeleton whose form control, named after the field, already holds the
+ * option shown — so the value is in the served bytes and a submit reads it.
+ * A `$session.*` default is handed to the island as its TEMPLATE, filled from
+ * the caller's own session in the browser and never announced as a change.
+ * A read-only one cannot be opened and says why with `aria-readonly`; its
+ * control is inert, so a hidden twin under the same `name` carries the value.
  */
 function renderEndpointSelect(
   field: FormFieldConfig,
-  controlClass: string,
-  prefill: Record<string, string>,
+  control: { readonly describedBy: string | undefined; readonly className: string },
   lang: string | undefined
 ): ReactElement {
-  const options = (field.options ?? []) as readonly EndpointFieldOption[]
-  const select = (
-    <select
-      name={field.field}
-      className={controlClass}
-      {...renderedLanguageDefault(field, options, lang)}
-      {...prefill}
-      {...inertWhenReadOnly(field)}
-    >
-      {options.map((option) => (
-        <option
-          key={option.value}
-          value={option.value}
-        >
-          {option.label ?? option.value}
-        </option>
-      ))}
-    </select>
-  )
-  if (field.readOnly !== true) return select
+  const { describedBy } = control
+  const className = control.className === '' ? undefined : control.className
+  const options = ((field.options ?? []) as readonly EndpointFieldOption[]).map((option) => ({
+    value: option.value,
+    label: option.label ?? option.value,
+  }))
+  const declared = field.defaultValue === undefined ? '' : String(field.defaultValue)
+  const session = declared.includes(SESSION_TOKEN_MARKER) ? declared : undefined
+  const value = heldOption(field, options, session, lang)
+  const readOnly = field.readOnly === true
+  const required = field.required === true
+  // `JSON.stringify` leaves out every key whose value is `undefined`.
+  const props = {
+    kind: 'select',
+    name: field.field,
+    value,
+    options,
+    required: required || undefined,
+    readOnly: readOnly || undefined,
+    describedBy,
+    triggerClassName: className,
+    sessionValue: session,
+  }
   return (
     <>
-      {select}
-      {renderEndpointHiddenField(selectTwinField(field, options))}
+      <span
+        className="block w-full"
+        data-island="form-field"
+        data-island-props={JSON.stringify(props)}
+      >
+        <ChoiceSelectSkeleton
+          name={field.field}
+          value={value}
+          options={options}
+          emptyLabel=""
+          required={required}
+          disabled={readOnly}
+          readOnly={readOnly}
+          describedBy={describedBy}
+          className={className}
+        />
+      </span>
+      {readOnly && renderEndpointHiddenField(selectTwinField(field, value))}
     </>
   )
 }
@@ -303,7 +344,10 @@ export function renderEndpointControl(
     ...ruleProps(field),
     ...(autocomplete === undefined ? {} : { autoComplete: autocomplete }),
   }
-  if (field.control === 'select') return renderEndpointSelect(field, controlClass, prefill, lang)
+  if (field.control === 'select') {
+    const describedBy = describedByProps(field, aid)['aria-describedby']
+    return renderEndpointSelect(field, { describedBy, className: part('input', '') }, lang)
+  }
   if (field.control === 'textarea') {
     return (
       <textarea

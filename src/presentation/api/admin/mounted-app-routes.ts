@@ -173,7 +173,7 @@ const resolveAccess = async (
     return c.redirect(signedInDestination(mount, c.req.query('next')), 302)
   }
   if (!hasAccess && !isPublicMountPath(mount, path)) {
-    return c.html(await signedOutConsoleNotFound(mount, config, c), 404)
+    return c.html(await signedOutConsoleNotFound(mount, config, c, session !== undefined), 404)
   }
   // Single admin guard: every admin reaching the console gets full data access
   // (no config-editing surface exists, so `canEdit` is uniform for admins).

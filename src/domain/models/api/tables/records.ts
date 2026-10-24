@@ -60,12 +60,14 @@ export const createRecordRequestSchema = preprocessed(
 
 /**
  * Wrap a flat-shape body into the canonical `{ fields: {...} }` envelope,
- * preserving a top-level `updatedAt` optimistic-locking token.
+ * preserving the top-level request options: the `updatedAt` optimistic-locking
+ * token and the `linkLists` mode.
  *
- * Update requests may carry an optional `updatedAt` alongside the field
- * map. When the body is flat (`{ title: '...', updatedAt: '...' }`),
- * `updatedAt` is lifted out of the field map so it stays a sibling of
- * `fields` rather than being treated as a record field.
+ * Update requests may carry either option alongside the field map. When the
+ * body is flat (`{ title: '...', updatedAt: '...' }`), each option present is
+ * lifted out of the field map so it stays a sibling of `fields` rather than
+ * being treated as a record field. Neither name can be a field's: a field
+ * name is lowercase.
  */
 const wrapUpdateBody = (input: unknown): unknown => {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) return input
@@ -79,12 +81,13 @@ const wrapUpdateBody = (input: unknown): unknown => {
       ? Object.fromEntries(Object.entries(raw).filter(([key]) => key !== 'fields'))
       : raw
   if ('fields' in obj) return obj
-  const { updatedAt, ...rest } = obj
-  if (Object.keys(rest).length === 0) {
-    return updatedAt === undefined ? obj : { fields: {}, updatedAt }
-  }
-  return updatedAt === undefined ? { fields: { ...rest } } : { fields: { ...rest }, updatedAt }
+  const { updatedAt, linkLists, ...rest } = obj
+  return { fields: { ...rest }, ...presentOptions({ updatedAt, linkLists }) }
 }
+
+/** The request options a flat body carried, less the ones it left out. */
+const presentOptions = (options: Readonly<Record<string, unknown>>) =>
+  Object.fromEntries(Object.entries(options).filter(([, value]) => value !== undefined))
 
 /**
  * Update record request schema
@@ -96,6 +99,11 @@ const wrapUpdateBody = (input: unknown): unknown => {
  * The optional `updatedAt` token enables optimistic-locking: when present
  * the API compares it against the stored record's `updated_at` and rejects
  * the write with 409 Conflict if they diverge (stale write detection).
+ *
+ * The optional `linkLists: 'replace'` makes each many-to-many list the body
+ * names the whole set of links the caller keeps: the links it leaves out are
+ * removed in the same write as the rest of the change, and a link to a record
+ * the caller may not read is kept. Absent, a list ADDS its links.
  */
 export const updateRecordRequestSchema = preprocessed(
   wrapUpdateBody,
@@ -107,6 +115,12 @@ export const updateRecordRequestSchema = preprocessed(
       Schema.String.annotate({
         description:
           'Optimistic-locking token: the `updatedAt` the caller last read. A stale token is refused with 409; an absent one skips the check',
+      })
+    ),
+    linkLists: optionalField(
+      Schema.Literal('replace').annotate({
+        description:
+          'How a many-to-many list in `fields` is written. `replace`: the list is the whole set of links kept, so the links it leaves out are removed in the same write, and a link to a record you may not read is kept. Absent, a list adds its links',
       })
     ),
   })

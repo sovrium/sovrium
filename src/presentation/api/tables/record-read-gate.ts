@@ -7,6 +7,7 @@
 
 import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
 import { grantsForReadableRow } from '@/application/use-cases/tables/row-read-admission'
+import { admitsRow } from '@/domain/models/app/tables/row-read-admission-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { runOnRequest } from '@/presentation/api/runtime/run-effect'
@@ -16,24 +17,34 @@ import {
   type RowLevelGuardContext,
 } from './row-level-guard'
 import { checkGetReadGate, NOT_FOUND_RESPONSE } from './row-level-read-helpers'
+import type { ReaderRows } from '@/application/use-cases/tables/row-read-admission'
 import type { App, Table } from '@/domain/models/app'
 import type { Context } from 'hono'
 
 /**
  * Whether the records list admits the caller to the row `recordId` — a reader
  * it admits to no row of the table, or not to this one, is refused. Costs no
- * query outside a table listed in `auth.scopeTables`.
+ * query outside a table listed in `auth.scopeTables`, and none at all when the
+ * caller's rows were already read for this request (`rows`).
  */
 async function listAdmitsRow(
   c: Context,
   app: App,
   table: Table,
-  recordId: string
+  target: RecordTarget
 ): Promise<boolean> {
+  const { recordId, rows } = target
+  if (rows !== undefined) return admitsRow(rows.admission, recordId)
   const { session, userRole, userGroups } = getTableContext(c)
   const reader = { session, role: userRole, groups: userGroups }
   const admitted = await runOnRequest(c, grantsForReadableRow(app, table.name, reader, recordId))
   return admitted._tag === 'Success'
+}
+
+/** The record a gate judges, with the caller's rows when this request read them already. */
+interface RecordTarget {
+  readonly recordId: string
+  readonly rows?: ReaderRows
 }
 
 /** Whether the table's row-level read rule holds this caller. */
@@ -75,11 +86,26 @@ export async function checkRecordReadGate(
   table: Table,
   recordId: string
 ): Promise<Response | undefined> {
+  return checkRecordReadGateFor(c, app, table, { recordId })
+}
+
+/**
+ * {@link checkRecordReadGate} for a caller whose rows of the table this request
+ * already read (`readerRowsOf`): passed as `target.rows`, her grants are not
+ * read a second time.
+ */
+export async function checkRecordReadGateFor(
+  c: Context,
+  app: App,
+  table: Table,
+  target: RecordTarget
+): Promise<Response | undefined> {
+  const { recordId } = target
   const { session, userRole, userGroups } = getTableContext(c)
   const guard = await resolveGuardForTable(c, session, { userRole, userGroups }, { table, app })
   const gateError = checkGetReadGate({ c, app, table, userRole, userGroups, guard })
   if (gateError) return gateError
-  if (!(await listAdmitsRow(c, app, table, recordId))) return NOT_FOUND_RESPONSE(c)
+  if (!(await listAdmitsRow(c, app, table, target))) return NOT_FOUND_RESPONSE(c)
   if (!rowRuleHolds(guard, table)) return undefined
   const fetched = await runOnRequest(c, rawGetRecordProgram(session, table.name, recordId, app))
   if (fetched._tag === 'Failure' || !fetched.success) return NOT_FOUND_RESPONSE(c)

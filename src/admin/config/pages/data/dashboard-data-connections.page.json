@@ -82,7 +82,8 @@
                 "placeholder": "$t:admin.connections.search",
                 "publishes": {
                   "bindTo": "connections-filter",
-                  "param": "q"
+                  "param": "q",
+                  "url": true
                 }
               }
             }
@@ -153,6 +154,12 @@
                       "eq": "not-connected"
                     },
                     "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50"
+                  },
+                  {
+                    "when": {
+                      "eq": "not-configured"
+                    },
+                    "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-warning-solid"
                   }
                 ],
                 "valueLabels": {
@@ -160,7 +167,8 @@
                   "expiring-soon": "$t:admin.connections.status.expiringSoon",
                   "expired": "$t:admin.connections.status.expired",
                   "reconnect-needed": "$t:admin.connections.status.reconnectNeeded",
-                  "not-connected": "$t:admin.connections.status.notConnected"
+                  "not-connected": "$t:admin.connections.status.notConnected",
+                  "not-configured": "$t:admin.connections.status.notConfigured"
                 },
                 "width": 150
               },
@@ -179,6 +187,7 @@
               {
                 "field": "lastError",
                 "label": "$t:admin.connections.col.lastError",
+                "format": "truncate",
                 "truncate": true,
                 "minWidth": 200,
                 "cellStyle": [
@@ -268,7 +277,8 @@
               }
             ],
             "emptyMessage": "$t:admin.connections.empty",
-            "noMatchMessage": "$t:admin.connections.noMatch"
+            "noMatchMessage": "$t:admin.connections.noMatch",
+            "viewOptions": "toolbar"
           }
         }
       ]

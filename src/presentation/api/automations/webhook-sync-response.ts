@@ -12,6 +12,7 @@ import {
   writeOnlyValuesOfRun,
 } from '@/application/use-cases/automations/run/write-only-values'
 import type { Trigger } from './webhook-methods'
+import type { WebhookAnswer } from './webhook-revalidation'
 import type { TemplateRenderer } from '@/application/ports/services/template-engine'
 import type { TriggerData } from '@/application/use-cases/automations/resolve-trigger-data'
 import type { RunAutomationResult } from '@/application/use-cases/automations/run-automation'
@@ -102,11 +103,23 @@ const answersAMachine = (trigger: WebhookTrigger, apiKeyOnly: boolean): boolean 
 
 /**
  * Whether the trigger's `revealWriteOnly` is in force for this caller. Such a
- * run reads as the system even behind a `session` webhook, so the fields it
- * names are read at all — a run acting as a person reads no write-only value.
+ * run acts as the system even behind a `session` webhook ({@link webhookActsAsSystem}),
+ * so the fields it names are read at all — a run acting as a person reads none.
  */
-export const revealsToMachine = (trigger: WebhookTrigger, apiKeyOnly: boolean): boolean =>
+const revealsToMachine = (trigger: WebhookTrigger, apiKeyOnly: boolean): boolean =>
   trigger.revealWriteOnly !== undefined && answersAMachine(trigger, apiKeyOnly)
+
+/**
+ * Whether this caller's run acts as the system — the one place that decides
+ * it. A `session` webhook's run otherwise acts as its caller; it acts as the
+ * system for a machine (a key and no session cookie, behind a `requiredRole`)
+ * when its answer reveals write-only fields to it, or when it declares
+ * `auth.runAs: 'system'`. A caller signed in with a cookie always acts as
+ * herself, with or without a key beside it.
+ */
+export const webhookActsAsSystem = (trigger: WebhookTrigger, apiKeyOnly: boolean): boolean =>
+  (trigger.revealWriteOnly !== undefined || trigger.auth?.runAs === 'system') &&
+  answersAMachine(trigger, apiKeyOnly)
 
 /** The `revealWriteOnly` list in force for this caller, or `undefined` when none is. */
 const revealInForce = (input: BuildResponseInput): readonly string[] | undefined =>
@@ -158,30 +171,20 @@ const answerFromAction = (
 ) => {
   const answer = responseFromAction(maskValues(actionResponse, answerSecrets(input)))
   return revealInForce(input) === undefined
-    ? answer
-    : { ...answer, headers: withNoStore(answer.headers) }
+    ? { ...answer, revalidates: true }
+    : { ...answer, headers: withNoStore(answer.headers), revalidates: false }
 }
 
-export const buildSyncResponse = (input: BuildResponseInput) => {
+/**
+ * The trigger's own `response` block, or the default body. The default names
+ * the run and its status only; a configured `body` was shaped by the operator,
+ * and its templates see `run.id` and `trigger.data` only, never a step's output.
+ */
+const answerFromTrigger = (input: BuildResponseInput): WebhookAnswer => {
   const { trigger, result, triggerData, templates } = input
-  // A `webhook/response` action — when present — takes precedence over both
-  // the trigger-level `response` config and the default sync body. The
-  // handler has already substituted templates in its props (the run loop
-  // does that before dispatch), so we just unwrap the override here.
-  //
-  // Whoever holds the webhook's URL reads that answer, so a write-only value a
-  // step of the run read is masked in it, as in every other answer of a run —
-  // but for the fields the trigger's `revealWriteOnly` names, to a machine.
-  if (result.responseOverride !== undefined) {
-    return answerFromAction(input, result.responseOverride)
-  }
   const cfg = trigger.response
   const status = cfg?.status ?? cfg?.statusCode ?? 200
   const context = { run: { id: result.runId }, trigger: { data: triggerData } }
-  // The default body names the run and its status only. When the operator
-  // configured a `trigger.response.body`, we honour that instead — they
-  // explicitly shaped the response (its templates see `run.id` and
-  // `trigger.data` only, never a step's output).
   const body =
     cfg?.body !== undefined
       ? resolveTriggerInValue(cfg.body, context, templates)
@@ -190,5 +193,21 @@ export const buildSyncResponse = (input: BuildResponseInput) => {
     cfg?.headers !== undefined
       ? (resolveTriggerInValue(cfg.headers, context, templates) as Record<string, string>)
       : {}
-  return { status, body, headers }
+  return { status, body, headers, revalidates: cfg?.body !== undefined }
 }
+
+/**
+ * The run's answer, and whether a pull may revalidate it (`webhook-revalidation.ts`):
+ * a declared body that reveals nothing, never the default `{ id, status }`.
+ *
+ * A `webhook/response` action — when present — takes precedence over both the
+ * trigger-level `response` config and the default body; the run loop already
+ * substituted the templates in its props. Whoever holds the webhook's URL reads
+ * that answer, so a write-only value a step of the run read is masked in it, as
+ * in every other answer of a run — but for the fields the trigger's
+ * `revealWriteOnly` names, to a machine.
+ */
+export const buildSyncResponse = (input: BuildResponseInput): WebhookAnswer =>
+  input.result.responseOverride === undefined
+    ? answerFromTrigger(input)
+    : answerFromAction(input, input.result.responseOverride)

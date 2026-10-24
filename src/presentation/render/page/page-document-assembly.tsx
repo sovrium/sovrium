@@ -19,8 +19,8 @@
  */
 
 import { renderToString } from 'react-dom/server'
+import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { isOperatorConsoleApp } from '@/domain/models/app/admin/admin-data-nav'
-import { findRssPage, resolveRssChannelIdentity } from '@/domain/models/app/pages/rss-feed-builder'
 import { getVersionedCssPath } from '@/infrastructure/css/versioned-css-path'
 import { logError } from '@/infrastructure/logging/logger'
 import {
@@ -36,6 +36,11 @@ import {
   type HeadReferences,
 } from '@/presentation/render/page/head-references'
 import {
+  PageLanguageAlternatesContext,
+  pageLanguageAlternatesFor,
+  resolveFeedTitle,
+} from '@/presentation/render/page/page-alternates'
+import {
   CORE_RUNTIME_FEATURES,
   hasInteractiveFeatures,
 } from '@/presentation/render/page/page-interactivity'
@@ -45,8 +50,8 @@ import {
   ISLAND_COMPONENT_TYPES,
   zeroJsDialogNeedsNoRuntime,
 } from '@/presentation/render/registry/island-component-types'
+import { stampAuthFormFacts } from '@/presentation/render/resolve/auth-form-facts-stamp'
 import { someComponentInTree } from '@/presentation/render/resolve/component-template-walker'
-import { stampPasswordMinLength } from '@/presentation/render/resolve/password-policy-stamp'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
@@ -321,24 +326,14 @@ interface RenderPageHtmlInput {
   readonly hostApp?: App
   /** This request's `$app.*` / `$param.*` substitution for the head (`head-references.ts`). */
   readonly headReferences?: HeadReferences
+  /** The path the page was matched for, dynamic segments filled: what its alternates describe. */
+  readonly renderedPath?: string
   /**
    * `false` draws no demo notice whatever the environment says: a design-system
    * frame pictures the operator's template, and a panel the hosting instance
    * pins over it would hide the very component a reader came to review.
    */
   readonly demoNotice?: false | undefined
-}
-
-/**
- * The feed title a page announces in its head, or `undefined` when the page
- * is not the one `/feed.xml` is built from. Only that page links the feed, so
- * the autodiscovery link never points a reader at a feed of another page.
- */
-const resolveFeedTitle = (app: App, page: Page): string | undefined => {
-  const rssPage = findRssPage(app)
-  return rssPage !== undefined && rssPage.name === page.name
-    ? resolveRssChannelIdentity(app, rssPage).title
-    : undefined
 }
 
 export function renderPageHtml(input: RenderPageHtmlInput): string {
@@ -357,42 +352,44 @@ export function renderPageHtml(input: RenderPageHtmlInput): string {
     appComponents,
   } = input
   const policyApp = input.hostApp ?? app
-  const injectAnalytics = shouldInjectAnalytics(app.analytics, page.path)
+  const injectAnalytics = shouldInjectAnalytics(app.analytics, primaryPagePath(page.path))
   const sessionTimeout = extractSessionTimeout(app.analytics)
   const head = input.headReferences ?? ((text: string) => text)
+  const alternates = pageLanguageAlternatesFor(app, page, input.renderedPath)
   const html = renderToString(
     <ClientScriptPathsContext.Provider value={clientScriptPaths}>
       <HeadReferencesContext.Provider value={head}>
-        <DynamicPage
-          // Every form states the app's password minimum under a new password.
-          page={stampPasswordMinLength(page, policyApp)}
-          badgePlacement={resolveBadge(app.badge)}
-          demoNoticeEnabled={input.demoNotice !== false && !isOperatorConsoleApp(app)}
-          components={stampPasswordMinLength(appComponents, policyApp)}
-          // One position, `app.design`, with no fallback to an alias: the no-FOUC
-          // colour-scheme bootstrap reads its tokens from here, and without them
-          // the dark cascade — a class on `<html>`, not a media query — would be
-          // unreachable.
-          design={app.design}
-          languages={app.languages}
-          tables={app.tables}
-          // The buckets of the app whose files the page shows: on a mounted
-          // console, the operator's, so an upload states what its bucket takes.
-          buckets={policyApp.buckets}
-          landingPath={app.auth?.landingPath}
-          detectedLanguage={detectedLanguage}
-          urlLanguage={urlLanguage}
-          routeParams={routeParams}
-          builtInAnalyticsEnabled={injectAnalytics}
-          builtInAnalyticsSessionTimeout={sessionTimeout}
-          islandEntryFile={islandEntryFile}
-          islandPreloadHrefs={islandPreloadHrefs}
-          resolvedSidebar={resolvedSidebar}
-          markdownPayload={markdownPayload}
-          session={session}
-          cssHref={getVersionedCssPath(app)}
-          feedTitle={resolveFeedTitle(app, page)}
-        />
+        <PageLanguageAlternatesContext.Provider value={alternates}>
+          <DynamicPage
+            page={stampAuthFormFacts(page, policyApp, app)}
+            badgePlacement={resolveBadge(app.badge)}
+            demoNoticeEnabled={input.demoNotice !== false && !isOperatorConsoleApp(app)}
+            components={stampAuthFormFacts(appComponents, policyApp, app)}
+            // One position, `app.design`, with no fallback to an alias: the no-FOUC
+            // colour-scheme bootstrap reads its tokens from here, and without them
+            // the dark cascade — a class on `<html>`, not a media query — would be
+            // unreachable.
+            design={app.design}
+            languages={app.languages}
+            tables={app.tables}
+            // The buckets of the app whose files the page shows: on a mounted
+            // console, the operator's, so an upload states what its bucket takes.
+            buckets={policyApp.buckets}
+            landingPath={app.auth?.landingPath}
+            detectedLanguage={detectedLanguage}
+            urlLanguage={urlLanguage}
+            routeParams={routeParams}
+            builtInAnalyticsEnabled={injectAnalytics}
+            builtInAnalyticsSessionTimeout={sessionTimeout}
+            islandEntryFile={islandEntryFile}
+            islandPreloadHrefs={islandPreloadHrefs}
+            resolvedSidebar={resolvedSidebar}
+            markdownPayload={markdownPayload}
+            session={session}
+            cssHref={getVersionedCssPath(app)}
+            feedTitle={resolveFeedTitle(app, page)}
+          />
+        </PageLanguageAlternatesContext.Provider>
       </HeadReferencesContext.Provider>
     </ClientScriptPathsContext.Provider>
   )

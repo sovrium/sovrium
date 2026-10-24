@@ -137,7 +137,7 @@ export function mergeManyToManyFields<V>(
  * as an empty list. Any other value keeps its add-only meaning — the links it
  * names are added, none are removed.
  */
-export const clearedManyToManySpecs = (
+const clearedManyToManySpecs = (
   fields: Readonly<Record<string, unknown>>,
   specs: readonly ManyToManyFieldSpec[]
 ): readonly ManyToManyFieldSpec[] =>
@@ -157,7 +157,7 @@ export const clearedManyToManySpecs = (
  * the same transaction as the rest of the change, so a failed update removes
  * nothing.
  */
-export const linksToClear = (input: {
+const linksToClear = (input: {
   readonly app: App | undefined
   readonly tableName: string
   readonly recordId: string | number
@@ -185,6 +185,49 @@ export const linksToClear = (input: {
       hasReciprocal: spec.hasReciprocal,
     }))
   }).pipe(Effect.withSpan('tables.links-to-clear'))
+
+/** What an update changes of a record's links, and who it is made for. */
+interface LinkChange {
+  readonly app?: App | undefined
+  readonly tableName: string
+  readonly recordId: string | number
+  readonly m2mSpecs: readonly ManyToManyFieldSpec[]
+  readonly fields: Readonly<Record<string, unknown>>
+  readonly reader: LinkReader | undefined
+  /** `replace`: a list the change names is the whole set kept (a form posting its picker). */
+  readonly linkLists?: 'replace'
+}
+
+/**
+ * The links an update REMOVES: every readable link of a field it clears
+ * ({@link clearedManyToManySpecs}, {@link linksToClear}) and — when its lists
+ * REPLACE the links rather than add to them — each named list's readable links
+ * the list no longer keeps. A link the writer cannot read is kept either way,
+ * and a list's own links are added by the write as in any update.
+ */
+export const removedLinksOf = (change: LinkChange) => {
+  const { app, tableName, recordId, reader, fields } = change
+  const listed =
+    change.linkLists === 'replace'
+      ? change.m2mSpecs.filter((spec) => {
+          const value = fields[spec.fieldName]
+          return Array.isArray(value) && value.length > 0
+        })
+      : []
+  // Disjoint: a cleared field names no link, a listed one names at least one.
+  const touched = [...clearedManyToManySpecs(fields, change.m2mSpecs), ...listed]
+  return linksToClear({ app, tableName, recordId, reader, cleared: touched }).pipe(
+    // `linksToClear` answers one entry per spec, in order: what the list keeps stays.
+    Effect.map((links) =>
+      links.map((link, index) => {
+        const list = fields[touched[index]?.fieldName ?? '']
+        const kept = new Set((Array.isArray(list) ? list : []).map(String))
+        return { ...link, relatedIds: link.relatedIds.filter((id) => !kept.has(String(id))) }
+      })
+    ),
+    Effect.withSpan('tables.links-an-update-removes')
+  )
+}
 
 /** Enrich a page of records with their many-to-many field values from junctions. */
 export const enrichRecordsWithManyToMany = (

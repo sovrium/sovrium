@@ -29,7 +29,7 @@ Each weight is drawn by the same recipe the `button` component uses, so a submit
 
 ## Sending as the reader changes a control
 
-`submitOn: change` makes the change itself the commit, for a settings page where a Save button under a switch would ask the reader to confirm a choice they already made. The form draws no submit button. A switch or a select sends the moment it changes; a control the reader types into sends once typing pauses — never once per keystroke — and at once when the reader leaves the field or presses Enter in a single-line one. The whole form is sent, the same body a submit sends, after the field rules are checked, and `onSuccess` and `onError` run exactly as on a submit — a language select that reloads the page still shows its toast on the page that replaces it.
+`submitOn: change` makes the change itself the commit, for a settings page where a Save button under a switch would ask the reader to confirm a choice they already made. The form draws no submit button. A switch sends the moment it is turned and a select the moment the reader takes an option — opening its list or moving through it sends nothing; a control the reader types into sends once typing pauses — never once per keystroke — and at once when the reader leaves the field or presses Enter in a single-line one. The whole form is sent, the same body a submit sends, after the field rules are checked, and `onSuccess` and `onError` run exactly as on a submit — a language select that reloads the page still shows its toast on the page that replaces it.
 
 ```yaml
 - type: form
@@ -47,7 +47,7 @@ Each weight is drawn by the same recipe the `button` component uses, so a submit
       defaultValue: $session.notifyWeeklyDigest
 ```
 
-A value the page fills in itself, such as a `$session` default, is not a change and sends nothing. While a request is on its way the form is marked busy and its controls stay usable; whatever changes meanwhile leaves as one more request once the answer is in, carrying the latest values. When the endpoint refuses, a switch or a select goes back to the state last saved, so the page never shows a setting that was not kept, while a typed control keeps what was typed so it can be corrected. `submitLabel` and `submitVariant` describe a button such a form does not draw, and `onSuccess.reset` would undo on screen the value just saved, so each is refused beside `submitOn: change`. Keep the default, `submitOn: submit`, for anything typed as a whole — a name, an address, a password.
+A value the page fills in itself, such as a `$session` default on a switch or a select, is not a change and sends nothing. While a request is on its way the form is marked busy and its controls stay usable; whatever changes meanwhile leaves as one more request once the answer is in, carrying the latest values. When the endpoint refuses, a switch or a select goes back to the state last saved, so the page never shows a setting that was not kept, while a typed control keeps what was typed so it can be corrected. `submitLabel` and `submitVariant` describe a button such a form does not draw, and `onSuccess.reset` would undo on screen the value just saved, so each is refused beside `submitOn: change`. Keep the default, `submitOn: submit`, for anything typed as a whole — a name, an address, a password.
 
 ## Closing the dialog and clearing the form
 
@@ -152,7 +152,7 @@ When the form reads the `better-auth` envelope and the endpoint answers that the
 
 ## Prefilling an endpoint form
 
-An endpoint-bound field carries its own `defaultValue`. Nothing derives it from a column — there is no table binding — so it is the only way such a form opens on anything but empty controls. A static value fills a text control, and on a `select` it is the option that arrives already chosen. A `defaultValue` naming `$session.<field>` is the **caller's own** value, and it is filled in the browser rather than during rendering:
+An endpoint-bound field carries its own `defaultValue`. Nothing derives it from a column — there is no table binding — so it is the only way such a form opens on anything but empty controls. A static value fills a text control, and on a `select` — drawn as the design system's Select, a trigger opening a list of options — it is the option that arrives already chosen, already carried by the page as served. A `select` with no `defaultValue` holds its first option and shows it, so it never sends an empty value the reader did not choose. A `defaultValue` naming `$session.<field>` is the **caller's own** value, and it is filled in the browser rather than during rendering:
 
 ```yaml
 - type: form
@@ -175,7 +175,7 @@ An endpoint-bound field carries its own `defaultValue`. Nothing derives it from 
 
 Some of what a form sends is not the visitor's to type: the caller's own email on a check-in form, a plan the page has already fixed. `hidden: true` sends the field without drawing it — no control, no label — and `readOnly: true` draws it without letting anyone change it. Both work on a form bound to a table and on an endpoint form alike, and in both the value is still submitted.
 
-A hidden field becomes an `<input type="hidden">` carrying its `defaultValue`; a `$session.<field>` default is filled in the browser, as on any other control, so the served page still names nobody. A read-only text control carries the browser's `readonly` attribute and is never `disabled` — a disabled control drops out of the form data and out of the tab order, a read-only one stays in both — and `onSuccess.reset` puts it back to the value it carried rather than emptying it. A native `select` and a switch have no `readonly` of their own, so a read-only one is drawn `disabled` with `aria-readonly="true"` saying why, and its value still reaches the body. A read-only `select` with no `defaultValue` shows its first option, and that first option is what it sends.
+A hidden field becomes an `<input type="hidden">` carrying its `defaultValue`; a `$session.<field>` default is filled in the browser, as on any other control, so the served page still names nobody. A read-only text control carries the browser's `readonly` attribute and is never `disabled` — a disabled control drops out of the form data and out of the tab order, a read-only one stays in both — and `onSuccess.reset` puts it back to the value it carried rather than emptying it. A read-only `select` or switch cannot be opened or turned, and says why with `aria-readonly="true"`; its value still reaches the body. A read-only `select` with no `defaultValue` shows its first option, and that first option is what it sends.
 
 ```yaml
 - type: form

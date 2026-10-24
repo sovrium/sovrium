@@ -116,7 +116,7 @@ They resolve **once** per render, against a single instant. Panels that each rea
 | Path                                      | Value                                                                      |
 | ----------------------------------------- | -------------------------------------------------------------------------- |
 | `$currentUser.id`                         | The signed-in user's id.                                                   |
-| `$currentUser.email`                      | Their email address.                                                       |
+| `$currentUser.email`                      | Their email address. A filter on it matches no row for a reader with none. |
 | `$currentUser.role`                       | Their role name.                                                           |
 | `$currentUser.isUnrestricted`             | `true` for a global admin, who bypasses assignment scoping.                |
 | `$currentUser.assignments.<table>`        | The record ids the user is assigned to in that table. Pair with `in`.      |

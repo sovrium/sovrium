@@ -61,6 +61,8 @@ interface TabsIslandProps {
    * an app that declares nothing are unchanged.
    */
   readonly designClasses?: Readonly<Record<string, string>>
+  /** `design.components.tabs.replace`: the list and panel recipes are dropped, not layered on. */
+  readonly designReplace?: boolean
   /**
    * This host's server-rendered subtree, captured by `island-client.tsx` before
    * `createRoot` discarded it — the host opts in with `data-island-ssr="true"`.
@@ -90,12 +92,12 @@ interface TabsIslandProps {
  * `design.components.tabs.parts.root` arrives already merged into `className`
  * — `buildFinalClassName` folded it in server-side — so only the list and the
  * panels need resolving here, from the `designClasses` map the SSR renderer
- * serialises alongside it.
+ * serialises alongside it. Under `replace` the list and panel recipes go; the
+ * root's orientation layout and the fill classes stay, on both halves.
  */
 const partClasses = (
   orientation: 'horizontal' | 'vertical',
-  designClasses: Readonly<Record<string, string>> | undefined,
-  layout: TabsLayout | undefined
+  { designClasses, designReplace, layout }: TabsIslandProps
 ): { readonly root: string; readonly list: string; readonly panel: string } => ({
   // The fill shell is the tab set's half of the bounded chain: the mount host
   // above is the bounded column, and this root is the item that claims its
@@ -105,13 +107,16 @@ const partClasses = (
     computeTabsRootClasses({ orientation }),
     computeTabsFillShellClasses(layout, orientation) || undefined
   ),
-  list: resolveClasses(computeTabsListClasses({ orientation }), designClasses?.['list']),
+  list: resolveClasses(
+    designReplace === true ? '' : computeTabsListClasses({ orientation }),
+    designClasses?.['list']
+  ),
   // The fill classes go in as the FLOOR, above an operator's `parts.panel`: the
   // bound is what the author asked for with `layout: 'fill'`, and a panel that
   // silently stopped being a bounded column would leave the grid inside it at
   // its natural height with nothing in the config to read.
   panel: resolveClasses(
-    computeTabPanelClasses({ orientation }),
+    designReplace === true ? '' : computeTabPanelClasses({ orientation }),
     designClasses?.['panel'],
     undefined,
     computeTabsFillPanelClasses(layout) || undefined
@@ -173,7 +178,7 @@ function useTabsIslandModel(props: TabsIslandProps): {
     rootRef,
     ssrPanels,
     uid: useId(),
-    parts: partClasses(orientation, props.designClasses, props.layout),
+    parts: partClasses(orientation, props),
     lazy: useLazyTabPanels({
       lazyParam,
       initial: defaultValue,

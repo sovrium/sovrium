@@ -7,6 +7,7 @@
 
 import { useMemo } from 'react'
 import { withColumnDisplayFields } from './island-setup-helpers'
+import { gridPagination } from './setup/row-cap'
 import type { DataTableIslandProps } from './island-props'
 import type { DataTableRowClickAction } from '../data-row-types'
 import type { DataTableColumn } from '@/domain/models/app/pages/components/component-types/data/table/schema'
@@ -110,7 +111,7 @@ export function toSetupParams(props: DataTableIslandProps) {
     isViewBound: props.isViewBound === true,
     hasViewSwitcher: props.viewSwitcher !== undefined,
     listedDefaultView: props.viewSwitcher?.defaultView,
-    paginationConfig: props.pagination,
+    paginationConfig: gridPagination(props.pagination, props.dataSource),
     selectionConfig: props.selection,
     publishesSelection: props.publishes !== undefined,
     initialRowHeight: props.rowHeight ?? 'medium',

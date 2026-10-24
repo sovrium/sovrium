@@ -9,9 +9,11 @@ import { Schema } from 'effect'
 import { CommentCreateActionSchema } from './create'
 import { CommentDeleteActionSchema } from './delete'
 import { CommentListActionSchema } from './list'
+import { CommentModerateActionSchema } from './moderate'
+import { CommentUpdateActionSchema } from './update'
 
 /**
- * Comment Action — union of the three operators on a record's thread.
+ * Comment Action — union of the five operators on a record's thread.
  *
  * `create` routes through the SAME application use-case the comments API's
  * post calls, minus the two anti-abuse guards only an anonymous caller needs.
@@ -19,20 +21,23 @@ import { CommentListActionSchema } from './list'
  * audience, the moderation verdict and the comment-trigger fan-out, and a
  * second copy of a rule is a rule that eventually disagrees with the first.
  *
- * There is no `update` yet: editing a comment in place is a later addition,
- * and deleting then re-posting is not a substitute for it (the new comment has
- * a new id and a new date).
+ * Editing a comment is two operators, not one, because it is two permissions:
+ * `update` changes the text under the AUTHOR's edit rule, `moderate` changes
+ * the status under the MODERATOR's. Deleting then re-posting is no substitute
+ * for either (the new comment has a new id and a new date).
  */
 export const CommentActionSchema = Schema.Union([
   CommentCreateActionSchema,
   CommentListActionSchema,
   CommentDeleteActionSchema,
+  CommentUpdateActionSchema,
+  CommentModerateActionSchema,
 ]).pipe(
   Schema.annotate({
     identifier: 'CommentAction',
     title: 'Comment Action',
     description:
-      "Post, read or delete comments on a record's thread from a workflow, as the app or as the triggering user",
+      "Post, read, edit, moderate or delete comments on a record's thread from a workflow, as the app or as the triggering user",
   })
 )
 

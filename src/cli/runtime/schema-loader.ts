@@ -231,6 +231,35 @@ export interface ResolvedAppSchema {
    * remote `APP_SCHEMA` — there is no file to anchor to.
    */
   readonly configFile?: string
+  /**
+   * The config file's text as it stood just BEFORE the load read it, when
+   * there is a `configFile`. `sovrium start --watch` compares it with the file
+   * once its watcher is up: a save landing while a slow config evaluates
+   * fires no event anyone hears, and only this comparison catches it.
+   */
+  readonly bootConfigText?: string
+  /**
+   * When the load began reading the config graph (`Date.now()`), when there is
+   * a `configFile`. A linked file modified after it was saved while the boot
+   * was reading, and `sovrium start --watch` reloads it.
+   */
+  readonly bootReadStartedAt?: number
+}
+
+/**
+ * Read a config file's text, then load it: the text comes first so a save
+ * made during the load shows as a difference rather than as what was loaded.
+ */
+const loadAnchoredSchema = async (
+  configFile: string,
+  command: string
+): Promise<ResolvedAppSchema> => {
+  const bootReadStartedAt = Date.now()
+  const bootConfigText = await Bun.file(configFile)
+    .text()
+    .catch(() => undefined)
+  const app = await loadSchemaFromFile(configFile, command)
+  return { app, configFile, bootConfigText, bootReadStartedAt }
 }
 
 /**
@@ -249,7 +278,7 @@ export const resolveAppSchema = async (
 ): Promise<ResolvedAppSchema> => {
   // If a file path is provided, load from file (takes precedence over env)
   if (filePath) {
-    return { app: await loadSchemaFromFile(filePath, command), configFile: filePath }
+    return loadAnchoredSchema(filePath, command)
   }
 
   // APP_SCHEMA_FILE env var: used by E2E fixtures when the inline APP_SCHEMA
@@ -294,7 +323,7 @@ export const resolveAppSchema = async (
   // never what an explicit one resolves to.
   const inProject = await resolveConfigInProjectDir()
   if (inProject) {
-    return { app: await loadSchemaFromFile(inProject, command), configFile: inProject }
+    return loadAnchoredSchema(inProject, command)
   }
 
   // No configuration provided

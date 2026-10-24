@@ -6,6 +6,7 @@
  */
 
 import { mapStringsDeep } from '@/domain/kernel/config-parsing/map-strings-deep'
+import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import type { App, Page } from '@/domain/models/app'
 import type { Languages } from '@/domain/models/app/languages'
@@ -91,7 +92,7 @@ function replaceMetaTokens(meta: Page['meta'], context: TokenReplacementContext)
 export function replacePageTokens(page: Page, context: TokenReplacementContext): Page {
   const pageContext: TokenReplacementContext = {
     ...context,
-    currentPath: page.path, // Pass current page path for {{currentPath}} replacement
+    currentPath: primaryPagePath(page.path), // Pass current page path for {{currentPath}} replacement
   }
 
   // Replace tokens in everything except meta

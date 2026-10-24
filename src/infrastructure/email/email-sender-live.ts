@@ -19,13 +19,14 @@ import { sendEmail, sendEmailWithOptions } from './email-service'
 export const EmailSenderLive = Layer.succeed(
   EmailSender,
   EmailSender.of({
-    send: ({ from, fromName, cc, bcc, replyTo, attachments, ...message }) =>
+    send: ({ from, fromName, cc, bcc, replyTo, attachments, headers, ...message }) =>
       Effect.tryPromise({
         try: () => {
           const recipients = {
             ...(cc === undefined ? {} : { cc: [...cc] }),
             ...(bcc === undefined ? {} : { bcc: [...bcc] }),
             ...(replyTo === undefined ? {} : { replyTo: [...replyTo] }),
+            ...(headers === undefined ? {} : { headers: { ...headers } }),
             ...(attachments === undefined || attachments.length === 0
               ? {}
               : {

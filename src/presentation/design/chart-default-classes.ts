@@ -309,8 +309,8 @@ export const CHART_TONE_FILL: Readonly<Record<'success' | 'warning' | 'error' | 
 export const CHART_TONE_STYLE: Readonly<
   Record<'success' | 'warning' | 'error' | 'muted', Readonly<Record<string, string>> | undefined>
 > = {
-  success: { '--success': 'var(--color-success, var(--color-success-solid))' },
-  warning: { '--warning': 'var(--color-warning, var(--color-warning-solid))' },
+  success: { '--success': 'var(--color-success, var(--color-success-fg))' },
+  warning: { '--warning': 'var(--color-warning, var(--color-warning-fg))' },
   error: { '--error': 'var(--color-error, var(--destructive))' },
   muted: undefined,
 }

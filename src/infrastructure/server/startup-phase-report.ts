@@ -19,11 +19,13 @@ import { appRequiresEmail } from '@/domain/models/app'
 import { mountHref } from '@/domain/models/app/admin/mount-hrefs'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { compileCSS, type CompiledCSS } from '@/infrastructure/css/compiler'
+import { logInfo } from '@/infrastructure/logging/logger'
 import { renderStartupSummary } from '@/infrastructure/logging/startup-summary'
 import { isEmailConfigured } from '@/infrastructure/process/env'
 import { getSovriumVersion } from '@/infrastructure/process/version'
 import { adminMountsFor } from '@/infrastructure/server/admin-mounts'
 import { applyBootstrapTokenToSummary } from '@/infrastructure/server/bootstrap-banner'
+import { PREVIEW_BANNER_LINE } from '@/infrastructure/server/middleware/preview-gate'
 import { collectSignUpExposurePhases } from '@/infrastructure/server/sign-up-exposure-phases'
 import { runDatabaseStartup } from '@/infrastructure/server/startup-database'
 import {
@@ -242,6 +244,8 @@ export const renderStartup = (params: {
       ...(adminConsoleUrl ? { adminConsoleUrl } : {}),
       ...(augmented.bootstrapToken ? { bootstrapToken: augmented.bootstrapToken } : {}),
     })
+    // A token-gated preview says so, and never names the token ([internal ref] D2).
+    if (process.env['SOVRIUM_PREVIEW_TOKEN']) logInfo(`[server] ${PREVIEW_BANNER_LINE}`)
   })
 
 /** Combine infrastructure phases + the static-asset directory phase. */

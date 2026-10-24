@@ -12,8 +12,9 @@ import { callersOfRow } from '@/domain/models/app/tables/row-read-admission-serv
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { runOnRequest } from '@/presentation/api/runtime/run-effect'
 import { admissionOf, planTables, readableRecordIds, REFUSED } from './activity-table-plan'
-import { checkRecordReadGate } from './record-read-gate'
+import { checkRecordReadGateFor } from './record-read-gate'
 import type { ActivityTableAdmission } from '@/application/ports/repositories/analytics/activity-log-repository'
+import type { ReaderRows } from '@/application/use-cases/tables/row-read-admission'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -73,17 +74,37 @@ export function readerIsAdmin(c: Context, app: App): boolean {
 }
 
 /**
- * Whether the caller may read the record an entry was written on.
+ * The rows of `tableName` the caller reads and the grants that open them, read
+ * once for a request that both admits an entry and projects its changes.
+ * `undefined` when her grants could not be read: each step then reads alone.
+ */
+export async function entryReaderRows(
+  c: Context,
+  app: App,
+  tableName: string
+): Promise<ReaderRows | undefined> {
+  const { session, userRole, userGroups } = getTableContext(c)
+  const reader = { session, role: userRole, groups: userGroups }
+  const rows = await runOnRequest(c, readerRowsOf(app, tableName, reader))
+  return rows._tag === 'Success' ? rows.success : undefined
+}
+
+/**
+ * Whether the caller may read the record an entry was written on. `rows`, when
+ * this request already read them, spares a second read of her grants.
  */
 export async function admitsActivityEntry(
   c: Context,
   app: App,
-  entry: GatedEntry
+  entry: GatedEntry,
+  rows?: ReaderRows
 ): Promise<boolean> {
   if (readerIsAdmin(c, app)) return true
   const table = app.tables?.find((t) => t.name === entry.tableName)
   if (!table) return false
-  return (await checkRecordReadGate(c, app, table, entry.recordId)) === undefined
+  return (
+    (await checkRecordReadGateFor(c, app, table, { recordId: entry.recordId, rows })) === undefined
+  )
 }
 
 /**
@@ -143,18 +164,19 @@ export function projectEntryActor<E extends { readonly actor: object }>(
 
 /**
  * An entry's change set, holding only the fields a list of its row shows the
- * caller: under her role, and each role a grant gives her on that row.
+ * caller: under her role, and each role a grant gives her on that row. `rows`,
+ * when this request already read them, spares a second read of her grants.
  */
 export async function projectActivityChanges(
   c: Context,
   app: App,
-  entry: GatedEntry & { readonly changes: unknown }
+  entry: GatedEntry & { readonly changes: unknown },
+  rows?: ReaderRows
 ): Promise<unknown> {
-  const { session, userRole, userGroups } = getTableContext(c)
+  const { userRole, userGroups } = getTableContext(c)
   const caller = { role: userRole, groups: userGroups }
-  const rows = await runOnRequest(c, readerRowsOf(app, entry.tableName, { ...caller, session }))
-  // `readerRowsOf` never fails; without its grants the caller reads under her role alone.
-  const grants = rows._tag === 'Success' ? rows.success.grants : undefined
+  // Without its grants the caller reads under her role alone.
+  const grants = (rows ?? (await entryReaderRows(c, app, entry.tableName)))?.grants
   return filterChangesReadableByAny({
     app,
     tableName: entry.tableName,

@@ -385,7 +385,11 @@ const stampedExtrasOf = (
   }
 }
 
-/** What a kit element says of itself: its layout when it is open, its rules when the export drew it. */
+/**
+ * What a kit element says of itself: its layout when it is open, and its
+ * rules, on a node the export drew as on one the designer added, which the
+ * merge writes on the new node.
+ */
 const ownReadOf = (
   context: BoardContext,
   element: HtmlElementNode,
@@ -398,10 +402,7 @@ const ownReadOf = (
           spacing: context.spacing,
         })
       : undefined,
-  rules:
-    stampedId === undefined
-      ? undefined
-      : drawnRulesOf(element.attributes, attribute(element, CANVAS_STAMP.kit) ?? ''),
+  rules: drawnRulesOf(element.attributes, attribute(element, CANVAS_STAMP.kit) ?? ''),
 })
 
 function kitNode(context: BoardContext, element: HtmlElementNode, added: number): Walk {

@@ -34,7 +34,8 @@ import {
   webhookUnauthorized,
   webhookValidationFailed,
 } from './webhook-refusals'
-import { buildSyncResponse, revealsToMachine } from './webhook-sync-response'
+import { answerWebhook } from './webhook-revalidation'
+import { buildSyncResponse, webhookActsAsSystem } from './webhook-sync-response'
 import { coerceQueryForSchema, validateAgainstSchema } from './webhook-validation'
 import { answerVerificationHandshake } from './webhook-verification'
 import { webhookJson } from './webhook-wire-json'
@@ -277,6 +278,8 @@ interface DispatchInput {
   readonly app: App
   readonly triggerData: TriggerData
   readonly userId?: string
+  /** Decided once at the door, for either dispatcher (`webhookActsAsSystem`). */
+  readonly actsAsSystem: boolean
 }
 
 const dispatchAsync = async (c: Context, input: DispatchInput): Promise<Response> => {
@@ -296,6 +299,7 @@ const dispatchAsync = async (c: Context, input: DispatchInput): Promise<Response
     processEnv: process.env,
     triggerData: input.triggerData,
     ...(input.userId !== undefined ? { userId: input.userId } : {}),
+    actsAsSystem: input.actsAsSystem,
     onPersisted: (id) => {
       if (resolveRunId !== undefined) {
         resolveRunId(id)
@@ -341,7 +345,7 @@ const dispatchSync = async (
     processEnv: process.env,
     triggerData: input.triggerData,
     ...(input.userId !== undefined ? { userId: input.userId } : {}),
-    revealsToMachine: revealsToMachine(input.trigger, presentsApiKeyOnly(c)),
+    actsAsSystem: input.actsAsSystem,
   })
   const result = await runRequestEffect(c, Effect.result(provideDomain(c, program)))
   if (result._tag === 'Failure') {
@@ -354,11 +358,7 @@ const dispatchSync = async (
     }
     return webhookNotFound(c)
   }
-  const {
-    status,
-    body: respBody,
-    headers,
-  } = buildSyncResponse({
+  const answer = buildSyncResponse({
     app: input.app,
     automationName: input.name,
     trigger: input.trigger,
@@ -375,8 +375,8 @@ const dispatchSync = async (
   const operatorOverrodeStatus = cfg?.status !== undefined || cfg?.statusCode !== undefined
   const chosen = operatorOverrodeStatus || result.success.stopped === true
   const failed = ['failure', 'exhausted'].includes(result.success.status)
-  const finalStatus = failed && !chosen ? 500 : status
-  return webhookJson(c, respBody, finalStatus, headers)
+  // A pull revalidates a declared 2xx answer with its ETag (`webhook-revalidation.ts`).
+  return answerWebhook(c, { ...answer, status: failed && !chosen ? 500 : answer.status })
 }
 
 /**
@@ -388,22 +388,15 @@ export async function handleWebhookRequest(c: Context, app: App): Promise<Respon
   const gate = await runWebhookGates(c, app)
   if (gate.status === 'reject') return gate.response
 
-  const triggerData = buildTriggerData(c, gate.ctx)
-  const userId = gate.ctx.caller?.id
-
-  if (gate.ctx.trigger.respondImmediately === true) {
-    return dispatchAsync(c, {
-      name: gate.ctx.name,
-      app,
-      triggerData,
-      ...(userId !== undefined ? { userId } : {}),
-    })
-  }
-  return dispatchSync(c, {
-    trigger: gate.ctx.trigger,
+  const { trigger, caller } = gate.ctx
+  const input: DispatchInput = {
     name: gate.ctx.name,
     app,
-    triggerData,
-    ...(userId !== undefined ? { userId } : {}),
-  })
+    triggerData: buildTriggerData(c, gate.ctx),
+    ...(caller !== undefined ? { userId: caller.id } : {}),
+    actsAsSystem: webhookActsAsSystem(trigger, presentsApiKeyOnly(c)),
+  }
+  return trigger.respondImmediately === true
+    ? dispatchAsync(c, input)
+    : dispatchSync(c, { ...input, trigger })
 }

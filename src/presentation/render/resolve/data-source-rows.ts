@@ -144,7 +144,7 @@ export interface PaginationMeta {
  * already stops there for the DB path; this is that rule, reachable from the
  * system-rows path without changing what any existing caller does.
  */
-export type RowSubstitutionDepth = 'deep' | 'stop-at-nested-binding'
+export type RowSubstitutionDepth = 'deep' | 'stop-at-nested-binding' | 'stop-at-nested-rows'
 
 /**
  * The element each expanded row is wrapped in.

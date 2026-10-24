@@ -41,6 +41,8 @@ A `value` compared with a checkbox is read as yes or no, on PostgreSQL and SQLit
 
 `notIn` takes a list and keeps the records whose value is none of the listed values. A record with no value is kept by neither `in` nor `notIn`. `notIn` over an empty list leaves out nothing that has a value. A single value counts as a list of one, and a `null` in the list matches nothing.
 
+`contains` on a `user` field holding several people (`allowMultiple: true`) keeps the records whose list holds that person, on PostgreSQL and SQLite alike: a list holding `usr-ada-2` does not match `usr-ada`. On a single-person field or a text field, `contains` stays a text match, without regard to case. A lookup, rollup or count reads its `filters` the same way.
+
 <!-- sovrium:options ViewFilterConditionSchema -->
 
 ```yaml
@@ -48,6 +50,18 @@ filters:
   or:
     - { field: priority, operator: equals, value: high }
     - { field: priority, operator: equals, value: urgent }
+```
+
+A condition's `value` may name the reader: `$currentUser.id` or `$currentUser.role`, alone or as an entry of an `in` / `notIn` list. The server writes in the reader's own value for each request, through `?view=` and the view's records route alike, so a "Mine" view serves each reader the rows they own or that are shared with them. An admin reads it the same way: the view narrows what they see, as any view does. A visitor with no account matches no condition that names the reader. The copy of the view the database itself holds is created once, with no reader, so there such a condition matches no row.
+
+```yaml
+views:
+  - id: mine
+    name: Mine
+    filters:
+      or:
+        - { field: owner, operator: equals, value: $currentUser.id }
+        - { field: collaborators, operator: contains, value: $currentUser.id }
 ```
 
 ### Sorting and grouping

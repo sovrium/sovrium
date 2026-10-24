@@ -30,6 +30,7 @@ import { AutomationRunOutcomeRepositoryLive } from '@/infrastructure/database/re
 import { AutomationRunRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-run-repository-live'
 import { AutomationStateRepositoryLive } from '@/infrastructure/database/repositories/automations/automation-state-repository-live'
 import { BrowserSessionRepositoryLive } from '@/infrastructure/database/repositories/automations/browser-session-repository-live'
+import { EmailDeliverabilityRepositoryLive } from '@/infrastructure/database/repositories/automations/email-deliverability-repository-live'
 import { NotificationRepositoryLive } from '@/infrastructure/database/repositories/automations/notification-repository-live'
 import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-repository-live'
 import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
@@ -37,6 +38,7 @@ import { LinkRepositoryLive } from '@/infrastructure/database/repositories/links
 import { DataSourceRepositoryLive } from '@/infrastructure/database/repositories/tables/data-source-repository-live'
 import { TableLive } from '@/infrastructure/database/table-live-layers'
 import { EmailCssInlinerLive } from '@/infrastructure/email/email-css-inliner-live'
+import { EmailLinkTokensLive } from '@/infrastructure/email/email-link-tokens-live'
 import { EmailSenderLive } from '@/infrastructure/email/email-sender-live'
 import { DocumentRendererLive } from '@/infrastructure/export/document-renderer-live'
 import { OfficeConverterLive } from '@/infrastructure/export/office-converter-live'
@@ -133,6 +135,9 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   AuditLogRepositoryLive,
   // `EmailSender` — the `email/send` step and the operator notices a failing run sends.
   EmailSenderLive,
+  // The suppression list, the message ledger and the link tokens of a bulk send.
+  EmailDeliverabilityRepositoryLive,
+  EmailLinkTokensLive,
   AutomationApprovalRepositoryLive,
   AuthRepositoryLive,
   // `OrganizationTeamRepository` — the `auth/addToGroup` / `auth/removeFromGroup`

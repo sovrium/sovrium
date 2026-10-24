@@ -73,6 +73,14 @@ export default function AdminAgentConversationsIsland({
   // the viewer's own (`@container`), not the window's: at 768px the console's
   // sidebar leaves the page 512px, too little for two columns.
   const thread = ctl.selectedId === undefined ? 'hidden @2xl:block' : 'block'
+  // An agent nobody has talked to has nothing to read: the list's own empty
+  // state is the whole answer, so no reader pane stands beside it saying
+  // "Select a conversation" about a list with none in it. A search that
+  // matched nothing keeps the pane — the agent HAS conversations.
+  const quiet =
+    ctl.list.phase === 'ready' &&
+    ctl.list.conversations.length === 0 &&
+    ctl.search.trim().length === 0
   return (
     <AgentConversationStringsContext.Provider value={uiStrings}>
       <div className="@container">
@@ -88,18 +96,21 @@ export default function AdminAgentConversationsIsland({
             agent={ctl.agent}
             onAgent={ctl.setAgent}
             agentNames={agentNames}
+            alone={quiet}
           />
-          <section
-            aria-label="Conversation"
-            className={`${thread} w-full min-w-0 @2xl:flex-1`}
-          >
-            <ConversationThread
-              state={ctl.thread}
-              onRetry={ctl.reloadThread}
-              onBack={ctl.onBack}
-              names={names}
-            />
-          </section>
+          {quiet ? null : (
+            <section
+              aria-label="Conversation"
+              className={`${thread} w-full min-w-0 @2xl:flex-1`}
+            >
+              <ConversationThread
+                state={ctl.thread}
+                onRetry={ctl.reloadThread}
+                onBack={ctl.onBack}
+                names={names}
+              />
+            </section>
+          )}
         </div>
       </div>
     </AgentConversationStringsContext.Provider>

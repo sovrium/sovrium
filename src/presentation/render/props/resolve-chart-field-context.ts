@@ -5,18 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import {
-  resolveCurrencyOptions,
-  type CurrencyDisplayOptions,
-} from '@/domain/kernel/format/currency-format'
+import { type CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import { minMaxKindOf } from '@/domain/models/app/tables/min-max-order-service'
-import { withInheritedCurrency } from '@/domain/models/app/tables/rollup-currency-service'
+import { declaredCurrencyOf } from '@/domain/models/app/tables/record-text-plan-service'
+import { CURRENCY_DISPLAY_KEYS } from '@/domain/models/app/tables/rollup-currency-service'
 import {
   optionLabel,
   optionValue,
   type SelectOptionLike,
 } from '@/domain/models/app/tables/select-option'
-import { resolveFieldDisplayMeta } from './resolve-field-cell-meta'
 import type { ComponentOfType } from '@/domain/models/app/pages/components'
 import type { Tables } from '@/domain/models/app/tables'
 
@@ -38,15 +35,6 @@ export interface ChartCategoryOptionInput {
 
 /** The field types whose declared options give a chart its category order. */
 const OPTION_ORDERED_TYPES: ReadonlySet<string> = new Set(['single-select', 'status'])
-
-/** The currency display keys the shared formatter reads — nothing else travels. */
-const CURRENCY_KEYS = [
-  'currency',
-  'precision',
-  'symbolPosition',
-  'negativeFormat',
-  'thousandsSeparator',
-] as const
 
 type TableField = Tables[number]['fields'][number]
 type ChartComponent = ComponentOfType<'chart'>
@@ -87,19 +75,9 @@ export function resolveValueCurrency(
   fieldName: string | undefined,
   tables: Tables
 ): CurrencyDisplayOptions | undefined {
-  const field = findField(table, fieldName)
-  if (!field) return undefined
-  // A SUM / AVG / MIN / MAX rollup over a `currency` field is money in that field's currency.
-  const display = resolveFieldDisplayMeta(withInheritedCurrency(field, table, tables))
-  const currency = resolveCurrencyOptions({
-    type: field.type,
-    display: display as CurrencyDisplayOptions | undefined,
-  })
-  if (currency === undefined) return undefined
-  const picked = CURRENCY_KEYS.flatMap((key) =>
-    currency[key] === undefined ? [] : [[key, currency[key]] as const]
-  )
-  return Object.fromEntries(picked) as CurrencyDisplayOptions
+  // ONE rule with the page export (`record-text-plan-service.ts`): a currency
+  // field's keys, a declared code, a SUM / AVG / MIN / MAX rollup of a currency field.
+  return declaredCurrencyOf(table, fieldName, tables)
 }
 
 /** The chart's category field: the aggregate's grouping, else the X axis. */
@@ -119,7 +97,7 @@ const chartValueField = (component: ChartComponent): string | undefined =>
 
 /** Two currency displays that print the same tick. */
 const sameCurrency = (a: CurrencyDisplayOptions, b: CurrencyDisplayOptions): boolean =>
-  CURRENCY_KEYS.every((key) => a[key] === b[key])
+  CURRENCY_DISPLAY_KEYS.every((key) => a[key] === b[key])
 
 /**
  * The currency a series-bound chart's ONE value axis can print: the display
@@ -148,11 +126,32 @@ export function resolveChartFieldContext(
 ): {
   readonly categoryOptions: readonly ChartCategoryOptionInput[] | undefined
   readonly valueCurrency: CurrencyDisplayOptions | undefined
+  readonly numericCategories?: true
 } {
   return {
     categoryOptions: resolveCategoryOptions(table, chartCategoryField(component)),
     valueCurrency: resolveValueCurrency(table, chartValueField(component), tables),
+    ...(groupsByNumber(tables, table, component) && { numericCategories: true as const }),
   }
+}
+
+/**
+ * Whether the chart's categories are numbers — it groups, unbucketed, by a
+ * number field (an integer, a decimal, a rating…) — so that ordering them by
+ * name counts up (2, 8, 9, 10) rather than comparing text (10, 2, 8, 9). The
+ * field's type decides: a text field holding numerals keeps the text order.
+ */
+const groupsByNumber = (
+  tables: Tables,
+  table: Tables[number],
+  component: ChartComponent
+): boolean => {
+  const field = chartCategoryField(component)
+  return (
+    field !== undefined &&
+    component.chartAggregate?.interval === undefined &&
+    minMaxKindOf({ tables }, table.name, field) === 'number'
+  )
 }
 
 /**
@@ -258,6 +257,7 @@ export function resolveFigureFieldContext(
 ): {
   readonly categoryOptions?: readonly ChartCategoryOptionInput[]
   readonly valueCurrency?: CurrencyDisplayOptions
+  readonly numericCategories?: true
   readonly aggregateRead?: boolean
 } {
   if (figure.type === 'kpi') {

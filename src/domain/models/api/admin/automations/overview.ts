@@ -65,7 +65,12 @@ const seriesPointSchema = Schema.Struct({
       'ISO 8601 UTC timestamp at the start of the bucket. For 1h buckets, the minute and second components are zeroed; for 1d buckets, the time component is zeroed (start of day in UTC).',
   }),
   runs: Schema.Int.annotate({
-    description: 'Total automation runs that started within this bucket.',
+    description:
+      'Runs that started within this bucket and are about something: every run that is not routine, and every run that failed, timed out, exhausted its retries, completed with errors, was cancelled or rejected, or waits, routine or not. `runs + routineRuns` is every run of the bucket.',
+  }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+  routineRuns: Schema.Int.annotate({
+    description:
+      'Routine runs that started within this bucket, as the admin run history defines them: started by a trigger keeping a `minimal` or no history, or by a schedule firing every minute or more often, and ended unremarkably. Never counted in `runs`.',
   }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   failures: Schema.Int.annotate({
     description: 'Subset of `runs` that ended with status = "failed".',
@@ -107,7 +112,11 @@ export const automationsOverviewResponseSchema = Schema.Struct({
     }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
     runs_24h: Schema.Int.annotate({
       description:
-        'Total automation runs that started in the last 24 hours, regardless of the requested period.',
+        'Runs that started in the last 24 hours and are about something — every run that is not routine, and every failure — regardless of the requested period.',
+    }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+    routine_runs_24h: Schema.Int.annotate({
+      description:
+        'Routine runs that started in the last 24 hours, regardless of the requested period. `runs_24h + routine_runs_24h` is every run of the day.',
     }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
     failures_24h: Schema.Int.annotate({
       description:
@@ -115,7 +124,7 @@ export const automationsOverviewResponseSchema = Schema.Struct({
     }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
     success_rate: Schema.Finite.annotate({
       description:
-        'Fraction of successful runs over the requested period, in [0, 1]. Returns 1 when no runs occurred (the period is by convention 100% healthy).',
+        'Fraction of successful runs over the requested period, routine runs included, in [0, 1]. Returns 1 when no runs occurred (the period is by convention 100% healthy).',
     }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(1))),
   }).annotate({ description: 'Period-aware aggregate counters surfaced as dashboard tiles.' }),
   series: Schema.Struct({

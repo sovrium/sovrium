@@ -8,3 +8,9 @@
 export * from './email-action'
 
 export * from './send'
+
+export * from './send-headers'
+
+export * from './suppress'
+
+export * from './stats'

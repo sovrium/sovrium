@@ -24,6 +24,7 @@ import { fieldWidgetOf } from '@/presentation/design/field-type-behavior'
 import { pendingControlProps } from '@/presentation/design/pending-state'
 import { renderPendingContent } from '@/presentation/design/spinner-mark'
 import { type FieldDef, type FormRecordBinding, labelOf, renderField } from './fields'
+import { LoadedLinkLists } from './loaded-link-lists'
 import { FormRegions } from './main-aside'
 import { formAsideOf, type FormAsideLayout } from './main-aside-regions'
 import { SaveBar, type SaveBarState } from './save-bar'
@@ -86,7 +87,7 @@ function offersClear(field: FieldDef, value: string, props: RenderProps): boolea
 
 /**
  * The Clear control: empties the field and marks it cleared, so the save
- * stores it empty (`<field>__clear` posted natively, `null` from a script).
+ * stores it empty (`_clear:<field>` posted natively, `null` from a script).
  */
 function ClearControl(props: {
   readonly field: FieldDef
@@ -246,6 +247,8 @@ interface FormBodyProps {
   readonly onFieldChange: (name: string, value: string) => void
   readonly redirectUrl?: string
   readonly useNativeForm: boolean
+  /** The values the record held when the form read it: a native post carries its link lists'. */
+  readonly loaded?: Readonly<Record<string, string>> | undefined
   readonly submitLabel: string
   /** The submit button's caption while a save is in flight; English when absent. */
   readonly savingLabel?: string
@@ -369,6 +372,12 @@ export function FormBody(props: FormBodyProps) {
           type="hidden"
           name="_redirect"
           value={redirectUrl}
+        />
+      )}
+      {useNativeForm && (
+        <LoadedLinkLists
+          fields={fields}
+          loaded={props.loaded}
         />
       )}
       {state.error && <div role="alert">{state.error}</div>}

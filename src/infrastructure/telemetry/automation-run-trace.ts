@@ -33,13 +33,20 @@
  *      process-global `Metric` registry the OtlpMetrics poller snapshots —
  *      independent of whether tracing is armed.
  *
+ *   3. the run's own database cost: integer `db.query.count`,
+ *      `db.transaction.count` and `db.catalog_probe.count` attributes on the
+ *      span, and the `automation.run.db.*` histograms (labeled `{ automation }`),
+ *      measured as before/after deltas of the current counter box
+ *      (`db-query-counter.ts`).
+ *
  * The run loop never fails its Effect channel (it folds every failure into a
  * terminal `runStatus`), so the duration/count/status are always recorded on the
  * resolved run.
  */
 
 import { Duration, Effect } from 'effect'
-import { recordAutomationRun } from './metrics'
+import { currentDbCost, withDbCostBox, type DbCostSnapshot } from './db-query-counter'
+import { recordAutomationRun, recordAutomationRunDbCost, type AutomationRunDbCost } from './metrics'
 
 /**
  * The minimal shape the seam reads off a completed run — its terminal status.
@@ -60,11 +67,53 @@ export const traceAutomationRun = <A extends RunWithStatus, E, R>(
   automation: string,
   run: Effect.Effect<A, E, R>
 ): Effect.Effect<A, E, R> =>
-  Effect.timed(run).pipe(
-    Effect.tap(([elapsed, result]) =>
-      recordAutomationRun(automation, result.status, Duration.toMillis(elapsed) / 1000)
-    ),
-    Effect.tap(([, result]) => Effect.annotateCurrentSpan('status', result.status)),
-    Effect.map(([, result]) => result),
-    Effect.withSpan('automation.run', { attributes: { automation } })
+  // A run started outside any request or scheduled fire (a resumed delay, a
+  // background dispatch) still gets a box of its own, so every run is counted.
+  withDbCostBox(
+    Effect.flatMap(Effect.sync(currentDbCost), (before) =>
+      Effect.timed(run).pipe(
+        Effect.tap(([elapsed, result]) =>
+          recordAutomationRun(automation, result.status, Duration.toMillis(elapsed) / 1000)
+        ),
+        Effect.tap(([, result]) => Effect.annotateCurrentSpan('status', result.status)),
+        Effect.tap(() => recordRunDbCost(automation, before)),
+        Effect.map(([, result]) => result),
+        Effect.withSpan('automation.run', { attributes: { automation } })
+      )
+    )
   )
+
+/** The work done between two snapshots of the same box. */
+const costBetween = (before: DbCostSnapshot, after: DbCostSnapshot): AutomationRunDbCost => ({
+  statements: after.statements - before.statements,
+  transactions: after.transactions - before.transactions,
+  catalogProbes: after.catalogProbes - before.catalogProbes,
+})
+
+/**
+ * Charge the run with the database work done since `before`: the integer
+ * `db.query.count` / `db.transaction.count` / `db.catalog_probe.count`
+ * attributes on the current (`automation.run`) span, and one observation on
+ * each `automation.run.db.*` histogram. A run inside a request reads the
+ * request's box, so the delta leaves out the sign-in and routing statements
+ * around the run; any other run has a box of its own (`withDbCostBox`). The
+ * guard against a missing snapshot is defensive: it records nothing rather
+ * than a false zero.
+ */
+const recordRunDbCost = (
+  automation: string,
+  before: DbCostSnapshot | undefined
+): Effect.Effect<void> =>
+  Effect.suspend(() => {
+    const after = currentDbCost()
+    if (before === undefined || after === undefined) return Effect.void
+    const cost = costBetween(before, after)
+    return Effect.andThen(
+      Effect.annotateCurrentSpan({
+        'db.query.count': cost.statements,
+        'db.transaction.count': cost.transactions,
+        'db.catalog_probe.count': cost.catalogProbes,
+      }),
+      recordAutomationRunDbCost(automation, cost)
+    )
+  })

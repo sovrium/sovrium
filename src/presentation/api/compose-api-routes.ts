@@ -38,6 +38,7 @@ import { chainAnalyticsRoutes } from '@/presentation/api/analytics/routes'
 import { chainAccountRoutes } from '@/presentation/api/auth/account-routes'
 import { chainAuthRoutes } from '@/presentation/api/auth/routes'
 import { chainScimRoutes } from '@/presentation/api/auth/scim-routes'
+import { chainEmailLinkRoutes } from '@/presentation/api/automations/email-link-routes'
 import { chainNotificationRoutes } from '@/presentation/api/automations/notification-routes'
 import { chainAutomationRoutes } from '@/presentation/api/automations/routes'
 import { chainRunRetentionRoutes } from '@/presentation/api/automations/run-retention-routes'
@@ -169,7 +170,9 @@ export const createApiRoutes = <T extends Hono>(
   // Chain automation routes (webhook triggers + run history listing)
   // Always registered: when no automations are configured, /api/automations/*
   // returns 404 by virtue of automation lookup failing inside the handler.
-  const honoWithAutomations = chainAutomationRoutes(honoWithAnalytics, app, getSession)
+  const honoWithAutomations = chainEmailLinkRoutes(
+    chainAutomationRoutes(honoWithAnalytics, app, getSession)
+  )
 
   // Chain OAuth2 connection routes (authorize, callback, status, disconnect).
   // Reads `app.connections[]` for provider configuration; per-user tokens

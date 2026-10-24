@@ -51,11 +51,10 @@ function useSheetSave(
   state: {
     readonly drawer: ReturnType<typeof useRecordDrawer>
     readonly recordFields: ReadonlyArray<RecordDrawerField>
-    readonly record: Readonly<Record<string, unknown>>
     readonly handlers: ReturnType<typeof useDrawerHandlers>
   }
 ) {
-  const { drawer, recordFields, record, handlers } = state
+  const { drawer, recordFields, handlers } = state
   const words = props.generic?.words
   const saveWords = useMemo(
     () => ({
@@ -74,7 +73,8 @@ function useSheetSave(
   )
   return useRecordSave({
     ...{ recordFields, values: drawer.values, table: props.table, recordId: drawer.recordId },
-    ...{ record, creating: drawer.creating, setOpen: drawer.setOpen },
+    loaded: drawer.loaded,
+    ...{ creating: drawer.creating, setOpen: drawer.setOpen },
     ...{ setError: handlers.setError, setFieldErrors: handlers.setFieldErrors, words: saveWords },
   })
 }
@@ -129,7 +129,7 @@ export function useRecordSheet(props: RecordDrawerIslandProps, labels: DrawerLab
   const shown = creating ? EMPTY_RECORD : record
   const { recordFields, actions } = useVisibleEntries(props, declaredFields, creating, shown)
   const handlers = useDrawerHandlers(drawer.setValues, drawer.setOpen)
-  const onSave = useSheetSave(props, { drawer, recordFields, record, handlers })
+  const onSave = useSheetSave(props, { drawer, recordFields, handlers })
   const slotState = { open, recordId, save: labels.save, saving: labels.saving }
   const slot = useRelatedSlot(props, slotState, handlers.onClose)
   const header = creating ? {} : drawerHeaderParts(props, { record, recordId })

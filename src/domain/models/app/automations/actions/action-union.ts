@@ -172,7 +172,7 @@ export type Action =
         readonly paginate?: 'all' | number
         readonly timeout?: number
       }>)
-  // ── record (6 single-record + set-read operator variants) ──
+  // ── record (7 single-record, set-read and aggregate operator variants) ──
   | (ActionBase & {
       readonly type: 'record'
       readonly operator: 'create'
@@ -205,6 +205,19 @@ export type Action =
         // Page size, NOT a safety threshold — contrast `batchDelete.limit`.
         readonly limit?: number
         readonly offset?: number
+      }>)
+  | (ActionBase & {
+      readonly type: 'record'
+      readonly operator: 'aggregate'
+    } & Props<{
+        readonly table: string
+        readonly filter?: ConditionGroup
+        readonly aggregations: readonly {
+          readonly field: string
+          readonly op:
+            'count' | 'sum' | 'avg' | 'min' | 'max' | 'p50' | 'p75' | 'p90' | 'p95' | 'p99'
+        }[]
+        readonly groupBy?: string
       }>)
   | (ActionBase & {
       readonly type: 'record'
@@ -285,6 +298,27 @@ export type Action =
         readonly inlineCss?: boolean
         readonly locale?: string
         readonly attachments?: FileRefListDef<FileRef>
+        // Allow-listed extra headers; `category` makes it a bulk send.
+        readonly headers?: { readonly [name: string]: string }
+        readonly category?: string
+        readonly campaign?: string
+        readonly trackOpens?: boolean
+      }>)
+  | (ActionBase & {
+      readonly type: 'email'
+      readonly operator: 'suppress'
+    } & Props<{
+        readonly address: string
+        readonly reason: 'bounce' | 'complaint' | 'unsubscribe'
+        readonly category?: string
+        readonly messageId?: string
+      }>)
+  | (ActionBase & {
+      readonly type: 'email'
+      readonly operator: 'stats'
+    } & Props<{
+        readonly campaign?: string
+        readonly category?: string
       }>)
   // ── auth (13 operator variants) ──
   | (ActionBase & {
@@ -446,7 +480,7 @@ export type Action =
     } & Props<{
         readonly slug: string
       }>)
-  // ── comment (3 operator variants) ──
+  // ── comment (5 operator variants) ──
   // `recordId`, `commentId`, `content` and each mention are templates, so all
   // are plain strings here; `runAs` absent and `'system'` mean the same thing.
   | (ActionBase & {
@@ -476,6 +510,26 @@ export type Action =
         readonly table: string
         readonly recordId: string
         readonly commentId: string
+        readonly runAs?: 'system' | 'triggering-user'
+      }>)
+  | (ActionBase & {
+      readonly type: 'comment'
+      readonly operator: 'update'
+    } & Props<{
+        readonly table: string
+        readonly recordId: string
+        readonly commentId: string
+        readonly content: string
+        readonly runAs?: 'system' | 'triggering-user'
+      }>)
+  | (ActionBase & {
+      readonly type: 'comment'
+      readonly operator: 'moderate'
+    } & Props<{
+        readonly table: string
+        readonly recordId: string
+        readonly commentId: string
+        readonly status: 'approved' | 'pending' | 'rejected'
         readonly runAs?: 'system' | 'triggering-user'
       }>)
   // ── notification (1 operator variant) ──
@@ -1240,7 +1294,7 @@ export type Action =
         readonly keyId?: string
         readonly algorithm: 'ed25519'
       }>)
-  // ── calendar (1 operator variant) ──
+  // ── calendar (2 operator variants) ──
   | (ActionBase & {
       readonly type: 'calendar'
       readonly operator: 'importIcs'
@@ -1257,6 +1311,20 @@ export type Action =
           readonly url?: string
           readonly status?: string
         }
+      }>)
+  // Every event property is a template, so all are plain strings here.
+  | (ActionBase & {
+      readonly type: 'calendar'
+      readonly operator: 'exportIcs'
+    } & Props<{
+        readonly title: string
+        readonly start: string
+        readonly end?: string
+        readonly allDay?: boolean
+        readonly location?: string
+        readonly description?: string
+        readonly timezone?: string
+        readonly uid?: string
       }>)
   // ── date (8 operator variants) ──
   | (ActionBase & {

@@ -104,6 +104,8 @@ interface ConversationListProps {
   readonly agent: string
   readonly onAgent: (value: string) => void
   readonly agentNames: ReadonlyArray<string>
+  /** No reader pane beside the list (an agent with no conversation): take the full width. */
+  readonly alone?: boolean
 }
 
 /** Resolve the list body from the load phase + the search outcome. */
@@ -152,7 +154,7 @@ export function ConversationList(props: ConversationListProps): ReactElement {
   return (
     <section
       aria-label="Conversations"
-      className={`${shown} w-full flex-col gap-3 @2xl:w-80 @2xl:shrink-0`}
+      className={`${shown} w-full flex-col gap-3 ${props.alone === true ? '' : '@2xl:w-80 @2xl:shrink-0'}`}
     >
       <AgentFilter
         agent={props.agent}

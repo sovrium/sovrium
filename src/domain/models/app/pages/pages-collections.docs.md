@@ -37,7 +37,7 @@ The generated record is exposed as `$record.*` to the whole tree, including `met
 
 <!-- sovrium:options MarkdownSchema depth=2 -->
 
-Render the page body from markdown instead of components. `content` and `file` are mutually exclusive; `file` resolves from the project root.
+Render the page body from markdown instead of components. `content` and `file` are mutually exclusive; `file` resolves from the project root. A `file` that does not exist does not stop the app: `sovrium validate` and `sovrium bundle` print a warning naming the page and the path and still succeed, and `sovrium start` serves the page without its body and logs the missing file once, not on every request.
 
 ```yaml
 name: my-docs
@@ -71,6 +71,8 @@ A `::: callout` block renders an alert inside the article. Name its kind with `t
 `nav` accepts `enabled`, `groupBy` — the frontmatter key that buckets articles into sidebar groups — and `labelFrom`, the frontmatter key supplying each link's label, plus `groupLabels`, `groupIcons`, `collapsed` and `tabs` for presentation.
 
 The previous and next links at the foot of each article follow the sidebar: they walk its groups in the order it lists them, so the last article of one group leads to the first article of the next. Articles the sidebar leaves out, such as drafts excluded by `filter`, are skipped.
+
+`include` decides which files the page has, everywhere at once: the articles it serves, the sidebar, the previous and next links, and what `sovrium bundle` carries. With `include: '*.md'` a file in a subdirectory gets no route and no sidebar entry, so the sidebar never links to an article that answers 404, and a bundled app shows the sidebar its source shows. With no `include`, every `.md` file under `directory` is listed, recursively. A pattern never reaches outside `directory`: a file behind a `..` segment is left out.
 
 An article may say who reads it in its own front matter: `access: authenticated`, or a list of roles such as `access: [admin]` — the page `access` grammar. The collection page's `access` still applies first; a reader outside the article's gets the same 404 as for any page they may not open, and the article leaves their sidebar, their previous and next links and their session search. Gate a folder by gating its articles, so one handbook keeps one sidebar while its managers' folder stays with the managers. An article gated this way is never published outside a signed-in page: the static search index, `llms.txt` and the markdown files `sovrium build` writes carry only the articles that declare no access, while the live `<article>.md` address answers exactly the readers the article does. A present `access` the front matter cannot read — an empty value, `[]`, or a YAML block list — keeps the article from everyone but an unrestricted admin, rather than publishing it.
 

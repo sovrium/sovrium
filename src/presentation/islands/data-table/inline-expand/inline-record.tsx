@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useState, type ReactElement } from 'react'
+import { useMemo, useState, type ReactElement } from 'react'
 import { DrawerContent } from '../../overlays/record-drawer-content'
 import { useRecordSave } from '../../overlays/record-drawer-save'
 import { toEntryFormValues, type Values } from '../../overlays/record-drawer-values'
@@ -37,15 +37,17 @@ export default function InlineRecord({
   readonly table: string | undefined
 }): ReactElement {
   const fields = config.recordFields
-  const [values, setValues] = useState<Values>(() => toEntryFormValues(record, fields))
+  // What the row last read: a save leaves out a link list still holding it.
+  const loaded = useMemo(() => toEntryFormValues(record, fields), [record, fields])
+  const [values, setValues] = useState<Values>(loaded)
   const handlers = useDrawerHandlers(setValues, doNothing)
   const recordId = record['id'] === undefined ? undefined : String(record['id'])
   const onSave = useRecordSave({
     recordFields: fields,
     values,
+    loaded,
     table,
     recordId,
-    record,
     setOpen: doNothing,
     setError: handlers.setError,
     setFieldErrors: handlers.setFieldErrors,

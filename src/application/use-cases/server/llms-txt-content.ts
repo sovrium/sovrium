@@ -11,6 +11,7 @@ import {
   type ContentDirEntry,
   type ContentDirReadError,
 } from '@/application/ports/services/content-dir-reader'
+import { pageRoutePatterns, primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { validateLanguageSubdirectory } from '@/domain/models/app/languages/language-detection'
 import { isPublicArticle } from '@/domain/models/app/pages/content-dir-access'
 import { isPublicPage } from '@/domain/models/app/pages/is-public'
@@ -91,10 +92,12 @@ const CONTENT_DIR_READ_CONCURRENCY = 4
 const pagesForLanguage = (app: App, language: string | undefined): readonly Page[] => {
   const pages = (app.pages ?? []).filter(isPublicPage)
   if (language === undefined) return pages
-  return pages.filter((page) => {
-    const declared = validateLanguageSubdirectory(app, page.path)
-    return declared === undefined || declared === language
-  })
+  return pages.filter((page) =>
+    pageRoutePatterns(page.path).some((path) => {
+      const declared = validateLanguageSubdirectory(app, path)
+      return declared === undefined || declared === language
+    })
+  )
 }
 
 /**
@@ -109,7 +112,9 @@ const collectContentEntries = (
     const perPage = yield* Effect.forEach(
       pages,
       (page) =>
-        page.contentDir ? reader.enumerate(page.contentDir, page.path) : Effect.succeed([]),
+        page.contentDir
+          ? reader.enumerate(page.contentDir, primaryPagePath(page.path))
+          : Effect.succeed([]),
       { concurrency: CONTENT_DIR_READ_CONCURRENCY }
     )
     // A public artefact carries no article gated by its own front matter.
@@ -207,7 +212,9 @@ export const generateLlmsFullTxtContent = (
     const perPage = yield* Effect.forEach(
       pagesForLanguage(app, language),
       (page) =>
-        page.contentDir ? reader.readBodies(page.contentDir, page.path) : Effect.succeed([]),
+        page.contentDir
+          ? reader.readBodies(page.contentDir, primaryPagePath(page.path))
+          : Effect.succeed([]),
       { concurrency: CONTENT_DIR_READ_CONCURRENCY }
     )
     const bodies = perPage

@@ -10,7 +10,10 @@ import {
   pickCandidateSlugs,
   resolveActiveAssignmentForScope,
 } from '@/domain/models/app/auth/active-assignment-cookie'
-import { normalizeCurrentUserRef } from '@/domain/models/app/pages/current-user-ref'
+import {
+  normalizeCurrentUserRef,
+  resolveCurrentUserScalarValue,
+} from '@/domain/models/app/pages/current-user-ref'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { CurrentUserRef, DataFilter } from '@/domain/models/app/pages/components/data-source'
 
@@ -114,6 +117,11 @@ export const resolveFilter = async (
   if (ctx.session.isUnrestricted && isAssignmentRef(ref)) return { kind: 'bypass' }
 
   const resolved = await resolveRef(ref, ctx)
+  // A value the reader does not have (no email on record) matches no row —
+  // never the empty text, which a row can hold.
+  if (resolved === NO_READER_VALUE) {
+    return { kind: 'ok', filter: { ...filter, operator: 'in', value: [] } }
+  }
   return { kind: 'ok', filter: { ...filter, value: resolved } }
 }
 
@@ -160,14 +168,18 @@ export const hasCurrentUserRef = (filters: readonly DataFilter[] | undefined): b
 const isAssignmentRef = (ref: CurrentUserRef): boolean =>
   ref.path.kind === 'assignment' || ref.path.kind === 'activeAssignment'
 
+/** What {@link resolveRef} answers for a scalar the reader does not have. */
+const NO_READER_VALUE: unique symbol = Symbol('no reader value')
+
 const resolveRef = async (
   ref: CurrentUserRef,
   ctx: CurrentUserResolutionContext
-): Promise<string | number | boolean | readonly string[]> => {
+): Promise<string | number | boolean | readonly string[] | typeof NO_READER_VALUE> => {
   const session = ctx.session!
 
   if (ref.path.kind === 'scalar') {
-    return resolveScalar(ref.path.name, session)
+    const scalar = resolveCurrentUserScalarValue(ref, session)
+    return scalar.kind === 'resolved' ? scalar.value : NO_READER_VALUE
   }
 
   if (ref.path.kind === 'assignment') {
@@ -177,16 +189,6 @@ const resolveRef = async (
   // activeAssignment — read the active-scope cookie set by P-6 with
   // server-side validation and tamper-resistant fallback.
   return resolveActiveAssignment(session.userId, ctx)
-}
-
-const resolveScalar = (
-  name: 'id' | 'email' | 'role' | 'isUnrestricted',
-  session: SessionInfo
-): string | boolean => {
-  if (name === 'id') return session.userId
-  if (name === 'email') return session.email ?? ''
-  if (name === 'role') return session.role
-  return session.isUnrestricted === true
 }
 
 /**

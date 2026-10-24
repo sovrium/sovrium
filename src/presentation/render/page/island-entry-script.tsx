@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { serializeJsonForScript } from '@/domain/kernel/sanitize/json-script-serialization'
 import { hasCommandPaletteHost } from './command-palette-capture'
 import { hasIslandComponents } from './page-island-detection'
 import type { Components } from '@/domain/models/app/components'
@@ -66,4 +67,34 @@ export function IslandEntryScript({
   }
   if (!hasCommandPaletteHost(page.components)) return undefined
   return <template data-island-entry={src} />
+}
+
+/** The stable name the island chunks import the prebuilt entry by. */
+const STABLE_ENTRY = '/assets/islands/island-entry.js'
+
+/**
+ * One runtime per document. A prebuilt island bundle is loaded by its hashed
+ * name (`island-entry-<hash>.js`, cached for good) while its chunks import the
+ * entry by the stable `./island-entry.js` they were built against; left alone,
+ * the first chunk a client-side swap imports would download the whole runtime
+ * again and evaluate a second copy of it. The import map points the stable
+ * name at the hashed one, so every chunk shares the module the page loaded.
+ * A runtime built in place (a source checkout) already names its entry in its
+ * chunks and needs none.
+ */
+export function IslandImportMap({
+  islandEntryFile,
+}: {
+  readonly islandEntryFile?: string
+}): ReactElement | undefined {
+  if (islandEntryFile === undefined || !/^island-entry-[a-z0-9]+\.js$/.test(islandEntryFile)) {
+    return undefined
+  }
+  const map = { imports: { [STABLE_ENTRY]: `/assets/islands/${islandEntryFile}` } }
+  return (
+    <script
+      type="importmap"
+      dangerouslySetInnerHTML={{ __html: serializeJsonForScript(map) }}
+    />
+  )
 }

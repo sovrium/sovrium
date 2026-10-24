@@ -97,6 +97,66 @@
               "children": [
                 {
                   "type": "container",
+                  "key": "metrics-region",
+                  "element": "div",
+                  "props": {
+                    "role": "region",
+                    "aria-label": "$t:admin.users.metrics.region",
+                    "className": "grid grid-cols-1 gap-4 sm:grid-cols-3"
+                  },
+                  "children": [
+                    {
+                      "component": "console-section-card",
+                      "key": "section-card",
+                      "vars": {
+                        "label": "$t:admin.users.kpi.accounts",
+                        "dataSource": {
+                          "system": {
+                            "endpoint": "/api/admin/users/overview",
+                            "valuePath": "totals.users"
+                          }
+                        },
+                        "kpiFormat": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    {
+                      "component": "console-section-card",
+                      "key": "section-card-2",
+                      "vars": {
+                        "label": "$t:admin.users.kpi.active",
+                        "dataSource": {
+                          "system": {
+                            "endpoint": "/api/admin/users/overview",
+                            "valuePath": "totals.active_24h"
+                          }
+                        },
+                        "kpiFormat": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    {
+                      "component": "console-section-card",
+                      "key": "section-card-3",
+                      "vars": {
+                        "label": "$t:admin.users.kpi.new",
+                        "dataSource": {
+                          "system": {
+                            "endpoint": "/api/admin/users/overview",
+                            "valuePath": "totals.new_in_period"
+                          }
+                        },
+                        "kpiFormat": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
                   "key": "admin-toolbar-row",
                   "element": "div",
                   "props": {
@@ -198,66 +258,6 @@
                   ]
                 },
                 {
-                  "type": "container",
-                  "key": "metrics-region",
-                  "element": "div",
-                  "props": {
-                    "role": "region",
-                    "aria-label": "$t:admin.users.metrics.region",
-                    "className": "grid grid-cols-1 gap-4 sm:grid-cols-3"
-                  },
-                  "children": [
-                    {
-                      "component": "console-section-card",
-                      "key": "section-card",
-                      "vars": {
-                        "label": "$t:admin.users.kpi.accounts",
-                        "dataSource": {
-                          "system": {
-                            "endpoint": "/api/admin/users/overview",
-                            "valuePath": "totals.users"
-                          }
-                        },
-                        "kpiFormat": {
-                          "type": "number"
-                        }
-                      }
-                    },
-                    {
-                      "component": "console-section-card",
-                      "key": "section-card-2",
-                      "vars": {
-                        "label": "$t:admin.users.kpi.active",
-                        "dataSource": {
-                          "system": {
-                            "endpoint": "/api/admin/users/overview",
-                            "valuePath": "totals.active_24h"
-                          }
-                        },
-                        "kpiFormat": {
-                          "type": "number"
-                        }
-                      }
-                    },
-                    {
-                      "component": "console-section-card",
-                      "key": "section-card-3",
-                      "vars": {
-                        "label": "$t:admin.users.kpi.new",
-                        "dataSource": {
-                          "system": {
-                            "endpoint": "/api/admin/users/overview",
-                            "valuePath": "totals.new_in_period"
-                          }
-                        },
-                        "kpiFormat": {
-                          "type": "number"
-                        }
-                      }
-                    }
-                  ]
-                },
-                {
                   "component": "console-grid",
                   "key": "grid",
                   "vars": {
@@ -304,25 +304,33 @@
                         "width": 150
                       },
                       {
-                        "field": "banned",
+                        "field": "status",
                         "label": "$t:admin.common.status",
+                        "sortable": false,
                         "cellStyle": [
                           {
                             "when": {
-                              "eq": false
+                              "eq": "active"
                             },
                             "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-success-solid"
                           },
                           {
                             "when": {
-                              "eq": true
+                              "eq": "banned"
                             },
                             "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-destructive"
+                          },
+                          {
+                            "when": {
+                              "eq": "unclaimed"
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50"
                           }
                         ],
                         "valueLabels": {
-                          "false": "$t:admin.users.state.active",
-                          "true": "$t:admin.users.state.banned"
+                          "active": "$t:admin.users.state.active",
+                          "banned": "$t:admin.users.state.banned",
+                          "unclaimed": "$t:admin.users.status.unclaimed"
                         },
                         "width": 110
                       },
@@ -452,8 +460,9 @@
                     },
                     "onRowClick": {
                       "type": "navigate",
-                      "path": "/users/$record.email"
-                    }
+                      "path": "/users/$record.id"
+                    },
+                    "viewOptions": "toolbar"
                   }
                 }
               ]
@@ -581,7 +590,8 @@
                         ]
                       }
                     ],
-                    "emptyMessage": "$t:admin.users.invite.none"
+                    "emptyMessage": "$t:admin.users.invite.none",
+                    "viewOptions": "toolbar"
                   }
                 }
               ]

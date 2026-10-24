@@ -95,6 +95,10 @@ export const CONNECTION_EXPIRING_SOON_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
  *   - `not-connected` — an `oauth2` connection nobody has authorized: it holds
  *     no token at all, so nothing can call the provider yet. Reading it as
  *     `active` would print a healthy badge over a connection that cannot work.
+ *   - `not-configured` — a static-secret connection (apiKey / basic / bearer)
+ *     whose credential reads a `$env.` variable that resolves to nothing on
+ *     this instance: every run that needs it is skipped until it is set, so it
+ *     must not read `active` either.
  *   - `expiring-soon` — has token(s); the soonest `expiresAt` is in the future
  *     but within `CONNECTION_EXPIRING_SOON_WINDOW_MS` (7 days).
  *   - `expired`       — has token(s); the soonest `expiresAt` is already in the
@@ -113,12 +117,13 @@ export const CONNECTION_EXPIRING_SOON_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
 export const connectionStatusSchema = Schema.Literals([
   'active',
   'not-connected',
+  'not-configured',
   'expiring-soon',
   'expired',
   'reconnect-needed',
 ]).annotate({
   description:
-    'Derived connection health. `active` = tokens all in the future, OR a static-secret connection (apiKey, basic, bearer) that holds no token; `not-connected` = an oauth2 connection nobody has authorized yet, holding no token; `expiring-soon` = soonest token expiry within 7 days; `expired` = soonest token expiry in the past; `reconnect-needed` = a token with no refresh token expires within 7 days or has expired, so only a new authorization will restore it.',
+    'Derived connection health. `active` = tokens all in the future, OR a static-secret connection (apiKey, basic, bearer) that holds no token and whose credential resolves; `not-connected` = an oauth2 connection nobody has authorized yet, holding no token; `not-configured` = a static-secret connection whose credential reads an environment variable that is not set on this instance, so every run that needs it is skipped until it is; `expiring-soon` = soonest token expiry within 7 days; `expired` = soonest token expiry in the past; `reconnect-needed` = a token with no refresh token expires within 7 days or has expired, so only a new authorization will restore it.',
 })
 
 /** @public */

@@ -46,6 +46,7 @@ const DATE_DISPLAY_FORMATS = new Set<ColumnFormat>([
   'relative-date',
   'relative-time',
   'day-relative-time',
+  'day-relative-time-seconds',
   'short-date',
   'long-date',
   'datetime',

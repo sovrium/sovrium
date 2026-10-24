@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { evaluateFormAccess } from '@/domain/models/app/forms/form-access-flow'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { isArticleReadable } from './content-dir-access'
@@ -165,7 +166,9 @@ const translatorFor =
 export const declaredPageDocuments = (app: App): readonly PageSearchDocument[] => {
   const resolve = translatorFor(app)
   return (app.pages ?? []).flatMap((page): readonly PageSearchDocument[] => {
-    if (typeof page.path !== 'string' || page.path.includes(':')) return []
+    // A path per language is found at its default-language address.
+    const url = primaryPagePath(page.path, app.languages?.default)
+    if (url.includes(':')) return []
     const metaTitle = typeof page.meta?.title === 'string' ? resolve(page.meta.title) : ''
     const title = metaTitle.length > 0 ? metaTitle : page.name
     const text = (page.components ?? [])
@@ -176,7 +179,7 @@ export const declaredPageDocuments = (app: App): readonly PageSearchDocument[] =
     return [
       {
         kind: 'page',
-        url: page.path,
+        url,
         title,
         name: page.name,
         text: capText(text),

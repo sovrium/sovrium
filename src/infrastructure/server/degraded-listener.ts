@@ -38,11 +38,13 @@ import {
   resolveMaxRequestBodySize,
   startBunServer,
 } from '@/infrastructure/server/bun-listener'
+import { previewGate } from '@/infrastructure/server/middleware/preview-gate'
 import { isPortFree } from '@/infrastructure/server/port-availability'
 import { removeSocketFile, startUnixServer } from '@/infrastructure/server/unix-listener'
 import type { HeldListener, HoldListenerConfig } from '@/application/ports/services/server-factory'
 import type { App } from '@/domain/models/app'
 import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
+import type { MiddlewareHandler } from 'hono'
 
 /** What every 503 tells its caller to do. Seconds, as the header takes them. */
 const RETRY_AFTER_SECONDS = '5'
@@ -84,7 +86,18 @@ const buildHoldingApp = (app: App): Hono => {
     checks: { db: 'error' },
   })
   const headers = { 'Retry-After': RETRY_AFTER_SECONDS }
+  const token = process.env['SOVRIUM_PREVIEW_TOKEN']
+  // A token-gated preview stays hidden while its database is down, too ([internal ref] D2).
+  const gate: MiddlewareHandler =
+    token === undefined || token === ''
+      ? (_c, next) => next()
+      : previewGate({
+          token,
+          notFound: (c) => c.text('Not Found', 404),
+          passHealthThrough: true,
+        })
   return new Hono()
+    .use('*', gate)
     .get('/api/health', (c) => c.json(probeBody, 503, headers))
     .all('/api', (c) =>
       c.json(

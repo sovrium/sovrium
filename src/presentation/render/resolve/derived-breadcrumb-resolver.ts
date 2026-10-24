@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { findPageRoute, primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { buildDerivedCrumbs } from '@/domain/models/app/pages/derived-breadcrumb'
 import type { Page } from '@/domain/models/app/pages'
 
@@ -35,7 +36,8 @@ export function resolveDerivedBreadcrumbs(
   basePath?: string
 ): Page {
   if (!hasDerivedBreadcrumb(page.components) && !hasDerivedBreadcrumb(page.layout)) return page
-  const at: CrumbContext = { requestPath, basePath: basePath ?? '', pattern: page.path }
+  const pattern = findPageRoute([page], requestPath)?.pattern ?? primaryPagePath(page.path)
+  const at: CrumbContext = { requestPath, basePath: basePath ?? '', pattern }
   return {
     ...page,
     ...(page.components !== undefined

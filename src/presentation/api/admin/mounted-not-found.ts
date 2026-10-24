@@ -6,7 +6,10 @@
  */
 
 import { resolveTranslation } from '@/domain/models/app/languages/translation-resolver'
-import { withConsoleSignInLink } from '@/presentation/render/page/console-sign-in-link'
+import {
+  withConsoleSignInLink,
+  withConsoleSignedInWays,
+} from '@/presentation/render/page/console-sign-in-link'
 import { mountedPreferredLanguage } from './mounted-render-options'
 import type { HonoAppConfig } from '../../../application/ports/contracts/hono-app-config'
 import type { EmbeddedAppMount } from '@/application/ports/contracts/embedded-app-mount'
@@ -19,17 +22,29 @@ import type { Context } from 'hono'
  * the console's sign-in page, in the reader's language, which returns them to
  * the address asked for. An operator whose session ended is never stranded on
  * a page with no way back; outside the console base the app's 404 is untouched.
+ * A SIGNED-IN caller the console does not admit gets "Go to the app" and
+ * "Sign out" in place of the Sign in link.
  */
 export const signedOutConsoleNotFound = async (
   mount: EmbeddedAppMount,
   config: HonoAppConfig,
-  c: Context
+  c: Context,
+  signedIn = false
 ): Promise<string> => {
   const { languages } = mount.presetApp
   const language = mountedPreferredLanguage(mount.presetApp, undefined, c) ?? languages?.default
-  const label = resolveTranslation('admin.login.heading', language ?? 'en', languages)
-  return withConsoleSignInLink(await config.renderNotFoundPage(config.app), {
-    loginPath: `${mount.basePath}/login`,
-    label,
-  })
+  const say = (key: string): string => resolveTranslation(key, language ?? 'en', languages)
+  const page = await config.renderNotFoundPage(config.app)
+  // A caller who is signed in but not admitted (a member, a viewer) has a
+  // session already: Sign in would lead nowhere useful, so the page offers the
+  // app and a way to sign out instead — the same bytes on every console address.
+  return signedIn
+    ? withConsoleSignedInWays(page, {
+        toAppLabel: say('admin.notFound.toApp'),
+        signOutLabel: say('admin.shell.signOut'),
+      })
+    : withConsoleSignInLink(page, {
+        loginPath: `${mount.basePath}/login`,
+        label: say('admin.login.heading'),
+      })
 }

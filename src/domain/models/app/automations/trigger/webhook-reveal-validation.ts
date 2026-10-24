@@ -21,11 +21,19 @@
  *   `respondImmediately`, which answers before any step has read anything;
  * - **what it names** — each entry is `table.field`, a table of the app and a
  *   field of it declaring `writeOnly: true`.
+ *
+ * And the same "who" rule for `auth.runAs: 'system'`, the other way a
+ * `session` webhook's run acts as the system for a machine: only beside
+ * `type: 'session'` and a `requiredRole` other than the sign-up role.
  */
 
 interface RevealTriggerLike {
   readonly type: string
-  readonly auth?: { readonly type?: string; readonly requiredRole?: string }
+  readonly auth?: {
+    readonly type?: string
+    readonly requiredRole?: string
+    readonly runAs?: string
+  }
   readonly respondImmediately?: boolean
   readonly revealWriteOnly?: ReadonlyArray<string>
 }
@@ -48,16 +56,20 @@ const MACHINE_AUTH_TYPES: ReadonlySet<string> = new Set(['bearer', 'apiKey'])
 /** The role every new sign-up receives, as the auth instance hands it out. */
 const signUpRoleOf = (app: RevealAppLike): string => app.auth?.defaultRole ?? 'member'
 
-/** Why a `session` webhook's `requiredRole` does not single out a machine, or `undefined`. */
+/**
+ * Why a `session` webhook's `requiredRole` does not single out a machine, or
+ * `undefined`; `consequence` says what anyone else would then do.
+ */
 const sessionRoleIssue = (
   app: RevealAppLike,
-  requiredRole: string | undefined
+  requiredRole: string | undefined,
+  consequence = 'read the value'
 ): string | undefined => {
   if (requiredRole === undefined) {
-    return "needs a requiredRole beside auth type 'session', or any signed-in user holding a key would read the value"
+    return `needs a requiredRole beside auth type 'session', or any signed-in user holding a key would ${consequence}`
   }
   return requiredRole === signUpRoleOf(app)
-    ? `cannot require role '${requiredRole}', the auth.defaultRole every new sign-up receives: anyone who signs up and mints a key would read the value`
+    ? `cannot require role '${requiredRole}', the auth.defaultRole every new sign-up receives: anyone who signs up and mints a key would ${consequence}`
     : undefined
 }
 
@@ -119,4 +131,33 @@ export const validateRevealWriteOnly = (app: RevealAppLike): true | string => {
   return found === undefined
     ? true
     : `Automation '${found.automation}': revealWriteOnly ${found.issue ?? ''}`
+}
+
+/** Why one trigger's `auth.runAs: 'system'` is refused, or `undefined`. */
+const runAsIssue = (app: RevealAppLike, trigger: RevealTriggerLike): string | undefined => {
+  if (trigger.type !== 'webhook' || trigger.auth?.runAs === undefined) return undefined
+  const { type } = trigger.auth
+  if (type !== 'session') {
+    return `is refused beside auth type '${type ?? 'none'}': only a 'session' webhook runs as its caller, so only one can run as the system for a machine instead`
+  }
+  return sessionRoleIssue(app, trigger.auth.requiredRole, 'run as the system')
+}
+
+/**
+ * Every `auth.runAs: 'system'` must sit on a `session` webhook beside a
+ * `requiredRole` that singles out a machine. Returns a message naming the
+ * first automation at fault and `runAs` — or `true`.
+ */
+export const validateWebhookRunAs = (app: RevealAppLike): true | string => {
+  const found = (app.automations ?? [])
+    .flatMap((automation) =>
+      automation.triggers.map((trigger) => ({
+        automation: automation.name,
+        issue: runAsIssue(app, trigger),
+      }))
+    )
+    .find((candidate) => candidate.issue !== undefined)
+  return found === undefined
+    ? true
+    : `Automation '${found.automation}': auth.runAs 'system' ${found.issue ?? ''}`
 }

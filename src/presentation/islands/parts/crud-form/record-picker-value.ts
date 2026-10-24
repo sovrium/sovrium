@@ -26,6 +26,8 @@
  * because that is exactly what the column holds and what the write must send.
  */
 
+import { sameIdSet } from '@/domain/kernel/matching/same-id-set'
+
 /**
  * The ids a stored form value represents.
  *
@@ -65,3 +67,18 @@ export function writeLinkedIds(ids: readonly string[], allowMultiple: boolean): 
   if (ids.length === 0) return ''
   return allowMultiple ? JSON.stringify(ids) : (ids[0] ?? '')
 }
+
+/** A many-valued link list: a `relationship` whose control holds a JSON list of ids. */
+export const isLinkList = (field: {
+  readonly type: string
+  readonly allowMultiple?: boolean | undefined
+}): boolean => field.type === 'relationship' && field.allowMultiple === true
+
+/**
+ * Whether two stored values of a link list name the same records, whatever
+ * their order. A save leaves such a list out: each list it sends REPLACES the
+ * record's links, so an untouched one sent would take off a link made
+ * meanwhile, elsewhere, that the control never showed.
+ */
+export const holdsSameLinks = (value: string, loaded: string): boolean =>
+  sameIdSet(readLinkedIds(value, true), readLinkedIds(loaded, true))

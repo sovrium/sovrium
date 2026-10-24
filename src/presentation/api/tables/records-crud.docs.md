@@ -80,9 +80,24 @@ The tag describes the answer **you** receive, and it is checked after every perm
 | `404`  | Absent, invisible, **or visible but not writable** |
 | `409`  | The optimistic-lock token was stale                |
 
+A computed field — `formula`, `rollup`, `count`, `lookup` or `autonumber` — holds no value of its own. When your role may otherwise write it, an update naming one, `null` included, is refused with `400` and `Cannot write to readonly field '<name>'`, and none of the request is written. The batch, bulk and upsert routes, the edit form and the MCP update tool refuse it the same way. This endpoint, the single-record create and the edit form list every computed field the request touched in `errors`; the batch, bulk and upsert routes and the MCP update tool name only the first. A computed field your role may not write is answered as any field you may not write: `404` here, on the single-record create, a single-record upsert and a bulk update, and silently left out of a batch update, a multi-record upsert and the edit form.
+
 A relationship value is judged as on create: a row you may not read answers as a row that does not exist, `400` with nothing written. A many-to-one value equal to the key the record already holds is not a new link and is accepted, so a record filed under a row you cannot see can still be saved with its other changes. A many-to-many value is refused whole if it names any row you may not read, even one already linked; leave the field out and the links you cannot see stay as they are.
 
-A many-to-many value in an update **adds** links: `["2"]` on a record linked to `["1", "3"]` leaves it linked to all three. Only an empty list or `null` removes links, and it removes every link you may read. To drop one link, clear the field, then send the links to keep.
+A many-to-many value in an update **adds** links: `["2"]` on a record linked to `["1", "3"]` leaves it linked to all three. Only an empty list or `null` removes links, and it removes every link you may read.
+
+### Replacing a record's links
+
+To send a many-to-many list as the whole set of links to keep, put `"linkLists": "replace"` beside `fields`:
+
+```json
+{
+  "fields": { "tags": ["1", "3"] },
+  "linkLists": "replace"
+}
+```
+
+On a record linked to `["1", "2", "3"]` this leaves it linked to `["1", "3"]`: each list the body names keeps exactly the links it lists, adds the ones it newly names, and loses the rest. The answer reads each named list back as you read it after the write. A link to a record you may not read is never removed, because you never saw it; an admin reads every record, so her list is the whole set. A many-to-many field the body leaves out keeps all its links, and an empty list or `null` clears the field as without the option. The removal is part of the same write as the rest of the change, so a request answered with an error, for a refused value, a row-level rule or a stale `updatedAt`, removes nothing.
 
 An update is applied whole: when any part fails, including a link, the request answers the error and the record keeps its previous values and links.
 

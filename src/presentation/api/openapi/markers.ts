@@ -215,15 +215,25 @@ export const stripAdditionalProperties = (schema: JsonSchema): JsonSchema => {
 }
 
 /**
- * The VALUE member of a marked `anyOf: [T, { type: 'null' }]`, or `undefined`.
+ * The VALUE member of a marked `anyOf: [...T, { type: 'null' }]`, or `undefined`.
+ *
+ * `Schema.optional(S)` is `Union([S, Undefined])`, so the `undefined` branch is
+ * always the LAST member. Up to effect 4.0.4 a union-valued `S` stayed nested
+ * (`anyOf: [{ anyOf: [...] }, { type: 'null' }]`); since 4.0.6 the emitter
+ * flattens redundant nested `anyOf` (Effect-TS/effect#9549), so `S`'s own
+ * members arrive inline. Every member but the last is therefore the value: one
+ * member is returned as is, several are re-wrapped in the `anyOf` 4.0.4 emitted,
+ * which keeps the published document byte-identical across the bump.
  *
  * `undefined` means the node is marked but not in the shape the collapse
  * expects, and the marker is then removed without touching the union — a
  * conservative outcome rather than a silent structural rewrite.
  */
 const collapsibleValueBranch = (anyOf: unknown): JsonSchema | undefined => {
-  if (!Array.isArray(anyOf) || anyOf.length !== 2) return undefined
-  return isUndefinedBranch(anyOf[1]) ? asSchemaNode(anyOf[0]) : undefined
+  if (!Array.isArray(anyOf) || anyOf.length < 2) return undefined
+  if (!isUndefinedBranch(anyOf[anyOf.length - 1])) return undefined
+  const members = anyOf.slice(0, -1)
+  return members.length === 1 ? asSchemaNode(members[0]) : { anyOf: members }
 }
 
 export const stripOptionalUndefined = (schema: JsonSchema): JsonSchema => {

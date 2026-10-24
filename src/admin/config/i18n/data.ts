@@ -79,7 +79,7 @@ export default {
     'Three structural checks against the configuration this server is running, re-derived every time this page is opened. Nothing is stored and nothing is acknowledged — a finding disappears when the configuration that caused it changes.',
   'admin.organisation.matrix.region': 'Grant matrix',
   'admin.organisation.matrix.blurb':
-    'Every resource against every grant source, ordered by privilege with the open rung last. A cell is a grant and an empty cell is none — the half a list of findings cannot show, because the three checks report what is exposed and never what is unreachable.',
+    'Each row is something your app holds; each column is who can reach it, a role or everyone. A cell shows what they can do, and a dash means no access.',
   'admin.organisation.map.region': 'Access map',
   // What the map adds over the matrix, in one sentence, because two lenses over
   // one read have to justify being two.
@@ -230,6 +230,13 @@ export default {
     'The documents and emails your automations fill in. Open one to see it filled with its sample data. A template changes in the config, never here.',
   'admin.templates.list.region': 'Template assets',
   'admin.templates.row.readBy': 'Read by',
+  'admin.templates.kind.html': 'HTML',
+  'admin.templates.kind.svg': 'SVG',
+  'admin.templates.kind.partial': 'Partial',
+  'admin.templates.kind.text': 'Text',
+  'admin.templates.kind.docx': 'Word',
+  'admin.templates.kind.xlsx': 'Excel',
+  'admin.templates.kind.pptx': 'PowerPoint',
   'admin.templates.row.sample': 'Sample data',
   'admin.templates.row.noSample': 'No sample data',
   'admin.templates.empty.title': 'No templates',
@@ -318,6 +325,7 @@ export default {
   // A token with no refresh token that lapses within 7 days, or has lapsed.
   'admin.connections.status.reconnectNeeded': 'Reconnect needed',
   'admin.connections.status.notConnected': 'Not connected',
+  'admin.connections.status.notConfigured': 'Not configured',
   'admin.connections.col.connection': 'Connection',
   'admin.connections.col.type': 'Type',
   'admin.connections.col.status': 'Status',
@@ -513,6 +521,7 @@ export default {
   'admin.automations.runs.filter.status': 'Filter by status',
   'admin.automations.runs.filter.period': 'Filter by period',
   'admin.automations.runs.filter.anyTime': 'Any time',
+  'admin.automations.runs.filter.showRoutine': 'Show routine runs',
   // The operator's words for the engine's three terminal statuses — the status
   // filter's options AND the grid's status cells, so both read one vocabulary.
   'admin.automations.runs.status.success': 'Success',
@@ -586,6 +595,7 @@ export default {
   'admin.automations.runs.detail.dataIn': 'Data in',
   'admin.automations.runs.detail.dataOut': 'Data out',
   'admin.automations.runs.detail.steps': 'Steps',
+  'admin.automations.runs.detail.stepsNone': 'This run stopped before its first step finished.',
   // The run page reads top to bottom: what started it, what each step did, how
   // it ended.
   'admin.automations.runs.detail.trigger': 'Trigger',

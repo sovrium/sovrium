@@ -42,9 +42,10 @@
  */
 
 import { existsSync, readdirSync } from 'node:fs'
+import { rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { readMigrationFiles } from 'drizzle-orm/migrator'
-import { Effect } from 'effect'
+import { Effect, type Scope } from 'effect'
 import { materializeMigrations } from '@/infrastructure/assets/embedded-static-assets'
 import { isCompiled } from '@/infrastructure/process/package-paths'
 import { MigrationError } from './migration-error'
@@ -126,30 +127,56 @@ const findMigrationsFolder = (subdir: string): string => {
 }
 
 /**
- * Resolve the drizzle migrations folder for a dialect.
+ * Unpack the embedded migrations for the length of the caller's scope.
+ *
+ * Writing them out fails on a read-only or full filesystem. Declared rather
+ * than left as a defect: the caller's next step is the migrator itself, which
+ * reports a failure the operator can act on, and "the migrations could not be
+ * unpacked" belongs in the same place as "the migrations did not apply".
+ *
+ * The folder is removed when the scope closes. Left behind, every start of the
+ * binary added one more `sovrium-migrations-*` folder to the temp directory,
+ * and a service manager restarting the app filled the disk's inodes.
+ */
+const unpackedMigrations = (
+  dialect: 'pg' | 'sqlite'
+): Effect.Effect<string, MigrationError, Scope.Scope> =>
+  Effect.acquireRelease(
+    Effect.tryPromise({
+      try: () => materializeMigrations(dialect),
+      catch: (error) =>
+        new MigrationError({
+          message: `Could not unpack the embedded ${dialect} migrations: ${String(error)}`,
+          cause: error,
+        }),
+    }),
+    (folder) =>
+      Effect.tryPromise(() => rm(folder, { recursive: true, force: true })).pipe(
+        Effect.tapCause((cause) =>
+          Effect.logWarning(`[migrations] could not remove ${folder}: ${String(cause)}`)
+        ),
+        // effect-swallow: see the tap above. The migrations already ran; a temp
+        // folder the system refuses to delete must not fail the start, and the
+        // warning names it so an operator can remove it.
+        Effect.ignore
+      )
+  )
+
+/**
+ * Resolve the drizzle migrations folder for a dialect, for the length of the
+ * caller's scope.
  *
  * In a compiled binary the `drizzle/` files are not on disk beside the
  * executable — they are embedded — so {@link materializeMigrations} writes them
- * to a temp dir laid out the way drizzle's folder-based migrator expects. In
- * dev/bundled mode the on-disk folder is resolved via {@link findMigrationsFolder}.
+ * to a temp dir laid out the way drizzle's folder-based migrator expects, and
+ * the scope removes it again ({@link unpackedMigrations}). In dev/bundled mode
+ * the on-disk folder is resolved via {@link findMigrationsFolder}.
  */
 export const resolveMigrationsFolder = (
   dialect: 'pg' | 'sqlite'
-): Effect.Effect<string, MigrationError> =>
+): Effect.Effect<string, MigrationError, Scope.Scope> =>
   isCompiled
-    ? // Writes the embedded migration files out to a temp directory, so it
-      // fails on a read-only or full filesystem. Declared rather than left as a
-      // defect: the caller's next step is the migrator itself, which reports a
-      // failure the operator can act on, and "the migrations could not be
-      // unpacked" belongs in the same place as "the migrations did not apply".
-      Effect.tryPromise({
-        try: () => materializeMigrations(dialect),
-        catch: (error) =>
-          new MigrationError({
-            message: `Could not unpack the embedded ${dialect} migrations: ${String(error)}`,
-            cause: error,
-          }),
-      })
+    ? unpackedMigrations(dialect)
     : Effect.sync(() => findMigrationsFolder(dialectSubdir(dialect)))
 
 /**

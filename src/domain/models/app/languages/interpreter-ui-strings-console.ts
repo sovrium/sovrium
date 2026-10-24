@@ -21,9 +21,10 @@ export const CONSOLE_UI_STRINGS: Readonly<Record<string, Readonly<Record<string,
   // ---- API-key manager: the list, the create dialog, the one-time reveal, revoking ----
   'apiKeys.loading': { en: 'Loading your keys…', fr: 'Chargement de vos clés…' },
   'apiKeys.loadFailed': {
-    en: 'Could not load your API keys. Reload to try again.',
-    fr: 'Impossible de charger vos clés d’API. Rechargez la page pour réessayer.',
+    en: 'Could not load your API keys.',
+    fr: 'Impossible de charger vos clés d’API.',
   },
+  'apiKeys.retry': { en: 'Retry', fr: 'Réessayer' },
   'apiKeys.empty': { en: 'You have no API keys yet.', fr: 'Vous n’avez encore aucune clé d’API.' },
   'apiKeys.emptyBody': {
     en: 'Create one to let a script or a scheduled job call the API as you.',

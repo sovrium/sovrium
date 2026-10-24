@@ -146,6 +146,8 @@ export interface ClaudeDesignCanvasInput {
   readonly appName: string
   /** Every page of the app, exported or not: where a board link inside the app leads. */
   readonly routes: readonly CanvasLinkRoute[]
+  /** The codes of the languages the app is served in, each a segment a link's address may open with. */
+  readonly languages?: readonly string[] | undefined
   readonly pages: readonly ClaudeDesignCanvasPage[]
   /** The text of the Claude Design project's `tokens.json`, installed as the canvas's design system. */
   readonly tokens: string
@@ -296,6 +298,7 @@ const drawnBodyOf = (
     links: {
       routes: input.routes,
       page: page.tree.page,
+      languages: input.languages,
       ...(input.prototype === true
         ? {
             hrefOf: (target: string) => {
@@ -660,6 +663,7 @@ const prototypeFilesOf = (
 /** Every board of the canvas, as a prototype's link reaches it. */
 const catalogOf = (input: ClaudeDesignCanvasInput, layout: CanvasLayout): PrototypeCatalog => ({
   routes: input.routes,
+  languages: input.languages,
   boards: layout.placed.map(({ board, path }) => ({
     file: path,
     page: board.page.tree.page,

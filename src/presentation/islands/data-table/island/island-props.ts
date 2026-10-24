@@ -44,6 +44,8 @@ export interface DataTableIslandProps {
     readonly sort?: readonly DataSort[]
     /** How many rows the grid shows in all: its page size and pager total stay under it. */
     readonly limit?: number
+    /** The binding's page size: read when the grid's own `pagination` names none. */
+    readonly pagination?: { readonly pageSize?: number }
     /** Data refresh strategy (`'poll'` enables interval re-fetch). */
     readonly refreshMode?: 'none' | 'poll' | 'realtime'
     /** Poll interval in milliseconds (used when `refreshMode` is `'poll'`). */
@@ -103,6 +105,11 @@ export interface DataTableIslandProps {
    * message echoes what was searched. Falls back to `emptyMessage` when omitted.
    */
   readonly noMatchMessage?: string
+  /**
+   * The author's note on what the grid lists: drawn in the bottom bar after the
+   * range or the count, and given to the table as its accessible description.
+   */
+  readonly caption?: string
   readonly showRowNumbers?: boolean
   readonly rowHeight?: RowHeight
   /**

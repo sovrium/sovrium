@@ -191,10 +191,12 @@ export const emptyToNullable = (schema: unknown): unknown => {
  * the WRAPPER, where `title` survives.
  *
  * The `Undefined` member is always LAST — `UndefinedOr(S)` is `Union([S,
- * Undefined])` and unions do not flatten — and always exactly `{ type: 'null' }`,
- * so removing the final member is precise even when the inner schema is itself
- * nullable (`optionalField(Schema.NullOr(X))` correctly keeps its own null
- * branch) or is literally `Schema.Null`.
+ * Undefined])` — and always exactly `{ type: 'null' }`, so removing the final
+ * member is precise even when the inner schema is itself nullable
+ * (`optionalField(Schema.NullOr(X))` correctly keeps its own null branch) or is
+ * literally `Schema.Null`. Since effect 4.0.6 a union-valued `S` is flattened
+ * into the outer `anyOf` rather than nested (Effect-TS/effect#9549), so the
+ * collapse keeps EVERY member but the last, not "the first of two".
  *
  * The single surviving member is then merged up, so an optional field emits
  * exactly what its inner schema emits — which is what Zod published.

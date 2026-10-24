@@ -19,15 +19,14 @@
  */
 
 import {
+  computeComboboxChipClasses,
+  computeComboboxChipsClasses,
+} from '@/presentation/design/select-default-classes'
+import {
   ChoiceSelectSkeleton,
   DateBoxSkeleton,
 } from '@/presentation/render/elements/form-control-skeletons'
-import {
-  ariaRequired,
-  FIELD_LABEL_CLASS,
-  FIELD_WRAPPER_CLASS,
-  fieldWrapperAttributes,
-} from './form-field-chrome'
+import { FIELD_LABEL_CLASS, FIELD_WRAPPER_CLASS, fieldWrapperAttributes } from './form-field-chrome'
 import { RequiredMark } from './form-field-elements-typed'
 import { HelpText } from './form-help-text'
 import type { ResolvedFormField } from './form-field-elements'
@@ -133,10 +132,103 @@ export function SelectInput({
   )
 }
 
+/** The values a set starts with: a prefill or default joined by commas, split back. */
+const valuesOf = (defaultValue: string | undefined): readonly string[] =>
+  (defaultValue ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => value !== '')
+
 /**
- * A `multi-select` column keeps the browser's `<select>`: the Select draws one
- * choice, and a set of choices is not part of this change.
+ * The server's stand-in for a set of choices, until the island mounts: each
+ * chosen value as a chip, and one hidden input per value under the field's
+ * name, so a form served without its script still posts the set it starts on.
  */
+function ChipsSkeleton({
+  field,
+  values,
+}: {
+  readonly field: ResolvedFormField
+  readonly values: readonly string[]
+}): ReactElement {
+  const labelOf = (value: string): string =>
+    field.options?.find((option) => option.value === value)?.label ?? value
+  return (
+    <div
+      className={computeComboboxChipsClasses()}
+      aria-hidden="true"
+    >
+      {values.map((value) => (
+        <span
+          key={value}
+          className={computeComboboxChipClasses()}
+        >
+          {labelOf(value)}
+          <input
+            type="hidden"
+            name={field.name}
+            value={value}
+            disabled={field.conditionHidden === true}
+          />
+        </span>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * A set of choices — a `multi-select` column: the design system's combobox
+ * holding a set, each chosen value a
+ * removable chip (the `select` island, searchable, with chips). It submits each
+ * chosen value under the field's name, which the form's runtime gathers into a
+ * list as it gathers any repeated name.
+ */
+export function ChipsInput({
+  field,
+  defaultValue,
+  wrapper,
+}: {
+  readonly field: ResolvedFormField
+  readonly defaultValue: string | undefined
+  /** The wrapper's own class and markers, when the field has them (a user picker). */
+  readonly wrapper?: {
+    readonly className: string
+    readonly attributes: Readonly<Record<string, string>>
+  }
+}): ReactElement {
+  const values = valuesOf(defaultValue)
+  return (
+    <div
+      className={wrapper?.className ?? FIELD_WRAPPER_CLASS}
+      {...wrapper?.attributes}
+      {...fieldWrapperAttributes(field)}
+    >
+      <FieldLabel field={field} />
+      <div
+        data-island="select"
+        data-island-props={JSON.stringify({
+          options: field.options ?? [],
+          searchable: true,
+          multiple: true,
+          chips: true,
+          name: field.name,
+          defaultValues: values,
+          ariaLabel: field.label,
+          placeholder: field.placeholder,
+          disabled: field.conditionHidden === true,
+        })}
+      >
+        <ChipsSkeleton
+          field={field}
+          values={values}
+        />
+      </div>
+      <HelpText html={field.helpTextHtml} />
+    </div>
+  )
+}
+
+/** A `multi-select` column: a set of choices, drawn as {@link ChipsInput}. */
 export function MultiChoiceInput({
   field,
   defaultValue,
@@ -145,32 +237,10 @@ export function MultiChoiceInput({
   readonly defaultValue: string | undefined
 }): ReactElement {
   return (
-    <div
-      className={FIELD_WRAPPER_CLASS}
-      {...fieldWrapperAttributes(field)}
-    >
-      <FieldLabel field={field} />
-      <select
-        id={`field-${field.name}`}
-        data-component-type="select"
-        name={field.name}
-        required={field.required}
-        {...ariaRequired(field.required)}
-        disabled={field.conditionHidden}
-        defaultValue={defaultValue ?? ''}
-      >
-        <option value="">{field.placeholder}</option>
-        {(field.options ?? []).map((option) => (
-          <option
-            key={option.value}
-            value={option.value}
-          >
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <HelpText html={field.helpTextHtml} />
-    </div>
+    <ChipsInput
+      field={field}
+      defaultValue={defaultValue}
+    />
   )
 }
 
@@ -236,15 +306,18 @@ export function isDesignField(field: ResolvedFormField): boolean {
 }
 
 /**
- * Whether a form draws a field through the `form-field` island, and so needs
- * the island runtime: a date, or a choice of one (a single-select, a status, a
- * relationship, a standalone select, a single user). A cheap read of the
- * declared fields, before anything is resolved.
+ * Whether a form draws a field through an island, and so needs the island
+ * runtime: a date, a choice of one (a single-select, a status, a relationship,
+ * a standalone select, a user), a set (a multi-select), or a choice question
+ * of the one-question layout. A cheap read of the declared fields, before
+ * anything is resolved.
  */
 export function formNeedsFieldIslands(
-  form: Readonly<Pick<Form, 'fields'>>,
+  form: Readonly<Pick<Form, 'fields' | 'layout'>>,
   columnTypeOf: (column: string) => string | undefined
 ): boolean {
+  // A one-question form draws its choices as the radio group island.
+  const oneQuestion = form.layout === 'one-question'
   return form.fields.some((field) => {
     const f = field as {
       readonly kind?: string
@@ -253,15 +326,23 @@ export function formNeedsFieldIslands(
       readonly hidden?: boolean
     }
     if (f.hidden === true) return false
-    if (f.kind === 'standalone') return f.inputType === 'date' || f.inputType === 'select'
+    if (f.kind === 'standalone') {
+      return (
+        STANDALONE_DESIGN_TYPES.has(f.inputType ?? '') || (oneQuestion && f.inputType === 'radio')
+      )
+    }
     if (f.column === undefined) return false
     return DESIGN_COLUMN_TYPES.has(columnTypeOf(f.column) ?? '')
   })
 }
 
-/** The column types a form draws as the Select or the date picker. */
+/** The standalone input types a form draws through an island. */
+const STANDALONE_DESIGN_TYPES: ReadonlySet<string> = new Set(['date', 'select', 'multi-select'])
+
+/** The column types a form draws as the Select, the chip combobox or the date picker. */
 const DESIGN_COLUMN_TYPES: ReadonlySet<string> = new Set([
   'date',
+  'multi-select',
   'single-select',
   'status',
   'relationship',

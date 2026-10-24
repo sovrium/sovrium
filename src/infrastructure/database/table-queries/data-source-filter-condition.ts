@@ -9,8 +9,13 @@ import { sql } from 'drizzle-orm'
 import { likePatternOf } from '@/domain/kernel/sql/like-pattern'
 import { LIKE_ESCAPE_CHARACTER } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
+import {
+  isNotLoggedCreatorValue,
+  NOT_LOGGED_CREATOR_OPERATOR,
+} from '@/domain/models/app/tables/read-state-service'
 import { LIST_MEMBER_OPERATOR } from '@/domain/models/app/tables/user-list-field-service'
 import { emptyValueCondition, nonEmptyValueCondition } from './filter-operators'
+import { notLoggedCreatorFragment } from './logged-creator-fragment'
 import { listMemberFragment } from './server-operator-fragment'
 import type { DataFilter } from '@/domain/models/app/pages/components/data-source'
 import type { SQL } from 'drizzle-orm'
@@ -75,6 +80,11 @@ export function buildFilterCondition(filter: DataFilter): Readonly<SQL> {
 
   // `contains` on a list of people, rewritten by the read gate into membership.
   if ((operator as string) === LIST_MEMBER_OPERATOR) return listMemberFragment(field, value)
+  // A row its reader did not create, as the activity log records it: a
+  // conversation's New marker on a table that declares no `created-by` field.
+  if ((operator as string) === NOT_LOGGED_CREATOR_OPERATOR && isNotLoggedCreatorValue(value)) {
+    return notLoggedCreatorFragment(sanitizeTableName(filter.field), value)
+  }
 
   if (operator === 'contains') {
     // Case-folded on both sides: a bare `LIKE` is case-SENSITIVE on PostgreSQL
@@ -110,6 +120,10 @@ export function buildFilterCondition(filter: DataFilter): Readonly<SQL> {
  * Build an `IN (...)` clause from a literal or an array.
  *
  * - Empty array  → `1 = 0` (always-false predicate, returns zero rows)
+ * - No value     → `1 = 0` too: `undefined`, `null` or the empty text — what a
+ *   `$record.<field>` token naming an empty or unreadable list resolves to — is
+ *   an empty list, never a comparison with `''` (which a PostgreSQL integer
+ *   column refuses outright)
  * - Non-array    → `field = value` (single-value short-hand)
  * - Array        → `field IN ($1, $2, ...)` — one bound parameter per element
  *
@@ -124,5 +138,6 @@ function buildInClause(field: SqlIdentifier, value: unknown): Readonly<SQL> {
       sql.raw(', ')
     )})`
   }
+  if (value === undefined || value === null || value === '') return sql`1 = 0`
   return sql`${field} = ${bindValue(value)}`
 }

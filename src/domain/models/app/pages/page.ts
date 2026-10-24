@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { claimedPagePaths } from '@/domain/kernel/matching/localized-path'
 import { PageAccessSchema } from './access'
 import { PageCollectionSchema } from './collection'
 import { PageComponentsSchema } from './components'
@@ -20,6 +21,7 @@ import { MarkdownSchema } from './markdown'
 import { MetaSchema } from './meta'
 import { PageNameSchema } from './name'
 import { collectPageBindingViolations } from './page-binding-validation'
+import { findDuplicatePagePath } from './page-path-uniqueness-validation'
 import { PageParamsSchema } from './params'
 import { PagePathSchema } from './path'
 import { PageQuerySchema } from './query'
@@ -767,20 +769,30 @@ export const PagesSchema = Schema.Array(PageSchema).pipe(
   // node carries no JSON representation of its own.
   Schema.check(
     Schema.makeFilter((pages) => {
-      const conflicts = pages.flatMap((page) => {
+      const claims = claimedPagePaths(pages)
+      const conflicts = claims.flatMap(({ page, path }) => {
         if (page.contentDir?.index === undefined) return []
-        const basePath = deriveContentDirIndexBasePath(page.path)
+        const basePath = deriveContentDirIndexBasePath(path)
         // Path with no trailing dynamic segment degenerates naturally (no base
         // path to serve) — nothing to validate.
         if (basePath === undefined) return []
-        return pages
-          .filter((candidate) => candidate !== page && candidate.path === basePath)
+        return claims
+          .filter((candidate) => candidate.page !== page && candidate.path === basePath)
           .map(
             (candidate) =>
-              `page "${candidate.name}" (${candidate.path}) conflicts with the contentDir index base path of page "${page.name}" (${page.path})`
+              `page "${candidate.page.name}" (${candidate.path}) conflicts with the contentDir index base path of page "${page.name}" (${path})`
           )
       })
       return conflicts[0] ?? true
+    })
+  ),
+  // One address, one page: two pages at one path (trailing slash ignored, as
+  // the router compares) leave one unreachable. The issue points at the second
+  // page, so a report names the `$ref` file it was declared in.
+  Schema.check(
+    Schema.makeFilter((pages) => {
+      const duplicate = findDuplicatePagePath(pages)
+      return duplicate === undefined ? true : { path: [duplicate.index], issue: duplicate.message }
     })
   ),
   // Per-page cross-field rules: route-parameter bindings against `path`,

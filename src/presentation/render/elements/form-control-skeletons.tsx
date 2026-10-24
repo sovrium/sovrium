@@ -82,6 +82,12 @@ export interface ChoiceSelectSkeletonProps {
   readonly required: boolean
   /** True when a rule serves the field hidden: its value is neither validated nor sent. */
   readonly disabled: boolean
+  /** True when the value is fixed: the trigger says so with `aria-readonly`. */
+  readonly readOnly?: boolean
+  /** The ids of the sentences that describe the control (its help text). */
+  readonly describedBy?: string | undefined
+  /** The author's classes for the control, which then sizes it instead of the default size. */
+  readonly className?: string | undefined
 }
 
 const TRIGGER_CLASSES = cn(computeSelectTriggerClasses(), 'w-full')
@@ -98,9 +104,13 @@ export function ChoiceSelectSkeleton(props: ChoiceSelectSkeletonProps): ReactEle
         aria-disabled="true"
         aria-expanded="false"
         aria-haspopup="listbox"
-        className={TRIGGER_CLASSES}
+        {...(props.readOnly === true && { 'aria-readonly': 'true' })}
+        {...(props.describedBy === undefined ? {} : { 'aria-describedby': props.describedBy })}
+        className={
+          props.className === undefined ? TRIGGER_CLASSES : cn(TRIGGER_CLASSES, props.className)
+        }
         data-slot="select-trigger"
-        data-size="default"
+        {...(props.className === undefined && { 'data-size': 'default' })}
         data-component-type="select"
         data-name={props.name}
         {...(chosen === undefined && { 'data-placeholder': '' })}

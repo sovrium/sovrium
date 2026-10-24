@@ -217,6 +217,8 @@ const KNOWN_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   // `sovrium seed --remote`: seed the app the project's link file names, on the
   // signed-in cloud. A plain `sovrium seed` stays local, link or not.
   '--remote',
+  // `sovrium seed --baseline`: record what a reset puts back on each kept account.
+  '--baseline',
   // `sovrium changelog --list`.
   '--list',
   '--insecure-skip-checksum', // `sovrium update`: opt out of the fail-closed checksum

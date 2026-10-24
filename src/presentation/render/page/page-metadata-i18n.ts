@@ -111,6 +111,16 @@ function resolveBaseMeta(meta: Meta, currentLang: string, languages: Languages):
     ...(meta.keywords && {
       keywords: resolveTranslationPattern(meta.keywords, currentLang, languages),
     }),
+    // The addresses too: a `$t:` key in either never reaches the page as written.
+    ...(meta.canonical && {
+      canonical: resolveTranslationPattern(meta.canonical, currentLang, languages),
+    }),
+    ...(meta.openGraph?.url && {
+      openGraph: {
+        ...meta.openGraph,
+        url: resolveTranslationPattern(meta.openGraph.url, currentLang, languages),
+      },
+    }),
   }
 
   // Resolve og:site_name if present (either as direct property or in openGraph object)
@@ -125,7 +135,7 @@ function resolveBaseMeta(meta: Meta, currentLang: string, languages: Languages):
     return {
       ...resolvedMeta,
       openGraph: {
-        ...meta.openGraph,
+        ...resolvedMeta.openGraph,
         siteName: resolveTranslationPattern(meta.openGraph.siteName, currentLang, languages),
       },
     }

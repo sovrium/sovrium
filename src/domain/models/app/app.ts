@@ -51,6 +51,7 @@ import { NotificationsSchema } from './notifications'
 import { validateNotificationKinds } from './notifications/notifications-validation'
 import { PagesSchema } from './pages'
 import { validateAllComboboxChips } from './pages/combobox-chips-validation'
+import { validatePageAddresses } from './pages/localized-path-validation'
 import { validateAllPageAccessGroups } from './pages/page-access-validation'
 import { validateAllSelectEmptyOptions } from './pages/select-empty-option-validation'
 import { validateAllNativeSelects } from './pages/select-native-validation'
@@ -58,7 +59,6 @@ import { validateAllSelectOptionSources } from './pages/select-option-source-val
 import { validateAllSystemSourceReferences } from './pages/system-source-validation'
 import { PaletteSchema } from './palette'
 import { RedirectsSchema } from './redirects'
-import { validateAllRedirectRules } from './redirects/redirects-validation'
 import { SystemSourceCatalogSchema } from './system-sources'
 import { TablesSchema } from './tables'
 import { validateReadStateCountNames } from './tables/read-state-validation'
@@ -1039,11 +1039,11 @@ export const AppSchema = Schema.Struct({
       // `app.systemSources[]` entry — the offline `sovrium validate` win.
       const systemSourceError = validateAllSystemSourceReferences(app)
       if (systemSourceError !== true) return systemSourceError
-      // Redirect cross-validation: no `redirects[].from` may shadow a declared
-      // static page path — the redirect is evaluated first, so the page would be
-      // silently unreachable. Bundled here (not a new `Schema.filter`) for the
+      // Page addresses: per-language paths claim declared languages and distinct
+      // addresses, and no `redirects[].from` shadows a static page path (it is
+      // evaluated first). Bundled here (not a new `Schema.filter`) for the
       // deep-instantiation reason documented above.
-      const redirectError = validateAllRedirectRules(app)
+      const redirectError = validatePageAddresses(app)
       if (redirectError !== true) return redirectError
       // Link-namespace cross-validation: no page, form or redirect may claim a
       // path under a RESERVED NAMESPACE — `/l` short links, `/s` design-system

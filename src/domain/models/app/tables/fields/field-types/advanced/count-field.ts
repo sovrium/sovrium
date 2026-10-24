@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { ViewFiltersSchema } from '../../../views/filters'
+import { readerFilterRefusal } from '../../../views/reader-filter-validation'
 import { BaseFieldSchema } from '../base-field'
 
 export const CountFieldSchema = BaseFieldSchema.pipe(
@@ -51,7 +52,9 @@ export const CountFieldSchema = BaseFieldSchema.pipe(
         filters: { field: 'status', operator: 'equals', value: 'completed' },
       },
     ],
-  })
+  }),
+  // On the STRUCT so the refusal can name the field (see reader-filter-validation).
+  Schema.check(Schema.makeFilter((field) => readerFilterRefusal(field)))
 )
 
 /** @public */

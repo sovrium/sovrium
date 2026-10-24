@@ -55,12 +55,12 @@ jobs:
       matrix:
         include:
           - label: macOS arm64
-            runner: macos-14
+            runner: macos-15
             engine-target: darwin-arm64
             engine-file: sovrium-darwin-arm64
             rust-target: aarch64-apple-darwin
             bundles: app,dmg
-          # An INTEL runner. `macos-14` is Apple Silicon, and Rosetta 2 emulates
+          # An INTEL runner. `macos-15` is Apple Silicon, and Rosetta 2 emulates
           # SSE4.2 but not AVX, which Bun's darwin-x64 build uses unconditionally:
           # the engine dies on `sovrium init` with "CPU lacks AVX support" and an
           # illegal-instruction panic before the smoke test can prove anything.
@@ -120,7 +120,7 @@ jobs:
         run: rustup target add ${{ matrix.rust-target }}
 
       - name: Cache Rust build
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: desktop/src-tauri -> target
           key: ${{ matrix.rust-target }}
@@ -282,7 +282,7 @@ jobs:
 
       - name: Upload the bundles
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sovrium-desktop-${{ matrix.engine-target }}
           if-no-files-found: error

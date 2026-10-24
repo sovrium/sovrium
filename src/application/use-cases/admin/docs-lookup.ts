@@ -34,6 +34,7 @@
  * scaffold writes.
  */
 
+import { asWritten } from '@/application/use-cases/admin/docs-lookup-encoded-ast'
 import { schemaOptionAt } from '@/domain/models/app/design/schema-option-tree'
 import type { SchemaOption } from '@/domain/models/app/design/schema-option-tree'
 import type { SchemaNode } from '@/domain/models/app/design/type-introspection'
@@ -106,9 +107,13 @@ export const lookupConfigOption = (
   corpus: readonly DocsCorpusEntry[],
   astOfValue: (value: unknown) => SchemaNode | undefined
 ): ConfigOptionAnswer | undefined => {
-  const located = schemaOptionAt(root, path)
+  const written = asWritten(astOfValue)
+  const located = schemaOptionAt(written(root), path)
   if (located === undefined) return undefined
-  const owner = owningArticle(corpus, located.visited, astOfValue)
+  const owner = owningArticle(corpus, located.visited, (value) => {
+    const node = astOfValue(value)
+    return node === undefined ? undefined : written(node)
+  })
   return { path, option: located.option, ...(owner === undefined ? {} : { owner }) }
 }
 

@@ -105,10 +105,10 @@ export class ContentDirReader extends Context.Service<
      * app render-checksum untouched, so without this segment the entry would
      * survive the edit for as long as the process lives.
      *
-     * The scan passes NO `include` narrowing, and that is load-bearing rather
-     * than lazy: it must cover everything the render actually reads, and the
-     * sidebar lister has always listed the whole directory regardless of
-     * `include`. Narrowing here would leave a page whose sidebar changed but
+     * The scan covers the files `include` matches, and that is load-bearing:
+     * it must cover everything the render actually reads, and the article
+     * route, the sidebar and previous/next all read that one file set. A scan
+     * narrower than the sidebar would leave a page whose sidebar changed but
      * whose keyed corpus did not.
      */
     readonly corpusChecksum: (

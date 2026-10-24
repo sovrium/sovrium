@@ -22,6 +22,8 @@ docker run -d --name my-app -p 3000:3000 \
 
 `SOVRIUM_DATA_DIR` is what makes the volume useful. Sovrium writes to `./.sovrium` by default — inside the container that resolves to `/app/.sovrium`, not to your mount — so a volume without this variable persists nothing.
 
+The image runs as a non-root `sovrium` user, and a named volume like `my-app-data` takes that user's ownership when it is first created, so it works as written. A host directory mounted in its place (`-v /srv/my-app:/data`) keeps the ownership it has on the host, and Sovrium cannot write to it. Hand the directory to the image's user first: `docker run --rm --entrypoint id ghcr.io/sovrium/sovrium:latest` prints its uid and gid (`999` and `999` at the time of writing), then `sudo chown 999:999 /srv/my-app`. Alternatively, run the container as the directory's owner with `--user "$(id -u):$(id -g)"`.
+
 One secret is the whole list. The session-signing secret derives from `SOVRIUM_ENCRYPTION_KEY`, so there is no second value to generate, store or rotate in step with it.
 
 The key itself is optional — Sovrium generates one on first start and keeps it in the data directory. Passing it explicitly, as above, is the safer habit for a container: it stays correct even if the volume is later dropped, recreated or swapped for an external database. Generate it once and keep it wherever you keep your other deployment secrets, because a different key on the next `docker run` makes every stored connection token unreadable and, since the session-signing secret derives from it, signs every user out.

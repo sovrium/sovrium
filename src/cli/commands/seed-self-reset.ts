@@ -8,8 +8,9 @@
 /**
  * What only an `app/seed` reset does, on top of `sovrium seed --mode replace`:
  * empty every table of the app, remove the accounts the seed does not list and
- * every session, put each listed account back as the seed has it, and remove
- * the stored files nothing references once the seed is written.
+ * every session, return each account it keeps to its baseline and put each
+ * listed one back as the seed has it, and remove the stored files nothing
+ * references once the seed is written.
  *
  * Every write here is a raw statement, never a record program, for the reason
  * `--mode replace` deletes with raw SQL (`seed-write.ts`): a reset is one
@@ -34,12 +35,23 @@ import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { authTableRef, authUserTableRef } from '@/infrastructure/database/sql/dialect-sql'
 import { seedReportOf } from './seed-report'
 import { restoreHostAdmins, setCredentialPassword, type HostAdmin } from './seed-self-admins'
+import { readBaselines, type RecordedBaseline } from './seed-self-baseline'
 import {
   clearKeptSignInMaterial,
   clearRecordScopedRows,
+  clearUnlinkedOAuthResources,
   removeUnreferencedFiles,
 } from './seed-self-clear'
+import {
+  isKept,
+  readAccounts,
+  recordKeptBaselines,
+  resolveKeptListed,
+  restoreKeptBaselines,
+} from './seed-self-kept'
+import { rebuildOrganisation } from './seed-self-organisation'
 import { clearJunctions, countRows, deleteAllRows } from './seed-write'
+import type { KeptListed } from './seed-self-kept'
 import type { SeedPlan } from '@/application/use-cases/seed/seed-plan'
 import type { AppSeedReport } from '@/domain/models/api/automations/steps/app-seed'
 import type { App } from '@/domain/models/app'
@@ -76,21 +88,9 @@ export const emptyAppTables = (app: Readonly<App>): Promise<ReadonlyMap<string, 
   )
 }
 
-/** Every account, with its id and lower-cased email. */
-const readAccounts = async (): Promise<
-  readonly { readonly id: string; readonly email: string }[]
-> =>
-  (await executeRaw(db, sql`SELECT id, email FROM ${authUserTableRef()}`)).flatMap((row) =>
-    typeof row.email === 'string' ? [{ id: String(row.id), email: row.email.toLowerCase() }] : []
-  )
-
 /** The accounts a reset removes: neither listed nor one of the host's administrators. */
-const unlistedAccounts = async (keep: ReadonlySet<string>, admins: readonly HostAdmin[]) => {
-  const kept = new Set(admins.map((admin) => admin.id))
-  return (await readAccounts()).filter(
-    (account) => !keep.has(account.email) && !kept.has(account.id)
-  )
-}
+const unlistedAccounts = async (kept: KeptListed, admins: readonly HostAdmin[]) =>
+  (await readAccounts()).filter((account) => !isKept(account, kept, admins))
 
 /** How many sessions there are. */
 const countSessions = async (): Promise<number> =>
@@ -117,12 +117,11 @@ const countSessions = async (): Promise<number> =>
  */
 export const pruneAccountsAndSessions = async (
   app: Readonly<App>,
-  listed: readonly SeedAccount[],
+  kept: KeptListed,
   admins: readonly HostAdmin[]
 ): Promise<{ readonly accounts: number; readonly sessions: number }> => {
-  const keep = new Set(listed.map((account) => account.email.toLowerCase()))
   const sessions = await countSessions()
-  const unlisted = await unlistedAccounts(keep, admins)
+  const unlisted = await unlistedAccounts(kept, admins)
   const appTables = (app.tables ?? []).map((table) =>
     resolvePurgeTableAuthorship(app.tables, table.name)
   )
@@ -181,9 +180,9 @@ const countRemovals = async (
   listed: readonly SeedAccount[],
   admins: readonly HostAdmin[]
 ): Promise<{ readonly accounts: number; readonly sessions: number }> => {
-  const keep = new Set(listed.map((account) => account.email.toLowerCase()))
+  const kept = await resolveKeptListed(listed, await readBaselines())
   const sessions = await countSessions()
-  const unlisted = await unlistedAccounts(keep, admins)
+  const unlisted = await unlistedAccounts(kept, admins)
   return { accounts: unlisted.length, sessions }
 }
 
@@ -271,37 +270,62 @@ const planReset = async (input: ResetInput): Promise<AppSeedReport> => {
 }
 
 /**
+ * Return every account the reset keeps to its baseline — or, with none, to its
+ * password and Cloud link — then to the name, role and password the file or
+ * the host gives it; remove the OAuth resources no kept client links to; and
+ * rebuild the organisation. Answers the baselines that applied, by account id.
+ */
+const restoreKeptAccounts = async (
+  input: ResetInput,
+  baselines: ReadonlyMap<string, RecordedBaseline>,
+  kept: KeptListed
+): Promise<ReadonlyMap<string, RecordedBaseline>> => {
+  const { accounts } = input.folder
+  await clearKeptSignInMaterial()
+  const applied = await restoreKeptBaselines(baselines, kept, input.admins)
+  await restoreListedAccounts(
+    accounts.map((account) => ({ ...account, password: restoredPassword(account) })),
+    input.admins
+  )
+  await restoreHostAdmins(input.admins, accounts)
+  await clearUnlinkedOAuthResources()
+  await rebuildOrganisation(input.app, accounts, input.admins)
+  return applied
+}
+
+/**
  * Bring the app back to its seed, in order: empty every table; remove the
- * accounts `users.yaml` does not list and every session; restore each listed
- * account; seed; then remove the files nothing references. An app with no
- * accounts file keeps its accounts and sessions, and one with no seed folder is
- * only emptied.
+ * accounts `users.yaml` does not list and every session; return each kept
+ * account to its baseline, then to the name, role and password the file or the
+ * host gives it; seed; record the kept accounts' baselines; then remove the
+ * files nothing references. An app with no accounts file keeps its accounts
+ * and sessions, and one with no seed folder is only emptied.
  */
 export const resetApp = async (input: ResetInput): Promise<AppSeedReport> => {
   if (input.dryRun) return planReset(input)
   const held = await emptyAppTables(input.app)
   await clearRecordScopedRows(input.app)
   const { accountsFile, accounts } = input.folder
+  const baselines = await readBaselines()
+  const kept = await resolveKeptListed(accounts, baselines)
   const removals = accountsFile
-    ? await pruneAccountsAndSessions(input.app, accounts, input.admins)
+    ? await pruneAccountsAndSessions(input.app, kept, input.admins)
     : { accounts: 0, sessions: 0 }
-  if (accountsFile) {
-    await clearKeptSignInMaterial()
-    await restoreListedAccounts(
-      accounts.map((account) => ({ ...account, password: restoredPassword(account) })),
-      input.admins
-    )
-    await restoreHostAdmins(input.admins, accounts)
-  }
-  if (input.seedDir === undefined) return reportOf(input, held, [], { ...removals, files: 0 })
-  const lines = await input.seed({
-    app: input.silent,
-    plan: input.plan,
-    accounts,
-    mode: 'replace',
-    seedDir: input.seedDir,
-    dryRun: false,
-  })
-  const files = await removeUnreferencedFiles()
+  const applied = accountsFile
+    ? await restoreKeptAccounts(input, baselines, kept)
+    : new Map<string, RecordedBaseline>()
+  const lines =
+    input.seedDir === undefined
+      ? []
+      : await input.seed({
+          app: input.silent,
+          plan: input.plan,
+          accounts,
+          mode: 'replace',
+          seedDir: input.seedDir,
+          dryRun: false,
+        })
+  if (accountsFile) await recordKeptBaselines(accounts, input.admins, applied)
+  const files = input.seedDir === undefined ? 0 : await removeUnreferencedFiles()
   return reportOf(input, held, lines, { ...removals, files })
 }

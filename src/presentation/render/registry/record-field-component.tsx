@@ -32,6 +32,7 @@ import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { applyProsePartClasses } from '@/presentation/render/markdown/prose-part-classes'
 import { formatRecordValue, storedValueText } from '@/presentation/render/props/record-value-format'
 import { islandLoadingLabel, islandUiStrings } from './island-loading-label'
+import { ATTACHMENT_FIELD_TYPES, renderAttachmentLinks } from './record-attachment-links'
 import { islandFallback, renderSpecimenDash } from './specimen-island-states'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -85,11 +86,6 @@ function resolveChrome(props: Record<string, unknown>, className: unknown): Reco
   }
 }
 
-const ATTACHMENT_FIELD_TYPES = new Set(['attachment', 'single-attachment', 'multiple-attachments'])
-
-/** The built-in `system` bucket, used when the bound column declares no `bucket`. */
-const SYSTEM_BUCKET = 'system'
-
 /** Look up the declared field from the bound table's schema. */
 function resolveField(
   tables: Tables | undefined,
@@ -102,50 +98,15 @@ function resolveField(
 }
 
 /**
- * Resolve the download bucket for an attachment column: the bucket DECLARED on
- * the column, else the built-in `system` — never the app's first declared
- * bucket, which is the form-upload path's fallback.
+ * Render the attachment family read-only, one download link per file; an
+ * empty value draws the empty dash every other empty field draws.
  */
-function resolveBucket(field: { readonly bucket?: unknown } | undefined): string {
-  const bucket = field?.bucket
-  return typeof bucket === 'string' && bucket.length > 0 ? bucket : SYSTEM_BUCKET
-}
-
-/** A single attachment metadata shape ({ key, filename } JSONB or string key). */
-interface AttachmentValue {
-  readonly key?: string
-  readonly filename?: string
-  readonly name?: string
-  readonly url?: string
-}
-
-/** Build the read-only download URL for a stored attachment key. */
-function attachmentHref(value: AttachmentValue, bucket: string): string | undefined {
-  if (typeof value.url === 'string' && value.url.length > 0) return value.url
-  if (typeof value.key === 'string' && value.key.length > 0) {
-    return `/api/buckets/${bucket}/files/${value.key}`
-  }
-  return undefined
-}
-
-/** Normalise an attachment field value to a list of attachment objects. */
-function toAttachmentList(value: unknown): readonly AttachmentValue[] {
-  if (Array.isArray(value)) {
-    // `multiple-attachments` stores an array of bare storage keys; the read
-    // path may also hand back an array of enriched objects.
-    return value.flatMap((v): readonly AttachmentValue[] => {
-      if (typeof v === 'string' && v.length > 0) return [{ key: v }]
-      return typeof v === 'object' && v !== null ? [v as AttachmentValue] : []
-    })
-  }
-  if (typeof value === 'object' && value !== null) return [value as AttachmentValue]
-  if (typeof value === 'string' && value.length > 0) return [{ key: value }]
-  return []
-}
-
-/** Render the attachment family read-only as a list of download links. */
-function renderAttachment(chrome: RecordFieldChrome, value: unknown, bucket: string): ReactElement {
-  const items = toAttachmentList(value)
+function renderAttachment(
+  chrome: RecordFieldChrome,
+  value: unknown,
+  field: { readonly bucket?: unknown } | undefined
+): ReactElement {
+  const links = renderAttachmentLinks(value, field)
   return (
     <div
       id={chrome.id}
@@ -154,21 +115,7 @@ function renderAttachment(chrome: RecordFieldChrome, value: unknown, bucket: str
       data-component="record-field"
       data-component-type="record-field"
     >
-      {items.map((item, i) => {
-        const href = attachmentHref(item, bucket)
-        const label = item.filename ?? item.name ?? item.key ?? 'file'
-        return href ? (
-          <a
-            key={i}
-            href={href}
-            className="text-primary underline"
-          >
-            {label}
-          </a>
-        ) : (
-          <span key={i}>{label}</span>
-        )
-      })}
+      {links ?? <span data-slot="record-field-empty">—</span>}
     </div>
   )
 }
@@ -300,7 +247,7 @@ function renderStoredValue(
 
   if (fieldType === 'rich-text') return renderRichText(chrome, value, designStyles?.parts)
   if (fieldType !== undefined && ATTACHMENT_FIELD_TYPES.has(fieldType)) {
-    return renderAttachment(chrome, value, resolveBucket(field))
+    return renderAttachment(chrome, value, field)
   }
   return renderPlainText(chrome, value, {
     table: tables?.find((t) => t.name === tableName),

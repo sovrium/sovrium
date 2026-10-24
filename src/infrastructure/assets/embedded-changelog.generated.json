@@ -3,6 +3,663 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.43.0",
+      "date": "2026-10-24",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.42.0...v0.43.0",
+      "sections": [
+        {
+          "kind": "features",
+          "heading": "Features",
+          "entries": [
+            {
+              "scope": "admin-console",
+              "text": "add a Show routine runs switch to the run history"
+            },
+            {
+              "scope": "library",
+              "text": "add \"Download my data\" to the account settings block"
+            },
+            {
+              "scope": "automations",
+              "text": "hide routine runs from the admin run history by default"
+            },
+            {
+              "scope": "tables",
+              "text": "draw a data grid's caption in its bottom bar"
+            },
+            {
+              "scope": "automations",
+              "text": "run each code step on its own worker thread so a busy step cannot stall the server"
+            },
+            {
+              "scope": "library",
+              "text": "add a scheduled email broadcast recipe"
+            },
+            {
+              "scope": "automations",
+              "text": "send bulk mail with one-click unsubscribe, suppression, bounce intake and campaign counts"
+            },
+            {
+              "scope": "server",
+              "text": "frame a hosted preview only from the origins you name, behind a preview token"
+            },
+            {
+              "scope": "library",
+              "text": "add points, leaderboard and paid membership entries"
+            },
+            {
+              "scope": "automations",
+              "text": "build an .ics invite for one event and attach it to an email"
+            },
+            {
+              "scope": "automations",
+              "text": "compute record figures in the database from a workflow"
+            },
+            {
+              "scope": "tables",
+              "text": "add a day-relative-time-seconds format and draw every relative stamp as a time element"
+            },
+            {
+              "scope": "automations",
+              "text": "edit and moderate a record's comments from a workflow"
+            },
+            {
+              "scope": "automations",
+              "text": "run a machine session webhook as the system when its key caller asks"
+            },
+            {
+              "scope": "automations",
+              "text": "answer 304 to a webhook pull whose rendered answer has not changed"
+            },
+            {
+              "scope": "automations",
+              "text": "keep no run row for a scheduled run that succeeds under history none"
+            },
+            {
+              "scope": "automations",
+              "text": "add history 'none' and a system run for machine session webhooks"
+            },
+            {
+              "scope": "automations",
+              "text": "declare comment update and moderate, calendar exportIcs and record aggregate"
+            },
+            {
+              "scope": "telemetry",
+              "text": "count each automation run's statements, transactions and catalog lookups"
+            },
+            {
+              "scope": "cli",
+              "text": "append a new page to a TypeScript config's pages array"
+            },
+            {
+              "scope": "pages",
+              "text": "serve, pair and redirect a page's translated slugs"
+            },
+            {
+              "scope": "records",
+              "text": "let a record update replace a many-to-many field's links"
+            },
+            {
+              "scope": "pages",
+              "text": "give a page a translated path in each language"
+            }
+          ]
+        },
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "forms",
+              "text": "size a hosted form's Select by its input classes"
+            },
+            {
+              "scope": "forms",
+              "text": "point a hosted form's island imports at the hashed entry"
+            },
+            {
+              "scope": "pages",
+              "text": "show a date rollup as its day on every database"
+            },
+            {
+              "scope": "forms",
+              "text": "draw the endpoint form's select and the multi-person picker with the design-system Select"
+            },
+            {
+              "scope": "design-system",
+              "text": "refuse a reshaped board that carries no export stamps"
+            },
+            {
+              "scope": "admin-console",
+              "text": "show the submissions inbox note in the grid's bottom bar"
+            },
+            {
+              "scope": "pages",
+              "text": "open a switch mirrored in the page address in the state the address names"
+            },
+            {
+              "scope": "admin-console",
+              "text": "draw the design system pages' titles at the console's page-title size"
+            },
+            {
+              "scope": "cli",
+              "text": "reload a linked config file saved while start --watch was still reading it"
+            },
+            {
+              "scope": "types",
+              "text": "make a misspelled automation step fail the TypeScript check of an app config"
+            },
+            {
+              "scope": "cli",
+              "text": "say that the migrations are embedded when the binary reports"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a record's text on a design board the way the served page does"
+            },
+            {
+              "scope": "admin-console",
+              "text": "draw no toolbar above a link's one-row definition table"
+            },
+            {
+              "scope": "library",
+              "text": "draw the page-header block's title at the size of other page headings"
+            },
+            {
+              "scope": "admin-console",
+              "text": "name what failed first in console read errors"
+            },
+            {
+              "scope": "automations",
+              "text": "warn when a session webhook answers with a shared cache directive"
+            },
+            {
+              "scope": "migrations",
+              "text": "boot after a computed field becomes a stored one under a new name"
+            },
+            {
+              "scope": "forms",
+              "text": "draw a hosted form's multi-select and one-question choices with the design system"
+            },
+            {
+              "scope": "admin",
+              "text": "offer Retry when the API keys list fails to load, and pair a failed run's report and Retry as a failed grid does"
+            },
+            {
+              "scope": "admin",
+              "text": "name an account's sign-in methods in words on its console page"
+            },
+            {
+              "scope": "tables",
+              "text": "leave the grid pager's summary empty when the grid holds no rows"
+            },
+            {
+              "scope": "admin",
+              "text": "drop the \"report it\" sentence from the console error page when the failure has a known fix"
+            },
+            {
+              "scope": "admin",
+              "text": "show \"Not yet claimed\" for an account nobody has claimed instead of Active"
+            },
+            {
+              "scope": "migrations",
+              "text": "boot after renaming a rollup, lookup or computed field"
+            },
+            {
+              "scope": "admin",
+              "text": "name a many-to-many link's records in the console records grid"
+            },
+            {
+              "scope": "ai",
+              "text": "let a chat figure run over a field a per-record grant opens"
+            },
+            {
+              "scope": "agents",
+              "text": "give a step the server ran during a chat turn a readable name in the conversation viewer"
+            },
+            {
+              "scope": "agents",
+              "text": "name the built-in tools in the operator's language on the console"
+            },
+            {
+              "scope": "forms",
+              "text": "show a hosted form's date-and-time defaults in the field's time zone"
+            },
+            {
+              "scope": "connections",
+              "text": "count HTTP, webhook and AI steps as uses and lead a failed run to its connection"
+            },
+            {
+              "scope": "connections",
+              "text": "read a static-secret connection whose credential variable is unset as not-configured"
+            },
+            {
+              "scope": "tables",
+              "text": "confirm a CSV import with the plain \"N records imported\" line"
+            },
+            {
+              "scope": "pages",
+              "text": "load the island runtime once when a client-side swap imports a new island"
+            },
+            {
+              "scope": "forms",
+              "text": "warn that disabledWhen on a hosted form field has no effect"
+            },
+            {
+              "scope": "connections",
+              "text": "name an unconfigured connection by its label in a skipped run's reason"
+            },
+            {
+              "scope": "auth",
+              "text": "drop the \"Or with your email\" separator when Sovrium Cloud sign-in is off"
+            },
+            {
+              "scope": "admin",
+              "text": "offer a signed-in member Go to the app and Sign out on the console 404"
+            },
+            {
+              "scope": "admin",
+              "text": "address an account page by the account's id instead of its email"
+            },
+            {
+              "scope": "seo",
+              "text": "list the rows an anonymous visitor may read under a row-level rule in the sitemap"
+            },
+            {
+              "scope": "pages",
+              "text": "resolve a comments component's $record.id against the page record"
+            },
+            {
+              "scope": "seo",
+              "text": "leave a canonical or sharing address out unless it is a web address"
+            },
+            {
+              "scope": "seo",
+              "text": "resolve record values in share descriptions and fall back to the page description"
+            },
+            {
+              "scope": "cli",
+              "text": "write the interactive-component bundle into a static build"
+            },
+            {
+              "scope": "pages",
+              "text": "keep the New row entry on a phone once the grid holds rows"
+            },
+            {
+              "scope": "cli",
+              "text": "warn about a page whose markdown file does not exist"
+            },
+            {
+              "scope": "cli",
+              "text": "reload a config saved while start --watch was still reading it"
+            },
+            {
+              "scope": "cli",
+              "text": "record the config history of a project opened through a symbolic link"
+            },
+            {
+              "scope": "automations",
+              "text": "skip a run whose token-grant credential reads an unset variable"
+            },
+            {
+              "scope": "cli",
+              "text": "draw and play a record page's view from its record on the Prototype board"
+            },
+            {
+              "scope": "automations",
+              "text": "select only the listed fields in a record list step"
+            },
+            {
+              "scope": "cli",
+              "text": "draw a grid's seeded cells with their column format in the page export"
+            },
+            {
+              "scope": "migrations",
+              "text": "remove the unpacked migrations folder after each use"
+            },
+            {
+              "scope": "migrations",
+              "text": "keep the foreign keys of a loop of links on SQLite"
+            },
+            {
+              "scope": "records",
+              "text": "filter a many-to-many field through its links"
+            },
+            {
+              "scope": "cli",
+              "text": "play links, tabs, menus, selects, sign-in and automation buttons on the Prototype board"
+            },
+            {
+              "scope": "records",
+              "text": "answer 409 when deleting a record other rows still link to"
+            },
+            {
+              "scope": "cli",
+              "text": "draw slug and content-folder pages at an address they serve"
+            },
+            {
+              "scope": "tables",
+              "text": "read a view declared with a numeric id by that number"
+            },
+            {
+              "scope": "records",
+              "text": "judge a computed-field write after every permission check"
+            },
+            {
+              "scope": "cli",
+              "text": "describe the config as it is written in the emitted types, and look options up on that side"
+            },
+            {
+              "scope": "install",
+              "text": "stage the binary and rename it into place, so an upgrade never rewrites the running file"
+            },
+            {
+              "scope": "records",
+              "text": "refuse a write to a computed field on every update"
+            },
+            {
+              "scope": "cli",
+              "text": "match an unstamped page drawing by position only when its shape is unchanged"
+            },
+            {
+              "scope": "seed",
+              "text": "a reset restores OAuth clients, connections and the organisation, and clears small settings"
+            },
+            {
+              "scope": "cli",
+              "text": "carry the rules drawn on a new page's nodes, and keep a re-imported canvas unchanged"
+            },
+            {
+              "scope": "seed",
+              "text": "a reset's baseline can no longer be changed from inside the app"
+            },
+            {
+              "scope": "docker",
+              "text": "let the image's non-root user write its data directory"
+            },
+            {
+              "scope": "seed",
+              "text": "a reset returns kept accounts to their baseline instead of stripping them"
+            },
+            {
+              "scope": "pages",
+              "text": "open date fields prefilled in edit forms on PostgreSQL"
+            },
+            {
+              "scope": "seed",
+              "text": "write no activity-log entry for the rows a seed run writes"
+            },
+            {
+              "scope": "cli",
+              "text": "keep in-page links and popovers working on a multi-view prototype board"
+            },
+            {
+              "scope": "cli",
+              "text": "judge the prototype board's writes by the app's own write gates"
+            },
+            {
+              "scope": "pages",
+              "text": "let an edit form save a column whose name ends in \\_\\_clear"
+            },
+            {
+              "scope": "cli",
+              "text": "keep every id on the stateful prototype board unique across its views"
+            },
+            {
+              "scope": "cli",
+              "text": "play the stateful prototype board under the role's read and write rules"
+            },
+            {
+              "scope": "pages",
+              "text": "keep client-side navigation inside a console served at the root path"
+            },
+            {
+              "scope": "pages",
+              "text": "read a conversation redraw's opened position strictly"
+            },
+            {
+              "scope": "cli",
+              "text": "never leave a rewritten config more open than it was, even mid-write"
+            },
+            {
+              "scope": "pages",
+              "text": "an auto-saved edit form keeps links made meanwhile on a list it left alone"
+            },
+            {
+              "scope": "pages",
+              "text": "keep the language and trailing-slash redirects on the site"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a conversation's New marker in place while the reader is on it"
+            },
+            {
+              "scope": "pages",
+              "text": "keep links made meanwhile when a save leaves a link list untouched"
+            },
+            {
+              "scope": "tables",
+              "text": "refuse a count, rollup or lookup filter that compares to $currentUser"
+            },
+            {
+              "scope": "records",
+              "text": "fill the online and offline user directory up to its limit"
+            },
+            {
+              "scope": "cli",
+              "text": "refuse a page data source sorting or filtering on an undeclared field, in a dry run too"
+            },
+            {
+              "scope": "cli",
+              "text": "keep the base path in a static build's canonical and sitemap URLs"
+            },
+            {
+              "scope": "cli",
+              "text": "refuse an unreadable seed list file on a page export, naming it"
+            },
+            {
+              "scope": "cli",
+              "text": "keep a config's permission bits when design-system import rewrites it"
+            },
+            {
+              "scope": "design",
+              "text": "refuse svw, dvw, lvw, none and lh as spacing step names"
+            },
+            {
+              "scope": "cli",
+              "text": "publish the built sitemap at the site's own origin and languages"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a contentDir include pattern inside its directory"
+            },
+            {
+              "scope": "pages",
+              "text": "never send a password reset link to a wildcard page"
+            },
+            {
+              "scope": "cli",
+              "text": "write each language's pages once, at their own address, in a static build"
+            },
+            {
+              "scope": "design",
+              "text": "mint the info status colour on the default theme"
+            },
+            {
+              "scope": "pages",
+              "text": "revalidate a page whose output differs by session"
+            },
+            {
+              "scope": "pages",
+              "text": "read a graph or matrix entry's view for the visitor"
+            },
+            {
+              "scope": "pages",
+              "text": "escape a reader value written inside a JSON filter"
+            },
+            {
+              "scope": "pages",
+              "text": "match no row for a reader email the account does not have"
+            },
+            {
+              "scope": "tables",
+              "text": "read contains on a list of people as membership in views and counts"
+            },
+            {
+              "scope": "design",
+              "text": "honour replace: true on the sidebar box and the tab strip and panels"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a record's links when a save that removed one is refused"
+            },
+            {
+              "scope": "design",
+              "text": "refuse spacing step names that would redefine a size utility"
+            },
+            {
+              "scope": "pages",
+              "text": "make a contentDir sidebar list only the files include matches"
+            },
+            {
+              "scope": "pages",
+              "text": "refuse two pages declaring the same address"
+            },
+            {
+              "scope": "pages",
+              "text": "name a custom 404 page's favicon from the site root at any depth"
+            },
+            {
+              "scope": "pages",
+              "text": "send a page form's password reset link to the app's own page"
+            },
+            {
+              "scope": "pages",
+              "text": "revalidate a page naming the reader through a typed reference"
+            },
+            {
+              "scope": "tables",
+              "text": "resolve the reader inside a view filter's list of values"
+            },
+            {
+              "scope": "pages",
+              "text": "link a stored file only through a web address"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a many-to-many field on an edit form as the multi-value picker"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a phone-rows item's links out of the button that opens its row"
+            },
+            {
+              "scope": "pages",
+              "text": "resolve translation keys in a page's canonical and sharing address"
+            },
+            {
+              "scope": "pages",
+              "text": "let a list nested in another list's row read its own records"
+            },
+            {
+              "scope": "i18n",
+              "text": "never prefix a page's language twice in its alternates"
+            },
+            {
+              "scope": "tables",
+              "text": "resolve the reader in a view's filters"
+            },
+            {
+              "scope": "pages",
+              "text": "resolve the reader in a sidebar's fetched source query"
+            },
+            {
+              "scope": "pages",
+              "text": "thin chart category labels to the width they are drawn in"
+            },
+            {
+              "scope": "pages",
+              "text": "order a chart's number categories counting up"
+            },
+            {
+              "scope": "pages",
+              "text": "read many-to-many links on a page bound to one record"
+            },
+            {
+              "scope": "pages",
+              "text": "match a record visibility gate naming the reader"
+            },
+            {
+              "scope": "pages",
+              "text": "format a phone-rows item's title like its cell"
+            },
+            {
+              "scope": "pages",
+              "text": "draw the pager on a grid that declares no pagination"
+            },
+            {
+              "scope": "pages",
+              "text": "draw each file of a multiple-attachments field as its own link"
+            },
+            {
+              "scope": "pages",
+              "text": "pre-fill a text default that merely starts with a dollar sign"
+            },
+            {
+              "scope": "pages",
+              "text": "honour a kanban card child's record visibility gate"
+            }
+          ]
+        },
+        {
+          "kind": "performance",
+          "heading": "Performance Improvements",
+          "entries": [
+            {
+              "scope": "cli",
+              "text": "write only the reached part of the island bundle into a static build"
+            },
+            {
+              "scope": "ai",
+              "text": "read a chat reader's row grants once per turn"
+            },
+            {
+              "scope": "activity",
+              "text": "read a reader's row grants once when opening an activity entry"
+            },
+            {
+              "scope": "buckets",
+              "text": "compare storage keys without splitting them into characters"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a sidebar's fetched entries on screen across a client-side swap"
+            },
+            {
+              "scope": "records",
+              "text": "narrow the mention picker's directory read to people whose role could read the record"
+            },
+            {
+              "scope": "telemetry",
+              "text": "leave the health route out of performance sampling"
+            },
+            {
+              "scope": "automations",
+              "text": "stop re-reading the automation definition on every scheduled fire"
+            },
+            {
+              "scope": "records",
+              "text": "cache table columns per process and read without a transaction"
+            },
+            {
+              "scope": "records",
+              "text": "narrow the user directory to who is online in one query"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.42.0",
       "date": "2026-10-23",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.41.0...v0.42.0",

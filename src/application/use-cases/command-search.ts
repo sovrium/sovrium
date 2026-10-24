@@ -15,6 +15,7 @@ import { loadReadablePageDocuments } from '@/application/use-cases/page-search-c
 import { loadCurrentUserContext } from '@/application/use-cases/tables/permissions/row-level-enforcement'
 import { rowRuleScopeOf } from '@/application/use-cases/tables/permissions/row-rule-chain-matches'
 import { tableEffectiveRoles } from '@/application/use-cases/tables/user-groups'
+import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { searchPageDocuments } from '@/domain/models/app/pages/page-search-corpus-service'
@@ -127,11 +128,10 @@ const buildDetailPathMap = (app: App): ReadonlyMap<string, string> => {
     )
     const allSources = [page.dataSource, ...componentSources]
     return allSources.flatMap((source) =>
-      // A system detail-endpoint binding (`{ system }`) carries its own endpoint
-      // and is NOT a table→detail-path mapping, so only DB-table sources (those
-      // with a `table` key) populate the detail-path map.
-      source && 'table' in source && source.mode === 'single' && typeof page.path === 'string'
-        ? ([[source.table, page.path]] as const)
+      // A system detail-endpoint binding (`{ system }`) is no table→detail-path mapping, so
+      // only DB-table sources populate the map; a per-language path links its first address.
+      source && 'table' in source && source.mode === 'single'
+        ? ([[source.table, primaryPagePath(page.path)]] as const)
         : []
     )
   })

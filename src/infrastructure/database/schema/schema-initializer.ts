@@ -36,6 +36,7 @@ import {
   syncForeignKeyConstraints,
 } from '../schema-migration'
 import { openSqliteDdlDatabase, runSqliteSchemaTransaction } from '../sql/dialect-ddl'
+import { withFreshTableColumns } from '../sql/dialect-introspection'
 import {
   tableExists,
   executeSQLStatements,
@@ -192,7 +193,7 @@ type CreateMigrateTablesConfig = {
   readonly hasAuthConfig: boolean
 }
 
-/** Create or migrate each table in sorted order */
+/** Create or migrate each table in order; SQLite keeps a loop's keys inline (checked on write) */
 const createMigrateTables = (
   config: CreateMigrateTablesConfig
 ): Effect.Effect<void, SQLExecutionError, never> =>
@@ -218,7 +219,7 @@ const createMigrateTables = (
         tableUsesView,
         tablePrimaryKeyTypes,
         previousSchema,
-        skipForeignKeys: circularTables.has(table.name),
+        skipForeignKeys: circularTables.has(table.name) && !isSqliteRuntime(),
         hasAuthConfig,
       })
     }
@@ -610,8 +611,7 @@ const initializeSchemaInternal = (
 /**
  * Initialize database schema from app configuration
  *
- * Public API that handles errors internally to maintain backward compatibility.
- * Configuration errors are propagated, other errors are logged.
+ * Configuration errors propagate, others are wrapped; cached column lists are reset around it.
  *
  * Propagated errors:
  * - AuthConfigRequiredForUserFields: auth not configured but user fields used
@@ -625,7 +625,7 @@ export const initializeSchema = (
   app: App,
   options: SchemaInitOptions = {}
 ): Effect.Effect<void, AuthConfigRequiredForUserFields | SchemaInitializationError> =>
-  initializeSchemaInternal(app, options).pipe(
+  withFreshTableColumns(initializeSchemaInternal(app, options)).pipe(
     Effect.catch(
       (error): Effect.Effect<void, AuthConfigRequiredForUserFields | SchemaInitializationError> => {
         // Re-throw auth config errors - these are fatal configuration issues

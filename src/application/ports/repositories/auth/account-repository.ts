@@ -6,6 +6,7 @@
  */
 
 import { Context, Data } from 'effect'
+import type { EmailSuppressionEntry } from '@/application/ports/repositories/automations/email-deliverability-repository'
 import type { Effect } from 'effect'
 
 /**
@@ -310,6 +311,11 @@ export class AccountRepository extends Context.Service<
       userId: string,
       email: string
     ) => Effect.Effect<AccountAiFootprint, AccountDatabaseError>
+
+    /** The suppressions of the caller's address (compared lower-cased), newest first. */
+    readonly loadEmailSuppressions: (
+      email: string
+    ) => Effect.Effect<readonly EmailSuppressionEntry[], AccountDatabaseError>
 
     /** Load the caller's favorites (not removed) and recent items, by `user_id`. */
     readonly loadEntityLists: (

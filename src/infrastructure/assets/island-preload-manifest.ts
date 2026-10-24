@@ -148,7 +148,7 @@ const STATIC_IMPORT_RE =
   /(?:^|[;}\s])(?:import|export)\s*(?:[\w*{}\s,$]*?\s*from\s*)?["']([^"']+)["']/g
 
 /** Resolve `./sibling.js` against the directory of `fromPath`, both relative. */
-function resolveSibling(fromPath: string, specifier: string): string {
+export function resolveSibling(fromPath: string, specifier: string): string {
   const dir = fromPath.includes('/') ? fromPath.slice(0, fromPath.lastIndexOf('/')) : ''
   const segments = [...dir.split('/').filter(Boolean), ...specifier.split('/')]
   const stack = segments.reduce<readonly string[]>((acc, segment) => {
@@ -171,7 +171,7 @@ function resolveSibling(fromPath: string, specifier: string): string {
  * — a missing preload link degrades to today's behaviour, while a throw here
  * would take a page render with it.
  */
-function collectStaticClosure(
+export function collectStaticClosure(
   reader: IslandChunkReader,
   start: string
 ): Promise<ReadonlySet<string>> {

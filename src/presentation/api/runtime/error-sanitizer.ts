@@ -234,9 +234,9 @@ function mapTaggedError(errorTag: string, actualError: ErrorObject): SanitizedEr
  *
  * `foreign-key` and `not-null` join `check` on `VALIDATION_ERROR`: all three
  * mean "the database rejected the caller's VALUE against a declared rule about
- * that value", so all three are caller error. `unique` keeps `CONFLICT` because
- * a uniqueness collision is a clash with existing state rather than malformed
- * input.
+ * that value", so all three are caller error. `unique` and `still-referenced`
+ * (a delete of a row others still link to) answer `CONFLICT`: a clash with
+ * existing state rather than malformed input.
  *
  * `not-null` had been left at `INTERNAL_ERROR`. A caller who sends an explicit
  * `null` for a field the config declares required passes the request-level
@@ -244,13 +244,13 @@ function mapTaggedError(errorTag: string, actualError: ErrorObject): SanitizedEr
  * the column instead, so the write answered 500 on both dialects. That is wrong
  * twice over: the caller is told the server broke when their own input was at
  * fault, and an ordinary bad request raises an alertable error for the operator.
- * The batch write path already answered 400 for the same violation, so this also
- * makes the two paths agree.
+ * The batch write path already answered 400 for it, so the two paths agree.
  */
 const CONSTRAINT_ERROR_CODES = {
   unique: 'CONFLICT',
   check: 'VALIDATION_ERROR',
   'foreign-key': 'VALIDATION_ERROR',
+  'still-referenced': 'CONFLICT',
   'not-null': 'VALIDATION_ERROR',
 } satisfies Record<ConstraintViolationClass, ErrorCode>
 

@@ -11,6 +11,7 @@
  * caller, and the tables and fields it may not read are never named.
  */
 
+import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import {
   hasCreatePermission,
   hasReadPermission,
@@ -107,12 +108,14 @@ export const buildCommandPaletteComponent = (
   hostApp: App = app
 ): Component => {
   const appValues = resolveAppVarValues(hostApp, undefined)
+  // A path per language is listed at its default-language address.
+  const pathOf = (page: Page): string => primaryPagePath(page.path, app.languages?.default)
   const navigablePages = (app.pages ?? [])
-    .filter((page) => typeof page.path === 'string' && !page.path.includes(':'))
+    .filter((page) => !pathOf(page).includes(':'))
     .filter((page) => mayOpenPage(page, app, session))
     .map((page) => ({
       name: page.name,
-      path: page.path,
+      path: pathOf(page),
       title: substituteAppVars(
         resolveTranslationPattern(
           page.meta?.title && page.meta.title.length > 0 ? page.meta.title : page.name,

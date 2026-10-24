@@ -14,7 +14,11 @@
 
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
-import { omitHiddenLookups } from '@/application/use-cases/tables/hidden-lookup-omission'
+import { buildProjectionColumns } from '@/application/use-cases/tables/field-projection'
+import {
+  omitHiddenLookups,
+  withLookupKeyColumns,
+} from '@/application/use-cases/tables/hidden-lookup-omission'
 import { lookupReadMasks } from '@/application/use-cases/tables/lookup-read-masks'
 import {
   isStoredValue,
@@ -75,6 +79,21 @@ export const scopedListFilter = (
   return { and: [...(queryFilter?.and ?? []), access.scope.clause] }
 }
 
+/** The columns a run's list selects, or `undefined` for the whole row (see {@link listForRun}). */
+const projectionForRun = (
+  app: App,
+  tableName: string,
+  access: RunReadAccess,
+  fields: readonly string[] | undefined
+): readonly string[] | undefined =>
+  access.kind === 'scoped' || fields === undefined || fields.length === 0
+    ? undefined
+    : buildProjectionColumns({
+        app,
+        tableName,
+        fields: withLookupKeyColumns(app, tableName, fields.join(',')),
+      })
+
 /**
  * A list's rows as a run reads them from the table: the port's list, with
  * every lookup the filter or the sort names evaluated as empty where a
@@ -86,6 +105,12 @@ export const scopedListFilter = (
  *
  * `app` reaches the port on purpose: `buildSortClause` orders a
  * `single-select` by its declared options only when it can see them.
+ *
+ * A `fields` selection is the query's projection, not only a payload trim: the
+ * SELECT names the selected columns, the keys of a selected lookup, and the
+ * system columns (`id`, the timestamps, `deleted_at`, authorship), so a field
+ * left out is neither transferred nor resolved afterwards. A hand-started run
+ * reads the whole row: its starter's row-level rule may judge any column.
  */
 export const listForRun = (input: {
   readonly app: App
@@ -96,6 +121,7 @@ export const listForRun = (input: {
   readonly sort: string | undefined
   readonly limit: number | undefined
   readonly offset: number | undefined
+  readonly fields?: readonly string[] | undefined
 }): Effect.Effect<
   readonly Readonly<Record<string, unknown>>[],
   DatabaseError,
@@ -115,6 +141,7 @@ export const listForRun = (input: {
       sort,
       limit: input.limit,
       offset: input.offset,
+      columns: projectionForRun(app, tableName, access, input.fields),
     })
   }).pipe(
     Effect.withSpan('automations.list-for-run', { attributes: { 'table.name': input.tableName } })

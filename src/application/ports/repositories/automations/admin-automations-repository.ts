@@ -6,6 +6,7 @@
  */
 
 import { Context, Data } from 'effect'
+import type { RoutineRunSource } from '@/domain/models/app/automations/routine-run-service'
 import type { TriggerNameFilter } from '@/domain/models/app/automations/trigger-entries-service'
 import type { Effect } from 'effect'
 
@@ -54,6 +55,14 @@ export interface AdminAutomationOverviewRow {
   readonly startedAt: Date | string | null
   readonly createdAt: Date | string
   readonly status: string | null
+  /** Whether the run is routine, judged against the sources the read was given. */
+  readonly routine: boolean
+}
+
+/** A run's status, and whether it is routine — what the fixed-24h tiles count. */
+export interface AdminAutomationStatusRow {
+  readonly status: string | null
+  readonly routine: boolean
 }
 
 /**
@@ -117,6 +126,12 @@ export interface AdminRunsListFilters {
   readonly q?: string | undefined
   /** Only the runs started by hand from a schedule (`true`), or only the others (`false`). */
   readonly onDemand?: boolean | undefined
+  /**
+   * Leave out the routine runs these sources start (see the domain's
+   * `routineRunSources`): a run of one of them whose status is routine and that
+   * no operator started by hand. `undefined` lists every run.
+   */
+  readonly hideRoutineOf?: ReadonlyArray<RoutineRunSource> | undefined
   readonly limit: number
   /**
    * Rows to skip before the page — a NUMBERED page (`?page=`), the alternative
@@ -147,20 +162,23 @@ export class AdminAutomationsRepository extends Context.Service<
   AdminAutomationsRepository,
   {
     /**
-     * List `{ startedAt, createdAt, status }` for every run created on/after
-     * `since`. Backs the period-scoped overview series + success rate.
+     * List `{ startedAt, createdAt, status, routine }` for every run created
+     * on/after `since`, `routine` judged against `routine`'s sources. Backs the
+     * period-scoped overview series + success rate.
      */
     readonly listOverviewRowsSince: (
-      since: Date
+      since: Date,
+      routine: ReadonlyArray<RoutineRunSource>
     ) => Effect.Effect<readonly AdminAutomationOverviewRow[], AdminAutomationsDatabaseError>
 
     /**
-     * List `{ status }` for every run created on/after `since`. Backs the
-     * fixed-24h totals tile when the requested period is wider than 24h.
+     * List `{ status, routine }` for every run created on/after `since`. Backs
+     * the fixed-24h totals tile when the requested period is wider than 24h.
      */
     readonly listOverviewStatusesSince: (
-      since: Date
-    ) => Effect.Effect<readonly { readonly status: string | null }[], AdminAutomationsDatabaseError>
+      since: Date,
+      routine: ReadonlyArray<RoutineRunSource>
+    ) => Effect.Effect<readonly AdminAutomationStatusRow[], AdminAutomationsDatabaseError>
 
     /**
      * Cursor-paginated runs-list read. Fetches `filters.limit + 1` joined rows

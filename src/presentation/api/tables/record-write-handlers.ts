@@ -35,6 +35,7 @@ import {
   fieldConditionLock,
   sanitizedRichTextFields,
   updateValueViolation,
+  validateUpdateComputedFields,
   validateUpdateForbiddenFields,
   validateUpdateReadonlyFields,
 } from './record-update-guards'
@@ -168,7 +169,10 @@ const formUpdateResponse = (request: {
     const gateInput = { c, app, tableName, userRole, userGroups, session, recordId }
     const authError =
       (yield* formUpdateAuth({ ...gateInput, change: allowedData })) ??
-      (yield* fieldConditionLock({ c, table, session, tableName, recordId }))
+      (yield* fieldConditionLock({ c, table, session, tableName, recordId })) ??
+      // A computed field she may write — a posted value or a `_clear:` mark — is
+      // refused, never dropped; one she may not is dropped like any such field.
+      validateUpdateComputedFields(table, allowedData, c)
     if (authError) return authError
 
     if (Object.keys(allowedData).length === 0) {
@@ -188,9 +192,11 @@ const formUpdateResponse = (request: {
     if (valueError) return formatValidationError(valueError, c)
 
     const sanitized = yield* sanitizedRichTextFields(app, tableName, writer, allowedData)
+    // The form posts the whole list each link picker holds: a link it left out is removed.
     const response = yield* updateResponse({
       ...{ session, tableName, recordId, app, userRole, c },
       allowedData: sanitized,
+      linkLists: 'replace',
     })
     return redirectAfterFormUpdate({ c, app, tableName }, response, redirectPath)
   })
@@ -247,9 +253,10 @@ const jsonUpdateResponse = (request: {
   readonly app: App
   readonly requested: Record<string, unknown>
   readonly clientUpdatedAt: string | undefined
+  readonly linkLists: 'replace' | undefined
 }) =>
   Effect.gen(function* () {
-    const { c, app, requested, clientUpdatedAt } = request
+    const { c, app, requested, clientUpdatedAt, linkLists } = request
     const { session, tableName, userRole, userGroups } = getTableContext(c)
     const table = app.tables?.find((t) => t.name === tableName)
     const recordId = c.req.param('recordId')!
@@ -272,6 +279,10 @@ const jsonUpdateResponse = (request: {
 
     const forbiddenValidation = validateUpdateForbiddenFields(forbiddenFields, c)
     if (forbiddenValidation) return forbiddenValidation
+    // After the field-permission 404, so a computed field she may not write
+    // answers as any field she may not write: refused, never dropped.
+    const computedError = validateUpdateComputedFields(table, fields, c)
+    if (computedError) return computedError
     if (Object.keys(fields).length === 0) {
       return yield* noAllowedFieldsResponse({ recordId, forbiddenFields, app, c })
     }
@@ -290,6 +301,7 @@ const jsonUpdateResponse = (request: {
     return yield* updateResponse({
       ...{ session, tableName, recordId, allowedData, app, userRole, c },
       ...(clientUpdatedAt === undefined ? {} : { clientUpdatedAt }),
+      ...(linkLists === undefined ? {} : { linkLists }),
     })
   })
 
@@ -308,6 +320,7 @@ export async function handleUpdateRecord(c: Context, app: App) {
       app,
       requested: result.data.fields,
       clientUpdatedAt: result.data.updatedAt,
+      linkLists: result.data.linkLists,
     })
   )
   const write = { written: [result.data.fields], excludeIds: [c.req.param('recordId')!] }

@@ -29,6 +29,7 @@ const COLUMN_FORMAT_LITERALS: Readonly<Record<ColumnFormat, true>> = {
   'relative-date': true,
   'relative-time': true,
   'day-relative-time': true,
+  'day-relative-time-seconds': true,
   'short-date': true,
   'long-date': true,
   datetime: true,

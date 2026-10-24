@@ -131,6 +131,10 @@ export interface SubmitContext {
   readonly updatedAt?: string
   /** Learn the version a successful update produced, for the next save. */
   readonly rememberUpdatedAt?: (response: unknown) => void
+  /** The values the record last held — as filled, then as each save left them. */
+  readonly heldValues?: Readonly<Record<string, string>>
+  /** Learn the values a successful update left the record holding. */
+  readonly rememberHeld?: (values: Readonly<Record<string, string>>) => void
   readonly redirectUrl?: string
   readonly successToast?: SuccessToast
   /** The toast a refused save shows after its inline error and the focus. */

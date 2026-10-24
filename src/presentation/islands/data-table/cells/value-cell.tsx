@@ -10,6 +10,7 @@ import {
   type CurrencyDisplayOptions,
 } from '@/domain/kernel/format/currency-format'
 import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
+import { relativeStampOf } from '@/domain/models/app/tables/relative-stamp-service'
 import { resolveColumnLabel } from '@/presentation/design/field-display'
 import { resolvePageTimezone } from '../../runtime/page-timezone'
 import { readDisplayLabel } from '../../runtime/record-display-label'
@@ -159,7 +160,21 @@ function renderValueCell(value: unknown, chrome: ValueCellChrome, displayLabel?:
       durationUnit,
     })
     const composed = [formatClassOf(col.format), conditionalClass].filter(Boolean).join(' ')
-    return wrapWithClass(displayValue, composed)
+    // A relative reading carries its instant and its absolute moment (`time`).
+    const stamp = relativeStampOf(value, col.format, locale, resolvePageTimezone())
+    return wrapWithClass(
+      stamp === undefined ? (
+        displayValue
+      ) : (
+        <time
+          dateTime={stamp.dateTime}
+          title={stamp.title}
+        >
+          {displayValue}
+        </time>
+      ),
+      composed
+    )
   }
 
   // Path 2 — field-type-driven affordance. A resolved relationship label stands in

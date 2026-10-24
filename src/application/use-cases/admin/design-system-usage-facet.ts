@@ -16,6 +16,7 @@
  * @see src/domain/models/api/admin/design-system/facets.ts
  */
 
+import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { isHeavyTemplate, templateSnippet } from '@/domain/models/app/design/template-snippet'
 import { componentSampleProps } from '@/domain/models/app/pages/component-sample-service'
 import {
@@ -151,7 +152,7 @@ const subjectNames = (app: App, subject: UsageSubject): readonly string[] =>
  */
 export const usageFacet = (app: App, subject: UsageSubject, name?: string): UsageResponse => {
   const perRoute = (app.pages ?? []).map((page) => ({
-    path: page.path,
+    path: primaryPagePath(page.path),
     subjects: new Set(subjectsIn(page.components, subject)),
   }))
 

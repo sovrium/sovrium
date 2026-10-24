@@ -11,6 +11,7 @@ import { splitFrontmatter } from '@/domain/kernel/markdown/markdown-renderer'
 import { matchesContentDirFilter } from '@/domain/models/app/pages/content-dir-filter'
 import { deriveContentDirSlugFromRouteParams } from '@/domain/models/app/pages/content-dir-slug'
 import { isMarkdownSourceFile } from '@/domain/models/app/pages/markdown-source-file-service'
+import { logWarningOnce } from '@/infrastructure/logging/logger'
 import { getContentBaseDir } from '@/presentation/render/resolve/content-base-dir'
 import type { Page } from '@/domain/models/app/pages'
 import type { ContentDir } from '@/domain/models/app/pages/content-dir'
@@ -61,6 +62,15 @@ const contentDirExists = async (directory: string): Promise<boolean> => {
 }
 
 /**
+ * Tell a missing `markdown.file` once per process. The page is still served,
+ * without its body, so the absence is a warning; once is enough, because a
+ * missing file stays missing and a line per request would bury every other
+ * line in the log.
+ */
+const reportMissingMarkdownFile = (path: string): void =>
+  logWarningOnce(`Markdown file not found: ${path} — the page is served without its body`)
+
+/**
  * Load the markdown source string for a page declaration. Inline `content`
  * wins over `file` per the schema's optional-pair shape (the cross-validator
  * may later make these mutually exclusive, but for
@@ -80,6 +90,7 @@ const loadMarkdownSource = async (
   if (typeof markdown.content === 'string') return markdown.content
   if (typeof markdown.file === 'string') {
     const fileContent = await readMarkdownFile(markdown.file)
+    if (fileContent === undefined) reportMissingMarkdownFile(markdown.file)
     return fileContent ?? ''
   }
   if (typeof pageSourceFile === 'string') {

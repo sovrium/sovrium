@@ -22,6 +22,8 @@ import { stringProp, type UnconfiguredConnection } from './shared'
 /** The connection shape both auth paths read. */
 export interface ConnectionDef {
   readonly name: string
+  /** The connection's declared label, the name the console shows it under. */
+  readonly label?: string | undefined
   readonly type: string
   readonly props: Record<string, unknown>
 }
@@ -45,12 +47,17 @@ export const unsetEnvReference = (
   envLookup: Readonly<Record<string, string>>
 ): string | undefined => envReferencesIn(raw).find((name) => (envLookup[name] ?? '') === '')
 
-/** The skip reason a run records for an unconfigured connection. */
+/**
+ * The skip reason a run records for an unconfigured connection. It names the
+ * connection as the Connections page does — by its declared label, else by its
+ * name — so the operator reading the run finds it on that page.
+ */
 export const unconfiguredConnectionReason = ({
   connection,
+  label,
   variable,
 }: UnconfiguredConnection): string =>
-  `connection '${connection}' is not configured: ${variable} is not set`
+  `Connection "${label !== undefined && label !== '' ? label : connection}" is not configured: ${variable} is not set`
 
 /** The secret-bearing props each static auth type reads its credential from. */
 const credentialPropsOf = (type: string): readonly string[] => {
@@ -91,7 +98,13 @@ export const buildStaticAuthHeader = (
     .find((variable) => variable !== undefined)
   return unset === undefined
     ? buildCredentialHeader(conn, envLookup)
-    : { unconfigured: { connection: conn.name, variable: unset } }
+    : {
+        unconfigured: {
+          connection: conn.name,
+          ...(conn.label !== undefined ? { label: conn.label } : {}),
+          variable: unset,
+        },
+      }
 }
 
 /** Where an `apiKey` connection sends its key: the query parameter it names, else its header. */

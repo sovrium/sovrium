@@ -10,6 +10,7 @@ import path from 'node:path'
 import { Effect } from 'effect'
 import { StaticGenerationError } from '@/application/errors/static-generation-error'
 import { StaticSiteGenerator } from '@/application/ports/services/static-site-generator'
+import { composePublishedOrigin } from '@/domain/kernel/url/published-origin'
 import { logDebug } from '@/infrastructure/logging'
 import { generateRobotsContent } from './robots-content'
 import { generateSitemapDocuments } from './sitemap-content'
@@ -233,13 +234,38 @@ export function applyHtmlOptimizations(config: {
 }
 
 /**
+ * The options with `baseUrl` replaced by the address the site is published at:
+ * the base URL followed by `basePath`, unless the URL already ends with it.
+ * Every absolute address the build writes — the canonical links the rewriter
+ * adds, the sitemap, `robots.txt`, `llms.txt` — is built from `baseUrl`, so
+ * composing it once here keeps a host-only base URL from dropping the sub-path.
+ */
+export const withPublishedOrigin = (options: GenerateStaticOptions): GenerateStaticOptions =>
+  options.baseUrl === undefined || options.baseUrl === ''
+    ? options
+    : { ...options, baseUrl: composePublishedOrigin(options.baseUrl, options.basePath) }
+
+/**
+ * The languages a generated sitemap lists each page in: `SOVRIUM_LANGUAGES`
+ * when given, else every `languages.supported` code — the set the build writes
+ * files for and the served sitemap lists. `undefined` for a one-language app.
+ */
+const sitemapLanguages = (
+  app: App,
+  options: GenerateStaticOptions
+): readonly string[] | undefined =>
+  app.languages
+    ? (options.languages ?? app.languages.supported.map((lang) => lang.code))
+    : undefined
+
+/**
  * Build HreflangConfig from app languages when multi-language mode is active
  */
 const buildHreflangConfig = (
   app: App,
   options: GenerateStaticOptions
 ): HreflangConfig | undefined => {
-  if (!app.languages || !options.languages) return undefined
+  if (!app.languages) return undefined
   return {
     localeMap: Object.fromEntries(
       app.languages.supported.map((lang) => [lang.code, lang.locale ?? lang.code])
@@ -279,7 +305,7 @@ export function generateSitemapFile(
       ? Effect.gen(function* () {
           logDebug('Generating sitemap.xml...')
           const pages = app.pages || []
-          const languages = app.languages && options.languages ? options.languages : undefined
+          const languages = sitemapLanguages(app, options)
           const hreflangConfig = buildHreflangConfig(app, options)
 
           const documents = yield* generateSitemapDocuments(

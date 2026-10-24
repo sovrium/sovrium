@@ -16,6 +16,7 @@
  * returns `true` when all rules pass.
  */
 
+import { claimedPagePaths, type DeclaredPagePath } from '@/domain/kernel/matching/localized-path'
 import { validateTranslatedFormAddresses } from './form-address-validation'
 import { validateFormAutocompleteHints } from './form-autocomplete-validation'
 import { validateCalculationFormulas } from './form-calculation-validation'
@@ -91,7 +92,7 @@ interface TableShape {
 
 interface PageShape {
   readonly name: string
-  readonly path: string
+  readonly path: DeclaredPagePath
   readonly components?: ReadonlyArray<Record<string, unknown> & { readonly type: string }>
 }
 
@@ -178,12 +179,12 @@ const validatePathUniqueness = (
   // Then: detect form-vs-page path collisions. Page paths have already been
   // validated for uniqueness at the page level by AppSchema; only form-vs-page
   // collisions need checking here.
-  return pages.reduce<string | undefined>((acc, page, pageIndex) => {
+  return claimedPagePaths(pages).reduce<string | undefined>((acc, claim) => {
     if (acc !== undefined) return acc
-    const formIndex = forms.findIndex((f) => f.path === page.path)
+    const formIndex = forms.findIndex((f) => f.path === claim.path)
     if (formIndex >= 0) {
       const form = forms[formIndex]
-      return `Path collision: forms[${formIndex}] (name '${form?.name}') and pages[${pageIndex}] (name '${page.name}') both claim path '${page.path}'`
+      return `Path collision: forms[${formIndex}] (name '${form?.name}') and pages[${claim.index}] (name '${claim.page.name}') both claim path '${claim.path}'`
     }
     return undefined
   }, undefined)

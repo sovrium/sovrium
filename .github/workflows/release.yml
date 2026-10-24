@@ -124,7 +124,7 @@ jobs:
     # dependency on the retired Intel `macos-13` runner, which left the
     # darwin-x64 job stuck in queue indefinitely and blocked every release
     # (the publish gate needs all 5 platform assets present).
-    runs-on: macos-14
+    runs-on: macos-15
     # Cap runtime so a wedged GitHub macOS runner cannot hang the run and hold
     # the `concurrency: release` lock indefinitely.
     timeout-minutes: 45
@@ -254,7 +254,7 @@ jobs:
       # rule, costs one upload, and keeps `build-desktop` independent of when
       # the release stops being a draft.
       - name: Upload the engines for the desktop bundle
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: engine-darwin
           if-no-files-found: error
@@ -340,7 +340,7 @@ jobs:
       # See the macOS job for why this is an artifact and not a release download.
       - name: Upload the engine for the desktop bundle
         if: matrix.target == 'linux-x64'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: engine-linux-x64
           if-no-files-found: error
@@ -467,7 +467,7 @@ jobs:
 
       # See the macOS job for why this is an artifact and not a release download.
       - name: Upload the engine for the desktop bundle
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: engine-windows-x64
           if-no-files-found: error
@@ -592,7 +592,7 @@ jobs:
       matrix:
         include:
           - label: macOS arm64
-            runner: macos-14
+            runner: macos-15
             slug: mac-arm64
             engine-artifact: engine-darwin
             engine-file: sovrium-darwin-arm64
@@ -600,7 +600,7 @@ jobs:
             bundles: app,dmg
             updater-platform: darwin-aarch64
           # An INTEL runner, unlike every other macOS lane here, and the reason is
-          # the SIDECAR rather than the shell. `macos-14` is Apple Silicon, so an
+          # the SIDECAR rather than the shell. `macos-15` is Apple Silicon, so an
           # x86_64 bundle runs there under Rosetta 2 — which emulates SSE4.2 but
           # NOT AVX. Bun's darwin-x64 build uses AVX unconditionally, so the engine
           # aborts the moment it is executed:
@@ -674,7 +674,7 @@ jobs:
         run: rustup target add ${{ matrix.rust-target }}
 
       - name: Cache Rust build
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: desktop/src-tauri -> target
           key: ${{ matrix.rust-target }}
@@ -694,7 +694,7 @@ jobs:
       # compile would produce a second binary, and "the installer contains the
       # binary we published" would stop being a fact about the release.
       - name: Download the engine
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ${{ matrix.engine-artifact }}
           path: .
@@ -1087,7 +1087,7 @@ jobs:
       # produces none, and the manifest job refuses on its own terms when a
       # platform is missing.
       - name: Upload the updater signatures
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: updater-sigs-${{ matrix.slug }}
           if-no-files-found: ignore
@@ -1130,7 +1130,7 @@ jobs:
 
       - name: Download the updater signatures
         if: steps.secrets.outputs.updater == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: updater-sigs-*
           merge-multiple: true
@@ -1574,7 +1574,11 @@ jobs:
       contents: read
     needs: [verify-mirrors]
     # See verify-mirrors. The mirror check remains a hard gate on the deploy.
-    if: ${{ !cancelled() && needs.verify-mirrors.result == 'success' }}
+    # The repository variable DEMO_DEPLOY set to `hold` skips this job, so a
+    # release can publish while the demo fleet is not ready for its engine;
+    # the demos then move by a manual run of deploy-demos-manual.yml. Unset,
+    # or any other value, deploys as before.
+    if: ${{ !cancelled() && needs.verify-mirrors.result == 'success' && vars.DEMO_DEPLOY != 'hold' }}
     uses: ./.github/workflows/deploy-demos-manual.yml
     with:
       version: ${{ github.ref_name }}

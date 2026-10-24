@@ -8,7 +8,6 @@
 import { flushSync } from 'react-dom'
 import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { type AuthMethod } from '@/presentation/design/auth-form-types'
-import { resolveMountBasePath } from '@/presentation/islands/runtime/mount-base-path'
 import { showSuccessToast } from '../parts/crud-form/toast'
 import { authClient } from '../runtime/auth-client'
 import { type AuthFormField } from './auth-form-validation'
@@ -113,37 +112,26 @@ async function handleLogout(): Promise<string | undefined> {
   return result.error ? (result.error.message ?? 'Sign out failed') : undefined
 }
 
-/**
- * Where the emailed reset link lands.
- *
- * `redirectTo` IS the `callbackURL` that Better Auth appends the token to:
- * the emailed link hits `GET /api/auth/reset-password/:token?callbackURL=…`,
- * which redirects here with `?token=…`. So this path must be one the running
- * app actually serves.
- *
- * It points at the Native Admin Dashboard because that console is mounted in
- * EVERY booted app, so the path always resolves whatever the
- * operator's config contains. The previous value, `/auth/reset-password`,
- * resolved nowhere: no Sovrium app serves that path, so every password-reset
- * email in the product pointed at a 404 and the (complete) Better Auth backend
- * was unreachable.
- *
- * RESOLVED AT SUBMIT TIME, not baked in, and this value ESCAPES the process:
- * it is what the emailed link points at. So it is taken from the document the
- * server actually rendered rather than from a `/_admin` literal compiled into
- * the bundle — the two agree today, and only one of them is guaranteed to. A
- * link that does not resolve is a dead end an operator cannot diagnose, in the
- * one flow they reach precisely because they are locked out.
- */
-const resetPasswordCallbackPath = (): string => `${resolveMountBasePath()}/reset-password`
-
 /** English fallback when the form declares no `onSuccess.toast.message`. */
 const RESET_PASSWORD_SENT_MESSAGE = 'Check your email — a reset link has been sent'
 
-async function handleResetPasswordRequest(email: string): Promise<string | undefined> {
+/**
+ * Asks Better Auth to mail a reset link to `email`.
+ *
+ * `redirectTo` IS the `callbackURL` that Better Auth appends the token to: the
+ * emailed link hits `GET /api/auth/reset-password/:token?callbackURL=…`, which
+ * redirects there with `?token=…`. It is the form's `redirectUrl`, which the
+ * server sets to the app's page holding the `setNewPassword` form
+ * (`auth-form-facts-stamp.ts`) — the console's own reset page on the console.
+ * It is read off the document, so it goes through `toSafeRedirectPath`.
+ */
+async function handleResetPasswordRequest(
+  email: string,
+  redirectTo: string | undefined
+): Promise<string | undefined> {
   const result = await authClient.requestPasswordReset({
     email,
-    redirectTo: resetPasswordCallbackPath(),
+    redirectTo: toSafeRedirectPath(redirectTo),
   })
   return result.error ? (result.error.message ?? 'Password reset request failed') : undefined
 }
@@ -193,7 +181,7 @@ interface AuthMethodInput {
   readonly strategy: string | undefined
   readonly email: string
   readonly password: string
-  /** Where a mailed sign-in link lands once verified. */
+  /** Where a mailed sign-in link lands once verified; for a reset request, where its emailed link does. */
   readonly redirectUrl: string | undefined
   /** The form's `onSuccess.toast` config, when it declares one. */
   readonly successToast: ToastConfig | undefined
@@ -233,7 +221,7 @@ async function executeAuthMethod(input: AuthMethodInput): Promise<AuthOutcome> {
     case 'logout':
       return { error: await handleLogout() }
     case 'resetPassword': {
-      const error = await handleResetPasswordRequest(email)
+      const error = await handleResetPasswordRequest(email, input.redirectUrl)
       if (error) return { error }
       // A reset request resolves to a banner instead of navigating, so the
       // form's configured `onSuccess.toast.message` is the copy the operator

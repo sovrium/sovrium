@@ -167,6 +167,9 @@ export default {
   'admin.notFound.body':
     'Nothing in this console answers this address. The section may not exist in this app, or the link is out of date.',
   'admin.notFound.back': 'Back to Overview',
+  // The bare 404 a signed-in member gets on any console address: ways on that
+  // fit a session that exists, never Sign in.
+  'admin.notFound.toApp': 'Go to the app',
 
   // ── Welcome · needs attention ───────────────────────────────────────────
   //

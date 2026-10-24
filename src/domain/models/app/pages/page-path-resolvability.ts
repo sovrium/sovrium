@@ -72,7 +72,8 @@
  * rather than reasoning about denial modes.
  */
 
-import { findMatchingRoute, type RouteParams } from '@/domain/kernel/matching/route-matcher'
+import { findPageRoute } from '@/domain/kernel/matching/localized-path'
+import { type RouteParams } from '@/domain/kernel/matching/route-matcher'
 import { matchContentDirIndexBasePath } from '@/domain/models/app/pages/content-dir-index-match'
 import { isPublicPage } from '@/domain/models/app/pages/is-public'
 import { stripLanguagePrefix } from '@/domain/models/app/redirects'
@@ -109,14 +110,8 @@ export interface DeclaredPageMatch {
  */
 export function findDeclaredPage(app: App, path: string): DeclaredPageMatch | undefined {
   if (!app.pages || app.pages.length === 0) return undefined
-  const match = findMatchingRoute(
-    app.pages.map((page) => page.path),
-    path
-  )
-  if (match) {
-    const page = app.pages[match.index]
-    return page ? { page, params: match.params } : undefined
-  }
+  const match = findPageRoute(app.pages, path)
+  if (match) return { page: match.page, params: match.params }
   // Fallback: the base path of an index-bearing collection serves its index
   // article.
   const indexMatch = matchContentDirIndexBasePath(app.pages, path)

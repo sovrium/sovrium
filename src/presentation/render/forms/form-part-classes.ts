@@ -28,7 +28,7 @@ import type { ComponentStyle, Design } from '@/domain/models/app/design'
  *  - `description` — the paragraph under it (`.form-description`);
  *  - `body` — the `<form>` holding the fields;
  *  - `label` — each field's label;
- *  - `input` — each text control and select (not a box, a radio, a file or a slider);
+ *  - `input` — each text control and Select (not a box, a radio, a file or a slider);
  *  - `submit` — the submit button, with the button's focus floor after it;
  *  - `error` — the reason the form runtime writes under a field, carried to it
  *    on the `<form>` as `data-error-class` since the element does not exist yet.
@@ -59,6 +59,16 @@ const isTextControl = (tag: string): boolean =>
 
 const CLASS_ATTRIBUTE = /\sclass="([^"]*)"/
 
+/**
+ * A choice field's Select, drawn by the `form-field` island over a skeleton
+ * trigger: the `input` part reaches the trigger in the served bytes (sized by
+ * the author's classes rather than the default size), and the island's props,
+ * so the loaded Select keeps that size.
+ */
+const SELECT_TRIGGER_TAG = /<button(?=\s)[^>]*\sdata-slot="select-trigger"[^>]*>/g
+const SELECT_ISLAND_PROPS =
+  /(\sdata-island="form-field"\sdata-island-props=")\{(&quot;kind&quot;:&quot;select&quot;)/g
+
 /** Escape the characters an HTML attribute value cannot hold. */
 const escapeAttribute = (value: string): string =>
   value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;')
@@ -82,6 +92,18 @@ const withFormAttribute = (html: string, name: string, value: string): string =>
 const partClasses = (styles: ComponentDesignResolution, part: string): string =>
   [styles.parts[part], styles.partFloors[part]].filter((c) => c !== undefined && c !== '').join(' ')
 
+/** The Selects of `html` sized by the `input` part — see {@link SELECT_TRIGGER_TAG}. */
+const withSelectInputClasses = (html: string, input: string): string =>
+  html
+    .replace(SELECT_TRIGGER_TAG, (tag) =>
+      withClasses(tag.replace(' data-size="default"', ''), input)
+    )
+    .replace(
+      SELECT_ISLAND_PROPS,
+      (_match, opening: string, kind: string) =>
+        `${opening}{&quot;triggerClassName&quot;:${escapeAttribute(JSON.stringify(input))},${kind}`
+    )
+
 /**
  * The hosted form's markup with the author's part classes on the elements they
  * name. A form whose node names no part comes back unchanged, byte for byte.
@@ -103,7 +125,12 @@ export const applyFormPartClasses = (
   const withControls =
     input === ''
       ? tagged
-      : tagged.replace(CONTROL_TAG, (tag) => (isTextControl(tag) ? withClasses(tag, input) : tag))
+      : withSelectInputClasses(
+          tagged.replace(CONTROL_TAG, (tag) =>
+            isTextControl(tag) ? withClasses(tag, input) : tag
+          ),
+          input
+        )
   const { error } = styles.parts
   return error === undefined || error === ''
     ? withControls

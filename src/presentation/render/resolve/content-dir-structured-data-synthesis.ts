@@ -15,6 +15,7 @@
  * zone-tab breadcrumb root crumb.
  */
 
+import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import {
   buildContentDirSeoMeta,
   resolvePagePath,
@@ -47,7 +48,7 @@ function buildContentDirSynthesisedJsonLd(
   if (page.meta?.schema !== undefined) return []
   const config = parseStructuredDataConfig(page.meta?.structuredData)
   if (config === undefined) return []
-  const resolvedPath = resolvePagePath(page.path, routeParams)
+  const resolvedPath = resolvePagePath(primaryPagePath(page.path), routeParams)
   const toAbsolute = (path: string): string =>
     baseUrl ? `${baseUrl.replace(/\/$/, '')}${path}` : path
   // Build the JSON-LD rootCrumb URL the SAME way as the page URL (absolute when a
@@ -94,7 +95,7 @@ export function buildContentDirSeo(
   if (page.contentDir === undefined) return undefined
   const baseUrl = typeof Bun.env.BASE_URL === 'string' ? Bun.env.BASE_URL : undefined
   return buildContentDirSeoMeta({
-    pattern: indexBasePathPattern ?? page.path,
+    pattern: indexBasePathPattern ?? primaryPagePath(page.path),
     routeParams,
     frontmatter,
     languages: app?.languages,

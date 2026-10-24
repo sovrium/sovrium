@@ -62,6 +62,8 @@ function extractDataTableProps(elementProps: Record<string, unknown>): Record<st
     bordered: elementProps.bordered,
     emptyMessage: elementProps.emptyMessage,
     noMatchMessage: elementProps.noMatchMessage,
+    // The note the bottom bar draws after the range, and the table's description.
+    caption: elementProps.caption,
     showRowNumbers: elementProps.showRowNumbers,
     rowHeight: elementProps.rowHeight,
     // How the grid occupies its parent, and reads on a phone. Forwarded because

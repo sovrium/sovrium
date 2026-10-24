@@ -6,6 +6,7 @@
  */
 
 import { detectCycles } from '@/domain/kernel/matching/cycle-detection'
+import { isPhysicalColumnField } from '@/infrastructure/database/sql/sql-field-predicates'
 import type { Table } from '@/domain/models/app/tables'
 import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
 import type { Fields } from '@/domain/models/app/tables/fields'
@@ -52,26 +53,23 @@ const toIdentifiedEntries = (values: readonly unknown[]): readonly IdentifiedEnt
   })
 
 /**
- * The current entries allowed to claim an identity by id, and every current
- * entry. They differ for tables, where only an id the author wrote is a claim
- * (see {@link detectTableRenames}); the name checks always read every entry.
+ * The entries of one side allowed to take part in an identity by id, and every
+ * entry of that side. They differ for tables, where only an id the author wrote
+ * is a claim (see {@link detectTableRenames}), and for fields, where only a
+ * field stored as a column has one to move (see {@link fieldClaimants}); the
+ * name checks always read every entry.
  */
 type CurrentEntries = {
   readonly claimants: readonly IdentifiedEntry[]
   readonly all: readonly IdentifiedEntry[]
 }
 
-const everyEntryClaims = (entries: readonly IdentifiedEntry[]): CurrentEntries => ({
-  claimants: entries,
-  all: entries,
-})
-
 /** Every id-matched (oldName → newName) hypothesis, before any safety filtering. */
 const buildRenameCandidates = (
   current: CurrentEntries,
-  previous: readonly IdentifiedEntry[]
+  previous: CurrentEntries
 ): readonly RenameCandidate[] => {
-  const previousNameById = new Map(previous.map((e) => [e.id, e.name] as const))
+  const previousNameById = new Map(previous.claimants.map((e) => [e.id, e.name] as const))
 
   return current.claimants
     .map((e) => ({ oldName: previousNameById.get(e.id), newName: e.name }))
@@ -97,13 +95,13 @@ const buildRenameCandidates = (
  */
 const findSafeRenames = (
   current: CurrentEntries,
-  previous: readonly IdentifiedEntry[]
+  previous: CurrentEntries
 ): ReadonlyMap<string, string> => {
   const candidates = buildRenameCandidates(current, previous)
   if (candidates.length === 0) return new Map()
 
   const currentNames = new Set(current.all.map((e) => e.name))
-  const previousNames = new Set(previous.map((e) => e.name))
+  const previousNames = new Set(previous.all.map((e) => e.name))
 
   return new Map<string, string>(
     candidates
@@ -127,7 +125,7 @@ const findSafeRenames = (
  */
 const findAmbiguousRenames = (
   current: CurrentEntries,
-  previous: readonly IdentifiedEntry[]
+  previous: CurrentEntries
 ): readonly string[] => {
   const candidates = buildRenameCandidates(current, previous)
   if (candidates.length === 0) return []
@@ -148,15 +146,30 @@ const findAmbiguousRenames = (
 const previousFieldsOf = (
   tableName: string,
   previousSchema?: { readonly tables: readonly object[] }
-): readonly IdentifiedEntry[] => {
+): readonly Fields[number][] => {
   if (!previousSchema) return []
 
   const previousTable = previousSchema.tables.find(
     (t: object) => 'name' in t && t.name === tableName
-  ) as { readonly fields?: readonly unknown[] } | undefined
+  ) as { readonly fields?: readonly Fields[number][] } | undefined
 
-  return toIdentifiedEntries(previousTable?.fields ?? [])
+  return previousTable?.fields ?? []
 }
+
+/**
+ * One side's fields as rename claimants: only a field STORED as a column
+ * ({@link isPhysicalColumnField}) has a column a rename could move. A rollup,
+ * a lookup, a count or a formula the view computes has none, so renaming one
+ * is nothing to the table — the view that computes it is rebuilt under its new
+ * name — and a `RENAME COLUMN` for it would name a column that does not exist.
+ * Both sides are read so: a field the snapshot computed and the config now
+ * stores under a new name has no old column either, and is added, not renamed.
+ * Every field still counts for the name checks.
+ */
+const fieldClaimants = (fields: readonly Fields[number][]): CurrentEntries => ({
+  claimants: toIdentifiedEntries(fields.filter((field) => isPhysicalColumnField(field, fields))),
+  all: toIdentifiedEntries(fields),
+})
 
 /**
  * Detect field renames by comparing field IDs between previous and current schema
@@ -173,8 +186,8 @@ export const detectFieldRenames = (
   previousSchema?: { readonly tables: readonly object[] }
 ): ReadonlyMap<string, string> =>
   findSafeRenames(
-    everyEntryClaims(toIdentifiedEntries(currentFields)),
-    previousFieldsOf(tableName, previousSchema)
+    fieldClaimants(currentFields),
+    fieldClaimants(previousFieldsOf(tableName, previousSchema))
   )
 
 /**
@@ -188,13 +201,19 @@ export const detectAmbiguousFieldRenames = (
   previousSchema?: { readonly tables: readonly object[] }
 ): readonly string[] =>
   findAmbiguousRenames(
-    everyEntryClaims(toIdentifiedEntries(currentFields)),
-    previousFieldsOf(tableName, previousSchema)
+    fieldClaimants(currentFields),
+    fieldClaimants(previousFieldsOf(tableName, previousSchema))
   )
 
 // ---------------------------------------------------------------------------
 // Tables. Compared across the whole snapshot.
 // ---------------------------------------------------------------------------
+
+/** Every stored table claims its identity: the snapshot holds only tables that exist. */
+const everyEntryClaims = (entries: readonly IdentifiedEntry[]): CurrentEntries => ({
+  claimants: entries,
+  all: entries,
+})
 
 /**
  * The config's tables as rename claimants: only a table whose `id` its author
@@ -233,7 +252,7 @@ export const detectTableRenames = (
 ): ReadonlyMap<string, string> =>
   findSafeRenames(
     tableClaimants(currentTables, authoredIds),
-    toIdentifiedEntries(previousSchema?.tables ?? [])
+    everyEntryClaims(toIdentifiedEntries(previousSchema?.tables ?? []))
   )
 
 /**
@@ -248,5 +267,5 @@ export const detectAmbiguousTableRenames = (
 ): readonly string[] =>
   findAmbiguousRenames(
     tableClaimants(currentTables, authoredIds),
-    toIdentifiedEntries(previousSchema?.tables ?? [])
+    everyEntryClaims(toIdentifiedEntries(previousSchema?.tables ?? []))
   )

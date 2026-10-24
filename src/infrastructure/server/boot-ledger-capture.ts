@@ -184,6 +184,7 @@ const engineMigrationsSince = (
           : left.appliedAt.localeCompare(right.appliedAt)
       )
   }).pipe(
+    Effect.scoped, // the unpacked migrations, if any, are removed here
     // An unreadable migrations folder must not cost the ledger its row. The
     // rest of the capture is a function of the two configurations and is still
     // entirely true; a row naming no migrations is a smaller loss than no row.

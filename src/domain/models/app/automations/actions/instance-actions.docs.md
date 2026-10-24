@@ -45,7 +45,7 @@ Without the switch, an instance action fails with _instance/\* is disabled; set 
 
 ### What the switch also forbids
 
-With the switch on, an app that can run `code/runTypescript` — a step, an action template, or an agent granted that tool — refuses to start. A code step can call any action through `context.actions`, so on a supervising host the sandbox would be the only thing between a script and the machine's process supervisor. Keep the agent that supervises in its own app, with no code.
+With the switch on, an app that can run `code/runTypescript` — a step, an action template, or an agent granted that tool — refuses to start. A code step can call any action through `context.actions`, so on a supervising host nothing but the code's restricted globals would stand between a script and the machine's process supervisor. Keep the agent that supervises in its own app, with no code.
 
 No instance action can be granted to an AI agent, whatever the switch says.
 

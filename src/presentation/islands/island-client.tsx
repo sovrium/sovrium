@@ -131,15 +131,10 @@ export async function preloadIslandsWithin(root: ParentNode = document.body): Pr
  * The live React root for each mounted island host, keyed by its host element.
  * A root outlives its host leaving the DOM (an SPA swap replaces `innerHTML`):
  * its `document` listeners, portals and query observers live on. Tracking it
- * lets {@link unmountIslandsWithin} tear it down BEFORE the swap.
- *
- * On `globalThis`: a built page evaluates this module TWICE, as the hashed
- * `island-entry-<hash>.js` it loads and as the `island-entry.js` its chunks'
- * `import()` names, and a map per copy hid the page's first roots from a swap.
+ * lets {@link unmountIslandsWithin} tear it down BEFORE the swap. One map per
+ * document: the page's import map makes the chunks share the entry it loaded.
  */
-const ROOTS = Symbol.for('sovrium.island-roots')
-const pageGlobal = globalThis as { [ROOTS]?: WeakMap<HTMLElement, Root> }
-const islandRoots = (pageGlobal[ROOTS] ??= new WeakMap<HTMLElement, Root>())
+const islandRoots = new WeakMap<HTMLElement, Root>()
 
 /** The Suspense fallback's wrapper lays out as if absent — see {@link ssrFallback}. */
 const FALLBACK_WRAPPER_STYLE = { display: 'contents' } as const

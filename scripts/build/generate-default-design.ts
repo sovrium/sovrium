@@ -69,7 +69,7 @@
 import { writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import * as prettier from 'prettier'
+import { formatText } from '../lib/format'
 import { RETIRED_SV_ROLE_TWINS, defaultDesignSource } from './shadcn-registry-to-design-source'
 import type {
   BlockItem,
@@ -769,15 +769,13 @@ ${darkLines}
 
 /* ──────────────────────────────── driver ────────────────────────────────── */
 
-const write = async (
-  relative: string,
-  contents: string,
-  parser: prettier.BuiltInParserName = 'typescript'
-): Promise<void> => {
+// Formatted with the repository formatter (bun fmt, [internal ref]). `ignore: 'none'`
+// because `*.generated.ts` is in .prettierignore, yet these files have always
+// been written formatted: the extension picks the language (the desktop tokens
+// are CSS).
+const write = async (relative: string, contents: string): Promise<void> => {
   const target = join(REPO_ROOT, relative)
-  const config = await prettier.resolveConfig(target)
-  const formatted = await prettier.format(contents, { ...config, parser })
-  writeFileSync(target, formatted)
+  writeFileSync(target, formatText(contents, target, { ignore: 'none' }))
 }
 
 export const generateDefaultDesign = async (): Promise<readonly string[]> => {
@@ -785,7 +783,7 @@ export const generateDefaultDesign = async (): Promise<readonly string[]> => {
   await write(OUTPUT_PATHS.themeLayer, themeLayerFile())
   await write(OUTPUT_PATHS.tokens, tokensFile())
   await write(OUTPUT_PATHS.inherited, inheritedFile())
-  await write(OUTPUT_PATHS.desktopTokens, desktopTokensFile(), 'css')
+  await write(OUTPUT_PATHS.desktopTokens, desktopTokensFile())
   return Object.values(OUTPUT_PATHS)
 }
 

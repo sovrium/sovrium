@@ -58,10 +58,16 @@ const appliedNames = (state: MigrationFolderState): readonly string[] => {
   return state.names.filter((name) => applied.has(name))
 }
 
-/** Which engine, and the folder drizzle actually resolved. */
+/**
+ * Which engine, and where the migrations are: the folder drizzle resolved, or,
+ * from the compiled binary, the binary itself — the folder it unpacks them into
+ * is removed when the run ends, so naming it would name nothing.
+ */
 export const contextBlock = (state: MigrationFolderState): CliBlock => [
   { text: `Dialect: ${state.dialect}` },
-  { text: `Migrations: ${state.migrationsFolder}` },
+  {
+    text: `Migrations: ${state.isCompiled ? 'embedded in this binary' : state.migrationsFolder}`,
+  },
 ]
 
 /**

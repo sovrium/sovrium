@@ -45,27 +45,30 @@ import type { MiddlewareHandler } from 'hono'
  *
  *.
  */
-const structuralSecureHeaders = secureHeaders({
-  strictTransportSecurity: 'max-age=31536000; includeSubDomains',
-  referrerPolicy: 'strict-origin-when-cross-origin',
-  xFrameOptions: 'DENY',
-  contentSecurityPolicy: {
-    frameAncestors: ["'none'"],
-    objectSrc: ["'none'"],
-    baseUri: ["'self'"],
-    formAction: ["'self'"],
-  },
-  permissionsPolicy: {
-    camera: [],
-    microphone: [],
-    geolocation: [],
-    payment: [],
-    usb: [],
-    accelerometer: [],
-    gyroscope: [],
-    magnetometer: [],
-  },
-})
+const structuralSecureHeaders = (frameAncestors: readonly string[] | undefined) =>
+  secureHeaders({
+    strictTransportSecurity: 'max-age=31536000; includeSubDomains',
+    referrerPolicy: 'strict-origin-when-cross-origin',
+    // An operator-named framing list cannot be expressed in X-Frame-Options,
+    // so the legacy header is dropped when one is set ([internal ref] D1).
+    xFrameOptions: frameAncestors === undefined ? 'DENY' : false,
+    contentSecurityPolicy: {
+      frameAncestors: frameAncestors === undefined ? ["'none'"] : [...frameAncestors],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+    },
+    permissionsPolicy: {
+      camera: [],
+      microphone: [],
+      geolocation: [],
+      payment: [],
+      usb: [],
+      accelerometer: [],
+      gyroscope: [],
+      magnetometer: [],
+    },
+  })
 
 /**
  * The framing headers a route may override, and the CSP.
@@ -112,24 +115,30 @@ const ROUTE_OVERRIDABLE_HEADERS = ['Content-Security-Policy', 'X-Frame-Options']
  * `frame-ancestors 'none'` + `X-Frame-Options: DENY` — so the safe answer
  * remains the one you get by not thinking about it.
  */
-export const securityHeaders: MiddlewareHandler = async (c, next) => {
-  let routeHeaders: ReadonlyArray<readonly [string, string]> = []
-  let routeGrants: string | undefined = undefined
-  await structuralSecureHeaders(c, async () => {
-    await next()
-    routeHeaders = ROUTE_OVERRIDABLE_HEADERS.flatMap((name) => {
-      const value = c.res.headers.get(name)
-      return value === null ? [] : [[name, value] as const]
+export const securityHeadersFor = (frameAncestors?: readonly string[]): MiddlewareHandler => {
+  const structural = structuralSecureHeaders(frameAncestors)
+  return async (c, next) => {
+    let routeHeaders: ReadonlyArray<readonly [string, string]> = []
+    let routeGrants: string | undefined = undefined
+    await structural(c, async () => {
+      await next()
+      routeHeaders = ROUTE_OVERRIDABLE_HEADERS.flatMap((name) => {
+        const value = c.res.headers.get(name)
+        return value === null ? [] : [[name, value] as const]
+      })
+      routeGrants = c.res.headers.get('Permissions-Policy') ?? undefined
     })
-    routeGrants = c.res.headers.get('Permissions-Policy') ?? undefined
-  })
 
-  routeHeaders.forEach(([name, value]) => c.res.headers.set(name, value))
-  const structuralPolicy = c.res.headers.get('Permissions-Policy')
-  if (routeGrants !== undefined && structuralPolicy !== null) {
-    c.res.headers.set('Permissions-Policy', grantPermissions(structuralPolicy, routeGrants))
+    routeHeaders.forEach(([name, value]) => c.res.headers.set(name, value))
+    const structuralPolicy = c.res.headers.get('Permissions-Policy')
+    if (routeGrants !== undefined && structuralPolicy !== null) {
+      c.res.headers.set('Permissions-Policy', grantPermissions(structuralPolicy, routeGrants))
+    }
   }
 }
+
+/** The platform default: no other site may frame the app. */
+export const securityHeaders: MiddlewareHandler = securityHeadersFor()
 
 /** The feature a Permissions-Policy directive names (`microphone=(self)` → `microphone`). */
 const featureOf = (directive: string): string => directive.split('=')[0]?.trim() ?? ''
@@ -164,15 +173,22 @@ const grantPermissions = (structural: string, grants: string): string => {
 /**
  * The framing pair an address the app frames itself answers with — the four
  * structural directives restated, since a route's CSP replaces the platform's
- * wholesale, with `frame-ancestors` relaxed to `'self'`.
+ * wholesale, with `frame-ancestors` relaxed to `'self'`, plus the operator's
+ * named origins when `SOVRIUM_FRAME_ANCESTORS` lists some (then without
+ * `X-Frame-Options`, which cannot name a list).
  */
-const SAME_ORIGIN_FRAMING: ReadonlyArray<readonly [string, string]> = [
-  [
-    'Content-Security-Policy',
-    "frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'",
-  ],
-  ['X-Frame-Options', 'SAMEORIGIN'],
-]
+const sameOriginFramingHeaders = (
+  frameAncestors: readonly string[] | undefined
+): ReadonlyArray<readonly [string, string]> => {
+  const ancestors = ["'self'", ...(frameAncestors ?? [])].join(' ')
+  const csp = `frame-ancestors ${ancestors}; object-src 'none'; base-uri 'self'; form-action 'self'`
+  return frameAncestors === undefined
+    ? [
+        ['Content-Security-Policy', csp],
+        ['X-Frame-Options', 'SAMEORIGIN'],
+      ]
+    : [['Content-Security-Policy', csp]]
+}
 
 /**
  * Lets the app's own pages frame the addresses they name.
@@ -184,10 +200,14 @@ const SAME_ORIGIN_FRAMING: ReadonlyArray<readonly [string, string]> = [
  * decision. Mounted INSIDE {@link securityHeaders}, so what it sets is a
  * route-level decision that the structural pass restores rather than clobbers.
  */
-export const sameOriginFraming =
-  (framedPaths: ReadonlySet<string>): MiddlewareHandler =>
-  async (c, next) => {
+export const sameOriginFraming = (
+  framedPaths: ReadonlySet<string>,
+  frameAncestors?: readonly string[]
+): MiddlewareHandler => {
+  const headers = sameOriginFramingHeaders(frameAncestors)
+  return async (c, next) => {
     await next()
     if (!framedPaths.has(c.req.path) || c.res.headers.has('Content-Security-Policy')) return
-    SAME_ORIGIN_FRAMING.forEach(([name, value]) => c.res.headers.set(name, value))
+    headers.forEach(([name, value]) => c.res.headers.set(name, value))
   }
+}

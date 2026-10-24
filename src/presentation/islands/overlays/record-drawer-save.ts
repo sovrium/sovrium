@@ -29,23 +29,22 @@ import { useCallback } from 'react'
 import { consoleRequestIdOf } from '@/presentation/islands/runtime/console-request-id'
 import { dispatch } from '@/presentation/islands/runtime/event-bus'
 import { readFieldErrors } from '@/presentation/islands/runtime/write-refusal'
+import { holdsSameLinks, isLinkList } from '../parts/crud-form/record-picker-value'
 import { isStructured, type RecordDrawerField } from './record-drawer-field'
-import {
-  droppedLinkFields,
-  invalidJsonFields,
-  toEntryWireValue,
-  type Values,
-} from './record-drawer-values'
+import { invalidJsonFields, toEntryWireValue, type Values } from './record-drawer-values'
 
 export type FieldErrors = Readonly<Record<string, string>>
 
 export interface SaveParams {
   readonly recordFields: ReadonlyArray<RecordDrawerField>
   readonly values: Values
+  /**
+   * The values the opened record loaded with: a link list still holding them
+   * is left out of the save. Absent before the record loads, or when creating.
+   */
+  readonly loaded?: Values | undefined
   readonly table: string | undefined
   readonly recordId: string | undefined
-  /** The record as loaded, against which a removed link is found. */
-  readonly record?: Readonly<Record<string, unknown>>
   /** Opened with no record: Save creates one. */
   readonly creating?: boolean
   readonly setOpen: (open: boolean) => void
@@ -136,8 +135,35 @@ async function postNewRecord(
   return { refused: fieldErrors ?? failed, requestId: consoleRequestIdOf(res.status, body) }
 }
 
-/** One PATCH: the status the records API answered it with. */
-async function patchOnce(
+/** Whether a save sends a multi-valued link list. */
+const sendsLinkList = (writable: readonly RecordDrawerField[]): boolean => writable.some(isLinkList)
+
+/**
+ * The fields an edit sends: the writable ones, less each link list that still
+ * holds the ids the record loaded with, whatever their order. Each list a save
+ * sends REPLACES the record's links, so an untouched one sent would take off a
+ * link made meanwhile — from the linked record's side, say — that the drawer
+ * never showed.
+ */
+const changedFields = (
+  writable: readonly RecordDrawerField[],
+  values: Values,
+  loaded: Values | undefined
+): readonly RecordDrawerField[] =>
+  loaded === undefined
+    ? writable
+    : writable.filter(
+        (field) =>
+          !isLinkList(field) || !holdsSameLinks(values[field.name] ?? '', loaded[field.name] ?? '')
+      )
+
+/**
+ * The PATCH of an edit: the status the records API answered. A save that sends
+ * a multi-valued link list sends it as the whole set the drawer keeps
+ * (`linkLists: 'replace'`), so a link taken off is removed by the same write —
+ * and a refused save removes none.
+ */
+async function patchRecord(
   table: string,
   recordId: string,
   payload: Readonly<Record<string, unknown>>
@@ -148,25 +174,6 @@ async function patchOnce(
     body: JSON.stringify(payload),
   })
   return res.status
-}
-
-/**
- * The PATCH of an edit: the status the records API answered. A multi-valued link
- * the edit removed a record from is first written empty — the one write that
- * unlinks — then with the links it keeps.
- */
-async function patchRecord(
-  table: string,
-  recordId: string,
-  payload: Readonly<Record<string, unknown>>,
-  dropped: readonly string[]
-): Promise<number> {
-  if (dropped.length > 0) {
-    const cleared = Object.fromEntries(dropped.map((name) => [name, []]))
-    const status = await patchOnce(table, recordId, cleared)
-    if (!tookIt(status)) return status
-  }
-  return patchOnce(table, recordId, payload)
 }
 
 /** Create the record; `false` when refused, with the refusal drawn. */
@@ -196,9 +203,10 @@ async function updateRecord(
 ): Promise<boolean> {
   const { values, recordId, words } = params
   if (!recordId) return false
-  const payload = Object.fromEntries(writable.map((f) => [f.name, toEntryWireValue(f, values)]))
-  const dropped = droppedLinkFields(writable, values, params.record ?? {})
-  const status = await patchRecord(table, recordId, payload, dropped)
+  const sent = changedFields(writable, values, params.loaded)
+  const payload = Object.fromEntries(sent.map((f) => [f.name, toEntryWireValue(f, values)]))
+  const replace = sendsLinkList(sent) ? { linkLists: 'replace' } : {}
+  const status = await patchRecord(table, recordId, { ...payload, ...replace })
   if (!tookIt(status)) {
     params.setError(
       isRefusal(status) ? (words.refused ?? REFUSED) : (words.failed ?? 'Operation failed')
@@ -211,15 +219,15 @@ async function updateRecord(
 
 /** Validate, then PATCH the writable fields — or POST a new record; refreshes the grid. */
 export function useRecordSave(params: SaveParams): () => Promise<void> {
-  const { recordFields, values, table, recordId, creating = false, words, record } = params
-  const { setOpen, setError, setFieldErrors } = params
+  const { recordFields, values, table, recordId, creating = false, words } = params
+  const { setOpen, setError, setFieldErrors, loaded } = params
   return useCallback(async () => {
     const writable = writableFields(recordFields)
     const refused = refusedBeforeSending(writable, values, creating, words)
     setFieldErrors(refused.fields)
     setError(refused.banner)
     if (refused.banner !== undefined || Object.keys(refused.fields).length > 0 || !table) return
-    const current = { recordFields, values, table, recordId, record, creating, words }
+    const current = { recordFields, values, loaded, table, recordId, creating, words }
     const write = { ...current, setOpen, setError, setFieldErrors }
     const saved = creating
       ? await createRecord(write, table, writable)
@@ -228,9 +236,9 @@ export function useRecordSave(params: SaveParams): () => Promise<void> {
   }, [
     recordFields,
     values,
+    loaded,
     table,
     recordId,
-    record,
     creating,
     words,
     setOpen,

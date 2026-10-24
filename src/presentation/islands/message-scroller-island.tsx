@@ -17,8 +17,8 @@ interface MessageScrollerIslandProps {
   readonly anchorPeek?: number
   /** A bound frame's binding: the table its turns are read from, and how they follow it. */
   readonly source?: LiveRefreshSource
-  /** The parent a signed-in reader's frame marks read as it draws its turns. */
-  readonly readState?: MarkReadTarget
+  /** The parent a signed-in reader's frame marks read, and the position it was drawn from. */
+  readonly readState?: MarkReadTarget & { readonly since?: string }
   /** "{name} is typing", in the page language, on a frame following who types in it. */
   readonly typingLabel?: string
 }
@@ -60,9 +60,14 @@ function frameIn(doc: Document, frame: HTMLElement): Element | undefined {
  * the new turns and one scrolled up keeps her place. The island's own host and
  * any turn a composer is still sending are kept.
  */
-async function redrawFrame(frame: HTMLElement): Promise<void> {
+async function redrawFrame(frame: HTMLElement, opened: string | undefined): Promise<void> {
   const response = await fetch(window.location.href, {
-    headers: { 'X-Sovrium-Partial': 'content', Accept: 'text/html' },
+    headers: {
+      'X-Sovrium-Partial': 'content',
+      Accept: 'text/html',
+      // The position the page opened with, so the New marker stays while she reads.
+      ...(opened === undefined ? {} : { 'X-Sovrium-Read-Since': encodeURIComponent(opened) }),
+    },
     credentials: 'same-origin',
   })
   if (!response.ok) return
@@ -93,8 +98,15 @@ async function redrawFrame(frame: HTMLElement): Promise<void> {
   client.mountIslandsWithin(frame)
 }
 
+/** What a redraw sends back: the parent, and the read position the page opened with. */
+const openedPositionOf = (readState: MessageScrollerIslandProps['readState']) =>
+  readState?.since === undefined ? undefined : JSON.stringify(readState)
+
 /** Redraw a frame on demand, one read at a time: a call during a read asks for one more after it. */
-function useFrameRedraw(anchor: React.RefObject<HTMLSpanElement | null>): () => void {
+function useFrameRedraw(
+  anchor: React.RefObject<HTMLSpanElement | null>,
+  opened: string | undefined
+): () => void {
   const state = useRef({ running: false, again: false })
   return useCallback(() => {
     const frame = anchor.current?.closest<HTMLElement>('[data-slot="message-scroller"]')
@@ -106,7 +118,7 @@ function useFrameRedraw(anchor: React.RefObject<HTMLSpanElement | null>): () => 
     state.current.running = true
     const run = (): void => {
       state.current.again = false
-      void redrawFrame(frame)
+      void redrawFrame(frame, opened)
         .catch(() => undefined)
         .finally(() => {
           if (state.current.again) run()
@@ -114,7 +126,7 @@ function useFrameRedraw(anchor: React.RefObject<HTMLSpanElement | null>): () => 
         })
     }
     run()
-  }, [anchor])
+  }, [anchor, opened])
 }
 
 /** Draw the frame again whenever a form on the page writes to its table. */
@@ -177,7 +189,7 @@ export default function MessageScrollerIsland({
   typingLabel,
 }: MessageScrollerIslandProps): ReactElement {
   const anchor = useRef<HTMLSpanElement>(null)
-  const redraw = useFrameRedraw(anchor)
+  const redraw = useFrameRedraw(anchor, openedPositionOf(readState))
   useMarkRead(readState, anchor)
   useLiveRefresh(source, redraw)
   const table = source?.table

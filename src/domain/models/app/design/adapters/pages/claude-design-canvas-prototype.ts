@@ -19,7 +19,11 @@
  */
 
 import { posix } from 'node:path'
-import { pageOfAddress, type CanvasLinkRoute } from './claude-design-canvas-links'
+import {
+  addressWithoutLanguage,
+  pageOfAddress,
+  type CanvasLinkRoute,
+} from './claude-design-canvas-links'
 import { PROTOTYPE_RUNTIME } from './claude-design-canvas-prototype-runtime'
 
 /** One grid of a board, as the prototype plays it. */
@@ -52,6 +56,13 @@ export interface PrototypeTable {
     readonly table: string
     readonly operation: string
   }[]
+  /**
+   * The cells of each drawn row that read differently from what is stored, by
+   * row id then field: the stored value, and the text drawn for it (its
+   * column's format, else its field type's). A cell whose value changed reads
+   * as stored.
+   */
+  readonly texts?: Readonly<Record<string, Readonly<Record<string, readonly [string, string]>>>>
 }
 
 /** One field of a step a board does not draw, which the prototype draws. */
@@ -74,7 +85,10 @@ export interface PrototypeForm {
       }[]
     | undefined
   /** What it answers once submitted: the page it leads to, or its message. */
-  readonly success?: { readonly path: string } | { readonly message: string } | undefined
+  readonly success?:
+    | { readonly path: string }
+    | { readonly message: string; readonly title?: string | undefined }
+    | undefined
   /** The table it writes a record to, for a store to keep. */
   readonly writes?: string | undefined
 }
@@ -103,6 +117,8 @@ export interface PrototypeCatalog {
   }[]
   /** The record each routed page's default board draws, by page. */
   readonly defaultRecords: Readonly<Record<string, string>>
+  /** The codes of the languages the app is served in, each a segment an address may open with. */
+  readonly languages?: readonly string[] | undefined
 }
 
 /** The value of each route parameter an address gives a page's pattern. */
@@ -126,10 +142,14 @@ export const prototypeTargetOf = (
     return states.map((state) => boardOf(fromPage, state)).find((file) => file !== undefined)
   }
   if (!/^\/(?!\/)/.test(target)) return undefined
-  const page = pageOfAddress(catalog.routes, target)
+  const page = pageOfAddress(catalog.routes, target, catalog.languages)
   if (page === undefined) return undefined
   const pattern = catalog.routes.find((route) => route.name === page)?.path ?? ''
-  const record = routeValuesOf(pattern, target).find(
+  const path =
+    pageOfAddress(catalog.routes, target) === undefined
+      ? addressWithoutLanguage(target, catalog.languages).address
+      : target
+  const record = routeValuesOf(pattern, path).find(
     (value) => boardOf(page, `record=${value}`) !== undefined
   )
   return record !== undefined && catalog.defaultRecords[page] !== record

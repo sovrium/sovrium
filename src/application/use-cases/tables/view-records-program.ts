@@ -41,7 +41,9 @@ import {
   findViewByKey,
   mergeViewFilter,
   viewGroupByParam,
+  viewFiltersForReader,
   viewReadFields,
+  viewReader,
   viewSortParam,
 } from '@/domain/models/app/tables/views/view-read-service'
 import { createListRecordsProgram } from './list-records-program'
@@ -101,6 +103,10 @@ const callerOf = (config: ViewRecordsConfig): TableCaller => ({
   anonymous: isGuestSession(config.session.userId),
 })
 
+/** The reader the view's filters name: none for a visitor with no account. */
+const readerOf = (config: ViewRecordsConfig) =>
+  viewReader(config.session.userId, config.userRole, isGuestSession(config.session.userId))
+
 export function getViewRecordsProgram(
   config: ViewRecordsConfig
 ): Effect.Effect<
@@ -135,7 +141,11 @@ export function getViewRecordsProgram(
       userRole,
       userGroups: config.userGroups,
       labels: query.labels,
-      filter: mergeViewFilter(view.filters, query.filter),
+      // A condition naming the reader (`owner equals $currentUser.id`) reads as theirs.
+      filter: mergeViewFilter(
+        viewFiltersForReader(view.filters, readerOf(config), table.fields),
+        query.filter
+      ),
       includeDeleted: false,
       sort: query.sort ?? viewSortParam(view.sorts),
       sortByOptionOrder: true,

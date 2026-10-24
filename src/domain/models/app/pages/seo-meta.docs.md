@@ -37,6 +37,8 @@ The numbers themselves are a practice rather than a search-engine rule: Google s
 
 **`noindex` wins over `robots`.** A page with `noindex: true` says `noindex` in its robots tag whatever else its `robots` string asks: `robots: follow` beside it renders `noindex, follow`. The tag, the sitemap and the `X-Robots-Tag` of a Markdown twin read the same rule, so a page the sitemap leaves out never tells crawlers to index it. A `robots` string that asks for indexing (`index`, or `all`) beside `noindex: true` says two opposite things, and `sovrium validate` refuses it, naming both keys.
 
+**A canonical names one address per language.** A page whose path names no language (`/about`) is served at `/en/about` and `/fr/about`, and each must declare its own address, or search engines read the other languages as duplicates. Write the canonical as a `$t:` key followed by the rest of the address — `canonical: '$t:seo.base/about'`, with `seo.base` translated to `https://example.com/en` and `https://example.com/fr` — and each language renders its own. A key missing in one language follows the usual fallback (`fallback`, then `default`); the key itself is never printed. In an app with more than one language and `BASE_URL` set, such a page with no canonical at all names its own address in each language: `/fr/about` declares `https://example.com/fr/about`.
+
 Localized metadata is keyed by language, and each entry carries the same limits:
 
 ```yaml
@@ -64,13 +66,17 @@ Open Graph metadata for rich social previews, where `determiner` is the word pre
 
 **The sharing image is the part platforms are strictest about.** Use a PNG or JPEG of 1200 by 630 pixels — a 1.91:1 ratio, under 8 MB. WebP is acceptable, since every major platform has rendered it since late 2024. **Never AVIF**: X, LinkedIn, Slack and iMessage all fail to render it, and the link then shares with no image at all, so `sovrium validate` refuses an `openGraph.image` or `twitter.image` whose path ends in `.avif`. Only the path is read, so a query string such as `og.avif?v=2` is refused too. This is the one place the rule for committed images is reversed — imagery on the page itself should be AVIF or WebP, but a sharing card should not. `imageAlt` renders `og:image:alt`; Sovrium does not yet emit the image's width and height, so a platform fetches the image before it can draw the first preview. The refusal covers the two sharing images only: a favicon and an image named in structured data are read by search engines, which render AVIF, so neither is checked.
 
-`openGraph.image` also takes a `$t:` key, for a card per language, and a path starting with `/`; either is emitted as a full address on the host the request arrived on.
+`openGraph.image` also takes a `$t:` key, for a card per language, and a path starting with `/`; either is emitted as a full address on the host the request arrived on. `openGraph.url` takes a `$t:` key the same way as `canonical`, so each language shares its own address.
+
+**Descriptions agree.** `openGraph.description` resolves exactly as `meta.description` does, a `$record` value behind a `$t:` key included. When a page declares `openGraph` without a `description`, `og:description` takes the page's resolved `meta.description`; a page that declares no `openGraph` gains no tag.
+
+**Addresses from a record are checked.** A `canonical` or `openGraph.url` that resolves from a `$record` value is emitted only when it is an `http:` or `https:` address; anything else, such as a `javascript:` value an editor typed, leaves the tag out and the rest of the head unchanged.
 
 ## `twitter`
 
 <!-- sovrium:options TwitterCardSchema depth=2 -->
 
-Social-card metadata, where `card` is the only required property. The image rules above apply unchanged: `summary_large_image` crops to 2:1, so keep the subject away from the top and bottom edges of a 1200 by 630 image. The limits here are tighter than the core `title` and `description` limits, which is why they are separate properties rather than inherited ones.
+Social-card metadata, where `card` is the only required property. The image rules above apply unchanged: `summary_large_image` crops to 2:1, so keep the subject away from the top and bottom edges of a 1200 by 630 image. The limits here are tighter than the core `title` and `description` limits, which is why they are separate properties rather than inherited ones. When a page declares `twitter` without a `description`, `twitter:description` takes the resolved `openGraph.description` — what X reads in its absence — and otherwise the resolved `meta.description`.
 
 ## Elsewhere
 

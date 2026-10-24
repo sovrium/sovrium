@@ -196,7 +196,7 @@ const expandUserFieldsLogged = (
  *
  * Sharing it is what makes the `record.read` split operator split invisible downstream: a
  * config migrating a filtered `read` to a `list` keeps every template it had.
- * Do not give `list` its own envelope.
+ * Do not give `list` its own envelope. A to-many list `fields` leaves out is never read.
  */
 export const buildReadOutput = (
   rows: readonly Readonly<Record<string, unknown>>[],
@@ -226,12 +226,12 @@ export const buildReadOutput = (
       readsWriteOnly: keepsWriteOnly(context.access, context.automation),
       // Each granted record is shaped with the roles granted on it, as the records API shapes it.
       grants: context.access.kind === 'scoped' ? context.access.grants : undefined,
+      fields: fields === undefined || fields.length === 0 ? undefined : fields.join(','),
     }
     // One read per relation for the whole set, never one per row.
     const shaped = yield* Effect.result(shapeRecordsForReader(config, rows))
     if (shaped._tag === 'Failure') {
-      const { failure } = shaped
-      return { status: 'failure', error: failure.message } as const
+      return { status: 'failure', error: shaped.failure.message } as const
     }
     // effect-swallow: the step fails with a fixed message naming what could not be read; the cause is logged on the way.
     const expanded = yield* Effect.result(expandUserFieldsLogged(app, tableName, shaped.success))

@@ -27,6 +27,7 @@ import * as literalTokens from '@/domain/models/app/pages/literal-token-service'
 import { getVersionedCssPath } from '@/infrastructure/css/versioned-css-path'
 import { resolveBadge } from '@/presentation/render/page/badge-placement'
 import { DemoNotice } from '@/presentation/render/page/demo-notice'
+import { IslandImportMap } from '@/presentation/render/page/island-entry-script'
 import { SovriumBadge } from '@/presentation/render/page/sovrium-badge'
 import { FormBody } from './form-body'
 import { resolveDocumentLang } from './form-document-lang'
@@ -83,14 +84,18 @@ function FormPageChrome({
   )
 }
 
-/** The island runtime, on a form that draws a Select or a date picker; nothing otherwise. */
+/** The island runtime, on a form drawing a Select or a date picker, behind its import map
+ * ({@link IslandImportMap}: one runtime per document; the page's first module, so it counts). */
 function FormIslandEntry({ file }: { readonly file: string | undefined }) {
   if (file === undefined) return undefined
   return (
-    <script
-      src={`/assets/islands/${file}`}
-      type="module"
-    />
+    <>
+      <IslandImportMap islandEntryFile={file} />
+      <script
+        src={`/assets/islands/${file}`}
+        type="module"
+      />
+    </>
   )
 }
 

@@ -195,6 +195,8 @@ export interface ListRunsOptions {
 export interface RunReaderScope {
   readonly userId: string
   readonly runIds: readonly string[]
+  /** The automations whose runs only an admin reads, left out whatever the rest admits. */
+  readonly exceptAutomations?: readonly string[]
 }
 
 /**
@@ -287,6 +289,11 @@ export class AutomationRunRepository extends Context.Service<
      * status, trigger name, timings, error — stays.
      */
     readonly clearRunHistory: (runId: string) => Effect.Effect<void, AutomationRunDatabaseError>
+    /**
+     * Delete a run and, by cascade, everything kept under it: what a run of a
+     * `history: 'none'` trigger leaves once it succeeded.
+     */
+    readonly deleteRun: (runId: string) => Effect.Effect<void, AutomationRunDatabaseError>
     /**
      * Whether any run is `waiting-delay`, due or not — a probe that stops at the
      * first row, asked once per boot to decide whether the resume sweep is needed.

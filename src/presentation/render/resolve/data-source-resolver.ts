@@ -45,6 +45,7 @@ import {
   resolveRenderPlan,
 } from './data-source-modes'
 import { resolveIslandShortCircuit, stampNestedIslands } from './data-source-rows'
+import { drawsOwnRows, resolveRowNestedLists } from './nested-row-lists'
 import { bindRouteParams } from './route-param-binding'
 import { withSsoProviders } from './sso-provider-stamp'
 import { isDroppedWithheld, isWithheldOverUnreadableTable } from './withheld-component'
@@ -177,15 +178,11 @@ async function resolveComponent(
   // Z-1 / P-6: `$currentUser.*` filters were resolved for the whole tree
   // before this walk began (`resolveCurrentUserFiltersInTree`), so the
   // binding here already carries concrete values.
-  return resolveByMode({
-    component,
-    app,
-    table: matchedTable!,
-    session,
-    routeParams,
-    db,
-    plan,
-  })
+  // A list nested in one of the rows just drawn then reads its own records.
+  return resolveRowNestedLists(
+    await resolveByMode({ component, app, table: matchedTable!, session, routeParams, db, plan }),
+    (node) => resolveComponent(node, ctx)
+  )
 }
 
 type ResolveContext = Parameters<typeof resolveComponent>[1]
@@ -227,28 +224,6 @@ function isResolvedHere(node: Component, routeParams: Readonly<Record<string, st
   )
 }
 
-/**
- * A section whose rows are drawn HERE, from its per-row `children` template —
- * a container of cards bound to a table. At the top of a page the walk above
- * expands it; one container down it would otherwise ship its template once,
- * with the raw `$record.` text, so it is resolved the same way wherever it sits. A grid
- * (gated by `gateNestedTableBinding`), a drawer and an island binding (whose
- * island owns the fetch) are not.
- */
-function drawsRowsOnServer(node: Component, ctx: ResolveContext): boolean {
-  const binding = node.dataSource as { readonly mode?: string; readonly table?: unknown }
-  const children = node.children as readonly unknown[] | undefined
-  return (
-    node.type !== 'table' &&
-    node.type !== 'sheet' &&
-    (binding.mode === undefined || binding.mode === 'list') &&
-    typeof binding.table === 'string' &&
-    children !== undefined &&
-    children.length > 0 &&
-    resolveIslandShortCircuit(node, ctx.routeParams, ctx.app) === undefined
-  )
-}
-
 type NestedChild = Component | ComponentReference | string
 type NestedResult = DataSourceSectionResult | string
 type PageSentinel = typeof UNAUTHORIZED | typeof SINGLE_RECORD_NOT_FOUND
@@ -262,7 +237,10 @@ async function resolveNestedChild(child: NestedChild, ctx: ResolveContext): Prom
   const node = child as Component
   if (!node.dataSource) return resolveNestedSingleRecords(node, ctx)
   if (isResolvedHere(node, ctx.routeParams)) return resolveComponent(node, ctx)
-  if (drawsRowsOnServer(node, ctx)) return resolveComponent(node, ctx)
+  // A section drawing its rows HERE from a `children` template (cards bound to
+  // a table): one container down it would otherwise ship its template once,
+  // with the raw `$record.` text. The one predicate a row's nested list answers to.
+  if (drawsOwnRows(node)) return resolveComponent(node, ctx)
   if (holdsInheritedRecord(node)) return gateNestedInheritedRecord(node, ctx)
   return withCallerTableView(gateNestedTableBinding(node, ctx), ctx)
 }

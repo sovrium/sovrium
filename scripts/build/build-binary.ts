@@ -115,6 +115,50 @@ const BUILD_TYPES_TIMEOUT_MS = 120_000
 const COMPILE_TIMEOUT_MS = 300_000
 
 // ---------------------------------------------------------------------------
+// Compile entry points
+// ---------------------------------------------------------------------------
+
+/**
+ * Every file `bun build --compile` takes as an entry point, repo-relative, the
+ * CLI first.
+ *
+ * Bun does not follow a `new Worker(path)` into a compiled bundle: a worker
+ * script reaches the executable only as an extra entry point, bundled on its
+ * own (`vendor/bun/docs/bundler/executables.mdx`, "Worker"). Without its row
+ * here the binary still builds and boots, and only the first code step fails,
+ * at run time, on a module it cannot resolve.
+ *
+ * The code-step worker ([internal ref] D6) is the second row. Inside the binary it is
+ * embedded at `<root>/application/use-cases/automations/action-handlers/
+ * code-step-worker.js`, where `<root>` is `/$bunfs/root/` (`B:/~BUN/root/` on
+ * Windows) and stands for {@link compileEntryRoot}; the CLI's own
+ * `import.meta.url` is `<root>/<outfile name>`. That path is why the root must
+ * stay `src`: see the test that pins it.
+ */
+export const BINARY_ENTRY_POINTS: readonly string[] = [
+  'src/cli/index.ts',
+  'src/application/use-cases/automations/action-handlers/code-step-worker.ts',
+]
+
+/**
+ * The directory Bun embeds every entry point relative to: the deepest
+ * directory holding all of them, as forward-slash repo-relative segments.
+ *
+ * Adding an entry point outside `src/` would move it to the repository root
+ * and rename every embedded worker from `application/...` to
+ * `src/application/...`, which the specifier a worker is spawned with would
+ * not follow.
+ */
+export const compileEntryRoot = (entries: readonly string[]): string => {
+  const dirs = entries.map((entry) => entry.split('/').slice(0, -1))
+  const first = dirs[0] ?? []
+  const shared = first.filter((_, index) =>
+    dirs.every((dir) => dir.slice(0, index + 1).join('/') === first.slice(0, index + 1).join('/'))
+  )
+  return shared.join('/')
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -263,13 +307,19 @@ const compileBinary = (
 ): Effect.Effect<void, BuildBinaryError, CommandService> =>
   Effect.gen(function* () {
     const outPath = join(PROJECT_ROOT, target.outfile)
-    const entryPoint = join(PROJECT_ROOT, 'src', 'cli', 'index.ts')
+    const entryPoints = BINARY_ENTRY_POINTS.map((entry) => join(PROJECT_ROOT, entry))
+    const missing = BINARY_ENTRY_POINTS.filter((_, index) => !existsSync(entryPoints[index] ?? ''))
+    if (missing.length > 0) {
+      return yield* new BuildBinaryError({
+        message: `Compile entry point(s) missing on disk: ${missing.join(', ')}`,
+      })
+    }
 
     const cmd = [
       'bun',
       'build',
       '--compile',
-      entryPoint,
+      ...entryPoints,
       `--target=${target.bunTarget}`,
       `--outfile=${outPath}`,
       '--minify',

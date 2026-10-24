@@ -73,9 +73,9 @@ function useStackedRecord(
   const run = useRecordSave({
     recordFields: section.fields,
     values,
+    loaded: read.baseline,
     table: section.table,
     recordId,
-    record: read.record,
     setOpen: back,
     setError: handlers.setError,
     setFieldErrors: handlers.setFieldErrors,

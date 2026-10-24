@@ -383,6 +383,27 @@ function extractTypes(): string {
     COMPONENT_STYLE_TYPE_NAME,
     'CodeContext',
   ])
+  /**
+   * The declaration each export is printed from, keyed by the name it keeps. A
+   * printed type that names one of them (`AppConfig`'s automations are
+   * `AutomationConfig`) is written as a module reference like any other; this
+   * is how the inliner tells that reference from a collision.
+   */
+  const exportedIdentities = new Map(
+    TYPE_EXPORTS.filter((t) => t.exported === t.source).flatMap(({ exported }) => {
+      const sym = exports.find((e) => e.getName() === exported)
+      const target =
+        sym === undefined
+          ? undefined
+          : sym.flags & ts.SymbolFlags.Alias
+            ? checker.getAliasedSymbol(sym)
+            : sym
+      const decl = target?.declarations?.[0]
+      return target === undefined || decl === undefined
+        ? []
+        : [[exported, `${decl.getSourceFile().fileName}#${target.getName()}`] as const]
+    })
+  )
   const inlined = (() => {
     try {
       return inlineModuleReferences(
@@ -391,7 +412,8 @@ function extractTypes(): string {
           codeContextActions,
         ],
         expandModuleReference,
-        reserved
+        reserved,
+        exportedIdentities
       )
     } catch (error) {
       if (error instanceof BuildTypesError) throw error

@@ -15,7 +15,7 @@
  * (paths point to `$bunfs/...` embedded files).
  */
 
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { inferMimeFromKey } from '@/domain/kernel/identity/mime-types'
@@ -70,12 +70,22 @@ export const materializeMigrations = async (dialect: EmbeddedDialect): Promise<s
   const set = MIGRATIONS[dialect]
   const root = await mkdtemp(join(tmpdir(), `sovrium-migrations-${dialect}-`))
 
-  await Promise.all(
+  const written = await Promise.allSettled(
     Object.entries(set.migrations).map(async ([folder, embeddedPath]) => {
       await mkdir(join(root, folder), { recursive: true })
       return writeFile(join(root, folder, 'migration.sql'), await Bun.file(embeddedPath).bytes())
     })
   )
+  const failure = written.find(
+    (outcome): outcome is PromiseRejectedResult => outcome.status === 'rejected'
+  )
+  if (failure !== undefined) {
+    // A half-written set is of no use, and the caller's scope never owned it
+    // (its release runs only for a folder this returned): removed here, once
+    // every write has settled, or a full disk kept one folder per failed start.
+    await rm(root, { recursive: true, force: true })
+    throw failure.reason
+  }
 
   return root
 }

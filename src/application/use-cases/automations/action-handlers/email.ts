@@ -10,6 +10,7 @@ import { EmailSender, type EmailAttachment } from '@/application/ports/services/
 import { sanitizeRichTextHTML, stripHtmlToText } from '@/domain/kernel/sanitize/html-sanitization'
 import { resolveFileRef, type FileRefScope, type ResolvedFile } from './document-file-ref'
 import { failureOf, typedOwnProp, type Raw } from './document-run'
+import { bulkPrelude, decorateBulk, recordSent, type EmailBulkRequirements } from './email-bulk'
 import { templatedEmail } from './email-template-body'
 import { fileRefsOf } from './file-ref-origin'
 import { actionAttributes, stringProp } from './shared'
@@ -17,7 +18,7 @@ import type { ActionHandler, ActionOutcome } from './shared'
 import type { EmailCssInliner } from '@/application/ports/services/email-css-inliner'
 
 /** The services an `email/send` step reaches: the sender, and the inliner a templated body runs. */
-export type EmailStepRequirements = EmailSender | EmailCssInliner
+export type EmailStepRequirements = EmailSender | EmailCssInliner | EmailBulkRequirements
 
 /**
  * Tagged error for the inner `sendEmail` promise. Wrapping the unknown
@@ -181,6 +182,15 @@ const messageBody = (props: Raw, scope: FileRefScope) =>
     }
   })
 
+/** Append the open pixel at the end of the HTML part, inside `<body>` when there is one. */
+const withTrailingHtml = (html: string, trailing: string): string => {
+  if (trailing === '') return html
+  const close = html.toLowerCase().lastIndexOf('</body>')
+  return close === -1
+    ? `${html}${trailing}`
+    : `${html.slice(0, close)}${trailing}${html.slice(close)}`
+}
+
 /**
  * `email/send` handler — sends an HTML email via the SMTP transport
  * configured by `EMAIL_SMTP_*` env vars (Better Auth password-reset uses
@@ -199,6 +209,9 @@ export const handleEmailSend: ActionHandler = (action, app, automation, runConte
     const props = (action['props'] as Record<string, unknown> | undefined) ?? {}
     const to = stringProp(props, 'to')
     if (!to) return { status: 'failure', error: 'email.send requires a `to` address' } as const
+    const prelude = yield* bulkPrelude(to, props)
+    if ('outcome' in prelude) return prelude.outcome
+    const { intent } = prelude
 
     const body = yield* Effect.result(messageBody(props, { app, automation, runContext }))
     if (body._tag === 'Failure') return failureOf('email.send failed', body.failure)
@@ -206,6 +219,7 @@ export const handleEmailSend: ActionHandler = (action, app, automation, runConte
     if (!subject) return { status: 'failure', error: 'email.send requires a `subject`' } as const
 
     const fromOverride = stringProp(props, 'from')
+    const decoration = yield* decorateBulk(to, intent)
     // `withSendTimeout` bounds the send so a slow/half-open SMTP greeting fails
     // fast into the Left/failure path below rather than stalling the
     // (synchronous) caller — e.g. a comment automation awaited inside a POST.
@@ -215,7 +229,7 @@ export const handleEmailSend: ActionHandler = (action, app, automation, runConte
         .send({
           to,
           subject,
-          html: body.success.html,
+          html: withTrailingHtml(body.success.html, decoration.appendHtml),
           text: body.success.text,
           // An explicit `from` is the sender, whole; without one the sender
           // is the operator's SMTP_FROM, displayed under the app's name.
@@ -224,6 +238,7 @@ export const handleEmailSend: ActionHandler = (action, app, automation, runConte
           bcc: toRecipientArray(props['bcc']),
           replyTo: toRecipientArray(props['replyTo']),
           ...(body.success.attachments.length > 0 ? { attachments: body.success.attachments } : {}),
+          ...(Object.keys(decoration.headers).length > 0 ? { headers: decoration.headers } : {}),
         })
         .pipe(
           Effect.mapError(
@@ -238,6 +253,7 @@ export const handleEmailSend: ActionHandler = (action, app, automation, runConte
         error: `email.send failed: ${result.failure.message}`,
       } as const satisfies ActionOutcome
     }
+    yield* recordSent(decoration, intent, result.success)
     return {
       status: 'success',
       output: { messageId: result.success },

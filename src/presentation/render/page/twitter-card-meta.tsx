@@ -67,28 +67,39 @@ function buildTwitterCardFields(
   }))
 }
 
+/** A card declared without a description fills the slot; it never creates a card. */
+const withFallbackDescription = <T extends { readonly description?: string | undefined }>(
+  card: T,
+  fallback: string | undefined
+): T => (card.description === undefined && fallback ? { ...card, description: fallback } : card)
+
 /**
  * Render Twitter Card metadata tags
  * Generates <meta name="twitter:*"> tags for Twitter/X sharing
  * Supports both 'twitter' and 'twitterCard' field names for compatibility
  *
  * @param page - Page configuration
+ * @param fallbackDescription - What `twitter:description` reads when the card declares none
  * @returns React fragment with Twitter meta tags
  */
 export function TwitterCardMeta({
   page,
   lang,
   languages,
+  fallbackDescription,
 }: {
   readonly page: Page
   readonly lang?: string
   readonly languages?: Languages
+  /** The resolved description a card declared without one takes (`openGraph`, then `meta`). */
+  readonly fallbackDescription?: string
 }): Readonly<ReactElement | undefined> {
   // Support both 'twitter' (canonical) and 'twitterCard' (test alias)
-  const twitterCard = page.meta?.twitter ?? page.meta?.twitterCard
-  if (!twitterCard) {
+  const declaredCard = page.meta?.twitter ?? page.meta?.twitterCard
+  if (!declaredCard) {
     return undefined
   }
+  const twitterCard = withFallbackDescription(declaredCard, fallbackDescription)
 
   // Resolve `$t:` translation patterns in the human-readable title/description
   // (mirrors OpenGraphMeta). Without this, Twitter/X cards leak raw `$t:` tokens.

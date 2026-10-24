@@ -7,7 +7,7 @@
 
 import { sql, eq, desc, asc } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { isGuestSession } from '@/domain/models/app/auth/guest-session'
+import { SYSTEM_USER_ID, isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { NotFoundError, DatabaseError } from '@/infrastructure/database'
 import { db } from '@/infrastructure/database/drizzle'
 import {
@@ -457,7 +457,8 @@ export function updateCommentStatus(config: {
         .set({
           status,
           moderatedAt: now,
-          moderatedBy: session.userId,
+          // A workflow moderating as the system is no account: no moderator is named.
+          moderatedBy: session.userId === SYSTEM_USER_ID ? null : session.userId,
           updatedAt: now,
         })
         .where(activeCommentById(commentId))

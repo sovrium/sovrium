@@ -24,7 +24,7 @@ Each name becomes the suffix of every spacing utility — padding, margin, gap a
 
 Step names are lowercase letters, digits and hyphens. A name that could not appear in a class name is refused, and the message names the ladder it was under.
 
-**Display keywords are refused as step names.** `block`, `inline`, `flex`, `grid`, `table`, `hidden` and `contents` are refused, naming the step. A step's name also becomes the suffix of the logical-size utilities, so a step called `block` would turn `inline-block` into a width as well as a display, and every inline-block element on the site would take it. Any other name works, including one that merely contains a keyword (`block-gap`).
+**Display and size keywords are refused as step names.** `block`, `inline`, `flex`, `grid`, `table`, `hidden` and `contents` are refused, naming the step. A step's name also becomes the suffix of the logical-size utilities, so a step called `block` would turn `inline-block` into a width as well as a display, and every inline-block element on the site would take it. For the same reason `full`, `screen`, `auto`, `min`, `max`, `fit`, `svh`, `dvh`, `lvh`, `svw`, `dvw`, `lvw`, `none` and `lh` are refused: a step called `full` would make `w-full` that length instead of 100%, one called `none` would do the same to `max-w-none` and `leading-none`, and one called `lh` to `h-lh`. The container sizes `xs` to `7xl` are allowed as step names. `px` is allowed — it is the hairline step the default ladder defines. Any other name works, including one that merely contains a keyword (`block-gap`).
 
 ## `radius`
 

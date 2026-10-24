@@ -8,13 +8,14 @@
 import { sql, type SQL } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
-import { DatabaseError, type DrizzleTransaction } from '@/infrastructure/database'
+import { DatabaseError } from '@/infrastructure/database'
 import { cachedColumnExists } from '@/infrastructure/database/sql/catalog-request-cache'
 import { getExistingColumnNames } from '@/infrastructure/database/sql/dialect-introspection'
 import { generateSqlConditionFragment } from '../filter-operators'
 import { ruledRelatedTextFragment } from '../related-text-fragment'
 import { validateColumnName, databaseTableName } from '../statement/validation'
 import { isWordSearchLeaf, wordSearchCondition } from './word-search-fragments'
+import type { RawSqlRunner } from '@/infrastructure/database/sql/dialect-execute'
 
 /**
  * `COUNT(*)` cast to a text type for the active dialect — Postgres uses the
@@ -232,12 +233,11 @@ export function parseAggregationResult(
  * round-trips for one answer, on every read. Measured on both dialects: a
  * record listing costs 8 statements with the memo, 9 without.
  *
- * Outside a request (boot, cron, the background listeners) the memo is inert
- * and this is a live probe, unchanged. The write path keeps its own
- * unmemoized copy in `mutation-helpers/delete-helpers.ts`.
+ * Outside a request (boot, cron, listeners) the per-process column cache answers,
+ * as it does for the write path's own copy in `mutation-helpers/delete-helpers.ts`.
  */
 export function checkDeletedAtColumn(
-  tx: Readonly<DrizzleTransaction>,
+  tx: Readonly<RawSqlRunner>,
   tableName: string
 ): Effect.Effect<boolean, DatabaseError> {
   return Effect.tryPromise({
@@ -385,7 +385,7 @@ export function buildPageClause(limit?: number, offset?: number): Readonly<SQL> 
  * a 500.
  */
 export function buildSelectListClause(
-  tx: Readonly<DrizzleTransaction>,
+  tx: Readonly<RawSqlRunner>,
   tableName: string,
   columns: readonly string[] | undefined
 ): Effect.Effect<Readonly<SQL>, DatabaseError> {
@@ -431,7 +431,7 @@ export function buildWhereClause(
  * Returns an object indicating presence of created_by, updated_by, and deleted_by
  */
 export function checkAuthorshipColumns(
-  tx: Readonly<DrizzleTransaction>,
+  tx: Readonly<RawSqlRunner>,
   tableName: string
 ): Effect.Effect<
   {

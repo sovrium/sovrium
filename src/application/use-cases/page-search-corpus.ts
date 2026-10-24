@@ -8,6 +8,7 @@
 // eslint-disable-next-line no-restricted-syntax -- beside `command-search.ts`, whose page half reads this corpus: one module per search surface, not a phase
 import { Effect } from 'effect'
 import { ContentDirReader } from '@/application/ports/services/content-dir-reader'
+import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import {
   articleDocument,
   declaredPageDocuments,
@@ -62,7 +63,7 @@ const articleDocuments = (
       pages,
       (page) =>
         reader
-          .readBodies(page.contentDir!, page.path)
+          .readBodies(page.contentDir!, primaryPagePath(page.path))
           .pipe(
             Effect.map((bodies) =>
               bodies.map(({ entry, body }) => articleDocument(app, page, entry, body))

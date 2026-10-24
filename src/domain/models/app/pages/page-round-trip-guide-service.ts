@@ -38,7 +38,8 @@ export const PAGE_ROUND_TRIP_TABLES: PageRoundTripTables = {
     { edit: 'A node deleted', outcome: 'Removed from the page' },
     {
       edit: 'A new node drawn with a kit component (`data-kit`)',
-      outcome: 'Added without bindings, and named in the report',
+      outcome:
+        'Added with the rules drawn on it (`data-sovrium-*`), and named in the report; one naming what the config does not declare is refused and left out',
     },
     {
       edit: 'A variant or a size (`data-kit-variant`, `data-kit-size`)',
@@ -77,7 +78,7 @@ export const PAGE_ROUND_TRIP_TABLES: PageRoundTripTables = {
     {
       edit: 'A board drawing a page the config does not declare, imported with `--new-pages`',
       outcome:
-        "A new page named from its file, at its root's `data-sovrium-path` (else `/<name>`), with the access of the page its `data-sovrium-like` names",
+        "A new page named after its root's `data-sovrium-page`, at its root's `data-sovrium-path` (else `/<name>`), with the access of the page its `data-sovrium-like` names, appended to a TypeScript config's `pages` literal",
     },
     {
       edit: "A colour changed in the canvas's Theme menu, imported with `--tokens`",

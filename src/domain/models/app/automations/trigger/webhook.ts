@@ -89,6 +89,30 @@ const WebhookAuthSchema = Schema.Struct({
   ),
 
   /**
+   * Whose authority a `session` webhook's run uses. Omitted, the run is
+   * started by hand by its caller and reads and writes as that person.
+   * `system` runs it as the system, for a machine that reports to the app with
+   * its own API key and a dedicated role holding no grant on the tables the
+   * run writes: only with `type: 'session'` and a `requiredRole` other than the
+   * role every sign-up receives, and only for a caller presenting an API key —
+   * a caller signed in with a session cookie still runs as the person.
+   * `trigger.user` keeps naming the caller, and only an admin may read the
+   * automation's runs.
+   */
+  runAs: Schema.optional(
+    Schema.Literal('system').pipe(
+      Schema.annotate({
+        description:
+          "With type 'session': run as the system instead of as the caller, for a machine that calls with its own API key and holds a dedicated role. Accepted only beside a requiredRole other than the app's default sign-up role (auth.defaultRole, 'member' when none is declared). Applies only to a caller presenting an API key; a caller signed in with a session cookie still runs as the person. trigger.user still names the caller, so the run can attribute its writes, and only an admin may read the automation's runs.",
+        defaultNote: 'the caller (the run is started by hand by whoever called)',
+        howTo:
+          "Give the machine its own role (for instance `node`), declare `requiredRole: node` and `runAs: system`, mint the machine's API key from a user holding that role, and write the caller explicitly with `{{trigger.user.id}}` where the run needs to know who reported.",
+        examples: ['system'],
+      })
+    )
+  ),
+
+  /**
    * `projectKey`: the table holding one row per sender (an app, a project, a
    * customer). The presented key is looked up in its `keyField`.
    */

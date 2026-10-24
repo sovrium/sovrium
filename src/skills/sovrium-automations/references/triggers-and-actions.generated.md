@@ -4,7 +4,7 @@
 
 > Generated from the Sovrium schema by scripts/build/generate-skill-references.ts — do not edit. It carries no version on purpose: when it and the binary you run disagree, the binary is right.
 
-Every trigger an automation can start from (9) and every action a step can run (135), in the words of the schema. An action is chosen by its `type` and, within a family, its `operator`.
+Every trigger an automation can start from (9) and every action a step can run (141), in the words of the schema. An action is chosen by its `type` and, within a family, its `operator`.
 
 ## Contents
 
@@ -50,10 +50,13 @@ Read: `sovrium docs automation-actions`
 | `record` | `batchUpdate` | Update multiple records in a single operation |
 | `record` | `batchDelete` | Delete multiple records matching a filter condition |
 | `record` | `batchUpsert` | Insert or update multiple records using a match field |
+| `record` | `aggregate` | Compute count, sum, average, minimum, maximum and percentiles over the records a filter matches, optionally per group, in one database statement; returned as `rows` |
 | `filter` | `continue` | Conditionally continue or stop automation based on evaluated conditions |
 | `path` | `branch` | Split automation into conditional branches, executed sequentially in declaration order |
 | `loop` | `each` | Iterate over an array and execute actions for each item |
 | `email` | `send` | Send emails via configured SMTP transport |
+| `email` | `suppress` | Stop mailing an address: record a bounce, a complaint or an unsubscribe on the suppression list later bulk sends consult |
+| `email` | `stats` | Count the messages a campaign or a category sent, opened, bounced, complained about and unsubscribed from |
 | `auth` | `createUser` | Create a new user account |
 | `auth` | `assignRole` | Assign a role to an existing user |
 | `auth` | `banUser` | Ban a user account |
@@ -74,6 +77,8 @@ Read: `sovrium docs automation-actions`
 | `comment` | `create` | Post a comment on a record's thread, through the same content, reply, mention, moderation and comment-trigger rules as the comments API |
 | `comment` | `list` | Read a record's comments, oldest first, as the system or as the triggering user would read them |
 | `comment` | `delete` | Soft-delete one comment of a record's thread, as the system or under the triggering user's comment rules |
+| `comment` | `update` | Replace the text of one comment of a record's thread, keeping its id, author, date and place, as the system or under the triggering user's edit rule |
+| `comment` | `moderate` | Set the moderation status of one comment of a record's thread — approved, pending or rejected — without touching its content, as the system or under the triggering user's moderator permission |
 | `notification` | `create` | Notify people of something: one notification per recipient, of a declared kind, listed in the app, sent by email, or kept for a periodic digest that this version does not yet send, as each recipient's preferences for that kind decide |
 | `webhook` | `send` | Send outgoing webhook (envelope or pass-through mode) |
 | `webhook` | `response` | Construct a custom response for synchronous webhook triggers (respondImmediately: false) |
@@ -141,6 +146,7 @@ Read: `sovrium docs automation-actions`
 | `crypto` | `sign` | Make a detached Ed25519 signature with a private key from the environment |
 | `crypto` | `verify` | Check a detached Ed25519 signature and answer { valid } |
 | `calendar` | `importIcs` | Read an iCalendar (`.ics`) feed and create or update one row per event, matched on the event's `UID`. A row whose values already equal the event's is left untouched, so a frequent schedule does not rewrite unchanged rows. |
+| `calendar` | `exportIcs` | Build an iCalendar (`.ics`) file holding one event and write it as a temporary file, returned as `file` so a later step can attach it to an email. |
 | `date` | `format` | Render an instant as a string in a given timezone and locale |
 | `date` | `parse` | Parse a string into an instant, reporting validity as data rather than as a step failure |
 | `date` | `add` | Shift an instant forward by a calendar duration, DST-correct in a given timezone |

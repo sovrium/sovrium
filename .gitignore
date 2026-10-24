@@ -69,6 +69,7 @@ prevalidation-result.json
 .tdd-marker-*
 /sovrium
 /sovrium.map
+/code-step-worker.js.map
 /.sovrium-binary-build.json
 sovrium-linux-*
 sovrium-darwin-*

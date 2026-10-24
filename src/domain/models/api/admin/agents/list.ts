@@ -87,7 +87,7 @@ export const agentAdminDetailSchema = Schema.Struct({
       })
     ).annotate({
       description:
-        'The `tools` as a person reads them, one per tool in the same order: each name made readable — dots, hyphens and underscores read as spaces, the first letter capitalised (`record.list` reads `Record list`, `query_clients` reads `Query clients`). Display text only; the tool calls keep the names.',
+        "The `tools` as a person reads them, one per tool in the same order, in the operator's console language: in English each name made readable — dots, hyphens and underscores read as spaces, the first letter capitalised (`record.list` reads `Record list`, `query_clients` reads `Query clients`); in French the console's own words (`Lister les enregistrements`, `Interroger clients`). Display text only; the tool calls keep the names.",
       examples: [['Record read', 'Record list']],
     })
   ),

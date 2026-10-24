@@ -105,6 +105,7 @@ const LOADERS: ReadonlyArray<() => Promise<LibraryEntry>> = [
   async () => import('../block/kit-specimen-frame').then(({ entry }) => entry),
   async () => import('../block/kpi-row-trend').then(({ entry }) => entry),
   async () => import('../block/kpi-sparkline').then(({ entry }) => entry),
+  async () => import('../block/leaderboard-points').then(({ entry }) => entry),
   async () => import('../block/list-avatars').then(({ entry }) => entry),
   async () => import('../block/login-01').then(({ entry }) => entry),
   async () => import('../block/login-02').then(({ entry }) => entry),
@@ -247,11 +248,14 @@ const LOADERS: ReadonlyArray<() => Promise<LibraryEntry>> = [
   async () => import('../recipe/record-to-linear-issue').then(({ entry }) => entry),
   async () => import('../recipe/record-to-linkedin-post').then(({ entry }) => entry),
   async () => import('../recipe/record-to-mistral-summary').then(({ entry }) => entry),
+  async () => import('../recipe/record-to-points').then(({ entry }) => entry),
   async () => import('../recipe/record-to-salesforce-contact').then(({ entry }) => entry),
   async () => import('../recipe/record-to-slack').then(({ entry }) => entry),
   async () => import('../recipe/record-to-teams-channel').then(({ entry }) => entry),
   async () => import('../recipe/record-to-whatsapp-template').then(({ entry }) => entry),
   async () => import('../recipe/record-to-yousign-signature-request').then(({ entry }) => entry),
+  async () => import('../recipe/scheduled-broadcast').then(({ entry }) => entry),
+  async () => import('../recipe/stripe-subscription-to-role').then(({ entry }) => entry),
 ]
 
 /** Every shipped entry, in catalogue order (kind, then slug). */

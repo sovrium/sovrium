@@ -6,6 +6,7 @@
  */
 
 import { sql } from 'drizzle-orm'
+import { bunSQLiteCodecs } from 'drizzle-orm/bun-sqlite'
 import {
   SQLiteAsyncDatabase,
   SQLiteAsyncPreparedQuery,
@@ -15,6 +16,7 @@ import {
 } from 'drizzle-orm/sqlite-core'
 import type { Changes, Database as BunSqlite, Statement } from 'bun:sqlite'
 import type { Logger, Query } from 'drizzle-orm'
+import type { QueryMetadata, WithCacheConfig } from 'drizzle-orm/cache/core/types'
 import type {
   SQLiteAsyncPreparedQueryConfig,
   SQLiteExecuteMethod,
@@ -202,7 +204,8 @@ class GatedSqliteSession extends SQLiteAsyncSession<'async', Changes> {
     _prepare: boolean,
     executeMethod?: SQLiteExecuteMethod,
     mapper?: (rows: unknown[]) => unknown,
-    queryMetadata?: { type: 'select' | 'update' | 'delete' | 'insert'; tables: string[] }
+    queryMetadata?: QueryMetadata,
+    cacheConfig?: WithCacheConfig
   ): SQLiteAsyncPreparedQuery<PreparedConfig> {
     const { client, admit, logger } = this.options
     const statement: Statement = client.query(query.sql)
@@ -216,7 +219,7 @@ class GatedSqliteSession extends SQLiteAsyncSession<'async', Changes> {
           mode === 'arrays' ? statement.values(...bind(params))[0] : statement.get(...bind(params))
         ),
       run: (params) => admit(() => statement.run(...bind(params))),
-      values: (params) => admit(() => statement.values(...bind(params))),
+      // No `values` executor: drizzle runs `.values()` through `all` in arrays mode.
     }
     return new SQLiteAsyncPreparedQuery<PreparedConfig>(
       'async',
@@ -228,6 +231,8 @@ class GatedSqliteSession extends SQLiteAsyncSession<'async', Changes> {
       logger,
       undefined,
       queryMetadata,
+      cacheConfig,
+      // `paramsInErrors` stays off: bound values never ride on a `DrizzleQueryError`.
       undefined
     )
   }
@@ -308,7 +313,11 @@ export const makeSerializedSqliteClient = (
   client: BunSqlite,
   logger: Logger
 ): SerializedSqliteClient => {
-  const dialect = new SQLiteDialect()
+  // The codecs decode stored values (timestamps, booleans, JSON text, buffer
+  // blobs) into their JS types. Since drizzle 1.0.0-rc.5 that decoding lives in
+  // the dialect, not the columns, so a bare `new SQLiteDialect()` returns raw
+  // storage values. These are the stock `drizzle-orm/bun-sqlite` driver's own.
+  const dialect = new SQLiteDialect({ codecs: bunSQLiteCodecs })
   const gate = makeSqliteConnectionGate()
   const session = new GatedSqliteSession({ client, dialect, logger, admit: gate.admit, gate })
   return Object.assign(new SQLiteAsyncDatabase('async', dialect, session, {}), { $client: client })

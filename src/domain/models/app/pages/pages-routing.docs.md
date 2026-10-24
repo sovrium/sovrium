@@ -21,11 +21,13 @@ A path starts with `/` and allows **only lowercase letters**. `/users/:userId` i
 
 **A path with no `:` and no `*` is compared as an exact string.** There is no prefix matching: `/about` is not the same route as `/about/`. A request carrying a trailing slash is not lost, though — it is normalized away with a `301` and resolved again, so `/about/` reaches `/about`.
 
+**One address belongs to one page.** Because `/about/` and `/about` are one address, `sovrium validate` refuses two pages declaring it, written either way, and names both pages and the address (`Pages "menu" and "seasonal-menu" both claim /menu`), with the file of a page kept in its own `$ref` file. A static path beside a dynamic one under it, such as `/menu` and `/menu/:slug`, shares no address.
+
 ## Dynamic segments
 
 A `:param` segment captures exactly one path segment — it never spans a `/`. `/blog/:slug` matches `/blog/hello` but not `/blog/2026/hello`; use `/blog/:slug*` for the latter. The captured value is percent-decoded: `/users/:email` reached at `/users/ada%40example.com` captures `ada@example.com`, and a breadcrumb derived from the address labels that segment decoded while still linking to the address as written. A segment that is not valid percent-encoding, such as `100%`, is kept as it arrived.
 
-Dynamic routes are usually paired with a `collection` block, so one page definition generates a route per record:
+Dynamic routes are usually paired with a `collection` block, so one page definition generates a route per record (**Collection & Markdown Pages** documents the `collection` contract):
 
 ```yaml
 name: my-blog
@@ -41,8 +43,6 @@ pages:
     components:
       - { type: text, element: h1, content: '$record.title' }
 ```
-
-**Collection & Markdown Pages** documents the `collection` contract.
 
 ## Record detail routes
 
@@ -67,9 +67,7 @@ pages:
       - { type: text, content: '$record.description' }
 ```
 
-A request whose parameter matches no record returns a `404`.
-
-A page-level `dataSource` may also name a platform endpoint through `system` instead of a table. That record is read on the server, before the page is sent, **as the visitor**: someone who cannot read the record gets the page's `404`, never a page with empty placeholders. The read is addressed to the running server's own listener over loopback, not to the address the request arrived on, so it behaves identically behind a reverse proxy, a load balancer or a custom domain, whatever `BASE_URL` says. Such a record has no field types, so where page text prints one of its values — a sentence, a description list — a date and time the endpoint writes in ISO form prints as a date and time in the page language, and a list prints its items joined as the page language joins a list; a link built from the same value keeps it as stored.
+A request whose parameter matches no record returns a `404`. A page-level `dataSource` may also name a platform endpoint through `system` instead of a table. That record is read on the server, before the page is sent, **as the visitor**: someone who cannot read the record gets the page's `404`, never a page with empty placeholders. The read is addressed to the running server's own listener over loopback, not to the address the request arrived on, so it behaves identically behind a reverse proxy, a load balancer or a custom domain, whatever `BASE_URL` says. Such a record has no field types, so where page text prints one of its values — a sentence, a description list — a date and time the endpoint writes in ISO form prints as a date and time in the page language, and a list prints its items joined as the page language joins a list; a link built from the same value keeps it as stored.
 
 A page bound to one record — either arm — may also draw a list the record carries with a `container` `repeat`: the copies are drawn on the server, so they arrive in the first response like every other `$record.` value on the page. The contract is the drawer's (see **Overlays**), with one difference in position: a `repeat` inside a component that reads rows of its own (a `dataSource` row template) is refused, because there `$record.` is the row and not the page's record.
 
@@ -80,6 +78,8 @@ A token can reach into a nested object with a dotted path: `$record.address.city
 Inside a copy, a `description-list` reads the element too: its `term` and `detail` print as text, its `action.href` takes the stored value, and a `detail` that is one token with a `format` (`detail: '$step.durationMs', format: 'duration'`) formats the element's stored value, as the grid column does.
 
 `visibility.item` keeps a component only in the copies whose element matches, with the same `field` and operators as `visibility.record`: `visibility: { item: { field: status, eq: failed } }` draws a badge on the failed step alone. It tests the element of the nearest enclosing repeat, and a copy it hides is left out of the HTML. It works on a page bound to one record, where the server draws the copies; it is refused when the config loads outside any repeat and inside a record drawer, whose copies the browser draws. `visibility.record` stays refused inside a repeat.
+
+A `visibility.record` operand may name the reader: `$currentUser.id`, `$currentUser.email`, `$currentUser.role` or `$currentUser.isUnrestricted`. `visibility: { record: { field: owner, eq: $currentUser.id } }` draws the owner's controls for the record's owner alone, `neq` draws its twin for everyone else, and `contains` matches a reader listed in a multi-value user field. It works on a page bound to one record and on every row of a list. The server resolves the reference for each request, so it never reaches the page. A visitor who is not signed in matches no such gate, whatever the operator.
 
 A page bound to a runs read (`/api/admin/automations/runs/:id`) prints each status — the run's and each step's — in the reader's language, and keeps the engine's own value under `status.raw`: `$record.status.raw` prints `completed`, and a gate on `field: status.raw` matches it in any language.
 
@@ -99,6 +99,22 @@ pages:
   - { name: home-en, path: /en, components: [{ type: text, content: '$t:home.title' }] }
   - { name: home-fr, path: /fr, components: [{ type: text, content: '$t:home.title' }] }
 ```
+
+A path that names its language is never prefixed again. `/fr/pricing` advertises `/en/pricing` as its English alternate only when a page declares that path, and a doubled address such as `/en/fr/pricing` answers `404`.
+
+**A translated slug is one page with a path per language.** Write `path` as a map from language code to path, without the language segment, and the engine adds it:
+
+```yaml
+name: my-app
+languages:
+  supported: [{ code: en }, { code: fr }]
+pages:
+  - name: manifesto
+    path: { en: /manifesto, fr: /manifeste }
+    components: [{ type: text, content: '$t:manifesto.title' }]
+```
+
+The page answers at `/en/manifesto` and `/fr/manifeste`, and every link the engine builds to it in another language uses those paths: the language switcher, the `hreflang` alternates and `x-default`, the canonical and the sitemap. The slug of the wrong language, `/fr/manifesto` or `/en/manifeste`, answers `301` to the right one, so a link shared before the translation keeps working, and an unprefixed `/manifeste` reaches `/fr/manifeste`. Dynamic segments are kept: with `{ en: /blog/:slug, fr: /articles/:slug }`, `/fr/articles/spring` names `/en/blog/spring` as its English alternate. `sovrium validate` refuses a map naming a language `languages.supported` does not declare, a value that already carries its language segment, and two pages claiming the same address. A plain string `path` keeps its meaning.
 
 The one place a prefix is _added_ is the 404 branch. An unprefixed path that resolves under no page, but would resolve once prefixed, is answered with a `302` to the prefixed path instead of a `404`. See **Languages**.
 

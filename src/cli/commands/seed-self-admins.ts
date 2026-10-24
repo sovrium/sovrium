@@ -25,6 +25,7 @@ import {
 import { db } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { authTableRef, authUserTableRef } from '@/infrastructure/database/sql/dialect-sql'
+import type { RecordedBaseline } from './seed-self-baseline'
 import type { SeedAccount } from '@/domain/models/seed'
 
 /** One administrator the host names, and how. */
@@ -46,19 +47,47 @@ const accountsOf = (rows: readonly Record<string, unknown>[]) =>
     typeof row.email === 'string' ? [{ id: String(row.id), email: row.email.toLowerCase() }] : []
   )
 
-/** The host's administrators that exist in the database; none when neither variable is set. */
-export const readHostAdmins = async (): Promise<readonly HostAdmin[]> => {
+/**
+ * The account `AUTH_ADMIN_EMAIL` names. A baseline recorded with that address
+ * wins over the address the account holds now: a visitor who changed the
+ * shared account's email must not make it a stranger the reset erases, nor let
+ * an account signed up with the freed address take its place.
+ */
+const namedAdmin = async (
+  email: string,
+  baselines: ReadonlyMap<string, RecordedBaseline>
+): Promise<readonly { readonly id: string; readonly email: string }[]> => {
+  const recorded = [...baselines.values()].filter((baseline) => baseline.email === email)
+  const recognised = await recorded.reduce<Promise<readonly string[]>>(
+    async (previous, baseline) => {
+      const found = await executeRaw(
+        db,
+        sql`SELECT id FROM ${authUserTableRef()} WHERE id = ${baseline.userId}`
+      )
+      return found.length > 0 ? [...(await previous), baseline.userId] : previous
+    },
+    Promise.resolve([])
+  )
+  if (recognised.length > 0) return recognised.map((id) => ({ id, email }))
+  return accountsOf(
+    await executeRaw(
+      db,
+      sql`SELECT id, email FROM ${authUserTableRef()} WHERE lower(email) = ${email}`
+    )
+  )
+}
+
+/**
+ * The host's administrators that exist in the database; none when neither
+ * variable is set. `baselines` are the recorded ones, by which an
+ * administrator whose address was changed is still recognised.
+ */
+export const readHostAdmins = async (
+  baselines: ReadonlyMap<string, RecordedBaseline> = new Map()
+): Promise<readonly HostAdmin[]> => {
   const email = setting('AUTH_ADMIN_EMAIL')?.toLowerCase()
   const subject = setting(SOVRIUM_PLATFORM_SSO_ADMIN_SUBJECT_VAR)
-  const named =
-    email === undefined
-      ? []
-      : accountsOf(
-          await executeRaw(
-            db,
-            sql`SELECT id, email FROM ${authUserTableRef()} WHERE lower(email) = ${email}`
-          )
-        )
+  const named = email === undefined ? [] : await namedAdmin(email, baselines)
   const bound =
     subject === undefined
       ? []

@@ -57,6 +57,7 @@ export default {
   'admin.notFound.body':
     'Rien dans cette console ne répond à cette adresse. La section n’existe peut-être pas dans cette app, ou le lien est périmé.',
   'admin.notFound.back': 'Revenir à la vue d’ensemble',
+  'admin.notFound.toApp': 'Aller à l’app',
 
   // Les destinations reprennent mot pour mot le vocabulaire du fil d’Ariane :
   // une exécution s’appelle « Exécutions » ici comme ailleurs, sinon

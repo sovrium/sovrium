@@ -108,6 +108,28 @@
     return supportedCodes.indexOf(firstSegment) === -1 ? undefined : firstSegment
   }
 
+  /** Each language's address of this page, as the server named it on the switcher. */
+  function pageAlternates() {
+    return JSON.parse(document.querySelector('[data-alternates]')?.dataset.alternates || '{}')
+  }
+
+  /**
+   * This page's address in `code`, keeping query and hash: the one the server named (a
+   * translated slug), else the same path under `/{code}/` (/fr/about => /en/about).
+   * Read off the parser's `href`, never reassembled from `search` and `hash` (the
+   * address bar's own text), relative like every server-rendered link, and never off
+   * this site: a target the parser places on another origin falls back to `/{code}/`.
+   */
+  function addressIn(code) {
+    const segments = window.location.pathname.split('/').filter(Boolean)
+    const rest = languageFromPath() ? segments.slice(1) : segments
+    const target = pageAlternates()[code] || `/${code}/${rest.join('/')}`
+    const url = new URL(target, window.location.origin)
+    url.search = window.location.search
+    url.hash = window.location.hash
+    return url.origin === window.location.origin ? url.href.slice(url.origin.length) : `/${code}/`
+  }
+
   /**
    * Re-derive a language for a document the SERVER has ALREADY composed.
    *
@@ -461,8 +483,7 @@
   function rememberLanguage(code) {
     localStorage.setItem('sovrium_language', code)
     const secure = window.location.protocol === 'https:' ? '; Secure' : ''
-    // One year: a language preference is the kind of choice a person expects to
-    // outlive the session they made it in.
+    // One year: a language preference is meant to outlive the session it was made in.
     document.cookie =
       'sovrium_language=' +
       encodeURIComponent(code) +
@@ -490,19 +511,9 @@
       rememberLanguage(code)
     }
 
-    // If current URL starts with a supported language code, navigate to new language subdirectory
+    // On a `/{lang}/` address, go to this page's address in `code`
     if (languageFromPath()) {
-      // Replace language segment: /fr/about => /en/about
-      const segments = window.location.pathname.split('/').filter(Boolean)
-      const pathWithoutLang = '/' + segments.slice(1).join('/')
-      const newPath = `/${code}${pathWithoutLang}`
-
-      // Navigate to new language URL (preserves query params and hash)
-      // Security: Use URL API to safely construct URL and prevent XSS
-      const newUrl = new URL(newPath, window.location.origin)
-      newUrl.search = window.location.search
-      newUrl.hash = window.location.hash
-      window.location.href = newUrl.href
+      window.location.href = addressIn(code)
       return
     }
 
@@ -513,8 +524,7 @@
       return
     }
 
-    // Nothing was persisted, so a reload would come back in the default
-    // language - update UI in place (backward compatibility)
+    // Nothing persisted: a reload would come back in the default language, so repaint in place
     updateUI()
     setMenuOpen(false)
   }
@@ -531,9 +541,7 @@
     return indicator
   }
 
-  /**
-   * Populates dropdown with language options
-   */
+  /** Populates dropdown with language options */
   function populateDropdown() {
     if (!dropdown) {
       return
@@ -625,17 +633,7 @@
     if (!code) {
       return
     }
-    const segments = window.location.pathname.split('/').filter(Boolean)
-    const rest = languageFromPath() ? segments.slice(1) : segments
-    const newUrl = new URL(`/${code}/${rest.join('/')}`, window.location.origin)
-    newUrl.search = window.location.search
-    newUrl.hash = window.location.hash
-    // Read off the parser's `href`, never reassembled from `search` and `hash`:
-    // those two carry the address bar's own text, and a URL rebuilt from them
-    // is DOM text written back into an attribute. `href` is the parsed,
-    // re-serialised address under the language code the server stamped, minus
-    // its origin: relative, like the server-rendered link and every other one.
-    link.setAttribute('href', newUrl.href.slice(newUrl.origin.length))
+    link.setAttribute('href', addressIn(code))
     link.addEventListener('click', function (event) {
       event.stopPropagation()
       if (languagesConfig.persistSelection ?? true) {

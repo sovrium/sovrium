@@ -9,6 +9,9 @@
  * `sovrium seed [config] [--dir <path>] [--mode …] [--table <name>] [--as <email>]
  *   [--today <YYYY-MM-DD>] [--dry-run] [--request <file>] [--report <file>]`
  *
+ * With `--baseline`, the command seeds nothing: it records the baseline an
+ * `app/seed` reset returns each kept account to (`seed-baseline.ts`).
+ *
  * With `--app <slug>` or `--remote`, the command seeds a HOSTED app instead
  * (`seed-remote.ts`), and that branch is taken before anything below runs: no
  * config is loaded and no local database is opened.
@@ -62,6 +65,7 @@ import { settleAccountPlan } from './seed-account-plan'
 import { loadSeedFiles } from './seed-load'
 import { handleRemoteSeed, isRemoteSeed } from './seed-remote'
 import { report, seedReportOf, writeReportFile } from './seed-report'
+import { silenced } from './seed-silent'
 import type { AccountPlan } from './seed-accounts'
 import type { SeedPlan } from '@/application/use-cases/seed/seed-plan'
 import type { App } from '@/domain/models/app'
@@ -116,7 +120,10 @@ const requireMode = (raw: string | undefined): SeedMode => {
  * "./seed not found" is unactionable when the working directory belongs to a
  * systemd unit.
  */
-const requireSeedDir = async (raw: string | undefined, configFile: string): Promise<string> => {
+export const requireSeedDir = async (
+  raw: string | undefined,
+  configFile: string
+): Promise<string> => {
   const seedDir =
     raw === undefined ? join(resolveProjectRoot(configFile), DEFAULT_SEED_DIR) : resolve(raw)
   const stats = await stat(seedDir).catch(() => undefined)
@@ -173,7 +180,8 @@ export const requireAccountPlan = async (
 }
 
 /**
- * Create the accounts, then write the rows as the system or the `--as` account.
+ * Create the accounts, then write the rows as the system or the `--as` account,
+ * silently (see {@link silenced}).
  *
  * Deferred imports, for the reason the plan's are: `seed-write` drags in the
  * whole database + table layer, which no other verb needs. An eager import here
@@ -192,7 +200,8 @@ export const writeRun = async (input: {
   readonly options: SeedCommandOptions
   readonly print: (lines: readonly string[]) => void
 }): Promise<readonly string[]> => {
-  const { app, accountPlan, options } = input
+  const { accountPlan, options } = input
+  const app = silenced(input.app)
   const { seedTablesOf } = await import('@/application/use-cases/seed/seed-config')
   const { buildSyntheticSession, buildSystemSession } =
     await import('@/application/use-cases/automations/build-guest-session')
@@ -324,6 +333,15 @@ const localRun = async (given: SeedCommandOptions, argv: readonly string[]) => {
 }
 
 /**
+ * The runs that do not seed this machine: a hosted app's (`--app`, `--remote`),
+ * and `--baseline`, which seeds nothing and records what a reset puts back.
+ */
+const seedElsewhere = async (given: SeedCommandOptions & { readonly argv: readonly string[] }) =>
+  isRemoteSeed(given.argv)
+    ? handleRemoteSeed(given)
+    : (await import('./seed-baseline')).handleSeedBaseline(given)
+
+/**
  * Handle `sovrium seed`.
  *
  * Exits 0 when every targeted table was seeded, skipped by `if-empty`, or
@@ -333,7 +351,7 @@ const localRun = async (given: SeedCommandOptions, argv: readonly string[]) => {
  */
 export const handleSeedCommand = async (given: SeedCommandOptions): Promise<void> => {
   const argv = given.argv ?? []
-  if (isRemoteSeed(argv)) return handleRemoteSeed({ ...given, argv })
+  if (isRemoteSeed(argv) || argv.includes('--baseline')) return seedElsewhere({ ...given, argv })
   const { options, reportPath, kept, print } = await localRun(given, argv)
   const mode = requireMode(options.mode)
   const runAt = requireRunAt(options.today)

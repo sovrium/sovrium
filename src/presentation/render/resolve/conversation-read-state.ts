@@ -19,10 +19,13 @@
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { createdByFieldNames } from '@/domain/models/app/tables/authorship-fields'
+import { NOT_LOGGED_CREATOR_OPERATOR } from '@/domain/models/app/tables/read-state-service'
+import { logError } from '@/infrastructure/logging/logger'
 import type { DataSourceDb } from './data-source-contracts'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Component } from '@/domain/models/app/pages/components'
+import type { DataFilter } from '@/domain/models/app/pages/components/data-source'
 
 type Row = Readonly<Record<string, unknown>>
 
@@ -37,6 +40,8 @@ interface BoundRowsReader {
 export interface ReadStateParent {
   readonly table: string
   readonly recordId: string
+  /** The reader's position the frame was drawn from, as an ISO instant, when she had one. */
+  readonly since?: string
 }
 
 /** The render-time field carrying the parent a signed-in reader's frame marks read. */
@@ -124,9 +129,51 @@ const createdAtOf = (row: Row): number | undefined => {
   return Number.isNaN(at) ? undefined : at
 }
 
+/** How many served rows one activity-log read asks about: each id is a bound parameter. */
+const LOGGED_CREATOR_BATCH = 500
+
 /**
- * The id of the first row created after the reader's position on `parent` and
- * not written by her — `undefined` when she never read the parent, has no
+ * The first of `rows` the activity log does not record `readerId` creating:
+ * her own turns on a table that declares no `created-by` field, which her
+ * unread count leaves out the same way. Read over the ids she was served, in
+ * their order, a batch at a time and no further than the first batch holding
+ * one — usually a single query, and never past the bound-parameter ceiling. A
+ * read that fails keeps the batch's first row, as a frame with no author did.
+ */
+async function firstNotLoggedBy(
+  reader: BoundRowsReader,
+  by: { readonly tableName: string; readonly readerId: string },
+  rows: readonly Row[]
+): Promise<Row | undefined> {
+  const batch = rows.slice(0, LOGGED_CREATOR_BATCH)
+  if (batch.length === 0) return undefined
+  // The operator is server-only, so it is no member of the authored filter's union.
+  const notCreated: Readonly<Record<string, unknown>> = {
+    field: 'id',
+    operator: NOT_LOGGED_CREATOR_OPERATOR,
+    value: { userId: by.readerId, tableName: by.tableName },
+  }
+  const filter: readonly DataFilter[] = [
+    { field: 'id', operator: 'in', value: batch.map((row) => String(row['id'])) },
+    notCreated as DataFilter,
+  ]
+  const kept = await reader.db.fetchRecords(by.tableName, { fields: ['id'], filter }).then(
+    (found) => new Set(found.map((row) => String(row['id']))),
+    (error: unknown) => {
+      // Without the log her own turns cannot be told apart, so the marker is
+      // drawn as on a frame with no author rather than not at all.
+      logError('[pages] conversation New marker: activity-log read failed', error)
+      return undefined
+    }
+  )
+  if (kept === undefined) return batch[0]
+  const found = batch.find((row) => kept.has(String(row['id'])))
+  return found ?? firstNotLoggedBy(reader, by, rows.slice(LOGGED_CREATOR_BATCH))
+}
+
+/**
+ * The reader's position on `parent`, and the id of the first row created after
+ * it and not written by her — no row when she never read the parent, has no
  * account, or has read every row she was served.
  */
 async function firstUnreadRowId(
@@ -137,24 +184,26 @@ async function firstUnreadRowId(
     readonly tableName: string
     readonly authorField: string | undefined
   }
-): Promise<string | undefined> {
+): Promise<{ readonly since?: Date; readonly unreadFrom?: string }> {
   const { reader, tableName, authorField } = context
   const readerId = reader.session?.userId
   const read = reader.db.readReadPosition
-  if (readerId === undefined || read === undefined) return undefined
+  if (readerId === undefined || read === undefined) return {}
   const since = await read(parent.table, parent.recordId, reader.session)
-  if (since === undefined) return undefined
+  if (since === undefined) return {}
   const authorFields = [
     ...(authorField === undefined ? [] : [authorField]),
     ...createdByFieldNames(reader.app.tables, tableName),
   ]
-  const unread = rows.find((row) => {
+  const after = rows.filter((row) => {
     const at = createdAtOf(row)
-    return (
-      at !== undefined && at > since.getTime() && !authorsOf(row, authorFields).includes(readerId)
-    )
+    return at !== undefined && at > since.getTime()
   })
-  return unread === undefined ? undefined : String(unread['id'] ?? '')
+  const unread =
+    authorFields.length > 0
+      ? after.find((row) => !authorsOf(row, authorFields).includes(readerId))
+      : await firstNotLoggedBy(reader, { tableName, readerId }, after)
+  return unread === undefined ? { since } : { since, unreadFrom: String(unread['id'] ?? '') }
 }
 
 /** The marker drawn above the first unread turn: a separator naming it New, in the page language. */
@@ -171,8 +220,15 @@ export function unreadMarker(reader: BoundRowsReader): Component {
 
 /**
  * Where a signed-in reader of one parent's children left off: the parent her
- * frame marks read, and the row the New marker goes above. Nothing for a
- * visitor, or for a frame not bound to the children of one parent.
+ * frame marks read — carrying, under `since`, the position the frame was drawn
+ * from — and the row the New marker goes above. Nothing for a visitor, or for
+ * a frame not bound to the children of one parent.
+ *
+ * The frame marks the parent read as it draws, so a redraw would find her
+ * position moved past every row and lose the marker while she reads. Its
+ * redraws send back the `since` the page opened with, which the page's read
+ * position reader answers for that parent; a reload sends none, and is drawn
+ * from where she now is.
  */
 export async function readerPlaceOf(
   component: Component,
@@ -187,5 +243,9 @@ export async function readerPlaceOf(
   if (session === undefined || isGuestSession(session.userId)) return {}
   const parent = pinnedParentOf(component, context.reader.app, keepsReadState)
   if (parent === undefined) return {}
-  return { parent, unreadFrom: await firstUnreadRowId(parent, rows, context) }
+  const { since, unreadFrom } = await firstUnreadRowId(parent, rows, context)
+  return {
+    parent: since === undefined ? parent : { ...parent, since: since.toISOString() },
+    ...(unreadFrom === undefined ? {} : { unreadFrom }),
+  }
 }

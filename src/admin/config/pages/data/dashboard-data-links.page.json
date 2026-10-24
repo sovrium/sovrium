@@ -565,7 +565,8 @@
                   }
                 ],
                 "emptyMessage": "$t:admin.links.empty",
-                "noMatchMessage": "$t:admin.links.noMatch"
+                "noMatchMessage": "$t:admin.links.noMatch",
+                "viewOptions": "toolbar"
               }
             }
           ]

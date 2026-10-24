@@ -28,6 +28,7 @@ import {
   sanitizeUpdateRichTextFields,
   validateUpdateFieldValues,
   validateUpdateForbiddenFields,
+  validateUpdateComputedFields,
   validateUpdateReadonlyFields,
 } from './record-update-guards'
 import { filterAllowedFieldsWithRole } from './record-update-permissions'
@@ -217,9 +218,10 @@ async function resolveBulkUpdateFields(input: {
  *
  * `_data` is written column by column, and a key naming nothing was dropped on
  * the way while the request still answered success — so the single-record
- * form's `<field>__clear` marker, posted here, reported a clear that never
- * happened. The records API refuses an unknown field with this same 400; a bulk
- * clear is stated as JSON `null`.
+ * form's clear mark (`_clear:<field>`, or `<field>__clear` from a page drawn
+ * by an earlier version), posted here, reported a clear that never happened.
+ * The records API refuses an unknown field with this same 400; a bulk clear
+ * is stated as JSON `null`.
  */
 function refuseUnknownBulkKeys(
   app: App,
@@ -245,7 +247,9 @@ function refuseUnknownBulkKeys(
  * The bulk-update REQUEST gates, in order: the table-level update permission
  * (403), the empty-target check (400), the per-field and per-value rules, then
  * the Z-3 row-level gate over every targeted id (404) — which reads each row as
- * it will be written, so it runs on the resolved field map. Returns the refusal
+ * it will be written, so it runs on the resolved field map — and last the
+ * computed-field refusal (400), so it names a column only to a caller both gates
+ * admitted. Returns the refusal
  * `Response`, or the field map to write.
  *
  * Extracted for the same reason `resolveFormUpdateAuth` is on the single-record
@@ -292,22 +296,27 @@ async function resolveBulkUpdateGates(input: {
   // Per-FIELD and per-VALUE rules, after the table-level gate so an
   // unauthorized caller is refused before learning anything about the payload.
   const resolved = await resolveBulkUpdateFields({ c, app, tableName, userRole, data })
-  if ('refusal' in resolved || !guard) return resolved
+  if ('refusal' in resolved) return resolved
 
   // Z-3: row-level scoping — every id must individually satisfy the read and
   // write predicates, each row checked as it stands AND as it will be written
   // (the resolved field map). Atomic-fail on any miss.
-  const rowError = await enforceBulkMutationGate({
-    c,
-    table,
-    session,
-    tableName,
-    ids,
-    guard,
-    op: 'write',
-    changes: new Map(ids.map((id) => [String(id), resolved.fields])),
-  })
-  return rowError ? { refusal: rowError } : resolved
+  const rowError = guard
+    ? await enforceBulkMutationGate({
+        c,
+        table,
+        session,
+        tableName,
+        ids,
+        guard,
+        op: 'write',
+        changes: new Map(ids.map((id) => [String(id), resolved.fields])),
+      })
+    : undefined
+  // A computed field she may write is refused for every row, after both gates:
+  // a caller who may not update the rows learns no column name from it.
+  const refusal = rowError ?? validateUpdateComputedFields(table, resolved.fields, c)
+  return refusal ? { refusal } : resolved
 }
 
 /**

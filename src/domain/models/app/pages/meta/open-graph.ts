@@ -6,7 +6,11 @@
  */
 
 import { Schema } from 'effect'
-import { HttpUrlOrRecordTemplateSchema, SharingImageAddressSchema } from '@/domain/kernel/url/url'
+import {
+  HttpUrlOrRecordTemplateSchema,
+  PageAddressSchema,
+  SharingImageAddressSchema,
+} from '@/domain/kernel/url/url'
 import { validateSharingImageFormat } from './sharing-image-validation'
 
 // ============================================================================
@@ -80,8 +84,9 @@ export const OpenGraphSchema = Schema.Struct({
   ),
   type: Schema.optional(OpenGraphTypeSchema),
   url: Schema.optional(
-    HttpUrlOrRecordTemplateSchema.annotate({
-      description: 'Canonical URL for this page',
+    PageAddressSchema.annotate({
+      description:
+        'Canonical URL for this page. A `$t:` key followed by the rest of the address (`$t:seo.base/about`) gives each language its own address.',
     })
   ),
   image: Schema.optional(

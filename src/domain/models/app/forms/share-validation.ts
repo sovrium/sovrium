@@ -44,6 +44,7 @@
  * filter, never as a new one.
  */
 
+import { claimedPagePaths, type DeclaredPagePath } from '@/domain/kernel/matching/localized-path'
 import { stripLanguagePrefix } from '../redirects'
 
 /** The reserved namespace, as a bare segment and as a prefix. */
@@ -52,7 +53,7 @@ const SHARE_NAMESPACE_PREFIX = '/s/'
 
 /** Minimal shape needed to validate the reserved share namespace. */
 interface AppForShareValidation {
-  readonly pages?: ReadonlyArray<{ readonly name: string; readonly path: string }>
+  readonly pages?: ReadonlyArray<{ readonly name: string; readonly path: DeclaredPagePath }>
   readonly forms?: ReadonlyArray<{ readonly name: string; readonly path?: string | undefined }>
   readonly redirects?: ReadonlyArray<{ readonly from: string }>
   readonly languages?: { readonly supported: ReadonlyArray<{ readonly code: string }> }
@@ -87,9 +88,11 @@ const claimsShareNamespace = (path: string, languageCodes: ReadonlyArray<string>
 export const validateAllShareRules = (app: AppForShareValidation): true | string => {
   const languageCodes = app.languages?.supported.map((language) => language.code) ?? []
 
-  const page = app.pages?.find((candidate) => claimsShareNamespace(candidate.path, languageCodes))
+  const page = claimedPagePaths(app.pages ?? []).find((claim) =>
+    claimsShareNamespace(claim.path, languageCodes)
+  )
   if (page !== undefined) {
-    return `Page '${page.name}' declares path '${page.path}', which is inside the reserved '/s' design-system share namespace. Share routes are matched before page resolution, so this page would never render. Move it to another path.`
+    return `Page '${page.page.name}' declares path '${page.path}', which is inside the reserved '/s' design-system share namespace. Share routes are matched before page resolution, so this page would never render. Move it to another path.`
   }
 
   const form = app.forms?.find(

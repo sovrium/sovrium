@@ -27,6 +27,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useState } from 'react'
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import {
   computeFieldDescriptionClasses,
   computeFieldErrorClasses,
@@ -68,6 +69,16 @@ interface ApiKeysState {
   readonly revoke: (keyId: string) => void
   /** The key being revoked, from the confirmation until the list has been read again. */
   readonly revoking: string | undefined
+  /** Read the list again after a failure, and forget a failed revoke. */
+  readonly retry: () => void
+}
+
+/** Forget a failed revoke and read the list again. */
+function useRetry(refetch: () => Promise<unknown>, reset: () => void): () => void {
+  return useCallback((): void => {
+    reset()
+    void refetch()
+  }, [refetch, reset])
 }
 
 /** The keys themselves, and the two operations that change them. */
@@ -124,24 +135,40 @@ function useApiKeys(): ApiKeysState {
         : 'ready'
 
   const revoking = revokeMutation.isPending ? revokeMutation.variables : undefined
-  return { keys: listQuery.data ?? [], load, create, revoke, revoking }
+  const retry = useRetry(listQuery.refetch, revokeMutation.reset)
+  return { keys: listQuery.data ?? [], load, create, revoke, revoking, retry }
 }
 
 /** What the list area says while it cannot show the list: still reading, or the read failed. */
-function LoadNotice({ load }: { readonly load: LoadState }): ReactElement | undefined {
+function LoadNotice({
+  load,
+  onRetry,
+}: {
+  readonly load: LoadState
+  readonly onRetry: () => void
+}): ReactElement | undefined {
   const loading = useWord('loading', 'Loading your keys…')
-  const failed = useWord('loadFailed', 'Could not load your API keys. Reload to try again.')
+  const failed = useWord('loadFailed', 'Could not load your API keys.')
+  const retry = useWord('retry', 'Retry')
   if (load === 'loading') {
     return <p className={computeFieldDescriptionClasses()}>{loading}</p>
   }
   if (load !== 'failed') return undefined
   return (
-    <p
+    <div
       role="alert"
-      className={computeFieldErrorClasses()}
+      className="flex flex-col items-start gap-2"
     >
-      {failed}
-    </p>
+      <p className={computeFieldErrorClasses()}>{failed}</p>
+      <button
+        type="button"
+        data-slot="button"
+        className={computeButtonDefaultClasses()}
+        onClick={onRetry}
+      >
+        {retry}
+      </button>
+    </div>
   )
 }
 
@@ -164,7 +191,7 @@ export default function ApiKeyManagerIsland({
 const NO_WORDS: Readonly<Record<string, string>> = {}
 
 function ApiKeyManager(): ReactElement {
-  const { keys, load, create, revoke, revoking } = useApiKeys()
+  const { keys, load, create, revoke, revoking, retry } = useApiKeys()
   const [revealed, setRevealed] = useState('')
   const [pendingRevoke, setPendingRevoke] = useState<ApiKeySummary | undefined>(undefined)
 
@@ -199,7 +226,10 @@ function ApiKeyManager(): ReactElement {
           onDismiss={dismissReveal}
         />
       )}
-      <LoadNotice load={load} />
+      <LoadNotice
+        load={load}
+        onRetry={retry}
+      />
       {load === 'ready' && (
         <ApiKeyList
           keys={keys}

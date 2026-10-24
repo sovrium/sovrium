@@ -5,35 +5,51 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import vm from 'node:vm'
 import { Effect } from 'effect'
+import { logDebug, logError, logInfo, logWarning } from '@/infrastructure/logging/logger'
 import { authoredReferenceRoots } from '../authored-references'
 import { buildAutomationContext, type TriggerData } from '../resolve-trigger-data'
 import { resolveCodeInputData } from './code-input-resolution'
 import { createCodeLogCollector } from './code-log-collector'
+import {
+  actionResult,
+  contextCloneRefusal,
+  decodeFromWorker,
+  timeoutMessage,
+  type ActionTarget,
+  type CodeStepData,
+  type FromWorker,
+  type ToWorker,
+} from './code-step-protocol'
 import { authoredActionProps } from './run-context-resolution'
 import { actionAttributes } from './shared'
 import type { ActionHandler, ActionOutcome } from './shared'
 import type Typescript from 'typescript'
 
 /**
- * `code/runTypescript` handler — execute a named `execute(context)` function from
- * the action's `props.code` string in a restricted VM sandbox.
+ * `code/runTypescript` handler — execute a named `execute(context)` function
+ * from the action's `props.code` string on a worker thread of its own
+ * ([internal ref], `code-step-worker.ts`).
  *
- * Threat model: code is operator-authored (in app config), not
- * user-uploaded. The sandbox exists to:
- *   1. Block accidental access to `fs`, `http`, `child_process` etc.
- *   2. Bound execution time so a typo (`while(true) {}`) cannot stall the
- *      automation engine.
- *   3. Provide a stable, typed `context` shape so `String(function execute(
- *      context: CodeContext) { ... })` (TS) and YAML multiline strings
- *      both work.
+ * The server transpiles the operator's TypeScript, starts one fresh Bun
+ * `Worker` for the step and hands it the JavaScript and the data half of the
+ * `context` (`inputData`, `env`, `run`, copied by structured clone). The
+ * step's `context.actions.*` calls come back as messages and run here,
+ * through the same handler pipeline as any step — the database, the mailer
+ * and every credential stay on this thread. `context.log` entries come back
+ * the same way; `console.*` goes to the server's log.
  *
- * What the sandbox is NOT:
- *   - A defence against intentionally malicious code. `vm.createContext`
- *     leaks the host realm via prototype-chain walks; an operator who
- *     wants to escape can always do so. We accept this — code lives in
- *     the same trust boundary as the rest of the app config.
+ * The step's `timeout` is real: the clock is on this thread, and when it
+ * elapses the worker is terminated, whatever the code is doing, and the step
+ * fails with `code action exceeded timeout of <n>ms`. The worker is a scoped
+ * resource (E3): released — terminated — when the step ends, however it
+ * ends, interruption included.
+ *
+ * Threat model: code is operator-authored (in app config), not user-uploaded.
+ * The restricted globals block accidental access to `fs`, `http`,
+ * `child_process`; they are NOT a defence against intentionally malicious
+ * code (the `vm` realm leaks the host realm), and neither is the thread. The
+ * code lives in the same trust boundary as the rest of the app config.
  */
 
 const DEFAULT_TIMEOUT_MS = 30_000
@@ -43,29 +59,10 @@ const DEFAULT_TIMEOUT_MS = 30_000
 // file stays under the lines-per-file lint budget.
 
 /**
- * Build the callable `actions` Proxy exposed as `context.actions` to
- * sandboxed user code. Two complementary call shapes:
- *
- * 1. **Templates** — `context.actions.ref('<templateName>', vars)`
- *    looks up a template declared at `app.actions[]`, substitutes its
- *    `$vars` with caller-supplied `vars` (over declared defaults),
- *    dispatches through the same handler pipeline as top-level steps,
- *    and returns `ActionOutcome.output`.
- *
- * 2. **Native action types** — `context.actions.<actionType>.<operator>
- *    (props)` invokes any handler-registry action directly without a
- *    template declaration. E.g. `context.actions.email.send({...})` or
- *    `context.actions.http.post({...})`.
- *
- * The reserved `ref` method disambiguates templates from native action
- * types; templates named `'ref'` are rejected at schema validation
- * (see `ActionTemplatesSchema` reserved-name filter) so the proxy's
- * `ref` is always the template invocation method.
- *
- * Cross-realm Promise note: both invokers resolve in the host realm;
- * the sandboxed `await` operator is the sandbox-realm `Promise.then`.
- * Wrapping the result in a host-realm `Promise.resolve` is safe — the
- * sandbox's `await` adopts the thenable correctly.
+ * The two ways a step's `context.actions` reaches the run loop: a template by
+ * name (`context.actions.ref(name, vars)`), or any registered action by type
+ * and operator (`context.actions.email.send({...})`). Templates named `ref`
+ * are refused at validation, so `ref` is always the template call.
  */
 interface ActionsProxyDispatchers {
   readonly invokeTemplate: (
@@ -78,37 +75,6 @@ interface ActionsProxyDispatchers {
     props?: Readonly<Record<string, unknown>>
   ) => Promise<unknown>
 }
-
-const buildActionsProxy = (
-  dispatchers: ActionsProxyDispatchers
-): Readonly<Record<string, unknown>> =>
-  new Proxy(
-    {},
-    {
-      get(_target, prop) {
-        if (typeof prop === 'symbol') return undefined
-        const name = String(prop)
-        if (name === 'ref') {
-          return (
-            templateName: string,
-            vars?: Readonly<Record<string, unknown>>
-          ): Promise<unknown> => Promise.resolve(dispatchers.invokeTemplate(templateName, vars))
-        }
-        // Native action type: return a sub-proxy keyed on the operator.
-        return new Proxy(
-          {},
-          {
-            get(_subTarget, operatorProp) {
-              if (typeof operatorProp === 'symbol') return undefined
-              const operator = String(operatorProp)
-              return (props?: Readonly<Record<string, unknown>>): Promise<unknown> =>
-                Promise.resolve(dispatchers.invokeNativeAction(name, operator, props))
-            },
-          }
-        )
-      },
-    }
-  )
 
 /**
  * Build the substitution context used for `inputData` template
@@ -153,55 +119,14 @@ const buildResolutionContext = (input: {
 }
 
 /**
- * Build the user-facing sandbox context — the object passed as
- * `execute(context: CodeContext)` argument. Five properties:
- * `inputData`, `actions`, `env`, `log`, `run`. No `trigger`, no
- * `steps`: the schema author must declare every value the code needs
- * via `inputData` template references — this makes code actions pure
- * functions of their declared inputs, with no implicit coupling to
- * outer scope.
+ * Transpile the operator's TypeScript to the JavaScript the worker runs.
+ * The compiler is required here, on the first run, never at start (~9 MB),
+ * and stays on this thread: the worker bundle carries no compiler.
  */
-const buildSandboxContext = (input: {
-  readonly env: Readonly<Record<string, string>>
-  readonly inputData: Readonly<Record<string, unknown>>
-  readonly actions: Readonly<Record<string, unknown>>
-  readonly log: Readonly<Record<string, (...args: ReadonlyArray<unknown>) => void>>
-  /**
-   * 1-indexed retry attempt number threaded through by `dispatchWithRetry`.
-   * Surfaced as `context.run.attempt` so authors can short-circuit on retry
-   * Defaults to 1 when the action is invoked
-   * outside the retry loop.
-   */
-  readonly attempt: number
-}): Readonly<Record<string, unknown>> => ({
-  inputData: input.inputData,
-  actions: input.actions,
-  env: input.env,
-  log: input.log,
-  run: { attempt: input.attempt },
-})
-
-/**
- * Compile the user's code string into an async function we can invoke.
- *
- * The pattern accepted by all specs:
- *
- *   async function execute(context) { ... }
- *   function execute(context) { ... }
- *
- * We wrap the source in an IIFE so the declaration is hoisted into the
- * sandbox and immediately returns the `execute` reference. This avoids
- * `eval`-shape strings the spec authors didn't write.
- */
-const compileExecuteFn = (
-  source: string
-): ((context: Readonly<Record<string, unknown>>) => unknown) => {
-  // The user authors TypeScript; V8's vm takes plain JS, so annotations are
-  // stripped with the compiler the startup validator also uses (type errors were
-  // caught there). Required HERE, on the first run, never at start (~9 MB).
+const transpile = (source: string): string => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- deferred load, literal for the binary
   const ts = require('typescript') as typeof Typescript
-  const transpiled = ts.transpileModule(source, {
+  return ts.transpileModule(source, {
     compilerOptions: {
       target: ts.ScriptTarget.ES2020,
       module: ts.ModuleKind.ESNext,
@@ -209,204 +134,151 @@ const compileExecuteFn = (
       isolatedModules: true,
     },
   }).outputText
-  // The wrapper hoists the user's function declaration into the script
-  // scope, then returns the bound reference. We evaluate the wrapper in a
-  // VM context so `require`/`fs`/etc. are not visible (sandbox property).
-  const wrapper = `${transpiled}\n; if (typeof execute !== 'function') { throw new Error('code action must define a function named "execute"') } execute;`
-  const script = new vm.Script(wrapper, { filename: 'code-action.js' })
-  return (context) => {
-    const sandbox: Readonly<Record<string, unknown>> = {
-      // Limited globals: only what user code legitimately needs. fs, http,
-      // child_process, process etc. are deliberately absent. No module
-      // loading is available inside the sandbox — neither `require` nor
-      // `import` is surfaced, so a code action can only reach the values
-      // its `inputData` declares and the `actions` proxy it is handed.
-      console,
-      JSON,
-      Math,
-      Date,
-      Promise,
-      Number,
-      String,
-      Boolean,
-      Array,
-      Object,
-      Error,
-      RegExp,
-      Map,
-      Set,
-      Symbol,
-      Buffer,
-      URL,
-      URLSearchParams,
-      setTimeout,
-      clearTimeout,
-      // WebCrypto (`globalThis.crypto`), NOT `node:crypto`. The prelude
-      // declares the `Crypto` shape — randomUUID/getRandomValues/subtle —
-      // so binding the Node module object here would type-check at boot and
-      // then fail on the first member access. The drift check proves the
-      // NAME resolves, never the shape; keeping this a bare global
-      // reference is what keeps the two in agreement.
-      //
-      // Shorthand is load-bearing: `extractSandboxGlobals` in
-      // [internal ref] only recognises shorthand
-      // properties, so `crypto: globalThis.crypto` would be silently
-      // invisible to the guard.
-      crypto,
-      // Already reachable inside `vm.createContext` as a V8 intrinsic
-      // regardless of this literal (verified empirically), and declared by
-      // `lib.es5`/`lib.es2020.intl`. Listing it makes the grant intentional
-      // and auditable rather than accidental — and is what lets code
-      // actions do locale/timezone formatting.
-      Intl,
-      // The user's context.
-      context,
-    }
-    const vmContext = vm.createContext(sandbox)
-    const fn = script.runInContext(vmContext) as (ctx: Readonly<Record<string, unknown>>) => unknown
-    return fn(context)
-  }
 }
 
 /**
- * Race the user's promise against a timeout. We track-and-clear the
- * timer so we don't leave a dangling handle even if execution returns
- * faster than the timeout.
- *
- * The timer handle is captured into a closure-local box (not a `let`)
- * so the cleanup path can read it back without mutating local state.
- * Without the cleanup, a fast-completing user promise would leak the
- * scheduled timer until the deadline fires — fine in tests, but a
- * resource leak under real load.
+ * Where the worker script is. From source it sits beside this file; in the
+ * compiled binary this module is bundled into the CLI's chunk, so
+ * `import.meta.url` is the binary's root and the worker is embedded under its
+ * path from `src/` (`scripts/build/build-binary.ts`, `compileEntryRoot`).
  */
-interface TimerBox {
-  readonly handle: ReturnType<typeof setTimeout>
+const workerUrl = (): Readonly<URL> =>
+  /\/\$bunfs\/|\/~BUN\//.test(import.meta.url)
+    ? new URL(
+        './application/use-cases/automations/action-handlers/code-step-worker.ts',
+        import.meta.url
+      )
+    : new URL('./code-step-worker.ts', import.meta.url)
+
+/** The `console.*` level a worker forwarded, written to the server's log. */
+const SERVER_LOG: Readonly<Record<string, (message: string) => void>> = {
+  log: logInfo,
+  info: logInfo,
+  warn: logWarning,
+  error: logError,
+  debug: logDebug,
 }
 
-const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
-  // The timer handle is created INSIDE the executor and surfaced via
-  // the closure variable `box`. Wrapping it in an object lets us
-  // satisfy `functional/no-let` while still being able to read the
-  // handle in the `finally` for cleanup.
-  // eslint-disable-next-line functional/prefer-immutable-types -- intentional mutable holder; see closure rationale above
-  const timerBox: { current?: TimerBox } = {}
-  const timeout = new Promise<never>((_resolve, reject) => {
-    // eslint-disable-next-line functional/no-expression-statements -- single-shot assignment to capture timer for cleanup
-    timerBox.current = {
-      handle: setTimeout(() => {
-        reject(new Error(`code action exceeded timeout of ${String(timeoutMs)}ms`))
-      }, timeoutMs),
-    }
-  })
+const NOOP_INVOKE_TEMPLATE = (): Promise<unknown> =>
+  Promise.reject(new Error('context.actions.ref(...) is not available outside the run loop'))
+
+const NOOP_INVOKE_NATIVE = (): Promise<unknown> =>
+  Promise.reject(
+    new Error('context.actions.<type>.<operator>(...) is not available outside the run loop')
+  )
+
+/** Run one `context.actions` call the worker asked for, through the run loop. */
+const dispatchAction = (
+  dispatchers: ActionsProxyDispatchers,
+  target: ActionTarget,
+  props: Readonly<Record<string, unknown>> | undefined
+): Promise<unknown> =>
+  target.kind === 'ref'
+    ? dispatchers.invokeTemplate(target.name, props)
+    : dispatchers.invokeNativeAction(target.type, target.operator, props)
+
+/** What one worker conversation needs from the step. */
+interface WorkerSession {
+  readonly source: string
+  readonly data: CodeStepData
+  readonly dispatchers: ActionsProxyDispatchers
+  readonly log: ReturnType<typeof createCodeLogCollector>['log']
+  readonly timeoutMs: number
+}
+
+/** Post to a worker that may already be gone (a late action answer after a stop). */
+const postTo = (worker: Readonly<Worker>, message: ToWorker): void => {
   try {
-    return await Promise.race([promise, timeout])
-  } finally {
-    if (timerBox.current !== undefined) clearTimeout(timerBox.current.handle)
-  }
-}
-
-/**
- * Duck-type a value as a thenable. `result instanceof Promise` is unsafe
- * across vm realms — the sandbox's `Promise` constructor is a different
- * function from the host's, so a Promise created inside the sandbox by an
- * `async function` body is NOT `instanceof` the host's `Promise`. Skipping
- * the await in that case leaves the rejection unhandled, which Bun
- * promotes to a process-fatal error and crashes the server.
- *
- * `Promise.resolve(thenable)` adopts the value safely regardless of which
- * realm produced it.
- */
-const isThenable = (value: unknown): value is PromiseLike<unknown> =>
-  value !== null &&
-  typeof value === 'object' &&
-  typeof (value as { then?: unknown }).then === 'function'
-
-/**
- * Strip cross-realm prototype noise from the value the user returned. When
- * the function ran inside a fresh `vm` context, its `Object.prototype` is
- * a different object than the host's; `Object.keys` on a value built
- * inside the sandbox can surface inherited prototype methods that
- * JSON.stringify normally hides. Round-tripping through JSON gives us a
- * clean, host-realm-only structural copy that is safe to ship to the
- * response body and persist to run-history.
- *
- * Falls back to the original value on serialization failure (functions,
- * BigInts, circular references) so the action still surfaces *something*
- * rather than dropping the result.
- */
-const sanitizeOutput = (value: unknown): Readonly<Record<string, unknown>> => {
-  try {
-    const json = JSON.stringify(value)
-    if (json === undefined) return {}
-    const parsed = JSON.parse(json) as unknown
-    if (parsed === null || typeof parsed !== 'object') {
-      return { value: parsed } as Record<string, unknown>
-    }
-    if (Array.isArray(parsed)) {
-      return { value: parsed } as Record<string, unknown>
-    }
-    return parsed as Record<string, unknown>
+    worker.postMessage(message)
   } catch {
-    return value !== null && typeof value === 'object'
-      ? (value as Record<string, unknown>)
-      : ({ value } as Record<string, unknown>)
+    // The step already ended and its worker was terminated: the answer is dropped.
+  }
+}
+
+/** Answer one message from the worker; `done` settles the step. */
+const onWorkerMessage = (
+  worker: Readonly<Worker>,
+  session: WorkerSession,
+  message: FromWorker,
+  settle: (outcome: ActionOutcome) => void
+): void => {
+  switch (message.type) {
+    case 'action':
+      dispatchAction(session.dispatchers, message.target, message.props).then(
+        (value) => postTo(worker, actionResult(message.id, { ok: true, value })),
+        (error: unknown) => postTo(worker, actionResult(message.id, { ok: false, error }))
+      )
+      return
+    case 'log':
+      session.log[message.level](...message.args)
+      return
+    case 'console': {
+      const write = SERVER_LOG[message.level] ?? logInfo
+      write(`[code step] ${message.text}`)
+      return
+    }
+    case 'done':
+      settle(
+        message.ok
+          ? { status: 'success', output: message.output ?? {} }
+          : { status: 'failure', error: message.error ?? 'code action failed' }
+      )
   }
 }
 
 /**
- * Execute the compiled function inside an Effect that captures both
- * synchronous throws (compile errors, sandbox violations) and async
- * rejections (timeouts, uncaught exceptions in the user's code) as
- * `ActionOutcome.failure`.
- *
- * We ALWAYS funnel the result through `Promise.resolve` + `withTimeout`,
- * even when the function ran synchronously, because:
- *   1. `async function execute() { ... }` inside the sandbox returns a
- *      cross-realm Promise that fails `instanceof Promise` against the
- *      host's constructor — branching on `instanceof` would skip the
- *      await and leave any rejection unhandled, which Bun escalates to
- *      a process-fatal error.
- *   2. A synchronous throw inside `async` (e.g. `require("fs")` ->
- *      ReferenceError) becomes a rejected Promise, NOT a thrown error.
- *      Adopting via `Promise.resolve` and awaiting routes that rejection
- *      into our catch block instead of leaking it.
- *   3. The timeout race must wrap *every* execution path so a malformed
- *      sync result still respects the deadline contract.
+ * Talk to one started worker until the step ends: its `done`, its crash, or
+ * the step's own clock — which stops the code wherever it is.
  */
-const runUserCode = async (
-  fn: (context: Readonly<Record<string, unknown>>) => unknown,
-  context: Readonly<Record<string, unknown>>,
-  timeoutMs: number
-): Promise<ActionOutcome> => {
+const converse = (worker: Readonly<Worker>, session: WorkerSession): Effect.Effect<ActionOutcome> =>
+  Effect.callback<ActionOutcome>((resume) => {
+    const settle = (outcome: ActionOutcome): void => {
+      clearTimeout(clock)
+      resume(Effect.succeed(outcome))
+    }
+    const clock = setTimeout(() => {
+      settle({ status: 'failure', error: timeoutMessage(session.timeoutMs) })
+    }, session.timeoutMs)
+    worker.addEventListener('message', (event: Readonly<MessageEvent>) => {
+      const message = decodeFromWorker(event.data)
+      if (message !== undefined) onWorkerMessage(worker, session, message, settle)
+    })
+    worker.addEventListener('error', (event: Readonly<ErrorEvent>) => {
+      settle({ status: 'failure', error: event.message || 'code action failed' })
+    })
+    postTo(worker, { type: 'start', source: session.source, data: session.data })
+    return Effect.sync(() => clearTimeout(clock))
+  })
+
+/**
+ * Run the step on a worker of its own. The worker is acquired and released
+ * as a scoped resource (E3): terminated when the step ends, however it ends.
+ * It never holds the process open (`unref`).
+ */
+const runOnWorker = (session: WorkerSession): Effect.Effect<ActionOutcome> =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const worker = yield* Effect.acquireRelease(
+        Effect.sync(() => new Worker(workerUrl(), { smol: true, ref: false })),
+        (started) => Effect.sync(() => started.terminate())
+      )
+      return yield* converse(worker, session)
+    })
+  )
+
+/** Transpile the step's code, or the failure that ends it. */
+const transpileOrFailure = (
+  code: string
+): { readonly source: string } | { readonly failure: ActionOutcome } => {
   try {
-    const result = fn(context)
-    const adoptedPromise = isThenable(result)
-      ? Promise.resolve(result as PromiseLike<unknown>)
-      : Promise.resolve(result)
-    const awaited = await withTimeout(adoptedPromise, timeoutMs)
-    if (awaited === undefined || awaited === null) {
-      return { status: 'success', output: {} }
-    }
-    if (typeof awaited !== 'object') {
-      return { status: 'success', output: { value: awaited } as Record<string, unknown> }
-    }
-    return { status: 'success', output: sanitizeOutput(awaited) }
+    return { source: transpile(code) }
   } catch (error) {
-    return {
-      status: 'failure',
-      error: error instanceof Error ? error.message : String(error),
-    }
+    const detail = error instanceof Error ? error.message : 'unknown compile error'
+    return { failure: { status: 'failure', error: `code action failed to compile: ${detail}` } }
   }
 }
 
-/**
- * Compose the per-action async pipeline: resolve inputData → compile
- * user code → run with timeout. Returns the final `ActionOutcome`
- * directly so the Effect-side caller stays a thin `Effect.promise`
- * wrapper. Splitting this out keeps `handleCodeRun`'s generator under
- * the per-function line budget and makes each failure branch easy to
- * reason about in isolation.
- */
+/** Everything a step's run needs once its props are read. */
 interface RunCodeActionInput {
   readonly code: string
   readonly rawInputData: Readonly<Record<string, unknown>>
@@ -414,99 +286,53 @@ interface RunCodeActionInput {
   readonly timeoutMs: number
 }
 
-const NOOP_LOG: Readonly<Record<string, (...args: ReadonlyArray<unknown>) => void>> = {
-  info: () => undefined,
-  warn: () => undefined,
-  error: () => undefined,
-  debug: () => undefined,
-}
-
-const NOOP_INVOKE_TEMPLATE = (
-  _name: string,
-  _vars?: Readonly<Record<string, unknown>>
-): Promise<unknown> =>
-  Promise.reject(new Error('context.actions.ref(...) is not available outside the run loop'))
-
-const NOOP_INVOKE_NATIVE = (
-  _type: string,
-  _operator: string,
-  _props?: Readonly<Record<string, unknown>>
-): Promise<unknown> =>
-  Promise.reject(
-    new Error('context.actions.<type>.<operator>(...) is not available outside the run loop')
-  )
-
-const runCodeActionAsync = async (input: RunCodeActionInput): Promise<ActionOutcome> => {
-  const actionsProxy = buildActionsProxy({
-    invokeTemplate: input.runContext.invokeTemplate ?? NOOP_INVOKE_TEMPLATE,
-    invokeNativeAction: input.runContext.invokeNativeAction ?? NOOP_INVOKE_NATIVE,
-  })
-
-  // INTERNAL substitution context — used to resolve `{{steps.X.Y}}`,
-  // `{{trigger.data.num}}`, etc. inside the action's `inputData` prop.
-  // This object never reaches user code; it exists only to drive
-  // template resolution before the sandbox sees any data.
-  const resolutionContext = buildResolutionContext({
-    triggerData: input.runContext.triggerData,
-    previousSteps: input.runContext.previousSteps,
-    env: input.runContext.envLookup,
-    templateVars: input.runContext.templateVars,
-    inputData: {},
-    actions: actionsProxy,
-    log: NOOP_LOG,
-  })
-  // Final props (a code action another step dispatched with values) arrive as
-  // given: what a step handed over is never rendered as a template again.
-  const resolvedInputData =
-    input.runContext.propsFinal === true
-      ? input.rawInputData
-      : resolveCodeInputData(input.rawInputData, resolutionContext, input.runContext.templates)
-
-  // The user-facing context: `inputData`, `actions`, `env`, `log`, `run`.
-  // Every value the user code reaches flows through `inputData` (resolved
-  // above) or via `context.actions.<template>(...)` invocation.
-  const collector = createCodeLogCollector()
-  const sandboxContext = buildSandboxContext({
-    env: input.runContext.envLookup,
-    inputData: resolvedInputData,
-    actions: actionsProxy,
-    log: collector.log,
-    // Threaded through by `dispatchWithRetry` (run-automation.ts); defaults
-    // to 1 when invoked outside the retry loop. Surfaced as
-    // `context.run.attempt`.
-    attempt: input.runContext.attempt ?? 1,
-  })
-
-  const compiled = compileExecuteFnSafe(input.code)
-  if (compiled._tag === 'error') return { status: 'failure', error: compiled.message }
-  const outcome = await runUserCode(compiled.fn, sandboxContext, input.timeoutMs)
-  // The log leaves on the outcome whether the code succeeded or threw — a
-  // failing step's log is the one an operator most needs to read.
-  const logs = collector.entries()
-  return logs.length > 0 ? { ...outcome, logs } : outcome
-}
-
 /**
- * Wrap `compileExecuteFn` in a tagged-result helper so the call site
- * doesn't need a try/catch. The compile path can throw (malformed user
- * code, syntax errors); we capture those as `error` so the failure
- * matches the rest of the pipeline's Either-style flow.
+ * Resolve `inputData`, transpile, check the data context can be copied, then
+ * run on a worker. The step's log leaves on the outcome whether the code
+ * succeeded, threw or was stopped — a failing step's log is the one an
+ * operator most needs to read.
  */
-type CompileResult =
-  | {
-      readonly _tag: 'ok'
-      readonly fn: (context: Readonly<Record<string, unknown>>) => unknown
+const runCodeAction = (input: RunCodeActionInput): Effect.Effect<ActionOutcome> =>
+  Effect.gen(function* () {
+    const { runContext } = input
+    // INTERNAL substitution context for `inputData`; it never reaches user code.
+    const resolutionContext = buildResolutionContext({
+      triggerData: runContext.triggerData,
+      previousSteps: runContext.previousSteps,
+      env: runContext.envLookup,
+      templateVars: runContext.templateVars,
+      inputData: {},
+      actions: {},
+      log: {},
+    })
+    // Final props (a code action another step dispatched with values) arrive as given.
+    const inputData =
+      runContext.propsFinal === true
+        ? input.rawInputData
+        : resolveCodeInputData(input.rawInputData, resolutionContext, runContext.templates)
+    const data: CodeStepData = {
+      inputData,
+      env: runContext.envLookup,
+      run: { attempt: runContext.attempt ?? 1 },
     }
-  | { readonly _tag: 'error'; readonly message: string }
-
-const compileExecuteFnSafe = (source: string): CompileResult => {
-  try {
-    return { _tag: 'ok', fn: compileExecuteFn(source) }
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : 'unknown compile error'
-    return { _tag: 'error', message: `code action failed to compile: ${detail}` }
-  }
-}
+    const refusal = contextCloneRefusal(data)
+    if (refusal !== undefined) return { status: 'failure', error: refusal } as const
+    const compiled = transpileOrFailure(input.code)
+    if ('failure' in compiled) return compiled.failure
+    const collector = createCodeLogCollector()
+    const outcome = yield* runOnWorker({
+      source: compiled.source,
+      data,
+      dispatchers: {
+        invokeTemplate: runContext.invokeTemplate ?? NOOP_INVOKE_TEMPLATE,
+        invokeNativeAction: runContext.invokeNativeAction ?? NOOP_INVOKE_NATIVE,
+      },
+      log: collector.log,
+      timeoutMs: input.timeoutMs,
+    })
+    const logs = collector.entries()
+    return logs.length > 0 ? { ...outcome, logs } : outcome
+  })
 
 export const handleCodeRun: ActionHandler = (action, _app, _automation, runContext) =>
   Effect.gen(function* () {
@@ -534,14 +360,5 @@ export const handleCodeRun: ActionHandler = (action, _app, _automation, runConte
     // bring in is never read for `$env.`.
     const rawProps = authoredActionProps(runContext)
     const rawInputData = (rawProps['inputData'] as Record<string, unknown> | undefined) ?? {}
-
-    // effect-promise: total -- `runCodeActionAsync` returns an `ActionOutcome`; both a compile error and a thrown user script are caught inside and returned as `{ status: 'failure' }`. Running untrusted code is the whole point, so a throw is an expected VALUE here, never a rejection.
-    return yield* Effect.promise(() =>
-      runCodeActionAsync({
-        code,
-        rawInputData,
-        runContext,
-        timeoutMs,
-      })
-    )
+    return yield* runCodeAction({ code, rawInputData, runContext, timeoutMs })
   }).pipe(Effect.withSpan('automations.handle-code-run', { attributes: actionAttributes(action) }))

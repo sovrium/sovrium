@@ -215,6 +215,63 @@ export const drawnNode = (context: DrawContext, node: HtmlNode): readonly HtmlNo
   ]
 }
 
+/** The attributes holding the id of another element, or a list of them. */
+const ID_REFERENCES: ReadonlySet<string> = new Set([
+  'for',
+  'form',
+  'list',
+  'headers',
+  'aria-labelledby',
+  'aria-describedby',
+  'aria-controls',
+  'aria-owns',
+  'aria-activedescendant',
+  'aria-details',
+  'aria-errormessage',
+  'aria-flowto',
+  'popovertarget',
+])
+
+/** The attributes holding an address, which names an id when it is an in-page `#fragment`. */
+const FRAGMENT_REFERENCES: ReadonlySet<string> = new Set(['href', 'xlink:href'])
+
+/** `value`, an attribute named `name`, with every id it holds or names scoped to `scope`. */
+const scopedAttribute = (name: string, value: string, scope: string): string => {
+  if (name === 'id') return `${scope}--${value}`
+  if (ID_REFERENCES.has(name))
+    return value
+      .split(/\s+/)
+      .filter((id) => id !== '')
+      .map((id) => `${scope}--${id}`)
+      .join(' ')
+  return FRAGMENT_REFERENCES.has(name) && value.length > 1 && value.startsWith('#')
+    ? `#${scope}--${value.slice(1)}`
+    : value
+}
+
+/**
+ * A drawing whose every id, and every reference to one, is scoped to `scope`
+ * (`<scope>--<id>`): a board drawing several pages, two of which draw a
+ * control for the same field, keeps each id unique and each label on its own
+ * page's control. An in-page link (`href="#…"`) follows the id it names; the
+ * rewrite is made on the parsed tree, so a value is never read as markup.
+ */
+export const withScopedIds = (nodes: readonly HtmlNode[], scope: string): readonly HtmlNode[] =>
+  nodes.map((node) =>
+    node.kind === 'text'
+      ? node
+      : {
+          ...node,
+          attributes: Object.fromEntries(
+            Object.entries(node.attributes).map(([name, value]) => [
+              name,
+              scopedAttribute(name, value, scope),
+            ])
+          ),
+          children: withScopedIds(node.children, scope),
+        }
+  )
+
 /** A tree whose every attribute value writes each `{{` as the hole the board fills with `{{`. */
 const withLiteralAttributeBraces = (nodes: readonly HtmlNode[]): readonly HtmlNode[] =>
   nodes.map((node) =>

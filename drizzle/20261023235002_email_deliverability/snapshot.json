@@ -1,0 +1,451 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "b7125eda-393c-49fc-b575-611ac81f37a3",
+  "prevIds": [
+    "463a3ad0-8715-47c0-a0ed-8b7244a7a3d8"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "system",
+        "email_messages"
+      ],
+      "writes": [
+        "s|tbl|system.email_messages",
+        "n|tbl|system.email_messages",
+        "e|tbl|system.email_messages",
+        "n|rel|system.email_messages",
+        "n|type|system.email_messages",
+        "n|rel|system.email_messages_pkey"
+      ],
+      "reads": [
+        "n|sch|system"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "system",
+        "email_suppressions"
+      ],
+      "writes": [
+        "s|tbl|system.email_suppressions",
+        "n|tbl|system.email_suppressions",
+        "e|tbl|system.email_suppressions",
+        "n|rel|system.email_suppressions",
+        "n|type|system.email_suppressions",
+        "n|rel|system.email_suppressions_pkey"
+      ],
+      "reads": [
+        "n|sch|system"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "system",
+        "email_messages",
+        "email_messages_campaign_idx"
+      ],
+      "writes": [
+        "s|idx|system.email_messages_campaign_idx",
+        "n|idx|system.email_messages_campaign_idx",
+        "e|idx|system.email_messages_campaign_idx",
+        "n|rel|system.email_messages_campaign_idx"
+      ],
+      "reads": [
+        "n|tbl|system.email_messages",
+        "n|sch|system",
+        "n|col|system.email_messages.campaign"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "system",
+        "email_messages",
+        "email_messages_message_id_idx"
+      ],
+      "writes": [
+        "s|idx|system.email_messages_message_id_idx",
+        "n|idx|system.email_messages_message_id_idx",
+        "e|idx|system.email_messages_message_id_idx",
+        "n|rel|system.email_messages_message_id_idx"
+      ],
+      "reads": [
+        "n|tbl|system.email_messages",
+        "n|sch|system",
+        "n|col|system.email_messages.message_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "system",
+        "email_suppressions",
+        "email_suppressions_address_idx"
+      ],
+      "writes": [
+        "s|idx|system.email_suppressions_address_idx",
+        "n|idx|system.email_suppressions_address_idx",
+        "e|idx|system.email_suppressions_address_idx",
+        "n|rel|system.email_suppressions_address_idx"
+      ],
+      "reads": [
+        "n|tbl|system.email_suppressions",
+        "n|sch|system",
+        "n|col|system.email_suppressions.address"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "name": "email_messages",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "name": "email_suppressions",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "email_messages",
+        "name": "id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "email_messages",
+        "name": "message_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "email_messages",
+        "name": "category",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "email_messages",
+        "name": "campaign",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "email_messages",
+        "name": "sent_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "email_messages",
+        "name": "opened_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "email_messages",
+        "name": "bounced_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "email_messages",
+        "name": "complained_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "email_messages",
+        "name": "unsubscribed_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "email_suppressions",
+        "name": "id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "email_suppressions",
+        "name": "address",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "email_suppressions",
+        "name": "category",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "email_suppressions",
+        "name": "reason",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "email_suppressions",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "email_messages",
+        "name": "email_messages_campaign_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "campaign",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "email_messages",
+        "name": "email_messages_message_id_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "message_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "email_suppressions",
+        "name": "email_suppressions_address_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "address",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "email_messages",
+        "name": "email_messages_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "email_suppressions",
+        "name": "email_suppressions_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    }
+  ]
+}

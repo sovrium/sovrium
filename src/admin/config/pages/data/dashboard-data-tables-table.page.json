@@ -151,7 +151,8 @@
                 "selection": {
                   "mode": "multiple"
                 },
-                "layout": "fill"
+                "layout": "fill",
+                "viewOptions": "toolbar"
               }
             },
             {

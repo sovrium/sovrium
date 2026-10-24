@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-// sovrium-library: block/page-header@0.37.0#3625113ebfac
+// sovrium-library: block/page-header@0.42.0#3ebad81a08b5
 
 // The design-system page heading: one h1, its text passed as `content`.
 
@@ -51,7 +51,7 @@ export const consolePageHeader = {
       type: 'text',
       element: 'h1',
       props: {
-        className: 'text-3xl font-semibold tracking-tight',
+        className: 'text-2xl font-semibold tracking-tight',
         'data-design-kit-type': 'text',
       },
       content: '$content',

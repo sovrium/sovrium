@@ -179,7 +179,11 @@ export const toPortError = (error: AiError.AiError, timeoutMs: number): PortAiEr
       cause: error,
     })
   }
-  if (reason._tag === 'InvalidOutputError') {
+  // A provider answer that does not decode. `@effect/ai-openai-compat` reports it
+  // as `InvalidResponseError` since 4.0.6 (it was `InvalidOutputError`, which
+  // now means only model-generated output that failed validation); the Ollama
+  // adapter still raises `InvalidOutputError`. Both are the same malformed reply.
+  if (reason._tag === 'InvalidResponseError' || reason._tag === 'InvalidOutputError') {
     return new AiProviderError({
       statusCode: 502,
       message: `AI provider returned a malformed chat-completion response: ${reason.message}`,

@@ -56,6 +56,7 @@ import { validateAssetReferences } from '@/domain/models/app/asset-reference-val
 import { validateApprovalTimeouts } from '@/domain/models/app/automations/actions/approval/approval-timeout-validation'
 import { validateBrowserActions } from '@/domain/models/app/automations/actions/browser/browser-action-validation'
 import { validateDelayLimits } from '@/domain/models/app/automations/actions/delay/delay-limits-validation'
+import { validateRecordAggregates } from '@/domain/models/app/automations/actions/record/aggregate-validation'
 import { validateRecordEventLoops } from '@/domain/models/app/automations/record-loop-validation'
 import { reportRetiredActionOperators } from '@/domain/models/app/automations/retired-operator-validation'
 import { validatePreviewOptionPaths } from '@/domain/models/app/design/preview-option-validation'
@@ -327,8 +328,7 @@ const runSemanticChecks = (decoded: App, normalized: unknown): readonly string[]
     ...validateRowColorFields(normalized),
     // A calendar's colour names one option, never a multi-select (its module).
     ...validateCalendarColorFields(normalized),
-    // A drawer's `related` sections, against the tables they name and its own: each
-    // verdict needs `tables[]`, which no drawer schema node sees (`drawer-related-validation.ts`).
+    // A drawer's `related` sections need `tables[]`, which no drawer schema node sees.
     ...validateDrawerRelatedReferences(normalized),
     // Card slots hold record components; the other component-type rules gathered.
     ...validateCardSlotComponents(normalized),
@@ -338,8 +338,8 @@ const runSemanticChecks = (decoded: App, normalized: unknown): readonly string[]
     ...validateRecordEventLoops(normalized), // a record automation re-firing its own trigger
     ...validateApprovalTimeouts(normalized), // an approval `timeout` must decide its outcome
     ...validateDelayLimits(normalized), // over-long delays (`delay-limits-validation.ts`)
-    // Declared `{ asset }` paths, and an `attachTo` writing into its field's bucket.
-    ...validateAssetReferences(normalized),
+    ...validateRecordAggregates(normalized), // a figure over a missing or non-number field
+    ...validateAssetReferences(normalized), // `{ asset }` paths; `attachTo` into its field's bucket
     ...validateDocumentOutputBuckets(decoded),
     ...validateGrantActions(decoded), // a literal grant table or role the app does not declare
     // Mutually-exclusive component keys. Here rather than in the schema

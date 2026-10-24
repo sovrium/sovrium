@@ -25,6 +25,7 @@ import { redactSecretPath } from '@/domain/kernel/url/secret-path-redaction'
 import { mountedInvitationPages } from '@/domain/models/app/pages/invitation-link-service'
 import { resolvesToDeclaredPage } from '@/domain/models/app/pages/page-path-resolvability'
 import { selfFramedPaths } from '@/domain/models/app/pages/self-framed-paths-service'
+import { parseFrameAncestors } from '@/domain/models/process-env/preview'
 import { createEmailHandlers } from '@/infrastructure/auth/better-auth/email-handlers'
 import { createInvitationServices } from '@/infrastructure/auth/better-auth/invitation-services'
 import { isIngestRequest } from '@/infrastructure/logging/ingest-request-scope'
@@ -43,10 +44,11 @@ import { resolveAuthContext } from '@/infrastructure/server/hono-auth-context'
 import { catalogRequestCacheMiddleware } from '@/infrastructure/server/middleware/catalog-request-cache'
 import { dbQueryCountMiddleware } from '@/infrastructure/server/middleware/db-query-count-header'
 import { hostRedirect } from '@/infrastructure/server/middleware/host-redirect'
+import { previewGate } from '@/infrastructure/server/middleware/preview-gate'
 import { requestLogger } from '@/infrastructure/server/middleware/request-logger'
 import {
   sameOriginFraming,
-  securityHeaders,
+  securityHeadersFor,
 } from '@/infrastructure/server/middleware/security-headers'
 import { setupStaticAssets } from '@/infrastructure/server/route-setup/static-assets'
 import { readStatusDocument } from '@/infrastructure/server/status-file'
@@ -76,6 +78,7 @@ import { setupDevReloadRoute } from '@/presentation/api/server/dev-reload-routes
 import type { HonoAppConfig } from '@/application/ports/contracts/hono-app-config'
 import type { App } from '@/domain/models/app'
 import type { DomainContext } from '@/infrastructure/server/domain-runtime'
+import type { MiddlewareHandler } from 'hono'
 
 /** The request id the `hono/request-id` middleware set, if it ran. */
 const requestIdOf = (id: unknown): string | undefined => (typeof id === 'string' ? id : undefined)
@@ -178,6 +181,33 @@ const answerUnmatchedApiPaths =
 
 export { fireAgentSchedule }
 
+/** The origins `SOVRIUM_FRAME_ANCESTORS` names; the boot check already refused a bad value. */
+const framingOriginsOf = (
+  env: Readonly<Record<string, string | undefined>>
+): readonly string[] | undefined => {
+  const parsed = parseFrameAncestors(env['SOVRIUM_FRAME_ANCESTORS'])
+  return parsed._tag === 'Origins' ? parsed.origins : undefined
+}
+
+/**
+ * The preview gate when `SOVRIUM_PREVIEW_TOKEN` is set, else a pass-through.
+ * Its refusal is the platform's ordinary not-found answer of the request's
+ * family, drawn WITHOUT the app: the app's own `/404` page can carry its name,
+ * navigation, data bindings and analytics beacon, all of which a hidden
+ * preview must not show to a request that has not been admitted.
+ */
+const mountPreviewGate = (
+  renderNotFoundPage: HonoAppConfig['renderNotFoundPage']
+): MiddlewareHandler => {
+  const token = process.env['SOVRIUM_PREVIEW_TOKEN']
+  if (token === undefined || token === '') return (_c, next) => next()
+  return previewGate({
+    token,
+    notFound: async (c) =>
+      isApiPath(c.req.path) ? c.json(notFoundBody(), 404) : c.html(await renderNotFoundPage(), 404),
+  })
+}
+
 export async function createHonoApp(
   config: HonoAppConfig & HonoAppExtras
 ): Promise<Readonly<Hono>> {
@@ -186,6 +216,7 @@ export async function createHonoApp(
   const { runtime, authInstance, getSession } = await resolveAuthContext(app, config.domainContext)
 
   const honoApp = new Hono()
+  const frameAncestors = framingOriginsOf(process.env)
 
   // Request correlation ID — mounted first so every downstream middleware,
   // route handler, and error handler can read a single stable `c.get('requestId')`
@@ -223,8 +254,12 @@ export async function createHonoApp(
   honoApp
     .use('*', domainContextMiddleware(config.domainContext))
     .use('*', requestId())
-    .use('*', securityHeaders)
-    .use('*', sameOriginFraming(selfFramedPaths(app)))
+    .use('*', securityHeadersFor(frameAncestors))
+    .use('*', sameOriginFraming(selfFramedPaths(app), frameAncestors))
+    // The preview gate ([internal ref] D2): the first link that can ANSWER. Nothing
+    // above it answers (they only wrap), so it judges every request before a
+    // cache, a static file, auth, a realtime upgrade or a webhook can.
+    .use('*', mountPreviewGate(renderNotFoundPage))
     .use('*', dbQueryCountMiddleware())
     .use('*', catalogRequestCacheMiddleware())
 

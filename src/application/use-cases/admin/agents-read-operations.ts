@@ -53,6 +53,7 @@ import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalo
 import { isConversationSourceAgent } from '@/domain/models/app/agents/agent-identity'
 import { tableLabelsFor } from '@/domain/models/app/auth/readable-name-service'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
+import { toolLabelOf } from './agent-tool-labels'
 import type { App } from '@/domain/models/app'
 
 // ─── Conversations ───────────────────────────────────────────────────────────
@@ -280,7 +281,11 @@ const conversationRead = defineAdminRead<ConversationAddress>({
   },
   read: (app, { agentName, id }, request) =>
     Effect.flatMap(resolveOperatorLanguage(request), (language) =>
-      BuildAgentConversationDetail(agentName, id, tableLabelOf(app, language))
+      // A step the server ran itself (`chat.<type>`) is named for the reader; an
+      // agent's own call keeps the identifier the agent called it by.
+      BuildAgentConversationDetail(agentName, id, tableLabelOf(app, language), (name) =>
+        name.startsWith('chat.') ? toolLabelOf(name, language) : undefined
+      )
     ),
   audit: {
     action: AUDIT_ACTIONS.AGENT_CONVERSATION_DETAIL_QUERIED,

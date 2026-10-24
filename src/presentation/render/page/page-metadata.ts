@@ -6,10 +6,12 @@
  */
 
 import { useContext } from 'react'
+import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { resolveForLanguage } from '@/domain/models/app/languages/locale-lookup-service'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { resolveFrontmatterReferences } from '@/domain/models/app/pages/frontmatter-reference-service'
 import { HeadReferencesContext, type HeadReferences } from './head-references'
+import { PageLanguageAlternatesContext, selfCanonicalFor } from './page-alternates'
 import type { Design } from '@/domain/models/app/design'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
@@ -139,7 +141,7 @@ function determineTitle(
     return authoredTitle
   }
 
-  const fallback = frontmatter?.['title'] || page.name || page.path
+  const fallback = frontmatter?.['title'] || page.name || primaryPagePath(page.path)
   const declared = page.meta?.title
     ? resolveFrontmatterReferences(page.meta.title, frontmatter)
     : ''
@@ -219,7 +221,11 @@ export function extractPageMetadata(
   const title = resolveReferences(determineTitle(page, lang, languages, frontmatter))
   const description = resolveReferences(determineDescription(page, lang, languages, frontmatter))
   const keywords = determineKeywords(page, lang, languages, frontmatter)
-  const canonical = page.meta?.canonical
+  // A `$t:` key resolves like the title's, so each language can name its own address.
+  const canonical =
+    page.meta?.canonical === undefined
+      ? undefined
+      : resolveTranslationPattern(page.meta.canonical, lang, languages)
   const bodyStyle = buildBodyStyle(design)
 
   return {
@@ -234,15 +240,20 @@ export function extractPageMetadata(
 /**
  * {@link extractPageMetadata} for the document being rendered, with the head's
  * `$app.*` / `$param.*` substitution read from `HeadReferencesContext` — which
- * `renderPageHtml` provides once per request.
+ * `renderPageHtml` provides once per request — and, for a page that declares no
+ * canonical, its own address in the active language ({@link selfCanonicalFor}).
  */
 export const usePageMetadata = (
   page: Page,
   design: Design | undefined,
   languages: Languages | undefined,
   options: Omit<Parameters<typeof extractPageMetadata>[3], 'headReferences'>
-): Readonly<PageMetadata> =>
-  extractPageMetadata(page, design, languages, {
+): Readonly<PageMetadata> => {
+  const metadata = extractPageMetadata(page, design, languages, {
     ...options,
     headReferences: useContext(HeadReferencesContext),
   })
+  const alternates = useContext(PageLanguageAlternatesContext)
+  const canonical = metadata.canonical ?? selfCanonicalFor(alternates, options.lang, languages)
+  return canonical === undefined ? metadata : { ...metadata, canonical }
+}

@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { type FieldDef } from '../parts/crud-form/fields'
 import { clearMarkOf, isMarkedCleared, toWireFields } from '../parts/crud-form/wire-values'
+import { withoutUntouchedLinkLists } from './dropped-links'
 import { type CrudFormIslandProps, type FormState, type SubmitContext } from './types'
 
 /** Default debounce delay (ms) for `saveMode: 'auto'` when not configured. */
@@ -43,14 +44,21 @@ function diffChangedFields(
  * Persists the changed fields via the update mutation. Skips the network call
  * entirely when nothing changed, so a blur on an untouched field is a no-op.
  */
-async function persistAutoSave(ctx: SubmitContext, changed: Record<string, string>): Promise<void> {
+async function persistAutoSave(ctx: SubmitContext, diffed: Record<string, string>): Promise<void> {
+  // A link list never diffs equal to the record's stored links, so one the
+  // editor left alone is dropped here: sent, it would REPLACE the record's
+  // links and take off one made meanwhile, elsewhere.
+  const changed = withoutUntouchedLinkLists(ctx, diffed)
   if (!ctx.recordId || Object.keys(changed).length === 0) return
   ctx.setState({ isPending: true })
   try {
+    // Each changed link list is the whole set kept: one write removes a link taken off.
     const updated = await ctx.updateRecord.mutateAsync({
       recordId: ctx.recordId,
       fields: toWireFields(ctx.fields, changed, ctx.uiStrings),
+      linkLists: 'replace',
     })
+    ctx.rememberHeld?.(ctx.values)
     // Auto-save sends no version, but it does produce one. The form's explicit
     // save still declares the version it holds, so it must learn this one — or
     // it would be refused (409) for conflicting with its own auto-save.

@@ -11,8 +11,8 @@
  * (`claude-design-canvas-rules.ts`), compared with an unedited export's.
  *
  * An edited rule is written as that property of the node, in the config's own
- * shape. A rule naming a table, a field, a form or a page the config does not
- * declare is refused `UNDECLARED_REFERENCE` by name and never written; the
+ * shape. A rule naming a table, a field (a visibility field, or a data source's
+ * sort or filter field), a form or a page the config does not declare is refused `UNDECLARED_REFERENCE` by name and never written; the
  * whole resulting config is still judged as `sovrium validate` judges it
  * before a byte is written, so a rule the drawing carries goes through the
  * same decode as one written by hand. A node whose binding was rewritten draws
@@ -21,6 +21,7 @@
  * Pure: no I/O, the same inputs always give the same findings.
  */
 
+import { isResolvableColumnName } from '@/domain/models/app/tables/system-fields'
 import type { DrawnRules } from './page-drawing'
 import type { PageImportReport } from '@/domain/models/api/admin/design-system/page-import-report'
 import type { PageNodeMap } from '@/domain/models/api/admin/design-system/page-node-map'
@@ -126,6 +127,34 @@ const undeclaredTable = (value: Node, references: RuleReferences): string | unde
     : undefined
 }
 
+/**
+ * Why a data source sorts or filters on a field its table does not declare, if
+ * it does. A system column (`id`, the timestamps, the authorship columns) is a
+ * real column, as the whole-config validation counts it.
+ */
+const undeclaredSortOrFilterField = (
+  value: Node,
+  references: RuleReferences
+): string | undefined => {
+  const { table } = value
+  const fields = typeof table === 'string' ? references.tables.get(table) : undefined
+  if (fields === undefined) return undefined
+  const named = (['sort', 'filter'] as const).flatMap((key) => {
+    const entries = value[key]
+    if (!Array.isArray(entries)) return []
+    return entries.flatMap((entry: unknown) => {
+      const field = isObject(entry) ? entry['field'] : undefined
+      return typeof field === 'string' && !isResolvableColumnName(fields, field)
+        ? [{ key, field }]
+        : []
+    })
+  })
+  const [first] = named
+  return first === undefined
+    ? undefined
+    : `The data source's ${first.key} names the field ${first.field}, which the table ${String(table)} does not declare; name a declared field.`
+}
+
 /** The binding's own property on the node: where its text is kept. */
 const boundProperty = (entry: MapEntry | undefined): 'content' | 'children.0' =>
   (entry?.bindings ?? []).some((binding) => binding.property === 'children.0')
@@ -161,8 +190,10 @@ const outcomeOf = (
     return jsonRule({ ...edit, property: 'visibility' }, (value) => undeclaredField(value, table))
   }
   if (kind === 'source') {
-    return jsonRule({ ...edit, property: 'dataSource' }, (value) =>
-      undeclaredTable(value, references)
+    return jsonRule(
+      { ...edit, property: 'dataSource' },
+      (value) =>
+        undeclaredTable(value, references) ?? undeclaredSortOrFilterField(value, references)
     )
   }
   if (kind === 'form') {

@@ -19,22 +19,18 @@
  * `information_schema.columns` / `pragma_table_info` round-trips answering one
  * question. With this memo it issues 8.
  *
- * ## Why REQUEST scope, and not a process-lifetime cache
+ * ## Request scope, and the process-lifetime column cache beneath it
  *
- * A longer-lived cache would need invalidating whenever the physical schema
- * moves, and getting that wrong is not a performance bug: a stale `true` emits
+ * A longer-lived cache needs invalidating whenever the physical schema moves,
+ * and getting that wrong is not a performance bug: a stale `true` emits
  * `WHERE deleted_at IS NULL` against a relation without the column and fails
  * every read, while a stale `false` drops the soft-delete filter and LEAKS
- * deleted rows into listings. Request scope needs no invalidation at all,
- * because it cannot outlive one: every DDL-emitting path in this process runs
- * outside the request path — `runDatabaseStartup` → `initializeSchema` /
- * `reconcileTimestamptzColumns` / `reconcileUserForeignKeys` at boot, and the
- * SIGUSR1 handler, which only refreshes the `X-Sovrium-Config` header hash and
- * touches no schema. Nothing under `presentation/api/` emits DDL.
- *
- * Within one request the memo is also strictly MORE consistent than probing
- * twice: today the page and the count could in principle read two different
- * answers and disagree about whether soft-deleted rows are excluded.
+ * deleted rows into listings. That cache now exists, one level down: the
+ * column lists `listTableColumns` answers are kept per process and replaced by
+ * the only writers of columns — the schema initializer (before and after it
+ * runs) and the migrations — and an empty answer is never kept. This memo
+ * stays on top of it for the duration of one request, so the page and the
+ * count of one listing read one answer.
  *
  * ## Why not read the answer off the app config instead
  *
@@ -60,22 +56,34 @@
  * ## Deliberate limits
  *
  * - **Reads only.** Only the read path's `checkDeletedAtColumn`
- *   (`query-helpers/aggregation-helpers.ts`) consults this. The write path's
- *   own copy (`mutation-helpers/delete-helpers.ts`) still probes fresh on every
- *   call — a narrower blast radius than memoizing `columnExists` itself, which
- *   every catalog caller in the codebase shares.
- * - **Outside a request it is inert.** With no store in scope the memo falls
- *   straight through to a live probe, so boot, cron and the background
- *   listeners are byte-for-byte unchanged.
+ *   (`query-helpers/aggregation-helpers.ts`) consults this request memo. Every
+ *   other catalog caller — the write path's `mutation-helpers/delete-helpers.ts`
+ *   and the GDPR erasure included — shares the per-process column cache
+ *   beneath it, which `columnExists` reads.
+ * - **Outside a request it falls through to the column cache.** With no store
+ *   in scope the memo asks {@link columnExists}, whose column list comes from
+ *   the per-process cache in `dialect-introspection.ts` (`listTableColumns`)
+ *   after its first lookup, so a scheduled run or a background listener stops
+ *   asking the catalog on every read too. That cache is replaced by the
+ *   schema initializer and the migrations, the only writers of columns.
  * - **A rejected probe is NOT evicted, deliberately.** A probe that fails fails
  *   the transaction that needed it, which fails the whole read — there is no
  *   second consumer left in that request to poison. Eviction was written and
  *   then removed as dead defence; if a future caller starts recovering from a
  *   probe failure mid-request, revisit this rather than trusting it.
+ * - **A read that names a column the database no longer has is retried once**
+ *   ({@link retryOnceOnStaleColumns}) with this memo and the per-process
+ *   column cache both forgotten — the one way a cached answer can outlive DDL
+ *   issued by ANOTHER process (`sovrium migrate`, an import or a restore run
+ *   against the live database). A stale list can only add a column that is
+ *   gone, which fails loudly and heals here; a column added elsewhere is
+ *   simply not read until the next reset, as an old config would not read it.
  */
 
 import { AsyncLocalStorage } from 'node:async_hooks'
-import { columnExists } from './dialect-introspection'
+import { Effect } from 'effect'
+import { collectCauseChain, readSqlState } from '@/domain/errors/driver-failure'
+import { columnExists, resetTableColumnCache } from './dialect-introspection'
 import type { RawSqlRunner } from './dialect-execute'
 
 /**
@@ -118,3 +126,36 @@ export const cachedColumnExists = (
   box.set(key, pending)
   return pending
 }
+
+/** PostgreSQL `undefined_column`; SQLite has no code for it, only its message. */
+const UNDEFINED_COLUMN_SQLSTATE = '42703'
+
+/**
+ * Whether `error` (or anything on its cause chain) is the database refusing a
+ * column it does not have: SQLSTATE 42703 on PostgreSQL, `no such column` on
+ * SQLite.
+ */
+export const isUndefinedColumnFailure = (error: unknown): boolean =>
+  collectCauseChain(error).some(
+    (node) =>
+      readSqlState(node) === UNDEFINED_COLUMN_SQLSTATE ||
+      (typeof node.message === 'string' && node.message.includes('no such column'))
+  )
+
+/**
+ * Run a READ, and when it fails on a column the database does not have, forget
+ * every cached catalog answer (this request's memo and the per-process column
+ * cache) and run it once more. Reads only: a retry must be harmless to repeat.
+ * A column that is genuinely unknown fails the second run the same way.
+ */
+export const retryOnceOnStaleColumns = <A, E, R>(
+  read: Effect.Effect<A, E, R>
+): Effect.Effect<A, E, R> =>
+  read.pipe(
+    Effect.catchIf(isUndefinedColumnFailure, () =>
+      Effect.sync(() => {
+        storage.getStore()?.clear()
+        resetTableColumnCache()
+      }).pipe(Effect.andThen(read))
+    )
+  )

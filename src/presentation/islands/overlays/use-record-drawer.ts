@@ -104,7 +104,7 @@ export function useRecordDrawer(binding: RecordDrawerBinding) {
     setValues,
     // Nothing to save: an opened record whose controls still hold what it loaded.
     unchanged: !creating && holdsLoadedValues(values, read.baseline),
-    loading: read.loading,
+    ...{ loaded: read.baseline, loading: read.loading },
     ...{ notFound: read.notFound, readFailed: read.readFailed, retry: read.retry },
   }
 }

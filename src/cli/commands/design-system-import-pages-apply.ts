@@ -353,6 +353,29 @@ export const writeMergedPages = async (
     : writeIntoConfig(configPath, format, loaded, { patches, writes, colours })
 }
 
+/**
+ * Judge a dry run as `--write` judges what it would write: the merged pages and
+ * their translation entries in the config as loaded, refused when they would
+ * not validate. A change a dry run reports as applicable is then one `--write`
+ * applies, and a refusal reads the same in both modes.
+ *
+ * @param loaded - the config as loaded and judged.
+ * @param merged - every page's merge.
+ */
+export const judgeMergedPages = async (
+  loaded: LoadedConfig,
+  merged: readonly MergedPage[]
+): Promise<void> => {
+  const patches = merged.flatMap(({ name, plan }) =>
+    plan.patch === undefined ? [] : [{ name, entry: plan.patch }]
+  )
+  const writes = translationWritesOf(merged)
+  if (patches.length === 0 && writes.length === 0) return
+  const candidate = withTranslations(withPatches(loaded.parsed, patches), writes)
+  const outcome = await validateParsedConfig(candidate, loaded.refSources)
+  if (outcome.errors.length > 0) refuseInvalid(outcome.errors)
+}
+
 /** Every translation entry the pages write, one per key; a key drawn two ways is refused. */
 const translationWritesOf = (merged: readonly MergedPage[]): readonly TranslationWrite[] => {
   const writes = merged.flatMap(({ plan }) => plan.translationWrites)

@@ -155,7 +155,15 @@ const readLists = async (folder: string): Promise<Readonly<Record<string, readon
   const names = await discoverSeedFiles(folder)
   const lists = await Promise.all(
     names.map(async (name) => {
-      const parsed = parseSeedText(name, await Bun.file(join(folder, name)).text())
+      const path = join(folder, name)
+      const text = await Bun.file(path)
+        .text()
+        .catch((error: unknown) =>
+          refuse(
+            `--seed: ${path} cannot be read (${error instanceof Error ? error.message : String(error)}).`
+          )
+        )
+      const parsed = parseSeedText(name, text)
       if (!parsed.ok) return refuse(`--seed: ${parsed.error}`)
       const records = (parsed.value as { readonly records?: unknown } | null)?.records
       return [name.replace(/\.[^.]+$/, ''), Array.isArray(records) ? records : []] as const

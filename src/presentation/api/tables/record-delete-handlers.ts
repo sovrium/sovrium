@@ -34,6 +34,7 @@ import {
   passesUnguardedTableGate,
   resolveGuardForTable,
 } from './row-level-guard'
+import { stillLinkedConflict } from './still-linked-conflict'
 import { maskUnreadableUniqueConflict, restoredWrite } from './unique-conflict-mask'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
@@ -141,7 +142,12 @@ export async function handleDeleteRecord(c: Context, app: App) {
   if (mode !== 'soft' && !isAdminEquivalent(userRole, app)) return notFound(c)
 
   const outcome = await runDelete(c, { session, app, tableName, recordId, mode })
-  if (outcome._tag === 'Failure') return deleteFailureResponse(c, outcome.failure)
+  if (outcome._tag === 'Failure') {
+    // A record other rows still link to answers 409, naming the linking table
+    // only to a caller who reads it; every other failure as before.
+    const stillLinked = await stillLinkedConflict(c, app, outcome.failure)
+    return stillLinked ?? deleteFailureResponse(c, outcome.failure)
+  }
   if (mode === 'soft') return softDeleteResultToResponse(c, outcome.success)
   return outcome.success.success ? c.json({ success: true }, 200) : notFound(c)
 }

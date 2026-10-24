@@ -90,7 +90,12 @@ export const documentRequestFacts = (
   routeParams: Readonly<Record<string, string>>,
   path: string,
   request: DocumentRequest | undefined
-): { readonly headReferences: HeadReferences; readonly hostApp?: App } => ({
+): {
+  readonly headReferences: HeadReferences
+  readonly hostApp?: App
+  readonly renderedPath: string
+} => ({
+  renderedPath: path,
   headReferences: buildHeadReferences(
     request?.hostApp ?? app,
     routeParams,

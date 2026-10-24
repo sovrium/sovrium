@@ -303,6 +303,7 @@ export function formatCellValue(
     // whole unit: "5 min. ago", "in 3 hr.", « dans 5 j ».
     'relative-time': () => formatRelativeTime(value, tag, now ?? new Date()),
     'day-relative-time': () => formatDayRelativeTime(value, tag, timeZone, now),
+    'day-relative-time-seconds': () => formatDayRelativeTime(value, tag, timeZone, now, true),
     'short-date': () => formatShortDate(value, tag, timeZone, now),
     'long-date': () => formatDate(value, tag, { ...MONTH_DAY, ...YEAR, month: 'long' }, timeZone),
     datetime: () => formatDateTimeColumn(value, tag, timeZone),

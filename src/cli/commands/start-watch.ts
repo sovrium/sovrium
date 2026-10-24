@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { stat } from 'node:fs/promises'
 import { dirname, relative, resolve } from 'node:path'
 import { messageAsConfigFinding } from '@/domain/models/app/app-excess-property-report'
 import { printJournal, printJournalWarning } from '@/infrastructure/logging/cli-output'
@@ -33,6 +34,10 @@ export interface ReloadSession {
   readonly options: StartOptions
   /** `--watch`: a save reloads too, not only `sovrium reload`. */
   readonly watch: boolean
+  /** The root file's text just before the boot read it, when it was readable. */
+  readonly bootConfigText?: string
+  /** When the boot began reading the config graph (`Date.now()`). */
+  readonly bootReadStartedAt?: number
 }
 
 /** The graph watcher of a start WITHOUT `--watch`: it follows no file. */
@@ -175,6 +180,53 @@ const collectInitialFiles = async (configFile: string): Promise<ReadonlyArray<st
   })
 }
 
+/** Whether the root file no longer holds the text the boot started from. */
+const rootChangedDuringBoot = async (
+  configFile: string,
+  bootConfigText: string | undefined
+): Promise<boolean> => {
+  if (bootConfigText === undefined) return false
+  const now = await Bun.file(configFile)
+    .text()
+    .catch(() => undefined)
+  return now !== undefined && now !== bootConfigText
+}
+
+/**
+ * How far a file's mtime can trail the wall clock it was written at. Linux
+ * stamps files from its coarse clock, up to one scheduler tick (10 ms at
+ * HZ=100) behind `Date.now()`, so a save landing in the first tick of the boot
+ * read can carry an mtime BEFORE `bootReadStartedAt`. The cost of the slack is
+ * one extra reload for a file saved within it before the boot began, which no
+ * one types that fast.
+ */
+const MTIME_COARSENESS_MS = 10
+
+/** Whether a file was modified at or after `since`; an unreadable (deleted) file was not. */
+const modifiedSince = async (file: string, since: number): Promise<boolean> => {
+  const modified = await stat(file).then(
+    (info) => info.mtimeMs,
+    () => undefined
+  )
+  return modified !== undefined && modified >= since - MTIME_COARSENESS_MS
+}
+
+/**
+ * Whether any file of the graph changed while the boot was reading it: the
+ * root no longer holding the text the boot started from, or any file — the
+ * root or one it links to, at any depth — modified after the boot began.
+ */
+const graphChangedDuringBoot = async (
+  session: ReloadSession,
+  files: ReadonlyArray<string>
+): Promise<boolean> => {
+  if (await rootChangedDuringBoot(session.configFile, session.bootConfigText)) return true
+  const since = session.bootReadStartedAt
+  if (since === undefined) return false
+  const modified = await Promise.all(files.map((file) => modifiedSince(file, since)))
+  return modified.includes(true)
+}
+
 /**
  * The fixed parts of one session around the state it mutates.
  *
@@ -247,15 +299,6 @@ export const holdReloadPath = async (session: ReloadSession): Promise<void> => {
   const initialFiles = session.watch ? await collectInitialFiles(configFile) : [resolve(configFile)]
   ctx.graphWatcher.sync(initialFiles)
 
-  // The boot is an accepted config, so it is snapshotted. Undo after the very
-  // first edit has to land HERE — without this entry the history after one
-  // change holds only the state the user is trying to leave.
-  //
-  // The name it answers is discarded — see the reload-path call above.
-  if (session.watch) {
-    await snapshotConfigGraph(configFile, initialFiles, state.currentAnchor.configHash)
-  }
-
   // Seed the change detector with what the RUNNING server was built from, so
   // the first `change` event is compared against reality rather than against
   // an empty fingerprint (which would make every first event a reload, even
@@ -264,6 +307,35 @@ export const holdReloadPath = async (session: ReloadSession): Promise<void> => {
   state.lastSignature = await readGraphSignature(initialFiles)
 
   if (!session.watch) return
+
+  // A save that landed while the boot was reading the config fired before the
+  // watcher existed, and the fingerprint above was taken of the SAVED bytes —
+  // so it would pass as already served. What the boot started from tells them
+  // apart: when the root no longer holds the text it read, or any file of the
+  // graph was modified after the read began, the save is reloaded now, once.
+  //
+  // The order is what loses nothing: the watcher is up before the fingerprint
+  // is read, and the fingerprint is read before this comparison, so a save
+  // lands either before the comparison (which sees it) or after the
+  // fingerprint (which the watcher's own event then finds different).
+  const savedDuringBoot = await graphChangedDuringBoot(session, initialFiles)
+  if (savedDuringBoot) {
+    state.lastSignature = ''
+    reloadScheduler.schedule(resolve(configFile))
+  }
+
+  // The boot is an accepted config, so it is snapshotted. Undo after the very
+  // first edit has to land HERE — without this entry the history after one
+  // change holds only the state the user is trying to leave.
+  //
+  // Not when a save landed during the boot: the files on disk are then the
+  // SAVED bytes, which have not served, and the history holds served configs
+  // only. The reload just scheduled records them if they are accepted.
+  //
+  // The name it answers is discarded — see the reload-path call above.
+  if (!savedDuringBoot) {
+    await snapshotConfigGraph(configFile, initialFiles, state.currentAnchor.configHash)
+  }
 
   // The root is always part of the set (a graph is never empty), so every
   // other watched file is a linked one.

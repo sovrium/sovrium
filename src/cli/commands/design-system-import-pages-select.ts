@@ -13,6 +13,7 @@
  * drawing of an undeclared page is skipped and named.
  */
 
+import { pageRoutePatterns } from '@/domain/kernel/matching/localized-path'
 import {
   newPageEntryOf,
   type NewPageEntry,
@@ -149,5 +150,5 @@ export const referencesOf = (app: App): RuleReferences => ({
     )
   ),
   forms: new Set((app.forms ?? []).map((form) => form.name)),
-  paths: new Set((app.pages ?? []).map((page) => page.path)),
+  paths: new Set((app.pages ?? []).flatMap((page) => pageRoutePatterns(page.path))),
 })

@@ -36,7 +36,7 @@
 import { Effect } from 'effect'
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import { callerReadsRecord } from '@/application/use-cases/tables/permissions/caller-record-gate'
-import { findMatchingRoute } from '@/domain/kernel/matching/route-matcher'
+import { findPageRoute } from '@/domain/kernel/matching/localized-path'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -180,14 +180,10 @@ const resolveRevalidationLookup = (ctx: RevalidationContext): RevalidationLookup
   const pages = ctx.app.pages ?? []
   if (pages.length === 0) return { kind: 'not-applicable' }
 
-  const match = findMatchingRoute(
-    pages.map((page) => page.path),
-    pathname
-  )
+  const match = findPageRoute(pages, pathname)
   if (match === undefined) return { kind: 'not-applicable' }
 
-  const page = pages[match.index]
-  if (page === undefined) return { kind: 'not-applicable' }
+  const { page } = match
   if (!pageEmbedsLockedFormRef(page, ctx.formName)) return { kind: 'not-applicable' }
 
   const dataSource = extractSingleModeDataSource(page)

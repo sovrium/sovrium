@@ -8,19 +8,24 @@
 import { Effect } from 'effect'
 import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
 import { isGuestSession } from '@/domain/models/app/auth/guest-session'
+import {
+  findComputedFieldWrites,
+  readonlyFieldWriteMessage,
+} from '@/domain/models/app/tables/computed-field-write-validation'
 import { isRecordReadOnly } from '@/domain/models/app/tables/field-condition-evaluator-service'
 import { runDomainPromise } from '@/infrastructure/logging/request-effect'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { checkRecordUpdateValues, findReadonlyUpdateField } from './record-rules'
-import { createValidationLayer, sanitizeRichTextFields } from './validation'
+import {
+  createValidationLayer,
+  FieldValidationError,
+  formatValidationError,
+  sanitizeRichTextFields,
+} from './validation'
 import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { App, Table } from '@/domain/models/app'
-import type {
-  FieldFormatError,
-  FieldStorageError,
-  FieldValidationError,
-} from '@/presentation/api/tables/validation'
+import type { FieldFormatError, FieldStorageError } from '@/presentation/api/tables/validation'
 import type { Context } from 'hono'
 
 /** Input for {@link checkFieldConditionReadOnly}. */
@@ -88,6 +93,30 @@ export function validateUpdateReadonlyFields(
       code: 'VALIDATION_ERROR',
     },
     400
+  )
+}
+
+/**
+ * Refuse an update that names a computed field (`formula`, `rollup`, `count`,
+ * `lookup`, `autonumber`) — a value or a `null` clear alike — with the create
+ * path's 400: `field` is the first in the table's field order, `errors` lists
+ * every one. Run AFTER the table- and row-level update gates, so a caller who
+ * may not update the record gets its 404 and never learns a computed column's
+ * name, and on the fields she may WRITE: a computed field she may not write is
+ * the field-permission rule's, answered as any field she may not write.
+ */
+export function validateUpdateComputedFields(
+  table: Table | undefined,
+  fields: Readonly<Record<string, unknown>>,
+  c: Context
+): Response | undefined {
+  const attempted = findComputedFieldWrites(table?.fields, [fields])
+  const [first] = attempted
+  if (first === undefined) return undefined
+  const errors = attempted.map((field) => ({ field, message: readonlyFieldWriteMessage(field) }))
+  return formatValidationError(
+    new FieldValidationError(readonlyFieldWriteMessage(first), first, errors),
+    c
   )
 }
 

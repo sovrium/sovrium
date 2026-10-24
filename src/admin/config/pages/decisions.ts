@@ -72,7 +72,7 @@
 // clamps to the default), and the ids belong to the host app's register, which
 // a platform-owned preset compiled into the binary cannot enumerate. A path
 // segment has no such allow-list, so the document is `/decisions/:id` — the same
-// shape `/links/:slug`, `/users/:email` and `/tables/:table` already take.
+// shape `/links/:slug`, `/users/:id` and `/tables/:table` already take.
 
 import dashboardDecision from './dashboard-decision.page.json'
 import dashboardDecisions from './dashboard-decisions.page.json'

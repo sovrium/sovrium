@@ -227,7 +227,7 @@ export const agentConversationMessageSchema = Schema.Struct({
   toolCalls: optionalField(
     Schema.Unknown.annotate({
       description:
-        "The tool calls an assistant turn ran (`ai_messages.tool_calls`), absent for a plain text turn. A turn recorded by the engine stores one object per call — `id`, `name` (the action, e.g. `record.list`), `outcome` (`ok`, `denied`, `failed`, `pending-approval`, `pending-input`), `table` when the call read or wrote a declared table, and `rowCount` when it answered rows — and never the call's arguments or result. This read adds `tableLabel`, the table's label as the app declares it now. Older rows may carry other shapes; the dashboard reads both.",
+        "The tool calls an assistant turn ran (`ai_messages.tool_calls`), absent for a plain text turn. A turn recorded by the engine stores one object per call — `id`, `name` (the action, e.g. `record.list`), `outcome` (`ok`, `denied`, `failed`, `pending-approval`, `pending-input`), `table` when the call read or wrote a declared table, and `rowCount` when it answered rows — and never the call's arguments or result. This read adds `tableLabel`, the table's label as the app declares it now, and, on a `chat.<type>` step the server ran itself during a chat turn, `toolLabel`: what the console calls it in the operator's language, as the record operation it ran (`Record query`, `Rechercher des enregistrements`). Older rows may carry other shapes; the dashboard reads both.",
     })
   ),
   createdAt: looseIsoDateTime({

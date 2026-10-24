@@ -60,10 +60,10 @@ import {
   type RecordTextContext,
 } from '@/presentation/render/props/record-value-format'
 import { withSystemListText } from '@/presentation/render/props/system-record-list-text'
+import { autoBindCommentComponents } from '@/presentation/render/resolve/comment-record-binding'
 import { substituteRecordInCollectionTemplate } from '@/presentation/render/resolve/data-source-rows'
 import { markAddressedDialogs } from '@/presentation/render/resolve/overlay-triggers'
 import {
-  autoBindCommentComponents,
   injectRecordIntoNestedSingleMode,
   substituteRecordInMeta,
 } from '@/presentation/render/resolve/page-collection-resolver'
@@ -281,9 +281,7 @@ function bindComments(
   record: Readonly<Record<string, unknown>>,
   ds: PageLevelDataSource
 ): Page['components'] {
-  const recordId = record['id']
-  if (recordId === undefined || recordId === null) return components
-  return autoBindCommentComponents(components, ds.table, String(recordId))
+  return autoBindCommentComponents(components, ds.table, record)
 }
 
 /** A stored timestamp as the records API writes it: an ISO 8601 instant. */

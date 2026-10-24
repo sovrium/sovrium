@@ -11,6 +11,7 @@ import { printConfigDeprecationWarnings } from '@/cli/runtime/config-deprecation
 import { detectFormat } from '@/domain/kernel/config-parsing/format-detection'
 import { formatMessageReport } from '@/domain/models/app/app-config-report-service'
 import { messageAsConfigFinding } from '@/domain/models/app/app-excess-property-report'
+import { sessionWebhookCacheWarnings } from '@/domain/models/app/automations/trigger/webhook-session-validation'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { lazyImportSchema } from './utils'
 import {
@@ -18,6 +19,7 @@ import {
   validateFileExists,
   validateFileFormat,
 } from './validate-config-source'
+import { missingMarkdownFileWarnings } from './validate-markdown-files'
 import { coveredFiles, discoverValidationConfig, printJsonReport } from './validate-report'
 import type { ConfigFinding } from '@/domain/models/app/app-excess-property-report'
 
@@ -242,6 +244,12 @@ export interface ValidationOutcome {
    * thing a deploy gate must never do.
    */
   readonly notices: readonly string[]
+  /**
+   * Things worth a `Warning:` line that change neither the verdict nor the
+   * exit code — a page whose `markdown.file` names a missing file, or a
+   * session webhook answering with a shared-cache `Cache-Control`.
+   */
+  readonly warnings: readonly string[]
 }
 
 /**
@@ -282,6 +290,7 @@ export const validateParsedConfig = async (
       findings: decoded.findings,
       report: decoded.report,
       notices: [],
+      warnings: [],
     }
   }
 
@@ -309,7 +318,17 @@ export const validateParsedConfig = async (
     findings: postDecodeErrors.map((error) => messageAsConfigFinding(error)),
     report: formatMessageReport(postDecodeErrors),
     notices: decoded.notices,
+    warnings: [
+      ...(await missingMarkdownFileWarnings(decoded.app.pages, projectDir)),
+      ...sessionWebhookCacheWarnings(parsed),
+    ],
   }
+}
+
+/** Print an outcome's warnings, one `Warning:` line each, on stderr. */
+export const printValidationWarnings = (outcome: Readonly<ValidationOutcome>): void => {
+  if (outcome.warnings.length === 0) return
+  printStderr(outcome.warnings.map((warning) => `Warning: ${warning}`).join('\n'))
 }
 
 /**
@@ -323,6 +342,9 @@ export const handleValidateCommand = async (filePath?: string, json = false): Pr
   // Deprecated keys still decode, so only a walk of the raw config sees them.
   printConfigDeprecationWarnings(parsed)
   const outcome = await validateParsedConfig(parsed, refSources, resolve(resolvedPath))
+  // On stderr, so under `--json` too, like the deprecation lines above: stdout
+  // stays one parseable document and the warning still reaches the terminal.
+  printValidationWarnings(outcome)
 
   if (json) {
     return printJsonReport(outcome, coveredFiles(resolvedPath, refSources))

@@ -12,6 +12,7 @@ import {
   memoizeUnlessNoCache,
   PREBUILT_ISLAND_DIR,
   prebuiltIslandBuild,
+  prebuiltIslandReader,
   servePrebuiltIslandEntry,
   servesPrebuiltEntries,
 } from '@/infrastructure/assets/client-entries'
@@ -20,8 +21,10 @@ import { getRuntimeAssets } from '@/infrastructure/assets/embedded-runtime-asset
 import { diskChunkReader } from '@/infrastructure/assets/island-chunk-readers'
 import {
   computeIslandPreloadManifest,
+  type IslandChunkReader,
   type IslandPreloadManifest,
 } from '@/infrastructure/assets/island-preload-manifest'
+import { islandPageReachOf, islandReachOf } from '@/infrastructure/assets/island-reach'
 import { logError, logDebug } from '@/infrastructure/logging/logger'
 import { isBundled, isCompiled, resolvePackagePath } from '@/infrastructure/process/package-paths'
 import {
@@ -88,6 +91,11 @@ export interface IslandBuildResult {
    * `modulepreload` at all. See `@/infrastructure/assets/island-preload-manifest`.
    */
   readonly preloads: IslandPreloadManifest
+  /**
+   * Every `.js` file THIS build emitted, relative to the island directory —
+   * set by a build from source only; a prebuilt bundle is listed by its reader.
+   */
+  readonly outputs?: readonly string[]
 }
 
 /**
@@ -165,11 +173,55 @@ export const buildIslands = (() => {
     // to two chunks from the second rebuild onward — see `toEmittedChunkPaths`.
     const reader = diskChunkReader(ISLAND_OUT_DIR, result.outputs.map(artifactPath))
 
-    return { entryFile, preloads: await computeIslandPreloadManifest(reader, entryFile) }
+    return {
+      entryFile,
+      preloads: await computeIslandPreloadManifest(reader, entryFile),
+      outputs: await reader.list(),
+    }
   }
 
   return memoizeUnlessNoCache(build)
 })()
+
+/**
+ * Every file of the island bundle a page can ask for, relative to
+ * `/assets/islands/`: the entry under the name pages reference, the chunks it
+ * preloads and the ones it imports later.
+ */
+const listIslandFiles = async (): Promise<readonly string[]> => {
+  const build = await buildIslands()
+  const listed = build.outputs ?? (await (await prebuiltIslandReader()).list())
+  return [...new Set([build.entryFile, ...listed])]
+}
+
+/** A reader over the island files the app serves: the bytes a browser would fetch. */
+const servedIslandReader = (honoApp: Readonly<Hono>): IslandChunkReader => ({
+  list: listIslandFiles,
+  read: async (relativePath) => {
+    const response = await honoApp.request(`/assets/islands/${relativePath}`)
+    if (!response.ok) throw new Error(`No island file "${relativePath}" (${response.status})`)
+    return response.text()
+  },
+})
+
+/**
+ * The island files a static build writes for its generated pages, relative to
+ * `/assets/islands/`: what those pages reach (`island-reach.ts`) — the files
+ * they name and what those import, and the chunk of each island they mount
+ * with everything it imports — and the whole bundle when a mounted island
+ * cannot be traced to its chunk, so a page never loses a file. A build from
+ * source builds the bundle here, which is why this is done for a static build
+ * and not at every boot.
+ */
+export async function islandFilesReachedBy(
+  honoApp: Readonly<Hono>,
+  pages: readonly string[]
+): Promise<readonly string[]> {
+  const reach = await islandReachOf(servedIslandReader(honoApp), pages.map(islandPageReachOf))
+  if (reach !== undefined) return [...reach]
+  logDebug('[ISLANDS] A mounted island could not be traced to its chunk: writing the whole bundle')
+  return listIslandFiles()
+}
 
 /**
  * Setup island bundle routes

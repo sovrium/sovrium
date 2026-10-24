@@ -10,6 +10,7 @@ import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 import type { AddRowConfig } from '../add-row'
 import type { AddRowColumn } from '../use-add-row-draft'
 import type { DataTableGridColumn } from './table-features'
+import type { DataTableColumn } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
 /**
  * The trailing add-row's wiring, or nothing when the role cannot create — one
@@ -59,5 +60,22 @@ function inputColumnOf(
     ...(meta?.type !== undefined && { type: meta.type }),
     required: meta?.required === true,
     ...(meta?.options !== undefined && { options: meta.options }),
+  }
+}
+
+/**
+ * The display name a column goes by in a message to the reader — the authored
+ * `label`, else the field's declared label, else the field name itself.
+ */
+export function columnLabelResolver(
+  columnConfig: readonly DataTableColumn[] | undefined,
+  fieldMeta: FieldMetaMap | undefined
+): (field: string) => string {
+  return (field) => {
+    const authored = columnConfig?.find(
+      (column): column is Extract<DataTableColumn, { field: string }> =>
+        'field' in column && column.field === field
+    )
+    return authored?.label ?? fieldMeta?.[field]?.label ?? field
   }
 }

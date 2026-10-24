@@ -43,7 +43,7 @@ The `listening on` line prints as soon as the port is held, suffixed `(degraded:
 
 ## A memory limit
 
-On Linux the runtime sizes its heap against the limit of the container or the systemd unit (`MemoryMax=`) it runs in, but that limit covers the whole process, not only the heap. On a small limit, lower `ECO_PAGE_CACHE_MAX_MB` (default `64`), and leave headroom for the database and the native buffers by setting `BUN_JSC_forceRAMSize` to about three quarters of the limit, in bytes (`402653184` under 512 MiB): the heap is then sized against that figure instead. The operations manual's **Database Infrastructure** article, under "Running in a small container", explains the trade-offs.
+On Linux the runtime sizes its heap against the limit of the container or the systemd unit (`MemoryMax=`) it runs in, but that limit covers the whole process, not only the heap. On a small limit, lower `ECO_PAGE_CACHE_MAX_MB` (default `64`), and leave headroom for the database and the native buffers by setting `BUN_JSC_forceRAMSize` to about three quarters of the limit, in bytes (`402653184` under 512 MiB): the heap is then sized against that figure instead. The operations manual's **Database Infrastructure** article, under "Running in a small container", explains the trade-offs. Code steps run inside the same process and under the same limit.
 
 ## JSON logs
 
@@ -62,6 +62,28 @@ What dependencies print through the console is captured too — the stylesheet o
 ## Signing in with Sovrium Cloud
 
 An app hosted on Sovrium Cloud receives `SOVRIUM_PLATFORM_SSO_ISSUER`, `SOVRIUM_PLATFORM_SSO_CLIENT_ID`, `SOVRIUM_PLATFORM_SSO_CLIENT_SECRET` and, for the first admin, `SOVRIUM_PLATFORM_SSO_ADMIN_SUBJECT`: they let its owner open the console with their Cloud account. The Cloud sets them; a self-hosted app leaves them unset, and setting only some of them refuses to boot. The **User Management** article describes what they do.
+
+## Framing and private previews
+
+Two switches let you show an app inside your own dashboard, or keep a staging instance private. Both are read once at start, so changing either means a restart; unset, nothing about the app's responses, cookies or log changes.
+
+| Variable                  | Default                                 | Description                                                                                                                                                                                                       |
+| ------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SOVRIUM_FRAME_ANCESTORS` | unset (no other site may frame the app) | Space-separated origins allowed to show the app in a frame, such as `https://editor.example.com`. Each is `https://host` or `https://host:port`, or `http://localhost` / `http://127.0.0.1` with an optional port |
+| `SOVRIUM_PREVIEW_TOKEN`   | unset (no gate)                         | A secret of at least 32 characters. Set, the app answers `404` to every request that does not carry it, except a health probe from the machine itself                                                             |
+
+A framing value with a path, a wildcard host, `*`, a keyword such as `'self'`, an `http://` origin other than localhost, or nothing at all stops the start with one line naming the variable and the entry, for instance `SOVRIUM_FRAME_ANCESTORS: "https://editor.example.com/app" is not an origin (no path allowed)`.
+
+With `SOVRIUM_PREVIEW_TOKEN` set, a visitor meets the app like this:
+
+1. Without the token, every address answers `404` with the platform's plain not-found answer — never your app's own `/404` page, which would show its name and navigation — and no cookie. A wrong token gets the same answer, and nothing says a token exists.
+2. Opening `https://<host>/<path>?preview=<token>` redirects to the same address without `preview`, other query parameters kept, and sets the cookie `__Host-sovrium-preview` (`Secure; HttpOnly; SameSite=None; Path=/`). The address bar and the history no longer carry the token.
+3. From then on the browser is admitted for the life of that cookie, and the app behaves as without the gate, its own sign-in and permissions included. `/_admin` still asks for the console's own sign-in.
+4. Restarting with a different token turns every cookie issued for the old one away.
+
+Without the token, every page, static and public file, everything under `/api` (`/api/auth/*` included), WebSocket and realtime channels, event streams, `/mcp`, inbound webhook addresses (a preview receives no third-party events), `robots.txt` and the sitemap answer `404`. The one exemption is `GET /api/health` asked from the machine itself — from `127.0.0.1` or `::1`, with no `Forwarded`, `X-Forwarded-For` or `X-Real-IP` header — so the supervisor can probe it; it then answers liveness without the app's name. Behind a reverse proxy on the same host, have the proxy set `X-Forwarded-For` (or `Forwarded`) on every request it relays: otherwise a stranger's request reaches the app from `127.0.0.1` and the exemption answers the health probe publicly. Every response carries `X-Robots-Tag: noindex`, every page `<meta name="robots" content="noindex">`, and `robots.txt` disallows everything.
+
+The cookie needs HTTPS: browsers accept `Secure` cookies on `http://localhost`, so the flow works in development, but not over plain HTTP to any other host. A token shorter than 32 characters stops the start with `SOVRIUM_PREVIEW_TOKEN must be at least 32 characters`. The start-up banner says `Preview: only requests carrying the preview token are answered`; the token never appears in a log line or an error, and the access log writes `?preview=***`. With both variables set, your page frames the preview at `?preview=<token>`, and the cookie works inside that frame.
 
 ## Supervising other Sovrium apps
 

@@ -64,7 +64,7 @@ import {
 import { triggerNamedOrFirst } from '@/domain/models/app/automations/trigger-entries-service'
 import { isBrowserConfirmation, settleBrowserConfirmation } from './browser-confirmation-resume'
 import { resumePastApproval } from './resume-past-approval'
-import { dropEndedMinimalHistory } from './run/run-persistence'
+import { dropEndedRunHistory } from './run/run-history-drop'
 import type { ActionHandler, ActionKey } from './action-handlers'
 import type { TriggerData } from './resolve-trigger-data'
 import type {
@@ -356,7 +356,7 @@ export const applyApprovalOutcome = (
       // Terminate: the row is rejected; mark the paused run rejected. No
       // re-run — the downstream actions never execute.
       yield* runRepo.updateStatus({ id: runId, status: 'rejected' })
-      yield* dropEndedMinimalHistory(target.trigger, 'rejected', runId)
+      yield* dropEndedRunHistory(target.trigger, 'rejected', runId)
       return { decision, runId, approvalId } as const
     }
 

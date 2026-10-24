@@ -102,6 +102,17 @@ const UNMATCHED_TRANSACTION_ROUTE = '/<unmatched>'
 const transactionRoute = (routePath: string): string =>
   routePath === UNMATCHED_ROUTE_PATTERN ? UNMATCHED_TRANSACTION_ROUTE : routePath
 
+/**
+ * Whether a request is the health route probed by a load balancer or a
+ * supervisor (`GET` or `HEAD /api/health`, any query string, the readiness
+ * probe `?probe=db` included). It does at most one `SELECT 1`, and a probe
+ * every few seconds would otherwise take most of the sampled transactions, so
+ * it is excluded from sampling exactly as a static asset is. Errors on it are
+ * still reported: only the performance transaction is left out.
+ */
+export const isHealthProbe = (method: string, path: string): boolean =>
+  (method === 'GET' || method === 'HEAD') && path === '/api/health'
+
 /** Which signals are armed, and at what rate. `undefined` means "off". */
 export interface RequestTraceMiddlewareOptions {
   /** `SENTRY_TRACES_SAMPLE_RATE`, in `(0,1]`. */
@@ -120,7 +131,7 @@ export const createRequestTraceMiddleware = (
 ): MiddlewareHandler => {
   const { transactionSampleRate, traceSampleRatio } = options
   return async (c, next) => {
-    if (isStaticAssetPath(c.req.path)) {
+    if (isStaticAssetPath(c.req.path) || isHealthProbe(c.req.method, c.req.path)) {
       return next()
     }
 

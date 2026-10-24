@@ -53,6 +53,7 @@
  * existing bundled filter, never as a new one.
  */
 
+import { claimedPagePaths, type DeclaredPagePath } from '@/domain/kernel/matching/localized-path'
 import { stripLanguagePrefix } from '../redirects'
 
 /** The reserved namespace, as a bare segment and as a prefix. */
@@ -65,7 +66,7 @@ interface AppForLinkValidation {
     readonly slug: string
     readonly targets?: ReadonlyArray<{ readonly when?: unknown }> | undefined
   }>
-  readonly pages?: ReadonlyArray<{ readonly name: string; readonly path: string }>
+  readonly pages?: ReadonlyArray<{ readonly name: string; readonly path: DeclaredPagePath }>
   readonly forms?: ReadonlyArray<{ readonly name: string; readonly path?: string | undefined }>
   readonly redirects?: ReadonlyArray<{ readonly from: string }>
   readonly languages?: { readonly supported: ReadonlyArray<{ readonly code: string }> }
@@ -133,9 +134,11 @@ const validateFallbackTargets = (app: AppForLinkValidation): true | string => {
 const validateReservedNamespace = (app: AppForLinkValidation): true | string => {
   const languageCodes = app.languages?.supported.map((language) => language.code) ?? []
 
-  const page = app.pages?.find((candidate) => claimsLinkNamespace(candidate.path, languageCodes))
+  const page = claimedPagePaths(app.pages ?? []).find((claim) =>
+    claimsLinkNamespace(claim.path, languageCodes)
+  )
   if (page !== undefined) {
-    return `Page '${page.name}' declares path '${page.path}', which is inside the reserved '/l' short-link namespace. Link routes are matched before page resolution, so this page would never render. Move it to another path.`
+    return `Page '${page.page.name}' declares path '${page.path}', which is inside the reserved '/l' short-link namespace. Link routes are matched before page resolution, so this page would never render. Move it to another path.`
   }
 
   const form = app.forms?.find(

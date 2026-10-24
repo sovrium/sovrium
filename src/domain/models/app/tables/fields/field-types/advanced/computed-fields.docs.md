@@ -24,6 +24,8 @@ Counts the records linked through a relationship field **in the same table** —
 
 `filters` narrows what is counted, using the same condition grammar a view's filters use. Without it, every linked record counts — except a soft-deleted one, which never counts. Trashing a linked record lowers the count immediately, and restoring it raises the count again.
 
+A count is computed once and every reader reads the same value, so its `filters` may not compare to `$currentUser`: a config doing so is refused when it is read, naming the field, wherever the reference sits in an `and` or `or` group. To count a reader's own records, filter a view on `$currentUser` instead.
+
 The relationship may be of any kind. A count over a `one-to-many` or `many-to-many` link counts the linked records — through a `many-to-many` link, whichever table wrote the link, each linked record once; a count over a `many-to-one` or `one-to-one` link reads `1` when a record is linked and `0` when none is.
 
 A count counts only the linked records its reader may list in the related table. Where that table lets her read only the records a grant names, it counts those; where she may list none, the count is left out of the record, as any value read from a table she may not read is. For such a reader, a filter, a sort, a group or a total that names the count — or a formula over it — reads it as empty, so neither the records kept nor their order depend on records she may not list; an export leaves out the column of a count left out of every record she reads; and a page drawn on the server or a live change leaves the count out rather than recount it.
@@ -44,4 +46,4 @@ A sequence also does not promise to be gap-free. A transaction that allocates a 
 
 ## Both recompute rather than store
 
-`count` recomputes when the links it counts change. `autonumber` is allocated once and then fixed. Neither is writable through the records API or a form: a write naming one is refused with `Cannot write to readonly field '<name>'` rather than accepted and discarded, and the refusal names every readonly column the request touched, not just the first.
+`count` recomputes when the links it counts change. `autonumber` is allocated once and then fixed. Neither is writable through the records API, the edit form or the MCP update tool. A write naming one, by a caller who may otherwise write that field, is refused with `400` and `Cannot write to readonly field '<name>'` rather than accepted and discarded. A single-record create, a single-record update and the edit form name every readonly field the request touched; the batch, bulk and upsert routes and the MCP update tool name only the first. A caller who may not write the field at all is answered as for any field they may not write.

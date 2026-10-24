@@ -31,7 +31,7 @@
  * of the catalog that must not see one goes through it or {@link notClaimed}.
  */
 
-import { and, eq, inArray, like, lt, not, type SQL } from 'drizzle-orm'
+import { and, eq, inArray, like, lt, sql, type SQL } from 'drizzle-orm'
 import { db } from '@/infrastructure/database'
 import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
 
@@ -60,7 +60,7 @@ export const isClaim = (): SQL => {
 }
 
 /** The condition that leaves out every claim: what a reader of the catalog adds. */
-export const notClaimed = (): SQL => not(isClaim())
+export const notClaimed = (): SQL => sql`not (${isClaim()})`
 
 /** Release every claim at `key` older than {@link CLAIM_STALE_AFTER_MS}, as of `nowMs`. */
 export const releaseStaleClaim = async (key: string, nowMs: number): Promise<void> => {

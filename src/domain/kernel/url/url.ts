@@ -101,5 +101,30 @@ export const SharingImageAddressSchema = Schema.String.pipe(
     'HTTP/HTTPS URL, a path starting with /, a $t: translation key, or a string containing a $record.* substitution token',
 })
 
+/**
+ * A page address: an HTTP/HTTPS URL, a `$record.<field>` template, or a `$t:`
+ * translation key followed by the rest of the address (`$t:seo.base/about`).
+ *
+ * The key ends at the first character a key cannot hold, and the rest is kept
+ * as written, so one declaration names a different address in each language.
+ * The renderer resolves the key before the address is emitted.
+ *
+ * @example "https://example.com/en/about"
+ * @example "$t:seo.base/about"
+ * @example "https://example.com/products/$record.slug"
+ */
+export const PageAddressSchema = Schema.String.pipe(
+  Schema.check(
+    Schema.isPattern(/^https?:\/\/|\$record\.|^\$t:/, {
+      message:
+        'URL must start with http:// or https://, be a $t: translation key, or contain a $record.<field> substitution token',
+    })
+  )
+).annotate({
+  title: 'Page address',
+  description:
+    'HTTP/HTTPS URL, a $t: translation key followed by the rest of the address, or a string containing a $record.* substitution token',
+})
+
 /** @public */
 export type HttpUrlOrRecordTemplate = Schema.Schema.Type<typeof HttpUrlOrRecordTemplateSchema>

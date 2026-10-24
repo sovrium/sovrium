@@ -144,6 +144,9 @@ export const fileRefOf = (
 
 const FILE_STEP_TYPES: ReadonlySet<unknown> = new Set(['document', 'pdf', 'file'])
 
+/** Operators of another family that write a file, returned as their output's `file`. */
+const FILE_WRITING_OPERATORS: ReadonlySet<string> = new Set(['calendar/exportIcs'])
+
 /** A `file` operator that removes a file: it reads none, and it writes none either. */
 const REMOVES_A_FILE: ReadonlySet<string> = new Set(['file/delete'])
 
@@ -156,19 +159,28 @@ const REMOVES_A_FILE: ReadonlySet<string> = new Set(['file/delete'])
  * this run did NOT produce: counting them would let run data name any file
  * they list. An operator no classification knows does not count either.
  */
+/** Whether a declared step is an operator of another family that returns its file as `file`. */
+const returnsFileBeside = (action: Raw): boolean =>
+  FILE_WRITING_OPERATORS.has(`${String(action['type'])}/${String(action['operator'])}`)
+
 const writesFile = (app: App, action: Raw): boolean => {
+  if (returnsFileBeside(action)) return true
   if (!FILE_STEP_TYPES.has(action['type'])) return false
   if (REMOVES_A_FILE.has(`${String(action['type'])}/${String(action['operator'])}`)) return false
   return classifyStepRead(app, action as StepAction).kind === 'none'
 }
 
-/** The names of every step of the automation that writes a file, nested ones included. */
-const fileStepNames = (app: App, automation: AutomationContext): ReadonlySet<string> => {
+/** The names of every step of the automation `keeps`, nested ones included. */
+const stepNamesWhere = (
+  app: App,
+  automation: AutomationContext,
+  keeps: (action: Raw) => boolean
+): ReadonlySet<string> => {
   const declared = app.automations?.find((candidate) => candidate.name === automation.name)
   const walk = (value: unknown): readonly string[] => {
     if (Array.isArray(value)) return value.flatMap(walk)
     if (!isRecord(value)) return []
-    const own = typeof value['name'] === 'string' && writesFile(app, value) ? [value['name']] : []
+    const own = typeof value['name'] === 'string' && keeps(value) ? [value['name']] : []
     return [...own, ...Object.values(value).flatMap(walk)]
   }
   return new Set(walk(declared?.actions))
@@ -179,13 +191,16 @@ const isWrittenFile = (value: unknown): value is Raw =>
 
 /**
  * The files a writing step's output says it wrote: the output itself (`key`,
- * with its `bucket` when attached), and each part of a split (`files`). Nothing
- * else it carries — a source it read from is not a file it wrote.
+ * with its `bucket` when attached), each part of a split (`files`), and — for
+ * an operator of another family that returns its file beside its own fields
+ * (`calendar/exportIcs`), and for no other step — its `file`. Nothing else it
+ * carries: a source it read from is not a file it wrote.
  */
-const writtenFilesOf = (output: unknown): readonly Raw[] => {
+const writtenFilesOf = (output: unknown, fileBeside: boolean): readonly Raw[] => {
   if (!isRecord(output)) return []
   const parts = Array.isArray(output['files']) ? output['files'].filter(isWrittenFile) : []
-  return [...(isWrittenFile(output) ? [output] : []), ...parts]
+  const beside = fileBeside && isWrittenFile(output['file']) ? [output['file']] : []
+  return [...(isWrittenFile(output) ? [output] : []), ...parts, ...beside]
 }
 
 /** What this run produced: the names of its file steps and the files they wrote. */
@@ -199,13 +214,14 @@ const runFilesOf = (
   automation: AutomationContext,
   runContext: ActionRunContext | undefined
 ): RunFiles => {
-  const steps = fileStepNames(app, automation)
+  const steps = stepNamesWhere(app, automation, (action) => writesFile(app, action))
+  const besideSteps = stepNamesWhere(app, automation, returnsFileBeside)
   const outputs = Object.entries(runContext?.previousSteps ?? {}).filter(([name]) =>
     steps.has(name)
   )
   const keys = new Map(
     outputs
-      .flatMap(([, output]) => writtenFilesOf(output))
+      .flatMap(([name, output]) => writtenFilesOf(output, besideSteps.has(name)))
       .map((file) => [
         String(file['key']),
         typeof file['bucket'] === 'string' ? file['bucket'] : undefined,
@@ -252,7 +268,10 @@ export const fileRefRefusal = (
 ): string | undefined => {
   if (item.origin === 'config') {
     const step = stepNamed(item.ref)
-    return step === undefined || fileStepNames(scope.app, scope.automation).has(step)
+    return step === undefined ||
+      stepNamesWhere(scope.app, scope.automation, (action) => writesFile(scope.app, action)).has(
+        step
+      )
       ? undefined
       : `${item.prop} names step "${step}", which writes no file: a { step } reference only reads a step of this automation that writes one`
   }

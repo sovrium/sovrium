@@ -57,3 +57,11 @@ export const disconnectPerson = (appId: string, userId: string): boolean => {
 /** Whether one of the person's app connections is open. */
 export const isPersonOnline = (appId: string, userId: string): boolean =>
   (openCounts.get(keyOf(appId, userId)) ?? 0) > 0
+
+/** The ids of the app's people with an open app connection, in no particular order. */
+export const onlinePeopleOf = (appId: string): readonly string[] => {
+  const prefix = keyOf(appId, '')
+  return [...openCounts.keys()]
+    .filter((key) => key.startsWith(prefix))
+    .map((key) => key.slice(prefix.length))
+}

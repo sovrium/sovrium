@@ -7,6 +7,7 @@
 
 import { Clock, Effect } from 'effect'
 import { CronScheduler } from '@/application/ports/services/cron-scheduler'
+import { resolveAutomationId } from '@/application/use-cases/automations/run-automation'
 import { runCronAutomation } from '@/application/use-cases/automations/run-cron-automation'
 import {
   tickOf,
@@ -20,6 +21,7 @@ import {
 import { triggerEntryName } from '@/domain/models/app/automations/trigger-list-validation'
 import { logError } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
+import { withDbCostBox } from '@/infrastructure/telemetry/db-query-counter'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'effect'
 
@@ -39,6 +41,28 @@ interface CronCallbackInput {
   readonly app: App
   readonly processEnv: Readonly<Record<string, string | undefined>>
   readonly services: Context.Context<CronRunServices>
+  /** The automation's definition id, resolved once for all its entries ({@link definitionIdOnce}). */
+  readonly automationId: ReturnType<typeof definitionIdOnce>
+}
+
+/**
+ * The automation's definition id, resolved on its first fire and kept for the
+ * life of the registration, so a later fire does not look it up by name again.
+ * A failed resolution is not kept, so the next fire tries again.
+ */
+const definitionIdOnce = (automation: Automation) => {
+  let known: string | undefined
+  return Effect.suspend(() =>
+    known !== undefined
+      ? Effect.succeed(known)
+      : resolveAutomationId(automation.name, automation).pipe(
+          Effect.tap((id) =>
+            Effect.sync(() => {
+              known = id
+            })
+          )
+        )
+  )
 }
 
 /**
@@ -66,15 +90,22 @@ const buildCronCallback = (input: CronCallbackInput) => (): Effect.Effect<void, 
     )
   )
 
-/** Run the automation under the cron entry this job arms. */
+/**
+ * Run the automation under the cron entry this job arms. The run opens a
+ * counter box of its own (a scheduled fire has no request around it), so the
+ * run seam can charge it the statements, transactions and catalog lookups it
+ * issued (`automation-run-trace.ts`).
+ */
 const runEntry = (input: CronCallbackInput): Effect.Effect<void, unknown> =>
   runCronAutomation({
     name: input.automation.name,
     app: input.app,
     processEnv: input.processEnv,
     triggerName: input.schedules[input.index]?.name ?? 'cron',
+    automationId: input.automationId,
   }).pipe(
     Effect.provide(input.services),
+    withDbCostBox,
     Effect.tapError((err) =>
       Effect.sync(() => {
         logError('[cron-scheduler] automation run failed', err, {
@@ -192,7 +223,8 @@ export const registerCronAutomations = (
     // One job per cron entry of each automation.
     const jobs = cronAutomations.flatMap((automation) => {
       const schedules = cronSchedulesOf(automation)
-      return schedules.map((_, index) => ({ automation, schedules, index }))
+      const automationId = definitionIdOnce(automation)
+      return schedules.map((_, index) => ({ automation, schedules, index, automationId }))
     })
     return yield* Effect.forEach(
       jobs,

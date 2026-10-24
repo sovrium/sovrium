@@ -626,11 +626,19 @@ export const upsertRecordsResponseSchema = Schema.Struct({
 // ============================================================================
 
 /**
+ * A view's identifier as declared: a number stays a number, a word stays a
+ * word, on the list and on the single-view read alike.
+ */
+const viewIdResponseSchema = Schema.Union([Schema.String, Schema.Finite]).annotate({
+  description: 'View identifier, as declared (a number or a string)',
+})
+
+/**
  * View schema
  */
 export const viewSchema = Schema.Struct({
   ...Schema.Struct({
-    id: Schema.String.annotate({ description: 'View identifier' }),
+    id: viewIdResponseSchema,
     name: Schema.String.annotate({ description: 'View name' }),
     tableId: Schema.String.annotate({ description: 'Parent table ID' }),
     fields: optionalField(
@@ -655,7 +663,7 @@ export const listViewsResponseSchema = Schema.Struct({
  * Returns view properties directly at root level
  */
 export const getViewResponseSchema = Schema.Struct({
-  id: Schema.String.annotate({ description: 'View identifier' }),
+  id: viewIdResponseSchema,
   name: Schema.String.annotate({ description: 'View name' }),
   filters: optionalField(viewFilterNodeResponseSchema),
   sorts: optionalField(

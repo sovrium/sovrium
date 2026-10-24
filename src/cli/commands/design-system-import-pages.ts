@@ -26,8 +26,9 @@
  *
  * Those of the token import: a local path only, no network, no server, no
  * database, no AI; the same input gives the same output; the whole resulting
- * config is judged as `sovrium validate` judges it before a byte is written;
- * a TypeScript config is never edited; templates are never imported.
+ * config is judged as `sovrium validate` judges it before a byte is written,
+ * and a dry run judges it the same way; a TypeScript config is never edited;
+ * templates are never imported.
  */
 
 import { join } from 'node:path'
@@ -46,7 +47,11 @@ import {
 import { getFlagValue, getFlagValues } from '../runtime/flag-vocabulary'
 import { refuse } from './app-prelude'
 import { loadValidConfig, resolveConfig } from './design-system-import-config'
-import { writeMergedPages, type MergedPage } from './design-system-import-pages-apply'
+import {
+  judgeMergedPages,
+  writeMergedPages,
+  type MergedPage,
+} from './design-system-import-pages-apply'
 import { planTypeScriptLiterals, writeLiterals } from './design-system-import-pages-literals'
 import { PAGE_READERS } from './design-system-import-pages-readers'
 import {
@@ -66,7 +71,7 @@ import {
   type LocatedPageSource,
   type PageFormat,
 } from './design-system-import-pages-source'
-import { renderPagesReport } from './design-system-import-pages-text'
+import { renderPagesReport, reshapedUnstampedBoardRefusal } from './design-system-import-pages-text'
 import { readCanvasTokens, type UneditedTokens } from './design-system-import-pages-tokens'
 import { rootFormatOf } from './library-add-config'
 import { lazyImportIndex } from './utils'
@@ -226,6 +231,15 @@ const languagesOf = (app: App, configPath: string): TranslationScope | undefined
   }
 }
 
+/** A drawn or projected node: all the node count reads of it. */
+interface CountedNode {
+  readonly children: readonly CountedNode[]
+}
+
+/** How many nodes a tree holds, its nested children included. */
+const nodeCount = (nodes: readonly CountedNode[]): number =>
+  nodes.reduce((sum, node) => sum + 1 + nodeCount(node.children), 0)
+
 /** Merge every selected drawing into its page entry. */
 const mergeAll = async (
   app: App,
@@ -236,7 +250,8 @@ const mergeAll = async (
   const { parsed, configPath } = loaded
   const { projectPageForExport } =
     await import('@/application/use-cases/admin/design-system-page-projection')
-  const { planPageMerge } = await import('@/domain/models/app/pages/page-merge')
+  const { isReshapedUnstampedDrawing, planPageMerge } =
+    await import('@/domain/models/app/pages/page-merge')
   const rawPages = ((parsed as Readonly<Record<string, unknown>>)['pages'] ??
     []) as readonly Readonly<Record<string, unknown>>[]
   const scale: MergeScale = {
@@ -247,6 +262,8 @@ const mergeAll = async (
     paint: baselines.paint,
     references: referencesOf(app),
   }
+  // The new pages first: a board refused for its path is named before a declared page's board.
+  const created = await mergeNewPages(selected.created, rawPages, scale)
   const declared = selected.drawings.map((drawn) => {
     const page = (app.pages ?? []).find((candidate) => candidate.name === drawn.page)
     const raw = rawPages.find((candidate) => candidate['name'] === drawn.page)
@@ -255,17 +272,15 @@ const mergeAll = async (
       return refuse(`Error: The page ${drawn.page} could not be read back from the config.`)
     }
     const projected = projectPageForExport(app, page)
-    const plan: PageMergePlan = planPageMerge({
-      ...scale,
-      page: raw,
-      tree: projected.tree.nodes,
-      nodeMap: projected.map,
-      drawn,
-      baseline,
-    })
+    const drawing = { page: raw, tree: projected.tree.nodes, nodeMap: projected.map, drawn }
+    if (isReshapedUnstampedDrawing(drawing)) {
+      const holdsMoreNodes = nodeCount(drawn.nodes) > nodeCount(projected.tree.nodes)
+      return refuse(reshapedUnstampedBoardRefusal({ ...drawn, holdsMoreNodes }))
+    }
+    const plan: PageMergePlan = planPageMerge({ ...scale, ...drawing, baseline })
     return { name: drawn.page, drawing: drawn.drawing, plan }
   })
-  return [...declared, ...(await mergeNewPages(selected.created, rawPages, scale))]
+  return [...declared, ...created]
 }
 
 /** The config as the app it declares, or a refusal naming why it does not validate. */
@@ -295,7 +310,7 @@ const writeOutcome = async (
         merged,
         ...(plans.tokens === undefined ? {} : { colours: plans.tokens.writes }),
       })
-    : writeLiterals(target.configPath, target.loaded, plans.literal.edits)
+    : writeLiterals(target.configPath, target.loaded, plans.literal)
 
 /** The report `--json` prints, and the text report renders. */
 const reportOf = (
@@ -361,6 +376,7 @@ export const handleDesignSystemPagesImportCommand = async (
   const tokens = request.tokens
     ? await readCanvasTokens(located, baselines.tokens, { configPath, write: request.write })
     : undefined
+  if (!request.write) await judgeMergedPages(loaded, merged)
   const written = request.write
     ? await writeOutcome({ configPath, source: located.path, loaded }, merged, {
         literal,

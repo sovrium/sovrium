@@ -6,10 +6,15 @@
  */
 
 import { fieldLiteralOf } from '@/domain/models/app/tables/checkbox-literal-service'
+import { withListMembershipConditions } from '@/domain/models/app/tables/user-list-field-service'
 import type { ViewFilterCondition, ViewFilterNode } from '@/domain/models/app/tables/views/filters'
 
 /** The fields a filter tree reads, by name and type — enough to read its literals. */
-export type FilterTreeFields = readonly { readonly name: string; readonly type?: string }[]
+export type FilterTreeFields = readonly {
+  readonly name: string
+  readonly type?: string
+  readonly allowMultiple?: unknown
+}[]
 
 /**
  * The one walker over a filter tree — a single condition or an `and` / `or`
@@ -49,7 +54,10 @@ export type FilterTreeFields = readonly { readonly name: string; readonly type?:
  * the type of the field it names before it is compiled (`fieldLiteralOf`, the
  * one coercion every filter shares): a checkbox compared with `1`, `'true'` or
  * `'f'` compiles as the boolean it names, on both engines, where the bare
- * literal was a type error on PostgreSQL and matched nothing on SQLite.
+ * literal was a type error on PostgreSQL and matched nothing on SQLite. And
+ * `contains` on a `user` field holding several people reaches the leaf compiler
+ * as list membership (`withListMembershipConditions`, the rewrite every other
+ * read applies), never as a text match over the stored list.
  */
 export const compileFilterTree = (
   node: ViewFilterNode,
@@ -76,7 +84,10 @@ export const compileFilterTree = (
     return nested ? `(${body})` : body
   }
 
-  return compileNode(node, false)
+  return compileNode(
+    fields === undefined ? node : withListMembershipConditions(node, fields),
+    false
+  )
 }
 
 /** A condition whose literal is read through the type of the field it names. */

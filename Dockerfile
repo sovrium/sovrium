@@ -9,7 +9,10 @@
 # Run:
 #   docker run -v $(pwd)/app.yaml:/app/app.yaml -p 3000:3000 sovrium start app.yaml
 
-FROM debian:bookworm-slim
+# debian:trixie-slim (Debian 13, stable), pinned to the multi-arch index digest
+# so a rebuild cannot silently pick up a different base. Refresh the digest
+# deliberately: `docker buildx imagetools inspect debian:trixie-slim`.
+FROM debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad
 
 ARG TARGETARCH
 
@@ -32,8 +35,15 @@ RUN chmod +x /usr/local/bin/sovrium
 # in containers whose binary came from the install script.
 ENV SOVRIUM_INSTALL_METHOD=docker
 
-# Non-root user for security
-RUN useradd -r -s /bin/false -m sovrium
+# Non-root user for security. It must own the directories it writes to:
+# /app (the working directory, where the default `./.sovrium` data directory
+# lands) and /data (the documented SOVRIUM_DATA_DIR mount point). A named
+# volume mounted on /data copies this ownership when it is first created,
+# so the non-root user can write to it; without it both start-up paths
+# fail with EACCES.
+RUN useradd -r -s /bin/false -m sovrium \
+    && mkdir -p /app /data \
+    && chown sovrium:sovrium /app /data
 USER sovrium
 
 WORKDIR /app

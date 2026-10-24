@@ -20,7 +20,7 @@ import { DimensionValueSchema, ladderRecord } from './token-value-schemas'
  * names are refused at the decode boundary, naming the step, rather than left
  * to change an unrelated utility silently.
  */
-const RESERVED_SPACING_STEP_NAMES: ReadonlySet<string> = new Set([
+const RESERVED_DISPLAY_STEP_NAMES: ReadonlySet<string> = new Set([
   'block',
   'inline',
   'flex',
@@ -30,11 +30,57 @@ const RESERVED_SPACING_STEP_NAMES: ReadonlySet<string> = new Set([
   'contents',
 ])
 
+/**
+ * Step names a spacing ladder may not use, because they are already the
+ * suffix of a size utility with a meaning of its own: the full width, the
+ * viewport, the content size, the viewport-unit variants in both axes, the
+ * unbounded maximum and the one-line height. A step under one of them would
+ * silently resize every element using that utility.
+ * The hairline step of the default ladder is deliberately absent: it is a
+ * size the ladder is meant to define.
+ */
+const RESERVED_SIZE_STEP_NAMES: ReadonlySet<string> = new Set([
+  'full',
+  'screen',
+  'auto',
+  'min',
+  'max',
+  'fit',
+  'svh',
+  'dvh',
+  'lvh',
+  'svw',
+  'dvw',
+  'lvw',
+  'none',
+  'lh',
+])
+
+/** A reserved set as the backticked, comma-separated list the schema description prints. */
+const describeNames = (names: ReadonlySet<string>): string =>
+  [...names].map((name) => `\`${name}\``).join(', ')
+
+/**
+ * The ladder's description, refusal included, printed from the two reserved
+ * sets so it cannot drift from what the decoder refuses.
+ *
+ * It is passed to `ladderRecord` as the record's own description because that
+ * is the node the published JSON Schema keeps: a description annotated after
+ * the reserved-name check below lands on the check, which emits no node, so it
+ * never reaches the schema an editor reads. The same text is repeated on the
+ * outer annotation for readers of the AST.
+ */
+const SPACING_LADDER_DESCRIPTION = `The app's spacing ladder. Each step's name becomes the suffix of every spacing utility — padding, margin, gap and the rest. A display keyword (${describeNames(RESERVED_DISPLAY_STEP_NAMES)}) or a size keyword (${describeNames(RESERVED_SIZE_STEP_NAMES)}) is refused as a step name; \`px\` is allowed.`
+
 /** The refusal for a reserved step name, or `true` when the ladder has none. */
 const refuseReservedStepNames = (entries: Readonly<Record<string, unknown>>): string | true => {
-  const offender = Object.keys(entries).find((name) => RESERVED_SPACING_STEP_NAMES.has(name))
-  if (offender === undefined) return true
-  return `\`design.spacing\` declares the step '${offender}', a reserved name: a step's name becomes the suffix of every spacing utility, and '${offender}' would turn a display utility (such as \`inline-${offender}\`) into a size. Rename the step — any other name works.`
+  const names = Object.keys(entries)
+  const display = names.find((name) => RESERVED_DISPLAY_STEP_NAMES.has(name))
+  if (display !== undefined)
+    return `\`design.spacing\` declares the step '${display}', a reserved name: a step's name becomes the suffix of every spacing utility, and '${display}' would turn a display utility (such as \`inline-${display}\`) into a size. Rename the step — any other name works.`
+  const size = names.find((name) => RESERVED_SIZE_STEP_NAMES.has(name))
+  if (size === undefined) return true
+  return `\`design.spacing\` declares the step '${size}', a reserved name: a step's name becomes the suffix of every spacing utility, and '${size}' is already the suffix of a size utility with a meaning of its own, which the step would silently redefine. Rename the step — any other name works.`
 }
 
 /**
@@ -80,16 +126,14 @@ export const DesignSpacingSchema = ladderRecord(
   'Spacing Step',
   {
     keyExamples: ['0', 'px', '0-5', '4'],
-    description:
-      "The app's spacing ladder. Each step's name becomes the suffix of every spacing utility — padding, margin, gap and the rest.",
+    description: SPACING_LADDER_DESCRIPTION,
   }
 ).pipe(
   Schema.check(Schema.makeFilter(refuseReservedStepNames)),
   Schema.annotate({
     identifier: 'DesignSpacing',
     title: 'Spacing Ladder',
-    description:
-      "The app's spacing ladder. Each step's name becomes the suffix of every spacing utility — padding, margin, gap and the rest. A display keyword (`block`, `inline`, `flex`, `grid`, `table`, `hidden`, `contents`) is refused as a step name.",
+    description: SPACING_LADDER_DESCRIPTION,
     examples: [{ '0': '0px', px: '1px', '0-5': '0.125rem', '4': '1rem' }],
   })
 )

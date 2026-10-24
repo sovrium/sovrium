@@ -43,6 +43,27 @@ export function cappedRows<T>(
 }
 
 /**
+ * The pagination a grid numbers its pages by. A grid declaring no `pagination`
+ * still pages: the bottom bar is part of every numbered grid. A page size
+ * written on the binding (`dataSource.pagination.pageSize`) is a page size,
+ * and the grid's own `pagination.pageSize` wins when both are written. A grid
+ * fed from a system endpoint keeps no pagination of its own unless it declares
+ * one, so it asks for the endpoint's first page.
+ */
+export function gridPagination(
+  pagination: DataTablePagination | undefined,
+  dataSource: {
+    readonly system?: unknown
+    readonly pagination?: { readonly pageSize?: number }
+  }
+): DataTablePagination | undefined {
+  const bindingSize = dataSource.pagination?.pageSize
+  const sized = bindingSize === undefined ? {} : { pageSize: bindingSize }
+  if (pagination !== undefined) return { ...sized, ...pagination }
+  return dataSource.system === undefined ? sized : undefined
+}
+
+/**
  * The pagination the grid draws a pager from: none when the cap fits on one
  * page, since there is nothing to page through and a pager would only count
  * past what the author allowed.

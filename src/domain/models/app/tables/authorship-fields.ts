@@ -115,6 +115,16 @@ export const buildUpdateAuthorshipOverrides = (
   return Object.fromEntries(names.map((name) => [name, actorId]))
 }
 
+/** The one field `default` the server resolves itself rather than storing as written. */
+const CURRENT_USER_DEFAULT = '$currentUser'
+
+/**
+ * True for a field `default` the server fills on create (`$currentUser`), which
+ * no control can hold as a value. Any other text — even one starting with `$`,
+ * such as "$5 plan" — is a plain default stored as written.
+ */
+export const isServerResolvedDefault = (value: unknown): boolean => value === CURRENT_USER_DEFAULT
+
 /**
  * The `user` fields of the named table that default to the signed-in person
  * (`default: $currentUser`), filled with `actorId` where a new record leaves
@@ -131,7 +141,7 @@ export const buildCurrentUserDefaults = (
     .filter(
       (field) =>
         field.type === 'user' &&
-        (field as { readonly default?: unknown }).default === '$currentUser'
+        isServerResolvedDefault((field as { readonly default?: unknown }).default)
     )
     .map((field) => field.name)
     .filter((name) => fields[name] === undefined || fields[name] === null || fields[name] === '')

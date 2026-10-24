@@ -24,6 +24,7 @@ import {
 } from './run-automation'
 import type { TriggerData } from './resolve-trigger-data'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
+import type { AutomationRepository } from '@/application/ports/repositories/automations/automation-repository'
 import type { App } from '@/domain/models/app'
 import type { Trigger } from '@/domain/models/app/automations/trigger'
 
@@ -84,6 +85,11 @@ export interface RunCronAutomationOptions {
   readonly handlers?: ReadonlyMap<ActionKey, ActionHandler>
   /** The name of the cron entry that fired; omitted, the automation's first cron entry. */
   readonly triggerName?: string
+  /**
+   * The automation's definition id, as the scheduler resolved it once for the
+   * job it armed; omitted, it is resolved on this fire.
+   */
+  readonly automationId?: Effect.Effect<string, RunAutomationError, AutomationRepository>
 }
 
 /**
@@ -106,6 +112,7 @@ export const runCronAutomation = ({
   triggerData = { type: 'cron', firedAt: new Date().toISOString() },
   handlers = defaultActionHandlers,
   triggerName,
+  automationId: knownAutomationId,
 }: RunCronAutomationOptions): Effect.Effect<
   RunAutomationResult,
   RunAutomationError,
@@ -121,7 +128,7 @@ export const runCronAutomation = ({
       pausedNames,
       triggerName
     )
-    const automationId = yield* resolveAutomationId(name, automation)
+    const automationId = yield* knownAutomationId ?? resolveAutomationId(name, automation)
     return yield* executeAutomationRun({
       name,
       automation,

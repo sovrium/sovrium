@@ -63,6 +63,7 @@ export default {
   'admin.connections.status.expired': 'Expiré',
   'admin.connections.status.reconnectNeeded': 'À reconnecter',
   'admin.connections.status.notConnected': 'Non connectée',
+  'admin.connections.status.notConfigured': 'Non configurée',
   'admin.connections.col.connection': 'Connexion',
   'admin.connections.col.type': 'Type',
   'admin.connections.col.status': 'Statut',
@@ -100,7 +101,7 @@ export default {
     'Trois vérifications structurelles sur la configuration avec laquelle ce serveur tourne, refaites à chaque ouverture de la page. Rien n’est stocké et rien ne s’acquitte — un constat disparaît quand la configuration qui l’a causé change.',
   'admin.organisation.matrix.region': 'Matrice des droits',
   'admin.organisation.matrix.blurb':
-    'Chaque ressource face à chaque source de droits, classées par privilège, le barreau ouvert en dernier. Une case est un droit, une case vide n’en est aucun — la moitié qu’une liste de constats ne peut pas montrer, parce que les trois vérifications rapportent ce qui est exposé et jamais ce qui est hors d’atteinte.',
+    'Chaque ligne est un élément de ton app ; chaque colonne, qui peut l’atteindre : un rôle ou tout le monde. Une case dit ce qu’ils peuvent faire, un tiret veut dire aucun accès.',
   'admin.organisation.map.region': 'Carte des accès',
   'admin.organisation.map.blurb':
     'La chaîne que la matrice replie : les personnes et les agents qui agissent, les rôles, les équipes et le barreau ouvert qui les autorisent, et les ressources qu’ils atteignent — dessinés de gauche à droite, une ligne par droit. Sélectionner un élément suit sa chaîne et estompe ce qu’il ne touche pas. Le tableau en dessous porte les mêmes nœuds et les mêmes droits en texte.',
@@ -312,6 +313,7 @@ export default {
   'admin.automations.runs.filter.status': 'Filtrer par statut',
   'admin.automations.runs.filter.period': 'Filtrer par période',
   'admin.automations.runs.filter.anyTime': 'Toute la période',
+  'admin.automations.runs.filter.showRoutine': 'Afficher les exécutions de routine',
   'admin.automations.runs.status.success': 'Réussie',
   'admin.automations.runs.status.failed': 'Échouée',
   'admin.automations.runs.status.partial': 'Partielle',
@@ -377,6 +379,8 @@ export default {
   'admin.automations.runs.detail.dataIn': 'Données en entrée',
   'admin.automations.runs.detail.dataOut': 'Données en sortie',
   'admin.automations.runs.detail.steps': 'Étapes',
+  'admin.automations.runs.detail.stepsNone':
+    'Cette exécution s’est arrêtée avant la fin de sa première étape.',
   'admin.automations.runs.detail.trigger': 'Déclencheur',
   'admin.automations.runs.detail.trigger.description':
     'Ce qui a lancé cette exécution, tel que la première étape l’a reçu.',
@@ -457,6 +461,13 @@ export default {
     'Les documents et e-mails que tes automatisations remplissent. Ouvre-en un pour le voir rempli avec ses données d’exemple. Un modèle se modifie dans la configuration, jamais ici.',
   'admin.templates.list.region': 'Modèles déclarés',
   'admin.templates.row.readBy': 'Lu par',
+  'admin.templates.kind.html': 'HTML',
+  'admin.templates.kind.svg': 'SVG',
+  'admin.templates.kind.partial': 'Fragment',
+  'admin.templates.kind.text': 'Texte',
+  'admin.templates.kind.docx': 'Word',
+  'admin.templates.kind.xlsx': 'Excel',
+  'admin.templates.kind.pptx': 'PowerPoint',
   'admin.templates.row.sample': 'Données d’exemple',
   'admin.templates.row.noSample': 'Sans données d’exemple',
   'admin.templates.empty.title': 'Aucun modèle',

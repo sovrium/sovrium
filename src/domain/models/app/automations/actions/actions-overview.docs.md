@@ -33,7 +33,7 @@ Every action accepts these, whatever its type and operator.
 
 ### Two timeouts, two scopes
 
-The top-level `timeout` fences the **whole action** and is enforced for every action type by the run loop. A `props.timeout` — on an HTTP call, a code step, a call into another automation — fences that handler's own internal operation. Both can be set, and the smaller wins.
+The top-level `timeout` fences the **whole action** and is enforced for every action type by the run loop. A `props.timeout` — on an HTTP call, a code step, a call into another automation — fences that handler's own internal operation. Both can be set, and the smaller wins. For a code step, both stop the running code itself, not only the wait for it.
 
 ## Conditional execution
 

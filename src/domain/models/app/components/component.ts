@@ -276,4 +276,3 @@ export type TemplateInput = Schema.Schema.Type<typeof TemplateInputSchema>
 export type TemplateInputs = Schema.Schema.Type<typeof TemplateInputsSchema>
 /** @public */
 export type ComponentTemplateName = Schema.Schema.Type<typeof ComponentTemplateNameSchema>
-export type ComponentTemplate = Schema.Schema.Type<typeof ComponentTemplateSchema>

@@ -318,7 +318,8 @@
                                   }
                                 ],
                                 "emptyMessage": "$t:admin.buckets.emptyFiles",
-                                "noMatchMessage": "$t:admin.buckets.noMatch"
+                                "noMatchMessage": "$t:admin.buckets.noMatch",
+                                "viewOptions": "toolbar"
                               }
                             }
                           ]

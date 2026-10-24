@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { ViewFiltersSchema } from '../../../views/filters'
+import { readerFilterRefusal } from '../../../views/reader-filter-validation'
 import { BaseFieldSchema } from '../base-field'
 
 export const LookupFieldSchema = BaseFieldSchema.pipe(
@@ -42,7 +43,9 @@ export const LookupFieldSchema = BaseFieldSchema.pipe(
         relatedField: 'email',
       },
     ],
-  })
+  }),
+  // On the STRUCT so the refusal can name the field (see reader-filter-validation).
+  Schema.check(Schema.makeFilter((field) => readerFilterRefusal(field)))
 )
 
 /** @public */

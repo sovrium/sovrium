@@ -44,7 +44,7 @@ export function OpenGraphMeta({
     { key: 'description', value: resolveValue(openGraph.description) },
     { key: 'image', value: resolveValue(openGraph.image) },
     { key: 'image:alt', value: resolveValue(openGraph.imageAlt) },
-    { key: 'url', value: openGraph.url },
+    { key: 'url', value: resolveValue(openGraph.url) },
     { key: 'type', value: openGraph.type },
     { key: 'site_name', value: resolveValue(openGraph.siteName) },
     { key: 'locale', value: openGraph.locale },

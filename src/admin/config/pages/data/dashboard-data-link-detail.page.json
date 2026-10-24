@@ -138,6 +138,14 @@
                       {
                         "field": "source",
                         "label": "$t:admin.common.source",
+                        "cellStyle": [
+                          {
+                            "when": {
+                              "in": ["config", "db"]
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50"
+                          }
+                        ],
                         "valueLabels": {
                           "config": "$t:admin.links.source.config",
                           "db": "$t:admin.links.source.console"
@@ -145,7 +153,35 @@
                       },
                       {
                         "field": "state",
-                        "label": "$t:admin.common.state"
+                        "label": "$t:admin.common.state",
+                        "cellStyle": [
+                          {
+                            "when": {
+                              "eq": "active"
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-success-solid"
+                          },
+                          {
+                            "when": {
+                              "eq": "scheduled"
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-info-solid"
+                          },
+                          {
+                            "when": {
+                              "in": ["disabled", "expired", "exhausted", "archived"]
+                            },
+                            "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50"
+                          }
+                        ],
+                        "valueLabels": {
+                          "active": "$t:admin.links.state.active",
+                          "disabled": "$t:admin.common.disabled",
+                          "scheduled": "$t:admin.links.state.scheduled",
+                          "expired": "$t:admin.links.state.expired",
+                          "exhausted": "$t:admin.links.state.exhausted",
+                          "archived": "$t:admin.links.state.archived"
+                        }
                       },
                       {
                         "field": "validFrom",
@@ -162,7 +198,8 @@
                     "onRowClick": {
                       "action": "openSheet",
                       "component": "admin-link-definition-drawer"
-                    }
+                    },
+                    "viewOptions": "bottom-bar"
                   }
                 },
                 {
@@ -746,7 +783,8 @@
                                 "align": "right"
                               }
                             ],
-                            "emptyMessage": "$t:admin.analytics.noReferrers"
+                            "emptyMessage": "$t:admin.analytics.noReferrers",
+                            "viewOptions": "toolbar"
                           }
                         },
                         {
@@ -784,7 +822,8 @@
                                 "align": "right"
                               }
                             ],
-                            "emptyMessage": "$t:admin.links.noDevices"
+                            "emptyMessage": "$t:admin.links.noDevices",
+                            "viewOptions": "toolbar"
                           }
                         },
                         {
@@ -825,7 +864,8 @@
                                 "align": "right"
                               }
                             ],
-                            "emptyMessage": "$t:admin.analytics.noCampaigns"
+                            "emptyMessage": "$t:admin.analytics.noCampaigns",
+                            "viewOptions": "toolbar"
                           }
                         }
                       ]
@@ -883,7 +923,8 @@
                             "label": "$t:admin.analytics.session"
                           }
                         ],
-                        "emptyMessage": "$t:admin.links.noClicks"
+                        "emptyMessage": "$t:admin.links.noClicks",
+                        "viewOptions": "toolbar"
                       }
                     }
                   ]

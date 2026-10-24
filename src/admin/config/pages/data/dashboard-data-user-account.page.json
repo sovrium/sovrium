@@ -1,7 +1,7 @@
 {
   "id": "dashboard-data-user-account",
   "name": "dashboard-data-user-account",
-  "path": "/users/:email",
+  "path": "/users/:id",
   "meta": {
     "title": "$t:admin.meta.userAccount"
   },
@@ -15,19 +15,41 @@
       "slots": {
         "trail": [
           {
-            "type": "breadcrumb",
-            "separator": "›",
+            "type": "container",
+            "key": "admin-user-account-trail",
+            "element": "div",
             "props": {
-              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
-              "data-testid": "breadcrumb"
+              "className": "contents [&>li]:contents"
             },
-            "derive": "path",
-            "home": {
-              "label": "$app.label"
+            "dataSource": {
+              "system": {
+                "endpoint": "/api/admin/users",
+                "rowsKey": "users",
+                "idKey": "id",
+                "query": {
+                  "id": "$param.id",
+                  "limit": "1"
+                }
+              }
             },
-            "labels": {
-              "users": "$t:admin.crumb.users"
-            }
+            "children": [
+              {
+                "type": "breadcrumb",
+                "separator": "›",
+                "props": {
+                  "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+                  "data-testid": "breadcrumb"
+                },
+                "derive": "path",
+                "home": {
+                  "label": "$app.label"
+                },
+                "labels": {
+                  "users": "$t:admin.crumb.users"
+                },
+                "currentLabel": "$record.name"
+              }
+            ]
           },
           {
             "component": "console-header-end",
@@ -50,7 +72,7 @@
               "rowsKey": "users",
               "idKey": "id",
               "query": {
-                "q": "$param.email",
+                "id": "$param.id",
                 "limit": "1"
               }
             }
@@ -165,7 +187,7 @@
                   "rowsKey": "users",
                   "idKey": "id",
                   "query": {
-                    "q": "$param.email",
+                    "id": "$param.id",
                     "limit": "1"
                   }
                 }
@@ -354,7 +376,7 @@
                       "rowsKey": "users",
                       "idKey": "id",
                       "query": {
-                        "q": "$param.email",
+                        "id": "$param.id",
                         "limit": "1"
                       }
                     }
@@ -382,7 +404,7 @@
                         {
                           "term": "$t:admin.users.account.created",
                           "detail": "$record.createdAt",
-                          "format": "long-date"
+                          "format": "day-relative-time"
                         },
                         {
                           "term": "$t:admin.users.account.lastSignIn",
@@ -400,7 +422,7 @@
                         },
                         {
                           "term": "$t:admin.users.account.signInMethods",
-                          "detail": "$record.signInMethods"
+                          "detail": "$record.signInMethodLabels"
                         }
                       ]
                     }
@@ -468,7 +490,7 @@
                         "rowsKey": "records",
                         "idKey": "id",
                         "query": {
-                          "user_email": "$param.email"
+                          "user_id": "$param.id"
                         }
                       }
                     },
@@ -587,7 +609,7 @@
                       "rowsKey": "users",
                       "idKey": "id",
                       "query": {
-                        "q": "$param.email",
+                        "id": "$param.id",
                         "limit": "1"
                       }
                     }
@@ -599,9 +621,9 @@
                       "element": "div",
                       "visibility": {
                         "condition": {
-                          "field": "$user.email",
+                          "field": "$user.id",
                           "operator": "neq",
-                          "value": "$param.email"
+                          "value": "$param.id"
                         }
                       },
                       "props": {
@@ -723,9 +745,9 @@
                       "element": "p",
                       "visibility": {
                         "condition": {
-                          "field": "$user.email",
+                          "field": "$user.id",
                           "operator": "eq",
-                          "value": "$param.email"
+                          "value": "$param.id"
                         }
                       },
                       "props": {

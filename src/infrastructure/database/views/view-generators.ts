@@ -8,6 +8,7 @@
 import { Effect } from 'effect'
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
+import { resolveCurrentUserOperand } from '@/domain/models/app/pages/current-user-ref'
 import { shouldUseView } from '@/infrastructure/database/lookup/lookup-view-generators'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
@@ -45,6 +46,9 @@ const dropViewStatement = (viewName: string): string => {
     : `DROP VIEW IF EXISTS ${quoted} CASCADE`
 }
 
+/** A condition no row satisfies. */
+const NO_ROW_CONDITION = '1 = 0'
+
 /**
  * Generate SQL WHERE clause from view filters.
  *
@@ -53,6 +57,12 @@ const dropViewStatement = (viewName: string): string => {
  * {@link compileFilterTree}, which reads each literal through the type of the
  * table field it names. Values are escaped by `generateSqlCondition` (this is
  * DDL, where bound parameters are illegal).
+ *
+ * The database's copy of a view is created once, at boot, with no reader: a
+ * condition naming one (`owner equals $currentUser.id`) compiles to a condition
+ * no row satisfies — never the reference compared as text, and never dropped,
+ * which would widen `open AND mine` to every open row. The records API reads
+ * the same view for each reader (`viewFiltersForReader`).
  */
 const generateWhereClause = (filters: View['filters'], fields: Table['fields']): string => {
   if (!filters) return ''
@@ -63,10 +73,11 @@ const generateWhereClause = (filters: View['filters'], fields: Table['fields']):
   // it would compare against `undefined` and throw while the view is created.
   const condition = compileFilterTree(
     filters,
-    (c) =>
-      isCompleteCondition(c)
-        ? generateSqlCondition(quoteSqlIdentifier(c.field), c.operator, c.value)
-        : undefined,
+    (c) => {
+      if (!isCompleteCondition(c)) return undefined
+      if (resolveCurrentUserOperand(c.value, undefined).kind !== 'literal') return NO_ROW_CONDITION
+      return generateSqlCondition(quoteSqlIdentifier(c.field), c.operator, c.value)
+    },
     { fields }
   )
   return condition === undefined ? '' : `WHERE ${condition}`

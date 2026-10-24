@@ -20,6 +20,7 @@ import { AccountRepository } from '@/application/ports/repositories/auth/account
 import { groupLabelFor, roleLabelFor } from '@/domain/models/app/auth/readable-name-service'
 import { findDeclaredLanguageCode } from '@/domain/models/app/languages/language-detection'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
+import { signInMethodLabelOf } from './sign-in-method-labels'
 import type { AccountDatabaseError } from '@/application/ports/repositories/auth/account-repository'
 import type { AdminReadRequest } from '@/application/use-cases/admin/admin-read-operation'
 import type { App } from '@/domain/models/app'
@@ -69,6 +70,8 @@ export const resolveOperatorLanguage = (
 export interface ConsoleLabels {
   readonly role: (name: string) => string
   readonly group: (name: string) => string
+  /** A sign-in method (`credential`, `google`) as a person reads it. */
+  readonly signInMethod?: (id: string) => string
 }
 
 /**
@@ -81,5 +84,6 @@ export const consoleLabels = (app: App, language: ConsoleLanguage): ConsoleLabel
   return {
     role: (name) => roleLabelFor(app.auth, name, language, translate),
     group: (name) => groupLabelFor(app.auth, name, translate),
+    signInMethod: (id) => signInMethodLabelOf(id, language),
   }
 }

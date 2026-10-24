@@ -55,6 +55,8 @@ import {
   type MergeMapEntry,
   type PageImportPageReport,
 } from './page-merge-edits-service'
+import { matchByPosition, reshapedUnstamped, unstamped } from './page-merge-position-service'
+import { ruleFindings } from './page-merge-rules-service'
 import type { DrawnNode, DrawnPage, DrawnStampEntry, PlacedDrawnNode } from './page-drawing'
 import type { SpacingSteps } from './page-merge-layout-service'
 import type { PaintTokens } from './page-merge-paint-service'
@@ -193,6 +195,15 @@ const matchDrawn = (
       stampedKey !== undefined && candidate?.key !== undefined && stampedKey !== candidate.key
     return other ? undefined : candidate
   })
+}
+
+/** Whether a drawing of a declared page carries no export stamp and was reshaped (see `reshapedUnstamped`). */
+export const isReshapedUnstampedDrawing = (
+  input: Pick<PageMergeInput, 'page' | 'tree' | 'nodeMap' | 'drawn'>
+): boolean => {
+  const entries = new Map(input.nodeMap.nodes.map((entry) => [entry.id, entry] as const))
+  const current = flattenTree(input.tree, entries)
+  return reshapedUnstamped(input.drawn, current, String(input.page['name']))
 }
 
 /** Whether the export drew a page node: the stamp lists its key, or its path with no key. */
@@ -348,10 +359,37 @@ const bareAddedNode = (node: DrawnNode, label: string | undefined): Node => ({
   ...(label === undefined || node.content === undefined ? {} : { [label]: node.content }),
 })
 
-/** A new kit node, unbound, built from what was drawn. */
+/** The table a page reads, when its data source names one. */
+const pageTableOf = (page: Node): string | undefined => {
+  const table = (page['dataSource'] as { readonly table?: unknown } | undefined)?.table
+  return typeof table === 'string' ? table : undefined
+}
+
+/**
+ * The rules a new node carries, judged as an edited node's are against an
+ * export that drew none: a binding, a visibility rule, a data source, a form
+ * reference and a button link, each written in the config's own shape.
+ */
+const addedRules = (context: MergeContext, id: string, node: DrawnNode) =>
+  ruleFindings(
+    { node: id, entry: undefined, drawn: node.rules, baseline: undefined },
+    { references: context.input.references, pageTable: pageTableOf(context.input.page) }
+  )
+
+/**
+ * A new kit node, built from what was drawn, its rules carried. An addition
+ * is all or nothing: a node whose rule names what the config does not declare
+ * is refused by name and left out, so no grid reading nothing and no form
+ * posting nowhere is written. The text a bound node draws is its sample,
+ * never read as copy.
+ */
 const buildAdded = (context: MergeContext, entry: PlacedDrawnNode, pointer: string): Built => {
-  const { node } = entry
   const id = `${context.pageName}:${pointer}`
+  const rules = addedRules(context, id, entry.node)
+  if (rules.refused.length > 0) {
+    return { ...EMPTY_BUILT, findings: { ...NO_FINDINGS, refused: rules.refused } }
+  }
+  const node: DrawnNode = rules.rebound ? { ...entry.node, content: undefined } : entry.node
   const children = buildList(context, childPlacements(entry), {
     parentKey: `added:${entry.at}`,
     parentId: undefined,
@@ -374,17 +412,14 @@ const buildAdded = (context: MergeContext, entry: PlacedDrawnNode, pointer: stri
       ? { ...withChildren, content: node.content }
       : withChildren
   return {
-    list: [layout.apply(built)],
+    list: [rules.apply(layout.apply(built))],
     placements: children.placements,
     added: [{ node: id, type: String(node.type) }, ...children.added],
-    findings: joinFindings(layout.findings, children.findings),
+    findings: joinFindings(
+      { ...layout.findings, ignored: [...layout.findings.ignored, ...rules.ignored] },
+      children.findings
+    ),
   }
-}
-
-/** The table a page reads, when its data source names one. */
-const pageTableOf = (page: Node): string | undefined => {
-  const table = (page['dataSource'] as { readonly table?: unknown } | undefined)?.table
-  return typeof table === 'string' ? table : undefined
 }
 
 /** A matched page node, written where it was drawn with its edits. */
@@ -679,7 +714,10 @@ export const planPageMerge = (input: PageMergeInput): PageMergePlan => {
   const entries = new Map(input.nodeMap.nodes.map((entry) => [entry.id, entry] as const))
   const current = flattenTree(input.tree, entries)
   const stamp = new Map(input.drawn.stamp.map((entry) => [entry.id, entry] as const))
-  const matches = matchDrawn(placedDrawnNodes(input.drawn.nodes), current, stamp)
+  const placed = placedDrawnNodes(input.drawn.nodes)
+  const matches = unstamped(input.drawn, placed)
+    ? matchByPosition(placed, current, pageName)
+    : matchDrawn(placed, current, stamp)
   const context: MergeContext = {
     input,
     pageName,

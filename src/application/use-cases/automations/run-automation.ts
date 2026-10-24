@@ -125,8 +125,8 @@ export interface RunWebhookAutomationOptions {
    * automation called from a hand-started run carries that run's starter.
    */
   readonly userId?: string
-  /** The answer reveals write-only fields to a machine: the run reads as the system. */
-  readonly revealsToMachine?: boolean
+  /** The run acts as the system for a machine caller: never started by hand. */
+  readonly actsAsSystem?: boolean
   /**
    * Optional callback invoked the moment the scheduler persists the
    * `'queued'` run row. The async webhook dispatcher uses this to surface
@@ -512,7 +512,7 @@ export const runWebhookAutomation = ({
   triggerData = {},
   handlers = defaultActionHandlers,
   userId,
-  revealsToMachine,
+  actsAsSystem,
   onPersisted,
 }: RunWebhookAutomationOptions): Effect.Effect<
   RunAutomationResult,
@@ -536,7 +536,7 @@ export const runWebhookAutomation = ({
       triggerData,
       handlers,
       userId,
-      ...(webhookStartsByHand(trigger, userId, revealsToMachine) ? { startedByHand: true } : {}),
+      ...(webhookStartsByHand(trigger, userId, actsAsSystem) ? { startedByHand: true } : {}),
       ...(onPersisted !== undefined ? { onPersisted } : {}),
     })
   }).pipe(Effect.withSpan('automations.run-webhook-automation'))

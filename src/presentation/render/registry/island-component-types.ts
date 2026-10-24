@@ -253,3 +253,18 @@ export function embedsIslandMarkup(component: { readonly type?: string }): boole
   const { trustedContent } = component as { readonly trustedContent?: unknown }
   return typeof trustedContent === 'string' && trustedContent.includes('data-island="')
 }
+
+/**
+ * True when a form bound to a custom endpoint (`form.endpoint`) draws a choice:
+ * its visible `select` fields are the design system's Select, mounted by the
+ * `form-field` island over a server skeleton. Read by both gates above.
+ */
+export function endpointFormDrawsSelect(component: { readonly type?: string }): boolean {
+  if (component.type !== 'form') return false
+  const { endpoint, fields } = component as {
+    readonly endpoint?: unknown
+    readonly fields?: ReadonlyArray<{ readonly control?: string; readonly hidden?: boolean }>
+  }
+  if (endpoint === undefined || !Array.isArray(fields)) return false
+  return fields.some((field) => field.control === 'select' && field.hidden !== true)
+}

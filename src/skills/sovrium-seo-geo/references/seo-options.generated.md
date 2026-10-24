@@ -26,7 +26,7 @@ Every option that decides how a Sovrium app is found — page metadata, sitemaps
 | `sovrium docs config pages[].meta.description` | string | Page description for SEO and social sharing (max 160 characters) |
 | `sovrium docs config pages[].meta.keywords` | string | Comma-separated keywords for SEO |
 | `sovrium docs config pages[].meta.author` | string | Page author or organization name |
-| `sovrium docs config pages[].meta.canonical` | string | Canonical URL to prevent duplicate content issues |
+| `sovrium docs config pages[].meta.canonical` | string | Canonical URL to prevent duplicate content issues. A `$t:` key followed by the rest of the address (`$t:seo.base/about`) gives each language its own canonical. In a multi-language app with `BASE_URL` set, a page whose path names no language and that declares no canonical gets its own address in each language. |
 | `sovrium docs config pages[].meta.robots` | string | Directives for search-engine crawlers, as the content of the page's robots meta tag (for example `noindex, nofollow`, or `follow`). A page that sets neither this nor `noindex` gets no robots tag and stays indexable. |
 | `sovrium docs config pages[].meta.noindex` | boolean | Keep this page out of search results and out of the sitemap (the shorthand for `robots: noindex`). When `robots` is also set, `noindex` is added to its directives: `robots: follow` renders `noindex, follow`. A `robots` string that asks for indexing (`index` or `all`) beside `noindex: true` is refused. |
 | `sovrium docs config pages[].meta.favicon` | string | Default favicon path |
@@ -49,7 +49,7 @@ Every option that decides how a Sovrium app is found — page metadata, sitemaps
 | `sovrium docs config pages[].meta.openGraph.title` | string | Open Graph title (may differ from page title) |
 | `sovrium docs config pages[].meta.openGraph.description` | string | Open Graph description |
 | `sovrium docs config pages[].meta.openGraph.type` | enum | Open Graph object type |
-| `sovrium docs config pages[].meta.openGraph.url` | string | Canonical URL for this page |
+| `sovrium docs config pages[].meta.openGraph.url` | string | Canonical URL for this page. A `$t:` key followed by the rest of the address (`$t:seo.base/about`) gives each language its own address. |
 | `sovrium docs config pages[].meta.openGraph.image` | string | Image URL for social sharing: PNG, JPEG or WebP, 1200x630px recommended. A path starting with `/` or a `$t:` key (one image per language) is emitted as a full address on the host the request arrived on. An AVIF path is refused, because X, LinkedIn, Slack and iMessage do not render AVIF sharing images. |
 | `sovrium docs config pages[].meta.openGraph.imageAlt` | string | Alternative text for the Open Graph image |
 | `sovrium docs config pages[].meta.openGraph.siteName` | string | Name of the overall website |

@@ -15,7 +15,7 @@ import { canonicalAcceptAttribute } from '@/domain/models/app/forms/form-file-up
 import { computeFormFieldClasses } from '@/presentation/design/form-layout-classes'
 import { AudioRecorderControls } from './form-audio-recorder'
 import { ariaRequired, FIELD_LABEL_CLASS, fieldWrapperAttributes } from './form-field-chrome'
-import { SelectInput } from './form-field-elements-design'
+import { ChipsInput, SelectInput } from './form-field-elements-design'
 import { RequiredMark } from './form-field-elements-typed'
 import { HelpText } from './form-help-text'
 import type { ResolvedFormField } from './form-field-elements'
@@ -25,8 +25,7 @@ import type { ResolvedFormField } from './form-field-elements'
  *
  * Emits a `<div data-field-type="user" data-field-name="..."
  * data-allow-multiple="true|false">` wrapping the choice of the app's
- * accounts — the Select for one account, a native multiple `<select>` for a
- * set — each named by its label and valued by the account id — read on the server for a signed-in visitor, none for anyone
+ * accounts — the Select for one account, its chip combobox for a set — each named by its label and valued by the account id — read on the server for a signed-in visitor, none for anyone
  * else. The wrapper's `data-field-type="user"` marker is the contract the
  * spec asserts.
  */
@@ -44,51 +43,24 @@ export const UserInput = ({
     'data-field-name': field.name,
     'data-allow-multiple': multiple ? 'true' : 'false',
   }
-  // One account is the design system's Select; a set of accounts keeps the
-  // browser's multiple select.
-  if (!multiple) {
+  // One account is the design system's Select; a set of accounts is its chip
+  // combobox — the Select holding a set, one removable chip per person.
+  const wrapper = { className, attributes: markers }
+  if (multiple) {
     return (
-      <SelectInput
-        field={{ ...field, placeholder: field.placeholder || 'Select a user...' }}
+      <ChipsInput
+        field={field}
         defaultValue={defaultValue}
-        wrapper={{ className, attributes: markers }}
+        wrapper={wrapper}
       />
     )
   }
   return (
-    <div
-      className={className}
-      {...markers}
-      {...fieldWrapperAttributes(field)}
-    >
-      <label
-        htmlFor={`field-${field.name}`}
-        className={FIELD_LABEL_CLASS}
-      >
-        {field.label}
-        <RequiredMark required={field.required} />
-      </label>
-      <select
-        id={`field-${field.name}`}
-        data-component-type="select"
-        name={field.name}
-        required={field.required}
-        {...ariaRequired(field.required)}
-        disabled={field.conditionHidden}
-        multiple
-        defaultValue={defaultValue}
-      >
-        {(field.options ?? []).map((option) => (
-          <option
-            key={option.value}
-            value={option.value}
-          >
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <HelpText html={field.helpTextHtml} />
-    </div>
+    <SelectInput
+      field={{ ...field, placeholder: field.placeholder || 'Select a user...' }}
+      defaultValue={defaultValue}
+      wrapper={wrapper}
+    />
   )
 }
 

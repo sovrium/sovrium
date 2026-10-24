@@ -91,7 +91,7 @@ export default {
 
   // The app's own name (`$app.label`) opens every title, as in English: it is
   // a name, not a word to translate.
-  'admin.meta.welcome': '$app.label — Bienvenue',
+  'admin.meta.welcome': '$app.label — Vue d’ensemble',
   'admin.meta.acceptInvitation': '$app.label — Accepter l’invitation',
   'admin.meta.notFound': '$app.label — Page introuvable',
   'admin.meta.profile': '$app.label — Mon profil',

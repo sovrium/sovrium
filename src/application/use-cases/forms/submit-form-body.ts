@@ -11,6 +11,10 @@ import {
   coerceCheckboxAnswers,
 } from '@/application/use-cases/forms/coerce-checkbox-columns'
 import {
+  boundDatetimeZones,
+  coerceDatetimeAnswers,
+} from '@/application/use-cases/forms/coerce-datetime-columns'
+import {
   FormFieldFormatError,
   validateFieldFormats,
 } from '@/application/use-cases/forms/submit-form-format-validation'
@@ -253,7 +257,10 @@ export const processSubmissionBody = (
     // Every bound checkbox holds `true` or `false` from here on — a box the
     // browser left out of the post is unticked, never an empty value.
     const checkboxColumns = boundCheckboxColumns(app, form)
-    const answered = coerceCheckboxAnswers(withDefaults, checkboxColumns)
+    const checked = coerceCheckboxAnswers(withDefaults, checkboxColumns)
+    // A date-and-time control posts a wall-clock reading; it is stored as the
+    // instant it names in its column's zone, the zone the page drew it in.
+    const answered = coerceDatetimeAnswers(checked, boundDatetimeZones(app, form))
     // Drop values for fields hidden by `visibleWhen`.
     const fieldVisibilityFiltered = stripHiddenFields(form, answered)
     // Drop values for steps skipped by `visibleWhen`.

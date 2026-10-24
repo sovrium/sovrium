@@ -30,6 +30,7 @@ import {
 } from '@/presentation/render/scripts/script-renderers'
 import { GoogleFonts, SansFontPreload, ThemeFonts } from './page-head-fonts'
 import { HeadAlternateLinks } from './page-head-seo'
+import { checkedAddress, withCheckedUrl } from './page-head-sharing-address'
 import { ThemeColorSchemeScript } from './theme-color-scheme-script'
 import type { GroupedScripts } from './page-scripts'
 import type { Design } from '@/domain/models/app/design'
@@ -271,6 +272,22 @@ function HeadScripts({ scripts }: { readonly scripts: GroupedScripts }): ReactEl
  * @returns Head section elements
  */
 /**
+ * A DECLARED sharing card without a description takes the page's resolved
+ * description; a page that declares no `openGraph` gains no tag.
+ */
+const withDescription = (
+  page: Page,
+  openGraph: OpenGraph | undefined,
+  description: string
+): OpenGraph | undefined =>
+  openGraph === undefined ||
+  page.meta?.openGraph === undefined ||
+  openGraph.description !== undefined ||
+  description === ''
+    ? openGraph
+    : { ...openGraph, description }
+
+/**
  * Pre-compute the head meta values that combine page-meta with a contentDir
  * page's synthesised SEO (canonical / merged Open Graph). Extracted so
  * `PageHead` stays under its complexity + line caps.
@@ -278,17 +295,29 @@ function HeadScripts({ scripts }: { readonly scripts: GroupedScripts }): ReactEl
 function computeHeadMeta(props: PageHeadProps): {
   readonly openGraphData: OpenGraph | undefined
   readonly effectiveCanonical: string | undefined
+  readonly twitterDescription: string | undefined
   readonly synthesizedJsonLd: readonly Record<string, unknown>[]
 } {
-  const { page, lang, languages, canonical, contentDirSeo } = props
-  return {
-    openGraphData: mergeContentDirOpenGraph(
-      extractOpenGraphData(page, lang, languages),
+  const { page, lang, languages, canonical, contentDirSeo, description } = props
+  const openGraphData = withCheckedUrl(
+    mergeContentDirOpenGraph(
+      withDescription(page, extractOpenGraphData(page, lang, languages), description),
       contentDirSeo
     ),
+    lang,
+    languages
+  )
+  const sharedDescription =
+    openGraphData?.description === undefined
+      ? undefined
+      : resolveTranslationPattern(openGraphData.description, lang, languages)
+  return {
+    openGraphData,
     // A contentDir page has no statically-authored `page.meta.canonical`, so
     // the synthesised canonical (resolved slug URL) takes precedence.
-    effectiveCanonical: contentDirSeo?.canonical ?? canonical,
+    effectiveCanonical: checkedAddress(contentDirSeo?.canonical ?? canonical),
+    // What X reads in the absence of `twitter:description`, then the page's own.
+    twitterDescription: sharedDescription || description || undefined,
     // Auto-synthesised JSON-LD documents (TechArticle + BreadcrumbList) for
     // contentDir pages; empty when synthesis is off or author-overridden.
     synthesizedJsonLd: contentDirSeo?.structuredData ?? [],
@@ -300,7 +329,8 @@ export function PageHead(props: PageHeadProps): Readonly<ReactElement> {
     props
   const hasCustomViewport = hasCustomViewportMeta(page.meta?.customElements)
   const normalizedFavicons = normalizeFavicons(page.meta?.favicons)
-  const { openGraphData, effectiveCanonical, synthesizedJsonLd } = computeHeadMeta(props)
+  const { openGraphData, effectiveCanonical, twitterDescription, synthesizedJsonLd } =
+    computeHeadMeta(props)
 
   return (
     <>
@@ -324,6 +354,7 @@ export function PageHead(props: PageHeadProps): Readonly<ReactElement> {
         page={page}
         lang={lang}
         languages={languages}
+        fallbackDescription={twitterDescription}
       />
       <StructuredDataScript
         page={page}

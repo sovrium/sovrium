@@ -12,9 +12,10 @@
  * The page is named from the board and its path is the one the board's root
  * gives (`data-sovrium-path`), else `/<name>`. Its access is the access of the
  * declared page the root names as its model (`data-sovrium-like`), else none
- * of its own, so the app's default holds. A path a declared page already
- * takes, or a model the config does not declare, is refused by name: a new
- * page never shadows or guesses at an existing one.
+ * of its own, so the app's default holds. A path that is no page path, a
+ * path a declared page already takes, or a model the config does not
+ * declare, is refused by name, naming the board: a new page never shadows or
+ * guesses at an existing one.
  *
  * The page starts empty, and every kit node drawn on the board is merged into
  * it as an addition, by the one merge every page goes through.
@@ -22,6 +23,8 @@
  * Pure: no I/O, the same inputs always give the same entry.
  */
 
+import { Schema } from 'effect'
+import { PagePathSchema } from './path'
 import type { DrawnPage } from './page-drawing'
 
 type Node = Readonly<Record<string, unknown>>
@@ -39,7 +42,10 @@ export interface NewPageEntry {
 const routeKeyOf = (path: unknown): unknown =>
   typeof path === 'string' && path.length > 1 ? path.replace(/\/+$/, '') || '/' : path
 
-/** Why a new page cannot be: its path is taken, or the page it is like is undeclared. */
+/** Whether a path is one a page entry may hold, as the whole-config validation judges it. */
+const isPagePath = Schema.is(PagePathSchema)
+
+/** Why a new page cannot be: its path is no page path or is taken, or the page it is like is undeclared. */
 const refusalOf = (
   drawn: DrawnPage,
   declared: readonly Node[],
@@ -50,6 +56,9 @@ const refusalOf = (
   }
 ): string | undefined => {
   const board = drawn.drawing ?? drawn.page
+  if (!isPagePath(wanted.path)) {
+    return `The board ${board} draws a new page at ${wanted.path}, which is no page path: a path starts with / and holds only lowercase letters, digits, hyphens, underscores, colons, asterisks and slashes; give the board another data-sovrium-path.`
+  }
   const taker = declared.find((page) => routeKeyOf(page['path']) === routeKeyOf(wanted.path))
   if (taker !== undefined) {
     return `The board ${board} draws a new page at ${wanted.path}, which the page ${String(taker['name'])} already takes; give the board another data-sovrium-path, or draw that page on its own board.`

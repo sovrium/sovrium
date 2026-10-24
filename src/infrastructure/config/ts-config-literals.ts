@@ -53,10 +53,10 @@ export interface ConfigSources {
   readonly files: ReadonlyMap<string, string>
 }
 
-type Step = string | number
+export type Step = string | number
 
 /** Where a walk stands: a node of a parsed file, and whether it hopped through a name or a call. */
-interface At {
+export interface At {
   readonly node: ts.Node
   readonly file: ts.SourceFile
   readonly hopped: boolean
@@ -65,7 +65,7 @@ interface At {
 const MODULE_SUFFIXES = ['', '.ts', '.tsx', '.js', '.mjs', '/index.ts', '/index.js']
 
 /** A parser over the handed-over sources, each file parsed once. */
-const parserOf = (compiler: typeof ts, sources: ConfigSources) => {
+export const parserOf = (compiler: typeof ts, sources: ConfigSources) => {
   const parsed = new Map<string, ts.SourceFile>()
   return (path: string): ts.SourceFile | undefined => {
     const cached = parsed.get(path)
@@ -79,7 +79,7 @@ const parserOf = (compiler: typeof ts, sources: ConfigSources) => {
 }
 
 /** Strip the wrappers that do not change a value: parentheses, `as`, `satisfies`, `!`. */
-const unwrapped = (compiler: typeof ts, node: ts.Node): ts.Node =>
+export const unwrapped = (compiler: typeof ts, node: ts.Node): ts.Node =>
   compiler.isParenthesizedExpression(node) ||
   compiler.isAsExpression(node) ||
   compiler.isSatisfiesExpression(node) ||
@@ -88,7 +88,7 @@ const unwrapped = (compiler: typeof ts, node: ts.Node): ts.Node =>
     ? unwrapped(compiler, node.expression)
     : node
 
-const lineOf = (file: ts.SourceFile, node: ts.Node): number =>
+export const lineOf = (file: ts.SourceFile, node: ts.Node): number =>
   file.getLineAndCharacterOfPosition(node.getStart(file)).line + 1
 
 /** The name a property is written under, when it is a plain one. */
@@ -165,7 +165,7 @@ const returnedBy = (compiler: typeof ts, fn: ts.Node): ts.Node | undefined => {
 }
 
 /** One step down from where a walk stands, or `undefined` when the expression is computed there. */
-const stepInto = (compiler: typeof ts, at: At, step: Step): ts.Node | undefined => {
+export const stepInto = (compiler: typeof ts, at: At, step: Step): ts.Node | undefined => {
   const node = unwrapped(compiler, at.node)
   if (typeof step === 'number') {
     if (!compiler.isArrayLiteralExpression(node)) return undefined
@@ -220,7 +220,7 @@ const follow = (
 }
 
 /** Walk a path down from an expression, following names and calls; where it stopped. */
-const walk = (
+export const walk = (
   compiler: typeof ts,
   context: {
     readonly sources: ConfigSources
@@ -241,7 +241,7 @@ const walk = (
 }
 
 /** The default export of the root module, as an expression. */
-const defaultExportOf = (compiler: typeof ts, file: ts.SourceFile): ts.Node | undefined =>
+export const defaultExportOf = (compiler: typeof ts, file: ts.SourceFile): ts.Node | undefined =>
   file.statements.find(compiler.isExportAssignment)?.expression
 
 /**

@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, getTableColumns, inArray, sql } from 'drizzle-orm'
 import { Layer } from 'effect'
 import {
   AutomationRunDatabaseError,
@@ -42,6 +42,18 @@ const automationDefinitions = resolveDialectSchema(
 const automationRuns = resolveDialectSchema(automationRunsPg, automationRunsSqlite)
 const automationRunSteps = resolveDialectSchema(automationRunStepsPg, automationRunStepsSqlite)
 const automationRunRefs = resolveDialectSchema(automationRunRefsPg, automationRunRefsSqlite)
+
+/**
+ * Every run column, and the definition's name read IN THE SAME STATEMENT, so a
+ * write that hands back the run needs no second query for the name — a run
+ * makes three such writes.
+ */
+const runWithDefinitionName = {
+  ...getTableColumns(automationRuns),
+  definitionName: sql<
+    string | null
+  >`(SELECT ${automationDefinitions.name} FROM ${automationDefinitions} WHERE ${automationDefinitions.id} = ${automationRuns.automationId})`,
+}
 
 /** Wrap a DB promise, adapting failures to AutomationRunDatabaseError. */
 const wrap = makeDbWrap((cause) => new AutomationRunDatabaseError({ cause }))
@@ -211,7 +223,7 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
           ...runInsertOptionals(input),
           ...(input.createdAt !== undefined ? { createdAt: input.createdAt } : {}),
         })
-        .returning()
+        .returning(runWithDefinitionName)
       if (!runRow) {
         throw new Error('Failed to insert automation_run row')
       }
@@ -221,16 +233,7 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
         await db.insert(automationRunSteps).values(stepValues(runRow.id, steps))
       }
       await insertRunRefs(runRow.id, input)
-
-      // The definition name, so the returned shape includes it.
-      const defRows = await db
-        .select({ name: automationDefinitions.name })
-        .from(automationDefinitions)
-        .where(eq(automationDefinitions.id, input.automationId))
-        .limit(1)
-      const automationName = defRows[0]?.name ?? ''
-
-      return toRun(runRow, automationName)
+      return toRun(runRow, runRow.definitionName ?? '')
     }),
 
   updateStatus: (input) =>
@@ -243,14 +246,8 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
           ...(input.startedAt !== undefined ? { startedAt: input.startedAt } : {}),
         })
         .where(eq(automationRuns.id, input.id))
-        .returning()
-      if (!updated) return undefined
-      const defRows = await db
-        .select({ name: automationDefinitions.name })
-        .from(automationDefinitions)
-        .where(eq(automationDefinitions.id, updated.automationId))
-        .limit(1)
-      return toRun(updated, defRows[0]?.name ?? '')
+        .returning(runWithDefinitionName)
+      return updated === undefined ? undefined : toRun(updated, updated.definitionName ?? '')
     }),
 
   recordStepOutput: ({ runId, stepIndex, output }) =>
@@ -283,7 +280,7 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
         .update(automationRuns)
         .set(finalisedColumns(input))
         .where(eq(automationRuns.id, input.id))
-        .returning()
+        .returning(runWithDefinitionName)
       if (!updated) return undefined
 
       // Append step rows: they land with the terminal status, never earlier.
@@ -292,19 +289,19 @@ export const AutomationRunRepositoryLive = Layer.succeed(AutomationRunRepository
         await db.insert(automationRunSteps).values(stepValues(updated.id, steps))
       }
       await insertRunRefs(updated.id, input)
-
-      const defRows = await db
-        .select({ name: automationDefinitions.name })
-        .from(automationDefinitions)
-        .where(eq(automationDefinitions.id, updated.automationId))
-        .limit(1)
-      return toRun(updated, defRows[0]?.name ?? '')
+      return toRun(updated, updated.definitionName ?? '')
     }),
 
   clearRunHistory: (runId) =>
     wrap(async () => {
       await db.delete(automationRunSteps).where(eq(automationRunSteps.runId, runId))
       await db.update(automationRuns).set({ triggerData: null }).where(eq(automationRuns.id, runId))
+    }),
+
+  deleteRun: (runId) =>
+    wrap(async () => {
+      await db.delete(automationRunSteps).where(eq(automationRunSteps.runId, runId))
+      await db.delete(automationRuns).where(eq(automationRuns.id, runId))
     }),
 
   hasWaitingDelayRuns: wrap(park.hasWaitingDelayRuns),

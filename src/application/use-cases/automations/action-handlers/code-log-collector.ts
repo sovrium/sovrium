@@ -16,7 +16,7 @@
 import type { StepLogEntry } from './shared'
 
 /** Render one logged argument: strings verbatim, anything else as JSON. */
-const renderArgument = (argument: unknown): string => {
+export const renderArgument = (argument: unknown): string => {
   if (typeof argument === 'string') return argument
   if (argument instanceof Error) return argument.message
   try {

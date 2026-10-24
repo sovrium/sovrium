@@ -1,3 +1,172 @@
+## [0.43.0](https://github.com/sovrium/sovrium/compare/v0.42.0...v0.43.0) (2026-10-24)
+
+### Features
+
+- **admin-console**: add a Show routine runs switch to the run history
+- **library**: add "Download my data" to the account settings block
+- **automations**: hide routine runs from the admin run history by default
+- **tables**: draw a data grid's caption in its bottom bar
+- **automations**: run each code step on its own worker thread so a busy step cannot stall the server
+- **library**: add a scheduled email broadcast recipe
+- **automations**: send bulk mail with one-click unsubscribe, suppression, bounce intake and campaign counts
+- **server**: frame a hosted preview only from the origins you name, behind a preview token
+- **library**: add points, leaderboard and paid membership entries
+- **automations**: build an .ics invite for one event and attach it to an email
+- **automations**: compute record figures in the database from a workflow
+- **tables**: add a day-relative-time-seconds format and draw every relative stamp as a time element
+- **automations**: edit and moderate a record's comments from a workflow
+- **automations**: run a machine session webhook as the system when its key caller asks
+- **automations**: answer 304 to a webhook pull whose rendered answer has not changed
+- **automations**: keep no run row for a scheduled run that succeeds under history none
+- **automations**: add history 'none' and a system run for machine session webhooks
+- **automations**: declare comment update and moderate, calendar exportIcs and record aggregate
+- **telemetry**: count each automation run's statements, transactions and catalog lookups
+- **cli**: append a new page to a TypeScript config's pages array
+- **pages**: serve, pair and redirect a page's translated slugs
+- **records**: let a record update replace a many-to-many field's links
+- **pages**: give a page a translated path in each language
+
+### Bug Fixes
+
+- **forms**: size a hosted form's Select by its input classes
+- **forms**: point a hosted form's island imports at the hashed entry
+- **pages**: show a date rollup as its day on every database
+- **forms**: draw the endpoint form's select and the multi-person picker with the design-system Select
+- **design-system**: refuse a reshaped board that carries no export stamps
+- **admin-console**: show the submissions inbox note in the grid's bottom bar
+- **pages**: open a switch mirrored in the page address in the state the address names
+- **admin-console**: draw the design system pages' titles at the console's page-title size
+- **cli**: reload a linked config file saved while start --watch was still reading it
+- **types**: make a misspelled automation step fail the TypeScript check of an app config
+- **cli**: say that the migrations are embedded when the binary reports
+- **pages**: draw a record's text on a design board the way the served page does
+- **admin-console**: draw no toolbar above a link's one-row definition table
+- **library**: draw the page-header block's title at the size of other page headings
+- **admin-console**: name what failed first in console read errors
+- **automations**: warn when a session webhook answers with a shared cache directive
+- **migrations**: boot after a computed field becomes a stored one under a new name
+- **forms**: draw a hosted form's multi-select and one-question choices with the design system
+- **admin**: offer Retry when the API keys list fails to load, and pair a failed run's report and Retry as a failed grid does
+- **admin**: name an account's sign-in methods in words on its console page
+- **tables**: leave the grid pager's summary empty when the grid holds no rows
+- **admin**: drop the "report it" sentence from the console error page when the failure has a known fix
+- **admin**: show "Not yet claimed" for an account nobody has claimed instead of Active
+- **migrations**: boot after renaming a rollup, lookup or computed field
+- **admin**: name a many-to-many link's records in the console records grid
+- **ai**: let a chat figure run over a field a per-record grant opens
+- **agents**: give a step the server ran during a chat turn a readable name in the conversation viewer
+- **agents**: name the built-in tools in the operator's language on the console
+- **forms**: show a hosted form's date-and-time defaults in the field's time zone
+- **connections**: count HTTP, webhook and AI steps as uses and lead a failed run to its connection
+- **connections**: read a static-secret connection whose credential variable is unset as not-configured
+- **tables**: confirm a CSV import with the plain "N records imported" line
+- **pages**: load the island runtime once when a client-side swap imports a new island
+- **forms**: warn that disabledWhen on a hosted form field has no effect
+- **connections**: name an unconfigured connection by its label in a skipped run's reason
+- **auth**: drop the "Or with your email" separator when Sovrium Cloud sign-in is off
+- **admin**: offer a signed-in member Go to the app and Sign out on the console 404
+- **admin**: address an account page by the account's id instead of its email
+- **seo**: list the rows an anonymous visitor may read under a row-level rule in the sitemap
+- **pages**: resolve a comments component's $record.id against the page record
+- **seo**: leave a canonical or sharing address out unless it is a web address
+- **seo**: resolve record values in share descriptions and fall back to the page description
+- **cli**: write the interactive-component bundle into a static build
+- **pages**: keep the New row entry on a phone once the grid holds rows
+- **cli**: warn about a page whose markdown file does not exist
+- **cli**: reload a config saved while start --watch was still reading it
+- **cli**: record the config history of a project opened through a symbolic link
+- **automations**: skip a run whose token-grant credential reads an unset variable
+- **cli**: draw and play a record page's view from its record on the Prototype board
+- **automations**: select only the listed fields in a record list step
+- **cli**: draw a grid's seeded cells with their column format in the page export
+- **migrations**: remove the unpacked migrations folder after each use
+- **migrations**: keep the foreign keys of a loop of links on SQLite
+- **records**: filter a many-to-many field through its links
+- **cli**: play links, tabs, menus, selects, sign-in and automation buttons on the Prototype board
+- **records**: answer 409 when deleting a record other rows still link to
+- **cli**: draw slug and content-folder pages at an address they serve
+- **tables**: read a view declared with a numeric id by that number
+- **records**: judge a computed-field write after every permission check
+- **cli**: describe the config as it is written in the emitted types, and look options up on that side
+- **install**: stage the binary and rename it into place, so an upgrade never rewrites the running file
+- **records**: refuse a write to a computed field on every update
+- **cli**: match an unstamped page drawing by position only when its shape is unchanged
+- **seed**: a reset restores OAuth clients, connections and the organisation, and clears small settings
+- **cli**: carry the rules drawn on a new page's nodes, and keep a re-imported canvas unchanged
+- **seed**: a reset's baseline can no longer be changed from inside the app
+- **docker**: let the image's non-root user write its data directory
+- **seed**: a reset returns kept accounts to their baseline instead of stripping them
+- **pages**: open date fields prefilled in edit forms on PostgreSQL
+- **seed**: write no activity-log entry for the rows a seed run writes
+- **cli**: keep in-page links and popovers working on a multi-view prototype board
+- **cli**: judge the prototype board's writes by the app's own write gates
+- **pages**: let an edit form save a column whose name ends in \_\_clear
+- **cli**: keep every id on the stateful prototype board unique across its views
+- **cli**: play the stateful prototype board under the role's read and write rules
+- **pages**: keep client-side navigation inside a console served at the root path
+- **pages**: read a conversation redraw's opened position strictly
+- **cli**: never leave a rewritten config more open than it was, even mid-write
+- **pages**: an auto-saved edit form keeps links made meanwhile on a list it left alone
+- **pages**: keep the language and trailing-slash redirects on the site
+- **pages**: keep a conversation's New marker in place while the reader is on it
+- **pages**: keep links made meanwhile when a save leaves a link list untouched
+- **tables**: refuse a count, rollup or lookup filter that compares to $currentUser
+- **records**: fill the online and offline user directory up to its limit
+- **cli**: refuse a page data source sorting or filtering on an undeclared field, in a dry run too
+- **cli**: keep the base path in a static build's canonical and sitemap URLs
+- **cli**: refuse an unreadable seed list file on a page export, naming it
+- **cli**: keep a config's permission bits when design-system import rewrites it
+- **design**: refuse svw, dvw, lvw, none and lh as spacing step names
+- **cli**: publish the built sitemap at the site's own origin and languages
+- **pages**: keep a contentDir include pattern inside its directory
+- **pages**: never send a password reset link to a wildcard page
+- **cli**: write each language's pages once, at their own address, in a static build
+- **design**: mint the info status colour on the default theme
+- **pages**: revalidate a page whose output differs by session
+- **pages**: read a graph or matrix entry's view for the visitor
+- **pages**: escape a reader value written inside a JSON filter
+- **pages**: match no row for a reader email the account does not have
+- **tables**: read contains on a list of people as membership in views and counts
+- **design**: honour replace: true on the sidebar box and the tab strip and panels
+- **pages**: keep a record's links when a save that removed one is refused
+- **design**: refuse spacing step names that would redefine a size utility
+- **pages**: make a contentDir sidebar list only the files include matches
+- **pages**: refuse two pages declaring the same address
+- **pages**: name a custom 404 page's favicon from the site root at any depth
+- **pages**: send a page form's password reset link to the app's own page
+- **pages**: revalidate a page naming the reader through a typed reference
+- **tables**: resolve the reader inside a view filter's list of values
+- **pages**: link a stored file only through a web address
+- **pages**: draw a many-to-many field on an edit form as the multi-value picker
+- **pages**: keep a phone-rows item's links out of the button that opens its row
+- **pages**: resolve translation keys in a page's canonical and sharing address
+- **pages**: let a list nested in another list's row read its own records
+- **i18n**: never prefix a page's language twice in its alternates
+- **tables**: resolve the reader in a view's filters
+- **pages**: resolve the reader in a sidebar's fetched source query
+- **pages**: thin chart category labels to the width they are drawn in
+- **pages**: order a chart's number categories counting up
+- **pages**: read many-to-many links on a page bound to one record
+- **pages**: match a record visibility gate naming the reader
+- **pages**: format a phone-rows item's title like its cell
+- **pages**: draw the pager on a grid that declares no pagination
+- **pages**: draw each file of a multiple-attachments field as its own link
+- **pages**: pre-fill a text default that merely starts with a dollar sign
+- **pages**: honour a kanban card child's record visibility gate
+
+### Performance Improvements
+
+- **cli**: write only the reached part of the island bundle into a static build
+- **ai**: read a chat reader's row grants once per turn
+- **activity**: read a reader's row grants once when opening an activity entry
+- **buckets**: compare storage keys without splitting them into characters
+- **pages**: keep a sidebar's fetched entries on screen across a client-side swap
+- **records**: narrow the mention picker's directory read to people whose role could read the record
+- **telemetry**: leave the health route out of performance sampling
+- **automations**: stop re-reading the automation definition on every scheduled fire
+- **records**: cache table columns per process and read without a transaction
+- **records**: narrow the user directory to who is online in one query
+
 ## [0.42.0](https://github.com/sovrium/sovrium/compare/v0.41.0...v0.42.0) (2026-10-23)
 
 ### Features

@@ -103,6 +103,8 @@ A `value` compared with a checkbox, in a JSON filter or the shorthand, is read a
 
 A filter naming a field the caller may not read, or a field the table does not have, is answered with the same `404`, so the two cannot be told apart.
 
+A condition on a relationship field compares its links. `equals` and `in` take the id of a linked record and keep the rows linked to it; `contains` takes text and keeps the rows linked to a record whose display value holds it; `notEquals` leaves out the rows linked to the id. On a `many-to-many` field a row matches when any of its links does, and `notEquals` keeps only the rows with no link to that id, rows with no link at all included. A `many-to-many` link into a table you may not read is read as empty: `equals`, `in` and `contains` match no row through it, and `notEquals` keeps every row. There is no operator for "linked to every one of these".
+
 `notIn` takes a list and keeps the records whose value is none of the listed values. A record with no value is kept by neither `in` nor `notIn`. `notIn` over an empty list leaves out nothing that has a value. A single value counts as a list of one, and a `null` in the list matches nothing.
 
 An operator outside that set is refused with a `400` naming it and listing the supported ones, so a misspelt `greaterThanOrEqualTo` is an error rather than a different filter.

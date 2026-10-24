@@ -32,6 +32,7 @@
  * it.
  */
 
+import { claimedPagePaths } from '@/domain/kernel/matching/localized-path'
 import { matchRoute, type RouteParams } from '@/domain/kernel/matching/route-matcher'
 import {
   deriveContentDirIndexBasePath,
@@ -63,15 +64,15 @@ export const matchContentDirIndexBasePath = (
   pages: readonly Page[],
   path: string
 ): ContentDirIndexBaseMatch | undefined =>
-  pages
-    .map((page): ContentDirIndexBaseMatch | undefined => {
+  claimedPagePaths(pages)
+    .map(({ page, path: pattern }): ContentDirIndexBaseMatch | undefined => {
       const indexSlug = page.contentDir?.index
       if (indexSlug === undefined) return undefined
-      const basePathPattern = deriveContentDirIndexBasePath(page.path)
+      const basePathPattern = deriveContentDirIndexBasePath(pattern)
       if (basePathPattern === undefined) return undefined
       const result = matchRoute(basePathPattern, path)
       if (!result.matched) return undefined
-      const slugParam = deriveTrailingDynamicParamName(page.path)
+      const slugParam = deriveTrailingDynamicParamName(pattern)
       const routeParams: RouteParams =
         slugParam !== undefined ? { ...result.params, [slugParam]: indexSlug } : result.params
       return { page, basePathPattern, indexSlug, routeParams }

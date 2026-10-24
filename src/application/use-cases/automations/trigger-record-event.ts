@@ -7,7 +7,7 @@
 
 import { Effect } from 'effect'
 import { TemplateEngine } from '@/application/ports/services/template-engine'
-import { serializeDriverRow } from '@/application/use-cases/tables/record-transformer'
+import { serializeDriverRow } from '@/domain/models/app/tables/driver-value-service'
 import {
   relationshipFieldNames,
   withStringRecordId,

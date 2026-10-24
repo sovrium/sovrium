@@ -63,7 +63,7 @@ import {
   type DesignSystemBundleFailure,
 } from './design-system-bundle'
 import { kitDocument, kitStylesheetOf } from './design-system-kit-document'
-import { prototypeStoreOf, unsimulatedFormNoticesOf } from './design-system-page-app'
+import { prototypeStoreOf, unsimulatedNoticesOf } from './design-system-page-app'
 import { pageSectionOf, type PageDrawOptions } from './design-system-page-boards'
 import { canvasEntriesOf } from './design-system-page-canvas'
 import {
@@ -251,7 +251,7 @@ const appCanvasOf = (
     store: prototypeStoreOf(
       app,
       pages.filter((page) => drawings.some((drawing) => drawing.page === page.name)),
-      selection.draw.seed
+      selection.draw
     ),
     roles: appRolesOf(app),
   }
@@ -293,7 +293,7 @@ const pageEntriesOf = (app: App, bundle: DesignSystemBundle, selection: PageExpo
     ] satisfies readonly DesignSystemBundleEntry[]
     const unsimulated =
       selection.draw?.prototype === 'app'
-        ? unsimulatedFormNoticesOf(app, selectedPages(app, selection.names))
+        ? unsimulatedNoticesOf(app, selectedPages(app, selection.names))
         : []
     const capped = seedRowCapNoticesOf(selection.draw?.seed)
     return {

@@ -33,15 +33,75 @@ export interface ConnectionUse {
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null
 
-/** Whether `value`, or anything nested in it, is a `connection` action naming `connection`. */
+/**
+ * The action types that reach a provider through a connection named in
+ * `props.connection`: a connection call, an `http` request or a webhook send
+ * authenticating through it, and an `ai` step using it as its provider.
+ */
+const CONNECTION_BEARING_TYPES: ReadonlySet<unknown> = new Set([
+  'connection',
+  'http',
+  'webhook',
+  'ai',
+])
+
+/** Whether `value`, or anything nested in it, is an action naming `connection` in its props. */
 const callsConnection = (value: unknown, connection: string): boolean => {
   if (Array.isArray(value)) return value.some((item) => callsConnection(item, connection))
   if (!isRecord(value)) return false
   const { props } = value
-  if (value['type'] === 'connection' && isRecord(props) && props['connection'] === connection) {
+  if (
+    CONNECTION_BEARING_TYPES.has(value['type']) &&
+    isRecord(props) &&
+    props['connection'] === connection
+  ) {
     return true
   }
   return Object.values(value).some((child) => callsConnection(child, connection))
+}
+
+/** The first connection named in `value`'s props, at any depth, by an action that reaches one. */
+const connectionNamedIn = (value: unknown): string | undefined => {
+  if (Array.isArray(value)) return value.map(connectionNamedIn).find((name) => name !== undefined)
+  if (!isRecord(value)) return undefined
+  const { props } = value
+  if (
+    CONNECTION_BEARING_TYPES.has(value['type']) &&
+    isRecord(props) &&
+    typeof props['connection'] === 'string'
+  ) {
+    return props['connection']
+  }
+  return Object.values(value)
+    .map(connectionNamedIn)
+    .find((name) => name !== undefined)
+}
+
+/** A connection as far as naming it goes. */
+interface ConnectionLike {
+  readonly name: string
+  readonly label?: string | undefined
+}
+
+/**
+ * The connection a top-level step reaches its provider through, as the
+ * Connections page names it: `connection` its name, `connectionLabel` its
+ * declared label else its name. Empty when the step names no connection, or
+ * when the automation or the step is no longer declared — so a failed run can
+ * lead the operator to that one connection.
+ */
+export const stepConnectionOf = (
+  automations: ReadonlyArray<AutomationLike> | undefined,
+  connections: ReadonlyArray<ConnectionLike> | undefined,
+  automationName: string,
+  stepName: string
+): { readonly connection?: string; readonly connectionLabel?: string } => {
+  const automation = (automations ?? []).find((candidate) => candidate.name === automationName)
+  const step = automation?.actions.find((action) => isRecord(action) && action['name'] === stepName)
+  const connection = connectionNamedIn(step)
+  if (connection === undefined) return {}
+  const label = (connections ?? []).find((candidate) => candidate.name === connection)?.label
+  return { connection, connectionLabel: label !== undefined && label !== '' ? label : connection }
 }
 
 /**

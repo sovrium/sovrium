@@ -17,7 +17,8 @@ import type { DatabaseDialect } from '@/domain/models/process-env/database/datab
  * for anything carrying a constraint name, and silently answered nothing at
  * all on SQLite.
  */
-export type ConstraintViolationClass = 'unique' | 'check' | 'foreign-key' | 'not-null'
+export type ConstraintViolationClass =
+  'unique' | 'check' | 'foreign-key' | 'still-referenced' | 'not-null'
 
 /**
  * THE client-safe wording for each constraint class. One table, no second copy.
@@ -44,6 +45,7 @@ export const CONSTRAINT_MESSAGES = {
   unique: 'Resource already exists',
   check: 'A submitted value is not allowed by this resource',
   'foreign-key': 'A submitted value references a resource that does not exist',
+  'still-referenced': 'This record is still linked from other records',
   'not-null': 'A required value is missing',
 } satisfies Record<ConstraintViolationClass, string>
 
@@ -133,6 +135,39 @@ const SQLITE_RESULT_CODE_CONSTRAINTS = {
   SQLITE_CONSTRAINT_PRIMARYKEY: 'unique',
   SQLITE_CONSTRAINT_UNIQUE: 'unique',
 } satisfies Record<string, ConstraintViolationClass>
+
+/**
+ * A foreign key refuses in two directions, and only one of them is about the
+ * caller's value. A write naming a row that does not exist is `foreign-key`; a
+ * DELETE of a row other rows still point at is `still-referenced` — nothing was
+ * submitted, the record exists, and the refusal is a clash with existing state.
+ *
+ * PostgreSQL says which in its detail (`Key (id)=(100) is still referenced from
+ * table "legal_holds".`). SQLite raises the same `SQLITE_CONSTRAINT_FOREIGNKEY`
+ * either way, so there the statement that failed decides: drizzle carries it on
+ * its query wrapper, and a DELETE can only be refused as the referenced side.
+ */
+const STILL_REFERENCED_DETAIL = /is still referenced from table "([^"]+)"/
+const DELETE_STATEMENT = /^\s*delete\s/i
+
+const isStillReferenced = (chain: readonly DriverErrorLike[]): boolean =>
+  chain.some(
+    (node) =>
+      (typeof node.detail === 'string' && STILL_REFERENCED_DETAIL.test(node.detail)) ||
+      (typeof node.query === 'string' && DELETE_STATEMENT.test(node.query))
+  )
+
+/**
+ * The table whose rows still point at the record a DELETE was refused for, when
+ * the driver names it — PostgreSQL does in its detail, SQLite never does.
+ */
+export function findStillReferencingTable(error: unknown): string | undefined {
+  return collectCauseChain(error)
+    .map((node) =>
+      typeof node.detail === 'string' ? STILL_REFERENCED_DETAIL.exec(node.detail)?.[1] : undefined
+    )
+    .find((table): table is string => table !== undefined)
+}
 
 /** A SQLSTATE is exactly five upper-case alphanumerics (e.g. `23505`, `42P01`). */
 const SQLSTATE_PATTERN = /^[\dA-Z]{5}$/
@@ -279,15 +314,15 @@ const DRIVER_MARKERS: readonly DialectDriverMarkers[] = Object.values(DIALECT_DR
 /**
  * Drizzle's own query wrappers, used as a dialect-independent BACKSTOP.
  *
- * Every statement in the request path goes through drizzle, which rethrows as
- * `DrizzleQueryError` (own `query` + `params` properties, message `Failed
- * query: …`) or `DrizzleError` (`name === 'DrizzleError'`), carrying the real
- * driver error on `cause`. Recognising the wrapper means a driver failure is
- * still classified as infrastructure even if a future driver stops exposing a
- * result code — the safe direction, since the fallback is an alertable 500.
+ * Drizzle rethrows as `DrizzleQueryError` (`query` + `params`; `params` undefined
+ * unless `paramsInErrors` is set) or `DrizzleError`, the driver error on `cause`.
+ * Recognising it keeps a driver failure classified as infrastructure even if a
+ * driver stops exposing a result code — the safe direction (an alertable 500).
  */
 const isOrmQueryWrapper = (node: DriverErrorLike): boolean =>
-  node.name === 'DrizzleError' || (typeof node.query === 'string' && node.params !== undefined)
+  node.name === 'DrizzleError' ||
+  node.name === 'DrizzleQueryError' ||
+  (typeof node.query === 'string' && 'params' in node)
 
 /** Guard against a self-referential `cause` chain. */
 const MAX_CAUSE_DEPTH = 8
@@ -331,6 +366,9 @@ export function classifyDriverFailure(error: unknown): DriverFailure {
   const chain = collectCauseChain(error)
 
   const violation = firstMarkerHit(chain, (markers, node) => markers.constraintOf(node))
+  if (violation === 'foreign-key' && isStillReferenced(chain)) {
+    return { origin: 'constraint', violation: 'still-referenced' }
+  }
   if (violation !== undefined) return { origin: 'constraint', violation }
 
   const rejection = firstMarkerHit(chain, (markers, node) => markers.callerInputOf(node))
@@ -458,76 +496,4 @@ export function findConstraintViolation(error: unknown): ConstraintViolationClas
  */
 export function isDriverOriginatedFailure(error: unknown): boolean {
   return classifyDriverFailure(error).origin !== 'application'
-}
-
-/**
- * Driver/runtime codes that mean "the database could not be REACHED at all" —
- * as opposed to reached and then refusing the statement.
- *
- * Code-based, never message-based, for the same reason as everything else in
- * this module — and here the message route is measurably broken in BOTH
- * directions. Matching lower-cased message fragments fails like this
- * (measured against `bun:sql`):
- *
- *  - a refused connection AND an unresolvable host both surface as
- *    `PostgresError { code: 'ERR_POSTGRES_CONNECTION_REFUSED' }` whose whole
- *    message is `Failed to connect` — containing none of the `econnrefused` /
- *    `enotfound` / `getaddrinfo` fragments that were meant to catch them, so
- *    the friendly diagnostic never fired for Postgres at all;
- *  - `permission denied` matched `42501` (`permission denied for table "user"`),
- *    which is a GRANT problem on a perfectly reachable database. It was latent
- *    only because drizzle kept the driver's message on `.cause`; folding that
- *    message back in (see `auth/better-auth/adapter-errors.ts`) made it live.
- *
- * SQLSTATE class `08` and `57P03` are listed for driver-independence: `pg` and
- * `postgres.js` report connection failures that way, and swapping a driver
- * should not silently take this diagnostic away again.
- */
-const UNREACHABLE_DRIVER_CODES: ReadonlySet<string> = new Set([
-  // bun:sql — covers refused, unresolvable and timed-out alike.
-  'ERR_POSTGRES_CONNECTION_REFUSED',
-  'ERR_POSTGRES_CONNECTION_CLOSED',
-  // bun:sqlite — the file cannot be opened, or is locked beyond the busy timeout.
-  'SQLITE_CANTOPEN',
-  'SQLITE_BUSY',
-  // Node/libuv socket + filesystem failures reaching the database.
-  'ECONNREFUSED',
-  'ECONNRESET',
-  'ENOTFOUND',
-  'ETIMEDOUT',
-  'EAI_AGAIN',
-  'EACCES',
-  'EPERM',
-  'ENOENT',
-])
-
-/** PostgreSQL SQLSTATE class for `connection_exception`. */
-const POSTGRES_CONNECTION_EXCEPTION_CLASS = '08'
-
-/** `cannot_connect_now` — the server is up but refusing connections (e.g. starting up). */
-const POSTGRES_CANNOT_CONNECT_NOW = '57P03'
-
-/**
- * True when `error` — or anything in its `cause` chain — means the database was
- * unreachable, rather than reached and unhappy.
- *
- * Deliberately NOT a member of {@link DriverFailure}'s `origin` union: for HTTP
- * purposes an unreachable database is exactly what `operator` already says (an
- * alertable 500), and widening that closed union would force every consumer to
- * give this a distinct status it does not want. This is a separate question
- * asked by the one caller that needs it — the CLI, which turns it into an
- * actionable "set DATABASE_URL" diagnostic instead of a raw driver dump.
- */
-export function isDatabaseUnreachable(error: unknown): boolean {
-  return collectCauseChain(error).some((node) => {
-    const code = asCode(node)
-    if (code !== undefined && UNREACHABLE_DRIVER_CODES.has(code)) return true
-
-    const sqlState = readSqlState(node)
-    return (
-      sqlState !== undefined &&
-      (sqlState.startsWith(POSTGRES_CONNECTION_EXCEPTION_CLASS) ||
-        sqlState === POSTGRES_CANNOT_CONNECT_NOW)
-    )
-  })
 }

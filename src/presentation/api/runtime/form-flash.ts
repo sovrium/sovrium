@@ -22,7 +22,7 @@
  */
 
 import { setCookie } from 'hono/cookie'
-import { matchRoute } from '@/domain/kernel/matching/route-matcher'
+import { findPageRoute } from '@/domain/kernel/matching/localized-path'
 import { resolveRedirectAgainst } from '@/domain/kernel/url/redirect-resolution'
 import {
   resolveInterpreterString,
@@ -90,7 +90,8 @@ const splitLanguage = (app: App, path: string) => {
 /** The page a path addresses, and the language it is read in. */
 const pageAt = (app: App, path: string) => {
   const { lang, unprefixed } = splitLanguage(app, path)
-  const page = (app.pages ?? []).find((p) => matchRoute(p.path, unprefixed).matched)
+  const pages = app.pages ?? []
+  const page = (findPageRoute(pages, path) ?? findPageRoute(pages, unprefixed))?.page
   return { page, lang: lang ?? page?.meta?.lang ?? app.languages?.default ?? 'en' }
 }
 

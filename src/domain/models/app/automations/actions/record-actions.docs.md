@@ -2,20 +2,21 @@
 
 > Reading and writing table records from a workflow — single-row CRUD, filtered reads, and the batch operators.
 
-`read` fetches one row by primary key and takes an `id`. `list`, `update`, `delete` and `upsert` select rows with a condition-group `filter`. Creates and updates carry a `data` map. The batch operators iterate an `items` array.
+`read` fetches one row by primary key and takes an `id`. `list`, `aggregate`, `update`, `delete` and `upsert` select rows with a condition-group `filter`. Creates and updates carry a `data` map. The batch operators iterate an `items` array.
 
-| Operator      | Props                                                       | Does                                                 |
-| ------------- | ----------------------------------------------------------- | ---------------------------------------------------- |
-| `create`      | `table`, `data`                                             | Inserts one record                                   |
-| `read`        | `table`, `id`                                               | Reads one record by primary key                      |
-| `list`        | `table`, `filter?`, `fields?`, `sort?`, `limit?`, `offset?` | Reads a filtered, ordered, paged set                 |
-| `update`      | `table`, `data`, `filter`                                   | Updates the records matching the filter              |
-| `delete`      | `table`, `filter`                                           | Soft-deletes the records matching the filter         |
-| `upsert`      | `table`, `data`, `filter`                                   | Updates if a match exists, otherwise creates         |
-| `batchCreate` | `table`, `items`, `continueOnItemError?`                    | Inserts many records from an array                   |
-| `batchUpdate` | `table`, `items`, `continueOnItemError?`                    | Updates many records from an array                   |
-| `batchUpsert` | `table`, `items`, `matchField`, `continueOnItemError?`      | Upserts many records, matched on a field             |
-| `batchDelete` | `table`, `filter`, `limit?`                                 | Deletes the records matching the filter, up to a cap |
+| Operator      | Props                                                       | Does                                                                      |
+| ------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `create`      | `table`, `data`                                             | Inserts one record                                                        |
+| `read`        | `table`, `id`                                               | Reads one record by primary key                                           |
+| `list`        | `table`, `filter?`, `fields?`, `sort?`, `limit?`, `offset?` | Reads a filtered, ordered, paged set                                      |
+| `aggregate`   | `table`, `filter?`, `aggregations`, `groupBy?`              | Computes counts, sums, averages, extremes and percentiles in the database |
+| `update`      | `table`, `data`, `filter`                                   | Updates the records matching the filter                                   |
+| `delete`      | `table`, `filter`                                           | Soft-deletes the records matching the filter                              |
+| `upsert`      | `table`, `data`, `filter`                                   | Updates if a match exists, otherwise creates                              |
+| `batchCreate` | `table`, `items`, `continueOnItemError?`                    | Inserts many records from an array                                        |
+| `batchUpdate` | `table`, `items`, `continueOnItemError?`                    | Updates many records from an array                                        |
+| `batchUpsert` | `table`, `items`, `matchField`, `continueOnItemError?`      | Upserts many records, matched on a field                                  |
+| `batchDelete` | `table`, `filter`, `limit?`                                 | Deletes the records matching the filter, up to a cap                      |
 
 <!-- sovrium:options RecordActionSchema -->
 
@@ -90,11 +91,33 @@ An implicit ascending `id` is appended as the **final** ordering key whenever pa
 
 ### `fields` is a payload trim, not a permission boundary
 
-It chooses which fields are carried into the step payload, and each returned record still carries `id`, `createdAt` and `updatedAt`.
+It chooses which fields are read and carried into the step payload, and each returned record still carries `id`, `createdAt` and `updatedAt`. In a run nobody started, the database query selects only those columns, plus the ones the read itself needs, so a field you leave out costs nothing: a wide JSON column is not transferred, and a `user` or `relationship` field is not resolved. A run someone started by hand still reads the whole row, because that person's field rules are applied to it before the trim; there `fields` shortens the output, not the read.
 
 A run nobody started — a schedule (including "run now"), a webhook, a record event, a form submission, or an `automation:call` from one of those — has **no user role** and writes as the system, so field-level read permissions never apply to it: whatever an automation may read the table for, it may read every column of. Do not reach for `fields` as a way to keep a column away from a workflow.
 
 A run someone started by hand — a manual trigger, a table button, an MCP action template or automation tool — writes as that person. Before a `create`, `update`, `upsert`, `delete` or batch step touches anything, it is checked against the table's grants, row-level rules (an update also on the row as it would be written) and field write permissions for them; a record those rules exclude fails the step with `Resource not found`, nothing is written, and the run history records the failure. The rows it does write carry that person in their `created-by`, `updated-by` and `deleted-by` fields, whatever `runAs` says. It reads as that person too: a `read` of a record they may not read fails the step with `Resource not found`, a `list` holds only the records they may read, and a field they may not read is left out of the output, as is a lookup of a record they may not read. Clearing a many-to-many field unlinks only the links that person may read. The filter of an `update`, `upsert`, `delete` or batch step is read as that person's `list` reads it: a condition on a field they may not read fails the step with `Resource not found` before any record is looked up, and a record a row-level rule hides from them is not a target, so it is neither written nor counted. A filter naming one record by its `id` goes straight to the write check above. A run that pauses on an approval resumes as the same person, whoever approves it, and, if that person has been banned or removed meanwhile, fails with `Resource not found` before any of its remaining steps runs — an email or an HTTP call after the approval included. A write the database refuses because another record already holds the value — a single write or one item of a `batchCreate`, `batchUpdate` or `batchUpsert` — fails the step with `Resource not found`, as any other refused write does, whether or not that person may read the record holding it, and a `loop/each` or a `path` holding a step refused that way says the same in its own error and, for a loop, in that item's entry of `results`; an admin reading the run still sees the reason. An automation this run calls with `automation:call`, at any depth, acts as the same person.
+
+### Figures without pulling rows: `aggregate`
+
+`aggregate` asks the database for figures over the records a `filter` matches — the same computation as the records API's aggregate read — instead of pulling the rows into a `code` step to count or sort them. Each entry of `aggregations` is `{ field, op }`, where `op` is `count`, `sum`, `avg`, `min`, `max`, or a percentile `p50`, `p75`, `p90`, `p95`, `p99` (interpolated: over 10, 20, … 100 the p95 is 95.5). With `groupBy`, one row comes back per value of that field.
+
+```yaml
+automations:
+  - name: performance-rollup
+    trigger: { type: cron, expression: '*/15 * * * *' }
+    actions:
+      - name: rollup
+        type: record
+        operator: aggregate
+        props:
+          table: transactions
+          groupBy: name
+          aggregations:
+            - { field: duration_ms, op: count }
+            - { field: duration_ms, op: p95 }
+```
+
+The output is `{ rows }`: each row holds `count`, the group's value under the `groupBy` field's name, and each figure under `<field>_<op>` (`duration_ms_p95`). A figure over no values is `null`, never `0`. More than 500 groups fails the step rather than returning a partial list. The step reads as `list` reads, and a field it names must exist; a `sum`, `avg` or percentile over a field that is not a number is refused when the configuration is read. Because a row is flat, a `groupBy` field named `count`, or named like one of the step's own figures (`amount_sum` beside a `sum` of `amount`), would share a key with that figure: such a step is refused when the configuration is read, naming the automation, the step and the field; group by a field with another name.
 
 ### `limit` means two different things
 

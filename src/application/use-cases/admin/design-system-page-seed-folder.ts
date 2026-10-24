@@ -151,9 +151,8 @@ const rowsOf = (
       field['writeOnly'] === true ? [String(field['name'])] : []
     )
   )
-  return file.records.map((record, at) => ({
-    id: at + 1,
-    ...Object.fromEntries(
+  return file.records.map((record, at) => {
+    const fields = Object.fromEntries(
       Object.entries(record.fields).map(([name, raw]) => {
         if (writeOnly.has(name)) return [name, SECRET_SPECIMEN] as const
         const planned = planSeedValue(raw, context.now)
@@ -162,8 +161,23 @@ const rowsOf = (
           planned.ok ? resolvedValue(planned.value, context.ids, context.accounts) : raw,
         ] as const
       })
-    ),
-  }))
+    )
+    return { id: at + 1, ...systemTimestampsOf(fields, context.now), ...fields }
+  })
+}
+
+/**
+ * A seeded row's system timestamps, as `sovrium seed` writes them: created at
+ * the `created_at` its file writes, else at the export's clock, and never
+ * changed since, so its changed instant is its created one.
+ */
+const systemTimestampsOf = (
+  fields: Readonly<Record<string, unknown>>,
+  now: Readonly<Date>
+): { readonly createdAt: string; readonly updatedAt: string } => {
+  const written = fields['created_at']
+  const createdAt = typeof written === 'string' && written !== '' ? written : now.toISOString()
+  return { createdAt, updatedAt: createdAt }
 }
 
 /** Whether a seeded row is linked to `id` through `field`. */

@@ -26,6 +26,10 @@
  *    ({@link fieldsOutsideView}).
  */
 
+import { resolveCurrentUserOperand } from '@/domain/models/app/pages/current-user-ref'
+import { withListMembershipConditions } from '@/domain/models/app/tables/user-list-field-service'
+import type { CurrentUserFacts } from '@/domain/models/app/pages/current-user-ref'
+
 /** A filter node as a view declares it and as the records query consumes it. */
 export type ViewFilterNode =
   | { readonly field: string; readonly operator: string; readonly value: unknown }
@@ -70,6 +74,50 @@ const isFilterNode = (value: unknown): value is ViewFilterNode =>
   typeof value === 'object' &&
   value !== null &&
   ('field' in value || 'and' in value || 'or' in value)
+
+/** A group no row satisfies: what a condition on a reader value nobody has becomes. */
+const MATCHES_NO_ROW: ViewFilterNode = { or: [] }
+
+/** One filter node with every value naming the reader made concrete. */
+const nodeForReader = (
+  node: ViewFilterNode,
+  reader: CurrentUserFacts | undefined
+): ViewFilterNode => {
+  if ('and' in node) return { and: node.and.map((child) => nodeForReader(child, reader)) }
+  if ('or' in node) return { or: node.or.map((child) => nodeForReader(child, reader)) }
+  const resolution = resolveCurrentUserOperand(node.value, reader)
+  if (resolution.kind === 'literal') return node
+  return resolution.kind === 'resolved' ? { ...node, value: resolution.value } : MATCHES_NO_ROW
+}
+
+/**
+ * The reader a view's filters are read for: none for a visitor with no account,
+ * otherwise their id and role.
+ */
+export const viewReader = (
+  userId: string | undefined,
+  role: string,
+  anonymous: boolean
+): CurrentUserFacts | undefined =>
+  anonymous || userId === undefined ? undefined : { userId, role }
+
+/**
+ * A view's `filters` with every condition value naming the reader —
+ * `$currentUser.id`, `$currentUser.role` — replaced by the reader's own, so a
+ * "Mine" view serves each reader their rows, an admin included. A condition
+ * naming a value the reader does not have (a visitor with no account, an email
+ * not known here) matches no row. Given the table's `fields`, `contains` on a
+ * `user` field holding several people then reads as list membership, as on
+ * every other read. Anything that is not a filter tree comes back as written.
+ */
+export const viewFiltersForReader = (
+  filters: unknown,
+  reader: CurrentUserFacts | undefined,
+  fields?: Parameters<typeof withListMembershipConditions>[1]
+): unknown =>
+  isFilterNode(filters)
+    ? withListMembershipConditions(nodeForReader(filters, reader), fields)
+    : filters
 
 /**
  * A view's own `filters` as the conditions of a top-level AND group.

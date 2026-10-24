@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { DateTime } from 'effect'
+import { DateTime, Option } from 'effect'
 
 /**
  * Calendar arithmetic in an explicit IANA zone.
@@ -110,3 +110,52 @@ export const zonedStartOfIsoDate = (isoDate: string, zoneId: string) =>
  */
 export const zonedEndOfIsoDate = (isoDate: string, zoneId: string) =>
   DateTime.toDateUtc(DateTime.add(zonedMidnightOf(isoDate, zoneId), { days: 1 }))
+
+/** A wall-clock reading with no zone or offset: `YYYY-MM-DDTHH:mm`, seconds optional. */
+const WALL_CLOCK_READING = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/
+
+/** Whether `[year, month, day, hour, minute, second]` names a minute that exists, unrolled. */
+const isRealMinute = (parts: readonly number[]): boolean => {
+  const [year = 0, month = 1, day = 1, hour = 0, minute = 0, second = 0] = parts
+  const at = new Date(Date.UTC(year, month - 1, day, hour, minute, second))
+  const read = [
+    at.getUTCFullYear(),
+    at.getUTCMonth() + 1,
+    at.getUTCDate(),
+    at.getUTCHours(),
+    at.getUTCMinutes(),
+    at.getUTCSeconds(),
+  ]
+  return read.every((value, index) => value === parts[index])
+}
+
+/**
+ * The instant a wall-clock reading such as `2026-11-04T10:00` (what a
+ * `datetime-local` control posts) names on the clock of `zoneId`, at the
+ * offset in force on that day; `undefined` when `reading` is not one — an
+ * instant with its own offset or `Z` included, which needs no zone — when it
+ * names no real minute (`2026-02-30T09:00`, `25:00`), which is never rolled
+ * over into another day, or when `zoneId` is no zone the runtime knows (a
+ * column's `local`, which only the visitor's browser can resolve).
+ *
+ * @param reading - a `YYYY-MM-DDTHH:mm[:ss]` wall-clock reading.
+ * @param zoneId - an IANA zone identifier.
+ */
+export const zonedWallClockInstant = (
+  reading: string,
+  zoneId: string
+): Readonly<Date> | undefined => {
+  const match = WALL_CLOCK_READING.exec(reading)
+  const zone = DateTime.zoneMakeNamed(zoneId)
+  if (match === null || Option.isNone(zone)) return undefined
+  const [year = 0, month = 1, day = 1, hour = 0, minute = 0, second = 0] = match
+    .slice(1)
+    .map((part) => Number(part ?? 0))
+  if (!isRealMinute([year, month, day, hour, minute, second])) return undefined
+  return DateTime.toDateUtc(
+    DateTime.makeZonedUnsafe(
+      { year, month, day, hour, minute, second },
+      { timeZone: zone.value, adjustForTimeZone: true }
+    )
+  )
+}

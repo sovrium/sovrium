@@ -20,7 +20,7 @@
     },
     {
       "name": "bun",
-      "version": "1.4.3",
+      "version": "1.4.4",
       "license": "MIT",
       "source": "the Bun runtime the binary is compiled with — https://github.com/oven-sh/bun",
       "file": "licenses/MIT-bun-runtime.txt",
@@ -103,10 +103,6 @@
     {
       "id": "35f91fe22868b457",
       "text": "ISC License\n\nCopyright <year> <owner>\n\nPermission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby granted, provided that the above copyright notice and this permission notice appear in all copies.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE."
-    },
-    {
-      "id": "380f9badaaa56339",
-      "text": "Permission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in\nall copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN\nTHE SOFTWARE"
     },
     {
       "id": "387c95f3bf8a311b",
@@ -300,7 +296,7 @@
     },
     {
       "name": "@authenio/xml-encryption",
-      "version": "2.0.2",
+      "version": "6.0.2",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -350,7 +346,7 @@
     },
     {
       "name": "@better-auth/api-key",
-      "version": "1.7.7",
+      "version": "1.7.12",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -360,7 +356,7 @@
     },
     {
       "name": "@better-auth/core",
-      "version": "1.7.7",
+      "version": "1.7.12",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -370,7 +366,7 @@
     },
     {
       "name": "@better-auth/drizzle-adapter",
-      "version": "1.7.7",
+      "version": "1.7.12",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -380,7 +376,7 @@
     },
     {
       "name": "@better-auth/kysely-adapter",
-      "version": "1.7.7",
+      "version": "1.7.12",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -390,7 +386,7 @@
     },
     {
       "name": "@better-auth/mcp",
-      "version": "1.7.7",
+      "version": "1.7.12",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -400,7 +396,7 @@
     },
     {
       "name": "@better-auth/memory-adapter",
-      "version": "1.7.7",
+      "version": "1.7.12",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -410,7 +406,7 @@
     },
     {
       "name": "@better-auth/mongo-adapter",
-      "version": "1.7.7",
+      "version": "1.7.12",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -420,7 +416,7 @@
     },
     {
       "name": "@better-auth/oauth-provider",
-      "version": "1.7.7",
+      "version": "1.7.12",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -430,7 +426,7 @@
     },
     {
       "name": "@better-auth/passkey",
-      "version": "1.7.7",
+      "version": "1.7.12",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -440,7 +436,7 @@
     },
     {
       "name": "@better-auth/prisma-adapter",
-      "version": "1.7.7",
+      "version": "1.7.12",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -450,7 +446,7 @@
     },
     {
       "name": "@better-auth/sso",
-      "version": "1.7.7",
+      "version": "1.7.12",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -460,23 +456,13 @@
     },
     {
       "name": "@better-auth/telemetry",
-      "version": "1.7.7",
+      "version": "1.7.12",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
         "Copyright (c) 2024 - present, Bereket Engida"
       ],
       "textId": "9f5cbba2b7258993"
-    },
-    {
-      "name": "@better-auth/utils",
-      "version": "0.4.2",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2024 - present, Bereket Engida"
-      ],
-      "textId": "7c9b48b52decb983"
     },
     {
       "name": "@better-auth/utils",
@@ -510,7 +496,7 @@
     },
     {
       "name": "@codemirror/autocomplete",
-      "version": "6.20.3",
+      "version": "6.20.4",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -670,7 +656,7 @@
     },
     {
       "name": "@codemirror/view",
-      "version": "6.43.14",
+      "version": "6.43.15",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -750,7 +736,7 @@
     },
     {
       "name": "@effect/ai-openai-compat",
-      "version": "4.0.4",
+      "version": "4.0.6",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -924,7 +910,7 @@
     },
     {
       "name": "@lezer/common",
-      "version": "1.5.3",
+      "version": "1.5.4",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -994,7 +980,7 @@
     },
     {
       "name": "@lezer/markdown",
-      "version": "1.8.0",
+      "version": "1.8.1",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1034,7 +1020,7 @@
     },
     {
       "name": "@modelcontextprotocol/core",
-      "version": "2.3.0",
+      "version": "2.3.1",
       "spdx": "Apache-2.0",
       "declared": "Apache-2.0",
       "copyright": [
@@ -1044,7 +1030,7 @@
     },
     {
       "name": "@modelcontextprotocol/server",
-      "version": "2.3.0",
+      "version": "2.3.1",
       "spdx": "Apache-2.0",
       "declared": "Apache-2.0",
       "copyright": [
@@ -1103,14 +1089,6 @@
         "Copyright (c) 2026 Nodable"
       ],
       "textId": "7c9b48b52decb983"
-    },
-    {
-      "name": "@opentelemetry/semantic-conventions",
-      "version": "1.43.0",
-      "spdx": "Apache-2.0",
-      "declared": "Apache-2.0",
-      "copyright": [],
-      "textId": "0ffddef9e48f8a09"
     },
     {
       "name": "@peculiar/asn1-android",
@@ -1554,7 +1532,7 @@
     },
     {
       "name": "@scalar/client-side-rendering",
-      "version": "0.4.12",
+      "version": "0.4.13",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1574,7 +1552,7 @@
     },
     {
       "name": "@scalar/hono-api-reference",
-      "version": "0.12.13",
+      "version": "0.12.14",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1584,7 +1562,7 @@
     },
     {
       "name": "@scalar/schemas",
-      "version": "0.14.0",
+      "version": "0.15.0",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1594,7 +1572,7 @@
     },
     {
       "name": "@scalar/types",
-      "version": "0.24.0",
+      "version": "0.25.0",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1701,7 +1679,7 @@
     },
     {
       "name": "@shikijs/vscode-textmate",
-      "version": "10.0.2",
+      "version": "10.1.0",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1791,7 +1769,7 @@
     },
     {
       "name": "@tanstack/query-core",
-      "version": "5.104.1",
+      "version": "5.104.5",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1801,7 +1779,7 @@
     },
     {
       "name": "@tanstack/react-query",
-      "version": "5.104.1",
+      "version": "5.104.5",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1821,7 +1799,7 @@
     },
     {
       "name": "@tanstack/react-table",
-      "version": "9.2.5",
+      "version": "9.3.1",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -1841,7 +1819,7 @@
     },
     {
       "name": "@tanstack/table-core",
-      "version": "9.2.5",
+      "version": "9.3.1",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -2402,16 +2380,6 @@
       "textId": "7c9b48b52decb983"
     },
     {
-      "name": "asn1",
-      "version": "0.2.6",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2011 Mark Cavage, All rights reserved."
-      ],
-      "textId": "380f9badaaa56339"
-    },
-    {
       "name": "asn1js",
       "version": "3.1.0",
       "spdx": "BSD-3-Clause",
@@ -2444,7 +2412,7 @@
     },
     {
       "name": "better-auth",
-      "version": "1.7.7",
+      "version": "1.7.12",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -2454,7 +2422,7 @@
     },
     {
       "name": "better-call",
-      "version": "1.4.0",
+      "version": "1.4.4",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -2984,7 +2952,7 @@
     },
     {
       "name": "drizzle-orm",
-      "version": "1.0.0-rc.4",
+      "version": "1.0.0-rc.5",
       "spdx": "Apache-2.0",
       "declared": "Apache-2.0",
       "copyright": [],
@@ -2992,7 +2960,7 @@
     },
     {
       "name": "effect",
-      "version": "4.0.4",
+      "version": "4.0.6",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -3365,7 +3333,7 @@
     },
     {
       "name": "immer",
-      "version": "11.1.21",
+      "version": "11.2.9",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -3453,7 +3421,7 @@
     },
     {
       "name": "jose",
-      "version": "6.2.12",
+      "version": "6.2.13",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -3523,7 +3491,7 @@
     },
     {
       "name": "linkifyjs",
-      "version": "4.3.3",
+      "version": "4.4.0",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -3543,7 +3511,7 @@
     },
     {
       "name": "lucide-react",
-      "version": "1.59.0",
+      "version": "1.61.0",
       "spdx": "ISC",
       "declared": "ISC",
       "copyright": [
@@ -3737,19 +3705,8 @@
       "textId": "fe2a9817987f862e"
     },
     {
-      "name": "node-rsa",
-      "version": "1.1.1",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2014-2026 rzcoder",
-        "Copyright (c) 2003-2009 Tom Wu (BigInteger / RSA primitives, see src/bigint/big-integer.ts)"
-      ],
-      "textId": "dcdd5bec314a2c06"
-    },
-    {
       "name": "nodemailer",
-      "version": "10.1.4",
+      "version": "10.2.1",
       "spdx": "MIT-0",
       "declared": "MIT-0",
       "copyright": [
@@ -4012,7 +3969,7 @@
     },
     {
       "name": "postcss",
-      "version": "8.5.30",
+      "version": "8.5.31",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -4044,7 +4001,7 @@
     },
     {
       "name": "postcss-selector-parser",
-      "version": "7.1.6",
+      "version": "7.1.7",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -4244,7 +4201,7 @@
     },
     {
       "name": "prosemirror-transform",
-      "version": "1.12.2",
+      "version": "1.12.4",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -4254,7 +4211,7 @@
     },
     {
       "name": "prosemirror-view",
-      "version": "1.42.6",
+      "version": "1.42.7",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -4374,7 +4331,7 @@
     },
     {
       "name": "react-resizable-panels",
-      "version": "4.14.4",
+      "version": "4.14.8",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -4532,7 +4489,7 @@
     },
     {
       "name": "samlify",
-      "version": "2.14.0",
+      "version": "2.15.1",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -4572,7 +4529,7 @@
     },
     {
       "name": "set-cookie-parser",
-      "version": "3.1.4",
+      "version": "3.2.1",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -4771,7 +4728,7 @@
     },
     {
       "name": "tldts",
-      "version": "7.4.18",
+      "version": "7.4.19",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -4781,7 +4738,7 @@
     },
     {
       "name": "tldts-core",
-      "version": "7.4.18",
+      "version": "7.4.19",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -4959,7 +4916,7 @@
     },
     {
       "name": "unpdf",
-      "version": "1.9.0",
+      "version": "1.9.1",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [
@@ -5149,16 +5106,6 @@
     },
     {
       "name": "xpath",
-      "version": "0.0.32",
-      "spdx": "MIT",
-      "declared": "MIT",
-      "copyright": [
-        "Copyright (c) 2018 Cameron McCormack"
-      ],
-      "textId": "7c9b48b52decb983"
-    },
-    {
-      "name": "xpath",
       "version": "0.0.33",
       "spdx": "MIT",
       "declared": "MIT",
@@ -5169,7 +5116,7 @@
     },
     {
       "name": "xpath",
-      "version": "0.0.34",
+      "version": "0.0.35",
       "spdx": "MIT",
       "declared": "MIT",
       "copyright": [

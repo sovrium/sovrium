@@ -198,6 +198,29 @@ export const fieldReadOnEveryAdmittedRow = (
 }
 
 /**
+ * The fields a per-record grant opens, one field at a time: the rows `admission`
+ * admits on which `field` is shown to `reader` ONLY because a grant gives her a
+ * role that reads it there — or `'own-role'` when her own role reads it on
+ * every row. A figure, filter or sort over such a field runs over exactly those
+ * rows, the ones her list shows it on; an empty list means no row shows it.
+ */
+export const rowsGrantOpensField = (
+  read: { readonly app: App; readonly tableName: string; readonly reader: RelatedReader },
+  rows: { readonly admission: RowReadAdmission; readonly grants: RowGrants },
+  field: string
+): 'own-role' | readonly string[] => {
+  const { app, tableName, reader } = read
+  if (recordFieldsReadableBy(app, tableName, reader).includes(field)) return 'own-role'
+  const { admission, grants } = rows
+  if (admission.kind === 'no-row') return []
+  const opens = (role: string): boolean =>
+    recordFieldsReadableBy(app, tableName, asGrantRole(reader, role)).includes(field)
+  return [...grants]
+    .filter(([id, roles]) => admitsRow(admission, id) && roles.some(opens))
+    .map(([id]) => id)
+}
+
+/**
  * A visitor who is not signed in, as a read judges her: the signed-out visitor
  * principal the records API judges her as (`SIGNED_OUT_VISITOR_ROLE`), in no
  * group — never the `guest` role name, which an app may declare and which

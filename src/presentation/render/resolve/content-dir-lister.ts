@@ -253,19 +253,24 @@ const buildSidebarEntries = (
 }
 
 /**
- * Read every markdown file under `contentDir.directory` (via the shared,
- * stat-revalidated corpus cache in the infrastructure enumerator), then apply
- * `filter` + `sort`. Pure-data result — the caller turns this into the
- * `sidebar`/`previous`/`next` shape.
+ * Read the markdown files `contentDir.include` matches under
+ * `contentDir.directory` (every `.md` file, recursively, when it sets none),
+ * via the shared, stat-revalidated corpus cache in the infrastructure
+ * enumerator, then apply `filter` + `sort`. Pure-data result — the caller turns
+ * this into the `sidebar`/`previous`/`next` shape.
  *
- * Note: deliberately scans every `.md` file (no `include` narrowing) — the
- * sidebar has always listed the full directory; keep that behavior.
+ * The same file set the article route serves and `sovrium bundle` carries, so
+ * the sidebar never links to an article that answers 404, and a bundled app
+ * shows the sidebar its source shows.
  */
 const loadFilteredFiles = async (
   contentDir: ContentDir,
   isReadable: ((frontmatter: Readonly<Record<string, string>>) => boolean) | undefined
 ): Promise<readonly ContentDirFile[]> => {
-  const corpus = await loadContentDirCorpus(normaliseDirectory(contentDir.directory))
+  const corpus = await loadContentDirCorpus(
+    normaliseDirectory(contentDir.directory),
+    contentDir.include
+  )
   const presentFiles = corpus.map((file) => ({
     slug: filePathToSlug(file.relativePath),
     frontmatter: file.frontmatter,

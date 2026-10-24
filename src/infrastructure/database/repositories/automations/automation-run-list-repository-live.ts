@@ -11,7 +11,7 @@
  * trigger name and reader scope).
  */
 
-import { and, desc, eq, inArray, isNull, or, sql, type SQL } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, notInArray, or, sql, type SQL } from 'drizzle-orm'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
@@ -86,6 +86,10 @@ const relayNamesNoRun = (): SQL =>
     ? sql`json_extract(${automationRuns.relay}, '$.run') IS NULL`
     : sql`(${automationRuns.relay} ->> 'run') IS NULL`
 
+/** Leave out the runs of the automations named: those only an admin reads. */
+const exceptAutomationsFilter = (names: readonly string[]): ReadonlyArray<SQL> =>
+  names.length === 0 ? [] : [notInArray(automationDefinitions.name, [...names])]
+
 /**
  * The runs a scoped caller may read: those they started by hand themselves
  * (never one another run started on their behalf), and the runs a request
@@ -106,6 +110,7 @@ export const readableByFilters = (readableBy: RunReaderScope | undefined): Reado
             ? []
             : [inArray(automationRuns.id, [...readableBy.runIds])])
         ) as SQL,
+        ...exceptAutomationsFilter(readableBy.exceptAutomations ?? []),
       ]
 
 /** The runs one trigger entry started — and, when asked, the runs that recorded no name. */

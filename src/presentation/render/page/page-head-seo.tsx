@@ -5,7 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { type ReactElement } from 'react'
+import { type ReactElement, useContext } from 'react'
+import { PageLanguageAlternatesContext } from './page-alternates'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Page } from '@/domain/models/app/pages'
 import type { ContentDirSeoMeta } from '@/domain/models/app/pages/content-dir-seo-meta'
@@ -49,63 +50,57 @@ const resolveHreflangOrigin = (canonical: string | undefined): string | undefine
 }
 
 /**
- * Renders hreflang alternate links for multi-language SEO.
- * Generates <link rel="alternate" hreflang="..."> tags for each supported language.
+ * Renders hreflang alternate links for multi-language SEO: one
+ * `<link rel="alternate" hreflang="...">` per language the page exists in, plus
+ * `x-default` naming its default-language address.
  *
- * Uses dual-pattern approach:
- * - hreflang attribute: Full locale (e.g., 'en-US', 'fr-FR') for SEO standards
- * - href attribute: ABSOLUTE URL sharing the canonical's origin, short-code path
- *   segment (e.g. `https://example.com/en/products`) for routing
+ * The addresses are the page's {@link PageLanguageAlternatesContext} — the
+ * domain's one reading of page paths, which the sitemap reads too — so the two
+ * never contradict each other: a page whose path already names its language
+ * (`/fr/pricing`) is paired with its twins rather than prefixed a second time,
+ * a twin no page serves is never advertised, and a page with a path per
+ * language names each translated slug. No alternate at all is emitted for a
+ * page that exists in a single language.
  *
- * TRAILING SLASH — emitted ONLY for the language root. Every alternate
- * carried one until trailing-slash normalization shipped; from then on
- * `/en/products/` 301s to `/en/products`, and Google requires an hreflang
- * alternate to be non-redirecting or it discards the annotation. The language
- * root `/en/` keeps its slash because that IS its canonical form — the one path
- * the normalizer exempts, since `/en` already 301s TO `/en/`.
- *
- * Includes x-default link pointing to the default language for undefined locales.
+ * Dual pattern: `hreflang` carries the full locale (`fr-FR`), the `href` the
+ * short-code address made ABSOLUTE on the canonical's origin. The language root
+ * `/en/` keeps its trailing slash, the one address the trailing-slash
+ * normalizer exempts; every other alternate is slash-free, because Google
+ * discards an alternate that redirects.
  */
 function HreflangLinks({
-  page,
+  canonical,
   languages,
 }: {
-  readonly page: Page
+  readonly canonical: string | undefined
   readonly languages: Languages | undefined
 }): ReactElement | undefined {
-  if (!languages || languages.supported.length <= 1) {
-    return undefined
-  }
-
-  // The homepage's alternate is the language ROOT (`/en/`), which is canonical
-  // WITH its slash; every other page's alternate is the slash-free canonical
-  // form the trailing-slash normalizer redirects to.
-  const basePath = page.path === '/' ? '/' : page.path
-  const origin = resolveHreflangOrigin(page.meta?.canonical)
+  const alternates = useContext(PageLanguageAlternatesContext)
+  if (!languages || alternates.length === 0) return undefined
+  const origin = resolveHreflangOrigin(canonical)
   if (origin === undefined) return undefined
+  const localeOf = (code: string): string =>
+    languages.supported.find((lang) => lang.code === code)?.locale || code
+  const xDefault = alternates.find((alternate) => alternate.language === languages.default)
 
   return (
     <>
-      {languages.supported.map((lang) => {
-        // Use full locale for hreflang attribute (e.g., 'en-US', 'fr-FR')
-        // Use short code for the URL path segment (e.g., '/en/', '/fr/'), made
-        // absolute with the resolved origin for host-consistency with canonical.
-        const hreflang = lang.locale || lang.code
-        return (
-          <link
-            key={lang.code}
-            rel="alternate"
-            hrefLang={hreflang}
-            href={`${origin}/${lang.code}${basePath}`}
-          />
-        )
-      })}
-      <link
-        key="x-default"
-        rel="alternate"
-        hrefLang="x-default"
-        href={`${origin}/${languages.default}${basePath}`}
-      />
+      {alternates.map((alternate) => (
+        <link
+          key={alternate.language}
+          rel="alternate"
+          hrefLang={localeOf(alternate.language)}
+          href={`${origin}${alternate.path}`}
+        />
+      ))}
+      {xDefault !== undefined && (
+        <link
+          key="x-default"
+          rel="alternate"
+          hrefLang="x-default"
+          href={`${origin}${xDefault.path}`}
+        />
+      )}
     </>
   )
 }
@@ -148,10 +143,13 @@ function ContentDirHreflangLinks({
  */
 export function HreflangSection({
   page,
+  canonical,
   languages,
   contentDirSeo,
 }: {
   readonly page: Page
+  /** The page's canonical as rendered (a `$t:` key resolved); its origin hosts the alternates. */
+  readonly canonical?: string
   readonly languages: Languages | undefined
   readonly contentDirSeo: ContentDirSeoMeta | undefined
 }): ReactElement | undefined {
@@ -160,7 +158,7 @@ export function HreflangSection({
   }
   return (
     <HreflangLinks
-      page={page}
+      canonical={canonical ?? page.meta?.canonical}
       languages={languages}
     />
   )
@@ -210,11 +208,13 @@ function AlternateRepresentationLinks({
  */
 export function HeadAlternateLinks({
   page,
+  canonical,
   languages,
   contentDirSeo,
   feedTitle,
 }: {
   readonly page: Page
+  readonly canonical?: string
   readonly languages?: Languages
   readonly contentDirSeo?: ContentDirSeoMeta
   readonly feedTitle?: string
@@ -223,6 +223,7 @@ export function HeadAlternateLinks({
     <>
       <HreflangSection
         page={page}
+        canonical={canonical}
         languages={languages}
         contentDirSeo={contentDirSeo}
       />

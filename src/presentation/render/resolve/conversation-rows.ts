@@ -352,5 +352,9 @@ export async function expandBoundRows(
         : expandDataSourceChildren(component, rows, paginationMeta, { tableName })
     return { ...drawn, ...followedParentOf(component, reader.app) } as Component
   }
-  return expandDataSourceChildren(component, rows, paginationMeta, { tableName })
+  // A list nested in a row keeps its own template; it reads its rows afterwards.
+  return expandDataSourceChildren(component, rows, paginationMeta, {
+    tableName,
+    substitution: 'stop-at-nested-rows',
+  })
 }

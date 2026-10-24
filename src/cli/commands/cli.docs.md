@@ -62,7 +62,7 @@ Supported extensions are `.json`, `.yaml`, `.yml`, `.ts` and `.mts`. The format 
 sovrium start app.yaml --watch
 ```
 
-The watch follows the whole configuration, not just the file you named. A split config — an `app.ts` importing modules under `config/`, or an `app.yaml` pulling files in through `$ref` — reloads when **any** of those files changes, at any depth. The watched set is re-derived after every reload, so a module or `$ref` you add is followed from then on and one you remove stops triggering. The startup line says how many linked files are being watched.
+The watch follows the whole configuration, not just the file you named. A split config — an `app.ts` importing modules under `config/`, or an `app.yaml` pulling files in through `$ref` — reloads when **any** of those files changes, at any depth. The watched set is re-derived after every reload, so a module or `$ref` you add is followed from then on and one you remove stops triggering. The startup line says how many linked files are being watched. A save to any of those files made while the server is still reading the configuration at boot is not lost: once the watcher is up, a file changed since the boot began reading is reloaded.
 
 ### What a save looks like
 

@@ -65,7 +65,7 @@ An agent answering someone writes as that person, and `record.update` and `recor
 
 **Auth actions** are the sharpest thing on the list. Creating a user, assigning a role or banning somebody means an agent can alter who has access to your app. Grant them only to an agent whose role is itself privileged enough to justify it, and put them behind approval.
 
-**Running code** executes in a sandbox, but it is still the broadest capability here — it is the action that turns "what the agent may do" from a list into a language.
+**Running code** runs on its own thread with restricted globals, as trusted as the configuration, and it is still the broadest capability here — it is the action that turns "what the agent may do" from a list into a language.
 
 ### Driving a browser
 

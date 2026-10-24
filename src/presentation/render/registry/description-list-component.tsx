@@ -34,6 +34,8 @@
  * Specs: [internal ref]
  */
 
+import { relativeStampOf } from '@/domain/models/app/tables/relative-stamp-service'
+import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import {
   computeDescriptionActionClasses,
   computeDescriptionDetailClasses,
@@ -101,7 +103,19 @@ function formattedTextDetail(
     languages: context.languages,
     tables: context.tables,
   })
-  return text === undefined || text === '' ? item.detail : text
+  if (text === undefined || text === '') return item.detail
+  // A relative reading carries its instant and its absolute moment (`time`).
+  const stamp = relativeStampOf(value, format, context.lang, parseSovriumTimezone().zoneId)
+  return stamp === undefined ? (
+    text
+  ) : (
+    <time
+      dateTime={stamp.dateTime}
+      title={stamp.title}
+    >
+      {text}
+    </time>
+  )
 }
 
 /** The detail node of a row, or `undefined` when it is empty. */

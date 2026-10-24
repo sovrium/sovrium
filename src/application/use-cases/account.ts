@@ -46,6 +46,7 @@ import {
 import {
   shapeAiSections,
   shapeAuditEntry,
+  shapeEmailSuppressions,
   shapeEntityLists,
   shapeAuthoredRecord,
   shapeChatAttachment,
@@ -60,6 +61,7 @@ import {
 import { decodeOrThrow } from '@/domain/models/api/combinators/decode'
 import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
 import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
+import type { EmailSuppressionEntry } from '@/application/ports/repositories/automations/email-deliverability-repository'
 import type { SocialExport } from '@/application/use-cases/auth/account-export-social'
 
 /** Grace period (days) before a scheduled erasure is hard-purged. */
@@ -119,6 +121,7 @@ interface ExportSources {
   readonly ai: AccountAiFootprint
   readonly entityLists: AccountEntityLists
   readonly social: SocialExport
+  readonly emailSuppressions: readonly EmailSuppressionEntry[]
 }
 
 /** Assemble the export payload from the caller's rows. Pure shaping logic. */
@@ -180,6 +183,7 @@ function buildExportPayload(sources: Readonly<ExportSources>) {
     ...shapeAiSections(sources.ai, sources.uploads),
     ...shapeEntityLists(sources.entityLists),
     ...sources.social,
+    emailSuppressions: shapeEmailSuppressions(sources.emailSuppressions),
   }
 }
 
@@ -249,6 +253,7 @@ export const ExportAccount = (
         repo.loadAiFootprint(userId, user.email),
         repo.loadEntityLists(userId),
       ])
+    const emailSuppressions = yield* repo.loadEmailSuppressions(user.email)
 
     const recordTables = yield* repo.tablesWithCreatedBy(tables)
     const readable = readableFieldsOf(tables)
@@ -275,7 +280,7 @@ export const ExportAccount = (
         formSubmissions: submissionRows.map(shapeFormSubmission),
         auditRows,
         uploads,
-        ...{ ai, entityLists, social },
+        ...{ ai, entityLists, social, emailSuppressions },
       })
     )
     return { _tag: 'Ok', body } as const

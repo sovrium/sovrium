@@ -18,6 +18,14 @@
  * place: no sidecar either. An edit that changes the page's structure (a move,
  * an addition, a removal, a property the page did not set) has no literal to
  * rewrite, and is refused whole with the way to write it, `--sidecar`.
+ *
+ * A NEW page (`--new-pages`) is appended as an object literal to the `pages`
+ * array literal of the config's own module, after its last element and in
+ * its indentation, nothing else in the file changing. When the module does
+ * not write `pages` as such a literal (a helper's return, a spread, an
+ * imported constant), the new page is refused with the file and line where
+ * `pages` is computed, and `--sidecar` named as the way to write it: there is
+ * no automatic fallback.
  */
 
 import { realpath } from 'node:fs/promises'
@@ -29,6 +37,7 @@ import {
   type ConfigSources,
 } from '@/infrastructure/config/ts-config-literals'
 import { refuse } from './app-prelude'
+import { plannedAppends, withAppends, type PageAppend } from './design-system-import-pages-append'
 import { changedBytes } from './design-system-import-pages-write'
 import { writeAtomically } from './design-system-import-write'
 import { indented } from './library-add-config'
@@ -59,6 +68,12 @@ export interface LiteralEdit {
   readonly after: string | number
   /** The edit's path from the config root, to judge the result before writing. */
   readonly at: readonly Step[]
+}
+
+/** What a TypeScript config's pages come to: the literals rewritten, and the new pages appended. */
+export interface LiteralPlan {
+  readonly edits: readonly LiteralEdit[]
+  readonly appends: readonly PageAppend[]
 }
 
 const isObject = (value: unknown): value is JsonObject =>
@@ -220,20 +235,17 @@ export const planTypeScriptLiterals = async (
   configPath: string,
   parsed: unknown,
   merged: readonly MergedPage[]
-): Promise<{ readonly merged: readonly MergedPage[]; readonly edits: readonly LiteralEdit[] }> => {
-  const created = merged.find((page) => page.plan.report.created !== undefined)
-  if (created !== undefined) {
-    return refuse(
-      `Error: The page ${created.name} is new, and a TypeScript config is edited literal by literal, so nothing was written.\n\n` +
-        '  Run again with --sidecar to write the new page to its sidecar.'
-    )
-  }
+): Promise<LiteralPlan & { readonly merged: readonly MergedPage[] }> => {
+  const created = merged.filter((page) => page.plan.report.created !== undefined)
   const rawPages = (
     isObject(parsed) && Array.isArray(parsed['pages']) ? parsed['pages'] : []
   ) as readonly JsonObject[]
-  const changed = merged.filter((page) => page.plan.patch !== undefined)
-  if (changed.length === 0) return { merged, edits: [] }
+  const changed = merged.filter(
+    (page) => page.plan.patch !== undefined && page.plan.report.created === undefined
+  )
+  if (changed.length === 0 && created.length === 0) return { merged, edits: [], appends: [] }
   const sources = await sourcesOf(configPath)
+  const appends = await plannedAppends(sources, created)
   const planned = await Promise.all(
     changed.map(async (page) => {
       const index = rawPages.findIndex((raw) => raw['name'] === page.name)
@@ -252,6 +264,7 @@ export const planTypeScriptLiterals = async (
         : withRefusals(page, plan.refused)
     }),
     edits: planned.flatMap(([, plan]) => plan.literals),
+    appends,
   }
 }
 
@@ -267,57 +280,96 @@ const setAt = (value: unknown, path: readonly Step[], next: unknown): unknown =>
   return isObject(value) ? { ...value, [step]: setAt(value[step], rest, next) } : value
 }
 
+/** One range of a module to replace: the text it held when read, and what it becomes. */
+interface Splice {
+  readonly path: string
+  readonly file: string
+  readonly line: number
+  readonly start: number
+  readonly end: number
+  readonly expected: string
+  readonly replacement: string
+}
+
+/** Every range the plan replaces: each literal rewritten, each array appended to after its anchor. */
+const splicesOf = (plan: LiteralPlan): readonly Splice[] => [
+  ...plan.edits.map((edit) => ({
+    ...edit,
+    expected: edit.literal,
+    replacement: rewrittenLiteral(edit.literal, edit.after),
+  })),
+  ...plan.appends.map((append) => ({
+    path: append.path,
+    file: append.file,
+    line: append.line,
+    start: append.insertAt - append.anchor.length,
+    end: append.insertAt,
+    expected: append.anchor,
+    replacement: `${append.anchor}${append.text}`,
+  })),
+]
+
+/** Splice one module, refusing when it changed since it was read; the bytes changed. */
+const splicedFile = async (path: string, inFile: readonly Splice[]): Promise<number> => {
+  // Read as the locator read it (`Bun.file().text()` drops a byte-order mark), and keep the mark.
+  const raw = await Bun.file(path).bytes()
+  const bom = raw[0] === 0xef && raw[1] === 0xbb && raw[2] === 0xbf ? '\uFEFF' : ''
+  const text = await Bun.file(path).text()
+  const moved = inFile.find((splice) => text.slice(splice.start, splice.end) !== splice.expected)
+  if (moved !== undefined) {
+    return refuse(
+      `Error: ${moved.file} changed while the import read it (line ${moved.line}), so nothing was written.\n\n` +
+        '  Run the import again.'
+    )
+  }
+  const next = inFile
+    .toSorted((a, b) => b.start - a.start)
+    .reduce(
+      (acc, splice) => `${acc.slice(0, splice.start)}${splice.replacement}${acc.slice(splice.end)}`,
+      text
+    )
+  if (next !== text) await writeAtomically(path, `${bom}${next}`)
+  return changedBytes(text, next)
+}
+
 /**
- * Rewrite each literal in its module, after judging the result.
+ * Rewrite each literal in its module and append each new page, after judging the result.
  *
  * @param configPath - the TypeScript config.
  * @param loaded - the config as evaluated, and the include sources it read.
- * @param edits - the literals to rewrite.
+ * @param plan - the literals to rewrite, and the new pages to append.
  */
 export const writeLiterals = async (
   configPath: string,
   loaded: { readonly parsed: unknown; readonly refSources: ReadonlyMap<string, string> },
-  edits: readonly LiteralEdit[]
+  plan: LiteralPlan
 ): Promise<Written> => {
-  if (edits.length === 0) return { bytes: 0 }
-  const outcome = await validateParsedConfig(withValues(loaded.parsed, edits), loaded.refSources)
+  const { edits, appends } = plan
+  if (edits.length === 0 && appends.length === 0) return { bytes: 0 }
+  const candidate = withAppends(withValues(loaded.parsed, edits), appends)
+  const outcome = await validateParsedConfig(candidate, loaded.refSources)
   if (outcome.errors.length > 0) {
     return refuse(
       `Error: The imported pages do not validate, so nothing was written.\n\n${indented(outcome.errors)}`
     )
   }
-  const byFile = Map.groupBy(edits, (edit) => edit.path)
-  const bytes = await [...byFile].reduce<Promise<number>>(async (previous, [path, inFile]) => {
-    const sum = await previous
-    // Read as the locator read it (`Bun.file().text()` drops a byte-order mark), and keep the mark.
-    const raw = await Bun.file(path).bytes()
-    const bom = raw[0] === 0xef && raw[1] === 0xbb && raw[2] === 0xbf ? '\uFEFF' : ''
-    const text = await Bun.file(path).text()
-    const moved = inFile.find((edit) => text.slice(edit.start, edit.end) !== edit.literal)
-    if (moved !== undefined) {
-      return refuse(
-        `Error: ${moved.file} changed while the import read it (line ${moved.line}), so nothing was written.\n\n` +
-          '  Run the import again.'
-      )
-    }
-    const next = inFile
-      .toSorted((a, b) => b.start - a.start)
-      .reduce(
-        (acc, edit) =>
-          `${acc.slice(0, edit.start)}${rewrittenLiteral(edit.literal, edit.after)}${acc.slice(edit.end)}`,
-        text
-      )
-    if (next !== text) await writeAtomically(path, `${bom}${next}`)
-    return sum + changedBytes(text, next)
-  }, Promise.resolve(0))
+  const byFile = Map.groupBy(splicesOf(plan), (splice) => splice.path)
+  const bytes = await [...byFile].reduce<Promise<number>>(
+    async (previous, [path, inFile]) => (await previous) + (await splicedFile(path, inFile)),
+    Promise.resolve(0)
+  )
   return {
     config: configPath,
     bytes,
-    literals: edits.map((edit) => ({
-      file: edit.file,
-      line: edit.line,
-      before: String(edit.before),
-      after: String(edit.after),
-    })),
+    ...(edits.length === 0
+      ? {}
+      : {
+          literals: edits.map((edit) => ({
+            file: edit.file,
+            line: edit.line,
+            before: String(edit.before),
+            after: String(edit.after),
+          })),
+        }),
   }
 }

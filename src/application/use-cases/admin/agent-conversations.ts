@@ -42,7 +42,10 @@ import {
   type AgentConversationHeader,
 } from '@/domain/models/api/admin/agents/conversations'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
-import { withTableLabels } from '@/domain/models/app/agents/stored-tool-call-service'
+import {
+  withTableLabels,
+  withToolLabels,
+} from '@/domain/models/app/agents/stored-tool-call-service'
 import { serverNow } from '@/domain/models/process-env/dev-clock'
 
 /** A declared table's label as the console prints it, or `undefined` for an undeclared one. */
@@ -96,7 +99,14 @@ function buildConversationHeader(row: AdminAgentConversationRow): AgentConversat
  * `model` / `tokenCount` / `toolCalls` are nullable. Omits `conversationId` by
  * construction (it is the request path segment — never a response field).
  */
-function buildMessage(row: AdminAgentMessageRow, labelOf: TableLabelOf): AgentConversationMessage {
+/** What the console calls a stored tool, in the operator's language; `undefined` keeps its name. */
+export type ToolLabelOf = (name: string) => string | undefined
+
+function buildMessage(
+  row: AdminAgentMessageRow,
+  labelOf: TableLabelOf,
+  toolLabelOf: ToolLabelOf
+): AgentConversationMessage {
   return {
     id: row.id,
     role: row.role as AgentConversationMessage['role'],
@@ -105,7 +115,7 @@ function buildMessage(row: AdminAgentMessageRow, labelOf: TableLabelOf): AgentCo
     model: row.model,
     tokenCount: row.tokenCount,
     // A stored call naming a table reads by that table's label as declared NOW.
-    toolCalls: withTableLabels(row.toolCalls ?? null, labelOf),
+    toolCalls: withToolLabels(withTableLabels(row.toolCalls ?? null, labelOf), toolLabelOf),
     createdAt: toIso(row.createdAt),
   }
 }
@@ -301,7 +311,8 @@ export type AgentConversationDetailOutcome =
 export const BuildAgentConversationDetail = (
   agentName: string,
   conversationId: string,
-  labelOf: TableLabelOf = () => undefined
+  labelOf: TableLabelOf = () => undefined,
+  toolLabelOf: ToolLabelOf = () => undefined
 ): Effect.Effect<
   AgentConversationDetailOutcome,
   AdminAgentConversationsDatabaseError,
@@ -318,7 +329,7 @@ export const BuildAgentConversationDetail = (
     const messageRows = yield* repo.listMessages(conversationId)
     const body = {
       conversation: buildConversationHeader(conversationRow),
-      messages: messageRows.map((row) => buildMessage(row, labelOf)),
+      messages: messageRows.map((row) => buildMessage(row, labelOf, toolLabelOf)),
     }
 
     const parsed = decodeSafe(agentConversationDetailResponseSchema)(body)

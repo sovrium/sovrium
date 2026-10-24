@@ -60,6 +60,7 @@ export const EXPORT_COVERAGE: Readonly<Record<string, ExportStatus>> = {
   'system.user_presence': 'exported',
   'system.notifications': 'exported',
   'system.notification_preferences': 'exported',
+  'system.email_suppressions': 'exported',
 
   // Deliberately withheld — credentials and pure derivations.
   'auth.two_factor': 'withheld',
@@ -70,6 +71,7 @@ export const EXPORT_COVERAGE: Readonly<Record<string, ExportStatus>> = {
   'auth.oauth_refresh_token': 'withheld',
   'system.connection_tokens': 'withheld',
   'system.calendar_feed_tokens': 'withheld',
+  'system.account_baselines': 'withheld',
   'system._admin_search_index': 'withheld',
   'system.webhook_outbox_subjects': 'withheld',
 

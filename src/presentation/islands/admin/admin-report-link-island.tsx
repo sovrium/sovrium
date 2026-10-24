@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useId, type ReactElement } from 'react'
+import { useEffect, useId, type ReactElement } from 'react'
 import { ReportNote, ReportProblemLink } from '../parts/report-problem-link'
 import {
   RETRY_BUTTON_CLASS,
@@ -118,13 +118,13 @@ function RunReport({
 }): ReactElement {
   const read = useReportRead(`/api/admin/reports/runs/${encodeURIComponent(runId)}`)
   const hintId = useId()
+  // Ghost beside the callout's primary Retry, as a failed grid read pairs them.
   return (
     <>
       <ReportProblemLink
         read={read}
         strings={strings}
         hintId={hintId}
-        variant="outline"
         fallback
       />
       <div className="order-last basis-full">
@@ -146,11 +146,19 @@ function RunReport({
 const stampedRequestId = (): string | undefined =>
   requestIdOf(document.querySelector('meta[name="sovrium-request-id"]')?.getAttribute('content'))
 
+/** The console 500 page's own sentence, which asks for a report when nothing else will help. */
+const PAGE_SENTENCE_ID = 'admin-internal-error-body'
+
 /** The console 500 page's body: the id, the report before Reload, and the note. */
 function PageFailureReport({ strings }: { readonly strings: ReportStrings }): ReactElement | null {
   const requestId = stampedRequestId()
   const read = useReportRead(requestId === undefined ? undefined : requestReportEndpoint(requestId))
   const hintId = useId()
+  // A failure the deployment can fix shows that fix below; the page's
+  // "reload, then report it" sentence would ask for a report nobody needs.
+  useEffect(() => {
+    if (read.state === 'fix') document.getElementById(PAGE_SENTENCE_ID)?.remove()
+  }, [read.state])
   if (requestId === undefined) return null
   return (
     <>

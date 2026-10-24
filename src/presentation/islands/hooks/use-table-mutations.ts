@@ -57,12 +57,19 @@ export function useUpdateRecord(tableId: string, options?: UpdateRecordOptions) 
        * stale view from silently destroying someone else's change.
        */
       readonly updatedAt?: string
+      /**
+       * `replace`: each many-to-many list sent is the whole set of links kept,
+       * so a link the list leaves out is removed by the same write. Absent, a
+       * list adds its links and removes none.
+       */
+      readonly linkLists?: 'replace'
     }) => {
       const res = await apiClient.api.tables[':tableId'].records[':recordId'].$patch({
         param: { tableId, recordId: params.recordId },
         json: {
           fields: params.fields,
           ...(params.updatedAt !== undefined && { updatedAt: params.updatedAt }),
+          ...(params.linkLists !== undefined && { linkLists: params.linkLists }),
         },
       })
 

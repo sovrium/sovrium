@@ -36,6 +36,7 @@ import {
   AdminAutomationsRepository,
   type AdminAutomationOverviewRow,
   type AdminAutomationRunRow,
+  type AdminAutomationStatusRow,
   type AdminAutomationsDatabaseError,
 } from '@/application/ports/repositories/automations/admin-automations-repository'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
@@ -65,10 +66,11 @@ import {
 import { type RunStatus } from '@/domain/models/api/automations'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { entityLabelFor } from '@/domain/models/app/auth/readable-name-service'
+import { routineRunSources } from '@/domain/models/app/automations/routine-run-service'
 import { onDevTimeline } from '@/infrastructure/process/server-boot-instant'
 import { buildAdminRunItem, runFailureAttribution, toIso } from './automations-run-item'
 import { runsResultFacts, tallyRunCounts } from './automations-run-labels'
-import { readStepLogs, stepTimingOf } from './automations-run-step-facts'
+import { failedStepOf, readStepLogs, stepTimingOf } from './automations-run-step-facts'
 import { encodeRunsCursor, runsListFilters } from './automations-runs-query'
 import type { ConsoleLanguage } from './operator-language'
 import type { App } from '@/domain/models/app'
@@ -80,9 +82,28 @@ function rowTimestampMs(row: AdminAutomationOverviewRow): number {
   return coerceTimestampToMs(row.startedAt ?? row.createdAt)
 }
 
+/** A bucket's counts: the runs about something, the routine ones, and the failures. */
+interface RunTally {
+  readonly runs: number
+  readonly routineRuns: number
+  readonly failures: number
+}
+
+const EMPTY_TALLY: RunTally = { runs: 0, routineRuns: 0, failures: 0 }
+
+/** Add one run to a tally: a routine run counts apart, a failure is never routine. */
+function tallyRun(acc: RunTally, row: AdminAutomationStatusRow): RunTally {
+  return {
+    runs: acc.runs + (row.routine ? 0 : 1),
+    routineRuns: acc.routineRuns + (row.routine ? 1 : 0),
+    failures: acc.failures + (row.status === 'failed' ? 1 : 0),
+  }
+}
+
 /**
- * Bucket the period-scoped overview rows into the dense `{ runs, failures }`
- * response series via the shared time-series helpers.
+ * Bucket the period-scoped overview rows into the dense
+ * `{ runs, routineRuns, failures }` response series via the shared
+ * time-series helpers.
  */
 function buildAutomationsSeries(
   window: PeriodWindow,
@@ -93,47 +114,21 @@ function buildAutomationsSeries(
     rows,
     getTimestamp: (row) => row.startedAt ?? row.createdAt,
     stepMs,
-    initial: { runs: 0, failures: 0 },
-    accumulate: (acc, row) => ({
-      runs: acc.runs + 1,
-      failures: acc.failures + (row.status === 'failed' ? 1 : 0),
-    }),
+    initial: EMPTY_TALLY,
+    accumulate: tallyRun,
   })
   return buildDenseBucketGrid({
     fromIso: window.from,
     toIso: window.to,
     stepMs,
     rowsByBucket: bucketMap,
-    emptyValue: { runs: 0, failures: 0 },
+    emptyValue: EMPTY_TALLY,
   })
 }
 
-/** Count runs + failures in a flat row list (used for the success rate). */
-function tallyRuns(rows: ReadonlyArray<AdminAutomationOverviewRow>): {
-  readonly runs: number
-  readonly failures: number
-} {
-  return rows.reduce(
-    (acc, row) => ({
-      runs: acc.runs + 1,
-      failures: acc.failures + (row.status === 'failed' ? 1 : 0),
-    }),
-    { runs: 0, failures: 0 }
-  )
-}
-
-/** Count failures in a flat `{ status }` list. */
-function tallyStatuses(rows: ReadonlyArray<{ readonly status: string | null }>): {
-  readonly runs: number
-  readonly failures: number
-} {
-  return rows.reduce(
-    (acc, row) => ({
-      runs: acc.runs + 1,
-      failures: acc.failures + (row.status === 'failed' ? 1 : 0),
-    }),
-    { runs: 0, failures: 0 }
-  )
+/** Tally a flat row list: the 24h tiles. */
+function tallyRuns(rows: ReadonlyArray<AdminAutomationStatusRow>): RunTally {
+  return rows.reduce(tallyRun, EMPTY_TALLY)
 }
 
 // ─── Overview use case ──────────────────────────────────────────────────────────
@@ -179,8 +174,10 @@ export const BuildAutomationsOverview = (
     const fromDate = new Date(window.from)
     const nowMs = now.getTime()
 
-    // Period-scoped raw rows → series + period success rate.
-    const rows = yield* repo.listOverviewRowsSince(fromDate)
+    // Period-scoped raw rows → series + period success rate. Routine runs are
+    // judged against the configuration as it is now.
+    const routine = routineRunSources(app.automations)
+    const rows = yield* repo.listOverviewRowsSince(fromDate, routine)
     const points = buildAutomationsSeries(window, rows)
 
     // 24h fixed totals — independent of the requested period. When the period
@@ -190,10 +187,13 @@ export const BuildAutomationsOverview = (
     const totals24h =
       period === '24h'
         ? tallyRuns(rows.filter((row) => rowTimestampMs(row) >= last24hMs))
-        : tallyStatuses(yield* repo.listOverviewStatusesSince(new Date(last24hMs)))
+        : tallyRuns(yield* repo.listOverviewStatusesSince(new Date(last24hMs), routine))
 
-    // Period-scoped success rate. Convention: zero runs → 1 (100% healthy).
-    const { runs: periodRuns, failures: periodFailures } = tallyRuns(rows)
+    // Period-scoped success rate over EVERY run, routine ones included.
+    // Convention: zero runs → 1 (100% healthy).
+    const periodTally = tallyRuns(rows)
+    const periodRuns = periodTally.runs + periodTally.routineRuns
+    const periodFailures = periodTally.failures
     const successRate =
       periodRuns === 0 ? 1 : Math.max(0, Math.min(1, (periodRuns - periodFailures) / periodRuns))
 
@@ -201,6 +201,7 @@ export const BuildAutomationsOverview = (
       totals: {
         automations: (app.automations ?? []).length,
         runs_24h: totals24h.runs,
+        routine_runs_24h: totals24h.routineRuns,
         failures_24h: totals24h.failures,
         success_rate: successRate,
       },
@@ -236,6 +237,8 @@ export interface AdminRunsListInput {
   readonly to?: string | undefined
   /** Only the runs started by hand from a schedule (`true`), or only the others (`false`). */
   readonly onDemand?: boolean | undefined
+  /** Whether routine runs are listed (`true`), or left out (`false`, the default). */
+  readonly routine: boolean
   /** Free-text term over the automation name and failure `error`; `undefined` = no search. */
   readonly q?: string | undefined
   readonly cursor?: string | undefined
@@ -308,7 +311,13 @@ export const BuildAdminRunsList = (
     // Omitting the key on a no-term request would silently re-arm that
     // in-memory pass the moment an operator CLEARS the box.
     const appliedQuery = input.q ?? null
-    const body = { items, nextCursor, appliedQuery, ...runsResultFacts(counts, language) }
+    const body = {
+      items,
+      nextCursor,
+      appliedQuery,
+      appliedRoutine: input.routine,
+      ...runsResultFacts(counts, language),
+    }
     const parsed = decodeSafe(automationsRunsListResponseSchema)(body)
     if (!parsed.success) {
       return { _tag: 'ValidationFailed', error: parsed.error } as const
@@ -407,16 +416,10 @@ export const BuildAdminRunDetail = (
 
     const ran = steps.filter((step) => step.status !== 'skipped').length
     const item = buildAdminRunItem(app, row, ran, language)
-    const position =
-      row.status === 'failed' ? steps.findIndex((step) => step.status === 'failed') : -1
-    const failed = steps[position]
     const body = {
       ...item,
       steps,
-      failedStep:
-        failed === undefined
-          ? null
-          : { index: failed.index, number: position + 1, label: failed.label ?? failed.name },
+      failedStep: failedStepOf(app, row.automationName, row.status, steps),
       ...(yield* runFailureAttribution(runId, row.status)),
     }
     const parsed = decodeSafe(automationsRunsDetailWithStepsResponseSchema)(body)

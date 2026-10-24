@@ -136,6 +136,9 @@ const CONVERTED_HERE = {
   unique: false,
   check: true,
   'foreign-key': true,
+  // A row other rows still point at: a clash with existing state, answered 409
+  // at the boundary exactly as `unique` is.
+  'still-referenced': false,
   'not-null': true,
 } satisfies Record<ConstraintViolationClass, boolean>
 

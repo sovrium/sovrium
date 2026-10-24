@@ -23,6 +23,7 @@ import { varyOnAcceptLanguage, varyOnCookie } from '@/presentation/api/runtime/v
 import { queryMasksReader } from './caller-table-reader'
 import { setupContentDirIndexRedirectRoutes } from './content-dir-index-redirect-routes'
 import { applyFormFlash } from './form-flash-middleware'
+import { answerLanguageRemainder } from './language-remainder-route'
 import { setupMarkdownExportRoutes } from './markdown-export-routes'
 import {
   extractSession,
@@ -325,16 +326,7 @@ function handleLanguagePageRoute(config: HonoAppConfig) {
           404
         )
       }
-      const pathWithoutLang = path.replace(`/${urlLanguage}`, '') || '/'
-      const lang = await renderWithCache(
-        config,
-        pathWithoutLang,
-        { ...base, detectedLanguage: urlLanguage },
-        c
-      )
-      return (
-        lang ?? c.html(await renderNotFoundPage(app, urlLanguage, requestedPath(c.req.url)), 404)
-      )
+      return await answerLanguageRemainder(config, c, base, urlLanguage)
     } catch (error) {
       return answerRenderFailure(c, error, (id) => renderErrorPage(app, detectedLanguage, id))
     }

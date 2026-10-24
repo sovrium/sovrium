@@ -42,8 +42,8 @@ export function publishedSelectValue(select: HTMLSelectElement): string {
 /** The declaring `<select>` a `change` must have come from in order to publish. */
 const PUBLISHER_SELECTOR = 'select[data-publishes-bind-to][data-publishes-param]'
 
-/** A declaring `<select>` whose choice is mirrored in the page address. */
-const MIRRORED_SELECTOR = 'select[data-publishes-bind-to][data-publishes-param][data-publishes-url]'
+/** A declaring `<select>` or search box whose value is mirrored in the page address. */
+const MIRRORED_SELECTOR = '[data-publishes-bind-to][data-publishes-param][data-publishes-url]'
 
 /** Send `value` on `bindTo`'s channel. */
 function publish(bindTo: string, param: string, value: string): void {
@@ -56,17 +56,18 @@ function publish(bindTo: string, param: string, value: string): void {
 
 /**
  * Run `use` against the address half (`native-select-address.ts`), a split
- * chunk fetched only on a page holding a mirrored select: few pages carry one,
+ * chunk fetched only on a page holding a mirrored select or search box (the
+ * search publisher shares it): few pages carry one,
  * and every page loads this runtime. A chunk a newer release replaced reloads
  * the page once, as the loader's own features do.
  */
-function withAddress(use: (address: typeof NativeSelectAddress) => void): void {
+export function withAddress(use: (address: typeof NativeSelectAddress) => void): void {
   import('./native-select-address').then(use).catch((error: unknown) => {
     if (!reloadOnceForStaleChunk(error)) throw error
   })
 }
 
-/** Open the page's mirrored selects on the address, if it holds any. */
+/** Open the page's mirrored selects and search boxes on the address, if it holds any. */
 function restoreMirrored(): void {
   if (document.querySelector(MIRRORED_SELECTOR) !== null)
     withAddress((address) => address.restoreFromAddress(MIRRORED_SELECTOR, publish))

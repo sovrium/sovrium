@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { withLanguagePrefix, type PageAddress } from '@/domain/kernel/matching/localized-path'
 import type { Options } from 'prettier'
 
 /**
@@ -97,97 +98,36 @@ export const formatHtmlWithPrettier = async (html: string): Promise<string> => {
 }
 
 /**
- * Build the full URL for a page in a specific language.
- *
- * Two shapes are handled so a language prefix never duplicates:
- *  - The path already carries a `:lang` template segment (e.g. `/:lang/about`):
- *    the `:lang` token is SUBSTITUTED with the language code, never prefixed.
- *  - The path is language-agnostic (e.g. `/about`): the language code is
- *    prefixed once (`/en/about`).
- *
- * In both cases the result carries exactly one language prefix (never
- * `/en/en/...` or `/en/:lang/...`).
+ * Build the full URL for a page in a specific language: `baseUrl` joined to the
+ * domain's {@link withLanguagePrefix}, so a `:lang` segment is substituted
+ * rather than prefixed and the result carries exactly one language prefix
+ * (never `/en/en/...` or `/en/:lang/...`).
  */
-export const buildLanguageUrl = (baseUrl: string, lang: string, pagePath: string): string => {
-  if (/(^|\/):lang(\/|$)/.test(pagePath)) {
-    const substituted = pagePath.replace(
-      /(^|\/):lang(\/|$)/,
-      (_match, pre: string, post: string) => (post === '' ? `${pre}${lang}` : `${pre}${lang}/`)
-    )
-    return `${baseUrl}${substituted}`
-  }
-  const normalizedPath = pagePath === '/' ? '' : pagePath
-  return `${baseUrl}/${lang}${normalizedPath}${normalizedPath === '' ? '/' : ''}`
-}
+export const buildLanguageUrl = (baseUrl: string, lang: string, pagePath: string): string =>
+  `${baseUrl}${withLanguagePrefix(lang, pagePath)}`
 
 /**
- * If `pagePath`'s FIRST segment is one of the configured language codes (e.g.
- * `/en/introduction` when `en` is supported), return that code. This identifies
- * a "hardcoded-language" path — a page whose language prefix is baked into its
- * declared `path` (because `contentDir.directory` is per-locale and takes no
- * `:lang` interpolation, so a bilingual docs site declares `/en/:slug` +
- * `/fr/:slug` rather than a single `/:lang/:slug`). Returns `undefined` for
- * language-agnostic paths (`/about`) and `:lang`-template paths.
+ * Render a sitemap entry's hreflang `<xhtml:link>` elements from the page's
+ * {@link languageAlternates} — the pairs the page's HTML alternates name too —
+ * plus `x-default` → the default language's address when the page exists in
+ * it. No alternate yields no link: a page in a single language has none.
  */
-export const leadingLanguageSegment = (
-  pagePath: string,
-  languages: readonly string[]
-): string | undefined => {
-  const firstSegment = pagePath.split('/').filter((segment) => segment.length > 0)[0]
-  return firstSegment !== undefined && languages.includes(firstSegment) ? firstSegment : undefined
-}
-
-/**
- * Swap the leading language segment of a hardcoded-language path with `lang`,
- * yielding the sibling locale's URL: `/en/introduction` + `fr` → `/fr/introduction`,
- * `/en/` + `fr` → `/fr/`. The caller guarantees the first segment is a language
- * code (see {@link leadingLanguageSegment}).
- */
-const swapLeadingLanguage = (pagePath: string, lang: string): string =>
-  pagePath.replace(/^\/[^/]+/, `/${lang}`)
-
-/**
- * Generate hreflang <xhtml:link> elements for a single URL entry
- */
-export const generateHreflangLinks = (
+export const renderSitemapHreflangLinks = (
   baseUrl: string,
-  pagePath: string,
-  languages: readonly string[],
+  alternates: ReadonlyArray<PageAddress>,
   hreflangConfig: HreflangConfig
 ): readonly string[] => {
-  const languageLinks = languages.map((lang) => {
-    const locale = hreflangConfig.localeMap[lang] ?? lang
-    const url = buildLanguageUrl(baseUrl, lang, pagePath)
-    return `<xhtml:link rel="alternate" hreflang="${locale}" href="${url}" />`
+  const languageLinks = alternates.map((alternate) => {
+    const locale = hreflangConfig.localeMap[alternate.language] ?? alternate.language
+    return `<xhtml:link rel="alternate" hreflang="${locale}" href="${baseUrl}${alternate.path}" />`
   })
-
-  const defaultUrl = buildLanguageUrl(baseUrl, hreflangConfig.defaultLanguage, pagePath)
-  const xDefaultLink = `<xhtml:link rel="alternate" hreflang="x-default" href="${defaultUrl}" />`
-
-  return [...languageLinks, xDefaultLink]
-}
-
-/**
- * Generate hreflang <xhtml:link> elements for a hardcoded-language URL entry by
- * swapping the leading language segment across the configured locales. Pairs
- * `/en/introduction` with its `/fr/introduction` sibling (plus `x-default` →
- * the default language) — distinct from {@link generateHreflangLinks}, which
- * PREFIXES a language-agnostic path.
- */
-export const generateHardcodedLangHreflangLinks = (
-  baseUrl: string,
-  pagePath: string,
-  languages: readonly string[],
-  hreflangConfig: HreflangConfig
-): readonly string[] => {
-  const languageLinks = languages.map((lang) => {
-    const locale = hreflangConfig.localeMap[lang] ?? lang
-    const url = `${baseUrl}${swapLeadingLanguage(pagePath, lang)}`
-    return `<xhtml:link rel="alternate" hreflang="${locale}" href="${url}" />`
-  })
-
-  const defaultUrl = `${baseUrl}${swapLeadingLanguage(pagePath, hreflangConfig.defaultLanguage)}`
-  const xDefaultLink = `<xhtml:link rel="alternate" hreflang="x-default" href="${defaultUrl}" />`
-
-  return [...languageLinks, xDefaultLink]
+  const xDefault = alternates.find(
+    (alternate) => alternate.language === hreflangConfig.defaultLanguage
+  )
+  return xDefault === undefined
+    ? languageLinks
+    : [
+        ...languageLinks,
+        `<xhtml:link rel="alternate" hreflang="x-default" href="${baseUrl}${xDefault.path}" />`,
+      ]
 }

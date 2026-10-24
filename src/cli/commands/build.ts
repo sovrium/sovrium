@@ -12,6 +12,7 @@ import { warnDeprecatedKeys } from '@/cli/runtime/config-deprecation-warnings'
 import { offerFailureReport } from '@/cli/runtime/failure-report'
 import { formatConfigRejection, isConfigRejectedError } from '@/domain/errors/config-rejected'
 import { isEngineFailureError } from '@/domain/errors/engine-failure-error'
+import { composePublishedOrigin } from '@/domain/kernel/url/published-origin'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { formatPathForDisplay } from '@/infrastructure/logging/format-path'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
@@ -27,9 +28,32 @@ import type { GenerateStaticOptions } from '@/application/use-cases/server/gener
 import type { StartupPhase } from '@/infrastructure/logging/startup-summary'
 
 /**
+ * Make `SOVRIUM_BASE_URL` the origin the build's own render app advertises.
+ *
+ * The build renders through an in-process app whose requests arrive at
+ * `http://localhost`, and every surface that prints an absolute address reads
+ * `BASE_URL` first, then that request: the crawled `/sitemap.xml` and
+ * `/robots.txt`, the canonical and `hreflang` alternates, a sharing image. So
+ * the published origin is handed to them as `BASE_URL`, and it wins over one
+ * the shell happens to carry: a build describes the site where it is
+ * published, not the server it was started beside.
+ *
+ * Under `SOVRIUM_BASE_PATH` the published origin is the base URL followed by
+ * that path, so a host-only base URL still yields addresses under the sub-path
+ * (`composePublishedOrigin` never doubles a path the URL already carries).
+ */
+const adoptPublishedOrigin = (): void => {
+  const published = Bun.env.SOVRIUM_BASE_URL
+  if (published) {
+    process.env['BASE_URL'] = composePublishedOrigin(published, Bun.env.SOVRIUM_BASE_PATH)
+  }
+}
+
+/**
  * Parse build options from environment variables
  */
 const parseBuildOptions = (): GenerateStaticOptions => {
+  adoptPublishedOrigin()
   // Parse environment variables
   const envVars = {
     outputDir: Bun.env.SOVRIUM_OUTPUT_DIR,
@@ -175,6 +199,8 @@ export const handleBuildCommand = async (
   filePath?: string,
   publicDir?: string | false
 ): Promise<void> => {
+  // First, before the engine loads: it reads the origin this sets.
+  const envOptions = parseBuildOptions()
   const { build } = await lazyImportIndex()
   const { resolveAppSchema } = await lazyImportCli()
   const { logError } = await lazyImportLogger()
@@ -188,7 +214,6 @@ export const handleBuildCommand = async (
   // one does, or `sovrium build` beside an `app.yaml` silently ships no assets.
   // Deprecated keys still decode, so only a walk of the raw config sees them.
   const { app, configFile } = warnDeprecatedKeys(await resolveAppSchema('build', filePath))
-  const envOptions = parseBuildOptions()
   const defaultOutputDir = configFile ? join(dirname(configFile), 'dist') : './dist'
   // `publicDir === false` is the `--no-publicDir` opt-out from dispatch. For
   // build, that flag does NOT drive the legacy outputDir override (it would be

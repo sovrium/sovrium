@@ -61,6 +61,12 @@ export const consoleGrid = {
     selection: {
       kind: 'json',
     },
+    viewOptions: {
+      kind: 'text',
+    },
+    caption: {
+      kind: 'text',
+    },
   },
   rowActions: {
     display: 'menu',
@@ -79,5 +85,6 @@ export const consoleGrid = {
   onRowClick: '$onRowClick',
   columnsFrom: '$columnsFrom',
   selection: '$selection',
-  viewOptions: 'toolbar',
+  viewOptions: '$viewOptions',
+  caption: '$caption',
 } as unknown as Template

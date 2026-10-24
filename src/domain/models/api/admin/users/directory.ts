@@ -155,6 +155,12 @@ export const adminUsersDirectoryQuerySchema = Schema.Struct({
       examples: ['member'],
     }).pipe(Schema.check(Schema.isMinLength(1)))
   ),
+  id: optionalField(
+    Schema.String.annotate({
+      description:
+        'Only the account with exactly this id (`auth.user.id`): how a console page addressed by an account id reads that one account. Combines with the other filters. An id no account carries answers an empty directory, never the whole one. An id is looked up, never searched: `q` still matches only `email` and `name`.',
+    }).pipe(Schema.check(Schema.isMinLength(1)))
+  ),
   status: optionalField(
     Schema.Literals(['banned', 'active']).annotate({
       description:
@@ -213,6 +219,18 @@ export const adminDirectoryUserSchema = Schema.Struct({
     description:
       'Whether the account is banned (`auth.user.banned`). Drives the Statut pill: `false` → actif, `true` → banni.',
   }),
+  unclaimed: optionalField(
+    Schema.Boolean.annotate({
+      description:
+        'Whether nobody has claimed the account yet: it was created for a person the data names (a seeded account marked `unclaimed: true`, or one an import brought in) and holds no way to sign in and no pending invitation. Becomes `false` once the person sets a way to sign in. The Status column reads "Not yet claimed" for such an account rather than "Active". An invited colleague who has not yet accepted is not unclaimed.',
+    })
+  ),
+  status: optionalField(
+    Schema.Literals(['active', 'banned', 'unclaimed']).annotate({
+      description:
+        'The account\'s state in one word, for a column that shows one: `banned` when it is banned, else `unclaimed` when nobody has claimed it yet (see `unclaimed`), else `active`. The Status column reads it ("Active", "Banned", "Not yet claimed"); filtering and the row actions keep reading `banned`.',
+    })
+  ),
   createdAt: Schema.NullOr(
     Schema.String.annotate({
       description:
@@ -237,6 +255,12 @@ export const adminDirectoryUserSchema = Schema.Struct({
     description:
       'How the account signs in: the provider of each sign-in account linked to it, distinct and sorted — `credential` for an email and password, the provider id for a social or single sign-on account (`google`, `github`, …). Empty for an invited colleague who has not yet set a way to sign in.',
   }),
+  signInMethodLabels: optionalField(
+    Schema.Array(Schema.String).annotate({
+      description:
+        'The `signInMethods` as a person reads them, one per method in the same order, in the operator\'s console language: the password method in the console\'s words ("Email and password", « E-mail et mot de passe »), a provider by its brand ("Google", "GitHub", "Sovrium Cloud"). Display text only; `signInMethods` keeps the provider ids.',
+    })
+  ),
   groups: Schema.optionalKey(
     Schema.Array(Schema.String).annotate({
       description:

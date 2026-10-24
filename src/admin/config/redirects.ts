@@ -21,7 +21,7 @@
 // written first anyway, so the table reads the way it resolves:
 // `/users/invitations` is the Invitations tab, never an account by that name.
 //
-// No `/users/:email` rule: one account is still a page of its own at that
+// No `/users/:id` rule: one account is still a page of its own at that
 // address (`pages/data/users-account.ts`), and a rule would shadow it.
 
 import type { AppEncoded as AppConfig } from '@/domain/models/app'

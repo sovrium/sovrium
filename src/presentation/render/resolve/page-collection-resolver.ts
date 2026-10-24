@@ -38,6 +38,7 @@
 import { withRecordText } from '@/domain/models/app/pages/substitute-record-vars'
 import { pageRecordOf } from '@/presentation/render/props/record-value-format'
 import { filledFromRecord } from '@/presentation/render/resolve/avatar-members-binding'
+import { autoBindCommentComponents } from '@/presentation/render/resolve/comment-record-binding'
 import { substituteRecordVars } from '@/presentation/render/resolve/data-source-contracts'
 import { substituteRecordInCollectionTemplate } from '@/presentation/render/resolve/data-source-rows'
 import { recordMatchesCollectionFilter } from '@/presentation/render/resolve/page-collection-filter'
@@ -256,74 +257,6 @@ function substituteRecordInPageComponents(
 }
 
 /**
- * Auto-bind `table` + `recordId` props on `comments` (either display)
- * components when they appear on a page bound to ONE record. The page binds
- * the comments thread to that record by convention
- * schema authors should not
- * need to repeat `table: 'posts', recordId: '$record.id'` in every
- * `props` block. Explicit author values are preserved when present.
- *
- * ─── BOTH SINGLE-RECORD BINDINGS, ONE IMPLEMENTATION ───────────────────────
- *
- * A page reaches one record two ways: `collection` (slug-matched) or a
- * page-level `dataSource: { table, mode: 'single', param }`. The convention is
- * the SAME for both — the comments schema calls `recordId` "auto-resolved to
- * $record.id by default" without naming a binding — but this pass ran only for
- * `collection`, so a `dataSource` detail page left `recordId` unresolved.
- *
- * The failure was silent, which is why it survived: with no record id the
- * renderer omits the `data-island="comments"` marker entirely, so no fetch
- * runs and the SSR empty state stays on the page. A reader was told "No
- * comments yet" while the record's comments sat in the database and the API
- * returned every one of them; the count display of the same component read
- * `0 comments` the same way. A zero and an empty thread are exactly what a
- * record with no comments looks like, so nothing about the page said it was
- * broken.
- *
- * Taking the table NAME rather than the `collection` block is what lets the
- * two callers share this: the pass only ever read `collection.table`.
- *
- * Runs recursively so `comments` components nested inside layout
- * containers (eg. `section > comments`) also get the auto-bind.
- */
-export function autoBindCommentComponents(
-  components: Page['components'],
-  table: string | undefined,
-  recordId: string
-): Page['components'] {
-  if (!components) return components
-  return components.map((item) => {
-    if ('component' in item || '$ref' in item) return item
-    return autoBindCommentInComponent(item as Component, table, recordId)
-  })
-}
-
-function autoBindCommentInComponent(
-  component: Component,
-  table: string | undefined,
-  recordId: string
-): Component {
-  const isCommentComponent = component.type === 'comments'
-  const autoBound = isCommentComponent
-    ? {
-        ...component,
-        props: {
-          ...(component.props ?? {}),
-          ...(typeof component.props?.table === 'string' || table === undefined ? {} : { table }),
-          ...(typeof component.props?.recordId === 'string' ? {} : { recordId }),
-        },
-      }
-    : component
-  if (!autoBound.children || autoBound.children.length === 0) return autoBound
-  return {
-    ...autoBound,
-    children: autoBound.children.map((child: Component | string) =>
-      typeof child === 'string' ? child : autoBindCommentInComponent(child, table, recordId)
-    ),
-  }
-}
-
-/**
  * Resolve a collection page's slug parameter into the record envelope
  * exposed to the rendered page. Returns `none` when the page is not a
  * collection page (no `collection` declaration); `not-found` when the
@@ -469,11 +402,11 @@ export async function resolveCollectionPage(
   // collection-page implicitly target the page's resolved record. Without
   // this auto-bind every schema would need to repeat
   // `props: { table: 'posts', recordId: '$record.id' }` per component.
-  const recordIdValue = record['id']
-  const autoBoundComponents =
-    recordIdValue !== undefined && recordIdValue !== null
-      ? autoBindCommentComponents(substitutedComponents, collection.table, String(recordIdValue))
-      : substitutedComponents
+  const autoBoundComponents = autoBindCommentComponents(
+    substitutedComponents,
+    collection.table,
+    record
+  )
 
   // The `$collection.previous` / `.next` / `.resume` records: a side with none
   // drops the component naming it, so no empty anchor is drawn. The neighbours

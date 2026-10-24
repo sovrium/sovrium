@@ -385,7 +385,8 @@
                                 ]
                               }
                             ],
-                            "emptyMessage": "$t:admin.gdpr.pending.empty"
+                            "emptyMessage": "$t:admin.gdpr.pending.empty",
+                            "viewOptions": "toolbar"
                           }
                         }
                       ]

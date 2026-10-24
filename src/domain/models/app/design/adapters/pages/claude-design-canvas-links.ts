@@ -18,6 +18,9 @@
  * - `data-sovrium-page`, the name of the app page that address draws, route
  *   parameters matched (`/records/tickets` draws `/records/:table`).
  *
+ * An address the router serves under a language segment (`/fr/about`) names
+ * the page its path without that segment draws, as the router reads it.
+ *
  * A target OUTSIDE the app (any scheme, `//host`) leaves no trace: a network
  * address on a board is what the canvas contract forbids, whatever attribute
  * holds it. Neither attribute is ever read back by the page import.
@@ -33,6 +36,8 @@ export interface CanvasLinkRoute {
 export interface CanvasLinkContext {
   readonly routes: readonly CanvasLinkRoute[]
   readonly page: string
+  /** The codes of the languages the app is served in, each a segment an address may open with. */
+  readonly languages?: readonly string[] | undefined
   /** On a clickable canvas: the board an in-app address leads to, relative to this board. */
   readonly hrefOf?: ((target: string) => string | undefined) | undefined
 }
@@ -66,10 +71,23 @@ const matchScore = (pattern: string, address: readonly string[]): number | undef
 }
 
 /**
- * The app page an in-app address draws: the route whose pattern matches it,
- * the most literal one first, then the first declared.
+ * An address without the language segment it opens with, and that language:
+ * `/fr/about` is `/about` in `fr`; an address opening with no supported
+ * language code is returned as it is.
  */
-export const pageOfAddress = (
+export const addressWithoutLanguage = (
+  address: string,
+  languages: readonly string[] = []
+): { readonly address: string; readonly language?: string | undefined } => {
+  const match = /^\/([^/?#]+)(?=$|[/?#])/.exec(address)
+  const code = match?.[1]
+  if (code === undefined || !languages.includes(code)) return { address }
+  const rest = address.slice(code.length + 1)
+  return { address: rest === '' || /^[?#]/.test(rest) ? `/${rest}` : rest, language: code }
+}
+
+/** The best-matching page of an address read as it is. */
+const routeOfAddress = (
   routes: readonly CanvasLinkRoute[],
   address: string
 ): string | undefined => {
@@ -83,6 +101,19 @@ export const pageOfAddress = (
     undefined
   )?.name
 }
+
+/**
+ * The app page an in-app address draws: the route whose pattern matches it,
+ * the most literal one first, then the first declared. An address no route
+ * matches is read again without the supported language segment it opens with.
+ */
+export const pageOfAddress = (
+  routes: readonly CanvasLinkRoute[],
+  address: string,
+  languages: readonly string[] = []
+): string | undefined =>
+  routeOfAddress(routes, address) ??
+  routeOfAddress(routes, addressWithoutLanguage(address, languages).address)
 
 /**
  * The attributes a board draws for a link's `href`: `#` or its own fragment,
@@ -104,7 +135,7 @@ export const boardLinkAttributes = (
     ]
   }
   if (!/^\/(?!\/)/.test(target)) return [['href', '#']]
-  const page = pageOfAddress(context.routes, target)
+  const page = pageOfAddress(context.routes, target, context.languages)
   return [
     ['href', board ?? '#'],
     [CANVAS_LINK_STAMP.href, target],

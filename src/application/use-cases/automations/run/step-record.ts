@@ -107,7 +107,7 @@ const clientErrorOf = (
  */
 const stepStatusOf = (outcome: ActionOutcome): ExecutedStep['status'] => {
   if (outcome.status === 'failure') return 'failure'
-  if (outcome.unconfigured !== undefined) return 'skipped'
+  if (outcome.unconfigured !== undefined || outcome.skipped !== undefined) return 'skipped'
   if (outcome.status === 'filtered') return 'filtered'
   return outcome.park?.container === undefined ? 'success' : 'waiting'
 }

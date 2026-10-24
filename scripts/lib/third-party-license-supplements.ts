@@ -102,13 +102,6 @@ export const LICENSE_SUPPLEMENTS: readonly LicenseSupplement[] = [
   },
   {
     ecosystem: 'npm',
-    packages: ['node-rsa'],
-    files: ['rzcoder-node-rsa.txt'],
-    source:
-      'https://github.com/rzcoder/node-rsa (repository license file; the published package ships none)',
-  },
-  {
-    ecosystem: 'npm',
     packages: ['yoga-layout'],
     files: ['facebook-yoga.txt'],
     source:
@@ -380,14 +373,6 @@ export const LICENSE_SUPPLEMENTS: readonly LicenseSupplement[] = [
     source:
       'https://github.com/emk/cesu8-rs declares MIT but ships no license file; canonical SPDX text, holder from the manifest',
     holder: 'Eric Kidd',
-  },
-  {
-    ecosystem: 'cargo',
-    packages: ['sigchld'],
-    files: ['spdx-mit.txt'],
-    source:
-      'https://github.com/oconnor663/sigchld.rs declares MIT but ships no license file; canonical SPDX text, holder from the manifest',
-    holder: "Jack O'Connor",
   },
   {
     ecosystem: 'cargo',

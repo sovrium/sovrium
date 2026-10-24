@@ -11,16 +11,20 @@ import {
   type ContentDirEntry,
   type ContentDirReadError,
 } from '@/application/ports/services/content-dir-reader'
+import { pageRoutePatterns, primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { isPublicArticle } from '@/domain/models/app/pages/content-dir-access'
 import {
   SITEMAP_MAX_URLS,
   buildSitemapIndexXml,
   chunkSitemapEntries,
   isPageInSitemap,
-  resolveSitemapChangefreq,
-  resolveSitemapPriority,
 } from '@/domain/models/app/pages/sitemap-builder'
 import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
+import {
+  buildSitemapEntries,
+  type ExpandedPage,
+  type ExpandedPath,
+} from './sitemap-language-entries'
 import {
   recordResolverFor,
   toSitemapLastmod,
@@ -29,13 +33,7 @@ import {
   type SitemapReadMasks,
 } from './sitemap-record-fan-out'
 import { renderUrlset } from './sitemap-urlset'
-import {
-  buildLanguageUrl,
-  generateHardcodedLangHreflangLinks,
-  generateHreflangLinks,
-  leadingLanguageSegment,
-  type HreflangConfig,
-} from './static-content-generators'
+import type { HreflangConfig } from './static-content-generators'
 import type { FetchSitemapRecords } from '@/application/ports/services/page-renderer'
 import type { App, Page } from '@/domain/models/app'
 
@@ -43,25 +41,6 @@ import type { App, Page } from '@/domain/models/app'
  * The sitemap documents a site publishes: one `<url>` entry per page path,
  * expanded across languages and records, with its hreflang alternates.
  */
-
-/**
- * Build a single <url> entry for the sitemap
- */
-const buildUrlEntry = (
-  loc: string,
-  lastmod: string | undefined,
-  page: Page,
-  hreflangSection: string
-): string => {
-  const priority = resolveSitemapPriority(page)
-  const changefreq = resolveSitemapChangefreq(page)
-  const lastmodLine = lastmod === undefined ? '' : `\n    <lastmod>${lastmod}</lastmod>`
-  return `  <url>
-    <loc>${loc}</loc>${hreflangSection}${lastmodLine}
-    <priority>${priority.toFixed(1)}</priority>
-    <changefreq>${changefreq}</changefreq>
-  </url>`
-}
 
 /**
  * Expand a single indexable page into the concrete paths that appear in the
@@ -91,23 +70,11 @@ const expandPagePaths = async (
         lastmod: toSitemapLastmod(entry.modifiedAt),
       }))
   }
-  const withoutLang = page.path.replace(/(^|\/):lang(\/|$)/, '$1$2')
-  if (/:[a-zA-Z0-9_]+/.test(withoutLang)) return []
-  return [{ path: page.path, lastmod: undefined }]
-}
-
-/**
- * A concrete URL path plus its `<lastmod>`, when one is actually known.
- *
- * A page declared in config has no modification date the engine could know, so
- * it carries none: Google trusts `lastmod` only from a site whose dates prove
- * accurate, and stamping every entry with the generation date is the fastest
- * way to lose that trust. A content-directory article carries its file's
- * modification time.
- */
-interface ExpandedPath {
-  readonly path: string
-  readonly lastmod: string | undefined
+  // One path per address: a path per language lists each translated slug.
+  return pageRoutePatterns(page.path).flatMap((path) => {
+    const withoutLang = path.replace(/(^|\/):lang(\/|$)/, '$1$2')
+    return /:[a-zA-Z0-9_]+/.test(withoutLang) ? [] : [{ path, lastmod: undefined }]
+  })
 }
 
 /**
@@ -141,7 +108,7 @@ const readContentEntries = (
       pages.filter(isPageInSitemap),
       (page) =>
         page.contentDir
-          ? Effect.map(reader.enumerate(page.contentDir, page.path), (entries) => [
+          ? Effect.map(reader.enumerate(page.contentDir, primaryPagePath(page.path)), (entries) => [
               [page, entries] as const,
             ])
           : Effect.succeed([]),
@@ -149,11 +116,6 @@ const readContentEntries = (
     )
     return new Map(pairs.flat())
   })
-
-/** A concrete sitemap entry: the source page plus its resolved URL path. */
-interface ExpandedPage extends ExpandedPath {
-  readonly page: Page
-}
 
 /**
  * Filter to indexable pages and expand each into its concrete URL paths
@@ -186,96 +148,6 @@ const collectExpandedPages = (
     ),
     (perPage) => perPage.flat()
   )
-
-/** Inputs for {@link buildSitemapEntries}. */
-interface SitemapEntriesInput {
-  readonly expandedPages: readonly ExpandedPage[]
-  readonly baseUrl: string
-  readonly languages: readonly string[] | undefined
-  readonly hreflangConfig: HreflangConfig | undefined
-}
-
-/** Render the `\n`-joined, indented hreflang `<xhtml:link>` block for an entry. */
-const renderHreflangSection = (links: readonly string[]): string => {
-  const indented = links.map((link) => `    ${link}`)
-  return indented.length > 0 ? `\n${indented.join('\n')}` : ''
-}
-
-/** Shared per-language context threaded through the entry builders. */
-interface LanguageEntryContext {
-  readonly baseUrl: string
-  readonly languages: readonly string[]
-  readonly hreflangConfig: HreflangConfig | undefined
-}
-
-/**
- * Build the `<url>` entry for a HARDCODED-language page (its `path` already
- * carries a leading language segment, e.g. `/en/introduction`). Emitted ONCE at
- * its literal path — NOT fanned out across the language loop — with hreflang
- * alternates pairing it to its sibling-locale URLs.
- */
-const buildHardcodedLangEntry = (expanded: ExpandedPage, ctx: LanguageEntryContext): string => {
-  const { baseUrl, languages, hreflangConfig } = ctx
-  const links = hreflangConfig
-    ? generateHardcodedLangHreflangLinks(baseUrl, expanded.path, languages, hreflangConfig)
-    : []
-  return buildUrlEntry(
-    `${baseUrl}${expanded.path}`,
-    expanded.lastmod,
-    expanded.page,
-    renderHreflangSection(links)
-  )
-}
-
-/**
- * Build the `<url>` entries for a LANGUAGE-AGNOSTIC page (`/about`, `/:lang/...`)
- * by fanning it out across every configured language: one entry per language,
- * each prefixed (or `:lang`-substituted) via {@link buildLanguageUrl}.
- */
-const buildLanguageAgnosticEntries = (
-  expanded: ExpandedPage,
-  ctx: LanguageEntryContext
-): readonly string[] => {
-  const { baseUrl, languages, hreflangConfig } = ctx
-  return languages.map((lang) => {
-    const links = hreflangConfig
-      ? generateHreflangLinks(baseUrl, expanded.path, languages, hreflangConfig)
-      : []
-    return buildUrlEntry(
-      buildLanguageUrl(baseUrl, lang, expanded.path),
-      expanded.lastmod,
-      expanded.page,
-      renderHreflangSection(links)
-    )
-  })
-}
-
-/**
- * Build every `<url>` entry for the resolved pages, optionally per-language.
- *
- * Two language shapes are handled distinctly so a prefix never duplicates:
- *  - hardcoded-language paths (`/en/introduction`) emit ONCE at their literal
- *    path with sibling-locale hreflang alternates;
- *  - language-agnostic / `:lang`-template paths fan out across the language loop.
- */
-const buildSitemapEntries = ({
-  expandedPages,
-  baseUrl,
-  languages,
-  hreflangConfig,
-}: SitemapEntriesInput): readonly string[] => {
-  if (languages === undefined || languages.length === 0) {
-    return expandedPages.map(({ page, path, lastmod }) =>
-      buildUrlEntry(`${baseUrl}${path}`, lastmod, page, '')
-    )
-  }
-  const ctx: LanguageEntryContext = { baseUrl, languages, hreflangConfig }
-  return expandedPages.flatMap((expanded) =>
-    leadingLanguageSegment(expanded.path, languages) !== undefined
-      ? [buildHardcodedLangEntry(expanded, ctx)]
-      : buildLanguageAgnosticEntries(expanded, ctx)
-  )
-}
 
 /** Options shared by the sitemap generators. */
 export interface SitemapOptions {
@@ -319,7 +191,14 @@ const collectSitemapEntries = (
     const hreflangConfig = options?.hreflangConfig
     const hasHreflang =
       languages !== undefined && languages.length > 0 && hreflangConfig !== undefined
-    const entries = buildSitemapEntries({ expandedPages, baseUrl, languages, hreflangConfig })
+    const routes = pages.flatMap((page) => pageRoutePatterns(page.path))
+    const entries = buildSitemapEntries({
+      expandedPages,
+      routes,
+      baseUrl,
+      languages,
+      hreflangConfig,
+    })
     return { entries, hasHreflang }
   })
 

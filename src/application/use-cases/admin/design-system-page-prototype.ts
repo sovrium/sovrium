@@ -14,8 +14,9 @@
  * adapter turns it into the board's script (`claude-design-canvas-prototype.ts`).
  */
 
+import { defaultLanguageTranslator } from '@/domain/models/app/languages/translation-resolver'
 import { pageNodeIdOf, pointerTo } from '@/domain/models/app/pages/node-identity'
-import { drawnTableRowsOf, type SeedContext } from './design-system-page-seed'
+import { drawnCellText, drawnTableRowsOf, type SeedContext } from './design-system-page-seed'
 import type { App } from '@/domain/models/app'
 import type {
   BoardPrototype,
@@ -38,7 +39,7 @@ const isNode = (value: unknown): value is Node =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** Every node of a page with its id, depth first, through each node's own children. */
-const placedNodesOf = (page: Page): readonly PlacedNode[] => {
+export const placedNodesOf = (page: Page): readonly PlacedNode[] => {
   const walk = (list: unknown, pointer: string): readonly PlacedNode[] =>
     (Array.isArray(list) ? (list as readonly unknown[]) : []).flatMap((child, index) => {
       if (!isNode(child)) return []
@@ -81,11 +82,33 @@ const actionsOf = (node: Node): PrototypeTable['actions'] =>
         })
   )
 
+/**
+ * Each drawn row's cells that read differently from what is stored, by row id
+ * then field: the stored value, and the text the grid draws for it.
+ */
+const cellTextsOf = (
+  context: SeedContext,
+  node: Node,
+  drawn: ReturnType<typeof drawnTableRowsOf>
+): PrototypeTable['texts'] =>
+  Object.fromEntries(
+    drawn.rows.flatMap((row) => {
+      const cells = drawn.columns.flatMap((column) => {
+        const field = String(column['field'])
+        const stored = row[field] === undefined || row[field] === null ? '' : String(row[field])
+        const shown = drawnCellText(context, node, column, row)
+        return shown === stored ? [] : [[field, [stored, shown] as const] as const]
+      })
+      return cells.length === 0 ? [] : [[String(row['id']), Object.fromEntries(cells)] as const]
+    })
+  )
+
 /** One grid of the board, as the prototype plays it. */
 const tableOf = (context: SeedContext, placed: PlacedNode): PrototypeTable => {
   const { node } = placed
   const dataSource = (node['dataSource'] ?? {}) as Node
-  const { columns, rows } = drawnTableRowsOf(context, node)
+  const drawn = drawnTableRowsOf(context, node)
+  const { columns, rows } = drawn
   const target = rowTargetOf(node)
   const pagination = node['pagination'] as { readonly pageSize?: unknown } | undefined
   const actions = actionsOf(node)
@@ -108,6 +131,7 @@ const tableOf = (context: SeedContext, placed: PlacedNode): PrototypeTable => {
     ...(target === undefined ? {} : { recordPath: target }),
     rowMenu: (node['rowActions'] as { readonly display?: unknown } | undefined)?.display === 'menu',
     actions,
+    texts: cellTextsOf(context, node, drawn),
   }
 }
 
@@ -155,13 +179,23 @@ const stepsOf = (app: App, form: Node): PrototypeForm['steps'] => {
   }))
 }
 
-/** What a form answers once submitted: the page it redirects to, or its message. */
-const successOf = (form: Node): PrototypeForm['success'] => {
+/**
+ * What a form answers once submitted: the page it redirects to, or its message
+ * (and a success page's title), each `$t:` key read in the app's default language.
+ */
+const successOf = (app: App, form: Node): PrototypeForm['success'] => {
   const success = form['onSuccess'] as Node | undefined
   if (success?.['type'] === 'redirect' && typeof success['url'] === 'string') {
     return { path: success['url'] }
   }
-  return typeof success?.['message'] === 'string' ? { message: success['message'] } : undefined
+  const translated = defaultLanguageTranslator(app.languages)
+  const { message, title } = success ?? {}
+  return typeof message === 'string'
+    ? {
+        message: translated(message),
+        ...(typeof title === 'string' ? { title: translated(title) } : {}),
+      }
+    : undefined
 }
 
 /** One form placed on the board, as the prototype plays it. */
@@ -169,7 +203,7 @@ const formOf = (app: App, name: string): PrototypeForm | undefined => {
   const form = (app.forms ?? []).find((candidate) => candidate.name === name) as Node | undefined
   if (form === undefined) return undefined
   const steps = stepsOf(app, form)
-  const success = successOf(form)
+  const success = successOf(app, form)
   const writes = (form['submitTo'] as { readonly table?: unknown } | undefined)?.table
   return {
     name,

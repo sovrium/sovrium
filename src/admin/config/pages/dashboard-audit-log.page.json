@@ -292,7 +292,8 @@
             "onRowClick": {
               "action": "openSheet",
               "component": "admin-audit-log-entry"
-            }
+            },
+            "viewOptions": "toolbar"
           }
         },
         {

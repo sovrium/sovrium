@@ -64,6 +64,24 @@ export interface UserDirectoryQuery {
    * without re-reading or skipping anyone.
    */
   readonly after?: Pick<UserDirectoryEntry, 'id' | 'name'> | undefined
+  /**
+   * Narrow the page to the accounts whose id is (`within: true`) or is not
+   * (`within: false`) among `ids`, in the same query and the same order, so a
+   * caller narrowing to who is online reads one page instead of scanning the
+   * whole directory for it. Every id is a bound parameter, so the set must stay
+   * under the database's bound-parameter ceiling: it is meant for the people one
+   * process holds connections for, not for an arbitrary list.
+   */
+  readonly ids?: { readonly within: boolean; readonly ids: readonly string[] } | undefined
+  /**
+   * Narrow the page, in the same query, to the accounts that COULD be in a
+   * record's audience: those whose stored role is among `roles`, or — with
+   * `teamMembers` — who belong to any group. A superset of the audience, never
+   * a decision about it: the caller still judges each candidate. It is what
+   * keeps a crowd of people whose role cannot read the record out of the scan.
+   */
+  readonly audience?:
+    { readonly roles: readonly string[]; readonly teamMembers: boolean } | undefined
 }
 
 /** Database error for user-directory reads. */

@@ -191,7 +191,8 @@
                 ],
                 "emptyMessage": "$t:admin.decisions.emptyRegister",
                 "noMatchMessage": "$t:admin.decisions.noMatch",
-                "layout": "fill"
+                "layout": "fill",
+                "viewOptions": "toolbar"
               }
             }
           ]

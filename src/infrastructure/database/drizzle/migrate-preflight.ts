@@ -251,4 +251,4 @@ export const readMigrationPreflight = (
                 cause: error,
               }),
           })
-  })
+  }).pipe(Effect.scoped) // the unpacked migrations, if any, are removed here

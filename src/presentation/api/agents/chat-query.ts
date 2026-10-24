@@ -78,6 +78,22 @@ export interface RunQueryInput {
   readonly reader: ChatReader
   /** The full set of app tables (carries permissions + field metadata). */
   readonly tables: ReadonlyArray<QueryTableWithPerms>
+  /**
+   * The rows the fields the intent names are shown on, when a per-record grant
+   * alone opens one of them: the query runs over those rows only, as the
+   * records list shows the field on them and on no other.
+   */
+  readonly fieldRows?: readonly string[] | undefined
+}
+
+/** `scope` narrowed to the rows `ids` names; no narrowing without a list. */
+const narrowToRows = (scope: ChatRowScope, ids: readonly string[] | undefined): ChatRowScope => {
+  if (ids === undefined || scope.kind === 'refused' || scope.kind === 'nothing') return scope
+  if (ids.length === 0) return { kind: 'nothing' }
+  const clause = { field: 'id', operator: 'in', value: ids } as const
+  return scope.kind === 'all'
+    ? { kind: 'scoped', clause }
+    : { kind: 'scoped', clause: { and: [scope.clause, clause] } }
 }
 
 /**
@@ -263,10 +279,11 @@ export const runQuery = async (input: RunQueryInput): Promise<QueryOutcome> => {
   // Table-level read RBAC (an AI chat query spec), over the records
   // route's effective roles for this table; then the rows the records read
   // gate lets the caller read.
-  const scope = passesChatTableGate(input.app, input.tables, table, input.reader)
+  const gated = passesChatTableGate(input.app, input.tables, table, input.reader)
     ? await resolveChatRowScope(input.services, input.app, table.name, input.reader)
     : ({ kind: 'refused' } as const)
-  if (scope.kind === 'refused') return outOfReach(table.name)
+  if (gated.kind === 'refused') return outOfReach(table.name)
+  const scope = narrowToRows(gated, input.fieldRows)
 
   const { intent } = input
   const rowCap = resolveMaxQueryRows()

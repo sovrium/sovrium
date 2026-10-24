@@ -14,6 +14,7 @@ import { isMarkedCleared, toWireFields } from '../parts/crud-form/wire-values'
 import { leavesPage, onThisSite, runSuccessOutcome } from '../runtime/action-outcome'
 import { automationPressHeaders } from '../runtime/automation-press-headers'
 import { dispatch as dispatchIslandEvent } from '../runtime/event-bus'
+import { emptiedLinkLists, withoutUntouchedLinkLists } from './dropped-links'
 import { formString } from './form-strings'
 import { type FormState, type SubmitContext } from './types'
 
@@ -122,12 +123,17 @@ async function executeMutation(ctx: SubmitContext): Promise<MutationResult> {
   switch (ctx.operation) {
     case 'update':
       if (ctx.recordId) {
+        // One write: each link list sent is the whole set kept, so a link taken
+        // off is removed with the rest of the save, or not at all. A list left
+        // as it was loaded is not sent, so a link made meanwhile survives.
         const updated = await ctx.updateRecord.mutateAsync({
           recordId: ctx.recordId,
-          fields: visibleValues,
-          ...(ctx.updatedAt !== undefined && { updatedAt: ctx.updatedAt }),
+          fields: withoutUntouchedLinkLists(ctx, { ...emptiedLinkLists(ctx), ...visibleValues }),
+          linkLists: 'replace',
+          ...(ctx.updatedAt !== undefined ? { updatedAt: ctx.updatedAt } : {}),
         })
         ctx.rememberUpdatedAt?.(updated)
+        ctx.rememberHeld?.(ctx.values)
         return { record: updated as Record<string, unknown> }
       }
       return {}

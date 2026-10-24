@@ -94,6 +94,40 @@ const passwordGroup = (): Node =>
     ]),
   ])
 
+/**
+ * The export group, for a signed-in reader only: one button saving the account
+ * export — everything the app holds about that reader, and nothing about anyone
+ * else — as a JSON file.
+ */
+const downloadGroup = (): Node => ({
+  ...settingsGroup('Download my data', 'A copy of everything this app holds about you.', [
+    settingsRow(
+      'Your data',
+      'Your profile, your sessions and what you created, as one JSON file.',
+      [
+        {
+          type: 'button',
+          label: 'Download my data',
+          variant: 'outline',
+          props: { className: 'self-start' },
+          action: {
+            type: 'fetch',
+            mode: 'download',
+            url: '/api/account/export',
+            filename: 'my-account-data.json',
+            onError: {
+              type: 'toast',
+              variant: 'destructive',
+              message: 'Your data could not be downloaded. Try again.',
+            },
+          },
+        },
+      ]
+    ),
+  ]),
+  visibility: { when: 'authenticated' },
+})
+
 /** The delete group: one button opening a confirmation that needs the reader's email typed. */
 const deleteGroup = (dialogId: string): Node =>
   settingsGroup(
@@ -135,18 +169,29 @@ const deleteGroup = (dialogId: string): Node =>
     { danger: true }
   )
 
-/** The reader's own account: name, email, password, and a guarded delete. */
+/** The reader's own account: name, email, password, a copy of their data, and a guarded delete. */
 export const entry = defineLibraryEntry({
   kind: 'block',
   slug: 'settings-account',
   title: 'Account settings',
   category: 'application',
-  tags: ['settings', 'account', 'profile', 'password', 'email', 'delete account'],
+  tags: [
+    'settings',
+    'account',
+    'profile',
+    'password',
+    'email',
+    'download my data',
+    'data export',
+    'gdpr',
+    'delete account',
+  ],
   description:
-    'The signed-in reader’s own account page: change the name, the email and the password, each from its own row, and delete the account behind a confirmation that needs the email typed.',
+    'The signed-in reader’s own account page: change the name, the email and the password, each from its own row, download a copy of their own data, and delete the account behind a confirmation that needs the email typed.',
   notes: [
     SETTINGS_PLACE_NOTE,
     'Every row talks to the built-in account endpoints, so the block needs `auth` and nothing else — no table of your own.',
+    '“Download my data” saves the account export, `GET /api/account/export`, as a JSON file: the reader’s profile, sessions and the records they created, never anyone else’s. It is drawn for a signed-in reader only.',
     'Deleting the account asks the reader to type their own email before the button wakes up, and names what goes with it. Once it is gone the page reloads, signed out.',
     THEME_NOTE,
   ],
@@ -161,6 +206,7 @@ export const entry = defineLibraryEntry({
         settingsTitle(p('headline'), 'Your name, how you sign in, and your account itself.'),
         ...identityGroups(),
         passwordGroup(),
+        downloadGroup(),
         deleteGroup(`${name}-delete`),
       ])
     )

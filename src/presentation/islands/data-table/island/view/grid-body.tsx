@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { useContext } from 'react'
 import {
   computeTablePagerClasses,
   computeTableToolbarButtonClasses,
@@ -16,8 +17,9 @@ import { PaginationControls } from '../../pagination/pagination-controls'
 import { SessionControls } from '../../view-options/session-controls'
 import { ToolbarViewOptions } from '../../view-options/toolbar-view-options'
 import { SelectionBar } from '../bulk-actions'
+import { GridCaptionContext } from '../grid-caption'
 import { TableContent } from '../table-content'
-import { PhoneRows } from './phone-rows'
+import { PhoneAddRow, PhoneRows } from './phone-rows'
 import type { GridBodyProps } from '../view-props'
 
 /**
@@ -114,7 +116,7 @@ function BottomBar({ props, paged }: { readonly props: GridBodyProps; readonly p
 export function GridBody(props: GridBodyProps) {
   // `phoneLayout: rows` swaps the grid for items on a phone, and only there —
   // and only while there are rows to read: an empty grid keeps its empty
-  // message and its New row entry, which only the grid draws.
+  // message. The New row entry follows the items, as it follows the rows.
   const phone = usePhoneViewport(props.phoneLayout === 'rows')
   const empty = props.grid.table.getRowModel().rows.length === 0 && !props.grid.isLoading
   const phoneRows = phone && !empty
@@ -128,12 +130,15 @@ export function GridBody(props: GridBodyProps) {
       )}
       {showsPagerAt(props, 'top') && <GridPager props={props} />}
       {phoneRows ? (
-        <PhoneRows
-          table={props.grid.table}
-          ariaLabel={props.grid.ariaLabel}
-          onRowClickAction={props.grid.onRowClickAction}
-          tableName={props.grid.tableName}
-        />
+        <>
+          <PhoneRows
+            table={props.grid.table}
+            ariaLabel={props.grid.ariaLabel}
+            onRowClickAction={props.grid.onRowClickAction}
+            tableName={props.grid.tableName}
+          />
+          <PhoneAddRow grid={props.grid} />
+        </>
       ) : (
         <TableContent {...props.grid} />
       )}
@@ -151,9 +156,11 @@ const LOAD_MORE_FOOTER_CLASSES = `${computeTablePagerClasses({ position: 'bottom
  */
 function GridFooter(props: GridBodyProps) {
   const paged = showsPagerAt(props, 'bottom')
+  // A caption is drawn in the bottom bar, so a grid declaring one always has it.
+  const captioned = useContext(GridCaptionContext) !== undefined
   return (
     <>
-      {(paged || props.selection !== undefined) && (
+      {[paged, props.selection !== undefined, captioned].includes(true) && (
         <BottomBar
           props={props}
           paged={paged}

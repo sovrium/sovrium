@@ -9,10 +9,13 @@ import {
   AiActionSchema,
   AnalyticsTrackActionSchema,
   AuthActionSchema,
-  CalendarActionSchema,
+  CalendarExportIcsActionSchema,
+  CalendarImportIcsActionSchema,
   CommentActionSchema,
   NotificationActionSchema,
   EmailSendActionSchema,
+  EmailStatsActionSchema,
+  EmailSuppressActionSchema,
   FileActionSchema,
   HttpActionSchema,
   LinkActionSchema,
@@ -23,16 +26,13 @@ import automationAiActionsBody from '@/domain/models/app/automations/actions/ai-
 import automationAuthActionsBody from '@/domain/models/app/automations/actions/auth-actions.docs.md' with { type: 'file' }
 import automationCalendarActionsBody from '@/domain/models/app/automations/actions/calendar-actions.docs.md' with { type: 'file' }
 import automationCommentActionsBody from '@/domain/models/app/automations/actions/comment-actions.docs.md' with { type: 'file' }
-import { DocumentActionSchema } from '@/domain/models/app/automations/actions/document'
-import automationDocumentActionsBody from '@/domain/models/app/automations/actions/document-actions.docs.md' with { type: 'file' }
 import automationEmailActionsBody from '@/domain/models/app/automations/actions/email-analytics-actions.docs.md' with { type: 'file' }
 import automationFileActionsBody from '@/domain/models/app/automations/actions/file-actions.docs.md' with { type: 'file' }
 import automationHttpActionsBody from '@/domain/models/app/automations/actions/http-webhook-actions.docs.md' with { type: 'file' }
 import automationLinkActionsBody from '@/domain/models/app/automations/actions/link-actions.docs.md' with { type: 'file' }
 import automationNotificationActionsBody from '@/domain/models/app/automations/actions/notification-actions.docs.md' with { type: 'file' }
-import { PdfActionSchema } from '@/domain/models/app/automations/actions/pdf'
-import automationPdfActionsBody from '@/domain/models/app/automations/actions/pdf-actions.docs.md' with { type: 'file' }
 import automationRecordActionsBody from '@/domain/models/app/automations/actions/record-actions.docs.md' with { type: 'file' }
+import { documentActionArticles } from './automation-integrations-documents'
 import { defineArticle, defineSection } from './define'
 
 export const automationIntegrations = defineSection({
@@ -128,7 +128,7 @@ export const automationIntegrations = defineSection({
       order: 5411,
       sidebarLabel: 'Calendar Actions',
       body: automationCalendarActionsBody,
-      documents: [CalendarActionSchema],
+      documents: [CalendarImportIcsActionSchema, CalendarExportIcsActionSchema],
       stories: ['US-AUTOMATIONS-ACTIONS-CALENDAR-IMPORT-ICS'],
     }),
     defineArticle({
@@ -171,73 +171,7 @@ export const automationIntegrations = defineSection({
         'US-AUTOMATIONS-ACTIONS-FILE-UPLOAD',
       ],
     }),
-    defineArticle({
-      slug: 'automation-document-actions',
-      title: 'Document Actions',
-      description:
-        'Generate PDFs, images and Word documents from templates filled with run data, and workbooks from rows, into temporary storage or a record attachment.',
-      keywords: [
-        'sovrium',
-        'automation document action',
-        'generatePdf',
-        'html to pdf',
-        'generateImage',
-        'svg to png',
-        'generateDocx',
-        'word template',
-        'generateXlsx',
-        'xlsx',
-        'document template',
-        'attachTo',
-        'ifExists',
-      ],
-      order: 5414,
-      sidebarLabel: 'Document Actions',
-      body: automationDocumentActionsBody,
-      documents: [DocumentActionSchema],
-      stories: [
-        'US-AUTOMATIONS-ACTIONS-DOCUMENT-CONVERT',
-        'US-AUTOMATIONS-ACTIONS-DOCUMENT-GENERATE-DOCX',
-        'US-AUTOMATIONS-ACTIONS-DOCUMENT-GENERATE-IMAGE',
-        'US-AUTOMATIONS-ACTIONS-DOCUMENT-GENERATE-PDF',
-        'US-AUTOMATIONS-ACTIONS-DOCUMENT-GENERATE-XLSX',
-        'US-AUTOMATIONS-ACTIONS-DOCUMENT-OUTPUT',
-        'US-AUTOMATIONS-ACTIONS-DOCUMENT-SOCIAL-CARD',
-        'US-AUTOMATIONS-ACTIONS-DOCUMENT-XLSX-TEMPLATE',
-      ],
-    }),
-    defineArticle({
-      slug: 'automation-pdf-actions',
-      title: 'PDF Actions',
-      description:
-        'Merge, split and rearrange PDFs you already have, mark them with a watermark, a stamp or page numbers, fill their forms, read what they hold, or make one from pictures — all with no external engine.',
-      keywords: [
-        'sovrium',
-        'automation pdf action',
-        'merge pdf',
-        'split pdf',
-        'page ranges',
-        'watermark pdf',
-        'page numbers',
-        'fill pdf form',
-        'images to pdf',
-        'pdf/merge',
-      ],
-      order: 5416,
-      sidebarLabel: 'PDF Actions',
-      body: automationPdfActionsBody,
-      documents: [PdfActionSchema],
-      stories: [
-        'US-AUTOMATIONS-ACTIONS-PDF-MERGE',
-        'US-AUTOMATIONS-ACTIONS-PDF-SPLIT',
-        'US-AUTOMATIONS-ACTIONS-PDF-PAGES',
-        'US-AUTOMATIONS-ACTIONS-PDF-WATERMARK',
-        'US-AUTOMATIONS-ACTIONS-PDF-STAMP',
-        'US-AUTOMATIONS-ACTIONS-PDF-FILL-FORM',
-        'US-AUTOMATIONS-ACTIONS-PDF-INSPECT',
-        'US-AUTOMATIONS-ACTIONS-PDF-FROM-IMAGES',
-      ],
-    }),
+    ...documentActionArticles,
     defineArticle({
       slug: 'automation-email-actions',
       title: 'Email & Notification Actions',
@@ -256,12 +190,18 @@ export const automationIntegrations = defineSection({
       order: 5420,
       sidebarLabel: 'Email & Notifications',
       body: automationEmailActionsBody,
-      documents: [EmailSendActionSchema, AnalyticsTrackActionSchema],
+      documents: [
+        EmailSendActionSchema,
+        EmailSuppressActionSchema,
+        EmailStatsActionSchema,
+        AnalyticsTrackActionSchema,
+      ],
       stories: [
         'US-AUTOMATIONS-ACTIONS-ANALYTICS',
         'US-AUTOMATIONS-ACTIONS-EMAIL',
         'US-AUTOMATIONS-ACTIONS-EMAIL-RENDERING',
         'US-AUTOMATIONS-ACTIONS-EMAIL-TEMPLATE-ATTACHMENTS',
+        'US-AUTOMATIONS-ACTIONS-EMAIL-DELIVERABILITY',
       ],
     }),
     defineArticle({

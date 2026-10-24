@@ -6,6 +6,7 @@
  */
 
 import { type ReactElement } from 'react'
+import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { fillRoutePattern, type RouteParams } from '@/domain/kernel/matching/route-matcher'
 import { resolveDensityStep } from '@/domain/models/app/design/density-service'
 import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
@@ -24,9 +25,8 @@ import { PageSpaNavMount } from '@/presentation/render/page/page-spa-nav-mount'
 import { PlatformChrome } from '@/presentation/render/page/platform-chrome'
 import { PresenceIndicatorMount } from '@/presentation/render/page/presence-indicator-mount'
 import { getToastDismissLabel } from '@/presentation/render/page/toast-dismiss-labels'
-// Island-runtime detection lives in page-island-detection.ts (extracted on main);
-// this file keeps only interactive-runtime detection, which shares the same
-// reference-aware walker so a template-hosted action button also ships client.js.
+// Island-runtime detection lives in page-island-detection.ts; this file keeps only interactive-
+// runtime detection (same reference-aware walker, so a template-hosted button ships client.js).
 import { DynamicPageHead } from './dynamic-page-head'
 import { hasInteractiveFeatures, mergeComponentMetaIntoPage } from './page-interactivity'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -257,7 +257,7 @@ function DynamicPageBody({
   badgePlacement,
   demoNoticeEnabled,
 }: DynamicPageBodyProps): Readonly<ReactElement> {
-  const dataAttributes = buildDataAttributes(routeParams, page.path)
+  const dataAttributes = buildDataAttributes(routeParams, primaryPagePath(page.path))
   const sidebarSections = selectSidebarSections(resolvedSidebar, page)
 
   return (
@@ -295,7 +295,7 @@ function DynamicPageBody({
       {hasClientSideNavigation(page, components) && <PageSpaNavMount />}
       {page.presence === true && (
         <PresenceIndicatorMount
-          pagePath={fillRoutePattern(page.path, routeParams ?? {})}
+          pagePath={fillRoutePattern(primaryPagePath(page.path), routeParams ?? {})}
           lang={lang}
           languages={languages}
         />
@@ -379,12 +379,11 @@ export function DynamicPage({
       // The operator timezone, stamped for the islands: they format dates in it
       // (`resolvePageTimezone`) without ever reading the environment.
       data-timezone={parseSovriumTimezone().zoneId}
-      // The density step this page runs at — its zone's, else the app's, else
-      // compact. Written for compact too, so the step is readable in markup;
-      // the ladder's `[data-density]` blocks are what make it paint.
+      // The density step this page runs at — its zone's, else the app's, else compact,
+      // written for compact too; the ladder's `[data-density]` blocks make it paint.
       data-density={resolveDensityStep(
         design,
-        page.path,
+        primaryPagePath(page.path),
         languages?.supported.map((language) => language.code)
       )}
       {...(page.scripts && { 'data-features': JSON.stringify(page.scripts.features || {}) })}
@@ -395,6 +394,7 @@ export function DynamicPage({
         directionStyles={langConfig.directionStyles}
         cssHref={cssHref}
         islandPreloadHrefs={islandPreloadHrefs}
+        islandEntryFile={islandEntryFile}
         title={metadata.title}
         description={metadata.description}
         keywords={metadata.keywords}

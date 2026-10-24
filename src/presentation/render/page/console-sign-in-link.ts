@@ -15,6 +15,9 @@ export interface ConsoleSignInLink {
   readonly label: string
 }
 
+/** How each way on (a link, the sign-out button) is drawn: the app's primary text link. */
+const WAY_CLASS = 'font-medium text-primary underline-offset-4 hover:underline'
+
 /** The id the link is found by, by the script that names the address asked for. */
 const LINK_ID = 'sovrium-console-sign-in'
 
@@ -45,17 +48,56 @@ const scriptString = (value: string): string => JSON.stringify(value).replaceAll
 export function withConsoleSignInLink(html: string, link: ConsoleSignInLink): string {
   const anchor =
     `<p class="fixed inset-x-0 bottom-0 py-6 text-center text-sm">` +
-    `<a id="${LINK_ID}" class="font-medium text-primary underline-offset-4 hover:underline" ` +
+    `<a id="${LINK_ID}" class="${WAY_CLASS}" ` +
     `href="${escapeHtml(link.loginPath)}">${escapeHtml(link.label)}</a></p>`
   const script =
     `<script>(function(){var a=document.getElementById(${scriptString(LINK_ID)});` +
     `if(a)a.setAttribute("href",${scriptString(link.loginPath)}+"?next="+` +
     `encodeURIComponent(location.pathname+location.search))})()</script>`
-  const block = `${anchor}${script}`
+  return insertAtEnd(html, `${anchor}${script}`)
+}
+
+/** `block` at the end of the document's `<main>`, else of its `<body>`, else appended. */
+function insertAtEnd(html: string, block: string): string {
   const at = html.lastIndexOf('</main>')
   if (at !== -1) return `${html.slice(0, at)}${block}${html.slice(at)}`
   const bodyEnd = html.lastIndexOf('</body>')
   return bodyEnd === -1
     ? `${html}${block}`
     : `${html.slice(0, bodyEnd)}${block}${html.slice(bodyEnd)}`
+}
+
+/** What a signed-in caller the console does not admit is offered instead of Sign in. */
+export interface ConsoleSignedInWays {
+  /** The "Go to the app" link's text, in the reader's language. */
+  readonly toAppLabel: string
+  /** The "Sign out" button's text, in the reader's language. */
+  readonly signOutLabel: string
+}
+
+/** The id the sign-out button is found by, by the script that wires it. */
+const SIGN_OUT_ID = 'sovrium-console-sign-out'
+
+/**
+ * The not-found document a console address answers a SIGNED-IN caller it does
+ * not admit (a member, a viewer), with the two ways on that fit a session that
+ * exists: "Go to the app", a link to the app's root — never back into the
+ * console — and "Sign out", a button that ends the session and reloads the
+ * address, which then answers as it does any anonymous visitor.
+ *
+ * The bytes are the same for every console address, the one the console serves
+ * and the one it does not, so the page still says nothing about which exist.
+ * Without scripts the button does nothing; the link still leads out.
+ */
+export function withConsoleSignedInWays(html: string, ways: ConsoleSignedInWays): string {
+  const block =
+    `<p class="fixed inset-x-0 bottom-0 flex items-center justify-center gap-6 py-6 text-sm">` +
+    `<a class="${WAY_CLASS}" href="/">` +
+    `${escapeHtml(ways.toAppLabel)}</a>` +
+    `<button type="button" id="${SIGN_OUT_ID}" class="${WAY_CLASS}">` +
+    `${escapeHtml(ways.signOutLabel)}</button></p>` +
+    `<script>(function(){var b=document.getElementById(${scriptString(SIGN_OUT_ID)});` +
+    `if(b)b.addEventListener("click",function(){fetch("/api/auth/sign-out",{method:"POST",` +
+    `headers:{"Content-Type":"application/json"},body:"{}"}).finally(function(){location.reload()})})})()</script>`
+  return insertAtEnd(html, block)
 }

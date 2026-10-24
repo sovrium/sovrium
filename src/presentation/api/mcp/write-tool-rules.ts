@@ -21,7 +21,7 @@
  *    `maxLinked`, attachment references and constraints, inline uploads and
  *    rich-text sanitising.
  *  - update: the field-condition lock on the stored row, the engine-managed
- *    columns, then `checkRecordUpdateValues` and rich-text sanitising — what
+ *    and computed columns, then `checkRecordUpdateValues` and rich-text sanitising — what
  *    `PATCH /api/tables/:t/records/:id` runs after its gates.
  *
  * Every refusal is thrown as a JSON-RPC error carrying the records API's own
@@ -30,6 +30,10 @@
 
 import { Effect } from 'effect'
 import { rawGetRecordProgram } from '@/application/use-cases/tables/read-record-programs'
+import {
+  findComputedFieldWrites,
+  readonlyFieldWriteMessage,
+} from '@/domain/models/app/tables/computed-field-write-validation'
 import { isRecordReadOnly } from '@/domain/models/app/tables/field-condition-evaluator-service'
 import { provideTableLive } from '@/infrastructure/layers/table-layer'
 import { runOnDomain } from '@/infrastructure/logging/request-effect'
@@ -119,9 +123,12 @@ export const applyUpdateRules = (
   input: WriteRuleInput,
   fields: Readonly<Record<string, unknown>>
 ): Promise<Record<string, unknown>> => {
-  const readonlyField = findReadonlyUpdateField(fields)
+  // The engine-managed columns, then a computed field (a value or a `null`
+  // clear alike), the first in the table's field order — refused, never dropped.
+  const readonlyField =
+    findReadonlyUpdateField(fields) ?? findComputedFieldWrites(input.table.fields, [fields])[0]
   if (readonlyField !== undefined) {
-    return toolFailure(-32_602, `Cannot write to readonly field '${readonlyField}'`)
+    return toolFailure(-32_602, readonlyFieldWriteMessage(readonlyField))
   }
   const values = { ...fields }
   return runRules(

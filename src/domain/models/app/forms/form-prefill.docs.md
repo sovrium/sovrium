@@ -34,6 +34,10 @@ forms:
 
 An unresolvable reference is removed from the map rather than rendered, so the literal text `$query.utm_campaign` never leaks into the HTML.
 
+## Dates and times
+
+A `datetime` column is drawn as the browser's date-and-time control, which holds a wall-clock reading such as `2026-11-04T10:00`, never an instant with a zone. Whatever the field starts from — `$now`, a literal instant like `2026-11-04T09:00:00Z`, a query parameter — is written as that instant's reading in the field's `timeZone`, or the app's when the field names none, at the offset in force **at that instant**: a meeting on 4 November reads 10:00 in Paris even when the form is opened in October, on summer time. Submitting the field untouched stores the instant it started from. A reading the visitor types is stored as the instant that wall-clock time means in the same zone (the field's `timeZone`, else `SOVRIUM_TIMEZONE`, else UTC): 09:00 typed in a Europe/Paris column on 4 November is stored as `08:00Z` and displays as 09:00 Paris. A column whose zone is `local`, or an impossible reading such as 30 February, is stored as typed. Automations receive an ISO instant ending in `Z`. A `date` column receives the day alone.
+
 ## Prefilled hidden fields
 
 A prefill on a hidden field is the point of the feature for attribution work. The field renders as a hidden input carrying the resolved value, so the campaign the visitor arrived on rides into the record without ever appearing on screen, and without a hand-written tracking script.

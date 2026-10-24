@@ -39,6 +39,11 @@ export type AuthFormAction = {
    * row links to. Never authored.
    */
   readonly _recoveryHref?: string
+  /**
+   * Stamped by the page pass on a `resetPassword` form: the page the emailed
+   * link opens with its token (`auth-form-facts-stamp.ts`). Never authored.
+   */
+  readonly _resetLanding?: string
   /** Stamped by the invitation pass: the query key the page reads its token from. */
   readonly _invitationParam?: string
   /** `login`: the page an account still owing its two-step code is sent to. */

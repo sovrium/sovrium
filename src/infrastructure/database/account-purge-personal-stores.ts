@@ -8,8 +8,9 @@
 /**
  * The per-person stores erasure DELETES from: each row is about one person
  * only — what she bookmarked, the feed addresses she minted, what she browsed,
- * how far she read, when she was last seen, the notifications she received and
- * the channels she chose for them. Every one cascades off `auth.user`, and is
+ * how far she read, when she was last seen, the notifications she received,
+ * the channels she chose for them, and the baseline a seed reset restores her
+ * account to. Every one cascades off `auth.user`, and is
  * named anyway, so the enumeration answers "what does erasure delete?".
  *
  * Spread into `PURGED_SYSTEM_TABLES` (`account-purge-coverage.ts`), whose
@@ -37,6 +38,12 @@ export const PERSONAL_STORE_TABLES = [
     table: 'notification_preferences',
     column: 'user_id',
     reason: 'The notification channels the person chose. Cascades; named.',
+  },
+  {
+    table: 'account_baselines',
+    column: 'user_id',
+    reason:
+      'The copy of the profile, sign-in rows, OAuth clients and connected accounts a seed reset returns a kept account to. Cascades; named.',
   },
   {
     table: 'user_recent_items',

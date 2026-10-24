@@ -7,7 +7,9 @@
 
 /**
  * The record a single-record `form` is handed: narrowed to the fields it
- * lists, and carrying the links its many-to-many fields hold.
+ * lists, and carrying the links its many-to-many fields hold — the links a
+ * record bound anywhere else (a page, a container, a collection page) carries
+ * too, so `$record.<field>` and a `record-field` read them.
  *
  * THE LINKS. A many-to-many field has no column on its table: its value lives in a
  * junction table, so the row `fetchSingleRecord` reads never carries it. An edit
@@ -71,32 +73,32 @@ export function narrowRecordToComponent(
 }
 
 /** A many-to-many field to read the links of. */
-export interface FormManyToManyField {
+export interface BoundManyToManyField {
   readonly fieldName: string
   readonly relatedTable: string
 }
 
 type AppTable = NonNullable<App['tables']>[number]
 
+/** Who a bound record's links are read for, and the plan narrowing her columns. */
+interface LinkFieldAccess {
+  readonly plan: ReadAccessPlan | undefined
+  readonly app: App
+  readonly session: SessionInfo | undefined
+}
+
 /**
- * The many-to-many fields of `table` a `form` shows and this visitor may read:
- * the ones it lists (all of them when it lists none), less the plan's
- * restricted columns and the links into a table she may not read
- * ({@link toManyLinksRefusedTo}). Such a link is left out of the form's record
- * whole, never handed over as an empty list that reads as "nothing linked".
- * Empty for any other component type.
+ * The many-to-many fields of `table` this visitor may read — those `listed`
+ * names (all of them when it names none), less the plan's restricted columns
+ * and the links into a table she may not read ({@link toManyLinksRefusedTo}).
+ * Such a link is left out of the record whole, never handed over as an empty
+ * list that reads as "nothing linked".
  */
-export function formManyToManyFields(
-  component: Component,
+export function readableManyToManyFields(
   table: AppTable,
-  access: {
-    readonly plan: ReadAccessPlan | undefined
-    readonly app: App
-    readonly session: SessionInfo | undefined
-  }
-): readonly FormManyToManyField[] {
-  if (component.type !== 'form') return []
-  const listed = listedFieldNames(component)
+  access: LinkFieldAccess,
+  listed: readonly string[] = []
+): readonly BoundManyToManyField[] {
   const { plan, app, session } = access
   const refused = toManyLinksRefusedTo(app, table.name, relatedReaderFor(session))
   return table.fields.flatMap((field) => {
@@ -110,6 +112,23 @@ export function formManyToManyFields(
     if (listed.length > 0 && !listed.some((name) => fieldNamesMatch(field.name, name))) return []
     return [{ fieldName: field.name, relatedTable }]
   })
+}
+
+/**
+ * The many-to-many fields a component bound to one record of `table` reads the
+ * links of: a `form`, the ones it lists; any other component — a container, a
+ * `record-field`'s host — the ones its binding's `fields` names, or every one
+ * when it names none, as the record read is narrowed to `fields`. Each
+ * only when this visitor may read it ({@link readableManyToManyFields}).
+ */
+export function boundManyToManyFields(
+  component: Component,
+  table: AppTable,
+  access: LinkFieldAccess & { readonly requestedFields?: readonly string[] | undefined }
+): readonly BoundManyToManyField[] {
+  const listed =
+    component.type === 'form' ? listedFieldNames(component) : (access.requestedFields ?? [])
+  return readableManyToManyFields(table, access, listed)
 }
 
 /** Who the linked rows are read for, and through which database. */
@@ -152,7 +171,7 @@ export async function withManyToManyLinks(
   record: Readonly<Record<string, unknown>>,
   ctx: LinkReader & {
     readonly tableName: string
-    readonly manyToManyFields: readonly FormManyToManyField[]
+    readonly manyToManyFields: readonly BoundManyToManyField[]
   }
 ): Promise<Readonly<Record<string, unknown>>> {
   const { manyToManyFields: fields, db, tableName } = ctx

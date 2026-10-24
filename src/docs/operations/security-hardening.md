@@ -33,6 +33,8 @@ There is deliberately **no** `Content-Security-Policy-Report-Only` header. A rep
 
 A route may override the CSP and `X-Frame-Options` together — the two express one framing decision in two vocabularies. Both directions are in use: signed bucket downloads stream untrusted bytes under a stricter `default-src 'none'`, and the admin design-system component frames answer `frame-ancestors 'self'` so the console page can embed them. The same `'self'` pair is given to every address an `iframe` of the app's own pages names by a path (`src: /embeds/booking`): the author framed it on purpose, and only those addresses relax — a route that says nothing, and every address no page frames, keeps the platform default.
 
+**Naming who may frame the app.** `SOVRIUM_FRAME_ANCESTORS` lists origins allowed to show the app in a frame, for your own dashboard or editor. Set, every response that carries the platform default answers `frame-ancestors <the list>` instead of `'none'`, with the three other directives unchanged, and **drops `X-Frame-Options`**, which can say `DENY` or `SAMEORIGIN` but cannot name a list. An address one of the app's pages frames answers `frame-ancestors 'self' <the list>`, and a route with a stricter policy, the signed bucket download, keeps it. A malformed value refuses to start. To keep a staging or preview instance private as well, see the preview token in **Environment Variables: Hosting Under a Supervisor**.
+
 HSTS is emitted unconditionally even over plain HTTP — browsers ignore it on an `http://` connection, and a TLS-terminating proxy forwards exactly the value the server produces.
 
 ## CSRF and cross-origin enforcement

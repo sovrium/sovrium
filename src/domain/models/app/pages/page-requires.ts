@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { pageRoutePatterns, primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { analyticsIsEnabled } from '@/domain/models/app/analytics/analytics-enabled'
 import { TEMPLATE_ASSET_KINDS, resolveAssetKind } from '@/domain/models/app/assets/asset'
 import {
@@ -17,12 +18,17 @@ import { pruneSidebarEntriesToDroppedPages } from '@/domain/models/app/pages/sid
 import type { App } from '@/domain/models/app'
 import type { PageCapability } from '@/domain/models/app/pages/requires'
 
+/** A `form` whose auth action is `method` (`resetPassword`, `setNewPassword`). */
+const isAuthFormOf =
+  (method: string) =>
+  (node: TreeNode): boolean => {
+    if (node['type'] !== 'form') return false
+    const action = node['action'] as { readonly type?: unknown; readonly method?: unknown } | null
+    return action?.type === 'auth' && action.method === method
+  }
+
 /** A `form` whose action asks for a password-reset link (`auth` / `resetPassword`). */
-const isResetRequestForm = (node: TreeNode): boolean => {
-  if (node['type'] !== 'form') return false
-  const action = node['action'] as { readonly type?: unknown; readonly method?: unknown } | null
-  return action?.type === 'auth' && action.method === 'resetPassword'
-}
+const isResetRequestForm = isAuthFormOf('resetPassword')
 
 /**
  * Whether the app signs in with email and password AND one of its pages draws
@@ -35,22 +41,45 @@ const passwordResetIsOffered = (app: App): boolean =>
   componentTreeHasMatch(app, isResetRequestForm)
 
 /**
- * The path of the first page that draws the form asking for a reset link — on
- * the page, in a breakpoint's children or through a placed template — or
- * `undefined` when the app serves none. A page whose path takes a parameter is
- * passed over: it has no single address a link could lead to. An email sign-in
- * form draws "Forgot your password?" towards this page, and none without it.
+ * The path of the first page that draws a node `trips` matches — on the page,
+ * in a breakpoint's children or through a placed template — or `undefined`
+ * when the app serves none. A page whose path takes a parameter or a wildcard
+ * is passed over: it has no single address a link could lead to.
  */
-export const passwordResetRequestPath = (app: App): string | undefined => {
+const firstPagePathDrawing = (app: App, trips: (node: TreeNode) => boolean): string | undefined => {
   const templates: readonly unknown[] = app.components ?? []
-  return (app.pages ?? []).find((page) => {
-    const items: readonly unknown[] = page.components ?? []
+  const page = (app.pages ?? []).find((candidate) => {
+    const items: readonly unknown[] = candidate.components ?? []
     return (
-      !page.path.includes(':') &&
-      someRenderedNode(items, placedTemplatesOf(items, templates), isResetRequestForm)
+      !pageRoutePatterns(candidate.path).some((pattern) => /[:*]/.test(pattern)) &&
+      someRenderedNode(items, placedTemplatesOf(items, templates), trips)
     )
-  })?.path
+  })
+  return page === undefined ? undefined : primaryPagePath(page.path, app.languages?.default)
 }
+
+/**
+ * The path of the first page that draws the form asking for a reset link (see
+ * {@link firstPagePathDrawing}). An email sign-in form draws "Forgot your
+ * password?" towards this page, and none without it.
+ */
+export const passwordResetRequestPath = (app: App): string | undefined =>
+  firstPagePathDrawing(app, isResetRequestForm)
+
+/**
+ * Where an emailed reset link lands when the app draws no page choosing the
+ * new password: the default address of the `auth-password-reset-new` block.
+ */
+export const DEFAULT_PASSWORD_RESET_LANDING_PATH = '/reset-password/new'
+
+/**
+ * The page an emailed password-reset link opens: the first page drawing a
+ * `setNewPassword` form (see {@link firstPagePathDrawing}), else
+ * {@link DEFAULT_PASSWORD_RESET_LANDING_PATH}. The link appends its token to
+ * this path, so it must be one the app serves.
+ */
+export const passwordResetLandingPath = (app: App): string =>
+  firstPagePathDrawing(app, isAuthFormOf('setNewPassword')) ?? DEFAULT_PASSWORD_RESET_LANDING_PATH
 
 /**
  * What a capability is asked ABOUT, beyond the app itself.
@@ -217,6 +246,8 @@ export const prunePagesByRequirements = <T extends App>(app: T, hostApp: App = a
   if (kept.length === pages.length) return app
   // The way to a page follows the page: a sidebar entry leading to one of the
   // dropped pages goes with it (see `sidebar-requires-service.ts`).
-  const dropped = pages.filter((page) => !kept.includes(page)).map((page) => page.path)
+  const dropped = pages
+    .filter((page) => !kept.includes(page))
+    .flatMap((page) => pageRoutePatterns(page.path))
   return pruneSidebarEntriesToDroppedPages({ ...app, pages: kept }, dropped)
 }

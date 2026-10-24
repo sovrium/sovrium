@@ -217,7 +217,7 @@ function useStrip(
 function categoryAxisOf(props: CartesianChartProps, rows: readonly CartesianRowInput[]) {
   return props.timeScale === true
     ? timeAxisElement(rows, props.xTitle)
-    : categoryAxisElement(props.categoryLabel, props.xTitle, rows.length)
+    : categoryAxisElement(props.categoryLabel, props.xTitle)
 }
 
 export function CartesianChart(props: CartesianChartProps): ReactElement {

@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { recordDbTransactionOpened } from '@/infrastructure/telemetry/db-query-counter'
 import { InTransactionBody } from './drizzle/transaction-body-guard'
 import type { DrizzleDB, DrizzleTransaction } from './drizzle/db'
 
@@ -115,13 +116,15 @@ export const withTransaction = <A, E, R, E2>(
 ): Effect.Effect<A, E2, R> =>
   Effect.flatMap(Effect.context<R>(), (services) =>
     Effect.tryPromise({
-      try: (signal) =>
-        database.transaction((tx) =>
+      try: (signal) => {
+        recordDbTransactionOpened()
+        return database.transaction((tx) =>
           Effect.runPromiseWith(services)(
             Effect.provideService(body(tx), InTransactionBody, true),
             { signal }
           )
-        ),
+        )
+      },
       catch: onTransactionFailure,
     })
   )

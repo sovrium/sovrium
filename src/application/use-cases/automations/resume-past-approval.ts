@@ -9,8 +9,8 @@ import { Effect } from 'effect'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import { defaultActionHandlers } from './action-handlers'
 import { toleratedInRows } from './run/resume-plan'
+import { dropEndedRunHistory } from './run/run-history-drop'
 import { restoreRunLedgers } from './run/run-ledger-persistence'
-import { dropEndedMinimalHistory } from './run/run-persistence'
 import { executeAutomationRun, resolveAutomationId } from './run-automation'
 import type {
   ApplyApprovalOutcomeInput,
@@ -79,6 +79,6 @@ export const resumePastApproval = (
       ...(approvalStepName === undefined ? {} : { seedOutputs: { [approvalStepName]: output } }),
       ...(target.relay === undefined ? {} : { relay: target.relay }),
     })
-    yield* dropEndedMinimalHistory(target.trigger, result.status, runId) // the paused parent
+    yield* dropEndedRunHistory(target.trigger, result.status, runId) // the paused parent
     return { decision, runId, approvalId, result } as const
   }).pipe(Effect.withSpan('automations.resume-past-approval'))

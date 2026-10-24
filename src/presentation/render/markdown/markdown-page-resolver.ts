@@ -6,6 +6,7 @@
  */
 
 import { type MarkdownHeading } from '@/domain/kernel/markdown/markdown-renderer'
+import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
 import { type ContentDirSeoMeta } from '@/domain/models/app/pages/content-dir-seo-meta'
 import { deriveContentDirSlugFromRouteParams } from '@/domain/models/app/pages/content-dir-slug'
@@ -210,7 +211,7 @@ const buildCollectionNav = async (
   if (contentDir === undefined) return undefined
   if (contentDir.nav?.enabled !== true) return undefined
   const currentSlug = deriveContentDirSlugFromRouteParams(contentDir, routeParams)
-  return listContentDir(contentDir, page.path, currentSlug, isArticleReadable)
+  return listContentDir(contentDir, primaryPagePath(page.path), currentSlug, isArticleReadable)
 }
 
 /**

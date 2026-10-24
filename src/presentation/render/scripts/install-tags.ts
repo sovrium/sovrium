@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { serializeJsonForScript } from '@/domain/kernel/sanitize/json-script-serialization'
 import type { App } from '@/domain/models/app'
 
 /** The address of the generated web app manifest. */
@@ -37,7 +38,7 @@ export const shellCacheName = (engine: string, release: string): string =>
  * moment the browser lets the new worker in.
  */
 const registerScript = (name: string): string => {
-  const cache = JSON.stringify(name)
+  const cache = serializeJsonForScript(name)
   return `if("serviceWorker"in navigator){navigator.serviceWorker.register("${SERVICE_WORKER_PATH}?v=${encodeURIComponent(name.slice(CACHE_PREFIX.length))}",{scope:"/"});if(self.caches){caches.keys().then(function(k){k.forEach(function(n){if(n.indexOf("${CACHE_PREFIX}")===0&&n!==${cache})caches.delete(n)})}).then(function(){return caches.open(${cache})}).then(function(c){return c.match("${OFFLINE_PATH}").then(function(m){return m||c.add("${OFFLINE_PATH}")})}).catch(function(){})}}`
 }
 

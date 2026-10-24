@@ -5,13 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useCallback, type ReactNode } from 'react'
+import { useCallback, useContext, type ReactNode } from 'react'
 import {
   computeTablePagerButtonClasses,
   computeTablePagerClasses,
   computeTablePagerSelectClasses,
 } from '@/presentation/design/table-default-classes'
 import { usePhoneViewport } from '../../hooks/use-phone-viewport'
+import { GridCaptionContext } from '../island/grid-caption'
 import { useGridString, useResultCount } from '../island/grid-strings'
 import { PagerEdgeButton } from './pager-edge-button'
 import { useNarrowBar } from './use-narrow-bar'
@@ -103,13 +104,14 @@ function usePagerLabels(input: {
     to: Math.min((pageIndex + 1) * pageSize, total),
     total,
   })
-  const noResults = useGridString('datatable.pagination.empty', 'No results')
   // A bar that numbers no pages counts the rows instead of a range of them.
   const count = useResultCount(total)
   return {
     // The rows before this page, which a bar numbering no pages has none of.
     offset: paged ? pageIndex * pageSize : 0,
-    summary: paged ? (total > 0 ? range : noResults) : count,
+    // Nothing for an empty grid: its body already says so ("No runs"), and a
+    // second "No results" under it repeated the same fact.
+    summary: total === 0 ? '' : paged ? range : count,
     page: useGridString('datatable.pagination.page', 'Page {page} of {count}', {
       page: pageIndex + 1,
       count: pageCount || 1,
@@ -277,6 +279,36 @@ function PagerSteps({
 }
 
 /**
+ * The bar's left half: the range summary (or the selection in its place) and,
+ * on the bottom bar of a grid that declares one, its caption after it — the
+ * bar's own small muted text, never louder than the range it qualifies. The
+ * line wraps rather than overflowing, so a phone keeps the whole note on
+ * screen; its id is the table's `aria-describedby`.
+ */
+function BarLead({
+  lead,
+  position,
+}: {
+  readonly lead: ReactNode
+  readonly position: 'top' | 'bottom'
+}) {
+  const caption = useContext(GridCaptionContext)
+  if (caption === undefined || position !== 'bottom') return lead
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      {lead}
+      <span
+        id={caption.id}
+        data-slot="table-caption"
+        className="min-w-0"
+      >
+        {caption.text}
+      </span>
+    </span>
+  )
+}
+
+/**
  * A phone, or a bar as narrow as one (a grid in a side card): its steps become
  * chevrons and its session controls one menu, so it keeps one line.
  */
@@ -334,7 +366,10 @@ export function PaginationControls(props: PaginationControlsProps) {
       data-row-total={total}
       className={`${computeTablePagerClasses({ position })} flex-wrap justify-between gap-y-1`}
     >
-      {props.leading ?? <span className="whitespace-nowrap">{summary}</span>}
+      <BarLead
+        lead={props.leading ?? <span className="whitespace-nowrap">{summary}</span>}
+        position={position}
+      />
       <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
         {bar.trailing}
         {paged && pageSizeOptions && pageSizeOptions.length > 0 && (

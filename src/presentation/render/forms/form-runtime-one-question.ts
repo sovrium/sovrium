@@ -110,6 +110,8 @@ export const FORM_RUNTIME_ONE_QUESTION_SCRIPT = `
       if (input.type === 'radio') {
         if (input.checked) {
           var labelEl = input.id ? form.querySelector('label[for="' + input.id + '"]') : null
+          // A designed radio's input sits inside the label that names it.
+          if (!labelEl) labelEl = input.closest('label')
           var label = labelEl ? (labelEl.textContent || '').trim() : input.value
           stashedAnswers[input.name] = { value: input.value, label: label }
         }
@@ -281,10 +283,19 @@ export const FORM_RUNTIME_ONE_QUESTION_SCRIPT = `
       } catch (_e) {}
     }
   }
+  // The option the reader is on: its radio, or the designed item beside it in its label.
+  function focusedOptionIndex(opts) {
+    var active = document.activeElement
+    return Array.prototype.findIndex.call(opts, function (o) {
+      var label = o.closest('label')
+      return o === active || (!!label && label.contains(active) && active.getAttribute('role') === 'radio')
+    })
+  }
   function moveHighlight(questionEl, delta) {
     var opts = radioOptions(questionEl)
     if (opts.length === 0) return
-    var current = getHighlightIndex(questionEl)
+    var focused = focusedOptionIndex(opts)
+    var current = focused >= 0 ? focused : getHighlightIndex(questionEl)
     var next = current < 0 ? 0 : current + delta
     if (next < 0) next = 0
     if (next >= opts.length) next = opts.length - 1
@@ -298,7 +309,8 @@ export const FORM_RUNTIME_ONE_QUESTION_SCRIPT = `
     // Set the suppressedRadioAdvance flag BEFORE assigning .checked so
     // the resulting change event does not double-schedule advance().
     suppressedRadioAdvance = true
-    target.checked = true
+    // A click, as the reader's own: a designed radio group follows it too.
+    target.click()
     return true
   }
   // Single scheduled-advance handle so back-to-back radio selections (rare
@@ -376,22 +388,9 @@ export const FORM_RUNTIME_ONE_QUESTION_SCRIPT = `
         goPrevious()
       })
     }
-    // Summary-screen submit: synchronous POST so Playwright's
-    // page.click() does not resolve until the row is committed.
-    //
-    // The default form runtime intercepts submit and fires an async
-    // fetch, leaving page.click() to resolve while the POST is still
-    // in flight. The one-question regression spec immediately runs an
-    // executeQuery after the click and expects the row to be visible —
-    // an explicit "wait for success message" assertion between them
-    // would have given the fetch time to settle, but the spec was
-    // written without one. Using a synchronous XMLHttpRequest blocks
-    // the JS thread until the server has responded, so by the time the
-    // click event finishes, the row is committed.
-    //
-    // Synchronous XHR is technically deprecated but Chromium still
-    // honours it from a click-handler context; the regression test runs
-    // exclusively in Chromium so the deprecation does not bite.
+    // Summary-screen submit: a synchronous POST, so the click that sends the
+    // form does not return until the server has stored the row (the default
+    // runtime's async fetch would leave the request still in flight).
     var summarySubmit = form.querySelector('[data-form-summary] button[type="submit"]')
     if (summarySubmit) {
       summarySubmit.addEventListener('click', function (event) {

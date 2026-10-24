@@ -33,6 +33,7 @@ import {
   generateSitemapFile,
   generateRobotsFile,
   generateGitHubPagesFiles,
+  withPublishedOrigin,
   type FileSystemLike,
 } from './generate-static-helpers'
 import { enumerateSignedOutRecords, type CollectionRecordIndex } from './sitemap-record-fan-out'
@@ -345,7 +346,7 @@ function generateSupportingFiles(
  */
 export const generateStatic = (
   app: unknown,
-  options: GenerateStaticOptions = {}
+  requestedOptions: GenerateStaticOptions = {}
 ): Effect.Effect<
   GenerateStaticResult,
   | AppValidationError
@@ -364,6 +365,7 @@ export const generateStatic = (
   StaticBuildServices
 > => {
   const program = Effect.gen(function* () {
+    const options = withPublishedOrigin(requestedOptions)
     // Step 1: Dependencies are statically imported
     const { replaceAppTokens } = translationReplacer
 

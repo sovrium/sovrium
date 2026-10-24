@@ -52,9 +52,9 @@ import { prebuildSearchIndex as prebuildSearchIndexUseCase } from '@/application
 import { startServer } from '@/application/use-cases/server/start-server'
 import { refuseUndersizedDatabaseBudget } from '@/application/use-cases/server/validate-boot-environment'
 import { ConfigRejectedError, isConfigRejectedError } from '@/domain/errors/config-rejected'
-import { isDatabaseUnreachable } from '@/domain/errors/driver-failure'
 import { EngineFailureError } from '@/domain/errors/engine-failure-error'
 import { InjectedFaultError } from '@/domain/errors/injected-fault-error'
+import { isDatabaseUnreachable } from '@/domain/errors/unreachable-database-error'
 import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
 import { getPublicPagePaths } from '@/domain/models/app/pages/public-pages'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
@@ -95,20 +95,7 @@ import type {
 } from '@/application/use-cases/server/generate-static'
 import type { StartOptions } from '@/application/use-cases/server/start-server-options'
 import type { App, AppEncoded } from '@/domain/models/app'
-import type { ActionTemplate as ActionTemplateModel } from '@/domain/models/app/actions'
-import type { Agent } from '@/domain/models/app/agents'
-import type { BuiltInAnalytics } from '@/domain/models/app/analytics'
-import type { Auth } from '@/domain/models/app/auth'
-import type { Automation } from '@/domain/models/app/automations'
 import type { Action as AutomationActionUnion } from '@/domain/models/app/automations/actions'
-import type { ComponentTemplate } from '@/domain/models/app/components/component'
-import type { Connection } from '@/domain/models/app/connections'
-import type { Design } from '@/domain/models/app/design'
-import type { EnvVar } from '@/domain/models/app/env'
-import type { Form } from '@/domain/models/app/forms'
-import type { Languages } from '@/domain/models/app/languages'
-import type { Page } from '@/domain/models/app/pages'
-import type { Table } from '@/domain/models/app/tables'
 import type { AuthoredTableIds } from '@/domain/models/app/tables/authored-table-ids-service'
 
 // ============================================================================
@@ -164,7 +151,7 @@ const toSimpleServer = (server: Readonly<ServerInstance>, config: App): SimpleSe
  * `Error` so the CLI prints the report instead of a stack — see that type.
  */
 const decodeOrThrow = (
-  app: AppConfig,
+  app: AppEncoded,
   attribution: DecodeAppConfigOptions = {}
 ): Extract<DecodeAppConfigResult, { valid: true }> => {
   const decoded = decodeAppConfigObject(app, attribution)
@@ -196,7 +183,7 @@ const failStartIfInjected = (): void => {
  * Start a Sovrium server. Used internally by the CLI start command.
  */
 export const start = async (
-  app: AppConfig,
+  app: AppEncoded,
   options: StartOptions = {},
   attribution: DecodeAppConfigOptions = {}
 ): Promise<SimpleServer> => {
@@ -300,7 +287,7 @@ const runBuildStartupOnce = (validatedApp: App, authoredTableIds: AuthoredTableI
  * Build static site files. Used internally by the CLI build command.
  */
 export const build = async (
-  app: AppConfig,
+  app: AppEncoded,
   options: GenerateStaticOptions = {},
   attribution: DecodeAppConfigOptions = {}
 ): Promise<GenerateStaticResult> => {
@@ -393,7 +380,7 @@ export const build = async (
  * @returns `true` when the indexer ran (artifacts were written), `false` when
  *          the activation gate is closed (no page-scoped `search-input` component).
  */
-export const prebuildSearchIndex = async (app: AppConfig, publicDir: string): Promise<boolean> => {
+export const prebuildSearchIndex = async (app: AppEncoded, publicDir: string): Promise<boolean> => {
   const { raw: rawApp, app: validatedApp } = decodeOrThrow(app)
   return Effect.runPromise(
     prebuildSearchIndexUseCase(rawApp, validatedApp, publicDir).pipe(
@@ -458,7 +445,7 @@ export type CreateAdminResult =
  * rather than thrown, so the CLI can print actionable messages.
  */
 export const createAdmin = async (
-  app: AppConfig,
+  app: AppEncoded,
   credentials: CreateAdminCredentials
 ): Promise<CreateAdminResult> => {
   try {
@@ -609,17 +596,43 @@ export const createUnclaimedAccounts = (
 // Type Exports (consumed by scripts/build/build-types.ts → the shipped sovrium.d.ts)
 // ============================================================================
 
-/** Application configuration type for YAML/JSON/TypeScript config files. */
-export type AppConfig = AppEncoded
+/**
+ * Application configuration type for YAML/JSON/TypeScript config files.
+ *
+ * Every `*Config` type below describes the config AS IT IS WRITTEN — the
+ * encoded side of the app schema, the one `sovrium validate` reads and
+ * `sovrium schema` prints. The decoded side is what the engine works on after
+ * defaults and normalisations ran: an automation's single `trigger` is gone
+ * from it (it became a one-entry `triggers`), and a key with a decoding default
+ * is required there. Typing an author's file against that side reports errors
+ * on configs the binary accepts. So each element type is DERIVED from
+ * `AppConfig` by position rather than from the domain model's decoded type: it
+ * can never drift to the other side, and it names exactly what the position
+ * accepts. The one exception is an automation's steps, whose encoded side is
+ * erased to `unknown`; see `AuthoredAutomationAction`. `AppConfig` itself takes
+ * its automations as `AutomationConfig`, so a step is checked the same way in a
+ * whole app as in one automation typed on its own.
+ *
+ * The functions above take the raw `AppEncoded` instead: what the CLI hands
+ * them was parsed from a file, not authored against this type, and every
+ * `AppConfig` is one.
+ */
+export type AppConfig = Omit<AppEncoded, 'automations'> & {
+  readonly automations?: readonly AutomationConfig[]
+}
+
+/** An element of one of `AppConfig`'s list-valued keys, as it is written. */
+type AppConfigEntry<K extends keyof AppConfig> =
+  NonNullable<AppConfig[K]> extends readonly (infer E)[] ? E : never
 
 /** Single page configuration (element of `AppConfig['pages']`). */
-export type PageConfig = Page
+export type PageConfig = AppConfigEntry<'pages'>
 
 /** Single table configuration (element of `AppConfig['tables']`). */
-export type TableConfig = Table
+export type TableConfig = AppConfigEntry<'tables'>
 
 /** Reusable component template (element of `AppConfig['components']`). */
-export type ComponentConfig = ComponentTemplate
+export type ComponentConfig = AppConfigEntry<'components'>
 
 /**
  * Design / design tokens configuration.
@@ -628,34 +641,79 @@ export type ComponentConfig = ComponentTemplate
  * `AppConfig['design']` is a deprecated alias for the same type, removed at the
  * next major. The alias here is unchanged — one type serves both positions.
  */
-export type ThemeConfig = Design
+export type ThemeConfig = NonNullable<AppConfig['design']>
 
 /** Design-system configuration (`AppConfig['design']`) — tokens, principles, voice, usage rules. */
-export type DesignConfig = Design
+export type DesignConfig = NonNullable<AppConfig['design']>
 
 /** Authentication configuration (`AppConfig['auth']`). */
-export type AuthConfig = Auth
+export type AuthConfig = NonNullable<AppConfig['auth']>
 
 /** Multi-language configuration (`AppConfig['languages']`). */
-export type LanguageConfig = Languages
+export type LanguageConfig = NonNullable<AppConfig['languages']>
 
 /** Built-in analytics configuration (`AppConfig['analytics']`). */
-export type AnalyticsConfig = BuiltInAnalytics
+export type AnalyticsConfig = NonNullable<AppConfig['analytics']>
 
-/** Single automation configuration (element of `AppConfig['automations']`). */
-export type AutomationConfig = Automation
+/** The step a `$ref` names an action template with; its `type` defaults to `'ref'`. */
+type AuthoredRefStep = Omit<Extract<AutomationActionUnion, { readonly type: 'ref' }>, 'type'> & {
+  readonly type?: 'ref'
+}
+
+/** Nested steps, written the way top-level ones are. */
+type AuthoredSteps = { readonly actions: readonly AuthoredAutomationAction[] }
+
+/** A `loop` step, whose nested steps are authored steps. */
+type LoopStep = Extract<AutomationActionUnion, { readonly type: 'loop' }>
+type AuthoredLoopStep = Omit<LoopStep, 'props'> & {
+  readonly props: Omit<LoopStep['props'], 'actions'> & AuthoredSteps
+}
+
+/** A `path` step, whose branches hold authored steps. */
+type PathStep = Extract<AutomationActionUnion, { readonly type: 'path' }>
+type AuthoredPathStep = Omit<PathStep, 'props'> & {
+  readonly props: Omit<PathStep['props'], 'paths'> & {
+    readonly paths: readonly (Omit<PathStep['props']['paths'][number], 'actions'> & AuthoredSteps)[]
+  }
+}
+
+/**
+ * One automation step as it is written: the step union, with a `$ref` step's
+ * `type` optional because it defaults to `'ref'` — at the top level and inside
+ * the two steps that nest others, `loop` and `path`.
+ *
+ * The step schema's ENCODED side is `unknown` (the union is far too large for
+ * TypeScript to serialise, so its codec is declared `Codec<Action, unknown>`),
+ * which would leave every step untyped here. So the steps are described by the
+ * hand-written step union instead, relaxed by the one default it does not
+ * express. Exported so the declaration can name it, recursive as it is.
+ */
+export type AuthoredAutomationAction =
+  | Exclude<AutomationActionUnion, { readonly type: 'ref' | 'loop' | 'path' }>
+  | AuthoredRefStep
+  | AuthoredLoopStep
+  | AuthoredPathStep
+
+/**
+ * Single automation configuration (element of `AppConfig['automations']`).
+ * Declares either `trigger` (one) or `triggers` (1 to 10); `sovrium validate`
+ * refuses an automation that declares both.
+ */
+export type AutomationConfig = Omit<NonNullable<AppEncoded['automations']>[number], 'actions'> & {
+  readonly actions: readonly AuthoredAutomationAction[]
+}
 
 /** Single external connection configuration (element of `AppConfig['connections']`). */
-export type ConnectionConfig = Connection
+export type ConnectionConfig = AppConfigEntry<'connections'>
 
 /** Single form configuration (element of `AppConfig['forms']`). */
-export type FormConfig = Form
+export type FormConfig = AppConfigEntry<'forms'>
 
 /** Single env-var declaration (element of `AppConfig['env']`). */
-export type EnvConfig = EnvVar
+export type EnvConfig = AppConfigEntry<'env'>
 
 /** Single autonomous AI agent configuration (element of `AppConfig['agents']`). */
-export type AgentConfig = Agent
+export type AgentConfig = AppConfigEntry<'agents'>
 
 /**
  * Reusable action template (element of `AppConfig['actions']`).
@@ -664,7 +722,7 @@ export type AgentConfig = Agent
  * suggest: `ActionTemplate` is already the public name every config author writes,
  * and one public name per concept beats naming symmetry.
  */
-export type ActionTemplate = ActionTemplateModel
+export type ActionTemplate = AppConfigEntry<'actions'>
 
 // Re-export function parameter and return types
 export type { StartOptions, GenerateStaticOptions, GenerateStaticResult }

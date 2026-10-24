@@ -16,7 +16,9 @@
  *   - an approver a request on that run names (`isPersistedApprover`, the rule
  *     the approval endpoints apply), who must read what they are asked to approve.
  *
- * Anyone else is answered as if the run did not exist. Acting on a run (replay,
+ * Anyone else is answered as if the run did not exist — and so is everyone but
+ * an admin for the runs of an automation whose webhook runs as the system for a
+ * machine (`runsReadByAdminOnly`). Acting on a run (replay,
  * cancel) is NARROWER than reading it: an admin, or the hand-starter who still
  * holds the trigger's role.
  */
@@ -40,6 +42,7 @@ import {
   isPersistedApprover,
 } from '@/domain/models/app/automations/actions/approval/approver-validation'
 import { relayNamesRun } from '@/domain/models/app/automations/run-relay-service'
+import { runsReadByAdminOnly } from '@/domain/models/app/automations/run-starter-service'
 import type {
   AuthDatabaseError,
   AuthRepository,
@@ -51,6 +54,10 @@ export type RunAccess =
   { readonly kind: 'every-run' } | { readonly kind: 'scoped'; readonly scope: RunReaderScope }
 
 type RunAccessError = AuthDatabaseError | AutomationApprovalDatabaseError
+
+/** The automations whose runs only an admin reads, by name. */
+const adminOnlyAutomations = (app: App): readonly string[] =>
+  (app.automations ?? []).filter(runsReadByAdminOnly).map((automation) => automation.name)
 
 /** The run ids among `rows` whose request names the caller an approver. */
 const approvedRunIds = (
@@ -90,6 +97,7 @@ export const loadRunAccess = (input: {
       scope: {
         userId: input.userId,
         runIds: approvedRunIds(rows, { userId: input.userId, role }, input.app),
+        exceptAutomations: adminOnlyAutomations(input.app),
       },
     }
   }).pipe(Effect.withSpan('automations.load-run-access'))
@@ -145,6 +153,9 @@ export const findReadableRun = (input: {
     )
     if (run === undefined) return undefined
     const readsEveryRun = isAdminEquivalent(role, input.app)
+    if (!readsEveryRun && adminOnlyAutomations(input.app).includes(run.automationName)) {
+      return undefined
+    }
     const startedIt = startedByHandBy(run, input.userId)
     const named = approvedRunIds(rows, { userId: input.userId, role }, input.app)
     return readsEveryRun || startedIt || named.includes(input.runId)

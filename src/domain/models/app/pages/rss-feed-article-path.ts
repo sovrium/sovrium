@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import {
   deriveContentDirIndexBasePath,
   deriveTrailingDynamicParamName,
@@ -35,12 +36,13 @@ const articleSlugOf = (file: string, directory: string, slugFrom: string | undef
 export const markdownFeedArticlePath = (page: Page): string => {
   const { contentDir } = page
   const file = page.markdown?.file
-  const param = deriveTrailingDynamicParamName(page.path)
+  const path = primaryPagePath(page.path)
+  const param = deriveTrailingDynamicParamName(path)
   if (contentDir === undefined || typeof file !== 'string' || param === undefined) {
-    return page.path
+    return path
   }
   const slug = articleSlugOf(file, contentDir.directory, contentDir.slugFrom)
-  if (slug === contentDir.index) return deriveContentDirIndexBasePath(page.path) ?? page.path
+  if (slug === contentDir.index) return deriveContentDirIndexBasePath(path) ?? path
   // A replacer function: a slug is file text, and `$&` in it must stay literal.
-  return page.path.replace(/:[^/]+?\*?$/, () => slug)
+  return path.replace(/:[^/]+?\*?$/, () => slug)
 }

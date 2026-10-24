@@ -39,6 +39,7 @@ import {
   parseSovriumNotifyDigestCron,
   parseSovriumNotifyTo,
 } from '@/domain/models/process-env/notifications'
+import { parseFrameAncestors, previewTokenRefusal } from '@/domain/models/process-env/preview'
 import { parseRateLimitWindowSeconds } from '@/domain/models/process-env/rate-limit-window'
 import { parseRecordsRateLimits } from '@/domain/models/process-env/records-rate-limits'
 import { parseRendererEnv } from '@/domain/models/process-env/renderer'
@@ -113,6 +114,26 @@ const refuseBrowserMisconfiguration = (
     catch: (error) => new InvalidEnvVarError(error),
   })
 
+/**
+ * The framing list and the preview token: a malformed origin, a
+ * blank list or a short token refuses the start with the sentence the manual
+ * quotes. An empty token is unset, like every other `SOVRIUM_*` variable; the
+ * token's refusal never carries the value or its length.
+ */
+const refusePreviewMisconfiguration = Effect.try({
+  try: () => {
+    const framing = parseFrameAncestors(process.env['SOVRIUM_FRAME_ANCESTORS'])
+    const token = process.env['SOVRIUM_PREVIEW_TOKEN']
+    const refusal =
+      framing._tag === 'Refused'
+        ? framing.message
+        : previewTokenRefusal(token === '' ? undefined : token)
+    // eslint-disable-next-line functional/no-throw-statements -- turned into the boot refusal by the catch below.
+    if (refusal !== undefined) throw new Error(refusal)
+  },
+  catch: (error) => new InvalidEnvVarError(error),
+})
+
 /** What {@link validateBootEnvironment} refuses a boot with. */
 export type BootEnvironmentError =
   MissingRequiredEnvVarError | InvalidOperatorTimezoneError | InvalidEnvVarError
@@ -184,6 +205,7 @@ export const validateBootEnvironment = (
     ),
     // The browser automation switch: its conflicts with the renderer, and holds past its limit.
     Effect.andThen(refuseBrowserMisconfiguration(validatedApp)),
+    Effect.andThen(refusePreviewMisconfiguration),
     Effect.andThen(refuseUndersizedDatabaseBudget(validatedApp)),
     Effect.asVoid,
     Effect.withSpan('server.validate-boot-environment')

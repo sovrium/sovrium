@@ -1097,7 +1097,7 @@
                             {
                               "type": "text",
                               "element": "span",
-                              "content": "$t:admin.welcome.sub.fields"
+                              "content": "$record.tableFields"
                             },
                             {
                               "type": "text",
@@ -1107,7 +1107,7 @@
                             {
                               "type": "text",
                               "element": "span",
-                              "content": "$record.tableFields"
+                              "content": "$t:admin.welcome.sub.fields"
                             }
                           ]
                         },
@@ -1508,7 +1508,7 @@
                             {
                               "type": "text",
                               "element": "span",
-                              "content": "$t:admin.welcome.sub.banned"
+                              "content": "$record.usersBanned"
                             },
                             {
                               "type": "text",
@@ -1518,7 +1518,7 @@
                             {
                               "type": "text",
                               "element": "span",
-                              "content": "$record.usersBanned"
+                              "content": "$t:admin.welcome.sub.banned"
                             }
                           ]
                         },
@@ -1754,7 +1754,7 @@
                             {
                               "type": "text",
                               "element": "span",
-                              "content": "$t:admin.welcome.sub.teams"
+                              "content": "$record.teams"
                             },
                             {
                               "type": "text",
@@ -1764,7 +1764,7 @@
                             {
                               "type": "text",
                               "element": "span",
-                              "content": "$record.teams"
+                              "content": "$t:admin.welcome.sub.teams"
                             }
                           ]
                         },

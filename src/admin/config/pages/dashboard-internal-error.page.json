@@ -81,6 +81,7 @@
                   "type": "text",
                   "element": "p",
                   "props": {
+                    "id": "admin-internal-error-body",
                     "data-slot": "empty-description",
                     "className": "text-sm/relaxed text-muted-foreground"
                   },

@@ -12,8 +12,9 @@
 
 import { Radio } from '@base-ui/react/radio'
 import { RadioGroup } from '@base-ui/react/radio-group'
+import { useContext, useLayoutEffect, useState, type ReactElement } from 'react'
 import { cn } from '@/presentation/design/class-merge'
-import type { ReactElement } from 'react'
+import { IslandHostIdContext } from '../runtime/island-host-context'
 
 interface OptionItem {
   readonly label: string
@@ -28,6 +29,14 @@ interface RadioIslandProps {
   readonly disabled?: boolean
   readonly name?: string
   readonly label?: string
+  /** The group's name when it draws no legend (a form question labels it already). */
+  readonly ariaLabel?: string
+  /**
+   * Draw each item as a native `<button>`, so the label around it names the
+   * button alone rather than the radio input Base UI keeps beside it — the
+   * one control a reader finds by its option's label.
+   */
+  readonly nativeButtons?: boolean
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
@@ -55,13 +64,18 @@ const ITEM_DOT =
 const LEGEND = 'mb-1.5 text-sm font-medium'
 const ITEM_LABEL = 'inline-flex items-center gap-2 text-sm leading-none font-normal select-none'
 
+/** The element an item renders as when it is a native button. */
+const ITEM_BUTTON = <button type="button" />
+
 /** One option: shadcn/ui's `RadioGroupItem` beside its `Label`. */
 function RadioItem({
   option,
   groupDisabled,
+  nativeButton,
 }: {
   readonly option: OptionItem
   readonly groupDisabled: boolean
+  readonly nativeButton: boolean
 }): ReactElement {
   return (
     <label
@@ -73,6 +87,7 @@ function RadioItem({
       <Radio.Root
         value={option.value}
         disabled={option.disabled}
+        {...(nativeButton ? { nativeButton: true, render: ITEM_BUTTON } : {})}
         className={ITEM_ROOT}
         data-slot="radio-group-item"
       >
@@ -86,6 +101,36 @@ function RadioItem({
       <span>{option.label}</span>
     </label>
   )
+}
+
+/** The option checked on the server's radios inside `host`, if any. */
+const checkedIn = (host: HTMLElement | null): string | undefined =>
+  host?.querySelector<HTMLInputElement>('input[type="radio"]:checked')?.value
+
+/**
+ * The group's value, starting on the option checked on the server's radios in
+ * the island's host. React keeps those radios on screen for a moment after the
+ * island first renders, so a choice made on them meanwhile is followed until
+ * the island commits, then taken over. Only a host with an id is read.
+ */
+function useHostChoice(hostId: string | undefined, defaultValue: string | undefined) {
+  const [early] = useState(() => {
+    const host = hostId === undefined ? null : document.getElementById(hostId)
+    const box = { value: checkedIn(host), stop: (): void => undefined }
+    const follow = (event: Event): void => {
+      const target = event.target as HTMLInputElement | null
+      if (target?.type === 'radio') box.value = target.value
+    }
+    host?.addEventListener('change', follow)
+    box.stop = () => host?.removeEventListener('change', follow)
+    return box
+  })
+  const [value, setValue] = useState<string | null>(early.value ?? defaultValue ?? null)
+  useLayoutEffect(() => {
+    early.stop()
+    if (early.value !== undefined) setValue(early.value)
+  }, [early])
+  return [value, setValue] as const
 }
 
 /**
@@ -104,10 +149,13 @@ export default function RadioIsland({
   disabled = false,
   name,
   label,
+  ariaLabel,
+  nativeButtons = false,
   className,
   id,
   'data-testid': testId,
 }: RadioIslandProps): ReactElement {
+  const [value, setValue] = useHostChoice(useContext(IslandHostIdContext), defaultValue)
   return (
     <fieldset
       className={cn(className)}
@@ -124,9 +172,11 @@ export default function RadioIsland({
         </legend>
       )}
       <RadioGroup
-        defaultValue={defaultValue}
+        value={value}
+        onValueChange={setValue}
         disabled={disabled}
         name={name}
+        aria-label={ariaLabel}
         className={GROUP_LAYOUT[orientation]}
         data-slot="radio-group"
       >
@@ -135,6 +185,7 @@ export default function RadioIsland({
             key={option.value}
             option={option}
             groupDisabled={disabled}
+            nativeButton={nativeButtons}
           />
         ))}
       </RadioGroup>

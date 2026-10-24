@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { satisfiesFieldCondition } from '@/domain/models/app/tables/condition-match-service'
 import { withRecordTextFields } from '@/domain/models/app/tables/record-text-service'
 import {
   KANBAN_CARD_BODY_CLASSES,
@@ -19,6 +20,7 @@ import { renderFooterItem } from './footer-formatters'
 import { useKanbanFormat } from './use-kanban-format'
 import type { TableRecord } from '../runtime/types'
 import type { KanbanCard } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
+import type { FieldCondition } from '@/domain/models/app/tables/condition-operators'
 import type { ReactElement } from 'react'
 
 /** The board's classes for the record components a card slot draws. */
@@ -26,6 +28,17 @@ const CARD_CHILD_CLASSES: CardChildClasses = {
   avatar: KANBAN_FOOTER_AVATAR_CLASSES,
   badge: computeKanbanFooterBadgeClasses(),
 }
+
+/**
+ * Does this card child's `visibility.record` gate admit the card's record? Read
+ * on every render, so a card moved to another column or redrawn from a changed
+ * record is gated by the value it holds now. A child with no gate is kept.
+ */
+const admitsRecord = (child: unknown, record: TableRecord): boolean =>
+  satisfiesFieldCondition(
+    (child as { readonly visibility?: { readonly record?: FieldCondition } }).visibility?.record,
+    record
+  )
 
 export function KanbanCardDefault({ record }: { readonly record: TableRecord }): ReactElement {
   // No template configured: render a minimal default with a title-ish field.
@@ -60,7 +73,9 @@ export function KanbanCardBody({
       )}
       <div className={KANBAN_CARD_BODY_CLASSES}>
         {card.children?.map((child, index) =>
-          renderCardChild(child, textRecord, index, CARD_CHILD_CLASSES)
+          admitsRecord(child, record)
+            ? renderCardChild(child, textRecord, index, CARD_CHILD_CLASSES)
+            : undefined
         )}
       </div>
       {/* The footer sits OUTSIDE the body's padding box so its top rule runs

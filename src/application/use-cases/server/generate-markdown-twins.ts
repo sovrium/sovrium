@@ -22,6 +22,7 @@ import {
   ContentDirReader,
   type ContentDirReadError,
 } from '@/application/ports/services/content-dir-reader'
+import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { isPublicArticle } from '@/domain/models/app/pages/content-dir-access'
 import { isPublicPage } from '@/domain/models/app/pages/is-public'
 import { logDebug } from '@/infrastructure/logging'
@@ -44,7 +45,10 @@ const collectPageTwins = (
 ): Effect.Effect<readonly MarkdownTwin[], ContentDirReadError, ContentDirReader> =>
   Effect.gen(function* () {
     if (page.contentDir === undefined || !isPublicPage(page)) return []
-    const bodies = yield* (yield* ContentDirReader).readBodies(page.contentDir, page.path)
+    const bodies = yield* (yield* ContentDirReader).readBodies(
+      page.contentDir,
+      primaryPagePath(page.path)
+    )
     return (
       bodies
         // A twin is public: an article gated by its own front matter has none.

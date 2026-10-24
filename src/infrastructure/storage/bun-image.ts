@@ -36,9 +36,11 @@
  * has two backends: `system` on macOS/Windows (JPEG/PNG/WebP statically linked,
  * AVIF/HEIC delegated to ImageIO/WIC) and `bun` on Linux (static codecs only,
  * no AV1 encoder). A probe compiled with `bun build --compile
- * --target=bun-linux-x64` and run inside `debian:bookworm-slim` — the exact
- * `Dockerfile` base — encoded PNG, JPEG and WebP and answered AVIF with
- * `ERR_IMAGE_FORMAT_UNSUPPORTED`. `sharp` vendored libaom and could; the
+ * --target=bun-linux-x64` and run inside `debian:bookworm-slim` encoded PNG,
+ * JPEG and WebP and answered AVIF with `ERR_IMAGE_FORMAT_UNSUPPORTED`. The
+ * `Dockerfile` base is `debian:trixie-slim` today; the `bun` backend's codecs
+ * are linked into the binary rather than loaded from the image, so the base
+ * does not change that answer. `sharp` vendored libaom and could; the
  * runtime cannot.
  *
  * So AVIF passed on a maintainer's laptop and failed on Linux CI and in

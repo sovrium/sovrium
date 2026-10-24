@@ -94,7 +94,7 @@
                   "key": "preview-surface",
                   "element": "div",
                   "props": {
-                    "className": "bg-background text-foreground flex list-none flex-col gap-6 p-6",
+                    "className": "bg-background text-foreground flex list-none flex-col gap-6 p-3",
                     "data-testid": "preview-surface",
                     "data-design-kit-type": "container"
                   },

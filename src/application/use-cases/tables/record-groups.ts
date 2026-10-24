@@ -20,6 +20,7 @@
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import { AGGREGATE_PERCENTILES } from '@/domain/models/app/tables/aggregate-percentile-service'
+import { serializeDriverRow } from '@/domain/models/app/tables/driver-value-service'
 import { asMinMaxAnswer, minMaxKindOf } from '@/domain/models/app/tables/min-max-order-service'
 import {
   answerOrderedAggregations,
@@ -29,7 +30,6 @@ import {
   type OrderedAnswer,
   type RawAggregations,
 } from './aggregation-helpers'
-import { serializeDriverRow } from './record-transformer'
 import type {
   GroupedAggregationRow,
   GroupLevel,

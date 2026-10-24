@@ -28,6 +28,23 @@ On `/engineer` the Overview entry is current. On `/engineer/projects/harbour-wal
 
 `activeMatch` is accepted on an entry's own `source` too, and applies to each row of its list.
 
+## Entries for the reader
+
+A `query` value may name the reader: `$currentUser.id`, `$currentUser.email`, `$currentUser.role` or `$currentUser.isUnrestricted`, inside a wire filter or in the `field:value` shorthand. The server writes in the reader's own value before the page is sent, so a "My apps" group lists each reader the rows they own and the reference never reaches the browser. It works on a group's `source`, an entry's `source` and a `childrenSource`.
+
+```yaml
+groups:
+  - label: My apps
+    source:
+      endpoint: /api/tables/hosted_apps/records
+      rowsKey: records
+      labelKey: name
+      hrefTemplate: /apps/{name}
+      query: { filter: 'owner:$currentUser.id' }
+```
+
+A visitor who is not signed in has no rows of their own: a source naming the reader is not fetched for them, and the group lists nothing. A page that names the reader is never served from the page cache, so a reader who signs in is drawn their own entries.
+
 ## A second fetched level
 
 `childrenSource` on a group's `source` makes each fetched entry a disclosure: the entry stays a link to its own page, with a toggle beside it named `Expand {label}` and `Collapse {label}`, and its list is fetched the first time the reader opens it — never for a list nobody opened. The list opens on arrival when the reader is on the entry's own page.

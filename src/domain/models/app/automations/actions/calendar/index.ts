@@ -7,4 +7,5 @@
 
 export * from './calendar-action'
 
+export * from './export-ics'
 export * from './import-ics'

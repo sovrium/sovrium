@@ -49,6 +49,7 @@
  * reads, and never what either resolves to.
  */
 
+import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import {
   EXPORT_NODE_ID_KEY,
   isTemplatePlacement,
@@ -309,6 +310,8 @@ export interface PageProjectionInput {
   readonly branches?: BoardBranches | undefined
   /** Draw every island of the page empty (`data=empty`). */
   readonly empty?: boolean | undefined
+  /** What a seeded value is written in: language, zone, clock. */
+  readonly text?: SeedContext['text']
 }
 
 /**
@@ -334,6 +337,7 @@ export const projectPageForExport = (
     secretFields: input.seed === undefined ? undefined : writeOnlyFieldsOf(app, page),
     branches: input.branches,
     empty: input.empty,
+    text: input.text,
   }
   // The walk reads every node as an untyped record, as the identity walker does.
   const nodes: readonly unknown[] = page.components ?? []
@@ -349,7 +353,7 @@ export const projectPageForExport = (
     },
     map: {
       name: page.name,
-      path: page.path,
+      path: primaryPagePath(page.path),
       ...(page.meta === undefined ? {} : { meta: page.meta }),
       nodes: projected.flatMap((node) => node.entries),
     },

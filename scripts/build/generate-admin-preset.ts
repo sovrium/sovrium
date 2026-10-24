@@ -84,11 +84,11 @@ import { writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Exit, Schema } from 'effect'
-import * as prettier from 'prettier'
 import { AppSchema } from '@/domain/models/app'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { decodeAppConfigObject } from '../../src/application/use-cases/config/decode-app-config'
 import { loadSchemaFromTsFile } from '../../src/infrastructure/config/file-loader'
+import { formatText } from '../lib/format'
 import type { Languages } from '@/domain/models/app/languages'
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..')
@@ -181,10 +181,11 @@ export const ADMIN_PRESET_LANGUAGES: Languages | undefined = ${languagesJson}
 `
 }
 
+// Formatted with the repository formatter (bun fmt, [internal ref]); `ignore: 'none'`
+// because the `*.generated.ts` target is in .prettierignore, yet has always
+// been written formatted.
 const write = async (target: string, contents: string): Promise<void> => {
-  const config = await prettier.resolveConfig(target)
-  const formatted = await prettier.format(contents, { ...config, parser: 'typescript' })
-  writeFileSync(target, formatted)
+  writeFileSync(target, formatText(contents, target, { ignore: 'none' }))
 }
 
 /**

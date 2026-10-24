@@ -21,6 +21,10 @@ import { MOUNTED_NODE } from './claude-design-canvas-mount'
  * - a folded sidebar opens from its menu button into a modal panel;
  * - a dropdown menu opens its items, a dialog opens from its opener and
  *   closes, the theme toggle switches the board between light and dark;
+ * - a tab shows its own panel, a navigation menu's trigger opens its links,
+ *   a select field is a native select of its options;
+ * - a button starting an automation shows its pending label, then its toast
+ *   (or, in a store, the page it opens), and starts nothing;
  * - a grid pages, sorts, searches and opens a row menu over the drawn rows,
  *   and a row leads to the board of its record;
  * - a form validates as the app declares (required fields and email
@@ -29,7 +33,9 @@ import { MOUNTED_NODE } from './claude-design-canvas-mount'
  *   leads to the board of the page it redirects to.
  *
  * With a store (`--prototype=app`), a grid draws the store's rows and a form,
- * a stop button or a row's delete writes to it (`claude-design-canvas-app.ts`).
+ * a stop button or a row's delete writes to it (`claude-design-canvas-app.ts`),
+ * a record's edit form writes the record its view draws, and a sign-in form
+ * opens the landing page of the role the board is played as.
  *
  * Written as an ES2017 function expression, holding no `</script` and no
  * `{{`, so it sits verbatim inside a board's `<script>` beside the canvas's
@@ -46,7 +52,14 @@ export const PROTOTYPE_RUNTIME = String.raw`function (config, doc, props, makeSt
     if (store && /^[/?]/.test(href)) return store.navigate(href)
     window.location.href = href
   }
+  // An address read off the drawing (an attribute) plays only as the app's own,
+  // in a store: never a script, never another site, never the window's location.
+  var goApp = function (href) {
+    if (store && href && /^[/?]/.test(href)) store.navigate(href)
+  }
   var text = function (node) { return (node && node.textContent ? node.textContent : '').trim() }
+  // A text the board draws itself, in the language it is played in.
+  var say = function (value) { return store && store.text ? store.text(value) : value }
   var el = function (tag, attrs, children) {
     var node = doc.createElement(tag)
     Object.keys(attrs || {}).forEach(function (key) { node.setAttribute(key, attrs[key]) })
@@ -80,6 +93,32 @@ export const PROTOTYPE_RUNTIME = String.raw`function (config, doc, props, makeSt
     closeOnEscape.push(close)
     return close
   }
+  // A toast, as the app answers an action, held a few seconds.
+  var toast = function (message) {
+    var note = el('div', { role: 'status', class: 'fixed bottom-4 right-4 z-50 rounded-md border bg-popover px-4 py-3 text-sm text-popover-foreground shadow-md' }, [message])
+    root.append(note)
+    setTimeout(function () { note.remove() }, 4000)
+  }
+  // A select drawn native, its options and value as the app's control holds them.
+  var selectOf = function (name, options, value, extra) {
+    var select = el('select', { name: name, class: extra.className || '' }, [el('option', { value: '' }, [extra.empty || ''])].concat(options.map(function (option) {
+      var entry = typeof option === 'object' && option !== null ? option : { value: option, label: option }
+      return el('option', { value: String(entry.value) }, [say(String(entry.label === undefined ? entry.value : entry.label))])
+    })))
+    if (extra.id) select.id = extra.id
+    if (extra.required) { select.required = true; select.setAttribute('aria-required', 'true') }
+    select.value = value === undefined || value === null ? '' : String(value)
+    return select
+  }
+  var islandProps = function (host) {
+    try { return JSON.parse(host.getAttribute('data-island-props') || '{}') } catch (error) { return {} }
+  }
+  // Played once: a part a store draws again is a new node, played again.
+  var unplayed = function (node) {
+    if (node.hasAttribute('data-dc-played')) return false
+    node.setAttribute('data-dc-played', '')
+    return true
+  }
   // The theme toggle: the board between light and dark.
   doc.addEventListener('click', function (event) {
     var toggle = event.target.closest && event.target.closest('[data-theme-toggle]')
@@ -105,9 +144,15 @@ export const PROTOTYPE_RUNTIME = String.raw`function (config, doc, props, makeSt
     var drawn = Array.prototype.slice.call(body.querySelectorAll('tr')).map(function (row, at) {
       return { node: row, href: grid.rowHrefs[at] || null, record: null }
     })
+    // A cell as the grid draws it: its formatted text while its value is the one drawn.
+    var cellOf = function (record, field) {
+      var stored = record[field] === undefined || record[field] === null ? '' : String(record[field])
+      var drawnText = ((grid.texts || {})[String(record.id)] || {})[field]
+      return drawnText && drawnText[0] === stored ? drawnText[1] : stored
+    }
     var build = function (record) {
       var row = el('tr', { class: rowClass }, grid.columns.map(function (field) {
-        return el('td', { class: cellClass }, [record[field] === undefined || record[field] === null ? '' : String(record[field])])
+        return el('td', { class: cellClass }, [cellOf(record, field)])
       }))
       return { node: row, href: grid.recordHref ? store.hrefOf(grid.recordHref, record) : null, record: record }
     }
@@ -191,13 +236,23 @@ export const PROTOTYPE_RUNTIME = String.raw`function (config, doc, props, makeSt
 
   // Forms: validated as the app declares, submitted to their success.
   var messageOf = function (input) {
-    if (input.required && input.value.trim() === '') return MESSAGES.required
+    var required = input.required || input.getAttribute('aria-required') === 'true'
+    if (required && input.value.trim() === '') return MESSAGES.required
     if (input.type === 'email' && input.value !== '' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(input.value)) return MESSAGES.email
     return ''
   }
+  // An id is unique within its view: a Prototype board draws every page, two
+  // of which may draw a control for the same field.
+  var viewOf = function (node) { return (node.closest && node.closest('[data-dc-view]')) || null }
+  var inView = function (node, id) {
+    var view = viewOf(node)
+    // Compared, never written into a selector: an id holding a quote stays an id.
+    return view ? Array.prototype.find.call(view.querySelectorAll('[id]'), function (found) { return found.id === id }) || null : doc.getElementById(id)
+  }
   var showError = function (input, message) {
-    var id = 'dc-error-' + (input.id || input.name)
-    var note = doc.getElementById(id)
+    var view = viewOf(input)
+    var id = 'dc-error-' + (input.id || (view ? view.getAttribute('data-dc-view') + '--' : '') + input.name)
+    var note = inView(input, id)
     if (message === '') {
       input.removeAttribute('aria-invalid')
       input.removeAttribute('aria-describedby')
@@ -288,9 +343,142 @@ export const PROTOTYPE_RUNTIME = String.raw`function (config, doc, props, makeSt
     })
   })
 
+  // A tab shows its own panel and hides its siblings'.
+  Array.prototype.forEach.call(scope.querySelectorAll('[role="tab"]'), function (tab) {
+    if (!unplayed(tab)) return
+    tab.removeAttribute('disabled')
+    tab.addEventListener('click', function () {
+      var list = tab.closest('[role="tablist"]')
+      var tabs = list ? Array.prototype.slice.call(list.querySelectorAll('[role="tab"]')) : [tab]
+      tabs.forEach(function (other) {
+        var selected = other === tab
+        other.setAttribute('aria-selected', selected ? 'true' : 'false')
+        other.setAttribute('tabindex', selected ? '0' : '-1')
+        if (selected) other.setAttribute('data-active', ''); else other.removeAttribute('data-active')
+        var panel = inView(other, other.getAttribute('aria-controls') || '')
+        if (panel) { if (selected) panel.removeAttribute('hidden'); else panel.setAttribute('hidden', '') }
+      })
+    })
+  })
+
+  // A navigation menu's trigger opens its links, as the menu's popup does, over the page.
+  Array.prototype.forEach.call(scope.querySelectorAll('[data-island="navigation-menu"]'), function (host) {
+    var groups = (islandProps(host).navItems || []).filter(function (item) { return Array.isArray(item.children) })
+    Array.prototype.forEach.call(host.querySelectorAll('[data-slot="navigation-menu-trigger"]'), function (trigger, at) {
+      var group = groups[at]
+      if (!group || !unplayed(trigger)) return
+      trigger.removeAttribute('disabled')
+      trigger.setAttribute('aria-expanded', 'false')
+      var panel = null
+      var close = function () {
+        if (!panel) return
+        panel.remove()
+        panel = null
+        trigger.setAttribute('aria-expanded', 'false')
+        closeOnEscape = closeOnEscape.filter(function (other) { return other !== close })
+      }
+      trigger.addEventListener('click', function (event) {
+        event.stopPropagation()
+        if (panel) return close()
+        var box = trigger.getBoundingClientRect()
+        panel = el('div', { 'data-slot': 'navigation-menu-content', class: 'absolute z-50 grid min-w-56 gap-1 rounded-lg border bg-popover p-2 text-popover-foreground shadow-md' }, group.children.map(function (child) {
+          var link = el('a', { href: '#', 'data-sovrium-href': child.href || '', class: 'flex flex-col rounded-md p-2 text-sm hover:bg-accent' }, [el('span', { class: 'font-medium' }, [say(child.label || '')])].concat(child.description ? [el('span', { class: 'text-muted-foreground' }, [say(child.description)])] : []))
+          link.addEventListener('click', function (clicked) { clicked.preventDefault(); close() })
+          return link
+        }))
+        panel.style.left = box.left + window.scrollX + 'px'
+        panel.style.top = box.bottom + window.scrollY + 4 + 'px'
+        root.append(panel)
+        trigger.setAttribute('aria-expanded', 'true')
+        closeOnEscape.push(close)
+      })
+    })
+  })
+
+  // A select field of a form: a native select holding the field's options.
+  Array.prototype.forEach.call(scope.querySelectorAll('[data-island="form-field"]'), function (host) {
+    var props = islandProps(host)
+    if (props.kind !== 'select' || !props.name) return
+    var trigger = host.querySelector('[role="combobox"]')
+    host.replaceChildren(selectOf(props.name, props.options || [], props.value, { id: trigger ? trigger.id : '', className: trigger ? trigger.getAttribute('class') : '', required: props.required, empty: props.emptyLabel }))
+  })
+
+  // A button starting an automation shows its pending label, then its success:
+  // the prototype starts no automation.
+  Array.prototype.forEach.call(scope.querySelectorAll('button[data-action-type="automation"]'), function (button) {
+    if (!unplayed(button)) return
+    button.removeAttribute('disabled')
+    button.removeAttribute('data-awaits-script')
+    var busy = false
+    button.addEventListener('click', function () {
+      if (busy) return
+      busy = true
+      var shown = Array.prototype.slice.call(button.childNodes)
+      button.setAttribute('aria-busy', 'true')
+      button.replaceChildren(say(button.getAttribute('data-action-pending-label') || text(button)))
+      setTimeout(function () {
+        button.replaceChildren.apply(button, shown)
+        button.removeAttribute('aria-busy')
+        busy = false
+        var message = button.getAttribute('data-on-success-message')
+        if (message) toast(say(message))
+        var next = button.getAttribute('data-on-success-navigate')
+        goApp(next)
+      }, 400)
+    })
+  })
+
+  // A sign-in form signs in as the role the board is played as: it opens the
+  // role's landing page and keeps nothing typed. It checks no password.
+  if (store) Array.prototype.forEach.call(scope.querySelectorAll('form[data-action-type="auth"]'), function (form) {
+    if (!unplayed(form)) return
+    form.setAttribute('novalidate', '')
+    Array.prototype.forEach.call(form.querySelectorAll('button[type="submit"]'), function (button) { button.removeAttribute('disabled') })
+    form.addEventListener('submit', function (event) {
+      event.preventDefault()
+      if (!validate(form)) return
+      var landing = store.landing(form.getAttribute('data-on-success-redirect'))
+      form.reset()
+      goApp(landing)
+    })
+  })
+
+  // A record's edit form, its controls drawn from its fields (an option field
+  // a select), writes the record it is drawn at, then opens the page it leads to.
+  if (store) Array.prototype.forEach.call(scope.querySelectorAll('[data-island="crud-form"]'), function (host) {
+    var form = host.querySelector('form[data-action-type="crud"]')
+    if (!form || !unplayed(form)) return
+    var props = islandProps(host)
+    ;(props.fields || []).forEach(function (field) {
+      var input = Array.prototype.find.call(form.querySelectorAll('input'), function (candidate) { return candidate.name === field.name })
+      if (!input || !Array.isArray(field.options)) return
+      input.replaceWith(selectOf(field.name, field.options, input.value, { className: input.getAttribute('class'), required: field.required }))
+    })
+    form.setAttribute('novalidate', '')
+    form.addEventListener('submit', function (event) {
+      event.preventDefault()
+      if (!validate(form)) return
+      var values = {}
+      Array.prototype.forEach.call(form.querySelectorAll('input, textarea, select'), function (input) {
+        if (input.name && input.type !== 'hidden' && input.name.charAt(0) !== '_') values[input.name] = input.value
+      })
+      var table = form.getAttribute('data-action-table') || props.table
+      var method = form.getAttribute('data-action-method') || props.operation
+      if (method === 'update' && store.may({ table: table, operation: 'update' })) store.update(table, store.recordId(), values)
+      if (method === 'create' && store.may({ table: table, operation: 'create' })) store.create(table, values)
+      var next = form.getAttribute('data-on-success-redirect')
+      goApp(next)
+    })
+  })
+
   ;(config.forms || []).forEach(function (spec) {
-    var form = scope.querySelector('form[data-form-name="' + spec.name + '"]')
-    if (!form) return
+    Array.prototype.forEach.call(scope.querySelectorAll('form[data-form-name="' + spec.name + '"]'), function (form) {
+    if (!unplayed(form)) return
+    // As the app, a form writing to a table is offered only to a role the table lets create.
+    if (store && spec.writes && !store.may({ table: spec.writes, operation: 'create' })) {
+      form.setAttribute('hidden', '')
+      return
+    }
     form.setAttribute('novalidate', '')
     var sample = form.querySelector('input:not([type="hidden"])')
     var sampleLabel = form.querySelector('label')
@@ -302,7 +490,8 @@ export const PROTOTYPE_RUNTIME = String.raw`function (config, doc, props, makeSt
       nav.append(back)
       if (at < spec.steps.length - 1) nav.append(el('button', { type: 'button', 'data-dc-step': 'next', class: 'rounded-md border px-3 py-1.5 text-sm' }, ['Next']))
       var fields = step.fields.map(function (field) {
-        var id = 'field-' + field.name
+        var view = viewOf(form)
+        var id = (view ? view.getAttribute('data-dc-view') + '--' : '') + 'field-' + field.name
         var input = el('input', { id: id, name: field.name, type: field.type || 'text', class: sample ? sample.getAttribute('class') || '' : '' }, [])
         if (field.required) { input.required = true; input.setAttribute('aria-required', 'true') }
         return el('div', {}, [el('label', { for: id, class: sampleLabel ? sampleLabel.getAttribute('class') || '' : '' }, [field.label + (field.required ? ' *' : '')]), input])
@@ -353,10 +542,12 @@ export const PROTOTYPE_RUNTIME = String.raw`function (config, doc, props, makeSt
       if (submit) submit.disabled = true
       setTimeout(function () {
         if (submit) submit.disabled = false
-        var message = el('div', { role: 'status', class: 'rounded-md border p-4 text-sm' }, [spec.success && spec.success.message ? spec.success.message : 'Sent.'])
+        var success = spec.success || {}
+        var message = el('div', { role: 'status', class: 'rounded-md border p-4 text-sm' }, (success.title ? [el('p', { class: 'font-semibold' }, [say(success.title)])] : []).concat([el('p', {}, [say(success.message || 'Sent.')])]))
         form.insertAdjacentElement('beforebegin', message)
         form.setAttribute('hidden', '')
       }, 300)
+    })
     })
   })
 
@@ -365,7 +556,10 @@ export const PROTOTYPE_RUNTIME = String.raw`function (config, doc, props, makeSt
     var button = scope.querySelector('[data-sovrium-id="' + update.id + '"], [${MOUNTED_NODE}="' + update.id + '"]')
     if (!button || !store) return
     var target = button.tagName === 'BUTTON' ? button : button.querySelector('button') || button
-    target.addEventListener('click', function () { store.update(update.table, store.recordId(), update.data) })
+    // Offered as drawn, it writes nothing for a role the table does not let update.
+    target.addEventListener('click', function () {
+      if (store.may({ table: update.table, operation: 'update' })) store.update(update.table, store.recordId(), update.data)
+    })
   })
   }
   if (store) {

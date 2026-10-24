@@ -169,6 +169,12 @@ export const automationsRunsListQuerySchema = Schema.Struct({
         'Keep only the runs an operator started by hand from a schedule (`true`: the run reads `invokedOnDemand: true`) or only the others (`false`). Exactly `true` or `false`; any other value is a 400, never a filter silently ignored. AND-combined with every other filter.',
     })
   ),
+  routine: optionalField(
+    Schema.Literals(['true', 'false']).annotate({
+      description:
+        'Whether the routine runs are listed. A run is routine when the trigger that started it declares `history: minimal` or `history: none`, or is a schedule whose expression fires every minute or more often, and it ended unremarkably: completed, skipped, or still queued or running. A run that failed, timed out, exhausted its retries, completed with errors, was cancelled or rejected, or waits on an approval or a delay is never routine, and neither is a run an operator started by hand (`invokedOnDemand: true`). Absent or `false`, routine runs are left out, so the history lists the runs that are about something; `true` lists every run. Exactly `true` or `false`; any other value is a 400. The response echoes the value applied as `appliedRoutine`. AND-combined with every other filter, which never brings a routine run back on its own. The public `GET /api/automations/runs` takes no such parameter and lists every run.',
+    })
+  ),
   q: searchTermSchema.annotate({
     description:
       'Optional free-text search over the run `automationName` and the failure `error` message, as a case-insensitive literal substring. Composes with every other filter (AND) and with the cursor, so a page is a page of MATCHES. `status`, `startedAt` and `triggerData` are intentionally NOT searched — see the searchable-field contract in the module docstring. Empty / whitespace-only means "no search".',
@@ -277,6 +283,10 @@ export type AutomationRunAdminItem = typeof automationRunAdminItemSchema.Type
 export const automationsRunsListResponseSchema = Schema.Struct({
   ...cursorPaginationResponseSchema(automationRunAdminItemSchema).fields,
   appliedQuery: appliedQuerySchema,
+  appliedRoutine: Schema.Boolean.annotate({
+    description:
+      'Whether routine runs were listed: `false` when the request left `routine` out or sent `false`, `true` when it sent `true`. Echoed on every response, as `appliedQuery` is, so a client knows which history it holds.',
+  }),
   total: Schema.Int.annotate({
     description:
       'How many runs match the request’s filters and search, across every page — the same figure on every page of one query, so a reader can number the pages. Pagination parameters do not change it.',
@@ -512,6 +522,18 @@ export const automationsRunsDetailWithStepsResponseSchema = Schema.Struct({
       label: Schema.String.annotate({
         description: "The failed step's `label`, as its row in `steps` carries it.",
       }).pipe(Schema.check(Schema.isMinLength(1))),
+      connection: optionalField(
+        Schema.String.annotate({
+          description:
+            'The `name` of the connection the failed step reaches its provider through (`props.connection` of a connection call, an `http` request, a webhook send or an `ai` step). Absent when the step names none.',
+        })
+      ),
+      connectionLabel: optionalField(
+        Schema.String.annotate({
+          description:
+            'That connection as the Connections page names it: its declared `label`, else its `name`. A console leads the operator from the failed run to that one connection with it. Absent when the step names no connection.',
+        })
+      ),
     })
   ).annotate({
     description:

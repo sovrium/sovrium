@@ -73,6 +73,45 @@ In a run someone started by hand, an attachment or a `template` named `{ key, bu
       - { key: legal/terms-2026.pdf, bucket: library }
 ```
 
+### Bulk sends: unsubscribe, suppression, bounces and opens
+
+A newsletter or any other message sent to a list is a **bulk send**: give the step a `category` (`newsletter`, `product-updates`). The message then carries the one-click unsubscribe Gmail and Yahoo require of bulk senders, `List-Unsubscribe` and `List-Unsubscribe-Post: List-Unsubscribe=One-Click`, pointing at `/api/email/unsubscribe` on your app with a token signed for this recipient and this category. Set `BASE_URL` in production so the link carries your public address.
+
+- **One click leaves the list.** The mail client posts to that address and the recipient is suppressed for that category. Someone opening the link sees a page with a confirm button; a link scanner that only follows it unsubscribes nobody. A forged or expired token (older than 90 days) answers `404` and changes nothing.
+- **Suppressed recipients are skipped.** Before each bulk send the recipient is looked up, without case, for its category and for every category. A suppressed recipient is not mailed: the step is recorded as `skipped`, with the reason `recipient is suppressed for category "<category>"`, and the run goes on. A send without `category` is transactional (a receipt, a password reset) and is never skipped.
+- **One recipient per message.** `cc` and `bcc` are refused beside `category`, since each recipient gets their own link, and `to` must be one address (`ann@example.com` or `Ann <ann@example.com>`): a list fails the step and nothing is sent.
+
+`headers` adds extra headers, filled from the run like any prop: any `X-` header, the `List-` headers, `Precedence`, `Auto-Submitted`, `In-Reply-To`, `References` and `Feedback-ID`. `validate` refuses every other name, and points `From`, `To`, `Cc`, `Bcc`, `Subject` and `Reply-To` at their own props. With `category`, the two unsubscribe headers are written for you and refused in `headers`. A value that would end the header line, a line break from a request for instance, fails the step and nothing is sent.
+
+**Bounces and complaints.** Your mail provider reports them to a webhook. Verify it with the webhook trigger's own `auth` (the Svix, Stripe-style or HMAC signature the provider uses) and call `email/suppress`, which suppresses the address for every category unless you name one. Pass the provider's `messageId` so the bounce is counted under its campaign. `validate` refuses `email/suppress` behind a webhook without `auth`, behind a form, or behind an `auth: { type: session }` webhook whose `requiredRole` is not an admin role: neither a stranger nor any signed-in user must be able to stop your app mailing someone.
+
+<!-- sovrium:options EmailSuppressActionSchema -->
+
+```yaml
+automations:
+  - name: provider-bounces
+    trigger:
+      type: webhook
+      method: POST
+      auth: { type: hmac, scheme: svix, secret: $env.MAIL_WEBHOOK_SECRET }
+    actions:
+      - name: recordBounce
+        type: email
+        operator: suppress
+        props:
+          address: '{{trigger.data.body.data.to}}'
+          reason: bounce
+          messageId: '{{trigger.data.body.data.message_id}}'
+```
+
+**Opens are opt-in.** `trackOpens: true` adds an invisible one-pixel image; the first time a mail client loads it, the message counts as opened. It is off by default because it tells you when someone read your message: say so in your privacy notice. Many clients block or preload images, so the count is a lower bound.
+
+**Counting a campaign.** Give the sends a `campaign` and read the counts with `email/stats`, which returns `sent`, `opened`, `bounced`, `complained` and `unsubscribed` for a campaign, a category or both. A skipped recipient is not counted as sent. Write the numbers wherever your app shows them; there is no stats screen of its own.
+
+<!-- sovrium:options EmailStatsActionSchema -->
+
+The suppression list is personal data: the account export lists the categories a person's address left, and erasing the account deletes those entries.
+
 ### Email needs SMTP configured
 
 With no SMTP host set, email is disabled and a send is **logged rather than delivered**. Sovrium does not quietly fall back to a local mail catcher, because a development convenience that survives into production is a class of outage where every message appears to have been sent.

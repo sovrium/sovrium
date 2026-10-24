@@ -116,22 +116,26 @@ This is why traces and metrics each have their own gate. The base endpoint arms 
 | `OTEL_TRACES_SAMPLER_ARG`             | `0.1`                          | Sampling ratio in [0,1] for ratio-based samplers                                                      |
 | `LOG_LEVEL`                           | `info`                         | `debug`, `info`, `warn` or `error`; `SOVRIUM_LOG_FORMAT` in **Env Vars: Hosting** sets the line shape |
 
+**What performance sampling leaves out.** Static-asset requests (`/assets/*` and files such as `.css`, `.js` or images) and the health route (`GET` and `HEAD /api/health`, the readiness probe `?probe=db` included) never produce a performance transaction, whatever `SENTRY_TRACES_SAMPLE_RATE` says, so a load balancer probing the instance every few seconds does not crowd real requests out of your trace quota. Errors on those routes are still reported.
+
+**What an automation run costs the database.** With metric export armed, every automation run, whether started by hand, by a webhook, by a record event or on a schedule, records three histograms labelled with the automation's name: `automation.run.db.statements` (the SQL statements the run issued), `automation.run.db.transactions` (the transactions it opened) and `automation.run.db.catalog_probes` (its lookups in the database's schema catalog). With trace export armed, the run's `automation.run` span carries the same three numbers as `db.query.count`, `db.transaction.count` and `db.catalog_probe.count`. They count the run alone, never the request that started it, so a schedule that fires every second shows what each fire really costs.
+
 ## Static builds
 
 Read when generating a static site.
 
-| Variable                      | Default  | Description                                                    |
-| ----------------------------- | -------- | -------------------------------------------------------------- |
-| `SOVRIUM_OUTPUT_DIR`          | `./dist` | Output directory                                               |
-| `SOVRIUM_BASE_URL`            | —        | Base URL for sitemap entries, canonical and hreflang links     |
-| `SOVRIUM_BASE_PATH`           | —        | Path prefix for subdirectory deployments                       |
-| `SOVRIUM_DEPLOYMENT`          | —        | `github-pages` or `generic`                                    |
-| `SOVRIUM_LANGUAGES`           | —        | Comma-separated language codes to build                        |
-| `SOVRIUM_DEFAULT_LANGUAGE`    | —        | Default language code                                          |
-| `SOVRIUM_GENERATE_SITEMAP`    | `false`  | Generate a sitemap, and write the page of each record it lists |
-| `SOVRIUM_GENERATE_ROBOTS`     | `false`  | Generate a robots file                                         |
-| `SOVRIUM_BUNDLE_OPTIMIZATION` | —        | `split` or `none`                                              |
-| `SOVRIUM_PUBLIC_DIR`          | —        | Static-asset directory to copy; `none` disables static serving |
+| Variable                      | Default                          | Description                                                                                             |
+| ----------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `SOVRIUM_OUTPUT_DIR`          | `./dist`                         | Output directory                                                                                        |
+| `SOVRIUM_BASE_URL`            | —                                | Origin of every sitemap entry, canonical and hreflang link; wins over `BASE_URL`                        |
+| `SOVRIUM_BASE_PATH`           | —                                | Path prefix for subdirectory deployments; added after `SOVRIUM_BASE_URL` unless it already ends with it |
+| `SOVRIUM_DEPLOYMENT`          | —                                | `github-pages` or `generic`                                                                             |
+| `SOVRIUM_LANGUAGES`           | every `languages.supported` code | Comma-separated language codes the sitemap lists                                                        |
+| `SOVRIUM_DEFAULT_LANGUAGE`    | —                                | Default language code                                                                                   |
+| `SOVRIUM_GENERATE_SITEMAP`    | `false`                          | Generate a sitemap, and write the page of each record it lists                                          |
+| `SOVRIUM_GENERATE_ROBOTS`     | `false`                          | Generate a robots file                                                                                  |
+| `SOVRIUM_BUNDLE_OPTIMIZATION` | —                                | `split` or `none`                                                                                       |
+| `SOVRIUM_PUBLIC_DIR`          | —                                | Static-asset directory to copy; `none` disables static serving                                          |
 
 ## Demo instances
 

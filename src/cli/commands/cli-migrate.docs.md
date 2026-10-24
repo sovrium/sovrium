@@ -47,7 +47,7 @@ sovrium migrate app.yaml
   ✓ Config tables reconciled: notes.
 ```
 
-Each migration is named, and the journal position is reported as a fraction, so "applied nothing" and "applied fourteen" never look alike from outside.
+Each migration is named, and the journal position is reported as a fraction, so "applied nothing" and "applied fourteen" never look alike from outside. Run from the compiled binary, the second line reads `Migrations: embedded in this binary`: the migrations travel inside the executable, and the folder it unpacks them into for one run is removed when the run ends.
 
 The command is **idempotent**. Run it over a database that is already current and it applies nothing and exits `0`. That is what makes it safe as a deploy hook: every deploy can call it, and only the ones with work to do will do any.
 

@@ -55,6 +55,10 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # SOVRIUM_LISTEN_UNIX=/run/sovrium/app.sock   # serve on a Unix socket (mode 0660) instead of PORT
 # SOVRIUM_IDLE_EXIT_SECONDS=900           # exit cleanly once idle this long; at least 30
 # SOVRIUM_LOG_FORMAT=json                 # one JSON object per log line, for a log collector
+#
+# Framing and private previews (read once at start; unset = off):
+# SOVRIUM_FRAME_ANCESTORS=https://editor.example.com   # origins allowed to frame the app; space-separated
+# SOVRIUM_PREVIEW_TOKEN=                  # at least 32 characters: everything else answers 404
 
 # ── Letting your AI client edit the config ────────────────────────────
 # Read by \`sovrium mcp\` alone, and only when the project directory was named

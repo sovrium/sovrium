@@ -40,13 +40,14 @@ import { getManyToManyFieldSpecs } from './many-to-many-fields'
 import { refuseWhenNoSingleIdAddress } from './read-record-programs'
 import { announceRecordWrites } from './record-change-announcement'
 import {
-  clearedManyToManySpecs,
-  linksToClear,
+  mergeManyToManyFields,
+  removedLinksOf,
   splitManyToManyFields,
 } from './record-link-enrichment'
 import { transformRecord } from './record-transformer'
 import { refuseSelfLinkCycle } from './self-link-cycle-check'
 import { refuseSignatureOverwrite } from './signature-write-once-check'
+import { readWrittenLinkLists } from './to-many-link-reads'
 import { writeOnlyBlock } from './write-only-presence'
 import type { LinkReader } from './linked-row-visibility'
 import type { TransformedRecord } from './record-transformer'
@@ -255,6 +256,7 @@ const resolveUpdatedBaseRecord = (
     readonly linkReader?: LinkReader
     readonly expectedUpdatedAt?: string
     readonly auditContext?: Readonly<Record<string, string>>
+    readonly linkLists?: 'replace'
   }
 ): Effect.Effect<
   Record<string, unknown>,
@@ -291,8 +293,7 @@ const resolveUpdatedBaseRecord = (
     const writesRow = Object.keys(baseWithAuthorship).length > 0
     if (!writesRow && (yield* repo.getRecord(session, tableName, recordId)) === null) return {}
 
-    const cleared = clearedManyToManySpecs(params.fields, m2mSpecs)
-    const unlinks = yield* linksToClear({ app: params.app, tableName, recordId, cleared, reader })
+    const unlinks = yield* removedLinksOf({ ...params, tableName, recordId, reader, m2mSpecs })
     const { expectedUpdatedAt, auditContext } = params
     return yield* repo.updateRecord(session, tableName, recordId, {
       ...{ fields: baseWithAuthorship, app: params.app, links, unlinks },
@@ -323,6 +324,12 @@ interface UpdateRecordParams {
   readonly expectedUpdatedAt?: string
   /** The surface the change is recorded as made through (a form edit link). */
   readonly auditContext?: Readonly<Record<string, string>>
+  /**
+   * `replace`: a many-to-many list in the change is the whole set of links the
+   * writer keeps, so the readable links it leaves out are removed. Absent, a
+   * list ADDS its links, as the records API documents.
+   */
+  readonly linkLists?: 'replace'
 }
 
 export function updateRecordProgram(
@@ -355,9 +362,16 @@ export function updateRecordProgram(
     // Transform with app context to include table-specific fields like created_at/updated_at
     const transformed = transformRecord(record, { app: params.app, tableName })
 
-    // Field-level read filtering, for the caller (role and groups) when named
-    const filteredFields =
-      readableEchoFields(record, { ...params, tableName }) ?? transformed.fields
+    // Field-level read filtering, then each link list the change named, as read after it
+    const links = yield* readWrittenLinkLists(params.app, tableName, recordId, {
+      written: params.fields,
+      reader: linkReaderOf(session, params.userRole, params.linkReader),
+    })
+    const filteredFields = mergeManyToManyFields(
+      readableEchoFields(record, { ...params, tableName }) ?? transformed.fields,
+      recordId,
+      links
+    ) as TransformedRecord['fields']
 
     // Return in format expected by tests: system fields at root, user fields
     // both nested (canonical) and at the root (flat alias). Mirrors the

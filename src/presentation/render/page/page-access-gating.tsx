@@ -24,10 +24,9 @@
  * different declarations and together exceeded the tree's file ceiling.
  */
 
-import { mountHref } from '@/domain/models/app/admin/mount-hrefs'
 import { resolveLandingPath } from '@/domain/models/app/pages/landing-resolver'
 import { isCapabilityMet, passwordResetRequestPath } from '@/domain/models/app/pages/page-requires'
-import { getMountBasePath } from '@/infrastructure/css/mount-identity'
+import { servingMountHref } from '@/presentation/render/resolve/auth-form-facts-stamp'
 import { resolveFirstObjectRedirect } from '@/presentation/render/resolve/first-object-redirect-resolver'
 import { hideComponent } from './page-crud-gating'
 import type { PageRenderResult } from '@/application/ports/services/page-renderer'
@@ -133,9 +132,7 @@ type ChildNode = NonNullable<Component['children']>[number]
 /** The address of the app's password-reset request page, under the mount serving it. */
 function recoveryHrefOf(app: App): string | undefined {
   const path = passwordResetRequestPath(app)
-  if (path === undefined) return undefined
-  const basePath = getMountBasePath(app)
-  return basePath === undefined ? path : mountHref(basePath, path)
+  return path === undefined ? undefined : servingMountHref(app, path)
 }
 
 /**

@@ -125,11 +125,17 @@ const rewriteModuleReferences = (text: string): string =>
  * is injected so this walk is unit-testable without a program. `reserved` holds
  * the names the declaration already exports: a referenced type sharing one would
  * collide, so it throws rather than shipping two meanings for one name.
+ *
+ * `exported` maps an exported name to the identity of the declaration it is
+ * printed from. A reference resolving to exactly that declaration is not a
+ * collision but the export itself — `AppConfig` naming `AutomationConfig` — so
+ * it is rewritten to the bare name and not hoisted a second time.
  */
 export const inlineModuleReferences = (
   texts: readonly string[],
   expand: (reference: ModuleReference) => ExpandedReference,
-  reserved: ReadonlySet<string>
+  reserved: ReadonlySet<string>,
+  exported: ReadonlyMap<string, string> = new Map()
 ): InlineResult => {
   const byName = new Map<string, ExpandedReference>()
   const expandedBySpelling = new Map<string, ExpandedReference>()
@@ -143,6 +149,7 @@ export const inlineModuleReferences = (
       expandedBySpelling.set(spelling, expanded)
 
       if (reserved.has(reference.name)) {
+        if (exported.get(reference.name) === expanded.identity) continue
         throw new Error(
           `Cannot inline '${reference.name}': the declaration already exports a type by that name`
         )

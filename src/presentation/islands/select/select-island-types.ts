@@ -48,6 +48,8 @@ export interface SelectIslandProps {
   /** Accept typed values not in the option list (combobox free-form input). */
   readonly allowCustomValue?: boolean
   readonly defaultValue?: string
+  /** On a combobox holding a set: the values it starts with, in the order given. */
+  readonly defaultValues?: readonly string[]
   readonly disabled?: boolean
   /** The id of the `field` label that names the trigger, when the select draws no label. */
   readonly labelledBy?: string

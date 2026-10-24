@@ -58,7 +58,7 @@
  * other.
  */
 
-import { cp, mkdir, readdir, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdir, readdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, relative, resolve } from 'node:path'
 import { parseDataDir } from '@/domain/models/process-env/data-dir'
 import { isPathWithin } from '@/domain/models/process-env/desktop'
@@ -73,6 +73,37 @@ import { printJournalWarning } from '@/infrastructure/logging/cli-output'
  * so an afternoon of editing is hundreds of them.
  */
 const MAX_SNAPSHOTS = 20
+
+/**
+ * A path with every symbolic link resolved, or merely made absolute when it
+ * cannot be (a file deleted between the read and the snapshot).
+ */
+const realPathOf = (path: string): Promise<string> => realpath(path).catch(() => resolve(path))
+
+/**
+ * Where a graph file goes inside a snapshot, relative to the project, or
+ * `undefined` when it is not part of the project.
+ *
+ * Asked twice, as typed and then with links resolved, because a graph names its
+ * files both ways. A `$ref` arrives as typed, so `content/pages.yaml` under a
+ * `content/` linked to a shared folder is inside the project — the config write
+ * tool's jail judges it the same way and will edit it, so undo has to hold it.
+ * A TypeScript graph names its modules by their real path while the root
+ * arrives as the user typed it, so a project opened through a link (every one
+ * under the macOS temporary directory, where `/var` leads to `/private/var`)
+ * is only recognised once both sides are resolved. Either answer stays under
+ * the snapshot directory, so neither can make the copy escape it.
+ */
+const snapshotRelativePath = async (
+  rootFile: string,
+  file: string
+): Promise<string | undefined> => {
+  const typedRoot = dirname(resolve(rootFile))
+  const typedFile = resolve(file)
+  if (isPathWithin(typedRoot, typedFile)) return relative(typedRoot, typedFile)
+  const [realRoot, realFile] = await Promise.all([realPathOf(typedRoot), realPathOf(typedFile)])
+  return isPathWithin(realRoot, realFile) ? relative(realRoot, realFile) : undefined
+}
 
 /** Where a `--watch` boot keeps its accepted-config snapshots. */
 export const historyDir = (): string => join(parseDataDir(), 'history')
@@ -129,7 +160,6 @@ export const snapshotConfigGraph = async (
   configHash: string
 ): Promise<string | undefined> => {
   try {
-    const rootDir = dirname(resolve(rootFile))
     const name = snapshotName(configHash)
     const target = join(historyDir(), name)
 
@@ -145,12 +175,15 @@ export const snapshotConfigGraph = async (
         // re-typed: it is the same question asked of the same kind of path, and
         // a security predicate spelled out twice is two chances to spell it
         // differently.
-        const absolute = resolve(file)
-        if (!isPathWithin(rootDir, absolute)) return
+        const inProject = await snapshotRelativePath(rootFile, file)
+        if (inProject === undefined) return
 
-        const destination = join(target, relative(rootDir, absolute))
+        const destination = join(target, inProject)
         await mkdir(dirname(destination), { recursive: true })
-        await cp(resolve(file), destination)
+        // The REAL file is copied: a file that is itself a link would otherwise
+        // be copied as the link, and a snapshot pointing at the live file holds
+        // nothing to go back to.
+        await cp(await realPathOf(file), destination)
       })
     )
 

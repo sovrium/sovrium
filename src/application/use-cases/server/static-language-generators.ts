@@ -7,6 +7,7 @@
 
 import { Effect, Schema } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
+import { languageOwnAddresses } from '@/domain/kernel/matching/localized-path'
 import { AppSchema } from '@/domain/models/app'
 import { getPublicPagePaths } from '@/domain/models/app/pages/public-pages'
 import { withStaticBuildNavigation } from '@/domain/models/app/pages/static-build-navigation-service'
@@ -59,6 +60,7 @@ export const generateMultiLanguageFiles = (
   Effect.gen(function* () {
     logDebug('[ssg] generating multi-language static site...')
     const supportedLanguages = validatedApp.languages!.supported
+    const languageCodes = supportedLanguages.map((language) => language.code)
     // Rewritten once for the whole pass: every language render and the root
     // index below start from the same build-mode app.
     const staticApp = withStaticBuildNavigation(validatedApp)
@@ -88,29 +90,33 @@ export const generateMultiLanguageFiles = (
             renderErrorPage: pageRenderer.renderError,
           })
 
-          // Generate static files in language subdirectory
-          const langOutputDir = `${outputDir}/${lang.code}`
+          // The pass writes from the output ROOT, each address as the server
+          // serves it: a page naming no language under this language's prefix
+          // (`/about` → `fr/about.html`), this language's own pages once at
+          // their own address (`/fr/pricing` → `fr/pricing.html`), and another
+          // language's pages not at all. Handing every pass every path and
+          // writing into `<out>/<lang>` prefixed a path that already named a
+          // language a second time (`fr/fr/pricing.html`, `en/fr/pricing.html`)
+          // and wrote nothing at the address the sitemap and alternates give.
+          // The crawl's non-page routes (assets, robots) land at the root too,
+          // where the root pass below writes them last.
           // Filter to publicly-emittable pages — see getPublicPagePaths and
           // The pages public search requirement for the access-leak regression.
-          const pagePaths = [...getPublicPagePaths(validatedLangApp.pages), ...recordPagePaths]
+          const pagePaths = languageOwnAddresses(
+            [...getPublicPagePaths(validatedLangApp.pages), ...recordPagePaths],
+            lang.code,
+            languageCodes
+          )
           // Disposed AFTER the HTML exists, and on every exit path. The old
           // order was the reverse — the server was stopped BEFORE its `app`
           // reached the generator — which worked only because rendering never
           // needed the listener. It did need the domain runtime behind the app,
           // so releasing that first would not have been survivable.
           const ssgResult = yield* staticSiteGenerator
-            .generate(renderApp.app, {
-              outputDir: langOutputDir,
-              pagePaths,
-            })
+            .generate(renderApp.app, { outputDir, pagePaths })
             .pipe(Effect.ensuring(renderApp.dispose))
 
-          // Return files with language prefix (normalize paths to be relative)
-          return ssgResult.files.map((f) => {
-            // toSSG returns relative paths from the outputDir
-            // Simply prefix with language code
-            return `${lang.code}/${f}`
-          })
+          return ssgResult.files
         }),
       // ONE RENDER APP AT A TIME, and the width is still the whole point.
       //
@@ -155,8 +161,9 @@ export const generateMultiLanguageFiles = (
       })
       .pipe(Effect.ensuring(defaultRenderApp.dispose))
 
-    // Combine all files immutably
-    return [...langFiles.flat(), ...rootSSGResult.files]
+    // Every pass crawls the same non-page routes, so one file can be written by
+    // several passes: listed once.
+    return [...new Set([...langFiles.flat(), ...rootSSGResult.files])]
   }).pipe(Effect.withSpan('server.generate-multi-language-files'))
 
 /**

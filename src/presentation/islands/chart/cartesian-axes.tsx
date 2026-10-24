@@ -73,7 +73,13 @@ interface TickProps {
   readonly payload: { readonly value: unknown }
 }
 
-/** The tick a category axis draws: the category's display name, centred on it. */
+/**
+ * The tick a category axis draws: the category's display name, centred on it.
+ * It carries recharts' own tick class because recharts reads the drawn font
+ * size off the first node of that class to measure which labels fit; without
+ * it every label is measured at the page's font size and labels that fit are
+ * dropped.
+ */
 function categoryTick(labelOf: (key: string) => string): (props: TickProps) => ReactElement {
   return function CategoryTick({ x, y, payload }) {
     return (
@@ -81,6 +87,7 @@ function categoryTick(labelOf: (key: string) => string): (props: TickProps) => R
         x={x}
         y={y}
         dy="0.71em"
+        className="recharts-cartesian-axis-tick-value"
         fill={CHART_AXIS_TICK_FILL}
         textAnchor="middle"
       >
@@ -150,25 +157,25 @@ export function gridElement(): ReactElement {
   )
 }
 
-/** Above this many categories, labelling every one runs the labels into each other. */
-const DENSE_CATEGORIES = 12
-
 /**
- * The category axis, titled by `xAxis.label` when declared: every category
- * labelled, unless there are more than {@link DENSE_CATEGORIES} — a month of
- * days — where the first and last stay labelled and recharts drops the labels
- * between that would overlap.
+ * The category axis, titled by `xAxis.label` when declared. A label is drawn
+ * when it fits beside its neighbours, with a clear gap of about half its type
+ * size, at the width the chart is drawn in, so a narrow chart of twelve months
+ * names every other month and a wide one names all twelve; the first and last
+ * stay labelled. Each label is measured as it is
+ * shown (`labelOf`), not as its stored key, and recharts chooses the labels
+ * again whenever the chart is resized.
  */
 export function categoryAxisElement(
   labelOf: (key: string) => string,
-  title: string | undefined,
-  categoryCount = 0
+  title: string | undefined
 ): ReactElement {
   return (
     <XAxis
       dataKey="key"
-      interval={categoryCount > DENSE_CATEGORIES ? 'preserveStartEnd' : 0}
-      minTickGap={12}
+      interval="preserveStartEnd"
+      minTickGap={6}
+      tickFormatter={(key: unknown) => labelOf(String(key))}
       axisLine={false}
       tickLine={false}
       tickSize={0}

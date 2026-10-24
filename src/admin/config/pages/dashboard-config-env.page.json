@@ -320,7 +320,8 @@
                   }
                 ],
                 "emptyMessage": "$t:admin.env.empty",
-                "noMatchMessage": "$t:admin.env.noMatch"
+                "noMatchMessage": "$t:admin.env.noMatch",
+                "viewOptions": "toolbar"
               }
             },
             {

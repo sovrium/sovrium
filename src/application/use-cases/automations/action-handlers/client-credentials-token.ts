@@ -15,7 +15,7 @@ import {
 import { SentinelTokens } from '@/application/ports/services/sentinel-tokens'
 import { withProviderEndpoints } from '@/domain/models/app/connections/oauth2-provider-validation'
 import { stringProp } from './shared'
-import type { ConnectionDef } from './static-auth-header'
+import { unsetEnvReference, type ConnectionDef } from './static-auth-header'
 
 /**
  * The client credentials grant (RFC 6749 §4.4) for an OAuth2 connection
@@ -43,6 +43,21 @@ export type ClientCredentialsOutcome =
       readonly fields?: Readonly<Record<string, string>> | undefined
     }
   | { readonly ok: false; readonly reason: string }
+
+/**
+ * The first variable a client-credentials grant's `clientId` or `clientSecret`
+ * reads that is not set on this instance, checked BEFORE any token request;
+ * `undefined` for another grant, or when both are set or literal.
+ */
+export const unsetClientCredentialsVariable = (
+  conn: ConnectionDef,
+  envLookup: Readonly<Record<string, string>>
+): string | undefined =>
+  stringProp(conn.props, 'grantType') === 'clientCredentials'
+    ? ['clientId', 'clientSecret']
+        .map((key) => unsetEnvReference(stringProp(conn.props, key), envLookup))
+        .find((variable) => variable !== undefined)
+    : undefined
 
 /**
  * Build the `OAuth2RefreshProps` shape consumed by

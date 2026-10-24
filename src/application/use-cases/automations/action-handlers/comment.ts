@@ -30,6 +30,7 @@ import { logError } from '@/infrastructure/logging/logger'
 import {
   COMMENT_REFUSAL,
   commentActorOf,
+  commentContentRefusal,
   commentFailure,
   commentTargetOf,
   threadReachOf,
@@ -43,18 +44,6 @@ import type {
   PostedCommentEvent,
 } from '@/application/use-cases/tables/comment-post-programs'
 import type { App } from '@/domain/models/app'
-
-/** The longest comment the comments API stores. */
-const MAX_COMMENT_LENGTH = 10_000
-
-/** Why the rendered content cannot be posted, or `undefined` when it can. */
-const contentRefusal = (content: string): string | undefined => {
-  if (content.length === 0) return 'the content is empty once rendered'
-  if (content.length > MAX_COMMENT_LENGTH) {
-    return `the content holds ${content.length.toLocaleString('en-US')} characters once rendered, past the limit of 10,000`
-  }
-  return undefined
-}
 
 /** The ids a step's `mentions` prop names, rendered: non-empty strings only. */
 const mentionsOf = (props: Readonly<Record<string, unknown>>): readonly string[] => {
@@ -107,7 +96,7 @@ const preflight = (
 ): CommentTarget | ActionOutcome => {
   const target = commentTargetOf('create', app, props)
   if ('status' in target) return target
-  const refused = contentRefusal(stringProp(props, 'content'))
+  const refused = commentContentRefusal(stringProp(props, 'content'))
   if (refused !== undefined) return commentFailure('create', refused)
   const loop = runContext?.recordEvents?.comments?.refusal(target.table.name)
   return loop === undefined ? target : { status: 'failure', error: loop, retryable: false }

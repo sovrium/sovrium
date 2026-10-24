@@ -169,6 +169,23 @@ const comboboxPrompts = (
   inputPlaceholder: searchPlaceholder ?? placeholder ?? 'Select...',
 })
 
+/**
+ * What the combobox starts on: the option `defaultValue` names, or — holding
+ * a set — the options `defaultValues` names.
+ */
+function useStartingValue(
+  items: readonly OptionItem[],
+  { defaultValue, defaultValues, multiple }: SelectIslandProps
+): OptionItem | readonly OptionItem[] | undefined {
+  return useMemo(
+    () =>
+      multiple === true
+        ? items.filter((o) => defaultValues?.includes(o.value) === true)
+        : items.find((o) => o.value === defaultValue),
+    [items, defaultValue, defaultValues, multiple]
+  )
+}
+
 export function SearchableSelect({
   options,
   placeholder,
@@ -184,15 +201,15 @@ export function SearchableSelect({
   multiple,
   chips,
   name,
+  defaultValues,
   uiStrings,
 }: SelectIslandProps): ReactElement {
   // Same publisher wiring as `PlainSelect`: a searchable filter is an ordinary
   // authoring choice, and leaving `publishes` inert on this half would be a
   // declaration that validates and silently does nothing.
   const publish = useSharedFilterPublisher(publishes)
-  const items: readonly OptionItem[] = options ?? []
-  const defaultItem =
-    defaultValue !== undefined ? items.find((o) => o.value === defaultValue) : undefined
+  const items: readonly OptionItem[] = useMemo(() => options ?? [], [options])
+  const starting = useStartingValue(items, { defaultValue, defaultValues, multiple })
   const label = controlName(caption, labelledBy, ariaLabel)
   const prompts = comboboxPrompts(label, searchPlaceholder, placeholder, uiStrings)
   const custom = useCustomValueWiring(allowCustomValue === true && multiple !== true)
@@ -204,7 +221,7 @@ export function SearchableSelect({
         items={items}
         multiple={multiple}
         name={name}
-        defaultValue={multiple === true ? undefined : defaultItem}
+        defaultValue={starting}
         disabled={disabled}
         onValueChange={publish}
         inputValue={custom.inputValue}

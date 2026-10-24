@@ -33,6 +33,7 @@ import {
   type PlannedDelivery,
   type RecordWebhookEvent,
 } from '@/application/ports/services/record-webhook-dispatcher'
+import { serializeDriverRow } from '@/domain/models/app/tables/driver-value-service'
 import { withoutFieldsReadByNoOne } from '@/domain/models/app/tables/field-read-filter-service'
 import {
   relationshipFieldNames,
@@ -40,7 +41,7 @@ import {
   withStringRelationshipValues,
 } from '@/domain/models/app/tables/record-id-service'
 import { customizeWebhookData, type Webhook } from '@/domain/models/app/tables/webhooks'
-import { serializeDriverRow, transformRecord } from './record-transformer'
+import { transformRecord } from './record-transformer'
 import type { CommittedRowChange } from '@/application/ports/services/record-change-feed'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/tables'

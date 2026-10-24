@@ -11,6 +11,7 @@ import type {
   AccountChatAttachmentRow,
   AccountEntityLists,
 } from '@/application/ports/repositories/auth/account-repository'
+import type { EmailSuppressionEntry } from '@/application/ports/repositories/automations/email-deliverability-repository'
 
 /**
  * Pure shaping of the rows the GDPR export reads into the entries of its
@@ -188,3 +189,11 @@ export const shapeAuditEntry = (row: Readonly<AccountAuditEntryRow>) => ({
   resourceId: row.resourceId,
   result: row.result,
 })
+
+/** The mailing lists the caller's address left, as the export lists them, newest first. */
+export const shapeEmailSuppressions = (entries: readonly EmailSuppressionEntry[]) =>
+  entries.map(({ category, reason, createdAt }) => ({
+    category,
+    reason,
+    createdAt: createdAt.toISOString(),
+  }))

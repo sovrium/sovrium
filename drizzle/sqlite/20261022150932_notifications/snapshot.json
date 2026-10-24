@@ -11504,6 +11504,33 @@
       "name": "system_file_storage_bytea_metadata_id_unique",
       "entityType": "uniques",
       "table": "system_file_storage_bytea"
+    },
+    {
+      "columns": [
+        "client_id"
+      ],
+      "nameExplicit": false,
+      "name": "auth_oauth_client_client_id_unique",
+      "entityType": "uniques",
+      "table": "auth_oauth_client"
+    },
+    {
+      "columns": [
+        "automation_name"
+      ],
+      "nameExplicit": false,
+      "name": "system_automation_pauses_automation_name_unique",
+      "entityType": "uniques",
+      "table": "system_automation_pauses"
+    },
+    {
+      "columns": [
+        "key"
+      ],
+      "nameExplicit": false,
+      "name": "system_file_storage_metadata_key_unique",
+      "entityType": "uniques",
+      "table": "system_file_storage_metadata"
     }
   ],
   "renames": []

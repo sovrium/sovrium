@@ -134,6 +134,8 @@ const READS_NOTHING: ReadonlySet<string> = new Set([
   'approval/request',
   // Counts of the rows it created, updated and left: no stored value comes back.
   'calendar/importIcs',
+  // A file built from the event the props describe, and its UID.
+  'calendar/exportIcs',
   'auth/assignRole',
   'auth/banUser',
   'auth/createUser',
@@ -148,9 +150,11 @@ const READS_NOTHING: ReadonlySet<string> = new Set([
   'auth/grantAccess',
   'auth/revokeAccess',
   'automation/return',
-  // The comment the step wrote or removed, named by the props it was handed.
+  // The comment the step wrote, removed, edited or moderated, named by the props it was handed.
   'comment/create',
   'comment/delete',
+  'comment/update',
+  'comment/moderate',
   'connection/call',
   'crypto/hash',
   'crypto/hmac',
@@ -183,6 +187,8 @@ const READS_NOTHING: ReadonlySet<string> = new Set([
   'document/generateXlsx',
   'document/convert',
   'email/send',
+  'email/suppress',
+  'email/stats',
   'file/upload',
   'file/generateCsv',
   'file/move',

@@ -22,6 +22,8 @@ import {
 } from '@/infrastructure/database/sql/postgres-client-options'
 import { withCauseInMessage } from '@/infrastructure/errors/with-cause-in-message'
 import { logDebug } from '@/infrastructure/logging/logger'
+import { isCompiled } from '@/infrastructure/process/package-paths'
+import { resetTableColumnCache } from '../sql/dialect-introspection'
 import { acquireMaintenanceClient } from '../sql/postgres-connection-budget'
 import { applySqlitePragmas, sqliteLockHint } from '../sql/sqlite-pragmas'
 import { openSqliteReader } from '../sql/sqlite-reader'
@@ -202,7 +204,7 @@ const runPostgresMigrations = (
     // No `schema` map: drizzle v1 removed the option, and the migrator never
     // read it — it applies raw SQL files.
     const db = drizzlePg({ client })
-    // Undo the `bigint: true` that drizzle-orm 1.0.0-rc.4's `construct()` forces
+    // Undo the `bigint: true` that drizzle-orm 1.0.0-rc.4/rc.5's `construct()` forces
     // on every client it is handed — including this one, which the preflight
     // checks below then query RAW. Those checks read `COUNT(*)`, and they survive
     // a BigInt only because they normalise through `Number()`; this keeps the
@@ -339,7 +341,7 @@ const runSqliteMigrations = (
  * 3. initializeSchema() creates app-specific tables that reference users
  *
  * @param config - resolved database dialect configuration
- * @returns Effect that completes when migrations are applied
+ * @returns Effect that completes when migrations are applied (and resets cached column lists)
  */
 export const runMigrations = (
   config: DatabaseDialectConfig
@@ -348,9 +350,8 @@ export const runMigrations = (
     yield* config.dialect === 'postgres'
       ? runPostgresMigrations(config.databaseUrl)
       : runSqliteMigrations(config.path)
-
     logDebug('[migrations] migrations applied', { dialect: config.dialect })
-  })
+  }).pipe(Effect.ensuring(Effect.sync(resetTableColumnCache)))
 
 /**
  * Where the shipped set and the database each stand, read WITHOUT applying
@@ -366,6 +367,8 @@ export interface MigrationFolderState {
   readonly dialect: DatabaseDialectConfig['dialect']
   /** The folder drizzle would migrate from — resolved, never the token typed. */
   readonly migrationsFolder: string
+  /** Whether the migrations are embedded in a compiled binary, unpacked for this run only. */
+  readonly isCompiled: boolean
   /** Every migration folder name the current build ships, in apply order. */
   readonly names: readonly string[]
   /**
@@ -533,16 +536,12 @@ const readAppliedNames = (
 }
 
 /**
- * Read {@link MigrationFolderState} for the resolved dialect.
- *
- * The shipped set is read from the resolved folder and the applied names from
- * the database; neither side writes anything.
+ * Read {@link MigrationFolderState} for the resolved dialect: the shipped set from the
+ * resolved folder, the applied names from the database; neither side writes anything.
  */
 export const readMigrationFolderState = (
   config: DatabaseDialectConfig
-  // `MigrationError` joins the union because resolving the folder now reports
-  // its own failure: in a compiled binary that step unpacks the embedded
-  // migrations to disk, which a read-only or full filesystem refuses.
+  // `MigrationError`: a binary unpacks its migrations, which a read-only or full disk refuses.
 ): Effect.Effect<MigrationFolderState, DatabaseConnectionError | MigrationError> =>
   Effect.gen(function* () {
     const migrationsFolder = yield* resolveMigrationsFolder(
@@ -560,7 +559,8 @@ export const readMigrationFolderState = (
     return {
       dialect: config.dialect,
       migrationsFolder,
+      isCompiled,
       names: shipped.map((entry) => entry.name),
       applied: yield* readAppliedNames(config, shipped),
     }
-  })
+  }).pipe(Effect.scoped) // the unpacked migrations, if any, are removed here

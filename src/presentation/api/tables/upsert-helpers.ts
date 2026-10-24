@@ -11,6 +11,7 @@ import {
   hasCreatePermissionForRoles,
   hasUpdatePermissionForRoles,
 } from '@/domain/models/app/auth/permission-evaluator-service'
+import { readonlyFieldWriteMessage } from '@/domain/models/app/tables/computed-field-write-validation'
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
 import { findMissingRequiredFieldNames } from '@/domain/models/app/tables/required-fields-validation'
 import { checkForExistingRecords } from '@/infrastructure/layers/table-layer'
@@ -146,14 +147,6 @@ export async function checkUpsertPermissionsWithUpdateCheck(config: {
 }
 
 /**
- * Check if a field type is readonly (cannot be set by users)
- */
-export function isReadonlyFieldType(fieldType: string): boolean {
-  const readonlyTypes = new Set(['created-at', 'updated-at', 'auto-number'])
-  return readonlyTypes.has(fieldType)
-}
-
-/**
  * The intrinsic creation date is engine-owned over HTTP. A seed file may set it
  * (it is how an import keeps a row's real creation date), but a request body
  * never may: the insert would otherwise honour it. The intrinsic author needs no
@@ -207,26 +200,22 @@ export function validateReadonlyFields(
   const intrinsicGuard = refuseIntrinsicCreatedAt(records, c)
   if (intrinsicGuard) return intrinsicGuard
 
-  // Check for readonly field types (created-at, updated-at, auto-number)
-  if (table) {
-    const readonlyFieldNames = new Set(
-      table.fields.filter((field) => isReadonlyFieldType(field.type)).map((field) => field.name)
+  // A timestamp column any record names; refused for the whole batch, so none of
+  // it is written. A computed field is `refuseComputedFieldWrites`'s, after the gates.
+  const attemptedReadonlyField = table?.fields.find(
+    (field) =>
+      (field.type === 'created-at' || field.type === 'updated-at') &&
+      records.some((record) => Object.hasOwn(record.fields, field.name))
+  )?.name
+  if (attemptedReadonlyField) {
+    return c.json(
+      {
+        success: false,
+        message: readonlyFieldWriteMessage(attemptedReadonlyField),
+        code: 'VALIDATION_ERROR',
+      },
+      400
     )
-
-    const attemptedReadonlyField = records
-      .flatMap((record) => Object.keys(record.fields))
-      .find((fieldName) => readonlyFieldNames.has(fieldName))
-
-    if (attemptedReadonlyField) {
-      return c.json(
-        {
-          success: false,
-          message: `Cannot write to readonly field '${attemptedReadonlyField}'`,
-          code: 'VALIDATION_ERROR',
-        },
-        400
-      )
-    }
   }
 
   return undefined

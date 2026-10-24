@@ -5,7 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { mountHref } from '@/domain/models/app/admin/mount-hrefs'
+import { findDeclaredLanguageCode } from '@/domain/models/app/languages/language-detection'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { checkPageAccess } from '@/domain/models/app/pages/page-access-check'
 import type { App } from '@/domain/models/app'
@@ -115,13 +117,15 @@ export const paletteNavPages = (
   options: { readonly lang: string }
 ): readonly PaletteNavPage[] => {
   const { labels, base } = navLabelsOf(app)
+  const language = findDeclaredLanguageCode(app.languages, options.lang)
   return (app.pages ?? []).flatMap((page): readonly PaletteNavPage[] => {
-    const path = base === '' ? page.path : mountHref(base, page.path)
+    const own = primaryPagePath(page.path, language)
+    const path = base === '' ? own : mountHref(base, own)
     const label = labels.get(path)
     if (label === undefined || !checkPageAccess(page.access, app, session).allowed) return []
     return [
       {
-        name: page.name ?? page.path,
+        name: page.name ?? own,
         path,
         title: resolveTranslationPattern(label, options.lang, app.languages),
       },
@@ -153,14 +157,16 @@ export const paletteTablePages = (
 ): readonly PaletteNavPage[] => {
   const { labels, base } = navLabelsOf(app)
   const at = (path: string): string => (base === '' ? path : mountHref(base, path))
+  const language = findDeclaredLanguageCode(app.languages, options.lang)
   return (app.pages ?? []).flatMap((page): readonly PaletteNavPage[] => {
-    if (!page.path.endsWith(TABLE_SEGMENT)) return []
-    const parent = page.path.slice(0, -TABLE_SEGMENT.length)
+    const own = primaryPagePath(page.path, language)
+    if (!own.endsWith(TABLE_SEGMENT)) return []
+    const parent = own.slice(0, -TABLE_SEGMENT.length)
     const label = labels.get(at(parent))
     if (label === undefined || !checkPageAccess(page.access, app, session).allowed) return []
     const heading = resolveTranslationPattern(label, options.lang, app.languages)
     return tables.map((table) => ({
-      name: `${page.name ?? page.path}/${table.name}`,
+      name: `${page.name ?? own}/${table.name}`,
       path: at(`${parent}/${table.name}`),
       title: `${heading} › ${table.label}`,
     }))

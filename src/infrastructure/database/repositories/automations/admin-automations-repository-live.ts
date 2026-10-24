@@ -16,7 +16,6 @@ import {
   isNull,
   lt,
   ne,
-  not,
   or,
   sql,
   type SQL,
@@ -27,11 +26,16 @@ import {
   AdminAutomationsRepository,
   type AdminAutomationOverviewRow,
   type AdminAutomationRunRow,
+  type AdminAutomationStatusRow,
   type AdminRunsListFilters,
   type AutomationStepRef,
   type StepLatestRun,
 } from '@/application/ports/repositories/automations/admin-automations-repository'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
+import {
+  ROUTINE_RUN_STATUSES,
+  type RoutineRunSource,
+} from '@/domain/models/app/automations/routine-run-service'
 import { db } from '@/infrastructure/database'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
@@ -91,19 +95,79 @@ const buildSearchConditions = (filters: AdminRunsListFilters): ReadonlyArray<SQL
   searchAnyColumn(filters.q, automationDefinitions.name, automationRuns.error)
 
 /**
- * The `?onDemand=` predicate: the run's own trigger data says an operator
- * started it by hand (`invokedOnDemand: true`), or — for `false` — it does not.
- * The JSON boolean is read by its JSON type on SQLite (where `json_extract`
+ * Whether the run's own trigger data says an operator started it by hand
+ * (`invokedOnDemand: true`) — what `?onDemand=` filters on, and what keeps a
+ * run from being routine. The JSON boolean is read by its JSON type on SQLite (where `json_extract`
  * answers `1`) and by its text on PostgreSQL; `COALESCE` makes a run whose
  * trigger data holds no such key one of the others, never neither.
  */
-const onDemandCondition = (onDemand: boolean | undefined): ReadonlyArray<SQL> => {
-  if (onDemand === undefined) return []
-  const byHand = isSqliteRuntime()
+const startedByHand = (): SQL =>
+  isSqliteRuntime()
     ? sql`COALESCE(json_type(${automationRuns.triggerData}, '$.invokedOnDemand') = 'true', 0) = 1`
     : sql`COALESCE((${automationRuns.triggerData} ->> 'invokedOnDemand') = 'true', false)`
-  return [onDemand ? byHand : not(byHand)]
+
+/** The `?onDemand=` predicate: started by hand (`true`), or not (`false`). */
+const onDemandCondition = (onDemand: boolean | undefined): ReadonlyArray<SQL> => {
+  if (onDemand === undefined) return []
+  const byHand = startedByHand()
+  // `sql` rather than drizzle's `not()`, typed `SQL | undefined` since 1.0.0-rc.5.
+  return [onDemand ? byHand : sql`not (${byHand})`]
 }
+
+/** The runs one routine source starts: its automation, narrowed to its entries. */
+const fromRoutineSource = (source: RoutineRunSource): SQL | undefined => {
+  const ofAutomation = eq(automationDefinitions.name, source.automationName)
+  if (source.triggerNames === undefined) return ofAutomation
+  const named =
+    source.triggerNames.length === 0
+      ? undefined
+      : inArray(automationRuns.triggerName, [...source.triggerNames])
+  const unrecorded = source.orUnrecorded ? isNull(automationRuns.triggerName) : undefined
+  const entries = or(named, unrecorded)
+  return entries === undefined ? undefined : and(ofAutomation, entries)
+}
+
+/**
+ * `1` for a routine run, `0` for any other, on both engines: started by one of
+ * the routine `sources`, in a routine status, and not by hand. A `CASE` rather
+ * than a bare predicate so a NULL anywhere (an unrecorded trigger name, a
+ * status not yet written) reads as "not routine" — never as an unknown that
+ * drops the row from either side of a filter.
+ */
+const routineFlag = (sources: ReadonlyArray<RoutineRunSource>): SQL => {
+  const started = or(...sources.map(fromRoutineSource))
+  if (started === undefined) return sql`0`
+  const predicate = and(
+    started,
+    inArray(sql`COALESCE(${automationRuns.status}, 'pending')`, [...ROUTINE_RUN_STATUSES]),
+    sql`not (${startedByHand()})`
+  )
+  return sql`(CASE WHEN ${predicate} THEN 1 ELSE 0 END)`
+}
+
+/** The `?routine=` filter: absent sources list every run, else the routine ones are left out. */
+const routineCondition = (
+  sources: ReadonlyArray<RoutineRunSource> | undefined
+): ReadonlyArray<SQL> =>
+  sources === undefined || sources.length === 0 ? [] : [sql`${routineFlag(sources)} = 0`]
+
+/**
+ * Every run created on/after `since`, with its timestamps, its status and the
+ * routine flag judged against `routine` — the one read both overview methods
+ * project. The flag comes back as `1`/`0` (a number on SQLite, text on some
+ * PostgreSQL drivers), so callers compare it through `Number`.
+ */
+const selectOverviewRowsSince = (since: Date, routine: ReadonlyArray<RoutineRunSource>) =>
+  db
+    .select({
+      startedAt: automationRuns.startedAt,
+      createdAt: automationRuns.createdAt,
+      status: automationRuns.status,
+      routine: sql<number | string>`${routineFlag(routine)}`,
+    })
+    .from(automationRuns)
+    .leftJoin(automationDefinitions, eq(automationDefinitions.id, automationRuns.automationId))
+    .where(gte(automationRuns.createdAt, since))
 
 /**
  * Build the WHERE-clause condition list for the runs-list read. Spreads each
@@ -151,6 +215,7 @@ const buildListConditions = (filters: AdminRunsListFilters): ReadonlyArray<SQL> 
     ...toFilter,
     ...buildSearchConditions(filters),
     ...onDemandCondition(filters.onDemand),
+    ...routineCondition(filters.hideRoutineOf),
     ...cursorFilter,
   ]
 }
@@ -260,28 +325,22 @@ const findLatestRunPerStepImpl = async (
  * `automations-overview` use case; this layer emits only raw queries.
  */
 export const AdminAutomationsRepositoryLive = Layer.succeed(AdminAutomationsRepository, {
-  listOverviewRowsSince: (since) =>
-    wrap(
-      async () =>
-        (await db
-          .select({
-            startedAt: automationRuns.startedAt,
-            createdAt: automationRuns.createdAt,
-            status: automationRuns.status,
-          })
-          .from(automationRuns)
-          .where(gte(automationRuns.createdAt, since))) as ReadonlyArray<AdminAutomationOverviewRow>
+  listOverviewRowsSince: (since, routine) =>
+    wrap(async () =>
+      (await selectOverviewRowsSince(since, routine)).map((row): AdminAutomationOverviewRow => ({
+        startedAt: row.startedAt as Date | string | null,
+        createdAt: row.createdAt as Date | string,
+        status: row.status,
+        routine: Number(row.routine) === 1,
+      }))
     ),
 
-  listOverviewStatusesSince: (since) =>
-    wrap(
-      async () =>
-        (await db
-          .select({ status: automationRuns.status })
-          .from(automationRuns)
-          .where(gte(automationRuns.createdAt, since))) as ReadonlyArray<{
-          status: string | null
-        }>
+  listOverviewStatusesSince: (since, routine) =>
+    wrap(async () =>
+      (await selectOverviewRowsSince(since, routine)).map((row): AdminAutomationStatusRow => ({
+        status: row.status,
+        routine: Number(row.routine) === 1,
+      }))
     ),
 
   listAdminRuns: (filters) => wrap(async () => listAdminRunsImpl(filters)),

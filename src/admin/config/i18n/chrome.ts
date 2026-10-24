@@ -145,7 +145,7 @@ export default {
   //
   // The `Data · ` middle segment mirrors the sidebar's grouping, so a browser
   // tab strip reads the same way the nav does.
-  'admin.meta.welcome': '$app.label — Welcome',
+  'admin.meta.welcome': '$app.label — Overview',
   'admin.meta.acceptInvitation': '$app.label — Accept invitation',
   'admin.meta.notFound': '$app.label — Page not found',
   'admin.meta.organisation': '$app.label — Access',

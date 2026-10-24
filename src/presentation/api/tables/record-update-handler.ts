@@ -67,6 +67,8 @@ export function updateResponse(config: {
   readonly app: App
   readonly userRole: string
   readonly clientUpdatedAt?: string
+  /** `replace`: a posted many-to-many list is the whole set the form keeps. */
+  readonly linkLists?: 'replace'
   readonly c: Context
 }) {
   const { session, tableName, recordId, allowedData, app, userRole, clientUpdatedAt, c } = config
@@ -82,6 +84,7 @@ export function updateResponse(config: {
       userGroups: getTableContext(c).userGroups,
       linkReader: getLinkReader(c),
       ...(clientUpdatedAt === undefined ? {} : { expectedUpdatedAt: clientUpdatedAt }),
+      ...(config.linkLists === undefined ? {} : { linkLists: config.linkLists }),
       isSqlite: isSqliteRuntime(),
       processEnv: process.env,
       forgetDerivedVariants: evictTransformCacheForKey,

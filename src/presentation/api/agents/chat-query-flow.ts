@@ -29,7 +29,7 @@
  */
 
 import { parseQueryIntent } from '@/domain/models/app/agents/ai-chat-query-parser'
-import { fieldReadOnEveryAdmittedRow } from '@/domain/models/app/tables/row-read-admission-service'
+import { rowsGrantOpensField } from '@/domain/models/app/tables/row-read-admission-service'
 import { runQuery, type QueryTableWithPerms } from './chat-query'
 import { chatReadableColumns, type ChatReader } from './chat-read-scope'
 import { chatReaderRows, isSignedOut } from './chat-reader-rows'
@@ -37,6 +37,7 @@ import { projectAppTables } from './chat-table-projection'
 import type { ChatAction } from '@/domain/models/api/ai/chat'
 import type { App } from '@/domain/models/app'
 import type { ContextPageScope } from '@/domain/models/app/agents/ai-chat-context'
+import type { QueryIntent } from '@/domain/models/app/agents/ai-chat-query-parser'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
 
 /** The route-facing result of evaluating a turn for a read query. */
@@ -87,14 +88,27 @@ const toQueryTables = (
 /**
  * The fields of `table` a chat query may name for `reader` — filter on, sort
  * by, total or average: those she may read (`chatReadableColumns`), and those
- * a grant shows her on every row the records list admits her
- * (`fieldReadOnEveryAdmittedRow`). A field she may not read narrows, orders
- * and sums nothing.
+ * a per-record grant shows her on at least one row her records list admits
+ * (`rowsGrantOpensField`); a query naming one of those runs over the rows it
+ * is shown on ({@link grantOpenedRowsOf}). A field she may not read narrows,
+ * orders and sums nothing.
  */
 const queryableFieldsOf = async (
   input: QueryTurnInput,
   table: QueryTableWithPerms
 ): Promise<QueryTableWithPerms> => {
+  const opened = await grantOpenedFields(input, table)
+  return { ...table, fields: table.fields.filter((field) => opened(field.name) !== undefined) }
+}
+
+/**
+ * For each field of `table`: `'own-role'` when the reader reads it herself,
+ * the rows a per-record grant shows it to her on otherwise (none: `undefined`).
+ */
+const grantOpenedFields = async (
+  input: QueryTurnInput,
+  table: QueryTableWithPerms
+): Promise<(field: string) => 'own-role' | readonly string[] | undefined> => {
   const { app, reader } = input
   const readable = new Set(chatReadableColumns(app, table, reader).readableColumns)
   const rows =
@@ -102,14 +116,33 @@ const queryableFieldsOf = async (
       ? await chatReaderRows(input.services, app, table.name, reader)
       : undefined
   const related = { role: reader.role, groups: reader.groups, signedOut: isSignedOut(reader) }
-  const granted = (field: string): boolean =>
-    app !== undefined &&
-    rows !== undefined &&
-    fieldReadOnEveryAdmittedRow({ app, tableName: table.name, reader: related }, rows, field)
-  return {
-    ...table,
-    fields: table.fields.filter((field) => readable.has(field.name) || granted(field.name)),
+  return (field) => {
+    if (readable.has(field)) return 'own-role'
+    if (app === undefined || rows === undefined) return undefined
+    const opened = rowsGrantOpensField({ app, tableName: table.name, reader: related }, rows, field)
+    return opened === 'own-role' || opened.length > 0 ? opened : undefined
   }
+}
+
+/**
+ * The rows a query over `intent` may run over when a per-record grant alone
+ * opens a field it names: the rows every such field is shown on. `undefined`
+ * when the reader reads each named field herself.
+ */
+const grantOpenedRowsOf = async (
+  input: QueryTurnInput,
+  table: QueryTableWithPerms,
+  intent: QueryIntent
+): Promise<readonly string[] | undefined> => {
+  const opened = await grantOpenedFields(input, table)
+  const named = [intent.aggregateColumn, intent.filter?.column, intent.sortColumn].filter(
+    (field): field is string => field !== undefined
+  )
+  const lists = named
+    .map(opened)
+    .filter((rows): rows is readonly string[] => rows !== undefined && rows !== 'own-role')
+  if (lists.length === 0) return undefined
+  return lists.reduce((shared, rows) => shared.filter((id) => rows.includes(id)))
 }
 
 /**
@@ -143,12 +176,14 @@ export const evaluateQueryTurn = async (input: QueryTurnInput): Promise<QueryTur
   const intent = parseQueryIntent(input.message, queryable, fallback)
   if (intent === undefined) return { kind: 'none' }
 
+  const target = queryable.find((table) => table.name === intent.table)
   const outcome = await runQuery({
     services: input.services,
     intent,
     app: input.app,
     reader: input.reader,
     tables: queryable,
+    fieldRows: target === undefined ? undefined : await grantOpenedRowsOf(input, target, intent),
   })
   if (outcome.status === 'forbidden') {
     return { kind: 'forbidden', message: outcome.message }

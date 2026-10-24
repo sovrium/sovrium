@@ -76,13 +76,16 @@ const causeChain = (error: unknown, depth = 0): readonly ErrorNode[] => {
 }
 
 /**
- * Drizzle's query wrapper — `Failed query: <SQL> params: <bound values>`.
+ * Drizzle's query wrapper — `Failed query: <SQL>`, plus `params: <bound values>`
+ * only when the client opts into `paramsInErrors`. Since drizzle 1.0.0-rc.5 the
+ * `params` property is present but `undefined` by default, so the test is
+ * whether it EXISTS.
  *
  * Skipped on both dialects: it is the least readable node in the chain and the
  * only one that replays the whole statement.
  */
 const isOrmWrapper = (node: ErrorNode): boolean =>
-  typeof node.query === 'string' && node.params !== undefined
+  node.name === 'DrizzleQueryError' || (typeof node.query === 'string' && 'params' in node)
 
 /** The node the DATABASE DRIVER raised, as opposed to a wrapper around it. */
 const isDriverNode = (node: ErrorNode): boolean =>

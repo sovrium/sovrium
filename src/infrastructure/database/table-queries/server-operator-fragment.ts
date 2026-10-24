@@ -7,6 +7,10 @@
 
 import { sql, type SQL } from 'drizzle-orm'
 import {
+  isLinkedRecordsValue,
+  LINKED_RECORDS_OPERATOR,
+} from '@/domain/models/app/tables/linked-records-filter-service'
+import {
   isNotLoggedCreatorValue,
   NOT_LOGGED_CREATOR_OPERATOR,
 } from '@/domain/models/app/tables/read-state-service'
@@ -16,6 +20,8 @@ import {
 } from '@/domain/models/app/tables/related-text-filter-service'
 import { LIST_MEMBER_OPERATOR } from '@/domain/models/app/tables/user-list-field-service'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
+import { escapeSqlString } from '../sql/sql-utils'
+import { linkedRecordsFragment } from './linked-records-fragment'
 import { notLoggedCreatorFragment } from './logged-creator-fragment'
 import { relatedTextFragment } from './related-text-fragment'
 
@@ -43,6 +49,17 @@ export const listMemberFragment = (
     : sql`(${member} = ANY(${column}))`
 }
 
+/**
+ * {@link listMemberFragment} spelled for a view definition, where nothing can
+ * be bound: the same membership test, with `quotedMember` an already escaped
+ * SQL string literal and `column` an already quoted column expression. Both
+ * spellings sit here so the rule is stated once, side by side.
+ */
+export const listMemberDdlCondition = (column: string, quotedMember: string): string =>
+  isSqliteRuntime()
+    ? `(json_valid(${column}) AND EXISTS (SELECT 1 FROM json_each(${column}) WHERE json_each.value = ${quotedMember}))`
+    : `(${quotedMember} = ANY(${column}))`
+
 /** The fragment of a server-written condition on `field`, or `undefined` for any other operator. */
 export const serverOperatorFragment = (
   field: string,
@@ -53,8 +70,26 @@ export const serverOperatorFragment = (
     return relatedTextFragment(field, value)
   }
   if (operator === LIST_MEMBER_OPERATOR) return listMemberFragment(sql.identifier(field), value)
+  if (operator === LINKED_RECORDS_OPERATOR && isLinkedRecordsValue(value)) {
+    return linkedRecordsFragment(value)
+  }
   if (operator === NOT_LOGGED_CREATOR_OPERATOR && isNotLoggedCreatorValue(value)) {
     return notLoggedCreatorFragment(field, value)
   }
   return undefined
+}
+
+/**
+ * The condition of a server-written condition on `field` in a view definition,
+ * where nothing can be bound, or `undefined` for any other operator: today,
+ * `contains` on a list of people, rewritten into membership by the filter walker.
+ */
+export const serverOperatorDdlCondition = (
+  field: string,
+  operator: string,
+  value: unknown
+): string | undefined => {
+  if (operator !== LIST_MEMBER_OPERATOR) return undefined
+  // sql-literal: ddl -- a view definition is stored, so its configured value cannot be bound
+  return listMemberDdlCondition(field, `'${escapeSqlString(String(value))}'`)
 }

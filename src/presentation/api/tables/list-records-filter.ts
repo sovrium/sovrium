@@ -18,6 +18,7 @@ import {
   isVocabularyTerm,
   unknownTermRefusal,
 } from '@/domain/models/app/tables/closed-vocabulary'
+import { withLinkedRecordsConditions } from '@/domain/models/app/tables/linked-records-filter-service'
 import { withRelatedTextConditions } from '@/domain/models/app/tables/related-text-filter-service'
 import { withListMembershipConditions } from '@/domain/models/app/tables/user-list-field-service'
 import { serverNow } from '@/domain/models/process-env/dev-clock'
@@ -75,7 +76,11 @@ export function parseFilter(
   return {
     error: false,
     value: withListMembershipConditions(
-      withRelatedTextConditions(parsed.value, { app, tableName, reader }),
+      // A condition on a many-to-many field is read through its link table.
+      withRelatedTextConditions(
+        withLinkedRecordsConditions(parsed.value, { app, tableName, reader }),
+        { app, tableName, reader }
+      ),
       fields
     ),
   }

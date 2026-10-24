@@ -14,13 +14,14 @@
  * answer that is not a document fails the export, naming the page.
  */
 
-import { Data, Effect } from 'effect'
+import { Data, Effect, Option } from 'effect'
+import { ContentDirReader } from '@/application/ports/services/content-dir-reader'
 import { PageRenderer } from '@/application/ports/services/page-renderer'
+import { pageRoutePatterns, primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { RECORD_VIEW_ID } from '@/domain/models/app/design/adapters/pages/claude-design-canvas-app'
 import { resolveExportStamps } from '@/domain/models/app/pages/export-node-stamp-service'
 import { kitPageAppOf } from './design-system-kit'
 import { renderedSpecimenOf } from './design-system-kit-document'
-import { placeholderSeedOf, prototypeViewOf } from './design-system-page-app'
 import { boardPlansOf, type PageBoardPlan, type PageDrawOptions } from './design-system-page-boards'
 import { withRefusedForm } from './design-system-page-form-refusal'
 import {
@@ -29,6 +30,13 @@ import {
   type ProjectedPage,
 } from './design-system-page-projection'
 import { boardPrototypeOf } from './design-system-page-prototype'
+import { exportTextContextOf, type ExportTextContext } from './design-system-page-record-text'
+import {
+  placeholderSeedOf,
+  prototypeViewOf,
+  withRecordPlaceholders,
+} from './design-system-page-record-view'
+import { unaddressedPageNoticeOf } from './design-system-page-records'
 import type { SeedContext } from './design-system-page-seed'
 import type { App } from '@/domain/models/app'
 import type { BoardPrototype } from '@/domain/models/app/design/adapters/pages/claude-design-canvas-prototype'
@@ -70,7 +78,10 @@ export const pageDrawRefusal = (page: string, path: string, answer: unknown) =>
  * still drawn.
  */
 const drawPathOf = (page: Page, values: Readonly<Record<string, string>>): string =>
-  page.path.replaceAll(/:([A-Za-z_]\w*)/g, (_segment, name: string) => values[name] ?? '1')
+  primaryPagePath(page.path).replaceAll(
+    /:([A-Za-z_]\w*)/g,
+    (_segment, name: string) => values[name] ?? '1'
+  )
 
 /**
  * The sample query a page is drawn with: an invitation page reads its token
@@ -133,12 +144,14 @@ const renderTargetOf = (app: App, boardApp: App, page: Page, board: BoardToDraw)
   if (answerPath === undefined) {
     return { app: boardApp, path: drawPathOf(page, board.plan.routeValues), answer: false }
   }
-  const target = (app.pages ?? []).find((candidate) => candidate.path === answerPath)
+  const target = (app.pages ?? []).find((candidate) =>
+    pageRoutePatterns(candidate.path).includes(answerPath)
+  )
   return target === undefined
     ? { app: boardApp, path: answerPath, answer: true, missing: board.plan.answer }
     : {
         app: withPage(boardApp, projectPageForExport(app, target).drawn),
-        path: target.path,
+        path: answerPath,
         answer: true,
       }
 }
@@ -155,10 +168,11 @@ interface BoardToDraw {
 
 /** Draw one board: the markup inside its `<main>`, every tree node stamped, or its redirect. */
 /** What a board's grids are read against: the rows, the account and the address it is drawn at. */
-const prototypeContextOf = (app: App, plan: PageBoardPlan, options: PageDrawOptions) => ({
-  tables: (app.tables ?? []) as SeedContext['tables'],
+const prototypeContextOf = (context: DrawContext, plan: PageBoardPlan) => ({
+  tables: (context.app.tables ?? []) as SeedContext['tables'],
+  text: context.text,
   routeValues: plan.routeValues,
-  seed: options.seed,
+  seed: context.options.seed,
   viewer: plan.viewer,
   empty: plan.branches.data === 'empty',
 })
@@ -168,6 +182,7 @@ interface DrawContext {
   readonly app: App
   readonly pageApp: App
   readonly options: PageDrawOptions
+  readonly text: ExportTextContext
 }
 
 const drawBoard = (context: DrawContext, boardApp: App, page: Page, board: BoardToDraw) =>
@@ -200,7 +215,7 @@ const drawBoard = (context: DrawContext, boardApp: App, page: Page, board: Board
       drawnIds: target.answer ? new Set<string>() : drawnIdsOf(board.projected),
       ...(options.prototype === undefined || target.answer
         ? {}
-        : { prototype: boardPrototypeOf(app, page, prototypeContextOf(app, board.plan, options)) }),
+        : { prototype: boardPrototypeOf(app, page, prototypeContextOf(context, board.plan)) }),
     }
     return drawing
   })
@@ -208,28 +223,34 @@ const drawBoard = (context: DrawContext, boardApp: App, page: Page, board: Board
 /**
  * A page as a view of the Prototype board (`--prototype=app`): its default
  * board, or — for a routed record page — the page drawn at a placeholder
- * record, each field a placeholder the board's store fills in.
+ * record, each field a placeholder the board's store fills in, and every
+ * branch drawn, the store judging each rule against the record it opens.
  */
 const drawAppView = (context: DrawContext, page: Page, main: PageBoardDrawing) =>
   Effect.gen(function* () {
     const view = prototypeViewOf(page)
     const fallback = { view, body: main.body, prototype: main.prototype }
     if (view.table === undefined || view.param === undefined) return fallback
-    const { seed, record } = placeholderSeedOf(context.app, context.options.seed, view.table)
+    const { seed, record } = placeholderSeedOf(
+      context.app,
+      context.options.seed,
+      view.table,
+      view.key ?? 'id'
+    )
     const plan: PageBoardPlan = {
       ...main.plan,
       routeValues: { ...main.plan.routeValues, [view.param]: RECORD_VIEW_ID },
       branches: { ...main.plan.branches, record },
     }
     const projected = projectPageForExport(context.app, page, {
+      text: context.text,
       seed,
       viewer: plan.viewer,
       routeValues: plan.routeValues,
-      branches: plan.branches,
     })
     const drawn = yield* drawBoard(
       { ...context, options: { ...context.options, seed } },
-      withPage(context.pageApp, projected.drawn),
+      withPage(context.pageApp, withRecordPlaceholders(projected.drawn)),
       page,
       { plan, projected }
     )
@@ -249,7 +270,7 @@ const drawPage = (context: DrawContext, page: Page, boards: readonly BoardToDraw
     const drawn = outcomes.flatMap((outcome) => ('redirect' in outcome ? [] : [outcome]))
     const [main] = drawn
     if (main === undefined || 'redirect' in (outcomes[0] ?? {})) {
-      return { page: page.name, redirect: redirect[0] ?? page.path } as const
+      return { page: page.name, redirect: redirect[0] ?? primaryPagePath(page.path) } as const
     }
     const title = `${page.name} — ${pageApp.name} pages`
     const appView =
@@ -267,17 +288,49 @@ const drawPage = (context: DrawContext, page: Page, boards: readonly BoardToDraw
 export type PageDrawing = Exclude<Effect.Success<ReturnType<typeof drawPage>>, { redirect: string }>
 
 /**
+ * The slugs of each content-folder page's files, in the folder's order, read
+ * through the runtime's {@link ContentDirReader} (relative to the working
+ * directory, as the server reads them); none when the runtime provides no reader.
+ */
+const contentSlugsOf = (pages: readonly Page[]) =>
+  Effect.gen(function* () {
+    const reader = yield* Effect.serviceOption(ContentDirReader)
+    if (Option.isNone(reader)) return new Map<string, readonly string[]>()
+    const read = yield* Effect.forEach(
+      pages.filter((page) => page.contentDir !== undefined),
+      (page) =>
+        reader.value
+          .enumerate(page.contentDir as NonNullable<Page['contentDir']>, primaryPagePath(page.path))
+          .pipe(
+            Effect.map((entries) => [page.name, entries.map((entry) => entry.slug)] as const),
+            Effect.mapError((cause) => new DesignSystemPageDrawError({ page: page.name, cause }))
+          )
+    )
+    return new Map(read)
+  })
+
+/**
  * Draw every selected page, each on every board it gets (`design-system-page-boards.ts`).
  * A page that answers the sample admin with a redirect (the `auth.landingPath`
  * page sends a session on to its role's landing) has nothing to draw: it is
- * skipped, and named with its target.
+ * skipped, and named with its target. So is a routed page with no address to
+ * be drawn at: a slug page none of whose seeded records its filter keeps, a
+ * content-folder page whose folder holds no file.
  */
-export const drawPagesOf = (app: App, pages: readonly Page[], options: PageDrawOptions = {}) =>
+export const drawPagesOf = (app: App, selected: readonly Page[], options: PageDrawOptions = {}) =>
   Effect.gen(function* () {
+    const contentSlugs = yield* contentSlugsOf(selected)
+    const unaddressed = selected.flatMap((page) => {
+      const notice = unaddressedPageNoticeOf(page, options, contentSlugs.get(page.name))
+      return notice === undefined ? [] : [{ page, notice }]
+    })
+    const pages = selected.filter((page) => !unaddressed.some((entry) => entry.page === page))
+    const text = exportTextContextOf(app, options.now)
     const boards = pages.map((page) =>
-      boardPlansOf(app, page, options).map((plan) => ({
+      boardPlansOf(app, page, options, contentSlugs.get(page.name)).map((plan) => ({
         plan,
         projected: projectPageForExport(app, page, {
+          text,
           seed: options.seed,
           viewer: plan.viewer,
           routeValues: plan.routeValues,
@@ -292,19 +345,22 @@ export const drawPagesOf = (app: App, pages: readonly Page[], options: PageDrawO
     )
     const outcomes = yield* Effect.forEach(
       pages,
-      (page, index) => drawPage({ app, pageApp, options }, page, boards[index] ?? []),
+      (page, index) => drawPage({ app, pageApp, options, text }, page, boards[index] ?? []),
       { concurrency: 4 }
     )
     const drawings = outcomes.filter((outcome): outcome is PageDrawing => !('redirect' in outcome))
-    const notices = outcomes.flatMap((outcome) =>
-      'redirect' in outcome
-        ? [
-            `Note: page ${outcome.page} answers the sample admin with a redirect to ` +
-              `${outcome.redirect}, so it has nothing to draw and is skipped.`,
-          ]
-        : []
-    )
+    const notices = [
+      ...unaddressed.map((entry) => entry.notice),
+      ...outcomes.flatMap((outcome) =>
+        'redirect' in outcome
+          ? [
+              `Note: page ${outcome.page} answers the sample admin with a redirect to ` +
+                `${outcome.redirect}, so it has nothing to draw and is skipped.`,
+            ]
+          : []
+      ),
+    ]
     return { pageApp, drawings, notices }
   }).pipe(
-    Effect.withSpan('design-system.draw-pages', { attributes: { 'design.pages': pages.length } })
+    Effect.withSpan('design-system.draw-pages', { attributes: { 'design.pages': selected.length } })
   )

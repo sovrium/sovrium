@@ -14,6 +14,7 @@ import { offerFailureReport, withoutSecretValues } from '@/cli/runtime/failure-r
 import { formatConfigRejection, isConfigRejectedError } from '@/domain/errors/config-rejected'
 import { isEngineFailureError } from '@/domain/errors/engine-failure-error'
 import { OPERATOR_FIX_GUIDANCE, operatorFixOf } from '@/domain/errors/operator-fixable-error'
+import { sessionWebhookCacheWarnings } from '@/domain/models/app/automations/trigger/webhook-session-validation'
 import {
   isStrictPortBoot,
   resolveBindHost,
@@ -158,7 +159,11 @@ export const handleStartCommand = async (
   // `public/`, the config hash, `SOVRIUM_CONTENT_DIR` and `--watch` unanchored,
   // so `sovrium start --watch` beside an `app.yaml` watched nothing at all.
   // Deprecated keys still decode, so only a walk of the raw config sees them.
-  const { app, configFile } = warnDeprecatedKeys(await resolveAppSchema('start', filePath))
+  const { app, configFile, bootConfigText, bootReadStartedAt } = warnDeprecatedKeys(
+    await resolveAppSchema('start', filePath)
+  )
+  // A per-caller answer a shared cache may keep: told once, at boot, never refused.
+  sessionWebhookCacheWarnings(app).forEach((warning) => printStderr(`Warning: ${warning}`))
   const envOptions = parseStartOptions()
   // Fallback chain: explicit --publicDir flag wins; otherwise SOVRIUM_PUBLIC_DIR
   // env var; otherwise the anchored `./public` next to the config file. The
@@ -288,6 +293,8 @@ export const handleStartCommand = async (
       configPath,
       options,
       watch: watchMode,
+      bootConfigText,
+      bootReadStartedAt,
     })
   }
 }

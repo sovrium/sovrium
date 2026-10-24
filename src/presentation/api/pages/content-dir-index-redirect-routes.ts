@@ -23,7 +23,7 @@
  * Skipped entirely (no handler mounted) when no page declares `contentDir.index`.
  */
 
-import { findMatchingRoute } from '@/domain/kernel/matching/route-matcher'
+import { findPageRoute } from '@/domain/kernel/matching/localized-path'
 import { deriveContentDirIndexBasePath } from '@/domain/models/app/pages/content-dir-index-base-path'
 import { resolvePagePath } from '@/domain/models/app/pages/content-dir-seo-meta'
 import { deriveContentDirSlugFromRouteParams } from '@/domain/models/app/pages/content-dir-slug'
@@ -37,19 +37,14 @@ import type { Hono } from 'hono'
  * falls through.
  */
 const resolveContentDirIndexRedirect = (app: App, path: string): string | undefined => {
-  const pages = app.pages ?? []
-  const match = findMatchingRoute(
-    pages.map((page) => page.path),
-    path
-  )
+  const match = findPageRoute(app.pages ?? [], path)
   if (match === undefined) return undefined
-  const page = pages[match.index]
-  if (page === undefined) return undefined
+  const { page } = match
   const { contentDir } = page
   if (contentDir?.index === undefined) return undefined
   const slug = deriveContentDirSlugFromRouteParams(contentDir, match.params)
   if (slug !== contentDir.index) return undefined
-  const basePathPattern = deriveContentDirIndexBasePath(page.path)
+  const basePathPattern = deriveContentDirIndexBasePath(match.pattern)
   if (basePathPattern === undefined) return undefined
   return resolvePagePath(basePathPattern, match.params)
 }

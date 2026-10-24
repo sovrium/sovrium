@@ -38,12 +38,13 @@ import {
 } from './data-source-contracts'
 import { applyFieldLevelPermissions } from './field-permission-filter'
 import {
-  formManyToManyFields,
+  boundManyToManyFields,
   narrowRecordToComponent,
   withManyToManyLinks,
 } from './form-bound-record'
 import { ftsFirstRows, ftsSearchProps } from './fts-search-binding'
 import { restrictedColumnsForReader } from './reader-row-admission'
+import { withRecordLabels } from './record-display-labels'
 import { readRowsForCaller, type CallerRowsQuery } from './record-read-gate'
 import { substituteRecordInComponent } from './record-substitution'
 import { addressRowAttachments, recordAddresser } from './row-attachment-addresses'
@@ -117,8 +118,8 @@ interface SingleModeOptions {
   readonly routeParams: Readonly<Record<string, string>>
   readonly db: DataSourceDb
   readonly plan: ReadAccessPlan | undefined
-  /** The many-to-many fields a form shows, whose links live in junction tables. */
-  readonly manyToManyFields: ReturnType<typeof formManyToManyFields>
+  /** The many-to-many fields the component reads, whose links live in junction tables. */
+  readonly manyToManyFields: ReturnType<typeof boundManyToManyFields>
 }
 
 /**
@@ -153,7 +154,7 @@ async function resolveSingleMode(
   // Its attachment tokens are addresses, as in a list row; `_record` keeps the stored value.
   const address = recordAddresser(options.app, options.db.signFileUrl)
   const bound = await address(component, record, tableName)
-  const ctx = { ...options, tableName, pageFields: bound.record }
+  const ctx = { ...options, tableName, pageFields: await withRecordLabels(bound.record, options) }
   return applySingleRecordToComponent(bound.tree, record, ctx)
 }
 
@@ -505,7 +506,7 @@ export async function resolveByMode(ctx: {
       routeParams: ctx.routeParams,
       db: ctx.db,
       plan: ctx.plan,
-      manyToManyFields: formManyToManyFields(fc, ctx.table, ctx),
+      manyToManyFields: boundManyToManyFields(fc, ctx.table, { ...ctx, requestedFields: ff }),
     })
   }
   const reader = { app: ctx.app, session: ctx.session, db: ctx.db, requestedFields: ff }

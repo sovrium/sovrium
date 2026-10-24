@@ -37,6 +37,8 @@ export const SEED_HELP_TEXT = [
   '  --dry-run                     Report the plan and write nothing',
   '  --request <file>              Read mode, tables, today and dryRun from a JSON file',
   '  --report <file>               Also write the result as JSON ({ error } on a refusal)',
+  '  --baseline                    Seed nothing; record each account a reset keeps as',
+  '                                what the next reset puts back',
   '  --help, -h                    Show this help message',
   '',
   'A hosted app:',

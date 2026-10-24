@@ -9,10 +9,10 @@ import { useCallback, useMemo, type FocusEvent as ReactFocusEvent, type RefObjec
 import { resolveEditableFields } from './island-setup-helpers'
 import { nameClippedCell } from './scroll-edges'
 import { resolveTabTarget } from './tab-target'
-import { resolveAddRow } from './table-add-row-columns'
+import { columnLabelResolver, resolveAddRow } from './table-add-row-columns'
 import { canFillFrom, useFillHandle } from './use-fill-handle'
 import { useGridCursor } from './use-grid-cursor'
-import type { EditingCell, FieldMetaMap } from '../../hooks/use-inline-editing'
+import type { EditingCell } from '../../hooks/use-inline-editing'
 import type { InlineAutoSave } from '../data-row-types'
 import type { TableContentProps } from './table-content-types'
 import type { DataTableCell, DataTableGridColumn, DataTableRow } from './table-features'
@@ -210,23 +210,6 @@ export function gridAttributes(params: {
       },
     }),
     ...(!navigable && { onFocus: nameClippedCell }),
-  }
-}
-
-/**
- * The display name a column goes by in a message to the reader — the authored
- * `label`, else the field's declared label, else the field name itself.
- */
-function columnLabelResolver(
-  columnConfig: readonly DataTableColumn[] | undefined,
-  fieldMeta: FieldMetaMap | undefined
-): (field: string) => string {
-  return (field) => {
-    const authored = columnConfig?.find(
-      (column): column is Extract<DataTableColumn, { field: string }> =>
-        'field' in column && column.field === field
-    )
-    return authored?.label ?? fieldMeta?.[field]?.label ?? field
   }
 }
 

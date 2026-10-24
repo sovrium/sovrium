@@ -259,6 +259,20 @@ const OPERATOR_TRANSLATION: Readonly<Record<string, DataFilter['operator']>> = {
   isNotNull: 'isNotEmpty',
 }
 
+/**
+ * A filter no row satisfies: `in` an empty list. What an empty `or` group —
+ * a view condition naming a reader value nobody has here — translates to.
+ */
+const NO_ROW_FILTER: DataFilter = { field: 'id', operator: 'in', value: [] }
+
+/** Whether `node` is an `or` group with no alternative, which no row satisfies. */
+const isEmptyOrGroup = (node: unknown): boolean =>
+  typeof node === 'object' &&
+  node !== null &&
+  'or' in node &&
+  Array.isArray(node.or) &&
+  node.or.length === 0
+
 /** One view condition as a page data filter, or `undefined` when it has no translation. */
 const conditionFilter = (node: unknown): DataFilter | undefined => {
   if (typeof node !== 'object' || node === null) return undefined
@@ -292,7 +306,9 @@ export const viewFiltersAsDataFilters = (filters: unknown): readonly DataFilter[
       : Array.isArray(filters)
         ? filters
         : [filters]
-  const translated = conditions.map(conditionFilter)
+  const translated = conditions.map((node) =>
+    isEmptyOrGroup(node) ? NO_ROW_FILTER : conditionFilter(node)
+  )
   return translated.every((filter) => filter !== undefined)
     ? (translated as readonly DataFilter[])
     : undefined

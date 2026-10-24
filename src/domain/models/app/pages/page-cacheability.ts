@@ -61,7 +61,7 @@
  * that it is a deliberate follow-up rather than a half-covered case.
  */
 
-import { findMatchingRoute } from '@/domain/kernel/matching/route-matcher'
+import { findPageRoute, pageRoutePatterns } from '@/domain/kernel/matching/localized-path'
 import { NOW_TOKEN } from '@/domain/kernel/time/now-token'
 import { isOpenToEveryone, toPermissionValue } from '@/domain/models/app/auth/permission-evaluation'
 import { APP_ORIGIN_TOKEN } from '@/domain/models/app/pages/app-vars'
@@ -72,6 +72,7 @@ import {
   type Templates,
   type TreeNode,
 } from '@/domain/models/app/pages/component-tree-has-type'
+import { isCurrentUserRef } from '@/domain/models/app/pages/current-user-ref'
 import { readEmbeddedFormRef } from '@/domain/models/app/pages/embedded-form-ref'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
@@ -112,6 +113,8 @@ type DynamicSignalId =
   | 'sidebar'
   | 'paramPath'
   | 'appOrigin'
+  | 'reader'
+  | 'session'
   | 'twoFactorCode'
 
 /** Whether a node is a form checking a two-step code. */
@@ -126,6 +129,34 @@ const isRememberingSidebar = (node: Readonly<Record<string, unknown>>): boolean 
   node['type'] === 'sidebar' &&
   (node['collapsible'] === 'icon' || node['collapsible'] === 'offcanvas') &&
   node['persist'] !== 'none'
+
+/**
+ * The `visibility` keys that read nothing about the session: what the page
+ * declares, what the server runs, the address's declared query values (which
+ * key the cached copy already), and a record or repeat element's comparison
+ * with a literal (one naming the reader trips `reader`). Every other key —
+ * `when`, `roles`, `capability`, `unlessCapability`, `condition`, or one this
+ * list does not know — draws a node for one reader and not another.
+ */
+const SESSION_FREE_VISIBILITY_KEYS: ReadonlySet<string> = new Set([
+  'declares',
+  'unlessDeclares',
+  'runtime',
+  'unlessRuntime',
+  'query',
+  'record',
+  'item',
+])
+
+/**
+ * Whether `node` carries a `visibility` gate whose answer depends on the
+ * session. Fail closed: a gate key not known to be session-free counts.
+ */
+const holdsSessionGate = (node: object): boolean => {
+  const { visibility } = node as { readonly visibility?: unknown }
+  if (typeof visibility !== 'object' || visibility === null) return false
+  return Object.keys(visibility).some((key) => !SESSION_FREE_VISIBILITY_KEYS.has(key))
+}
 
 /**
  * Page-level signals that make a page's HTML vary per request — each reads the
@@ -147,11 +178,28 @@ const DYNAMIC_PAGE_SIGNALS: readonly {
   // and withdraws the answer forms once it is answered — never shareable.
   { id: 'invitation', trips: (page) => page.invitation !== undefined },
   { id: 'sidebar', trips: (page) => page.layout?.sidebar !== undefined },
-  { id: 'paramPath', trips: (page) => page.path.includes(':') },
+  { id: 'paramPath', trips: (page) => pageRoutePatterns(page.path).some((p) => p.includes(':')) },
   // G1: `$app.origin` prints the address THIS request arrived on. The page
   // cache is keyed by path, so serving a second front host from an entry minted
   // for the first would print the wrong address to every one of its visitors.
-  { id: 'appOrigin', trips: (page, placed) => referencesRequestOrigin(page, placed) },
+  { id: 'appOrigin', trips: (page, placed) => referencesToken(page, placed, APP_ORIGIN_TOKEN) },
+  // A `$currentUser.` reference — a record gate, a sidebar source's query — is
+  // made concrete for each reader: a copy kept from one must not outlive a sign-in.
+  // The typed form a config may carry (`{ kind: currentUser, path }`) names the
+  // reader as surely as the text does.
+  {
+    id: 'reader',
+    trips: (page, placed) =>
+      referencesToken(page, placed, '$currentUser.', (node) => isCurrentUserRef(node)),
+  },
+  // A node drawn for one session and not another — a `visibility` gate on being
+  // signed in, a role, a capability or a `$user.*` condition — at any depth
+  // (a command's items, a navigation entry, a template), or a `$user.` value:
+  // the signed-out copy must not be replayed after a sign-in.
+  {
+    id: 'session',
+    trips: (page, placed) => referencesToken(page, placed, '$user.', holdsSessionGate),
+  },
   // A code form reads the sign-in waiting for it from the visitor's cookie: its
   // field, or the notice that none waits, and where the code sends her.
   {
@@ -161,25 +209,31 @@ const DYNAMIC_PAGE_SIGNALS: readonly {
 ]
 
 /**
- * Whether any string the page carries — or any template it places — references
- * `$app.origin`.
+ * Whether any string the page carries — or any template it places — holds
+ * `token` (`$app.origin`, `$currentUser.`).
  *
- * A deep scan rather than a shallow one because the token is usable anywhere a
+ * A deep scan rather than a shallow one because a token is usable anywhere a
  * string is — a heading, a prop, an `href`, a breadcrumb label. The page's own
  * scan also covers a reference's `vars`; the scan of each placed template covers
  * the body those vars are substituted into. Each string is visited once.
+ * `holdsNode` names an object that counts as the token by itself.
  */
-function referencesRequestOrigin(page: Page, placed: PlacedTemplates): boolean {
-  return (
-    hasOriginToken(page.components) || hasOriginToken(page.layout) || placed.some(hasOriginToken)
-  )
+function referencesToken(
+  page: Page,
+  placed: PlacedTemplates,
+  token: string,
+  holdsNode: (node: object) => boolean = () => false
+): boolean {
+  const holds = (value: unknown): boolean => hasToken(value, token, holdsNode)
+  return holds(page.components) || holds(page.layout) || placed.some(holds)
 }
 
-function hasOriginToken(value: unknown): boolean {
-  if (typeof value === 'string') return value.includes(APP_ORIGIN_TOKEN)
-  if (Array.isArray(value)) return value.some(hasOriginToken)
+function hasToken(value: unknown, token: string, holdsNode: (node: object) => boolean): boolean {
+  if (typeof value === 'string') return value.includes(token)
+  if (Array.isArray(value)) return value.some((entry) => hasToken(entry, token, holdsNode))
   if (value === null || typeof value !== 'object') return false
-  return Object.values(value).some(hasOriginToken)
+  if (holdsNode(value)) return true
+  return Object.values(value).some((entry) => hasToken(entry, token, holdsNode))
 }
 
 /**
@@ -208,13 +262,17 @@ const componentTreeHasDataSource = (items: readonly unknown[], placed: PlacedTem
  * The signals that read RECORD data — a table or a system endpoint — rather
  * than the filesystem, the request, or the session. Together with a
  * component-level `dataSource` (see {@link readsRecordData}) they mark the
- * `'dynamic'` pages whose bytes change when someone writes a record.
+ * `'dynamic'` pages whose bytes change when someone writes a record. `reader`
+ * and `session` join them for the revalidation they share: their bytes change
+ * when the reader does.
  */
 const RECORD_BACKED_SIGNALS: ReadonlySet<DynamicSignalId> = new Set<DynamicSignalId>([
   'collection',
   'dataSource',
   'invitation',
   'sidebar',
+  'reader',
+  'session',
 ])
 
 /**
@@ -351,7 +409,7 @@ const unmatched = (path: string): RenderablePathCacheability => ({
 /**
  * Classify how the page that would render for `path` may be cached.
  *
- * Combines route matching (`findMatchingRoute`) with
+ * Combines route matching (`findPageRoute`) with
  * {@link classifyPageCacheability}. The default homepage — `/` with no authored
  * page — is `'static'` because `DefaultHomePage` is fully static. Any unmatched
  * non-`/` path is `'dynamic'` (it renders a 404, which is never stored).
@@ -363,21 +421,50 @@ export function classifyRenderablePath(app: App, path: string): RenderablePathCa
   const { pages } = app
   if (!pages || pages.length === 0) return unmatched(path)
 
-  const match = findMatchingRoute(
-    pages.map((page) => page.path),
-    path
-  )
-  if (!match) return unmatched(path)
-
-  const page = pages[match.index]
-  return page === undefined ? unmatched(path) : classifyMatchedPage(app, page)
+  const match = findPageRoute(pages, path)
+  return match === undefined ? unmatched(path) : memoisedMatchedVerdict(app, match.page)
 }
+
+/**
+ * The `auth.landingPath` page sends a signed-in reader on to her landing page,
+ * so its signed-out render is revalidated, never replayed after a sign-in.
+ */
+const withLandingRevalidated = (
+  app: App,
+  verdict: RenderablePathCacheability
+): RenderablePathCacheability =>
+  verdict.page !== undefined &&
+  app.auth?.landingPath !== undefined &&
+  pageRoutePatterns(verdict.page.path).includes(app.auth.landingPath)
+    ? { ...verdict, verdict: 'dynamic', readsRecordData: true }
+    : verdict
 
 /** The verdict of a page whose fold no sidebar reads: a request-prefilled form makes it dynamic. */
 const prefillVerdict = (app: App, page: Page, placed: Parameters<typeof verdictFor>[1]) =>
   componentTreeHasRequestPrefillForm(page.components ?? [], app.forms ?? [], placed)
     ? 'dynamic'
     : verdictFor(page, placed)
+
+/**
+ * Each app's verdicts, by matched page. An `App` is built once per server
+ * instance and never changes, so a page's verdict is computed on its first
+ * request rather than on every one (each signal walks the whole rendered tree);
+ * a config reload builds a new `App`, which misses here.
+ */
+const matchedVerdictsByApp = new WeakMap<App, WeakMap<Page, RenderablePathCacheability>>()
+
+/** {@link classifyMatchedPage} with the landing page revalidated, once per app and page. */
+function memoisedMatchedVerdict(app: App, page: Page): RenderablePathCacheability {
+  const known = matchedVerdictsByApp.get(app)?.get(page)
+  if (known !== undefined) return known
+  const verdict = withLandingRevalidated(app, classifyMatchedPage(app, page))
+  const verdicts = matchedVerdictsByApp.get(app) ?? new WeakMap()
+  // eslint-disable-next-line functional/no-expression-statements -- memoization of a pure function over an immutable input is referentially transparent
+  verdicts.set(page, verdict)
+  // eslint-disable-next-line functional/no-expression-statements -- see above
+  matchedVerdictsByApp.set(app, verdicts)
+  return verdict
+}
 
 /** {@link classifyRenderablePath} for the page a path matched. */
 function classifyMatchedPage(app: App, page: Page): RenderablePathCacheability {

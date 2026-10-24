@@ -32,7 +32,7 @@ export default {
   'sovrium.apiKeys.empty': 'You have no API keys yet.',
   'sovrium.apiKeys.emptyBody': 'Create one to let a script or a scheduled job call the API as you.',
   'sovrium.apiKeys.list': 'Your API keys',
-  'sovrium.apiKeys.loadFailed': 'Your API keys couldn’t load. Reload the page to try again.',
+  'sovrium.apiKeys.loadFailed': 'Your API keys couldn’t load.',
   'sovrium.apiKeys.loading': 'Loading your keys…',
   'sovrium.apiKeys.nameHint':
     'Name it after the job that will use it — that name is how you will recognise it later.',
@@ -45,6 +45,7 @@ export default {
   'sovrium.component.refreshToRetry': 'Refresh the page to try again.',
   'sovrium.csvImport.drop': 'Drag and drop a CSV file here',
   'sovrium.datatable.createFailed': 'Couldn’t save the record. Try again.',
+  'sovrium.datatable.loadFailedIn': '{table} couldn’t load.',
   'sovrium.dialog.typeToConfirm': 'To confirm, type “{text}”',
   'sovrium.dialog.typeToConfirmAsked': 'To confirm, type the text asked for',
   'sovrium.filePreview.cannotShow': '{name} cannot be shown here. Download it to open it.',

@@ -102,6 +102,12 @@ const RUNS_LIST_TOOL_PROPERTIES: Readonly<Record<string, unknown>> = {
     description:
       'Only the runs an operator started by hand from a schedule (true), or only the others (false).',
   },
+  routine: {
+    type: 'string',
+    enum: ['true', 'false'],
+    description:
+      'List the routine runs too (true), or leave them out (false, the default). A run is routine when its trigger keeps a minimal or no history, or is a schedule firing every minute or more often, and it completed, was skipped, or is still queued or running; a failure or a run started by hand never is. The response echoes appliedRoutine.',
+  },
 }
 
 const runsList = defineAdminRead<AdminRunsListInput>({
@@ -124,6 +130,7 @@ const runsList = defineAdminRead<AdminRunsListInput>({
     'include_deleted',
     'q',
     'onDemand',
+    'routine',
   ],
   tool: {
     suffix: 'automation_runs_list',
@@ -136,7 +143,8 @@ const runsList = defineAdminRead<AdminRunsListInput>({
     description:
       'Run history, newest first, by cursor or by page number, each run carrying its `_admin` envelope. ' +
       'Filters AND-combine with each other, with `q` and with the cursor, so a page is a page ' +
-      'of matches. A `from` later than `to` is refused 400 before any read. One audit event ' +
+      'of matches. Routine runs are left out unless `routine=true` asks for them. ' +
+      'A `from` later than `to` is refused 400 before any read. One audit event ' +
       'per call, never one per page. Admin only, and a non-admin caller is answered 404 ' +
       'rather than 403.',
     operationIdBase: 'listAdminAutomationRuns',
@@ -235,9 +243,10 @@ const overview = defineAdminRead<OverviewPeriod>({
   openapi: {
     summary: 'Read the automations overview',
     description:
-      'Totals (configured automations, runs and failures over the last 24 hours, the ' +
-      'period success rate) and a bucketed run series for the period, hourly for `24h` and ' +
-      'daily for `7d` and `30d`. Admin only.',
+      'Totals (configured automations, runs, routine runs and failures over the last 24 ' +
+      'hours, the period success rate) and a bucketed run series for the period, hourly for ' +
+      '`24h` and daily for `7d` and `30d`. Routine runs are counted apart from the runs ' +
+      'that are about something; every failure counts among the runs. Admin only.',
     operationIdBase: 'getAdminAutomationsOverview',
     querySchema: automationsOverviewQuerySchema,
     responseSchema: automationsOverviewResponseSchema,

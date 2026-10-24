@@ -40,7 +40,6 @@ import {
   checkRecordLimitExceeded,
   applyBatchReadFiltering,
   batchCreateAnswer,
-  validateBulkFieldValues,
   validateStrippedRecordsNotEmpty,
 } from './batch-permission-helpers'
 import {
@@ -50,7 +49,7 @@ import {
   refuseBatchDeleteTargets,
   refuseBatchRestoreIds,
 } from './batch-record-ids'
-import { guardBatchCreate } from './batch-write-guards'
+import { guardBatchCreate, guardBatchUpdateValues } from './batch-write-guards'
 import { handleBatchRestoreError } from './error-helpers'
 import { handleImportRecords } from './record-import-handlers'
 import { getLinkReader } from './relationship-rules'
@@ -61,9 +60,10 @@ import {
   resolveGuardForTable,
   restoreRoleGateAdmits,
 } from './row-level-guard'
+import { answerDeleteProgram } from './still-linked-conflict'
 import { callerReadsTable } from './table-read-gate'
 import { maskUnreadableUniqueConflict, restoredWrite, updatedWrite } from './unique-conflict-mask'
-import { validateReadonlyFields, stripUnwritableFields } from './upsert-helpers'
+import { stripUnwritableFields } from './upsert-helpers'
 import { handleUpsert } from './upsert-route'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -290,10 +290,8 @@ async function handleBatchUpdate(c: Context, app: App) {
   })
   if (authError) return authError
 
-  // Readonly-field and per-value enforcement, BEFORE permission checks. An
-  // update reaches the same column as a create and needs the same guard.
-  const fieldGuard =
-    validateReadonlyFields(table, records, c) ?? (await validateBulkFieldValues(c, app, records))
+  // The readonly, computed and per-value rules, before the field write strip.
+  const fieldGuard = await guardBatchUpdateValues(c, app, records)
   if (fieldGuard) return fieldGuard
 
   // Field-level write permissions: strip unwritable fields, then require that
@@ -332,9 +330,8 @@ async function handleBatchUpdate(c: Context, app: App) {
  * Handle batch delete endpoint
  *
  * Shared handler for both batch-delete route variants. The `permanent` flag is
- * read from the request BODY, where the request schema schema validates it. It was
- * also readable from a `?permanent=true` query string; that spelling is gone,
- * so a hard delete is now declared in exactly one place.
+ * read from the request BODY, where the request schema validates it (the old
+ * `?permanent=true` query is gone), so a hard delete is declared in one place.
  */
 async function handleBatchDelete(c: Context, app: App) {
   // Session, tableName, userRole and userGroups are guaranteed by middleware chain
@@ -392,7 +389,7 @@ async function handleBatchDelete(c: Context, app: App) {
     requester: recordWriteRequester(session.userId, userRole),
     ids: result.data.ids,
   })
-  return runEffect(c, provideDomain(c, program), batchDeleteRecordsResponseSchema)
+  return answerDeleteProgram(c, app, program, batchDeleteRecordsResponseSchema)
 }
 
 export function chainBatchRoutesMethods<T extends Hono>(honoApp: T, resolveApp: () => App) {

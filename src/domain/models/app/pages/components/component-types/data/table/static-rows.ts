@@ -94,7 +94,10 @@ export const staticRowFields = {
     )
   ),
   caption: Schema.optional(
-    Schema.String.annotate({ description: 'Caption text displayed above or below the table' })
+    Schema.String.annotate({
+      description:
+        'Caption: a table with written rows draws it as its `<caption>`; a grid bound to data draws it in its bottom bar after the range or record count and gives the table it as its accessible description.',
+    })
   ),
   tableColumns: Schema.optional(
     Schema.Array(StaticColumnSchema).pipe(

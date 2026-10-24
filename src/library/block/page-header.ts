@@ -74,7 +74,7 @@ export const entry = defineLibraryEntry({
           type: 'text',
           element: 'h1',
           props: {
-            className: lineClass(p('titleVisibility'), 'text-3xl font-semibold tracking-tight'),
+            className: lineClass(p('titleVisibility'), 'text-2xl font-semibold tracking-tight'),
           },
           content: p('title'),
         },

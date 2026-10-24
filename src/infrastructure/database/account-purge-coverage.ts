@@ -49,7 +49,10 @@
  *           better spelling.
  */
 
+import { PURGED_AUTH_TABLES } from './account-purge-auth-tables'
 import { PERSONAL_STORE_TABLES } from './account-purge-personal-stores'
+
+export { PURGED_AUTH_TABLES }
 
 /** What erasure does about one user-referencing table. */
 export type ErasureVerdict = 'delete' | 'cascade' | 'shed' | 'exempt'
@@ -129,66 +132,6 @@ export const PURGED_SYSTEM_TABLES = [
       'too whenever the DB-backed storage provider is in use. Deleting the metadata ' +
       'row takes the bytea row with it; local or S3 bytes go by key after the commit. ' +
       'Signed-in uploads write the column (a form upload not yet); unattributed files stay.',
-  },
-] as const
-
-/**
- * Auth-schema tables the purge DELETES from, keyed by their bare name.
- *
- * Separate from {@link PURGED_SYSTEM_TABLES} only because they resolve through
- * `authTableRef` (`auth.x` / `auth_x`) rather than `systemTableRef`.
- */
-export const PURGED_AUTH_TABLES = [
-  {
-    table: 'oauth_access_token',
-    column: 'user_id',
-    reason:
-      'A LIVE BEARER TOKEN. `user_id` is `ON DELETE SET NULL` while every sibling ' +
-      '(`oauth_client`, `oauth_refresh_token`, `oauth_consent`) cascades — the one ' +
-      'inconsistency in the OAuth family, and the most dangerous place to have it. ' +
-      'A token whose `refresh_id` is set is taken out by the refresh row cascading, ' +
-      'but a token issued WITHOUT a refresh token has a NULL `refresh_id` and ' +
-      'nothing removes it: erasure left an ownerless credential that still ' +
-      'authenticates. Deleted before the user row so the SET NULL never fires.',
-  },
-  {
-    table: 'oauth_client',
-    column: 'user_id',
-    reason: 'OAuth clients the user registered. Cascades; named.',
-  },
-  {
-    table: 'oauth_refresh_token',
-    column: 'user_id',
-    reason: 'Long-lived refresh credentials. Cascades; named.',
-  },
-  {
-    table: 'oauth_consent',
-    column: 'user_id',
-    reason: 'Recorded grants of consent to third-party clients. Cascades; named.',
-  },
-  {
-    table: 'api_key',
-    column: 'reference_id',
-    reason:
-      'Personal API keys — credentials, keyed by `reference_id` rather than ' +
-      '`user_id` (Better Auth naming). Cascades; named.',
-  },
-  {
-    table: 'member',
-    column: 'user_id',
-    reason: 'Organization memberships. Cascades; named.',
-  },
-  {
-    table: 'team_member',
-    column: 'user_id',
-    reason: 'Team memberships. Cascades; named.',
-  },
-  {
-    table: 'invitation',
-    column: 'inviter_id',
-    reason:
-      'Invitations the user SENT, which carry the invitee address alongside the ' +
-      'erased inviter. Cascades; named.',
   },
 ] as const
 
@@ -284,6 +227,14 @@ export const ERASURE_COVERAGE: Readonly<Record<string, ErasureCoverageEntry>> = 
       "upsert that never prunes. Matched on `type = 'user' AND entity_id`. Carries " +
       'no user-shaped column, so the schema scan does not flag it — listed anyway ' +
       'because the census is what an operator reads.',
+  },
+  'system.email_suppressions': {
+    verdict: 'delete',
+    columns: ['address'],
+    reason:
+      'The mailing lists the erased address left, keyed by the lower-cased address rather ' +
+      'than the account. Deleted by the erased email, so the person is not remembered as ' +
+      'having left a list.',
   },
 
   // ── Identifier shed, row retained ─────────────────────────────────────────

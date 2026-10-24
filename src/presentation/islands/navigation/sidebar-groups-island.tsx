@@ -117,6 +117,44 @@ async function fetchEntries(
   }
 }
 
+/**
+ * Each group's fetched entries, kept for the life of the document and keyed by
+ * what was fetched. The sidebar a client-side swap brings draws them at once
+ * and refreshes them in the background, so a list never blanks during a swap;
+ * a page load starts with an empty cache.
+ */
+const fetchedEntries = new Map<string, readonly ProjectedEntry[]>()
+
+/** The source a group fetches its entries from, and how each row is projected. */
+type EntrySource = Pick<
+  SidebarGroupsIslandProps,
+  'endpoint' | 'labelKey' | 'hrefTemplate' | 'itemProps' | 'icon' | 'badge' | 'query'
+> & { readonly rowsKey: string }
+
+/** The group's entries: what this document already fetched at once, then the fresh read. */
+function useFetchedEntries(source: EntrySource): readonly ProjectedEntry[] {
+  // Every projection input names what was fetched: one cache entry per source,
+  // and the effect reads the source back from it, so it re-runs exactly when an
+  // input changes.
+  const cacheKey = JSON.stringify(source)
+  const [entries, setEntries] = useState<readonly ProjectedEntry[]>(
+    () => fetchedEntries.get(cacheKey) ?? []
+  )
+  useEffect(() => {
+    const { endpoint, labelKey, hrefTemplate, ...rest } = JSON.parse(cacheKey) as EntrySource
+    if (endpoint === undefined || labelKey === undefined || hrefTemplate === undefined) return
+    let live = true
+    void fetchEntries({ ...rest, endpoint, labelKey, hrefTemplate }).then((fetched) => {
+      fetchedEntries.set(cacheKey, fetched)
+      if (live) setEntries(fetched)
+    })
+    return () => {
+      live = false
+    }
+  }, [cacheKey])
+  return entries
+}
+
 export default function SidebarGroupsIsland({
   endpoint,
   rowsKey = 'items',
@@ -131,22 +169,19 @@ export default function SidebarGroupsIsland({
   childrenSource,
   track,
 }: SidebarGroupsIslandProps) {
-  const [entries, setEntries] = useState<readonly ProjectedEntry[]>([])
+  const entries = useFetchedEntries({
+    endpoint,
+    rowsKey,
+    labelKey,
+    hrefTemplate,
+    itemProps,
+    icon,
+    badge,
+    query,
+  })
   const host = useRef<HTMLUListElement>(null)
   const current = useFetchedSidebarCurrent(entries, activeMatch, host)
   const listPrefix = useId()
-
-  useEffect(() => {
-    if (endpoint === undefined || labelKey === undefined || hrefTemplate === undefined) return
-    let live = true
-    const projection = { endpoint, rowsKey, labelKey, hrefTemplate, itemProps, icon, badge, query }
-    void fetchEntries(projection).then((fetched) => {
-      if (live) setEntries(fetched)
-    })
-    return () => {
-      live = false
-    }
-  }, [endpoint, rowsKey, labelKey, hrefTemplate, itemProps, icon, badge, query])
 
   // Nothing fetched (yet, or at all) renders nothing rather than an empty list:
   // the authored entries above are the sidebar until the rows arrive.

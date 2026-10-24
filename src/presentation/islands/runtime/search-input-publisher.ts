@@ -28,8 +28,15 @@
  * `data-search-min-length` withdraws the param (publishes `''`) while the query
  * is shorter than that. Clearing the box publishes `''` too, which takes the
  * param out of every subscriber's request.
+ *
+ * A box declaring `url: true` (`data-publishes-url`) mirrors its term in the
+ * page address as `?<bindTo>.<param>=`; a page opened on such an address starts
+ * with the term in the box and published, restored by the same pass that
+ * restores a mirrored select (`native-select-publisher.ts`) — so a link can
+ * open a list already narrowed.
  */
 
+import { withAddress } from './native-select-publisher'
 import { DEFAULT_SEARCH_DEBOUNCE_MS } from './search-input-defaults'
 
 const SHARED_FILTER_EVENT = 'island:system-query'
@@ -65,7 +72,7 @@ export function publishedSearchValue(value: string, minLength: number): string {
   return query.length < Math.max(minLength, 1) ? '' : query
 }
 
-/** Send the box's current value on its channel. */
+/** Send the box's current value on its channel, and mirror it in the address when it asks. */
 function publish(input: HTMLInputElement): void {
   const bindTo = input.getAttribute('data-publishes-bind-to')
   const param = input.getAttribute('data-publishes-param')
@@ -76,6 +83,8 @@ function publish(input: HTMLInputElement): void {
       detail: { sourceId: bindTo, params: { [param]: value } },
     })
   )
+  if (input.hasAttribute('data-publishes-url'))
+    withAddress((address) => address.mirrorInAddress(bindTo, param, value))
 }
 
 /**

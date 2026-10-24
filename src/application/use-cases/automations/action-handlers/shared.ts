@@ -14,6 +14,7 @@ import type { LoopScope } from './loop-scope'
 import type { ParkedStepCell } from './parked-step-files'
 import type { ContainerResume, RunPark } from './run-park'
 import type { RunWrittenFiles } from './run-written-files'
+import type { StepSkip, UnconfiguredConnection } from './step-outcome-flags'
 import type { RecordEventChannel } from '../run/record-event-channel'
 import type { ExecutedStep, NestedStepRuns, StepRequirements } from '../run/types'
 import type { WriteOnlyInheritance } from '../run/write-only-values'
@@ -36,18 +37,9 @@ export interface StepLogEntry {
  * without polluting `output` (`webhook/response`, `flow/stop`); never persisted.
  * A failure's facts (`refusedWrite`, `requestFailure`) are all an agent may be told.
  */
-/**
- * A connection whose credential reads from a `$env.` variable that is not set
- * on this instance: an integration the operator has not switched on, not a
- * failure.
- */
-export interface UnconfiguredConnection {
-  readonly connection: string
-  /** The first unset variable a credential prop references. */
-  readonly variable: string
-}
+export type { UnconfiguredConnection } from './step-outcome-flags'
 
-export interface ActionOutcome extends ActionFailureFacts {
+export interface ActionOutcome extends ActionFailureFacts, StepSkip {
   readonly status: 'success' | 'failure' | 'filtered'
   readonly error?: string
   /**

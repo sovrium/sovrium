@@ -209,9 +209,106 @@
                               "type": "text",
                               "element": "span",
                               "props": {
-                                "className": "text-foreground-subtle font-mono text-sm"
+                                "className": "text-foreground-subtle text-sm",
+                                "data-template-kind": "html"
                               },
-                              "content": "$record.kind"
+                              "content": "$t:admin.templates.kind.html",
+                              "visibility": {
+                                "record": {
+                                  "field": "kind",
+                                  "eq": "html"
+                                }
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "props": {
+                                "className": "text-foreground-subtle text-sm",
+                                "data-template-kind": "svg"
+                              },
+                              "content": "$t:admin.templates.kind.svg",
+                              "visibility": {
+                                "record": {
+                                  "field": "kind",
+                                  "eq": "svg"
+                                }
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "props": {
+                                "className": "text-foreground-subtle text-sm",
+                                "data-template-kind": "partial"
+                              },
+                              "content": "$t:admin.templates.kind.partial",
+                              "visibility": {
+                                "record": {
+                                  "field": "kind",
+                                  "eq": "partial"
+                                }
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "props": {
+                                "className": "text-foreground-subtle text-sm",
+                                "data-template-kind": "text"
+                              },
+                              "content": "$t:admin.templates.kind.text",
+                              "visibility": {
+                                "record": {
+                                  "field": "kind",
+                                  "eq": "text"
+                                }
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "props": {
+                                "className": "text-foreground-subtle text-sm",
+                                "data-template-kind": "docx"
+                              },
+                              "content": "$t:admin.templates.kind.docx",
+                              "visibility": {
+                                "record": {
+                                  "field": "kind",
+                                  "eq": "docx"
+                                }
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "props": {
+                                "className": "text-foreground-subtle text-sm",
+                                "data-template-kind": "xlsx"
+                              },
+                              "content": "$t:admin.templates.kind.xlsx",
+                              "visibility": {
+                                "record": {
+                                  "field": "kind",
+                                  "eq": "xlsx"
+                                }
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "element": "span",
+                              "props": {
+                                "className": "text-foreground-subtle text-sm",
+                                "data-template-kind": "pptx"
+                              },
+                              "content": "$t:admin.templates.kind.pptx",
+                              "visibility": {
+                                "record": {
+                                  "field": "kind",
+                                  "eq": "pptx"
+                                }
+                              }
                             }
                           ]
                         }

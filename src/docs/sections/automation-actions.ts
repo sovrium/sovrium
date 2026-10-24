@@ -295,7 +295,7 @@ export const automationActions = defineSection({
       sidebarLabel: 'Code Actions',
       body: automationCodeActionsBody,
       documents: [CodeRunTypescriptActionSchema],
-      stories: ['US-AUTOMATIONS-ACTIONS-CODE'],
+      stories: ['US-AUTOMATIONS-ACTIONS-CODE', 'US-AUTOMATIONS-ACTIONS-CODE-ISOLATION'],
     }),
     defineArticle({
       slug: 'automation-instance-actions',

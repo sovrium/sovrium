@@ -56,10 +56,21 @@ function toWireValue(
 
 /**
  * The key a cleared field is marked with, in the form's value map and in a
- * natively posted form: `<field>__clear`. Clearing is an explicit gesture —
+ * natively posted form: `_clear:<field>`. Clearing is an explicit gesture —
  * an empty control means "untouched" — so the mark travels beside the field.
+ * A field name starts with a letter and holds no colon, so no column can ever
+ * be named like the mark; a `<field>__clear` suffix could.
  */
-export const clearMarkOf = (name: string): string => `${name}__clear`
+export const clearMarkOf = (name: string): string => `_clear:${name}`
+
+/**
+ * The key a natively posted edit form carries a link list's LOADED ids under:
+ * `_loaded:<field>`, the JSON list its picker was filled with. The server
+ * leaves a list still holding them out of the write, so a link made meanwhile
+ * survives a save that never touched the list. A field name starts with a
+ * letter and holds no colon, so no column can ever be named like the mark.
+ */
+export const loadedMarkOf = (name: string): string => `_loaded:${name}`
 
 /** Whether the held values mark `name` cleared. */
 export const isMarkedCleared = (values: Readonly<Record<string, string>>, name: string): boolean =>
@@ -80,7 +91,7 @@ export function toWireFields(
   const words = coercionWordsFrom(strings)
   return Object.fromEntries(
     Object.entries(values)
-      .filter(([name]) => !name.endsWith('__clear'))
+      .filter(([name]) => !name.startsWith('_clear:'))
       .map(([name, value]) => [
         name,
         isMarkedCleared(values, name)

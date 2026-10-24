@@ -126,7 +126,8 @@ export const SystemSourceSchema = Schema.Struct({
       Schema.String,
       Schema.Union([Schema.String, Schema.Finite, Schema.Boolean])
     ).annotate({
-      description: 'Static query params merged into every request to the endpoint',
+      description:
+        "Static query params merged into every request to the endpoint. In a sidebar's fetched source, a value may name the reader (`$currentUser.id`, `.email`, `.role`, `.isUnrestricted`), resolved on the server for each request",
     })
   ),
   /**

@@ -116,11 +116,12 @@ const budgetChangedSinceBuild = (): boolean =>
  * `bun-sqlite/session.js`: `all()` either logs directly or delegates to
  * `values()`, which logs — never both), so incrementing here counts each
  * statement exactly once, on both dialects. `recordDbQueryIssued` is a no-op
- * outside a counted request (ALS store absent), so boot/cron/listener queries
- * cost one map lookup and record nothing.
+ * outside a counted request (ALS store absent), so boot/listener queries
+ * cost one map lookup and record nothing. The statement text is passed along
+ * so a catalog lookup is counted as one too.
  */
 const countingLogger: Logger = {
-  logQuery: (): void => recordDbQueryIssued(),
+  logQuery: (query: string): void => recordDbQueryIssued(query),
 }
 
 /**
@@ -153,7 +154,7 @@ const buildClient = (): DrizzleDB => {
       connection: postgresClientOptions(config.databaseUrl, { max: builtPoolSize }),
       logger: countingLogger,
     })
-    // Undo the `bigint: true` that drizzle-orm 1.0.0-rc.4 forces on EVERY client.
+    // Undo the `bigint: true` that drizzle-orm 1.0.0-rc.4/rc.5 forces on EVERY client.
     //
     // `construct()` (bun-sql/postgres/driver.ts) opens with an unconditional
     // `client.options.bigint = true`, on all four `drizzle()` entry paths - so

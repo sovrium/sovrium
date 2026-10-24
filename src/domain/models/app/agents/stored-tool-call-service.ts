@@ -104,3 +104,21 @@ export const withTableLabels = (
     return tableLabel === undefined ? call : { ...call, tableLabel }
   })
 }
+
+/**
+ * The stored calls with `toolLabel` added to each call `labelOf` names: what a
+ * reader calls the tool (the console phrases it in the operator's language). A
+ * call `labelOf` leaves unnamed keeps only its stored `name`, which is never
+ * changed; a payload that is not a list passes through untouched.
+ */
+export const withToolLabels = (
+  toolCalls: unknown,
+  labelOf: (name: string) => string | undefined
+): unknown => {
+  if (!Array.isArray(toolCalls)) return toolCalls
+  return toolCalls.map((call: unknown) => {
+    if (!isRecord(call) || typeof call['name'] !== 'string') return call
+    const toolLabel = labelOf(call['name'])
+    return toolLabel === undefined ? call : { ...call, toolLabel }
+  })
+}

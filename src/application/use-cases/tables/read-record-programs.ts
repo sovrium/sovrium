@@ -173,6 +173,7 @@ type RecordReaderConfig = Omit<GetRecordConfig, 'recordId' | 'includeDeleted' | 
   readonly readsWriteOnly?: boolean
   /** The rows a scope grant names, each read under the roles it gives as well. */
   readonly grants?: RowGrants
+  readonly fields?: string // a field selection: the to-many lists it does not name are not read
 }
 
 /**
@@ -319,8 +320,7 @@ export const shapeRecordsForReader = (
     }
     const shaped = records.map((record) => transformForReader(config, record))
     const ids = shaped.map(({ id }) => id)
-
-    const links = yield* readManyToManyLinks(app, tableName, ids, { reader })
+    const links = yield* readManyToManyLinks(app, tableName, ids, { reader, fields: config.fields })
     const linked = shaped.map(({ id, fields }) => ({
       id,
       fields: mergeManyToManyFields(fields, id, links),

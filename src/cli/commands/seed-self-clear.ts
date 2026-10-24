@@ -8,8 +8,9 @@
 /**
  * What an `app/seed` reset clears besides the app's own tables and accounts:
  * what the engine keeps against a record, what a visitor leaves in the app's
- * system tables, the sign-in material of every account it keeps, and the
- * stored files nothing names any more.
+ * system tables, the sign-in material of every account it keeps (before its
+ * baseline, if it has one, is put back), and the stored files nothing names
+ * any more.
  *
  * Operator records stay: automation runs and their steps, the webhook outbox
  * and its deliveries, analytics, the audit log and the boot ledger describe
@@ -63,14 +64,14 @@ const clearEach = (
 
 const systemExists = (table: string) => systemTableExists(db, table)
 
-const isSqlite = (): boolean => parseDatabaseDialectConfig().dialect === 'sqlite'
+export const isSqlite = (): boolean => parseDatabaseDialectConfig().dialect === 'sqlite'
 
 /**
  * Whether an auth table exists. Most are created by the migrations; the
  * plugin ones (API keys, passkeys, device codes) only for an app that turns
  * the plugin on.
  */
-const authExists = async (table: string): Promise<boolean> => {
+export const authExists = async (table: string): Promise<boolean> => {
   const rows = isSqlite()
     ? await executeRaw(
         db,
@@ -86,8 +87,8 @@ const authExists = async (table: string): Promise<boolean> => {
 
 /**
  * What the engine keeps against a user-table record: comments and who read
- * them, favourites and recent items, the activity history, the search index,
- * AI-computed values and the per-record grants. Every user table is emptied,
+ * them, the activity history, the search index, AI-computed values and the
+ * per-record grants. Every user table is emptied,
  * so none of it points at anything any more.
  */
 const recordScopedRows = (tables: readonly string[]): readonly Clear[] => {
@@ -98,8 +99,6 @@ const recordScopedRows = (tables: readonly string[]): readonly Clear[] => {
   return [
     ['record_comments', sql`1 = 1`],
     ['comment_read_state', sql`1 = 1`],
-    ['user_favorites', sql`entity_type = 'record'`],
-    ['user_recent_items', sql`entity_type = 'record'`],
     ['activity_logs', sql`table_name IN (${names})`],
     ['search_index', sql`table_name IN (${names})`],
     ['ai_field_cache', sql`table_name IN (${names})`],
@@ -117,28 +116,88 @@ const VISITOR_DATA: readonly Clear[] = [
   ['ai_conversations', sql`1 = 1`],
 ]
 
-/** Remove every system row kept against a record of the app's tables, and every visitor's data. */
+/**
+ * The small settings an account gathers, which a reset returns to their
+ * defaults, baseline or not: notification channels and the inbox (which names
+ * records the reset emptied), favourites and recently viewed items of every
+ * kind, which records were read, and presence.
+ */
+const PERSONAL_SETTINGS: readonly Clear[] = [
+  ['notification_preferences', sql`1 = 1`],
+  ['notifications', sql`1 = 1`],
+  ['user_favorites', sql`1 = 1`],
+  ['user_recent_items', sql`1 = 1`],
+  ['read_state', sql`1 = 1`],
+  ['user_presence', sql`1 = 1`],
+]
+
+/**
+ * A token the app obtained with a connection's own client credentials: a cache
+ * the engine obtains again on its next call, never a credential anyone gave.
+ */
+const ENGINE_CACHES: readonly Clear[] = [
+  ['connection_app_tokens', sql`grant_fingerprint IS NOT NULL`],
+]
+
+/**
+ * Remove every system row kept against a record of the app's tables, every
+ * visitor's data, every account's small settings and the engine's caches.
+ */
 export const clearRecordScopedRows = async (app: Readonly<App>): Promise<void> => {
   const tables = seedTablesOf(app).map((table) => table.name)
   const scoped = tables.length === 0 ? [] : recordScopedRows(tables)
-  await clearEach([...scoped, ...VISITOR_DATA], systemTableRef, systemExists)
+  await clearEach(
+    [...scoped, ...VISITOR_DATA, ...PERSONAL_SETTINGS, ...ENGINE_CACHES],
+    systemTableRef,
+    systemExists
+  )
 }
 
 /**
+ * The `account` rows that are the platform administrator's Sovrium Cloud link
+ * — host configuration a reset never removes, baseline or not: without it the
+ * owner could never sign in with Sovrium Cloud again.
+ */
+export const platformAdminCloudLink = (): SQL => {
+  const subject = platformAdminSubject()
+  return subject === undefined
+    ? sql`1 = 0`
+    : sql`provider_id = ${PLATFORM_SSO_PROVIDER_ID} AND account_id = ${subject}`
+}
+
+/** The Sovrium Cloud subject the host binds its owner to, if it names one. */
+export const platformAdminSubject = (): string | undefined => {
+  const subject = Bun.env[SOVRIUM_PLATFORM_SSO_ADMIN_SUBJECT_VAR]?.trim() ?? ''
+  return subject === '' ? undefined : subject
+}
+
+/**
+ * The confidential client the engine registers for its own MCP resource server
+ * at boot (`mcpResourceServerCredentials` in the auth infrastructure, which the
+ * CLI may not import). Host configuration with no owner: a reset keeps it, or
+ * the MCP endpoint would refuse every bearer until the next restart.
+ */
+const ENGINE_OAUTH_CLIENT_ID = 'sovrium-mcp-resource-server'
+
+/**
  * The sign-in rows a kept account carries apart from its password and, for
- * the platform administrator, its Sovrium Cloud link.
+ * the platform administrator, its Sovrium Cloud link — and the OAuth clients
+ * with no account behind them and the spent client assertions, which no reset
+ * can attribute to anyone.
  */
 const signInMaterial = (): readonly Clear[] => {
-  const subject = Bun.env[SOVRIUM_PLATFORM_SSO_ADMIN_SUBJECT_VAR]?.trim() ?? ''
-  const cloudLink =
-    subject === ''
-      ? sql`1 = 0`
-      : sql`provider_id = ${PLATFORM_SSO_PROVIDER_ID} AND account_id = ${subject}`
+  const cloudLink = platformAdminCloudLink()
   return [
     ['api_key', sql`1 = 1`],
     ['oauth_access_token', sql`1 = 1`],
     ['oauth_refresh_token', sql`1 = 1`],
     ['oauth_consent', sql`1 = 1`],
+    ['oauth_client_assertion', sql`1 = 1`],
+    ['oauth_client', sql`client_id <> ${ENGINE_OAUTH_CLIENT_ID}`],
+    [
+      'oauth_client_resource',
+      sql`client_id NOT IN (SELECT client_id FROM ${authTableRef('oauth_client')})`,
+    ],
     ['passkey', sql`1 = 1`],
     ['two_factor', sql`1 = 1`],
     ['device_code', sql`1 = 1`],
@@ -148,11 +207,14 @@ const signInMaterial = (): readonly Clear[] => {
 }
 
 /**
- * Return every account the reset keeps to its seed state: no API key, no
- * token, no passkey, no second factor, no calendar feed, no pending
+ * Strip every account the reset keeps to its password: no API key, no token,
+ * no passkey, no second factor, no calendar feed, no OAuth client, no pending
  * verification and no linked sign-in beyond its password and the platform
- * administrator's Cloud link. Run before the seed, which writes its own
- * invitations.
+ * administrator's Cloud link. What an account with no baseline yet is left
+ * with; an account with one is then returned to it (`seed-self-baseline.ts`).
+ * Its connected third-party accounts are matched against the baselines
+ * instead, never stripped first: their live tokens are the ones to keep. Run
+ * before the seed, which writes its own invitations.
  */
 export const clearKeptSignInMaterial = async (): Promise<void> => {
   await clearEach(signInMaterial(), authTableRef, authExists)
@@ -160,6 +222,33 @@ export const clearKeptSignInMaterial = async (): Promise<void> => {
   const off = isSqlite() ? 0 : false
   await executeRaw(db, sql`UPDATE ${authUserTableRef()} SET two_factor_enabled = ${off}`)
 }
+
+/**
+ * The resource the engine declares for its MCP endpoint and seeds once per
+ * process: the server's origin and `/mcp`, derived as `mcpResourceIdentifier`
+ * in the auth infrastructure derives it (which the CLI may not import). Removed,
+ * every MCP token would name an audience the server no longer knows until the
+ * next restart.
+ */
+const engineOAuthResource = (): string =>
+  `${(Bun.env.BASE_URL || `http://localhost:${Bun.env.PORT || 3000}`).replace(/\/+$/, '')}/mcp`
+
+/**
+ * Remove every OAuth resource no remaining client links to, but the one the
+ * engine declares. Run once the kept clients are back.
+ */
+export const clearUnlinkedOAuthResources = (): Promise<void> =>
+  clearEach(
+    [
+      [
+        'oauth_resource',
+        sql`identifier <> ${engineOAuthResource()}
+            AND identifier NOT IN (SELECT resource_id FROM ${authTableRef('oauth_client_resource')})`,
+      ],
+    ],
+    authTableRef,
+    authExists
+  )
 
 /** The tables a stored key may be named in: every table but the storage catalog itself. */
 const surviving = async (): Promise<readonly SQL[]> => {

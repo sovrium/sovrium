@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-// Users — one account, at `/users/:email`.
+// Users — one account, at `/users/:id`.
 //
 // Its own module rather than the back half of `users.ts`: the directory and
 // this page answer different questions — every account, and everything the

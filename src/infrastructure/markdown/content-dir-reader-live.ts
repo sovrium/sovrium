@@ -35,12 +35,11 @@ export const ContentDirReaderLive = Layer.succeed(ContentDirReader, {
       catch: (cause) => new ContentDirReadError({ cause }),
     }),
   // Takes the whole `contentDir` where the enumerator takes a directory path,
-  // so the port speaks one vocabulary. The narrowing to `.directory` is the
-  // adapter's business, and keeping it here is what lets the scan gain an input
-  // later without every caller learning about it.
+  // so the port speaks one vocabulary. The narrowing to `.directory` and
+  // `.include` is the adapter's business.
   corpusChecksum: (contentDir: Readonly<ContentDir>) =>
     Effect.tryPromise({
-      try: () => computeContentDirCorpusChecksum(contentDir.directory),
+      try: () => computeContentDirCorpusChecksum(contentDir.directory, contentDir.include),
       catch: (cause) => new ContentDirReadError({ cause }),
     }),
   readBodies: (contentDir: Readonly<ContentDir>, pagePath: string) =>

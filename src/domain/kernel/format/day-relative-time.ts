@@ -72,6 +72,7 @@ export const YEAR = { year: 'numeric' } as const
 
 /** A 24-hour time of day, `06:00`, and the `YYYY-MM-DD` key a calendar day compares by. */
 const CLOCK = { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' } as const
+const CLOCK_SECONDS = { ...CLOCK, second: '2-digit' } as const
 const DAY_KEY = { year: 'numeric', month: '2-digit', day: '2-digit' } as const
 
 /** A moment's reading, and whether it names a relative day (today, yesterday). */
@@ -86,18 +87,20 @@ export interface DayRelativeReading {
  * so, because a sentence words the two kinds apart (« commencée aujourd’hui »,
  * « commencée le 13 oct. »). See {@link formatDayRelativeTime} for the reading.
  */
+// eslint-disable-next-line max-params -- `seconds` rides positionally: an options bag would grow every list island's chunk past its mount budget
 export function readDayRelativeTime(
   value: unknown,
   locale: string,
   timeZone: string | undefined,
-  now: Readonly<Date> = new Date()
+  now: Readonly<Date> = new Date(),
+  seconds = false
 ): DayRelativeReading {
   const date = toDate(value)
   if (date === undefined) return { relative: false, text: String(value) }
   const day = formatZonedDate(date, 'en-CA', DAY_KEY, timeZone)
   const today = formatZonedDate(now, 'en-CA', DAY_KEY, timeZone)
   const offset = Math.round((Date.parse(day) - Date.parse(today)) / 86_400_000)
-  const clock = formatZonedDate(date, locale, CLOCK, timeZone)
+  const clock = formatZonedDate(date, locale, seconds ? CLOCK_SECONDS : CLOCK, timeZone)
   if (offset === 0 || offset === -1) {
     const word = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(offset, 'day')
     return { relative: true, text: `${word} ${clock}` }
@@ -122,13 +125,18 @@ export function readDayRelativeTime(
  * `now` is the instant "today" is read at: the runtime's clock when unset. The
  * server passes its own, so a development clock decides the day there too; a
  * browser's clock is the reader's.
+ *
+ * `seconds` writes the time to the second (`Today 06:00:07`): the
+ * `day-relative-time-seconds` reading.
  */
+// eslint-disable-next-line max-params -- `seconds` rides positionally, as on `readDayRelativeTime`, for the same chunk budget
 export function formatDayRelativeTime(
   value: unknown,
   locale: string,
   timeZone: string | undefined,
-  now: Readonly<Date> = new Date()
+  now: Readonly<Date> = new Date(),
+  seconds = false
 ): string {
-  const { relative, text } = readDayRelativeTime(value, locale, timeZone, now)
+  const { relative, text } = readDayRelativeTime(value, locale, timeZone, now, seconds)
   return relative ? `${text.charAt(0).toLocaleUpperCase(locale)}${text.slice(1)}` : text
 }

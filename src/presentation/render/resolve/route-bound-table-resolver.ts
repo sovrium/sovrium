@@ -16,6 +16,7 @@ import {
   CANONICAL_READ_POLICY,
   type TableLike,
 } from '@/domain/models/app/tables/read-access-plan-service'
+import { recordTitleFields } from '@/domain/models/app/tables/record-title-service'
 import { tableLabelPlural } from '@/domain/models/app/tables/table-display-name-service'
 import { writeOnlyFieldNames } from '@/domain/models/app/tables/write-only-field-service'
 import { WRITE_ONLY_PRESENCE_LABELS } from '@/presentation/render/props/write-only-presence-labels'
@@ -37,6 +38,11 @@ interface ResolutionContext {
   readonly tableParams?: ReadonlySet<string>
   /** A specimen's sample address: a segment naming no declared table is drawn, not refused. */
   readonly admitUndeclared?: boolean
+  /**
+   * The app whose tables a link's target is read from, when the page renders
+   * against a narrower one (a mounted console holds the routed table alone).
+   */
+  readonly hostApp?: App | undefined
 }
 
 /**
@@ -259,8 +265,39 @@ function deriveColumns(
   const fields = columnFields(table, ctx)
   if (fields === undefined || fields.names.length === 0) return undefined
   return fields.names.map((field) =>
-    fields.presence.has(field) ? presenceColumn(field) : { field, editable: false }
+    fields.presence.has(field)
+      ? presenceColumn(field)
+      : { field, editable: false, ...linkLabelOf(ctx.hostApp ?? ctx.app, table, field) }
   )
+}
+
+/**
+ * The column a many-to-many link is labelled by when its field declares none:
+ * the related table's record title column. Such a field has no stored key a
+ * person typed, so its cell would otherwise list the linked rows' ids; the grid
+ * asks the server for the labels (`?labels=`), resolved under the reader's
+ * permissions like any other.
+ */
+function linkLabelOf(
+  app: App,
+  table: NonNullable<App['tables']>[number],
+  name: string
+): { readonly displayField?: string } {
+  // Read as the loose shape a relationship field has: the field union's
+  // catch-all arm (`type: string`) keeps `type` from narrowing the others away.
+  const field = table.fields.find((candidate) => candidate.name === name) as
+    | {
+        readonly type: string
+        readonly relationType?: unknown
+        readonly displayField?: unknown
+        readonly relatedTable?: unknown
+      }
+    | undefined
+  if (field?.type !== 'relationship' || field.relationType !== 'many-to-many') return {}
+  if (field.displayField !== undefined) return {}
+  const related = (app.tables ?? []).find((candidate) => candidate.name === field.relatedTable)
+  const title = recordTitleFields(related?.fields)[0]
+  return title === undefined ? {} : { displayField: title }
 }
 
 /**

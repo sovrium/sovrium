@@ -232,16 +232,13 @@ export function findMatchingRoute(
   patterns: readonly string[],
   urlPath: string
 ): { readonly index: number; readonly params: RouteParams } | undefined {
-  // Use findIndex + map to avoid imperative loop
-  const matchResult = patterns
-    .map((pattern, index) => ({ pattern, index }))
-    .filter(({ pattern }) => pattern !== '')
-    .find(({ pattern }) => matchRoute(pattern, urlPath).matched)
-
-  if (!matchResult) {
-    return undefined
-  }
-
-  const match = matchRoute(matchResult.pattern, urlPath)
-  return { index: matchResult.index, params: match.params }
+  // Each pattern is matched once: the first match carries its params out.
+  return patterns.reduce<{ readonly index: number; readonly params: RouteParams } | undefined>(
+    (found, pattern, index) => {
+      if (found !== undefined || pattern === '') return found
+      const match = matchRoute(pattern, urlPath)
+      return match.matched ? { index, params: match.params } : undefined
+    },
+    undefined
+  )
 }

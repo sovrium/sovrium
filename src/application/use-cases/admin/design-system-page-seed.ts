@@ -14,12 +14,14 @@
  * and the drawn copy of a seeded table or list. No row of any instance is read.
  */
 
+import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { queriedSeededRows } from '@/domain/models/app/pages/seeded-rows-service'
 import {
   syntheticCellText,
   syntheticRowsOf,
   syntheticTitleOf,
 } from '@/domain/models/app/pages/synthetic-seed-service'
+import { cellTextOf, type ExportTextContext } from './design-system-page-record-text'
 import {
   SECRET_SPECIMEN,
   type PageSeed,
@@ -45,6 +47,8 @@ export interface SeedContext {
   readonly empty?: boolean | undefined
   /** The write-only fields of the record a seeded page is drawn at: each drawn as a secret. */
   readonly secretFields?: ReadonlySet<string> | undefined
+  /** What a seeded value is written in where a reader sees it: language, zone, clock. */
+  readonly text?: ExportTextContext | undefined
 }
 
 /** A `$currentUser.<field>` reference, as drawn text and filter values write it. */
@@ -191,7 +195,7 @@ export const sampleRouteValuesOf = (app: App, page: Page): Readonly<Record<strin
   const firstTable = app.tables?.[0]?.name
   const written = JSON.stringify(page.components ?? [])
   return Object.fromEntries(
-    [...page.path.matchAll(ROUTE_PARAMETER)].map((match) => {
+    [...primaryPagePath(page.path).matchAll(ROUTE_PARAMETER)].map((match) => {
       const name = match[1] ?? ''
       const bindsTable = written.includes(`"table":"$param.${name}"`)
       return [name, firstTable !== undefined && bindsTable ? firstTable : '1'] as const
@@ -242,6 +246,26 @@ export const drawnTableRowsOf = (
   }
 }
 
+/**
+ * A cell of a bound table drawn from the seed folder: its column's `format`,
+ * else its field type's default, as the app writes the value; as stored
+ * otherwise, and for a row of the synthetic seed.
+ */
+export const drawnCellText = (
+  context: SeedContext,
+  node: Node,
+  column: Node,
+  row: PageSeedRow
+): string => {
+  const field = String(column['field'])
+  const table = seededTableOf(context, node)?.name
+  const formatted =
+    context.text === undefined || seedFolderRowsOf(context, node) === undefined
+      ? undefined
+      : cellTextOf(context.tables, { table, field, format: column['format'] }, row, context.text)
+  return formatted ?? syntheticCellText(row[field])
+}
+
 const drawnTable = (context: SeedContext, node: Node): Node => {
   const { columns, rows } = drawnTableRowsOf(context, node)
   const { dataSource: _dataSource, columns: _columns, ...rest } = node
@@ -249,7 +273,7 @@ const drawnTable = (context: SeedContext, node: Node): Node => {
     ...rest,
     tableHeaders: columns.map((column) => stringField(column, 'label') ?? String(column['field'])),
     tableRows: rows.map((row) =>
-      columns.map((column) => syntheticCellText(row[String(column['field'])]))
+      columns.map((column) => drawnCellText(context, node, column, row))
     ),
   }
 }

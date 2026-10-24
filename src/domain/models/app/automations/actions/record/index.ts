@@ -7,6 +7,7 @@
 
 export * from './record-action'
 
+export * from './aggregate'
 export * from './batch-create'
 export * from './batch-delete'
 export * from './batch-update'

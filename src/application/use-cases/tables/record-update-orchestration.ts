@@ -89,6 +89,8 @@ export interface RecordUpdateInput {
   readonly expectedUpdatedAt?: string
   /** The surface the change is recorded as made through (a form edit link). */
   readonly auditContext?: Readonly<Record<string, string>>
+  /** `replace`: a many-to-many list is the whole set kept, not links to add. */
+  readonly linkLists?: 'replace'
   /** Whether the runtime engine is SQLite, which has no BEFORE trigger for the AI baseline. */
   readonly isSqlite: boolean
   /** Process env captured at the route boundary, for the automations' `$env` lookups. */
@@ -357,6 +359,7 @@ export function updateRecordVia<RA>(
             ? {}
             : { expectedUpdatedAt: input.expectedUpdatedAt }),
           ...(input.auditContext === undefined ? {} : { auditContext: input.auditContext }),
+          ...(input.linkLists === undefined ? {} : { linkLists: input.linkLists }),
         }).pipe(withRecordWebhooks(app, tableName)),
       dispatchAutomations,
       deliverWebhooks: (deliveryIds) =>

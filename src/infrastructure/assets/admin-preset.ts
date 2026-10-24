@@ -134,17 +134,42 @@ const isPlatformSsoEntryPoint = (value: unknown): boolean => {
   )
 }
 
-/** Drop every node matching `drop` in a component subtree, at any depth. */
-const pruneMatching =
-  (drop: (value: unknown) => boolean) =>
-  (value: unknown): unknown => {
-    const node = asNode(value)
-    if (node === undefined || !Array.isArray(node.children)) return value
-    return {
-      ...node,
-      children: node.children.filter((child) => !drop(child)).map(pruneMatching(drop)),
-    }
+/** A node's `data-slot`, when it carries one. */
+const slotOf = (value: unknown): unknown => asNode(value)?.props?.['data-slot']
+
+/** How many children a node holds; a leaf holds none. */
+const childCountOf = (value: unknown): number => asNode(value)?.children?.length ?? 0
+
+/**
+ * Drop every SSO entry point in a component subtree, at any depth, with the
+ * `field` group the prune EMPTIED and the `field-separator` right after it: the
+ * separator divides the Sovrium Cloud button from the email form, so with the
+ * button gone it divides nothing ("Or with your email" over the only way in).
+ * Its CSS hide rule is not part of the compiled stylesheet, so the separator is
+ * removed from the tree rather than hidden.
+ *
+ * Only a group that held children and lost all of them here goes: a field group
+ * authored empty, or one the prune left a child in, is never touched, and
+ * neither is a separator that follows anything else.
+ */
+const pruneSsoSubtree = (value: unknown): unknown => {
+  const node = asNode(value)
+  if (node === undefined || !Array.isArray(node.children)) return value
+  const kept = node.children.filter((child) => !isPlatformSsoEntryPoint(child))
+  const pruned = kept.map(pruneSsoSubtree)
+  const emptied = pruned.map(
+    (child, index) =>
+      slotOf(child) === 'field' && childCountOf(kept[index]) > 0 && childCountOf(child) === 0
+  )
+  return {
+    ...node,
+    children: pruned.filter(
+      (child, index) =>
+        emptied[index] !== true &&
+        !(slotOf(child) === 'field-separator' && emptied[index - 1] === true)
+    ),
   }
+}
 
 /** Whether the platform sign-in is configured; a malformed set is refused at boot, not here. */
 const isPlatformSsoConfigured = (): boolean => {
@@ -164,7 +189,6 @@ const isPlatformSsoConfigured = (): boolean => {
  */
 export const prunePlatformSsoEntryPoints = (app: App): App => {
   if (isPlatformSsoConfigured() || app.pages === undefined) return app
-  const prune = pruneMatching(isPlatformSsoEntryPoint)
   const pages = app.pages.map((page) =>
     page.components === undefined
       ? page
@@ -172,7 +196,7 @@ export const prunePlatformSsoEntryPoints = (app: App): App => {
           ...page,
           components: page.components
             .filter((component) => !isPlatformSsoEntryPoint(component))
-            .map(prune),
+            .map(pruneSsoSubtree),
         }
   )
   return { ...app, pages } as App

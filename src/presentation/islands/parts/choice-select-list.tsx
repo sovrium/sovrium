@@ -6,7 +6,7 @@
  */
 
 import { Select } from '@base-ui/react/select'
-import { useCallback, type ReactElement } from 'react'
+import { useCallback, useRef, useState, type MouseEvent, type ReactElement } from 'react'
 import { CheckGlyph, ChevronDownGlyph } from '@/presentation/design/control-glyphs'
 import {
   computeSelectIconClasses,
@@ -90,25 +90,58 @@ function ChoiceList({ items }: { readonly items: readonly ChoiceItem[] }): React
   )
 }
 
+/**
+ * Open on the press itself. Base UI opens a Select pressed with the mouse one
+ * animation frame after the press, and a page whose frames are held (a busy
+ * or throttled tab, a paused clock) left the reader pressing a trigger that
+ * did not open. The list opens here as the button goes down; the frame-late
+ * request for that same press, when it comes, is the one already answered and
+ * is let go, so it cannot reopen a list the reader has closed meanwhile.
+ */
+function usePressOpen(disabled: boolean) {
+  const [open, setOpen] = useState(false)
+  const pressed = useRef<Event | undefined>(undefined)
+  const onOpenChange = useCallback((next: boolean, details: { readonly event?: Event }) => {
+    if (next && details.event !== undefined && details.event === pressed.current) return
+    setOpen(next)
+  }, [])
+  const onMouseDown = useCallback(
+    (event: MouseEvent) => {
+      if (event.button !== 0 || open || disabled) return
+      pressed.current = event.nativeEvent
+      setOpen(true)
+    },
+    [open, disabled]
+  )
+  return { open, onOpenChange, onMouseDown }
+}
+
 /** The loaded Select: its root, its trigger and its list. */
 export default function ChoiceSelectList(props: ChoiceSelectListProps): ReactElement {
   const { name, value, onValueChange, emptyLabel, inputRef, items, trigger } = props
   const change = useCallback(
-    (next: unknown) => onValueChange(typeof next === 'string' ? next : ''),
+    (next: unknown, details: { readonly reason?: string }) =>
+      onValueChange(typeof next === 'string' ? next : '', details.reason === 'item-press'),
     [onValueChange]
   )
+  const { open, onOpenChange, onMouseDown } = usePressOpen(props.disabled === true)
   return (
     <Select.Root
       items={items}
       value={value === '' ? null : value}
       onValueChange={change}
+      open={open}
+      onOpenChange={onOpenChange}
       name={name}
       modal={false}
       {...(inputRef === undefined ? {} : { inputRef })}
       {...(props.disabled === true && { disabled: true })}
       {...(props.required === true && { required: true })}
     >
-      <Select.Trigger {...trigger}>
+      <Select.Trigger
+        {...trigger}
+        onMouseDown={onMouseDown}
+      >
         <Select.Value
           placeholder={emptyLabel ?? ''}
           className={computeSelectValueClasses()}

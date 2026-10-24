@@ -20,11 +20,11 @@ fields:
 
 A checkbox on a single-page form is sent as `on` when ticked and not at all when left clear.
 
-| Rule           | Effect when the condition is **true**                         |
-| -------------- | ------------------------------------------------------------- |
-| `visibleWhen`  | The field is shown; when false it is hidden and not submitted |
-| `requiredWhen` | The field becomes required; when false it is optional         |
-| `disabledWhen` | Accepted and validated, but not yet applied on a hosted form  |
+| Rule           | Effect when the condition is **true**                                     |
+| -------------- | ------------------------------------------------------------------------- |
+| `visibleWhen`  | The field is shown; when false it is hidden and not submitted             |
+| `requiredWhen` | The field becomes required; when false it is optional                     |
+| `disabledWhen` | Deprecated on a hosted form: it has no effect there, and validation warns |
 
 On a hosted form, a page that embeds one with `formRef`, and a dialog that wraps one, `visibleWhen` and `requiredWhen` are applied live as the person answers, and the page is served with them already applied to its prefilled values. A field hidden by `visibleWhen` is taken off screen and its inputs disabled, so it is neither validated nor sent; `requiredWhen` switches the input's required state. The server applies the same rules again on submit, so a rule always decides what is stored. A rule that reads a `hidden: true` field is applied by the server only, because that field's value never reaches the page.
 
@@ -68,9 +68,9 @@ visibleWhen:
 
 Unlike an automation's condition group, these **do** nest, so a disjunction of conjunctions is expressible here directly.
 
-## `disabledWhen` is not yet applied on a hosted form
+## `disabledWhen` is deprecated on a hosted form
 
-A form declared under `forms` accepts `disabledWhen` and validates its condition, but does not act on it yet: the field stays editable in the browser, and the server stores whatever it receives for it. Do not rely on it to lock a value. When a field should drop out under a condition, use `visibleWhen`: a field it hides is neither validated nor sent, and what was typed into it is discarded.
+A form declared under `forms` has never acted on `disabledWhen`: the field stays editable in the browser, and the server stores whatever it receives for it. Since 0.43 the key on a hosted form field is deprecated — `sovrium validate` and `sovrium start` print a warning naming the field — and 0.44 refuses it. Buttons, button fields and row actions still honour `disabledWhen`. When a field should drop out under a condition, use `visibleWhen`: a field it hides is neither validated nor sent, and what was typed into it is discarded.
 
 ## Step branching
 

@@ -39,10 +39,16 @@
  * `form-runtime-one-question.ts` for the inline runtime fragment.
  */
 
-import { FormFieldElement, type PrefillValue, type ResolvedFormField } from './form-field-elements'
+import {
+  FormFieldElement,
+  prefillValueToString,
+  type PrefillValue,
+  type ResolvedFormField,
+} from './form-field-elements'
 import { attachSectionsToNextField, type FieldWithSections } from './form-field-resolver'
 import { DescriptionText } from './form-help-text'
 import { IdempotencyKeyInput } from './form-idempotency-key'
+import { DesignedRadioQuestion } from './form-one-question-radio'
 import { RequiredLegend } from './form-required-legend'
 
 interface OneQuestionBodyProps {
@@ -92,12 +98,44 @@ function FormQuestionWrapper({
           lockPrefill={false}
         />
       ))}
-      <FormFieldElement
+      <QuestionControl
         field={field}
         prefillValue={prefillMap[field.name]}
         lockPrefill={lockPrefill}
       />
     </div>
+  )
+}
+
+/**
+ * A question's control: a choice as the design system's radio group, every
+ * other control as the form draws it everywhere. A choice whose prefill is
+ * locked stays the hidden input that carries it.
+ */
+function QuestionControl({
+  field,
+  prefillValue,
+  lockPrefill,
+}: {
+  readonly field: ResolvedFormField
+  readonly prefillValue: PrefillValue | undefined
+  readonly lockPrefill: boolean
+}) {
+  const locked = lockPrefill && field.prefillEditable !== true && prefillValue !== undefined
+  if (field.inputElement !== 'radio' || field.hidden || locked) {
+    return (
+      <FormFieldElement
+        field={field}
+        prefillValue={prefillValue}
+        lockPrefill={lockPrefill}
+      />
+    )
+  }
+  return (
+    <DesignedRadioQuestion
+      field={field}
+      defaultValue={prefillValue === undefined ? undefined : prefillValueToString(prefillValue)}
+    />
   )
 }
 

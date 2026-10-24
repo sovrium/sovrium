@@ -27,8 +27,11 @@ import { uploadInlineAttachmentContent as persistInlineAttachments } from '@/app
 import { validateAttachmentConstraints as checkAttachmentConstraints } from '@/application/use-cases/attachments/validate-attachment-constraints'
 import { validateAttachmentReferences as checkAttachmentReferences } from '@/application/use-cases/attachments/validate-attachment-references'
 import { findColumnFormatViolations } from '@/domain/models/app/tables/column-formats-validation'
+import {
+  findWritableComputedFieldWrites,
+  readonlyFieldWriteMessage,
+} from '@/domain/models/app/tables/computed-field-write-validation'
 import { forbiddenWriteFields } from '@/domain/models/app/tables/field-write-permission-service'
-import { isReadonlyComputedFieldType } from '@/domain/models/app/tables/fields'
 import { findMissingRequiredFieldNames } from '@/domain/models/app/tables/required-fields-validation'
 import { resolveStoragePublicAccess } from '@/domain/models/process-env/storage/storage-public-access'
 import {
@@ -71,23 +74,19 @@ export function validateReadonlyIdField(
  * (GENERATED ALWAYS / trigger / view) or platform-populated, so a direct write
  * would otherwise crash at the INSERT (500). Catch it here with a clean 4xx.
  *
- * Source of truth: {@link isReadonlyComputedFieldType}.
+ * Source of truth: `findComputedFieldWrites`, the rule every write door shares.
  */
 export function validateReadonlyComputedFields(
   fields: Record<string, unknown>
 ): Effect.Effect<void, FieldValidationError, ValidationContext> {
   return Effect.gen(function* () {
-    const ctx = yield* ValidationContext
-    const table = ctx.app.tables?.find((t) => t.name === ctx.tableName)
-
-    const readonlyComputedFields =
-      table?.fields?.filter((f) => isReadonlyComputedFieldType(f.type)) ?? []
-
-    // EVERY computed column the request tried to write, in table
-    // field-declaration order — not just the first one found
-    const attempted = readonlyComputedFields
-      .filter((f) => f.name in fields)
-      .map((f) => ({ field: f.name, message: `Cannot write to readonly field '${f.name}'` }))
+    const { app, tableName, userRole, userGroups } = yield* ValidationContext
+    // EVERY computed column the request tried to write, in table field order;
+    // one the caller may not write is the field-permission step's to refuse
+    const writer = { role: userRole, groups: userGroups }
+    const attempted = findWritableComputedFieldWrites(app, tableName, writer, [fields]).map(
+      (field) => ({ field, message: readonlyFieldWriteMessage(field) })
+    )
 
     const firstAttempted = attempted[0]
     if (firstAttempted) {

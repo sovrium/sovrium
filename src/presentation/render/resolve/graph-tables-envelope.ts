@@ -30,6 +30,7 @@
  * source exactly as they read an endpoint.
  */
 
+import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import {
   buildGraphTablesEnvelope,
   fieldEdgeParts,
@@ -40,7 +41,10 @@ import {
 } from '@/domain/models/app/pages/graph-tables-source-service'
 import { callerReaderFromSession } from '@/domain/models/app/tables/caller-record-gate-service'
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
-import { findViewByKey } from '@/domain/models/app/tables/views/view-read-service'
+import {
+  findViewByKey,
+  viewFiltersForReader,
+} from '@/domain/models/app/tables/views/view-read-service'
 import { isWriteOnlyField } from '@/domain/models/app/tables/write-only-field-service'
 import { readRowsForCaller } from './record-read-gate'
 import type { DataSourceDb } from './data-source-contracts'
@@ -97,15 +101,22 @@ const rowsOf = async (
   return rows
 }
 
-/** The page filters of a node entry's view; `[]` with no view, `undefined` untranslatable. */
+/**
+ * The page filters of a node entry's view; `[]` with no view, `undefined`
+ * untranslatable. A condition naming the reader reads as theirs, as on the
+ * records API; one naming a value the visitor does not have matches no row.
+ */
 const entryFilters = (
-  app: App,
+  ctx: ReadContext,
   entry: GraphTablesSource['nodes'][number]
 ): readonly DataFilter[] | undefined => {
   if (entry.view === undefined) return []
-  const table = app.tables?.find((t) => t.name === entry.table)
+  const table = ctx.app.tables?.find((t) => t.name === entry.table)
   const view = findViewByKey(table?.views, entry.view)
-  return view === undefined ? undefined : viewFiltersAsDataFilters(view.filters)
+  if (view === undefined) return undefined
+  const { session } = ctx
+  const reader = session === undefined || isGuestSession(session.userId) ? undefined : session
+  return viewFiltersAsDataFilters(viewFiltersForReader(view.filters, reader))
 }
 
 /** Whether the visitor may read `field` of `tableName`. */
@@ -148,7 +159,7 @@ export const readTablesEnvelope = async (
   ctx: ReadContext,
   source: GraphTablesSource
 ): Promise<Readonly<Record<string, unknown>> | undefined> => {
-  const filters = source.nodes.map((entry) => entryFilters(ctx.app, entry))
+  const filters = source.nodes.map((entry) => entryFilters(ctx, entry))
   if (filters.some((filter) => filter === undefined)) return undefined
   const relationships = relationshipIndexOf(ctx.app.tables)
   const nodeRows = await Promise.all(

@@ -112,6 +112,7 @@ export const REMAINDER_COLOR_REGISTRATIONS: TokenBlock = {
     { kind: 'decl', property: '--color-error-950', value: { ref: 'error-950' } },
     { kind: 'blank' },
     { kind: 'comment', text: '/* Info */' },
+    { kind: 'decl', property: '--color-info', value: { ref: 'info-fg' } },
     { kind: 'decl', property: '--color-info-bg', value: { ref: 'info-bg' } },
     { kind: 'decl', property: '--color-info-border', value: { ref: 'info-border' } },
     { kind: 'decl', property: '--color-info-fg', value: { ref: 'info-fg' } },

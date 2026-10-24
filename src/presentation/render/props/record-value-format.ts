@@ -7,12 +7,19 @@
 
 import { RECORD_TEXT_KEY } from '@/domain/models/app/pages/substitute-record-vars'
 import {
-  dateTimeGlueOf,
   formatCellValue,
   type CellFormatOptions,
 } from '@/domain/models/app/tables/cell-value-format'
 import { fieldLiteralOf } from '@/domain/models/app/tables/checkbox-literal-service'
-import { defaultTextFormatOfFieldType } from '@/domain/models/app/tables/field-type-presentation-service'
+import { columnReadsAsDay, readDriverValue } from '@/domain/models/app/tables/driver-value-service'
+import {
+  fieldFormatOptionsOf,
+  planFieldNamesOf,
+  planFieldOf,
+  planFieldTypeOf,
+  recordTextFieldOf as planRecordTextFieldOf,
+  type RecordTextResolvers,
+} from '@/domain/models/app/tables/record-text-plan-service'
 import {
   formatRecordText,
   type RecordTextField,
@@ -22,7 +29,6 @@ import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { renderNow } from '@/presentation/render/page/render-clock'
 import { optionLabelsOf } from '@/presentation/render/props/option-labels'
 import { resolveValueCurrency } from './resolve-chart-field-context'
-import type { DurationDisplayFormat } from '@/domain/kernel/format/duration-format'
 import type { Languages } from '@/domain/models/app/languages'
 import type { ColumnFormat } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { Tables } from '@/domain/models/app/tables'
@@ -37,17 +43,7 @@ import type { Tables } from '@/domain/models/app/tables'
  * only the server knows: the zone, the currency, an option's translated label.
  */
 
-/**
- * The system timestamps, by the name the records API gives them: a record
- * carries them whether or not the table declares a field for them.
- */
-const SYSTEM_TIMESTAMP_TYPES: Readonly<Record<string, string>> = {
-  createdAt: 'created-at',
-  updatedAt: 'updated-at',
-}
-
 type TableDefinition = Tables[number]
-type TableField = TableDefinition['fields'][number]
 
 /** The page context a value is formatted in: the page's language, and the app's tables. */
 export interface RecordTextContext {
@@ -56,35 +52,6 @@ export interface RecordTextContext {
   readonly tables: Tables | undefined
   /** The app's languages, for an option label written as a `$t:` key. */
   readonly languages?: Languages | undefined
-}
-
-const fieldOf = (
-  table: TableDefinition | undefined,
-  fieldName: string | undefined
-): TableField | undefined =>
-  fieldName === undefined ? undefined : table?.fields.find((field) => field.name === fieldName)
-
-/** The type a field reads as: its declared type, else a system timestamp's. */
-const fieldTypeOf = (field: TableField | undefined, fieldName: string | undefined) =>
-  field?.type ?? (fieldName === undefined ? undefined : SYSTEM_TIMESTAMP_TYPES[fieldName])
-
-/**
- * The zone a value is drawn in. A `date` has no time and no zone, so its day is
- * read in UTC — whoever reads it, it is the same day. A `datetime` declaring its
- * own `timeZone` is drawn there, as the grid draws it; `local` (the reader's
- * zone, which the server does not know) and every other value read in the
- * operator time zone.
- */
-const zoneOf = (
-  field: TableField | undefined,
-  fieldType: string | undefined,
-  operatorZone: string
-): string => {
-  if (fieldType === 'date') return 'UTC'
-  const declared = (field as { readonly timeZone?: unknown } | undefined)?.timeZone
-  return typeof declared === 'string' && declared !== '' && declared !== 'local'
-    ? declared
-    : operatorZone
 }
 
 /** What a field's text resolution reads beyond the table: the zone, the clock, the labels. */
@@ -97,107 +64,35 @@ interface FieldTextContext {
   readonly languages?: Languages | undefined
 }
 
-/** The format options a field is drawn with: its zone, the render's clock, its currency. */
+/** The resolvers the domain's plan builder reads a field with, on the server. */
+const resolversOf = (context: FieldTextContext): RecordTextResolvers => ({
+  locale: context.locale,
+  timeZone: context.operatorZone,
+  optionLabels: (field) =>
+    optionLabelsOf(field, context.languages, { activeLang: context.locale, keepIdentical: true }),
+  currencyOf: (table, fieldName) =>
+    resolveValueCurrency(table as TableDefinition, fieldName, context.tables ?? []),
+})
+
+/** The format options a field is drawn with: the domain's, and the render's clock. */
 const formatOptionsOf = (
   table: TableDefinition | undefined,
   fieldName: string | undefined,
-  context: Pick<FieldTextContext, 'operatorZone' | 'now' | 'tables'>
-): CellFormatOptions => {
-  const field = fieldOf(table, fieldName)
-  const currency =
-    table === undefined ? undefined : resolveValueCurrency(table, fieldName, context.tables ?? [])
-  const fieldType = fieldTypeOf(field, fieldName)
-  return {
-    timeZone: zoneOf(field, fieldType, context.operatorZone),
-    now: context.now,
-    ...(currency === undefined ? {} : { currency }),
-    // A `duration` field stores seconds; every other number a `duration`
-    // format reads is milliseconds (the formatter's default).
-    ...(fieldType === 'duration' ? { durationUnit: 'seconds' as const } : {}),
-  }
-}
-
-/** An option field's labels, stored value → the label read in the page's language. */
-const fieldOptionLabels = (
-  field: TableField | undefined,
   context: FieldTextContext
-): Readonly<Record<string, string>> =>
-  optionLabelsOf(field, context.languages, { activeLang: context.locale, keepIdentical: true })
-
-/** A field's own display setting, read off its definition. */
-const declared = <T>(field: TableField | undefined, key: string): T | undefined =>
-  (field as Readonly<Record<string, unknown>> | undefined)?.[key] as T | undefined
-
-/** A field read through a grid column format: its zone, its currency, a date-time's glue. */
-const cellTextFieldOf = (
-  table: TableDefinition | undefined,
-  fieldName: string,
-  format: ColumnFormat,
-  context: FieldTextContext
-): RecordTextField => {
-  const { timeZone, currency, durationUnit } = formatOptionsOf(table, fieldName, context)
-  const glue = format === 'datetime' ? dateTimeGlueOf(context.locale) : undefined
-  // Only a date reads a zone: the prop an island receives carries nothing else.
-  const dated = format === 'short-date' || format === 'datetime'
-  return {
-    format,
-    ...(dated && timeZone !== undefined ? { timeZone } : {}),
-    ...(currency && { currency }),
-    ...(glue === undefined ? {} : { glue }),
-    ...(format === 'duration' && durationUnit !== undefined ? { durationUnit } : {}),
-  }
-}
-
-/**
- * Whether a field with no type default is money: a formula declaring
- * `format: currency`, or a rollup summing, averaging or picking an extreme of
- * a `currency` field, or declaring a code of its own — exactly when the grid
- * and `?format=display` print it as money.
- */
-const isMoneyField = (
-  table: TableDefinition,
-  field: TableField | undefined,
-  fieldName: string,
-  context: Pick<FieldTextContext, 'tables'>
-): boolean => {
-  if (field?.type === 'formula') return declared<string>(field, 'format') === 'currency'
-  if (field?.type !== 'rollup') return false
-  return resolveValueCurrency(table, fieldName, context.tables ?? [])?.currency !== undefined
-}
-
-/** The format a field reads in by default: its type's, else `currency` for money. */
-const defaultFormatOf = (
-  table: TableDefinition | undefined,
-  field: TableField | undefined,
-  fieldName: string,
-  context: Pick<FieldTextContext, 'tables'>
-): RecordTextField['format'] | undefined => {
-  const byType = defaultTextFormatOfFieldType(fieldTypeOf(field, fieldName))
-  if (byType !== undefined || table === undefined) return byType
-  return isMoneyField(table, field, fieldName, context) ? 'currency' : undefined
-}
+): CellFormatOptions => ({
+  ...fieldFormatOptionsOf(table, fieldName, resolversOf(context)),
+  now: context.now,
+})
 
 /**
  * How one field reads in a sentence when the author names no format, or
- * `undefined` when it prints as stored.
+ * `undefined` when it prints as stored: the domain's plan, read on the server.
  */
 const recordTextFieldOf = (
   table: TableDefinition | undefined,
   fieldName: string,
   context: FieldTextContext
-): RecordTextField | undefined => {
-  const field = fieldOf(table, fieldName)
-  const format = defaultFormatOf(table, field, fieldName, context)
-  if (format === undefined) return undefined
-  if (format === 'percent') return { format, precision: declared<number>(field, 'precision') }
-  if (format === 'option' || format === 'options') {
-    return { format, labels: fieldOptionLabels(field, context) }
-  }
-  if (format === 'duration-clock') {
-    return { format, displayFormat: declared<DurationDisplayFormat>(field, 'displayFormat') }
-  }
-  return cellTextFieldOf(table, fieldName, format, context)
-}
+): RecordTextField | undefined => planRecordTextFieldOf(table, fieldName, resolversOf(context))
 
 /** The server's context for one resolution: the operator zone and the render's clock. */
 const serverTextContext = (
@@ -261,19 +156,19 @@ export const formatRecordValue = (
 }
 
 /**
- * A value as the records API returns it: a `Date` the driver decoded as a `date`
- * field's day (`YYYY-MM-DD`) or else its ISO 8601 instant (SQLite text passes
- * through), and a checkbox as a boolean on both engines (SQLite stores `1`).
+ * A value as the records API returns it: a driver `Date` by the API's own rule
+ * ({@link readDriverValue}), a checkbox as a boolean on both engines.
  */
-const storedValueOf = (value: unknown, fieldType: string | undefined): unknown => {
-  if (!(value instanceof Date)) return fieldLiteralOf(fieldType, value)
+const storedValueOf = (value: unknown, plan: FieldTextPlan | undefined): unknown => {
+  if (!(value instanceof Date)) return fieldLiteralOf(plan?.type, value)
   if (Number.isNaN(value.getTime())) return undefined
-  return fieldType === 'date' ? value.toISOString().slice(0, 10) : value.toISOString()
+  return readDriverValue(value, plan?.day ?? plan?.type === 'date')
 }
 
-/** How one field of a table reads on a page: its type, and its text when it is formatted. */
+/** How one field of a table reads on a page: its type, whether it is a day, and its text. */
 interface FieldTextPlan {
   readonly type: string | undefined
+  readonly day?: boolean // {@link columnReadsAsDay}; absent when the table is unknown
   readonly text?: RecordTextField | undefined
 }
 
@@ -285,13 +180,15 @@ interface FieldTextPlan {
  */
 const buildTablePlan = (
   table: TableDefinition,
-  context: FieldTextContext
+  render: RecordTextContext
 ): ReadonlyMap<string, FieldTextPlan> => {
-  const names = [...Object.keys(SYSTEM_TIMESTAMP_TYPES), ...table.fields.map((f) => f.name)]
+  const context = serverTextContext(render.locale, render.languages, render.tables)
+  const schema = { app: { tables: render.tables ?? [table] }, tableName: table.name }
   return new Map(
-    names.map((name) => {
-      const type = fieldTypeOf(fieldOf(table, name), name)
-      return [name, { type, text: recordTextFieldOf(table, name, context) }] as const
+    planFieldNamesOf(table).map((name) => {
+      const type = planFieldTypeOf(planFieldOf(table, name), name)
+      const day = columnReadsAsDay(schema, name)
+      return [name, { type, day, text: recordTextFieldOf(table, name, context) }] as const
     })
   )
 }
@@ -309,10 +206,7 @@ const tablePlanOf = (
   const plans = TABLE_PLANS.get(context) ?? new Map<string, ReadonlyMap<string, FieldTextPlan>>()
   const cached = plans.get(table.name)
   if (cached !== undefined) return cached
-  const plan = buildTablePlan(
-    table,
-    serverTextContext(context.locale, context.languages, context.tables)
-  )
+  const plan = buildTablePlan(table, context)
   // eslint-disable-next-line functional/immutable-data -- the memo writes ARE the per-render cache; a plan is a pure function of the table and the render's context
   TABLE_PLANS.set(context, plans.set(table.name, plan))
   return plan
@@ -334,10 +228,10 @@ export const pageRecordOf = (
   const table = context?.tables?.find((candidate) => candidate.name === tableName)
   const plan =
     context === undefined || table === undefined ? undefined : tablePlanOf(context, table)
-  const typeOf = (key: string) =>
-    plan === undefined ? fieldTypeOf(undefined, key) : plan.get(key)?.type
+  const planOf = (key: string): FieldTextPlan | undefined =>
+    plan === undefined ? { type: planFieldTypeOf(undefined, key) } : plan.get(key)
   const stored = Object.fromEntries(
-    Object.entries(record).map(([key, value]) => [key, storedValueOf(value, typeOf(key))])
+    Object.entries(record).map(([key, value]) => [key, storedValueOf(value, planOf(key))])
   )
   if (context === undefined || plan === undefined) return stored
   const now = renderNow()

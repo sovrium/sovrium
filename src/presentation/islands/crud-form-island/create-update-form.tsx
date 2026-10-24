@@ -171,6 +171,7 @@ function CrudFormElement(props: {
           onFieldChange={onFieldChange}
           redirectUrl={island.redirectUrl}
           useNativeForm={useNativeForm}
+          loaded={ctx.heldValues}
           submitLabel={submitLabel}
           savingLabel={formString(island.uiStrings, 'form.saving', 'Saving…')}
           variant={island.variant}

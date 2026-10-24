@@ -20,6 +20,27 @@ type ReportPage = PageImportReport['pages'][number]
 const quoted = (value: string | undefined): string =>
   value === undefined ? '(none)' : JSON.stringify(value)
 
+/**
+ * The refusal of a board of a declared page that carries no export stamp and
+ * whose nodes were added, removed or reordered: they cannot be matched to the
+ * page's, so the edit is redrawn on a fresh export's board, which carries them.
+ * A board holding more nodes than its page may be unedited: `--new-pages`
+ * created the page from it and left out the nodes it refused, so that cause is
+ * named beside an edit.
+ */
+export const reshapedUnstampedBoardRefusal = (drawn: {
+  readonly page: string
+  readonly drawing?: string | undefined
+  readonly holdsMoreNodes?: boolean | undefined
+}): string => {
+  const board = `Error: The board ${drawn.drawing ?? drawn.page} draws the page ${drawn.page} without the stamps an export gives its nodes`
+  const cause =
+    drawn.holdsMoreNodes === true
+      ? ", and it holds more nodes than the page: nodes were added to it since, or, if `--new-pages` created the page from this board, some of its nodes were refused then and left out of the page. Either way they cannot be matched to the page's."
+      : ", and nodes were added to it, removed from it or replaced by another kind since, so they cannot be matched to the page's."
+  return `${board}${cause} Export the page again with \`sovrium design-system --format bundle --pages\` and redraw the edit on its new board, which carries the stamps.\n\n  Nothing was written.`
+}
+
 /** One translated edit: written to the default language, or kept with why. */
 const translationLine = (change: ReportPage['translations'][number]): string => {
   const texts = `${quoted(change.before)} -> ${quoted(change.after)}`
@@ -108,13 +129,28 @@ const writtenLines = (report: PageImportReport, dryRun: boolean): readonly strin
     `Wrote ${sidecar.page} to ${sidecar.path}. The TypeScript config was not edited.`,
     ...(sidecar.importLine === undefined
       ? []
-      : [
-          '',
-          'Add this line to the module that owns the page:',
-          `  ${sidecar.importLine}`,
-          `and put \`${sidecar.importLine.split(' ')[1] ?? ''}\` in place of its inline entry in \`pages\`.`,
-        ]),
+      : sidecarImportLines(sidecar.importLine, isCreated(report, sidecar.page))),
   ])
+}
+
+/** Whether the report names a page as new: one the config held no entry for. */
+const isCreated = (report: PageImportReport, page: string): boolean =>
+  report.pages.some((entry) => entry.name === page && entry.created !== undefined)
+
+/**
+ * What to do with a new sidecar's import line: put the import in place of the
+ * page's inline entry, or, for a new page, which has none, add it to `pages`.
+ */
+const sidecarImportLines = (importLine: string, created: boolean): readonly string[] => {
+  const name = importLine.split(' ')[1] ?? ''
+  return [
+    '',
+    `Add this line to the module that ${created ? 'declares the pages' : 'owns the page'}:`,
+    `  ${importLine}`,
+    created
+      ? `and add \`${name}\` to \`pages\`.`
+      : `and put \`${name}\` in place of its inline entry in \`pages\`.`,
+  ]
 }
 
 /**

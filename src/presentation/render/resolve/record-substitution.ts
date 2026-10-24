@@ -23,13 +23,16 @@
 
 import { mapStringsDeep } from '@/domain/kernel/config-parsing/map-strings-deep'
 import { escapeHtml } from '@/domain/kernel/markdown/markdown-renderer'
+import { parseJsonArrayCell } from '@/domain/kernel/sql/sqlite-json-cell'
 import {
+  isRecordFieldRef,
   substituteRecordVars,
   substituteScopedVars,
   withRecordText,
   withScopesText,
 } from '@/domain/models/app/pages/substitute-record-vars'
 import { walkComponentSlots, type ComponentListEntry } from './component-slot-walk'
+import { drawsOwnRows } from './nested-row-lists'
 import { withControlRecord } from './record-control-binding'
 import { recordDisplayOf } from './record-display-labels'
 import { substituteRecordInProps, withDescriptionFieldValues } from './record-template-substitution'
@@ -197,6 +200,26 @@ const substituteRecordInSystemBinding = (
 ): Record<string, unknown> =>
   mapStringsDeep(system, (value) => substituteRecordVars(value, record)) as Record<string, unknown>
 
+/**
+ * A filter value made concrete from the record. An `in` naming one field
+ * wholly (`$record.exercises`) takes that field's list as its list —
+ * a many-to-many field's linked ids, a multi-select's choices — rather than
+ * the list printed as text; an empty one matches nothing. Every other value is
+ * the token substituted as text.
+ */
+const filterValueOf = (
+  filter: DataFilter,
+  value: string,
+  record: Record<string, unknown>
+): DataFilter['value'] => {
+  if (filter.operator !== 'in' || !isRecordFieldRef(value)) {
+    return substituteRecordVars(value, record)
+  }
+  const stored = record[value.slice('$record.'.length)]
+  const list = Array.isArray(stored) ? stored : parseJsonArrayCell(stored)
+  return list === undefined ? substituteRecordVars(value, record) : list.map(String)
+}
+
 export function substituteRecordInDataSource(
   dataSource: NonNullable<Component['dataSource']>,
   record: Record<string, unknown>
@@ -214,7 +237,7 @@ export function substituteRecordInDataSource(
   return {
     ...withSystem,
     filter: filter.map((f: DataFilter): DataFilter =>
-      typeof f.value === 'string' ? { ...f, value: substituteRecordVars(f.value, record) } : f
+      typeof f.value === 'string' ? { ...f, value: filterValueOf(f, f.value, record) } : f
     ),
   }
 }
@@ -253,7 +276,10 @@ export function substituteRecordInComponent(
   }
   const resolvedContent = substituteRecordInContent(component.content, record)
   const describedItems = withDescriptionFieldValues(component, record, tableName)
-  const withheld = substitution === 'stop-at-nested-binding' && component.dataSource !== undefined
+  // `stop-at-nested-rows` keeps only a nested row list's template (`nested-row-lists.ts`).
+  const withheld =
+    (substitution === 'stop-at-nested-binding' && component.dataSource !== undefined) ||
+    (substitution === 'stop-at-nested-rows' && drawsOwnRows(component))
   const walk = (entries: readonly ComponentListEntry[]): readonly ComponentListEntry[] =>
     withheld
       ? entries

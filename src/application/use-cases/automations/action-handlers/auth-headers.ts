@@ -9,6 +9,7 @@ import { Effect } from 'effect'
 import { ConnectionRepository } from '@/application/ports/repositories/connections/connection-repository'
 import { logError } from '@/infrastructure/logging/logger'
 import { buildEnvLookup, resolveEnvInValue } from '../resolve-env-vars'
+import { unsetClientCredentialsVariable } from './client-credentials-token'
 import { resolveAppScopedToken, resolveUserScopedToken } from './connection-token-lookup'
 import { connectionScope } from './connection-token-refresh'
 import {
@@ -17,7 +18,7 @@ import {
   type ConnectionDef,
   type StaticAuthHeader,
 } from './static-auth-header'
-import { resolveTokenExchangeHeader } from './token-exchange-token'
+import { resolveTokenExchangeHeader, unsetTokenExchangeVariable } from './token-exchange-token'
 import type { ConnectionServices, RefreshOutcome } from './connection-token-refresh'
 import type { ActionOutcome, AutomationContext, UnconfiguredConnection } from './shared'
 import type { App } from '@/domain/models/app'
@@ -190,6 +191,21 @@ const ensureConnectionExistsInDb = (
   })
 
 /**
+ * The first credential variable a token grant reads that is not set: a
+ * client-credentials grant's id or secret, a token exchange's body. Such a
+ * connection is unconfigured, as a static one is, so the run skips before any
+ * token request.
+ */
+const unsetTokenGrantVariable = (
+  conn: ConnectionDef,
+  envLookup: Readonly<Record<string, string>>
+): string | undefined => {
+  if (conn.type === 'oauth2') return unsetClientCredentialsVariable(conn, envLookup)
+  if (conn.type === 'tokenExchange') return unsetTokenExchangeVariable(conn, envLookup)
+  return undefined
+}
+
+/**
  * Resolve the connection (if any) referenced by `props.connection`,
  * compute the auth header for the appropriate auth type, and merge it
  * into the request's headers. Static auth types (apiKey, basic, bearer)
@@ -220,6 +236,10 @@ export const resolveConnectionHeaders = (
         headers: baseHeaders,
         error: `connection ${connectionName}: not found in app config`,
       }
+    }
+    const unset = unsetTokenGrantVariable(conn, buildEnvLookup(app.env, process.env))
+    if (unset !== undefined) {
+      return { headers: baseHeaders, unconfigured: { connection: conn.name, variable: unset } }
     }
     if (conn.type === 'oauth2') {
       const result = yield* resolveOAuth2AccessToken(withResolvedEnv(app, conn), automation)

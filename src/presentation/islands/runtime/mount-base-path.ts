@@ -66,8 +66,13 @@ export const resolveMountBasePath = (): string => {
 export const consoleHref = (href: string): string =>
   rewriteConsoleRootPath(href, resolveMountBasePath())
 
-/** Whether a pathname addresses this document's mount. */
+/**
+ * Whether a pathname addresses this document's mount: the base and every path
+ * below it, never a path merely starting with the same letters
+ * (`/_administration`). A console served at the root (the standalone preview)
+ * contains every same-origin path.
+ */
 export const isWithinMount = (pathname: string): boolean => {
   const basePath = resolveMountBasePath()
-  return pathname === basePath || pathname.startsWith(`${basePath}/`)
+  return basePath === '/' || `${pathname}/`.startsWith(`${basePath}/`)
 }

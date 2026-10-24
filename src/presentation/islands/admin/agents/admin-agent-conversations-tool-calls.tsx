@@ -33,6 +33,8 @@ interface RecordedCall {
 /** One call, as the row draws it. */
 interface ToolCallView {
   readonly name: string
+  /** What the console calls the tool (`toolLabel`, added by the read), else its name. */
+  readonly label: string
   readonly input: unknown
   readonly output: unknown
   /** Set for a call stored in the engine's shape, read as one sentence. */
@@ -61,8 +63,11 @@ function toolCallsOf(payload: unknown): readonly ToolCallView[] {
   return items.filter(isRecord).map((call) => {
     const fn = isRecord(call['function']) ? call['function'] : {}
     const name = firstDefined(call, ['name', 'toolName']) ?? fn['name']
+    const named = typeof name === 'string' && name.length > 0 ? name : 'tool'
+    const { toolLabel } = call
     return {
-      name: typeof name === 'string' && name.length > 0 ? name : 'tool',
+      name: named,
+      label: typeof toolLabel === 'string' && toolLabel.length > 0 ? toolLabel : named,
       input: parsed(firstDefined(call, ['input', 'args', 'arguments']) ?? fn['arguments']),
       output: parsed(firstDefined(call, ['output', 'result'])),
       recorded: recordedOf(call),
@@ -129,7 +134,7 @@ function Wrench(): ReactElement {
 /** What a closed row says: the recorded sentence, or the tool and its input. */
 function CallSummary({ call }: { readonly call: ToolCallView }): ReactElement {
   if (call.recorded !== undefined) {
-    const { before, tool, after } = recordedCallParts({ name: call.name, ...call.recorded })
+    const { before, tool, after } = recordedCallParts({ name: call.label, ...call.recorded })
     return (
       <span className="text-muted-foreground min-w-0 truncate">
         {before}
@@ -140,7 +145,7 @@ function CallSummary({ call }: { readonly call: ToolCallView }): ReactElement {
   }
   return (
     <>
-      <span className="text-foreground shrink-0 font-mono font-medium">{call.name}</span>
+      <span className="text-foreground shrink-0 font-mono font-medium">{call.label}</span>
       <span className="text-muted-foreground min-w-0 truncate font-mono">
         {inputSummary(call.input)}
       </span>

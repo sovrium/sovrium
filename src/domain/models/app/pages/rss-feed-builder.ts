@@ -32,6 +32,7 @@
  */
 
 import { markdownToText } from '@/domain/kernel/markdown/markdown-to-text'
+import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { isPublicPage } from './is-public'
 import { markdownFeedArticlePath } from './rss-feed-article-path'
@@ -98,10 +99,13 @@ export function formatRfc822(value: unknown): string | undefined {
  * collection pages have a single dynamic segment).
  */
 function expandPagePath(page: Page, record: Readonly<Record<string, unknown>>): string {
-  return page.path.replace(/:([a-zA-Z_][a-zA-Z0-9_]*)/g, (_, paramName: string) => {
-    const value = record[paramName]
-    return value === undefined || value === null ? '' : String(value)
-  })
+  return primaryPagePath(page.path).replace(
+    /:([a-zA-Z_][a-zA-Z0-9_]*)/g,
+    (_, paramName: string) => {
+      const value = record[paramName]
+      return value === undefined || value === null ? '' : String(value)
+    }
+  )
 }
 
 /**

@@ -23,6 +23,7 @@ import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { db } from '@/infrastructure/database'
 import { readAiFootprint } from '@/infrastructure/database/account-export-ai-reads'
 import { readEntityLists } from '@/infrastructure/database/account-export-entity-list-reads'
+import { readEmailSuppressions } from '@/infrastructure/database/account-purge-email-suppressions'
 import {
   authTableRef,
   formSubmissionsTable,
@@ -259,6 +260,8 @@ export const AccountRepositoryLive = Layer.succeed(AccountRepository, {
   loadAiFootprint: (userId, email) => wrap(() => readAiFootprint(userId, email)),
 
   loadEntityLists: (userId) => wrap(() => readEntityLists(userId)),
+
+  loadEmailSuppressions: (email) => wrap(() => readEmailSuppressions(email)),
 
   loadScheduledErasure: (userId) =>
     wrap(async () => {

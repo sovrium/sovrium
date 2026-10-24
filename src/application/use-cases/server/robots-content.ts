@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { pageRoutePatterns } from '@/domain/kernel/matching/localized-path'
 import type { Page } from '@/domain/models/app'
 
 /**
@@ -52,8 +53,9 @@ export const generateRobotsContent = (
   // can still be indexed (bare, without a snippet). Keeping it crawlable is
   // what lets the tag take effect.
   const disallowLines = pages
-    .filter((page) => page.path.startsWith('/_'))
-    .map((page) => `Disallow: ${page.path}`)
+    .flatMap((page) => pageRoutePatterns(page.path))
+    .filter((path) => path.startsWith('/_'))
+    .map((path) => `Disallow: ${path}`)
   const catchAll = ['User-agent: *', CONTENT_SIGNAL, 'Allow: /', ...disallowLines]
 
   const groups = [retrieval, training, catchAll].map((lines) => lines.join('\n'))

@@ -6,6 +6,7 @@
  */
 
 export * from '../../auth/better-auth/schema'
+export * from './schema/account-baselines'
 export * from './schema/activity-log'
 export * from './schema/admin-digest'
 export * from './schema/admin-search'
@@ -21,6 +22,7 @@ export * from './schema/automation-state'
 export * from './schema/calendar-feed-tokens'
 export * from './schema/connection'
 export * from './schema/design-system-shares'
+export * from './schema/email-deliverability'
 export * from './schema/favorites'
 export * from './schema/form-submissions'
 export * from './schema/links'

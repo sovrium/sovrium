@@ -38,13 +38,50 @@ export interface AdmissionReader {
 export const isSignedOut = (reader: AdmissionReader): boolean =>
   reader.role === '' && reader.agent !== true && reader.userId === undefined
 
+/** One answer kept for the turn, with the config it was read under. */
+interface TurnRows {
+  readonly app: App | undefined
+  readonly read: Promise<ReaderRows | undefined>
+}
+
+/**
+ * The answers already read this turn, per reader and table. A turn builds its
+ * reader once and hands that same object to every step — the context, the
+ * tools, the query and write parsers, the history replay — so keying on it
+ * reads her grants once per turn; the next turn builds a new reader and reads
+ * them afresh, and a finished turn's answers go with its reader. A reader must
+ * therefore never be shared between turns (`signedOutReader` is built per
+ * call); as a second fence, an answer read under another config (a reload
+ * mid-turn) is read again, and a failed read is never kept.
+ */
+const turnRows = new WeakMap<AdmissionReader, Map<string, TurnRows>>()
+
 /**
  * The rows of `tableName` the records list admits `reader` and the grants
- * behind them — asked for a person, signed in or not. A declared agent reads
- * with the reach its config gives it, so `undefined` (as for a reader with no
- * identity at all).
+ * behind them — asked for a person, signed in or not, once per turn
+ * ({@link turnRows}). A declared agent reads with the reach its config gives
+ * it, so `undefined` (as for a reader with no identity at all).
  */
-export const chatReaderRows = async (
+export const chatReaderRows = (
+  services: DomainContext,
+  app: App | undefined,
+  tableName: string,
+  reader: AdmissionReader
+): Promise<ReaderRows | undefined> => {
+  const known = turnRows.get(reader) ?? new Map<string, TurnRows>()
+  const cached = known.get(tableName)
+  if (cached !== undefined && cached.app === app) return cached.read
+  const read = readChatReaderRows(services, app, tableName, reader)
+  known.set(tableName, { app, read })
+  turnRows.set(reader, known)
+  read.catch(() => {
+    if (known.get(tableName)?.read === read) known.delete(tableName)
+  })
+  return read
+}
+
+/** One read of {@link chatReaderRows}, uncached. */
+const readChatReaderRows = async (
   services: DomainContext,
   app: App | undefined,
   tableName: string,

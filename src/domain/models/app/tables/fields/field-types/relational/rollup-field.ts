@@ -12,6 +12,7 @@ import {
   unknownTermRefusal,
 } from '@/domain/models/app/tables/closed-vocabulary'
 import { ViewFiltersSchema } from '../../../views/filters'
+import { readerFilterRefusal } from '../../../views/reader-filter-validation'
 import { BaseFieldSchema } from '../base-field'
 import {
   CurrencyCodeSchema,
@@ -114,7 +115,9 @@ export const RollupFieldSchema = BaseFieldSchema.pipe(
             vocabulary: ROLLUP_AGGREGATION_VOCABULARY,
           })
     )
-  )
+  ),
+  // On the STRUCT so the refusal can name the field (see reader-filter-validation).
+  Schema.check(Schema.makeFilter((field) => readerFilterRefusal(field)))
 )
 
 /** @public */

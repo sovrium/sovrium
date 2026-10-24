@@ -10,7 +10,7 @@ Usage: sovrium seed [config] [options]
 
 It reads `seed/<table>.yaml`, resolves the links between records, expands any date tokens, and writes through the same code path the REST API uses. No server needs to be running.
 
-Seeding is silent: it sends no table webhook and starts no record automation, so reloading demo data on every reset never reaches a receiver or an automation wired to production.
+Seeding is silent: it sends no table webhook, starts no record automation and writes no activity-log entry, in any mode, so reloading demo data on every reset never reaches a receiver or an automation wired to production, nor buries the history of what people did in the app.
 
 ## The seed directory
 
@@ -87,9 +87,7 @@ An empty or blank string for a date, datetime or time column seeds as no value.
 
 `upsert` needs to know which column identifies an existing row. Declare it at the top of the seed file as `mergeOn: [email]`.
 
-Without `mergeOn`, the command uses the table's single unique field. If the table has none, or more than one, it stops and asks — matching on the wrong column would overwrite unrelated records, so it will not guess.
-
-`mergeOn` and `key` are different things: `key` links records inside your files, `mergeOn` names real columns in your database.
+Without `mergeOn`, the command uses the table's single unique field. If the table has none, or more than one, it stops and asks — matching on the wrong column would overwrite unrelated records, so it will not guess. `mergeOn` and `key` are different things: `key` links records inside your files, `mergeOn` names real columns in your database.
 
 ### Keeping a row's original creation date
 
@@ -163,6 +161,7 @@ An account can also carry `grants` — its access to records of the tables liste
 - **`--table <name>`** — seed only this table. Repeat for several.
 - **`--dry-run`** — report what would be written and write nothing. Under `upsert` it reports `would write N records (mode: upsert)`, because whether each row is created or updated is only known when it runs. Under `if-empty` it counts the rows of each table, and a table that holds some reads `would skip (N rows already present)`, the skip the real run would make.
 - **`--as <email>`** — write every row as this account instead of the system.
+- **`--baseline`** — seed nothing; record the sign-in methods, OAuth clients, connected accounts and profile of every account an `app/seed` reset keeps — those `seed/users.yaml` lists and the host's administrators — as what the next reset puts back. Run it after setting up a second factor or a passkey you want a nightly reset to keep. It prints each account it recorded with what it holds, never a secret, and is refused when there is no `seed/users.yaml`. See [App actions](/en/docs/automation-app-actions).
 - **`--today <date>`** — the day `{{today…}}` resolves against, as `YYYY-MM-DD`. Overrides `SOVRIUM_SEED_TODAY`.
 - **`--report <file>`** — also write the result as JSON: the mode, whether it was a dry run, one entry per table (`seeded` with the rows `created` and `updated`, or `skipped` with the rows `present`) and the lines printed. A refused run writes `{ "error": "…" }` instead, with the message it printed. Because that output is kept, a run with `--report` prints each invitation with its email but not its link — on screen and in the file; send those invitations with **Resend** in the console.
 - **`--request <file>`** — read the mode, the tables, the day and the dry run from a JSON file — `{ "mode": "if-empty", "tables": ["contacts"], "today": "2026-10-12", "dryRun": true }` — instead of the flags. It is how a hosting machine runs the command for an app it hosts.

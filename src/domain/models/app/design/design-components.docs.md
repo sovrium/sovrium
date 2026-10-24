@@ -93,7 +93,7 @@ Writing `hover: { root: 'hover:bg-neutral-800' }` is refused, for a concrete rea
 
 ### `replace`
 
-By default your classes are **merged over** the recipe: `p-8` beats the recipe's `p-4`, and everything you did not mention is inherited. `replace: true` drops the recipe instead — the escape hatch for a default that is wrong in **kind** rather than in degree. It does **not** drop the accessibility floor.
+By default your classes are **merged over** the recipe: `p-8` beats the recipe's `p-4`, and everything you did not mention is inherited. `replace: true` drops the recipe instead — the escape hatch for a default that is wrong in **kind** rather than in degree. It does **not** drop the accessibility floor, and it does not drop what a component needs to work: a `sidebar` keeps its rail, its drawer and its shell layout, and `tabs` keep their `layout: fill` column — only their look goes.
 
 ## Legal class lists, and the ones that are not
 

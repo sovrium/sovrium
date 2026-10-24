@@ -6,6 +6,7 @@
  */
 
 import { sql } from 'drizzle-orm'
+import { Effect } from 'effect'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { executeRaw, type RawSqlRunner } from './dialect-execute'
 import { sqliteSystemTableName } from './dialect-sql'
@@ -72,24 +73,12 @@ interface SqlitePragmaRow {
   readonly dflt_value: string | null
 }
 
-/**
- * List every column of `tableName` with its name, type, and nullability.
- *
- * The table name is bound as a query parameter on both dialects — SQLite's
- * `pragma_table_info(?)` accepts a bind, and Postgres binds it into the
- * `information_schema` predicate — so this is injection-safe even without a
- * pre-validated identifier.
- *
- * @param runner - the `db` facade or a `tx` transaction handle
- * @param tableName - the table to introspect
- * @returns one {@link IntrospectedColumn} per column (empty if the table is unknown)
- */
-export const listTableColumns = async (
+/** Ask the catalog, uncached: one round-trip per call. */
+const readTableColumns = async (
   runner: Readonly<RawSqlRunner>,
+  dialect: 'postgres' | 'sqlite',
   tableName: string
 ): Promise<ReadonlyArray<IntrospectedColumn>> => {
-  const { dialect } = parseDatabaseDialectConfig()
-
   if (dialect === 'postgres') {
     const rows = (await executeRaw(
       runner,
@@ -121,6 +110,83 @@ export const listTableColumns = async (
     isNullable: row.notnull === 0,
     columnDefault: row.dflt_value,
   }))
+}
+
+/**
+ * The per-process column cache: which columns a table has, as the database
+ * answered the first time it was asked.
+ *
+ * Only the schema initializer and the migrations change a table's columns, and
+ * both call {@link resetTableColumnCache} when they finish (the initializer
+ * also when it starts), so an entry can only go stale through DDL issued
+ * outside Sovrium, which the engine does not support. Without it, every read
+ * outside an HTTP request — a scheduled run, a background listener, a resumed
+ * run — asked the catalog again on every call.
+ *
+ * - Keyed by database as well as table, so two databases served by one process
+ *   (the in-process test harness) never read each other's answers.
+ * - Holds the in-flight PROMISE, so concurrent first readers share one lookup.
+ * - An EMPTY answer (an unknown table, or a table not created yet, such as a
+ *   config-gated one) is never kept: the next caller asks again, so a table
+ *   created later is seen as soon as it exists.
+ * - A rejected lookup is evicted, so a transient failure is not remembered.
+ */
+const columnCache = new Map<string, Promise<ReadonlyArray<IntrospectedColumn>>>()
+
+/**
+ * Forget every cached column list. Called by the schema initializer (before
+ * and after it runs) and by the migrations (after they run): the only writers
+ * that change a table's columns.
+ */
+export const resetTableColumnCache = (): void => {
+  columnCache.clear()
+}
+
+/** Run `effect` — DDL that may change columns — with the column cache reset before and after. */
+export const withFreshTableColumns = <A, E, R>(
+  effect: Effect.Effect<A, E, R>
+): Effect.Effect<A, E, R> =>
+  Effect.sync(resetTableColumnCache).pipe(
+    Effect.andThen(effect),
+    Effect.ensuring(Effect.sync(resetTableColumnCache))
+  )
+
+/**
+ * List every column of `tableName` with its name, type, and nullability.
+ *
+ * Answered from the per-process column cache after the first lookup (see
+ * {@link resetTableColumnCache}).
+ *
+ * The table name is bound as a query parameter on both dialects — SQLite's
+ * `pragma_table_info(?)` accepts a bind, and Postgres binds it into the
+ * `information_schema` predicate — so this is injection-safe even without a
+ * pre-validated identifier.
+ *
+ * @param runner - the `db` facade or a `tx` transaction handle
+ * @param tableName - the table to introspect
+ * @returns one {@link IntrospectedColumn} per column (empty if the table is unknown)
+ */
+export const listTableColumns = (
+  runner: Readonly<RawSqlRunner>,
+  tableName: string
+): Promise<ReadonlyArray<IntrospectedColumn>> => {
+  const config = parseDatabaseDialectConfig()
+  const database = config.dialect === 'postgres' ? config.databaseUrl : config.path
+  const key = `${config.dialect}\u0000${database}\u0000${tableName}`
+  const hit = columnCache.get(key)
+  if (hit !== undefined) return hit
+
+  const pending = readTableColumns(runner, config.dialect, tableName)
+  columnCache.set(key, pending)
+  pending.then(
+    (columns) => {
+      if (columns.length === 0 && columnCache.get(key) === pending) columnCache.delete(key)
+    },
+    () => {
+      if (columnCache.get(key) === pending) columnCache.delete(key)
+    }
+  )
+  return pending
 }
 
 /**

@@ -182,19 +182,11 @@
                   "children": [
                     {
                       "type": "text",
-                      "element": "h2",
-                      "props": {
-                        "className": "text-foreground text-lg font-medium"
-                      },
-                      "content": "$record.description|$record.path"
-                    },
-                    {
-                      "type": "text",
                       "element": "p",
                       "props": {
-                        "className": "text-foreground-subtle font-mono text-sm break-all"
+                        "className": "text-muted-foreground text-sm"
                       },
-                      "content": "$record.path",
+                      "content": "$record.description",
                       "visibility": {
                         "record": {
                           "field": "description",
@@ -233,19 +225,11 @@
                       "children": [
                         {
                           "type": "text",
-                          "element": "h2",
-                          "props": {
-                            "className": "text-foreground text-lg font-medium"
-                          },
-                          "content": "$record.description|$record.path"
-                        },
-                        {
-                          "type": "text",
                           "element": "p",
                           "props": {
-                            "className": "text-foreground-subtle font-mono text-sm break-all"
+                            "className": "text-muted-foreground text-sm"
                           },
-                          "content": "$record.path",
+                          "content": "$record.description",
                           "visibility": {
                             "record": {
                               "field": "description",

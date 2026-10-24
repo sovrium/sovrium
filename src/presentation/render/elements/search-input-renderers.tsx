@@ -70,11 +70,12 @@ export interface RenderSearchInputConfig {
 /** `publishes` as the `<input>` attributes the vanilla publisher and late subscribers read. */
 function publisherAttributes(publishes: unknown): Record<string, string | undefined> {
   if (typeof publishes !== 'object' || publishes === null) return {}
-  const { bindTo, param, controls } = publishes as Record<string, unknown>
+  const { bindTo, param, controls, url } = publishes as Record<string, unknown>
   if (typeof bindTo !== 'string' || typeof param !== 'string') return {}
   return {
     'data-publishes-bind-to': bindTo,
     'data-publishes-param': param,
+    'data-publishes-url': url === true ? 'true' : undefined,
     'aria-controls': typeof controls === 'string' && controls !== '' ? controls : undefined,
   }
 }

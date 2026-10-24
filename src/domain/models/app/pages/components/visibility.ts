@@ -572,7 +572,7 @@ export const VisibilitySchema = Schema.Struct({
     FieldConditionSchema.annotate({
       title: 'Record Visibility',
       description:
-        'Per-row gate: render only on records whose `field` value satisfies the operator(s). Evaluated server-side at row expansion; a failing row omits the element entirely. Requires a record-binding ancestor.',
+        'Per-row gate: render only on records whose `field` value satisfies the operator(s). Evaluated server-side at row expansion; a failing row omits the element entirely. Requires a record-binding ancestor. An operand may name the reader (`$currentUser.id`, `.email`, `.role`, `.isUnrestricted`), resolved on the server for each request; a visitor who is not signed in matches no such gate.',
     })
   ),
 

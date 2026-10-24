@@ -5,7 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { lazy, Suspense, useMemo, type CSSProperties, type ReactElement, type Ref } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactElement,
+  type Ref,
+} from 'react'
 import { cn } from '@/presentation/design/class-merge'
 import { ChevronDownGlyph } from '@/presentation/design/control-glyphs'
 import {
@@ -32,7 +39,8 @@ import {
  * who never opened the list.
  *
  * Base UI's Select is heavy, and most forms and drawers never draw a choice:
- * it is loaded on demand (`choice-select-list`, one chunk every island shares).
+ * it is loaded on demand (`choice-select-list`, one chunk every island shares,
+ * see {@link useLoadedList}).
  * Until it lands, a stand-in of the closed trigger holds the field's place —
  * same box, same label, same named input — disabled, so nothing is lost and
  * nothing shifts, and a click waits for the real Select.
@@ -44,21 +52,31 @@ export interface ChoiceSelectOption {
 
 export interface ChoiceSelectProps {
   /** The trigger's id, which a `<label for>` names it by. */
-  readonly id?: string
+  readonly id?: string | undefined
   readonly name: string
   readonly value: string
-  readonly onValueChange: (value: string) => void
+  /**
+   * The value taken. `picked` is true when the reader took it from the list —
+   * clicked or pressed Enter on an option — rather than typing ahead on the
+   * closed trigger or the browser filling it, which may land on the value
+   * already held.
+   */
+  readonly onValueChange: (value: string, picked: boolean) => void
   readonly options: readonly ChoiceSelectOption[]
   /** The leading "no answer" choice's label; absent draws no such choice. */
-  readonly emptyLabel?: string
+  readonly emptyLabel?: string | undefined
   readonly required?: boolean
   readonly disabled?: boolean
+  /** The value is fixed: drawn `disabled`, and says why with `aria-readonly`. */
+  readonly readOnly?: boolean
   readonly invalid?: boolean
-  readonly describedBy?: string
+  readonly describedBy?: string | undefined
   /** The trigger's name when no `<label for>` names it. */
   readonly ariaLabel?: string
   /** Classes added to the trigger (a width, an indent for a leading dot). */
-  readonly triggerClassName?: string
+  readonly triggerClassName?: string | undefined
+  /** The trigger takes its height from `triggerClassName`, not from the default size. */
+  readonly unsized?: boolean
   /** The input that carries the value under `name`. */
   readonly inputRef?: Ref<HTMLInputElement>
 }
@@ -75,7 +93,34 @@ export interface ChoiceSelectListProps extends ChoiceSelectProps {
   readonly trigger: Readonly<Record<string, string>>
 }
 
-const ChoiceSelectList = lazy(() => import('./choice-select-list'))
+type ChoiceSelectListComponent = (props: ChoiceSelectListProps) => ReactElement
+
+/** The loaded Select, once its chunk has landed: every later Select draws it at once. */
+let loadedList: ChoiceSelectListComponent | undefined
+
+const loadList = (): Promise<ChoiceSelectListComponent> =>
+  import('./choice-select-list').then((module) => (loadedList = module.default))
+
+/**
+ * The loaded Select, or `undefined` while its chunk is on its way. A state
+ * update rather than `lazy` + `Suspense`: React throttles a Suspense reveal on
+ * a timer, so a page whose timers are held (a paused clock, a busy tab) kept
+ * the disabled stand-in indefinitely after the chunk had landed.
+ */
+function useLoadedList(): ChoiceSelectListComponent | undefined {
+  const [list, setList] = useState<ChoiceSelectListComponent | undefined>(() => loadedList)
+  useEffect(() => {
+    if (list !== undefined) return undefined
+    let live = true
+    void loadList().then((loaded) => {
+      if (live) setList(() => loaded)
+    })
+    return () => {
+      live = false
+    }
+  }, [list])
+  return list
+}
 
 /** The trigger's attributes, shared by the stand-in and the loaded Select. */
 function triggerAttributes(props: ChoiceSelectProps): Readonly<Record<string, string>> {
@@ -83,9 +128,10 @@ function triggerAttributes(props: ChoiceSelectProps): Readonly<Record<string, st
     ...(props.id === undefined ? {} : { id: props.id }),
     className: cn(computeSelectTriggerClasses(), 'w-full', props.triggerClassName),
     'data-slot': 'select-trigger',
-    'data-size': 'default',
+    ...(props.unsized === true ? {} : { 'data-size': 'default' }),
     'data-component-type': 'select',
     'data-name': props.name,
+    ...(props.readOnly === true ? { 'aria-readonly': 'true' } : {}),
     ...(props.invalid === true ? { 'aria-invalid': 'true' } : {}),
     ...(props.describedBy === undefined ? {} : { 'aria-describedby': props.describedBy }),
     ...(props.ariaLabel === undefined ? {} : { 'aria-label': props.ariaLabel }),
@@ -170,23 +216,22 @@ export function ChoiceSelect(props: ChoiceSelectProps): ReactElement {
     [emptyLabel, options]
   )
   const trigger = triggerAttributes(props)
+  const List = useLoadedList()
   return (
     <span className={HOLDER_CLASSES}>
-      <Suspense
-        fallback={
-          <StandIn
-            props={props}
-            items={items}
-            trigger={trigger}
-          />
-        }
-      >
-        <ChoiceSelectList
+      {List === undefined ? (
+        <StandIn
+          props={props}
+          items={items}
+          trigger={trigger}
+        />
+      ) : (
+        <List
           {...props}
           items={items}
           trigger={trigger}
         />
-      </Suspense>
+      )}
     </span>
   )
 }

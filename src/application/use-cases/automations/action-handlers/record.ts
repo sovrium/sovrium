@@ -547,7 +547,7 @@ const runListQuery = (config: {
     const context = { app, tableName, access, automation, fields }
     if (filter === 'nothing') return yield* buildReadOutput([], context)
     const result = yield* Effect.result(
-      listForRun({ app, tableName, access, automation, filter, sort, limit, offset })
+      listForRun({ app, tableName, access, automation, filter, sort, limit, offset, fields })
     )
     if (result._tag === 'Failure') return failureFromError(result.failure)
     const read = yield* Effect.result(

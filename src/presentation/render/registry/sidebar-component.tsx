@@ -61,16 +61,22 @@ interface SidebarKeys {
  * The rail's WIDTH is the only rail rule that belongs on the box — everything
  * else it does is a rule on the navigation root inside. The author's
  * `className` is merged last, so it wins every same-property conflict with the
- * ground and the rail.
+ * ground and the rail. `replace: true` drops the ground and the ink — the
+ * box's look — and keeps the rail and shell rules, which are what make the
+ * sidebar fold rather than how it looks.
  */
 function sidebarBoxProps(
   elementProps: Record<string, unknown>,
-  rail: SidebarRailBreakpoint | undefined,
-  drawer: SidebarRailBreakpoint | undefined,
-  keys: SidebarShellKeys
+  keys: SidebarShellKeys,
+  box: {
+    readonly rail: SidebarRailBreakpoint | undefined
+    readonly drawer: SidebarRailBreakpoint | undefined
+    readonly replace: boolean
+  }
 ): Record<string, unknown> {
+  const { rail, drawer, replace } = box
   const recipe = [
-    computeSidebarBoxClasses(),
+    replace ? '' : computeSidebarBoxClasses(),
     computeSidebarRailBoxClasses(rail, drawer),
     isShell(keys) ? computeSidebarShellBoxClasses() : '',
     isShell(keys) && drawer !== undefined ? computeSidebarShellDrawerBoxClasses(drawer) : '',
@@ -157,7 +163,11 @@ export const renderSidebarComponent: ComponentRenderer = ({
   const translate = (text: string) => resolveChildTranslation(text, currentLang, languages)
   return Renderers.renderHTMLElement({
     type: 'div',
-    props: { ...sidebarBoxProps(boxProps, railBelow, drawerBelow, keys) },
+    props: sidebarBoxProps(boxProps, keys, {
+      rail: railBelow,
+      drawer: drawerBelow,
+      replace: designStyles?.replace === true,
+    }),
     content: content,
     children: [
       framed(

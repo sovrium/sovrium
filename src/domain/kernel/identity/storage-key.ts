@@ -208,13 +208,21 @@ export const isChatAttachmentKey = (key: string): boolean =>
  * U+E000–U+FFFF, so every listing that cuts a `limit` or a page cursor
  * compares keys with this instead. Negative when `a` sorts first.
  */
-export const compareStorageKeys = (a: string, b: string): number => {
-  if (a === b) return 0
-  const left = Array.from(a)
-  const right = Array.from(b)
-  const at = left.findIndex((char, index) => char !== right[index])
-  // `a` is a prefix of `b`, or `b` of `a`: the shorter key sorts first.
-  if (at === -1) return -1
-  if (at >= right.length) return 1
-  return (left[at]?.codePointAt(0) ?? 0) - (right[at]?.codePointAt(0) ?? 0)
+export const compareStorageKeys = (a: string, b: string): number =>
+  a === b ? 0 : compareFromIndex(a, b, 0)
+
+/**
+ * The code point walk behind {@link compareStorageKeys}, from UTF-16 index
+ * `index` of two keys equal before it. Reads one code point per step with
+ * `codePointAt` and allocates nothing, where splitting both keys into arrays
+ * of characters cost two allocations per comparison of a whole listing sort.
+ * Both keys share the prefix walked so far, so one index serves both.
+ */
+const compareFromIndex = (a: string, b: string, index: number): number => {
+  if (index >= a.length) return index >= b.length ? 0 : -1
+  if (index >= b.length) return 1
+  const left = a.codePointAt(index) ?? 0
+  const right = b.codePointAt(index) ?? 0
+  if (left !== right) return left - right
+  return compareFromIndex(a, b, index + (left > 0xff_ff ? 2 : 1))
 }

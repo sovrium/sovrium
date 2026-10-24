@@ -13,6 +13,7 @@ import {
   hasDrawerSidebar,
   SIDEBAR_DRAWER_TOGGLE_SCRIPT,
 } from '@/presentation/render/page/command-palette-capture'
+import { IslandImportMap } from '@/presentation/render/page/island-entry-script'
 import { IslandPreloadLinks } from '@/presentation/render/page/island-preload-links'
 import { PageHead } from '@/presentation/render/page/page-head'
 // Island-runtime detection lives in page-island-detection.ts (extracted on main);
@@ -32,6 +33,8 @@ export type DynamicPageHeadProps = {
   readonly cssHref?: string
   /** Island `modulepreload` hrefs — see {@link IslandPreloadLinks}. */
   readonly islandPreloadHrefs?: readonly string[]
+  /** The island entry the page loads — see {@link IslandImportMap}. */
+  readonly islandEntryFile?: string
   readonly title: string
   readonly description: string
   readonly keywords?: string
@@ -56,6 +59,7 @@ export function DynamicPageHead({
   directionStyles,
   cssHref,
   islandPreloadHrefs,
+  islandEntryFile,
   title,
   description,
   keywords,
@@ -75,6 +79,8 @@ export function DynamicPageHead({
 
   return (
     <head>
+      {/* Before anything that loads a module: an import map counts only then. */}
+      <IslandImportMap islandEntryFile={islandEntryFile} />
       {/* Emitted FIRST in <head> so it executes at the very start of HTML parse
           — before any other tag — and attaches the ⌘K capture listener as early
           as a synchronous inline script can, minimizing the window in which a

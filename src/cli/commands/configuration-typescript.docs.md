@@ -51,6 +51,37 @@ Neither `import type` nor `satisfies` is a style preference here.
 
 **A property set to `undefined` is an absent property.** `placeholder: showHint ? 'Search' : undefined` reads exactly as if `placeholder` were not written, the way it would after a round trip through YAML or JSON. The same holds for a property the component does not accept: it is refused only when it carries a value.
 
+## The types describe the config as you write it
+
+The declaration types the configuration you write, not the one the engine holds once it has filled in the gaps. It follows what `sovrium validate` accepts and what `sovrium schema` prints:
+
+- **A key with a default may be left out.** The engine supplies the value, so the editor does not ask you for it: an automation step that calls an action template with `$ref` needs no `type: 'ref'`, at the top level or inside a `loop` or `path` step, because `$ref` already says what the step is.
+- **`trigger` and `triggers` are both accepted.** One trigger is written as `trigger: {…}`, several as `triggers: […]`. Declaring both on one automation is still refused, by `sovrium validate` rather than by the editor.
+- **Automation steps are checked wherever you write them.** A step's `type` and `operator` are closed lists whether the automation sits in a whole app typed `satisfies AppConfig` or on its own typed `satisfies AutomationConfig`: both read the steps from one description, so a misspelled `type: 'recrod'` is a type error in either.
+
+```typescript
+import type { AutomationConfig } from 'sovrium'
+
+export const notifyWaitlist = {
+  name: 'notify-waitlist',
+  trigger: { type: 'form', form: 'waitlist' },
+  actions: [
+    {
+      name: 'welcome',
+      type: 'email',
+      operator: 'send',
+      props: {
+        to: 'team@example.com',
+        subject: 'New sign-up',
+        body: 'Someone joined the waitlist.',
+      },
+    },
+  ],
+} satisfies AutomationConfig
+```
+
+The same holds when you look an option up: `sovrium docs config 'automations[].trigger'` takes the path as the config writes it.
+
 ## Composing with imports
 
 TypeScript already has the mechanism `$ref` provides for YAML. The declaration exports a type per section, so split the config into modules and assemble them:

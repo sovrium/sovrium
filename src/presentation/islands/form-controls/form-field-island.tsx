@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import { ChoiceSelect, type ChoiceSelectOption } from '../parts/choice-select'
 import { DateTextBox } from '../parts/date-text-box'
+import { latestSessionUser, resolveSessionTemplate } from '../runtime/session-resolver'
 
 /**
  * One control of a server-rendered form (a hosted `/forms/…` page, or a form
@@ -29,18 +30,32 @@ import { DateTextBox } from '../parts/date-text-box'
  *   the rule can give it back;
  * - a reset by the runtime (`sovrium:values-reset`, after it rewrote the
  *   inputs) or by the browser (`reset`) is read back into the control.
+ *
+ * An endpoint-bound form (`form.endpoint`) draws its `select` with the same
+ * island: no "no answer" entry (it holds its first option), possibly
+ * read-only, and possibly opening on the caller's own value (`sessionValue`,
+ * a `$session.<field>` template). That fill is the page's, not the reader's:
+ * it is never announced, so a form that sends on change sends nothing for it,
+ * and a template that resolves to no option keeps the authored one.
  */
 export interface FormFieldIslandProps {
   readonly kind: 'select' | 'date'
-  /** The control's id, which the field's `<label for>` names it by. */
-  readonly id: string
+  /** The control's id, which the field's `<label for>` names it by (none inside a wrapping label). */
+  readonly id?: string
   readonly name: string
   readonly value?: string
   readonly options?: readonly ChoiceSelectOption[]
-  /** The leading "no answer" choice's label (a choice field). */
+  /** The leading "no answer" choice's label (a choice field); absent draws no such choice. */
   readonly emptyLabel?: string
   readonly placeholder?: string
   readonly required?: boolean
+  /** A fixed choice: it cannot be opened, and says why with `aria-readonly`. */
+  readonly readOnly?: boolean
+  readonly describedBy?: string
+  /** The author's classes for the control (`classes.parts.input`), which size it. */
+  readonly triggerClassName?: string
+  /** A `$session.<field>` template the choice opens on, once the caller's session is read. */
+  readonly sessionValue?: string
   /** The date picker's words, in the page language where they differ from English. */
   readonly uiStrings?: Readonly<Record<string, string>>
   /** What the skeleton's named input held when the island mounted. */
@@ -73,24 +88,64 @@ function useRuntimeValue(props: FormFieldIslandProps) {
     changed.current = false
     announce(input.current)
   }, [value])
+  // What a reset goes back to: the authored value, or the caller's own once filled.
+  const startRef = useRef(props.value ?? '')
   useEffect(() => {
     own?.dispatchEvent(new Event('sovrium:control-ready', { bubbles: true }))
     const form = own?.form
     if (!form) return undefined
     const readBack = (): void => setValue(own.value)
-    const backToStart = (): void => setValue(props.value ?? '')
+    const backToStart = (): void => setValue(startRef.current)
     form.addEventListener('sovrium:values-reset', readBack)
     form.addEventListener('reset', backToStart)
     return () => {
       form.removeEventListener('sovrium:values-reset', readBack)
       form.removeEventListener('reset', backToStart)
     }
-  }, [own, props.value])
-  const change = useCallback((next: string) => {
+  }, [own])
+  // Taking the option already held from the list is still the reader's choice
+  // — the language row saves "English" when English was only what the page
+  // showed — so it is announced, though the held value does not move. Typing
+  // ahead on the closed trigger onto the held option, or the browser filling
+  // it, is no choice and announces nothing: a highlight is not a choice.
+  const held = useRef(start)
+  held.current = value
+  const change = useCallback((next: string, picked = true) => {
+    // The value held before the reader's first change is the one a form that
+    // sends on change returns to when that send is refused, until one succeeds
+    // (`runtime/endpoint-form-autosave.ts` keeps it up to date from there).
+    if (input.current?.hasAttribute('data-saved') === false) {
+      input.current.setAttribute('data-saved', held.current)
+    }
+    if (next === held.current) {
+      if (picked) announce(input.current)
+      return
+    }
     changed.current = true
     setValue(next)
   }, [])
+  const fill = useCallback((filled: string) => {
+    startRef.current = filled
+    setValue(filled)
+  }, [])
+  useSessionFill(props, fill)
   return { value, change, inputRef }
+}
+
+/** Open on the caller's own value when it names an option; never announced — see the module note. */
+function useSessionFill(props: FormFieldIslandProps, fill: (value: string) => void): void {
+  const { sessionValue, options } = props
+  useEffect(() => {
+    if (sessionValue === undefined) return undefined
+    let live = true
+    void latestSessionUser().then((user) => {
+      const resolved = resolveSessionTemplate(sessionValue, user)
+      if (live && options?.some((option) => option.value === resolved) === true) fill(resolved)
+    })
+    return () => {
+      live = false
+    }
+  }, [sessionValue, options, fill])
 }
 
 export default function FormFieldIsland(props: FormFieldIslandProps): ReactElement {
@@ -117,8 +172,13 @@ export default function FormFieldIsland(props: FormFieldIslandProps): ReactEleme
       value={value}
       onValueChange={change}
       options={props.options ?? NO_OPTIONS}
-      emptyLabel={props.emptyLabel ?? ''}
-      {...(props.required === true && { required: true })}
+      emptyLabel={props.emptyLabel}
+      required={props.required === true}
+      readOnly={props.readOnly === true}
+      disabled={props.readOnly === true}
+      describedBy={props.describedBy}
+      triggerClassName={props.triggerClassName}
+      unsized={props.triggerClassName !== undefined}
     />
   )
 }

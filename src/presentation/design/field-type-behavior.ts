@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { readStoredDate } from '@/domain/models/app/tables/stored-value-service'
 import type { FieldType } from '@/domain/models/app/tables/fields'
 
 /**
@@ -337,5 +338,8 @@ export function skeletonValueText(type: string | undefined, value: unknown): str
     // No links is the empty string, the picker's own "nothing linked" sentinel.
     return value.length === 0 ? '' : recordValueText(value)
   }
-  return value === null || value === undefined ? '' : String(value)
+  // A `date` read off PostgreSQL is a `Date` at UTC midnight, whose `String()`
+  // is local-time text no date control reads: it is written as its day.
+  const stored = type === 'date' ? readStoredDate(value) : value
+  return stored === null || stored === undefined ? '' : String(stored)
 }

@@ -23,6 +23,8 @@ import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import {
   findViewByKey,
   viewFilterConditions,
+  viewFiltersForReader,
+  viewReader,
   viewSortParam,
 } from '@/domain/models/app/tables/views/view-read-service'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
@@ -148,13 +150,10 @@ function viewFilterStructure(rawFilters: unknown): FilterStructure {
 /**
  * Resolve a saved view (by id or name) from the table configuration.
  *
- * Returns:
- * - `{ error: false, view: undefined }` when no ?view= query param is present,
- *   or when the table has no views configured (view is silently ignored).
- * - `{ error: false, view: { filter, sort } }` when the view is found.
- * - `{ error: true, response }` with HTTP 404 when a view name is given but
- *   not found in the table, or names a view
- *   the caller may not open — answered exactly as a view that does not exist.
+ * Returns `{ error: false, view: undefined }` with no ?view=, `{ error: false,
+ * view: { filter, sort } }` for a found view, its conditions naming the reader
+ * read as theirs, and `{ error: true, response }` with HTTP 404 for a view the
+ * table lacks or the caller may not open — answered as one that does not exist.
  *
  * A view is opened here as on its own records route: its grant when it
  * declares one, else its table's read (already passed by the time this runs).
@@ -185,11 +184,12 @@ function resolveView(
       response: notFound(c, `View '${viewName}' not found`),
     }
   }
-
+  const { session, userRole } = getTableContext(c)
+  const reader = viewReader(session?.userId, userRole, caller.anonymous === true)
   return {
     error: false,
     view: {
-      filter: viewFilterStructure(foundView.filters),
+      filter: viewFilterStructure(viewFiltersForReader(foundView.filters, reader, table.fields)),
       sort: viewSortParam(foundView.sorts),
     },
   }

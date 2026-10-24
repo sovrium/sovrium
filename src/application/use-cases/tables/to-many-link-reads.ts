@@ -164,3 +164,32 @@ export const readManyToManyLinks = (
     )
     return readable as ManyToManyLinkMap
   }).pipe(Effect.withSpan('tables.read-many-to-many-links'))
+
+/**
+ * The many-to-many lists a write named, read after it for `reader`: what the
+ * write's answer shows of them, as `GET /records/:recordId` would. Empty when
+ * the write named none.
+ */
+export const readWrittenLinkLists = (
+  app: App | undefined,
+  tableName: string,
+  recordId: string,
+  options: {
+    readonly written: Readonly<Record<string, unknown>>
+    readonly reader: LinkReader | undefined
+  }
+): Effect.Effect<
+  ManyToManyLinkMap,
+  DatabaseError,
+  TableRepository | DataSourceRepository | AuthRepository
+> => {
+  const named = getManyToManyFieldSpecs(app?.tables, tableName)
+    .map((spec) => spec.fieldName)
+    .filter((name) => Object.hasOwn(options.written, name))
+  if (named.length === 0) return Effect.succeed({})
+  const { reader } = options
+  return readManyToManyLinks(app, tableName, [recordId], {
+    fields: named.join(','),
+    ...(reader === undefined ? {} : { reader }),
+  }).pipe(Effect.withSpan('tables.read-written-link-lists'))
+}

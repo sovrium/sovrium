@@ -5,15 +5,19 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { and, asc, inArray, isNull, not, or, sql } from 'drizzle-orm'
+import { and, asc, inArray, isNull, not, notInArray, or, sql } from 'drizzle-orm'
 import { Layer } from 'effect'
 import {
   UserDirectoryRepository,
   UserDirectoryDatabaseError,
   type UserDirectoryEntry,
+  type UserDirectoryQuery,
 } from '@/application/ports/repositories/auth/user-directory-repository'
 import { db } from '@/infrastructure/database'
-import { authUsersTable } from '@/infrastructure/database/drizzle/dialect-schema'
+import {
+  authTeamMembersTable,
+  authUsersTable,
+} from '@/infrastructure/database/drizzle/dialect-schema'
 import { notAnAgentAccount } from '@/infrastructure/database/sql/auth-user-predicates'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { containsInsensitive } from '@/infrastructure/database/sql/dialect-sql-helpers'
@@ -24,6 +28,63 @@ const wrap = makeDbWrap((error) => new UserDirectoryDatabaseError({ cause: error
 /** The two exclusions every directory read applies: agent accounts and banned ones. */
 function pickable(users: Readonly<ReturnType<typeof authUsersTable>>) {
   return [notAnAgentAccount(users.email), or(isNull(users.banned), not(users.banned))] as const
+}
+
+/** The query's id narrowing as a condition, or none when it narrows nothing. */
+function amongIdsCondition(
+  users: Readonly<ReturnType<typeof authUsersTable>>,
+  ids: UserDirectoryQuery['ids']
+) {
+  if (ids === undefined || ids.ids.length === 0) return undefined
+  const distinct = [...new Set(ids.ids)]
+  return ids.within ? inArray(users.id, distinct) : notInArray(users.id, distinct)
+}
+
+/**
+ * The query's audience narrowing as a condition — a stored role among the
+ * reading roles, or a group membership when groups can widen — or none when it
+ * narrows nothing. `false` when it admits no one.
+ */
+function audienceCondition(
+  users: Readonly<ReturnType<typeof authUsersTable>>,
+  audience: UserDirectoryQuery['audience']
+) {
+  if (audience === undefined) return undefined
+  const teamMembers = authTeamMembersTable()
+  const arms = [
+    ...(audience.roles.length > 0 ? [inArray(users.role, [...new Set(audience.roles)])] : []),
+    ...(audience.teamMembers
+      ? [inArray(users.id, db.select({ id: teamMembers.userId }).from(teamMembers))]
+      : []),
+  ]
+  return arms.length === 0 ? false : or(...arms)
+}
+
+/**
+ * The conditions a directory page adds to the pickable exclusions: the term,
+ * the keyset cursor, the id narrowing and the audience narrowing — or
+ * `undefined` when one of them admits no one.
+ */
+function pageConditions(
+  users: Readonly<ReturnType<typeof authUsersTable>>,
+  { term, after, ids, audience }: UserDirectoryQuery
+) {
+  // Within no one is no one.
+  if (ids?.within === true && ids.ids.length === 0) return undefined
+  const inAudience = audienceCondition(users, audience)
+  if (inAudience === false) return undefined
+  const amongIds = amongIdsCondition(users, ids)
+  // Keyset on the ORDER BY: strictly after `(lower(name), id)` of the previous
+  // page's last entry. Both values are bound parameters.
+  const afterCursor = after
+    ? sql`(lower(${users.name}) > lower(${after.name}) OR (lower(${users.name}) = lower(${after.name}) AND ${users.id} > ${after.id}))`
+    : undefined
+  return [
+    ...(term ? [containsInsensitive(users.name, term)] : []),
+    ...(afterCursor ? [afterCursor] : []),
+    ...(amongIds ? [amongIds] : []),
+    ...(inAudience ? [inAudience] : []),
+  ]
 }
 
 function toEntry(row: {
@@ -76,28 +137,18 @@ function toEntry(row: {
  * `email` is never selected. See the port's {@link UserDirectoryEntry}.
  */
 export const UserDirectoryRepositoryLive = Layer.succeed(UserDirectoryRepository, {
-  listPickableUsers: ({ term, limit, after }) =>
+  listPickableUsers: (query) =>
     wrap(async (): Promise<readonly UserDirectoryEntry[]> => {
       const users = authUsersTable()
-      const matchesTerm = term ? containsInsensitive(users.name, term) : undefined
-      // Keyset on the ORDER BY below: strictly after `(lower(name), id)` of the
-      // previous page's last entry. Both values are bound parameters.
-      const afterCursor = after
-        ? sql`(lower(${users.name}) > lower(${after.name}) OR (lower(${users.name}) = lower(${after.name}) AND ${users.id} > ${after.id}))`
-        : undefined
-
+      const conditions = pageConditions(users, query)
+      // A narrowing that admits no one is answered without touching the store.
+      if (conditions === undefined) return []
       const rows = await db
         .select({ id: users.id, name: users.name, image: users.image })
         .from(users)
-        .where(
-          and(
-            ...pickable(users),
-            ...(matchesTerm ? [matchesTerm] : []),
-            ...(afterCursor ? [afterCursor] : [])
-          )
-        )
+        .where(and(...pickable(users), ...conditions))
         .orderBy(asc(sql`lower(${users.name})`), asc(users.id))
-        .limit(limit)
+        .limit(query.limit)
 
       return rows.map(toEntry)
     }),

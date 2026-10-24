@@ -1265,7 +1265,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
           content: '$content',
           element: 'h1',
           props: {
-            className: 'text-3xl font-semibold tracking-tight',
+            className: 'text-2xl font-semibold tracking-tight',
             'data-design-kit-type': 'text',
           },
           type: 'text',
@@ -1345,12 +1345,16 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
       type: 'table',
     },
     {
+      caption: '$caption',
       columns: '$columns',
       columnsFrom: '$columnsFrom',
       dataSource: '$dataSource',
       emptyMessage: '$emptyMessage',
       inputs: {
         ariaLabel: {
+          kind: 'text',
+        },
+        caption: {
           kind: 'text',
         },
         columns: {
@@ -1387,6 +1391,9 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         selection: {
           kind: 'json',
         },
+        viewOptions: {
+          kind: 'text',
+        },
       },
       layout: '$layout',
       name: 'console-grid',
@@ -1404,7 +1411,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
       },
       selection: '$selection',
       type: 'table',
-      viewOptions: 'toolbar',
+      viewOptions: '$viewOptions',
     },
     {
       canEdit: '$canEdit',
@@ -2703,7 +2710,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             {
                               children: [
                                 {
-                                  content: '$t:admin.welcome.sub.fields',
+                                  content: '$record.tableFields',
                                   element: 'span',
                                   type: 'text',
                                 },
@@ -2713,7 +2720,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   type: 'text',
                                 },
                                 {
-                                  content: '$record.tableFields',
+                                  content: '$t:admin.welcome.sub.fields',
                                   element: 'span',
                                   type: 'text',
                                 },
@@ -3138,7 +3145,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             {
                               children: [
                                 {
-                                  content: '$t:admin.welcome.sub.banned',
+                                  content: '$record.usersBanned',
                                   element: 'span',
                                   type: 'text',
                                 },
@@ -3148,7 +3155,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   type: 'text',
                                 },
                                 {
-                                  content: '$record.usersBanned',
+                                  content: '$t:admin.welcome.sub.banned',
                                   element: 'span',
                                   type: 'text',
                                 },
@@ -3398,7 +3405,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             {
                               children: [
                                 {
-                                  content: '$t:admin.welcome.sub.teams',
+                                  content: '$record.teams',
                                   element: 'span',
                                   type: 'text',
                                 },
@@ -3408,7 +3415,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   type: 'text',
                                 },
                                 {
-                                  content: '$record.teams',
+                                  content: '$t:admin.welcome.sub.teams',
                                   element: 'span',
                                   type: 'text',
                                 },
@@ -3966,6 +3973,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.automations.runs.detail.showTrigger': 'Show trigger data',
         'admin.automations.runs.detail.status.defect': 'Failed · internal error',
         'admin.automations.runs.detail.steps': 'Steps',
+        'admin.automations.runs.detail.stepsNone':
+          'This run stopped before its first step finished.',
         'admin.automations.runs.detail.trigger': 'Trigger',
         'admin.automations.runs.detail.trigger.description':
           'What started this run, exactly as the first step received it.',
@@ -3977,6 +3986,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.automations.runs.filter.anyTime': 'Any time',
         'admin.automations.runs.filter.automation': 'Filter by automation',
         'admin.automations.runs.filter.period': 'Filter by period',
+        'admin.automations.runs.filter.showRoutine': 'Show routine runs',
         'admin.automations.runs.filter.status': 'Filter by status',
         'admin.automations.runs.filter.trigger': 'Filter by trigger',
         'admin.automations.runs.heading': 'Run history',
@@ -4171,6 +4181,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.connections.status.active': 'Active',
         'admin.connections.status.expired': 'Expired',
         'admin.connections.status.expiringSoon': 'Expiring soon',
+        'admin.connections.status.notConfigured': 'Not configured',
         'admin.connections.status.notConnected': 'Not connected',
         'admin.connections.status.reconnectNeeded': 'Reconnect needed',
         'admin.connections.tokens.none': 'No tokens',
@@ -4531,7 +4542,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.forms.noMatch': 'No submission matches “{query}”',
         'admin.forms.noPeriod': 'No submissions in this period',
         'admin.forms.none': 'No forms',
-        'admin.forms.noneYet': 'No submissions yet',
+        'admin.forms.noneYet':
+          'No submissions yet. Only answers sent through the form appear here.',
         'admin.forms.openForm': 'Open form',
         'admin.forms.received': 'Received',
         'admin.forms.reveal': 'Reveal answers',
@@ -4786,7 +4798,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.meta.userAccount': '$app.label — Account',
         'admin.meta.users': '$app.label — Users',
         'admin.meta.voice': '$app.label — Voice',
-        'admin.meta.welcome': '$app.label — Welcome',
+        'admin.meta.welcome': '$app.label — Overview',
         'admin.nav.design.brand': 'Brand',
         'admin.nav.design.components': 'Components',
         'admin.nav.design.foundations': 'Foundations',
@@ -4805,6 +4817,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.notFound.body':
           'Nothing in this console answers this address. The section may not exist in this app, or the link is out of date.',
         'admin.notFound.heading': 'Page not found',
+        'admin.notFound.toApp': 'Go to the app',
         'admin.offline.message': 'You’re offline. Check your connection, then retry.',
         'admin.offline.retry': 'Retry',
         'admin.organisation.anonymous': 'Reachable without signing in',
@@ -4865,7 +4878,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
           'Who reaches what, and through which grant. The table below carries the same nodes and grants as text.',
         'admin.organisation.map.region': 'Access map',
         'admin.organisation.matrix.blurb':
-          'Every resource against every grant source, ordered by privilege with the open rung last. A cell is a grant and an empty cell is none — the half a list of findings cannot show, because the three checks report what is exposed and never what is unreachable.',
+          'Each row is something your app holds; each column is who can reach it, a role or everyone. A cell shows what they can do, and a dash means no access.',
         'admin.organisation.matrix.empty':
           'Nothing to cross. This app declares no resources, or no roles, teams or open grants that could reach them.',
         'admin.organisation.matrix.flag': 'Through the open rung',
@@ -5100,6 +5113,13 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
           'Word, Excel and PowerPoint templates produce a file, so there is nothing to show in the browser. To render it with its sample data, run this in the project folder:',
         'admin.templates.file.title': 'This template renders to a file',
         'admin.templates.heading': 'Templates',
+        'admin.templates.kind.docx': 'Word',
+        'admin.templates.kind.html': 'HTML',
+        'admin.templates.kind.partial': 'Partial',
+        'admin.templates.kind.pptx': 'PowerPoint',
+        'admin.templates.kind.svg': 'SVG',
+        'admin.templates.kind.text': 'Text',
+        'admin.templates.kind.xlsx': 'Excel',
         'admin.templates.list.region': 'Template assets',
         'admin.templates.noSample.body':
           'This template declares no sampleData, so its fields render empty. Add sampleData to this asset in the config to preview it filled.',
@@ -5195,6 +5215,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.users.sessionsEnded': 'Sessions ended',
         'admin.users.state.active': 'Active',
         'admin.users.state.banned': 'Banned',
+        'admin.users.status.unclaimed': 'Not yet claimed',
         'admin.users.tab.invitations': 'Invitations',
         'admin.users.tab.members': 'Members',
         'admin.users.tabs.region': 'Users sub-views',
@@ -5211,7 +5232,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.welcome.counts.links.where': 'Links',
         'admin.welcome.counts.pages.where': 'Analytics',
         'admin.welcome.counts.region': 'What this app declares',
-        'admin.welcome.counts.roles.where': 'Organisation',
+        'admin.welcome.counts.roles.where': 'Access',
         'admin.welcome.counts.tables.where': 'Records',
         'admin.welcome.counts.users.where': 'Users',
         'admin.welcome.figures.region': 'Headline figures',
@@ -5250,15 +5271,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.welcome.runsChart.failures': 'Failed',
         'admin.welcome.runsChart.region': 'Runs, last 7 days',
         'admin.welcome.runsChart.runs': 'Runs',
-        'admin.welcome.sub.banned': 'Banned:',
+        'admin.welcome.sub.banned': 'banned',
         'admin.welcome.sub.builtIn': 'built-in',
         'admin.welcome.sub.config': 'config',
         'admin.welcome.sub.db': 'db',
         'admin.welcome.sub.disabled': 'disabled',
-        'admin.welcome.sub.fields': 'Fields:',
+        'admin.welcome.sub.fields': 'fields',
         'admin.welcome.sub.local': 'local',
         'admin.welcome.sub.paused': 'paused',
-        'admin.welcome.sub.teams': 'Teams:',
+        'admin.welcome.sub.teams': 'teams',
         'admin.welcome.suggest.declares': 'What does this app declare?',
         'admin.welcome.suggest.failed': 'What failed since this instance started?',
         'admin.welcome.suggest.unset': 'Which required variables are unset?',
@@ -5286,7 +5307,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'sovrium.apiKeys.emptyBody':
           'Create one to let a script or a scheduled job call the API as you.',
         'sovrium.apiKeys.list': 'Your API keys',
-        'sovrium.apiKeys.loadFailed': 'Your API keys couldn’t load. Reload the page to try again.',
+        'sovrium.apiKeys.loadFailed': 'Your API keys couldn’t load.',
         'sovrium.apiKeys.loading': 'Loading your keys…',
         'sovrium.apiKeys.nameHint':
           'Name it after the job that will use it — that name is how you will recognise it later.',
@@ -5300,6 +5321,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'sovrium.component.refreshToRetry': 'Refresh the page to try again.',
         'sovrium.csvImport.drop': 'Drag and drop a CSV file here',
         'sovrium.datatable.createFailed': 'Couldn’t save the record. Try again.',
+        'sovrium.datatable.loadFailedIn': '{table} couldn’t load.',
         'sovrium.dialog.typeToConfirm': 'To confirm, type “{text}”',
         'sovrium.dialog.typeToConfirmAsked': 'To confirm, type the text asked for',
         'sovrium.filePreview.cannotShow': '{name} cannot be shown here. Download it to open it.',
@@ -5532,6 +5554,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.automations.runs.detail.showTrigger': 'Voir les données du déclencheur',
         'admin.automations.runs.detail.status.defect': 'Échec · erreur interne',
         'admin.automations.runs.detail.steps': 'Étapes',
+        'admin.automations.runs.detail.stepsNone':
+          'Cette exécution s’est arrêtée avant la fin de sa première étape.',
         'admin.automations.runs.detail.trigger': 'Déclencheur',
         'admin.automations.runs.detail.trigger.description':
           'Ce qui a lancé cette exécution, tel que la première étape l’a reçu.',
@@ -5543,6 +5567,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.automations.runs.filter.anyTime': 'Toute la période',
         'admin.automations.runs.filter.automation': 'Filtrer par automatisation',
         'admin.automations.runs.filter.period': 'Filtrer par période',
+        'admin.automations.runs.filter.showRoutine': 'Afficher les exécutions de routine',
         'admin.automations.runs.filter.status': 'Filtrer par statut',
         'admin.automations.runs.filter.trigger': 'Filtrer par déclencheur',
         'admin.automations.runs.heading': 'Historique des exécutions',
@@ -5737,6 +5762,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.connections.status.active': 'Actif',
         'admin.connections.status.expired': 'Expiré',
         'admin.connections.status.expiringSoon': 'Bientôt expiré',
+        'admin.connections.status.notConfigured': 'Non configurée',
         'admin.connections.status.notConnected': 'Non connectée',
         'admin.connections.status.reconnectNeeded': 'À reconnecter',
         'admin.connections.tokens.none': 'Aucun jeton',
@@ -6103,7 +6129,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.forms.noMatch': 'Aucune réponse ne correspond à « {query} »',
         'admin.forms.noPeriod': 'Aucune réponse sur cette période',
         'admin.forms.none': 'Aucun formulaire',
-        'admin.forms.noneYet': 'Aucune réponse pour l’instant',
+        'admin.forms.noneYet':
+          'Aucune réponse pour l’instant. Seules les réponses envoyées par le formulaire apparaissent ici.',
         'admin.forms.openForm': 'Ouvrir le formulaire',
         'admin.forms.received': 'Reçue',
         'admin.forms.reveal': 'Afficher les réponses',
@@ -6360,7 +6387,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.meta.userAccount': '$app.label — Compte',
         'admin.meta.users': '$app.label — Utilisateurs',
         'admin.meta.voice': '$app.label — Voix',
-        'admin.meta.welcome': '$app.label — Bienvenue',
+        'admin.meta.welcome': '$app.label — Vue d’ensemble',
         'admin.nav.design.brand': 'Marque',
         'admin.nav.design.components': 'Composants',
         'admin.nav.design.foundations': 'Fondations',
@@ -6379,6 +6406,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.notFound.body':
           'Rien dans cette console ne répond à cette adresse. La section n’existe peut-être pas dans cette app, ou le lien est périmé.',
         'admin.notFound.heading': 'Page introuvable',
+        'admin.notFound.toApp': 'Aller à l’app',
         'admin.offline.message': 'Tu es hors ligne. Vérifie ta connexion, puis réessaie.',
         'admin.offline.retry': 'Réessayer',
         'admin.organisation.anonymous': 'Accessible sans connexion',
@@ -6439,7 +6467,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
           'Qui atteint quoi, et par quel droit. Le tableau en dessous porte les mêmes nœuds et les mêmes droits en texte.',
         'admin.organisation.map.region': 'Carte des accès',
         'admin.organisation.matrix.blurb':
-          'Chaque ressource face à chaque source de droits, classées par privilège, le barreau ouvert en dernier. Une case est un droit, une case vide n’en est aucun — la moitié qu’une liste de constats ne peut pas montrer, parce que les trois vérifications rapportent ce qui est exposé et jamais ce qui est hors d’atteinte.',
+          'Chaque ligne est un élément de ton app ; chaque colonne, qui peut l’atteindre : un rôle ou tout le monde. Une case dit ce qu’ils peuvent faire, un tiret veut dire aucun accès.',
         'admin.organisation.matrix.empty':
           'Rien à croiser. Cette app ne déclare aucune ressource, ou aucun rôle, aucune équipe et aucun droit ouvert qui pourrait les atteindre.',
         'admin.organisation.matrix.flag': 'Par le barreau ouvert',
@@ -6678,6 +6706,13 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
           'Les modèles Word, Excel et PowerPoint produisent un fichier : il n’y a rien à afficher dans le navigateur. Pour le rendre avec ses données d’exemple, lance cette commande dans le dossier du projet :',
         'admin.templates.file.title': 'Ce modèle produit un fichier',
         'admin.templates.heading': 'Modèles',
+        'admin.templates.kind.docx': 'Word',
+        'admin.templates.kind.html': 'HTML',
+        'admin.templates.kind.partial': 'Fragment',
+        'admin.templates.kind.pptx': 'PowerPoint',
+        'admin.templates.kind.svg': 'SVG',
+        'admin.templates.kind.text': 'Texte',
+        'admin.templates.kind.xlsx': 'Excel',
         'admin.templates.list.region': 'Modèles déclarés',
         'admin.templates.noSample.body':
           'Ce modèle ne déclare pas de sampleData : ses champs s’affichent vides. Ajoute sampleData à cet asset dans la configuration pour le prévisualiser rempli.',
@@ -6773,6 +6808,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.users.sessionsEnded': 'Sessions fermées',
         'admin.users.state.active': 'Actif',
         'admin.users.state.banned': 'Banni',
+        'admin.users.status.unclaimed': 'Pas encore réclamé',
         'admin.users.tab.invitations': 'Invitations',
         'admin.users.tab.members': 'Membres',
         'admin.users.tabs.region': 'Sous-vues Utilisateurs',
@@ -6790,7 +6826,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.welcome.counts.links.where': 'Liens',
         'admin.welcome.counts.pages.where': 'Analytique',
         'admin.welcome.counts.region': 'Ce que cette app déclare',
-        'admin.welcome.counts.roles.where': 'Organisation',
+        'admin.welcome.counts.roles.where': 'Accès',
         'admin.welcome.counts.tables.where': 'Enregistrements',
         'admin.welcome.counts.users.where': 'Utilisateurs',
         'admin.welcome.figures.region': 'Chiffres clés',
@@ -6829,15 +6865,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.welcome.runsChart.failures': 'En échec',
         'admin.welcome.runsChart.region': 'Exécutions, 7 derniers jours',
         'admin.welcome.runsChart.runs': 'Exécutions',
-        'admin.welcome.sub.banned': 'Bannis :',
+        'admin.welcome.sub.banned': 'bannis',
         'admin.welcome.sub.builtIn': 'par défaut',
         'admin.welcome.sub.config': 'en config',
         'admin.welcome.sub.db': 'en base',
         'admin.welcome.sub.disabled': 'à l’arrêt',
-        'admin.welcome.sub.fields': 'Champs :',
+        'admin.welcome.sub.fields': 'champs',
         'admin.welcome.sub.local': 'en local',
         'admin.welcome.sub.paused': 'en pause',
-        'admin.welcome.sub.teams': 'Équipes :',
+        'admin.welcome.sub.teams': 'équipes',
         'admin.welcome.suggest.declares': 'Que déclare cette app ?',
         'admin.welcome.suggest.failed':
           'Qu’est-ce qui a échoué depuis le démarrage de cette instance ?',
@@ -6872,8 +6908,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'sovrium.apiKeys.emptyBody':
           'Crées-en une pour qu’un script ou une tâche planifiée appelle l’API en ton nom.',
         'sovrium.apiKeys.list': 'Tes clés d’API',
-        'sovrium.apiKeys.loadFailed':
-          'Tes clés d’API n’ont pas pu se charger. Recharge la page pour réessayer.',
+        'sovrium.apiKeys.loadFailed': 'Tes clés d’API n’ont pas pu se charger.',
         'sovrium.apiKeys.loading': 'Chargement de tes clés…',
         'sovrium.apiKeys.nameHint':
           'Nomme-la d’après la tâche qui l’utilisera : c’est à ce nom que tu la reconnaîtras.',
@@ -6887,6 +6922,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'sovrium.component.refreshToRetry': 'Actualise la page pour réessayer.',
         'sovrium.csvImport.drop': 'Glisse-dépose un fichier CSV ici',
         'sovrium.datatable.createFailed': 'Impossible d’enregistrer. Réessaie.',
+        'sovrium.datatable.loadFailedIn': '{table} : chargement impossible.',
         'sovrium.dialog.typeToConfirm': 'Pour confirmer, saisis « {text} »',
         'sovrium.dialog.typeToConfirmAsked': 'Pour confirmer, saisis le texte demandé',
         'sovrium.filePreview.cannotShow':
@@ -6926,10 +6962,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
           slots: {
             trail: [
               {
-                derive: 'path',
-                home: {
-                  label: '$app.label',
-                },
+                breadcrumbItems: [
+                  {
+                    href: '/',
+                    label: '$app.label',
+                  },
+                  {
+                    label: '$t:admin.nav.overview',
+                  },
+                ],
                 props: {
                   className:
                     'min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden',
@@ -8182,6 +8223,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                 },
                                 emptyMessage: '$t:admin.gdpr.pending.empty',
                                 id: 'gdpr-pending-grid',
+                                viewOptions: 'toolbar',
                               },
                             },
                           ],
@@ -8697,6 +8739,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                     emptyMessage: '$t:admin.env.empty',
                     id: 'config-env-list',
                     noMatchMessage: '$t:admin.env.noMatch',
+                    viewOptions: 'toolbar',
                   },
                 },
                 {
@@ -9026,6 +9069,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                   action: 'openSheet',
                   component: 'admin-audit-log-entry',
                 },
+                viewOptions: 'toolbar',
               },
             },
             {
@@ -9457,6 +9501,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                     id: 'admin-decisions-register',
                     layout: 'fill',
                     noMatchMessage: '$t:admin.decisions.noMatch',
+                    viewOptions: 'toolbar',
                   },
                 },
               ],
@@ -11193,6 +11238,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         emptyMessage: '$t:admin.changelog.ledger.empty',
                         id: 'admin-changelog-ledger',
                         noMatchMessage: '$t:admin.changelog.ledger.noMatch',
+                        viewOptions: 'toolbar',
                       },
                     },
                     {
@@ -12984,6 +13030,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                         },
                                         emptyMessage: '$t:admin.organisation.exceptions.empty',
                                         id: 'organisation-matrix-exceptions',
+                                        viewOptions: 'toolbar',
                                       },
                                     },
                                   ],
@@ -13771,6 +13818,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                     },
                                     emptyMessage: '$t:admin.organisation.reach.empty',
                                     id: 'organisation-reach-chains',
+                                    viewOptions: 'toolbar',
                                   },
                                 },
                                 {
@@ -14111,6 +14159,66 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                     {
                       children: [
                         {
+                          component: 'console-section-card',
+                          key: 'section-card',
+                          vars: {
+                            dataSource: {
+                              system: {
+                                endpoint: '/api/admin/users/overview',
+                                valuePath: 'totals.users',
+                              },
+                            },
+                            kpiFormat: {
+                              type: 'number',
+                            },
+                            label: '$t:admin.users.kpi.accounts',
+                          },
+                        },
+                        {
+                          component: 'console-section-card',
+                          key: 'section-card-2',
+                          vars: {
+                            dataSource: {
+                              system: {
+                                endpoint: '/api/admin/users/overview',
+                                valuePath: 'totals.active_24h',
+                              },
+                            },
+                            kpiFormat: {
+                              type: 'number',
+                            },
+                            label: '$t:admin.users.kpi.active',
+                          },
+                        },
+                        {
+                          component: 'console-section-card',
+                          key: 'section-card-3',
+                          vars: {
+                            dataSource: {
+                              system: {
+                                endpoint: '/api/admin/users/overview',
+                                valuePath: 'totals.new_in_period',
+                              },
+                            },
+                            kpiFormat: {
+                              type: 'number',
+                            },
+                            label: '$t:admin.users.kpi.new',
+                          },
+                        },
+                      ],
+                      element: 'div',
+                      key: 'metrics-region',
+                      props: {
+                        'aria-label': '$t:admin.users.metrics.region',
+                        className: 'grid grid-cols-1 gap-4 sm:grid-cols-3',
+                        role: 'region',
+                      },
+                      type: 'container',
+                    },
+                    {
+                      children: [
+                        {
                           component: 'console-toolbar-search',
                           key: 'toolbar-search',
                           vars: {
@@ -14213,66 +14321,6 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                       type: 'container',
                     },
                     {
-                      children: [
-                        {
-                          component: 'console-section-card',
-                          key: 'section-card',
-                          vars: {
-                            dataSource: {
-                              system: {
-                                endpoint: '/api/admin/users/overview',
-                                valuePath: 'totals.users',
-                              },
-                            },
-                            kpiFormat: {
-                              type: 'number',
-                            },
-                            label: '$t:admin.users.kpi.accounts',
-                          },
-                        },
-                        {
-                          component: 'console-section-card',
-                          key: 'section-card-2',
-                          vars: {
-                            dataSource: {
-                              system: {
-                                endpoint: '/api/admin/users/overview',
-                                valuePath: 'totals.active_24h',
-                              },
-                            },
-                            kpiFormat: {
-                              type: 'number',
-                            },
-                            label: '$t:admin.users.kpi.active',
-                          },
-                        },
-                        {
-                          component: 'console-section-card',
-                          key: 'section-card-3',
-                          vars: {
-                            dataSource: {
-                              system: {
-                                endpoint: '/api/admin/users/overview',
-                                valuePath: 'totals.new_in_period',
-                              },
-                            },
-                            kpiFormat: {
-                              type: 'number',
-                            },
-                            label: '$t:admin.users.kpi.new',
-                          },
-                        },
-                      ],
-                      element: 'div',
-                      key: 'metrics-region',
-                      props: {
-                        'aria-label': '$t:admin.users.metrics.region',
-                        className: 'grid grid-cols-1 gap-4 sm:grid-cols-3',
-                        role: 'region',
-                      },
-                      type: 'container',
-                    },
-                    {
                       component: 'console-grid',
                       key: 'grid',
                       vars: {
@@ -14313,22 +14361,31 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                 className:
                                   "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-success-solid",
                                 when: {
-                                  eq: false,
+                                  eq: 'active',
                                 },
                               },
                               {
                                 className:
                                   "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-destructive",
                                 when: {
-                                  eq: true,
+                                  eq: 'banned',
+                                },
+                              },
+                              {
+                                className:
+                                  "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50",
+                                when: {
+                                  eq: 'unclaimed',
                                 },
                               },
                             ],
-                            field: 'banned',
+                            field: 'status',
                             label: '$t:admin.common.status',
+                            sortable: false,
                             valueLabels: {
-                              false: '$t:admin.users.state.active',
-                              true: '$t:admin.users.state.banned',
+                              active: '$t:admin.users.state.active',
+                              banned: '$t:admin.users.state.banned',
+                              unclaimed: '$t:admin.users.status.unclaimed',
                             },
                             width: 110,
                           },
@@ -14465,12 +14522,13 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         id: 'admin-users-grid',
                         noMatchMessage: '$t:admin.users.noMatch',
                         onRowClick: {
-                          path: '/users/$record.email',
+                          path: '/users/$record.id',
                           type: 'navigate',
                         },
                         pagination: {
                           pageSize: 25,
                         },
+                        viewOptions: 'toolbar',
                       },
                     },
                   ],
@@ -14601,6 +14659,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         emptyMessage: '$t:admin.users.invite.none',
                         id: 'admin-invitations-grid',
+                        viewOptions: 'toolbar',
                       },
                     },
                   ],
@@ -14833,8 +14892,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                   endpoint: '/api/admin/users',
                   idKey: 'id',
                   query: {
+                    id: '$param.id',
                     limit: '1',
-                    q: '$param.email',
                   },
                   rowsKey: 'users',
                 },
@@ -15015,8 +15074,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                       endpoint: '/api/admin/users',
                       idKey: 'id',
                       query: {
+                        id: '$param.id',
                         limit: '1',
-                        q: '$param.email',
                       },
                       rowsKey: 'users',
                     },
@@ -15052,7 +15111,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             },
                             {
                               detail: '$record.createdAt',
-                              format: 'long-date',
+                              format: 'day-relative-time',
                               term: '$t:admin.users.account.created',
                             },
                             {
@@ -15070,7 +15129,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                               term: '$t:admin.users.account.twoFactor',
                             },
                             {
-                              detail: '$record.signInMethods',
+                              detail: '$record.signInMethodLabels',
                               term: '$t:admin.users.account.signInMethods',
                             },
                           ],
@@ -15086,8 +15145,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                           endpoint: '/api/admin/users',
                           idKey: 'id',
                           query: {
+                            id: '$param.id',
                             limit: '1',
-                            q: '$param.email',
                           },
                           rowsKey: 'users',
                         },
@@ -15182,7 +15241,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             endpoint: '/api/tables/user_access/records',
                             idKey: 'id',
                             query: {
-                              user_email: '$param.email',
+                              user_id: '$param.id',
                             },
                             rowsKey: 'records',
                           },
@@ -15387,9 +15446,9 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                           type: 'container',
                           visibility: {
                             condition: {
-                              field: '$user.email',
+                              field: '$user.id',
                               operator: 'neq',
-                              value: '$param.email',
+                              value: '$param.id',
                             },
                           },
                         },
@@ -15403,9 +15462,9 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                           type: 'text',
                           visibility: {
                             condition: {
-                              field: '$user.email',
+                              field: '$user.id',
                               operator: 'eq',
-                              value: '$param.email',
+                              value: '$param.id',
                             },
                           },
                         },
@@ -15415,8 +15474,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                           endpoint: '/api/admin/users',
                           idKey: 'id',
                           query: {
+                            id: '$param.id',
                             limit: '1',
-                            q: '$param.email',
                           },
                           rowsKey: 'users',
                         },
@@ -15455,20 +15514,42 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
           slots: {
             trail: [
               {
-                derive: 'path',
-                home: {
-                  label: '$app.label',
+                children: [
+                  {
+                    currentLabel: '$record.name',
+                    derive: 'path',
+                    home: {
+                      label: '$app.label',
+                    },
+                    labels: {
+                      users: '$t:admin.crumb.users',
+                    },
+                    props: {
+                      className:
+                        'min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden',
+                      'data-testid': 'breadcrumb',
+                    },
+                    separator: '›',
+                    type: 'breadcrumb',
+                  },
+                ],
+                dataSource: {
+                  system: {
+                    endpoint: '/api/admin/users',
+                    idKey: 'id',
+                    query: {
+                      id: '$param.id',
+                      limit: '1',
+                    },
+                    rowsKey: 'users',
+                  },
                 },
-                labels: {
-                  users: '$t:admin.crumb.users',
-                },
+                element: 'div',
+                key: 'admin-user-account-trail',
                 props: {
-                  className:
-                    'min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden',
-                  'data-testid': 'breadcrumb',
+                  className: 'contents [&>li]:contents',
                 },
-                separator: '›',
-                type: 'breadcrumb',
+                type: 'container',
               },
               {
                 component: 'console-header-end',
@@ -15486,7 +15567,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         title: '$t:admin.meta.userAccount',
       },
       name: 'dashboard-data-user-account',
-      path: '/users/:email',
+      path: '/users/:id',
     },
     {
       components: [
@@ -15716,6 +15797,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                               },
                             },
                             emptyMessage: '$t:admin.analytics.noPages',
+                            viewOptions: 'toolbar',
                           },
                         },
                         {
@@ -15763,6 +15845,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                       },
                                     },
                                     emptyMessage: '$t:admin.pages.noReferrers',
+                                    viewOptions: 'toolbar',
                                   },
                                 },
                                 {
@@ -15801,6 +15884,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                       },
                                     },
                                     emptyMessage: '$t:admin.pages.noCampaigns',
+                                    viewOptions: 'toolbar',
                                   },
                                 },
                               ],
@@ -15864,6 +15948,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                       },
                                     },
                                     emptyMessage: '$t:admin.analytics.noDevices',
+                                    viewOptions: 'toolbar',
                                   },
                                 },
                                 {
@@ -15899,6 +15984,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                       },
                                     },
                                     emptyMessage: '$t:admin.analytics.noBrowsers',
+                                    viewOptions: 'toolbar',
                                   },
                                 },
                                 {
@@ -15934,6 +16020,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                       },
                                     },
                                     emptyMessage: '$t:admin.analytics.noOs',
+                                    viewOptions: 'toolbar',
                                   },
                                 },
                               ],
@@ -15994,6 +16081,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   },
                                 },
                                 emptyMessage: '$t:admin.analytics.noEvents',
+                                viewOptions: 'toolbar',
                               },
                             },
                           ],
@@ -16251,6 +16339,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                 },
                                 emptyMessage: '$t:admin.footprint.nothing',
                                 id: 'admin-footprint-storage',
+                                viewOptions: 'toolbar',
                               },
                             },
                             {
@@ -16312,6 +16401,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                 },
                                 emptyMessage: '$t:admin.footprint.noLevers',
                                 id: 'admin-footprint-levers',
+                                viewOptions: 'toolbar',
                               },
                             },
                             {
@@ -16628,6 +16718,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                 },
                                 emptyMessage: '$t:admin.footprint.nothing',
                                 id: 'admin-footprint-storage',
+                                viewOptions: 'toolbar',
                               },
                             },
                             {
@@ -16689,6 +16780,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                 },
                                 emptyMessage: '$t:admin.footprint.noLevers',
                                 id: 'admin-footprint-levers',
+                                viewOptions: 'toolbar',
                               },
                             },
                             {
@@ -17000,6 +17092,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                 },
                                 emptyMessage: '$t:admin.footprint.nothing',
                                 id: 'admin-footprint-storage',
+                                viewOptions: 'toolbar',
                               },
                             },
                             {
@@ -17061,6 +17154,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                 },
                                 emptyMessage: '$t:admin.footprint.noLevers',
                                 id: 'admin-footprint-levers',
+                                viewOptions: 'toolbar',
                               },
                             },
                             {
@@ -17452,6 +17546,33 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                           },
                           type: 'date-range-picker',
                         },
+                        {
+                          children: [
+                            {
+                              props: {
+                                'aria-label': '$t:admin.automations.runs.filter.showRoutine',
+                                id: 'routine-runs-toggle',
+                              },
+                              publishes: {
+                                bindTo: 'automation-runs-filter',
+                                param: 'routine',
+                                url: true,
+                              },
+                              type: 'switch',
+                            },
+                            {
+                              for: 'routine-runs-toggle',
+                              text: '$t:admin.automations.runs.filter.showRoutine',
+                              type: 'label',
+                            },
+                          ],
+                          element: 'div',
+                          key: 'routine-runs-toggle-row',
+                          props: {
+                            className: 'flex items-center gap-2',
+                          },
+                          type: 'container',
+                        },
                       ],
                       element: 'div',
                       key: 'admin-toolbar-row',
@@ -17655,6 +17776,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                 'status',
                                 'from',
                                 'to',
+                                'routine',
                               ],
                             },
                             totalKey: 'total',
@@ -17671,6 +17793,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                           pageSize: 25,
                         },
                         phoneLayout: 'rows',
+                        viewOptions: 'toolbar',
                       },
                     },
                   ],
@@ -17797,6 +17920,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         },
                         emptyMessage: '$t:admin.automations.catalog.empty',
                         id: 'automations-catalog-grid',
+                        viewOptions: 'toolbar',
                       },
                     },
                   ],
@@ -18114,7 +18238,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                       items: [
                         {
                           detail: '$record.startedAt',
-                          format: 'day-relative-time',
+                          format: 'day-relative-time-seconds',
                           term: '$t:admin.automations.runs.detail.field.started',
                         },
                         {
@@ -18269,12 +18393,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                     title: '$t:admin.automations.runs.detail.retry.title',
                                   },
                                   label: '$t:admin.automations.runs.detail.retry',
-                                  props: {
-                                    className: 'text-foreground',
-                                  },
-                                  size: 'sm',
                                   type: 'button',
-                                  variant: 'outline',
+                                  variant: 'default',
                                   visibility: {
                                     capability: 'edit-operations',
                                   },
@@ -18357,7 +18477,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   props: {
                                     className:
                                       'inline-flex h-7 items-center rounded-md border border-border bg-background px-2.5 text-[0.8rem] font-medium text-foreground no-underline shadow-xs hover:bg-muted',
-                                    href: '/connections',
+                                    href: '/connections?connections-filter.q=$record.failedStep.connectionLabel',
                                   },
                                   type: 'link',
                                   visibility: {
@@ -18428,339 +18548,375 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                       type: 'text',
                     },
                     {
+                      content: '$t:admin.automations.runs.detail.stepsNone',
+                      element: 'p',
+                      props: {
+                        className: 'text-muted-foreground text-sm',
+                        'data-testid': 'run-steps-none',
+                      },
+                      type: 'text',
+                      visibility: {
+                        record: {
+                          field: 'steps',
+                          isEmpty: true,
+                        },
+                      },
+                    },
+                    {
                       children: [
                         {
                           children: [
                             {
                               children: [
                                 {
-                                  content: '',
-                                  element: 'span',
-                                  props: {
-                                    'aria-hidden': 'true',
-                                    className:
-                                      'text-muted-foreground w-5 shrink-0 text-right text-xs tabular-nums before:content-[counter(run-step)]',
-                                  },
-                                  type: 'text',
-                                },
-                                {
                                   children: [
                                     {
-                                      props: {
-                                        'aria-hidden': 'true',
-                                        name: 'circle-check',
-                                        size: 16,
-                                      },
-                                      type: 'icon',
-                                    },
-                                  ],
-                                  element: 'div',
-                                  props: {
-                                    className:
-                                      'hidden shrink-0 text-success-solid in-data-[step-status=completed]:flex',
-                                  },
-                                  type: 'container',
-                                },
-                                {
-                                  children: [
-                                    {
-                                      props: {
-                                        'aria-hidden': 'true',
-                                        name: 'circle-x',
-                                        size: 16,
-                                      },
-                                      type: 'icon',
-                                    },
-                                  ],
-                                  element: 'div',
-                                  props: {
-                                    className:
-                                      'hidden shrink-0 text-destructive in-data-[step-status=failed]:flex',
-                                  },
-                                  type: 'container',
-                                },
-                                {
-                                  children: [
-                                    {
-                                      props: {
-                                        'aria-hidden': 'true',
-                                        name: 'circle-dashed',
-                                        size: 16,
-                                      },
-                                      type: 'icon',
-                                    },
-                                  ],
-                                  element: 'div',
-                                  props: {
-                                    className:
-                                      'hidden shrink-0 text-muted-foreground in-data-[step-status=skipped]:flex',
-                                  },
-                                  type: 'container',
-                                },
-                                {
-                                  children: [
-                                    {
-                                      props: {
-                                        'aria-hidden': 'true',
-                                        name: 'circle',
-                                        size: 16,
-                                      },
-                                      type: 'icon',
-                                    },
-                                  ],
-                                  element: 'div',
-                                  props: {
-                                    className:
-                                      'flex shrink-0 text-muted-foreground in-data-[step-status=completed]:hidden in-data-[step-status=failed]:hidden in-data-[step-status=skipped]:hidden',
-                                  },
-                                  type: 'container',
-                                },
-                                {
-                                  content: '$step.label',
-                                  element: 'span',
-                                  props: {
-                                    className: 'text-foreground min-w-0 flex-1 text-sm font-medium',
-                                  },
-                                  type: 'text',
-                                },
-                                {
-                                  items: [
-                                    {
-                                      detail: '$step.durationMs',
-                                      format: 'duration',
-                                      term: '$t:admin.automations.runs.detail.field.duration',
-                                    },
-                                  ],
-                                  layout: 'stacked',
-                                  props: {
-                                    className:
-                                      'w-auto! shrink-0 [&_dt]:sr-only [&_[data-description-row]]:min-w-0 [&_dd]:text-xs [&_dd]:font-normal [&_dd]:text-muted-foreground [&_dd]:tabular-nums',
-                                  },
-                                  type: 'description-list',
-                                },
-                                {
-                                  content: '$step.status',
-                                  element: 'span',
-                                  props: {
-                                    className: 'text-muted-foreground shrink-0 text-xs',
-                                  },
-                                  type: 'text',
-                                },
-                              ],
-                              element: 'div',
-                              key: 'run-step-1',
-                              props: {
-                                className: 'flex items-center gap-3',
-                              },
-                              type: 'container',
-                            },
-                            {
-                              content: '$step.error',
-                              element: 'p',
-                              props: {
-                                className: 'text-error-fg text-xs break-words empty:hidden',
-                              },
-                              type: 'text',
-                            },
-                            {
-                              children: [
-                                {
-                                  children: [
-                                    {
-                                      content: '$log.level',
+                                      content: '',
                                       element: 'span',
                                       props: {
+                                        'aria-hidden': 'true',
                                         className:
-                                          'text-foreground-subtle in-data-[log-level=error]:text-error-fg w-12 shrink-0 font-mono text-xs uppercase',
+                                          'text-muted-foreground w-5 shrink-0 text-right text-xs tabular-nums before:content-[counter(run-step)]',
                                       },
                                       type: 'text',
                                     },
                                     {
-                                      content: '$log.message',
+                                      children: [
+                                        {
+                                          props: {
+                                            'aria-hidden': 'true',
+                                            name: 'circle-check',
+                                            size: 16,
+                                          },
+                                          type: 'icon',
+                                        },
+                                      ],
+                                      element: 'div',
+                                      props: {
+                                        className:
+                                          'hidden shrink-0 text-success-solid in-data-[step-status=completed]:flex',
+                                      },
+                                      type: 'container',
+                                    },
+                                    {
+                                      children: [
+                                        {
+                                          props: {
+                                            'aria-hidden': 'true',
+                                            name: 'circle-x',
+                                            size: 16,
+                                          },
+                                          type: 'icon',
+                                        },
+                                      ],
+                                      element: 'div',
+                                      props: {
+                                        className:
+                                          'hidden shrink-0 text-destructive in-data-[step-status=failed]:flex',
+                                      },
+                                      type: 'container',
+                                    },
+                                    {
+                                      children: [
+                                        {
+                                          props: {
+                                            'aria-hidden': 'true',
+                                            name: 'circle-dashed',
+                                            size: 16,
+                                          },
+                                          type: 'icon',
+                                        },
+                                      ],
+                                      element: 'div',
+                                      props: {
+                                        className:
+                                          'hidden shrink-0 text-muted-foreground in-data-[step-status=skipped]:flex',
+                                      },
+                                      type: 'container',
+                                    },
+                                    {
+                                      children: [
+                                        {
+                                          props: {
+                                            'aria-hidden': 'true',
+                                            name: 'circle',
+                                            size: 16,
+                                          },
+                                          type: 'icon',
+                                        },
+                                      ],
+                                      element: 'div',
+                                      props: {
+                                        className:
+                                          'flex shrink-0 text-muted-foreground in-data-[step-status=completed]:hidden in-data-[step-status=failed]:hidden in-data-[step-status=skipped]:hidden',
+                                      },
+                                      type: 'container',
+                                    },
+                                    {
+                                      content: '$step.label',
                                       element: 'span',
                                       props: {
                                         className:
-                                          'min-w-0 font-mono text-xs break-words whitespace-pre-wrap',
+                                          'text-foreground min-w-0 flex-1 text-sm font-medium',
+                                      },
+                                      type: 'text',
+                                    },
+                                    {
+                                      items: [
+                                        {
+                                          detail: '$step.durationMs',
+                                          format: 'duration',
+                                          term: '$t:admin.automations.runs.detail.field.duration',
+                                        },
+                                      ],
+                                      layout: 'stacked',
+                                      props: {
+                                        className:
+                                          'w-auto! shrink-0 [&_dt]:sr-only [&_[data-description-row]]:min-w-0 [&_dd]:text-xs [&_dd]:font-normal [&_dd]:text-muted-foreground [&_dd]:tabular-nums',
+                                      },
+                                      type: 'description-list',
+                                    },
+                                    {
+                                      content: '$step.status',
+                                      element: 'span',
+                                      props: {
+                                        className: 'text-muted-foreground shrink-0 text-xs',
                                       },
                                       type: 'text',
                                     },
                                   ],
                                   element: 'div',
-                                  key: 'run-log',
+                                  key: 'run-step-1',
                                   props: {
-                                    className:
-                                      'text-foreground flex items-baseline gap-3 px-3 py-1.5 data-[log-level=error]:text-error-fg',
-                                    'data-log-level': '$log.level',
-                                    'data-testid': 'run-log',
-                                    role: 'listitem',
+                                    className: 'flex items-center gap-3',
                                   },
                                   type: 'container',
                                 },
+                                {
+                                  content: '$step.error',
+                                  element: 'p',
+                                  props: {
+                                    className: 'text-error-fg text-xs break-words empty:hidden',
+                                  },
+                                  type: 'text',
+                                },
+                                {
+                                  children: [
+                                    {
+                                      children: [
+                                        {
+                                          content: '$log.level',
+                                          element: 'span',
+                                          props: {
+                                            className:
+                                              'text-foreground-subtle in-data-[log-level=error]:text-error-fg w-12 shrink-0 font-mono text-xs uppercase',
+                                          },
+                                          type: 'text',
+                                        },
+                                        {
+                                          content: '$log.message',
+                                          element: 'span',
+                                          props: {
+                                            className:
+                                              'min-w-0 font-mono text-xs break-words whitespace-pre-wrap',
+                                          },
+                                          type: 'text',
+                                        },
+                                      ],
+                                      element: 'div',
+                                      key: 'run-log',
+                                      props: {
+                                        className:
+                                          'text-foreground flex items-baseline gap-3 px-3 py-1.5 data-[log-level=error]:text-error-fg',
+                                        'data-log-level': '$log.level',
+                                        'data-testid': 'run-log',
+                                        role: 'listitem',
+                                      },
+                                      type: 'container',
+                                    },
+                                  ],
+                                  element: 'div',
+                                  key: 'detail-log',
+                                  props: {
+                                    'aria-label': '$t:admin.automations.runs.detail.log',
+                                    className:
+                                      'peer border-border divide-border flex max-h-64 flex-col divide-y overflow-y-auto rounded border empty:hidden',
+                                    role: 'list',
+                                  },
+                                  repeat: {
+                                    as: 'log',
+                                    record: 'logs',
+                                  },
+                                  type: 'container',
+                                },
+                                {
+                                  content: '$t:admin.automations.runs.detail.noLogs',
+                                  element: 'p',
+                                  props: {
+                                    className:
+                                      'text-foreground-subtle hidden text-sm peer-empty:block',
+                                  },
+                                  type: 'text',
+                                },
+                                {
+                                  children: [
+                                    {
+                                      children: [
+                                        {
+                                          content: '$step.input',
+                                          filename: '$t:admin.automations.runs.detail.dataIn',
+                                          props: {
+                                            language: 'json',
+                                          },
+                                          type: 'code',
+                                        },
+                                        {
+                                          children: [
+                                            {
+                                              content: '$step.output',
+                                              filename: '$t:admin.automations.runs.detail.dataOut',
+                                              props: {
+                                                language: 'json',
+                                              },
+                                              type: 'code',
+                                            },
+                                            {
+                                              content: '$t:admin.automations.runs.detail.noOutput',
+                                              element: 'p',
+                                              props: {
+                                                className:
+                                                  'text-foreground-subtle hidden text-sm group-has-[[data-slot=code-block-line]:only-child>[data-slot=code-block-line-content]:empty]/step-output:block',
+                                              },
+                                              type: 'text',
+                                            },
+                                          ],
+                                          element: 'div',
+                                          key: 'run-step-output-open',
+                                          props: {
+                                            className:
+                                              'group/step-output [&:has([data-slot=code-block-line]:only-child>[data-slot=code-block-line-content]:empty)>figure]:hidden',
+                                            'data-testid': 'run-step-output',
+                                          },
+                                          type: 'container',
+                                        },
+                                      ],
+                                      element: 'div',
+                                      key: 'run-step-3-open',
+                                      props: {
+                                        className:
+                                          'flex flex-col gap-3 *:max-h-56 *:overflow-y-auto',
+                                      },
+                                      type: 'container',
+                                    },
+                                  ],
+                                  defaultOpen: true,
+                                  triggerLabel: '$t:admin.automations.runs.detail.dataInOut',
+                                  type: 'collapsible',
+                                  visibility: {
+                                    item: {
+                                      eq: 'failed',
+                                      field: 'status.raw',
+                                    },
+                                  },
+                                },
+                                {
+                                  children: [
+                                    {
+                                      children: [
+                                        {
+                                          content: '$step.input',
+                                          filename: '$t:admin.automations.runs.detail.dataIn',
+                                          props: {
+                                            language: 'json',
+                                          },
+                                          type: 'code',
+                                        },
+                                        {
+                                          children: [
+                                            {
+                                              content: '$step.output',
+                                              filename: '$t:admin.automations.runs.detail.dataOut',
+                                              props: {
+                                                language: 'json',
+                                              },
+                                              type: 'code',
+                                            },
+                                            {
+                                              content: '$t:admin.automations.runs.detail.noOutput',
+                                              element: 'p',
+                                              props: {
+                                                className:
+                                                  'text-foreground-subtle hidden text-sm group-has-[[data-slot=code-block-line]:only-child>[data-slot=code-block-line-content]:empty]/step-output:block',
+                                              },
+                                              type: 'text',
+                                            },
+                                          ],
+                                          element: 'div',
+                                          key: 'run-step-output',
+                                          props: {
+                                            className:
+                                              'group/step-output [&:has([data-slot=code-block-line]:only-child>[data-slot=code-block-line-content]:empty)>figure]:hidden',
+                                            'data-testid': 'run-step-output',
+                                          },
+                                          type: 'container',
+                                        },
+                                      ],
+                                      element: 'div',
+                                      key: 'run-step-3',
+                                      props: {
+                                        className:
+                                          'flex flex-col gap-3 *:max-h-56 *:overflow-y-auto',
+                                      },
+                                      type: 'container',
+                                    },
+                                  ],
+                                  triggerLabel: '$t:admin.automations.runs.detail.dataInOut',
+                                  type: 'collapsible',
+                                  visibility: {
+                                    item: {
+                                      field: 'status.raw',
+                                      neq: 'failed',
+                                    },
+                                  },
+                                },
                               ],
                               element: 'div',
-                              key: 'detail-log',
+                              key: 'run-step',
                               props: {
-                                'aria-label': '$t:admin.automations.runs.detail.log',
                                 className:
-                                  'peer border-border divide-border flex max-h-64 flex-col divide-y overflow-y-auto rounded border empty:hidden',
-                                role: 'list',
-                              },
-                              repeat: {
-                                as: 'log',
-                                record: 'logs',
+                                  'flex flex-col gap-3 px-4 py-3 [counter-increment:run-step]',
+                                'data-step-index': '$step.index',
+                                'data-step-status': '$step.status.raw',
+                                'data-testid': 'run-step',
                               },
                               type: 'container',
-                            },
-                            {
-                              content: '$t:admin.automations.runs.detail.noLogs',
-                              element: 'p',
-                              props: {
-                                className: 'text-foreground-subtle hidden text-sm peer-empty:block',
-                              },
-                              type: 'text',
-                            },
-                            {
-                              children: [
-                                {
-                                  children: [
-                                    {
-                                      content: '$step.input',
-                                      filename: '$t:admin.automations.runs.detail.dataIn',
-                                      props: {
-                                        language: 'json',
-                                      },
-                                      type: 'code',
-                                    },
-                                    {
-                                      children: [
-                                        {
-                                          content: '$step.output',
-                                          filename: '$t:admin.automations.runs.detail.dataOut',
-                                          props: {
-                                            language: 'json',
-                                          },
-                                          type: 'code',
-                                        },
-                                        {
-                                          content: '$t:admin.automations.runs.detail.noOutput',
-                                          element: 'p',
-                                          props: {
-                                            className:
-                                              'text-foreground-subtle hidden text-sm group-has-[[data-slot=code-block-line]:only-child>[data-slot=code-block-line-content]:empty]/step-output:block',
-                                          },
-                                          type: 'text',
-                                        },
-                                      ],
-                                      element: 'div',
-                                      key: 'run-step-output-open',
-                                      props: {
-                                        className:
-                                          'group/step-output [&:has([data-slot=code-block-line]:only-child>[data-slot=code-block-line-content]:empty)>figure]:hidden',
-                                        'data-testid': 'run-step-output',
-                                      },
-                                      type: 'container',
-                                    },
-                                  ],
-                                  element: 'div',
-                                  key: 'run-step-3-open',
-                                  props: {
-                                    className: 'flex flex-col gap-3 *:max-h-56 *:overflow-y-auto',
-                                  },
-                                  type: 'container',
-                                },
-                              ],
-                              defaultOpen: true,
-                              triggerLabel: '$t:admin.automations.runs.detail.dataInOut',
-                              type: 'collapsible',
-                              visibility: {
-                                item: {
-                                  eq: 'failed',
-                                  field: 'status.raw',
-                                },
-                              },
-                            },
-                            {
-                              children: [
-                                {
-                                  children: [
-                                    {
-                                      content: '$step.input',
-                                      filename: '$t:admin.automations.runs.detail.dataIn',
-                                      props: {
-                                        language: 'json',
-                                      },
-                                      type: 'code',
-                                    },
-                                    {
-                                      children: [
-                                        {
-                                          content: '$step.output',
-                                          filename: '$t:admin.automations.runs.detail.dataOut',
-                                          props: {
-                                            language: 'json',
-                                          },
-                                          type: 'code',
-                                        },
-                                        {
-                                          content: '$t:admin.automations.runs.detail.noOutput',
-                                          element: 'p',
-                                          props: {
-                                            className:
-                                              'text-foreground-subtle hidden text-sm group-has-[[data-slot=code-block-line]:only-child>[data-slot=code-block-line-content]:empty]/step-output:block',
-                                          },
-                                          type: 'text',
-                                        },
-                                      ],
-                                      element: 'div',
-                                      key: 'run-step-output',
-                                      props: {
-                                        className:
-                                          'group/step-output [&:has([data-slot=code-block-line]:only-child>[data-slot=code-block-line-content]:empty)>figure]:hidden',
-                                        'data-testid': 'run-step-output',
-                                      },
-                                      type: 'container',
-                                    },
-                                  ],
-                                  element: 'div',
-                                  key: 'run-step-3',
-                                  props: {
-                                    className: 'flex flex-col gap-3 *:max-h-56 *:overflow-y-auto',
-                                  },
-                                  type: 'container',
-                                },
-                              ],
-                              triggerLabel: '$t:admin.automations.runs.detail.dataInOut',
-                              type: 'collapsible',
-                              visibility: {
-                                item: {
-                                  field: 'status.raw',
-                                  neq: 'failed',
-                                },
-                              },
                             },
                           ],
                           element: 'div',
-                          key: 'run-step',
+                          key: 'detail-steps-2',
                           props: {
-                            className: 'flex flex-col gap-3 px-4 py-3 [counter-increment:run-step]',
-                            'data-step-index': '$step.index',
-                            'data-step-status': '$step.status.raw',
-                            'data-testid': 'run-step',
+                            className:
+                              'bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 divide-border divide-y [counter-reset:run-step]',
+                          },
+                          repeat: {
+                            as: 'step',
+                            record: 'steps',
                           },
                           type: 'container',
                         },
                       ],
                       element: 'div',
-                      key: 'detail-steps-2',
+                      key: 'detail-steps-list',
                       props: {
-                        className:
-                          'bg-card text-card-foreground overflow-hidden rounded-xl ring-1 ring-foreground/10 divide-border divide-y [counter-reset:run-step]',
-                      },
-                      repeat: {
-                        as: 'step',
-                        record: 'steps',
+                        className: 'contents',
                       },
                       type: 'container',
+                      visibility: {
+                        record: {
+                          field: 'steps',
+                          isNotEmpty: true,
+                        },
+                      },
                     },
                   ],
                   element: 'section',
@@ -19156,6 +19312,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                     selection: {
                       mode: 'multiple',
                     },
+                    viewOptions: 'toolbar',
                   },
                 },
                 {
@@ -19508,6 +19665,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                           key: 'grid',
                           vars: {
                             ariaLabel: '$t:admin.forms.submissions.region',
+                            caption: '$t:admin.forms.scope',
                             columns: [
                               {
                                 cellStyle: [
@@ -19593,15 +19751,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             selection: {
                               mode: 'multiple',
                             },
+                            viewOptions: 'toolbar',
                           },
-                        },
-                        {
-                          content: '$t:admin.forms.scope',
-                          element: 'p',
-                          props: {
-                            className: 'text-foreground-subtle mt-2 text-md',
-                          },
-                          type: 'text',
                         },
                         {
                           component: 'console-record-sheet',
@@ -20208,6 +20359,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                     emptyMessage: '$t:admin.buckets.emptyFiles',
                                     id: 'admin-bucket-files-grid',
                                     noMatchMessage: '$t:admin.buckets.noMatch',
+                                    viewOptions: 'toolbar',
                                   },
                                 },
                               ],
@@ -20651,6 +20803,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                     emptyMessage: '$t:admin.buckets.noFiles',
                                     id: 'admin-bucket-files-grid',
                                     noMatchMessage: '$t:admin.buckets.noMatch',
+                                    viewOptions: 'toolbar',
                                   },
                                 },
                               ],
@@ -20932,12 +21085,109 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   },
                                 },
                                 {
-                                  content: '$record.kind',
+                                  content: '$t:admin.templates.kind.html',
                                   element: 'span',
                                   props: {
-                                    className: 'text-foreground-subtle font-mono text-sm',
+                                    className: 'text-foreground-subtle text-sm',
+                                    'data-template-kind': 'html',
                                   },
                                   type: 'text',
+                                  visibility: {
+                                    record: {
+                                      eq: 'html',
+                                      field: 'kind',
+                                    },
+                                  },
+                                },
+                                {
+                                  content: '$t:admin.templates.kind.svg',
+                                  element: 'span',
+                                  props: {
+                                    className: 'text-foreground-subtle text-sm',
+                                    'data-template-kind': 'svg',
+                                  },
+                                  type: 'text',
+                                  visibility: {
+                                    record: {
+                                      eq: 'svg',
+                                      field: 'kind',
+                                    },
+                                  },
+                                },
+                                {
+                                  content: '$t:admin.templates.kind.partial',
+                                  element: 'span',
+                                  props: {
+                                    className: 'text-foreground-subtle text-sm',
+                                    'data-template-kind': 'partial',
+                                  },
+                                  type: 'text',
+                                  visibility: {
+                                    record: {
+                                      eq: 'partial',
+                                      field: 'kind',
+                                    },
+                                  },
+                                },
+                                {
+                                  content: '$t:admin.templates.kind.text',
+                                  element: 'span',
+                                  props: {
+                                    className: 'text-foreground-subtle text-sm',
+                                    'data-template-kind': 'text',
+                                  },
+                                  type: 'text',
+                                  visibility: {
+                                    record: {
+                                      eq: 'text',
+                                      field: 'kind',
+                                    },
+                                  },
+                                },
+                                {
+                                  content: '$t:admin.templates.kind.docx',
+                                  element: 'span',
+                                  props: {
+                                    className: 'text-foreground-subtle text-sm',
+                                    'data-template-kind': 'docx',
+                                  },
+                                  type: 'text',
+                                  visibility: {
+                                    record: {
+                                      eq: 'docx',
+                                      field: 'kind',
+                                    },
+                                  },
+                                },
+                                {
+                                  content: '$t:admin.templates.kind.xlsx',
+                                  element: 'span',
+                                  props: {
+                                    className: 'text-foreground-subtle text-sm',
+                                    'data-template-kind': 'xlsx',
+                                  },
+                                  type: 'text',
+                                  visibility: {
+                                    record: {
+                                      eq: 'xlsx',
+                                      field: 'kind',
+                                    },
+                                  },
+                                },
+                                {
+                                  content: '$t:admin.templates.kind.pptx',
+                                  element: 'span',
+                                  props: {
+                                    className: 'text-foreground-subtle text-sm',
+                                    'data-template-kind': 'pptx',
+                                  },
+                                  type: 'text',
+                                  visibility: {
+                                    record: {
+                                      eq: 'pptx',
+                                      field: 'kind',
+                                    },
+                                  },
                                 },
                               ],
                               element: 'div',
@@ -21197,18 +21447,10 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                     {
                       children: [
                         {
-                          content: '$record.description|$record.path',
-                          element: 'h2',
-                          props: {
-                            className: 'text-foreground text-lg font-medium',
-                          },
-                          type: 'text',
-                        },
-                        {
-                          content: '$record.path',
+                          content: '$record.description',
                           element: 'p',
                           props: {
-                            className: 'text-foreground-subtle font-mono text-sm break-all',
+                            className: 'text-muted-foreground text-sm',
                           },
                           type: 'text',
                           visibility: {
@@ -21238,18 +21480,10 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         {
                           children: [
                             {
-                              content: '$record.description|$record.path',
-                              element: 'h2',
-                              props: {
-                                className: 'text-foreground text-lg font-medium',
-                              },
-                              type: 'text',
-                            },
-                            {
-                              content: '$record.path',
+                              content: '$record.description',
                               element: 'p',
                               props: {
-                                className: 'text-foreground-subtle font-mono text-sm break-all',
+                                className: 'text-muted-foreground text-sm',
                               },
                               type: 'text',
                               visibility: {
@@ -22870,6 +23104,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                     emptyMessage: '$t:admin.links.empty',
                     id: 'admin-links-catalog',
                     noMatchMessage: '$t:admin.links.noMatch',
+                    viewOptions: 'toolbar',
                   },
                 },
               ],
@@ -23043,6 +23278,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             label: '$t:admin.links.destination',
                           },
                           {
+                            cellStyle: [
+                              {
+                                className:
+                                  "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50",
+                                when: {
+                                  in: ['config', 'db'],
+                                },
+                              },
+                            ],
                             field: 'source',
                             label: '$t:admin.common.source',
                             valueLabels: {
@@ -23051,8 +23295,39 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             },
                           },
                           {
+                            cellStyle: [
+                              {
+                                className:
+                                  "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-success-solid",
+                                when: {
+                                  eq: 'active',
+                                },
+                              },
+                              {
+                                className:
+                                  "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-info-solid",
+                                when: {
+                                  eq: 'scheduled',
+                                },
+                              },
+                              {
+                                className:
+                                  "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50",
+                                when: {
+                                  in: ['disabled', 'expired', 'exhausted', 'archived'],
+                                },
+                              },
+                            ],
                             field: 'state',
                             label: '$t:admin.common.state',
+                            valueLabels: {
+                              active: '$t:admin.links.state.active',
+                              archived: '$t:admin.links.state.archived',
+                              disabled: '$t:admin.common.disabled',
+                              exhausted: '$t:admin.links.state.exhausted',
+                              expired: '$t:admin.links.state.expired',
+                              scheduled: '$t:admin.links.state.scheduled',
+                            },
                           },
                           {
                             field: 'validFrom',
@@ -23081,6 +23356,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                           action: 'openSheet',
                           component: 'admin-link-definition-drawer',
                         },
+                        viewOptions: 'bottom-bar',
                       },
                     },
                     {
@@ -23661,6 +23937,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   },
                                 },
                                 emptyMessage: '$t:admin.analytics.noReferrers',
+                                viewOptions: 'toolbar',
                               },
                             },
                             {
@@ -23699,6 +23976,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   },
                                 },
                                 emptyMessage: '$t:admin.links.noDevices',
+                                viewOptions: 'toolbar',
                               },
                             },
                             {
@@ -23740,6 +24018,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                   },
                                 },
                                 emptyMessage: '$t:admin.analytics.noCampaigns',
+                                viewOptions: 'toolbar',
                               },
                             },
                           ],
@@ -23803,6 +24082,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                               },
                             },
                             emptyMessage: '$t:admin.links.noClicks',
+                            viewOptions: 'toolbar',
                           },
                         },
                       ],
@@ -23937,6 +24217,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                     publishes: {
                       bindTo: 'connections-filter',
                       param: 'q',
+                      url: true,
                     },
                   },
                 },
@@ -24010,6 +24291,13 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                           eq: 'not-connected',
                         },
                       },
+                      {
+                        className:
+                          "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-warning-solid",
+                        when: {
+                          eq: 'not-configured',
+                        },
+                      },
                     ],
                     field: 'status',
                     label: '$t:admin.connections.col.status',
@@ -24017,6 +24305,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                       active: '$t:admin.connections.status.active',
                       expired: '$t:admin.connections.status.expired',
                       'expiring-soon': '$t:admin.connections.status.expiringSoon',
+                      'not-configured': '$t:admin.connections.status.notConfigured',
                       'not-connected': '$t:admin.connections.status.notConnected',
                       'reconnect-needed': '$t:admin.connections.status.reconnectNeeded',
                     },
@@ -24044,6 +24333,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                       },
                     ],
                     field: 'lastError',
+                    format: 'truncate',
                     label: '$t:admin.connections.col.lastError',
                     minWidth: 200,
                     truncate: true,
@@ -24137,6 +24427,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                 emptyMessage: '$t:admin.connections.empty',
                 id: 'admin-connections-grid',
                 noMatchMessage: '$t:admin.connections.noMatch',
+                viewOptions: 'toolbar',
               },
             },
           ],
@@ -35585,7 +35876,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                       key: 'preview-surface',
                       props: {
                         className:
-                          'bg-background text-foreground flex list-none flex-col gap-6 p-6',
+                          'bg-background text-foreground flex list-none flex-col gap-6 p-3',
                         'data-design-kit-type': 'container',
                         'data-testid': 'preview-surface',
                       },
@@ -36481,6 +36772,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                       props: {
                         className: 'text-sm/relaxed text-muted-foreground',
                         'data-slot': 'empty-description',
+                        id: 'admin-internal-error-body',
                       },
                       type: 'text',
                     },

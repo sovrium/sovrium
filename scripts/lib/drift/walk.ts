@@ -250,7 +250,33 @@ export interface WalkOptions {
   readonly excludeTests?: boolean
   /** Keep only files satisfying this predicate, tested on the absolute path. */
   readonly filter?: (absolutePath: string) => boolean
+  /**
+   * Called once per directory that was listed by its parent and then gone
+   * (ENOENT) by the time the walk descended into it. See {@link walkSync}.
+   */
+  readonly onVanished?: (absolutePath: string) => void
+  /**
+   * The directory reader, injectable so a test can make a directory vanish
+   * between being listed and being read, which no real filesystem does on cue.
+   * Defaults to `readdirSync`.
+   */
+  readonly readDir?: (dir: string) => readonly Dirent[]
 }
+
+const readDirDefault = (dir: string): readonly Dirent[] =>
+  readdirSync(dir, { withFileTypes: true, encoding: 'utf8' })
+
+const isEnoent = (error: unknown): boolean =>
+  typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'ENOENT'
+
+/**
+ * How many directories {@link walkSync} has found vanished since the process
+ * started. A drift check that wants to say so in its census reads it; a test
+ * reads it before and after.
+ */
+export const vanishedDirectoryCount = (): number => vanishedTotal
+
+let vanishedTotal = 0
 
 /** Thrown when a root cannot be read. Never returned as an empty corpus. */
 export class WalkError extends Error {
@@ -283,12 +309,23 @@ const keeps = (absolute: string, name: string, options: WalkOptions): boolean =>
 export const walkSync = (options: WalkOptions): readonly string[] => {
   const excluded = new Set([...DEFAULT_EXCLUDED_DIRS, ...(options.excludeDirs ?? [])])
   const found: string[] = []
+  const readDir = options.readDir ?? readDirDefault
 
   const descend = (dir: string): void => {
     let entries: readonly Dirent[]
     try {
-      entries = readdirSync(dir, { withFileTypes: true, encoding: 'utf8' })
+      entries = readDir(dir)
     } catch (error) {
+      // A SUBDIRECTORY its parent just listed and that is gone now is not an
+      // unreadable corpus: something else removed it between the two calls (a
+      // parallel test's scratch directory, a generator replacing its output).
+      // Skipped and counted. The ROOT never gets this pass: a missing root is
+      // a mistyped or moved corpus, exactly what the header says must throw.
+      if (dir !== options.root && isEnoent(error)) {
+        vanishedTotal += 1
+        options.onVanished?.(dir)
+        return
+      }
       // NOT `return []`. See the module header: a swallowed read failure is how
       // a gate comes to report clean over a corpus it never opened.
       throw new WalkError(

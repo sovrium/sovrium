@@ -7,16 +7,24 @@
 
 import type { Page } from '@/domain/models/app/pages'
 
+/** The path of the page answering every address nothing else claims. */
+const NOT_FOUND_PAGE_PATH = '/404'
+
 /**
  * `true` when the page is served below the site root's directory — a `/:lang/`
  * prefix, a mount base, or a path with a directory of its own — so a `./` href
  * would resolve against that directory instead of the root of `public/`.
+ *
+ * The not-found page (`/404`) counts as below the root wherever it is drawn: it
+ * answers every address nothing else claims, `/x/y/z` and `/fr/x` included, and
+ * a static host serves its `404.html` at those addresses too.
  */
 export function servedBelowRoot(input: {
   readonly path: string
   readonly urlLanguage: string | undefined
   readonly basePath: string | undefined
 }): boolean {
+  if (input.path === NOT_FOUND_PAGE_PATH) return true
   if (input.urlLanguage !== undefined || (input.basePath ?? '') !== '') return true
   return input.path.slice(0, input.path.lastIndexOf('/') + 1) !== '/'
 }

@@ -9,16 +9,15 @@
  * The seeder an `app/seed` step runs, inside the server `sovrium start`
  * started: the one `sovrium seed` runs — the same files, plan, accounts and
  * write path, with the same refusals in the same words — on the `seed/` folder
- * beside the config file the server was started with.
+ * beside the config file the server was started with. Like the command, it is
+ * silent: no activity-log entry, record automation or table webhook for a row
+ * it writes.
  *
- * Three things differ from the command, each because the run happens inside a
+ * Two things differ from the command, each because the run happens inside a
  * live server rather than in a process of its own:
  *
  * - **Nothing exits.** A refusal is thrown as an `Error` carrying the seeder's
  *   message, which the step fails with; `sovrium seed` would end the process.
- * - **It is silent.** The command leaves one activity-log entry per seeded row;
- *   a self-seed leaves none, so a nightly reset does not bury the activity log.
- *   No record automation or table webhook fires either, as for the command.
  * - **`reset`.** Checked whole before anything is touched — every seed file,
  *   and the password of every account `users.yaml` lists, existing ones
  *   included, since the reset restores it — then the app is emptied and
@@ -38,7 +37,9 @@ import { settleAccountPlan } from './seed-account-plan'
 import { loadSeedFiles } from './seed-load'
 import { seedReportOf } from './seed-report'
 import { readHostAdmins, type HostAdmin } from './seed-self-admins'
+import { readBaselines } from './seed-self-baseline'
 import { resetApp } from './seed-self-reset'
+import { silenced } from './seed-silent'
 import type {
   AppSelfSeedRequest,
   AppSelfSeedRunner,
@@ -54,12 +55,6 @@ const indent = (lines: readonly string[]): string => lines.map((line) => `  ${li
 const refusal = (message: string): never => {
   throw new Error(message)
 }
-
-/** The app with every table's activity log off: the rows a self-seed writes leave no entry. */
-const silenced = (app: Readonly<App>): App => ({
-  ...app,
-  tables: app.tables?.map((table) => ({ ...table, activityLog: false })),
-})
 
 /** The instant `{{today…}}` renders against: the step's `today`, else `SOVRIUM_SEED_TODAY`, else now. */
 const runAtOf = (today: string | undefined): Readonly<Date> => {
@@ -234,7 +229,7 @@ export const createAppSelfSeedRunner =
     if (request.mode !== 'reset') return seedInPlace(request.app, seedDir, request)
     const folder = await loadFolder(seedDir)
     const plan = planOf(request.app, folder, request)
-    const admins = await readHostAdmins()
+    const admins = await readHostAdmins(await readBaselines())
     // Accounts are pruned only when the folder lists them; without, they stay.
     const kept = folder.accountsFile ? admins : undefined
     await requireAccounts({ app: request.app, accounts: folder.accounts, plan, kept })

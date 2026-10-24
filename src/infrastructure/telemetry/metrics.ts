@@ -43,7 +43,7 @@
  * the shared `AiService.chat` seam (`ai-service-live.ts`) alongside the
  * `ai.request` child span; see `ai-request-trace.ts`.
  *
- * Automation run seam (2 instruments):
+ * Automation run seam (5 instruments):
  *
  * 6. `automation.run.count`    — a monotonic COUNTER (OTLP `sum`), unit
  *    `{run}`, one increment per completed automation run, tagged
@@ -51,7 +51,12 @@
  * 7. `automation.run.duration` — a HISTOGRAM, unit `s`, one observation of a
  *    run's wall-clock duration (seconds), tagged `{ automation }` only.
  *
- * Both labels are bounded, config-derived (never trigger payload / run ids /
+ * 8. `automation.run.db.statements` / `automation.run.db.transactions` /
+ *    `automation.run.db.catalog_probes` — three HISTOGRAMS, one observation
+ *    each per counted run: the statements, transactions and catalog lookups the
+ *    run issued itself, tagged `{ automation }` only.
+ *
+ * All labels are bounded, config-derived (never trigger payload / run ids /
  * step output). Recorded at the shared `executeAutomationRun` run-loop seam
  * (`run-automation.ts`) alongside the `automation.run` child span; see
  * `automation-run-trace.ts`.
@@ -251,5 +256,63 @@ export const recordAutomationRun = (
       automationRunDuration.pipe(Metric.withAttributes(durationAttributes)),
       durationSeconds
     )
+  )
+}
+
+/** Per-run transaction and catalog-lookup boundaries: a run opens a handful at most. */
+const DB_SMALL_COUNT_BOUNDARIES = [0, 1, 2, 3, 5, 10, 20, 50] as const
+
+/** Statements one automation run issued — OTLP `histogram`, unit `{query}`. */
+const automationRunDbStatements = Metric.histogram('automation.run.db.statements', {
+  description: 'Number of database statements issued by one automation run.',
+  boundaries: DB_QUERIES_PER_REQUEST_BOUNDARIES,
+}).pipe(Metric.withAttributes({ unit: '{query}' }))
+
+/** Transactions one automation run opened — OTLP `histogram`, unit `{transaction}`. */
+const automationRunDbTransactions = Metric.histogram('automation.run.db.transactions', {
+  description: 'Number of database transactions opened by one automation run.',
+  boundaries: DB_SMALL_COUNT_BOUNDARIES,
+}).pipe(Metric.withAttributes({ unit: '{transaction}' }))
+
+/** Catalog lookups one automation run issued — OTLP `histogram`, unit `{query}`. */
+const automationRunDbCatalogProbes = Metric.histogram('automation.run.db.catalog_probes', {
+  description: 'Number of database catalog lookups issued by one automation run.',
+  boundaries: DB_SMALL_COUNT_BOUNDARIES,
+}).pipe(Metric.withAttributes({ unit: '{query}' }))
+
+/** One run's own database cost, as the automation-run seam measured it. */
+export interface AutomationRunDbCost {
+  readonly statements: number
+  readonly transactions: number
+  readonly catalogProbes: number
+}
+
+/**
+ * Build the effect that observes ONE automation run's database cost on the
+ * three `automation.run.db.*` histograms, tagged `{ automation }` only — never
+ * a run id or a status, which would multiply the series per run. Composed into
+ * the run-loop seam (see `traceAutomationRun`), like {@link recordAutomationRun}.
+ */
+export const recordAutomationRunDbCost = (
+  automation: string,
+  cost: AutomationRunDbCost
+): Effect.Effect<void> => {
+  const attributes = { automation }
+  return Effect.all(
+    [
+      Metric.update(
+        automationRunDbStatements.pipe(Metric.withAttributes(attributes)),
+        cost.statements
+      ),
+      Metric.update(
+        automationRunDbTransactions.pipe(Metric.withAttributes(attributes)),
+        cost.transactions
+      ),
+      Metric.update(
+        automationRunDbCatalogProbes.pipe(Metric.withAttributes(attributes)),
+        cost.catalogProbes
+      ),
+    ],
+    { discard: true }
   )
 }

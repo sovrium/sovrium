@@ -46,13 +46,14 @@
  * filter, never as a new one.
  */
 
+import { claimedPagePaths, type DeclaredPagePath } from '@/domain/kernel/matching/localized-path'
 import { DEFAULT_ADMIN_MOUNT_PATH } from '@/domain/models/app/admin/mount-hrefs'
 import { stripLanguagePrefix } from '../redirects'
 
 /** Minimal shape needed to validate mount subtrees. */
 interface AppForAdminMountValidation {
   readonly admin?: boolean | undefined
-  readonly pages?: ReadonlyArray<{ readonly name: string; readonly path: string }>
+  readonly pages?: ReadonlyArray<{ readonly name: string; readonly path: DeclaredPagePath }>
   readonly forms?: ReadonlyArray<{ readonly name: string; readonly path?: string | undefined }>
   readonly redirects?: ReadonlyArray<{ readonly from: string }>
   readonly languages?: { readonly supported: ReadonlyArray<{ readonly code: string }> }
@@ -104,10 +105,10 @@ interface DeclaredRoute {
 
 /** Every path-claiming declaration in the config, in the order they are reported. */
 const declaredRoutes = (app: AppForAdminMountValidation): readonly DeclaredRoute[] => [
-  ...(app.pages ?? []).map((page) => ({
+  ...claimedPagePaths(app.pages ?? []).map(({ page, path }) => ({
     kind: 'page',
     subject: `page "${page.name}"`,
-    path: page.path,
+    path,
     consequence: 'so this page would never render',
   })),
   ...(app.forms ?? []).flatMap((form) =>

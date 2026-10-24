@@ -5,12 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { useContext } from 'react'
 import { computeTableElementClasses } from '@/presentation/design/table-default-classes'
 import { resolvePageLocale } from '../../runtime/page-locale'
 import { TableBodyRows } from '../body'
 import { TableHeader } from '../body-header'
 import { TableSummaryFooter } from '../body-summary'
 import { tableFrameAttributes } from './fill-column-widths'
+import { GridCaptionContext } from './grid-caption'
 import { FillColGroup, LoadingStatus, ScrollRegion } from './grid-frame-parts'
 import { useGridString } from './grid-strings'
 import { nameClippedCell } from './scroll-edges'
@@ -260,6 +262,8 @@ export function TableContent(props: TableContentProps) {
   // prettier-ignore
   const { rows, cursor, fill, canFillFromCell, autoSave, addRow, handleEditSave, handleEditCancel } = useGridInteractions(props, tableRef, navigable)
   const fills = props.layout === 'fill'
+  // The caption the bottom bar draws is the table's description.
+  const caption = useContext(GridCaptionContext)
 
   return (
     <ScrollRegion
@@ -281,6 +285,7 @@ export function TableContent(props: TableContentProps) {
         {...tableFrameAttributes(table, { fills, loading: props.isLoading })}
         data-striped={String(striped)}
         data-row-height={currentRowHeight}
+        aria-describedby={caption?.id}
       >
         {fills && <FillColGroup table={table} />}
         {/* prettier-ignore */}

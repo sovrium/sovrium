@@ -10,7 +10,7 @@ import { likePatternOf } from '@/domain/kernel/sql/like-pattern'
 import { LIKE_ESCAPE_CHARACTER } from '@/domain/kernel/sql/sql-formatting'
 import { formatSqlValue, formatLikePattern, escapeSqlString } from '../sql/sql-utils'
 import { betweenFragment, betweenSqlCondition } from './between-condition'
-import { serverOperatorFragment } from './server-operator-fragment'
+import { serverOperatorDdlCondition, serverOperatorFragment } from './server-operator-fragment'
 
 /**
  * Return type of `sql.identifier()` — a safely-escaped SQL identifier chunk.
@@ -165,11 +165,12 @@ export const generateSqlCondition = (
 ): string => {
   const useEscapeSqlString = options.useEscapeSqlString ?? false
 
-  // Handle LIKE pattern operators
+  const serverCondition = serverOperatorDdlCondition(field, operator, value)
+  if (serverCondition) return serverCondition
+
   const patternCondition = handlePatternOperator(field, operator, value)
   if (patternCondition) return patternCondition
 
-  // Handle NULL operators
   const nullCondition = handleNullOperator(field, operator)
   if (nullCondition) return nullCondition
 

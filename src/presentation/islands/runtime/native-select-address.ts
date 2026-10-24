@@ -12,7 +12,7 @@
  * `publishes.url` writes, so a link built for one opens the other.
  *
  * Split from `native-select-publisher.ts`, which every page loads, because few
- * pages hold a mirrored select.
+ * pages hold a mirrored select or search box.
  */
 
 /** The address key a mirrored choice is written under. */
@@ -28,10 +28,11 @@ export function mirrorInAddress(bindTo: string, param: string, value: string): v
 }
 
 /**
- * Open every mirrored `<select>` on the value the address carries for it, and
- * publish that value, so a link carrying the filter lands on a control that
- * says what the list below it shows. A value no option offers is left alone:
- * the control keeps what the server drew.
+ * Open every mirrored `<select>` or search box on the value the address carries
+ * for it, and publish that value, so a link carrying the filter lands on a
+ * control that says what the list below it shows. A value no option of a
+ * select offers is left alone: the control keeps what the server drew. A search
+ * box takes any term.
  *
  * Run at start-up and again after every in-page navigation, since a swap
  * brings its controls in with the server's opening value and the address only
@@ -42,15 +43,18 @@ export function restoreFromAddress(
   publish: (bindTo: string, param: string, value: string) => void
 ): void {
   const search = new URLSearchParams(window.location.search)
-  document.querySelectorAll<HTMLSelectElement>(selector).forEach((select) => {
-    if (select.multiple) return
-    const bindTo = select.getAttribute('data-publishes-bind-to') ?? ''
-    const param = select.getAttribute('data-publishes-param') ?? ''
+  document.querySelectorAll<HTMLSelectElement | HTMLInputElement>(selector).forEach((control) => {
+    const bindTo = control.getAttribute('data-publishes-bind-to') ?? ''
+    const param = control.getAttribute('data-publishes-param') ?? ''
     const value = search.get(addressKeyOf(bindTo, param))
-    if (value === null || value === select.value) return
-    const option = Array.from(select.options).find((candidate) => candidate.value === value)
-    if (!option) return
-    option.selected = true
+    if (value === null || value === control.value) return
+    // eslint-disable-next-line no-param-reassign -- opening the box on the address's term IS the restore
+    if (control instanceof HTMLInputElement) control.value = value
+    else {
+      const option = Array.from(control.options).find((candidate) => candidate.value === value)
+      if (control.multiple || !option) return
+      option.selected = true
+    }
     publish(bindTo, param, value)
   })
 }

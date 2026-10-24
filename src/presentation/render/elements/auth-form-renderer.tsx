@@ -11,6 +11,7 @@ import {
   resolveInterpreterStringOverrides,
   resolveTranslationPattern,
 } from '@/domain/models/app/languages/translation-resolver'
+import { DEFAULT_PASSWORD_RESET_LANDING_PATH } from '@/domain/models/app/pages/page-requires'
 import {
   authFieldErrorId,
   authFormStringPrefixes,
@@ -341,7 +342,11 @@ export function renderAuthForm(
 ): ReactElement {
   const { tables, component, lang, languages, landingPath } = context
   const method = action.method ?? 'login'
-  const redirectUrl = resolveOnSuccessRedirect(action, landingPath)
+  // A reset request moves no one: its `redirectUrl` is where the emailed link lands.
+  const redirectUrl =
+    method === 'resetPassword'
+      ? (action._resetLanding ?? DEFAULT_PASSWORD_RESET_LANDING_PATH)
+      : resolveOnSuccessRedirect(action, landingPath)
   const twoFactorNotice = twoFactorNoticeOf(method, action, { lang, languages })
   const { submitLabel, pendingLabel } = resolveAuthLabels(action, method, lang, languages)
   // The base field set (a second-factor step names its code by `factor`), then overrides.

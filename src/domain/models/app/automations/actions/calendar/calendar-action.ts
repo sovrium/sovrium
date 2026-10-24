@@ -6,17 +6,21 @@
  */
 
 import { Schema } from 'effect'
+import { CalendarExportIcsActionSchema } from './export-ics'
 import { CalendarImportIcsActionSchema } from './import-ics'
 
 /**
  * Calendar Action — union of all calendar operators
  */
-export const CalendarActionSchema = Schema.Union([CalendarImportIcsActionSchema]).pipe(
+export const CalendarActionSchema = Schema.Union([
+  CalendarImportIcsActionSchema,
+  CalendarExportIcsActionSchema,
+]).pipe(
   Schema.annotate({
     identifier: 'CalendarAction',
     title: 'Calendar Action',
     description:
-      'Calendar operations: importing the events of an iCalendar (`.ics`) feed into a table',
+      'Calendar operations: importing the events of an iCalendar (`.ics`) feed into a table, and building an `.ics` file for one event',
   })
 )
 

@@ -240,7 +240,10 @@ download_and_install() {
   CHECKSUM_URL="https://github.com/$GITHUB_REPO/releases/download/v${VERSION}/${CHECKSUM_FILE}"
 
   TEMP_DIR=$(mktemp -d)
-  trap 'rm -rf "$TEMP_DIR"' EXIT
+  STAGED=""
+  # One EXIT trap for everything this run leaves behind: a second `trap ... EXIT`
+  # would REPLACE this one, not add to it.
+  trap 'rm -rf "$TEMP_DIR"; if [ -n "$STAGED" ]; then rm -f "$STAGED"; fi' EXIT
 
   step "Downloading sovrium v${VERSION} for ${TARGET}"
 
@@ -268,15 +271,29 @@ download_and_install() {
   https://github.com/$GITHUB_REPO/issues" 
   fi
 
-  # Install
+  # Install: stage the new binary beside the old one, then rename it into place.
+  # Copying straight onto "$BIN_DIR/sovrium" would rewrite the file a running
+  # sovrium is executing from: Linux refuses that with "Text file busy", and
+  # macOS kills the next launch of a binary whose signed pages changed under it.
+  # A rename swaps the directory entry instead; the running process keeps the
+  # old inode until it exits. Same directory, so the rename never crosses a
+  # filesystem. `sovrium update` replaces itself the same way.
   mkdir -p "$BIN_DIR"
-  cp "$BINARY" "$BIN_DIR/sovrium"
-  chmod 755 "$BIN_DIR/sovrium"
+  STAGED="$BIN_DIR/.sovrium-install-$$"
+  cp "$BINARY" "$STAGED" || die "Could not write to ${BIN_DIR}. Nothing was installed." \
+"Check that you can write to it, or choose another directory:
+  curl -fsSL https://sovrium.com/install | SOVRIUM_INSTALL_DIR=\$HOME/.local sh"
+  chmod 755 "$STAGED"
 
-  # Remove macOS quarantine attribute if present
+  # Remove the macOS quarantine attribute on the STAGED copy, before it
+  # becomes the binary anyone can launch.
   if [ "$OS" = "darwin" ] && command -v xattr >/dev/null 2>&1; then
-    xattr -d com.apple.quarantine "$BIN_DIR/sovrium" 2>/dev/null || true
+    xattr -d com.apple.quarantine "$STAGED" 2>/dev/null || true
   fi
+
+  mv -f "$STAGED" "$BIN_DIR/sovrium" || die "Could not put the binary in place in ${BIN_DIR}." \
+"The previous sovrium, if any, is unchanged."
+  STAGED=""
 
 }
 

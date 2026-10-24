@@ -32,7 +32,7 @@
 
 import { Effect } from 'effect'
 import { ContentDirReader } from '@/application/ports/services/content-dir-reader'
-import { findMatchingRoute } from '@/domain/kernel/matching/route-matcher'
+import { findPageRoute } from '@/domain/kernel/matching/localized-path'
 import { validateLanguageSubdirectory } from '@/domain/models/app/languages/language-detection'
 import {
   isArticleReadable,
@@ -83,24 +83,20 @@ const acceptsMarkdown = (accept: string): boolean =>
  * for a non-contentDir match (or no match) so the caller falls through.
  */
 const matchContentDirArticle = (app: App, path: string): ContentDirArticleMatch | undefined => {
-  const pages = app.pages ?? []
-  const match = findMatchingRoute(
-    pages.map((page) => page.path),
-    path
-  )
+  const match = findPageRoute(app.pages ?? [], path)
   if (match !== undefined) {
-    const page = pages[match.index]
+    const { page } = match
     const slug =
-      page?.contentDir !== undefined
+      page.contentDir !== undefined
         ? deriveContentDirSlugFromRouteParams(page.contentDir, match.params)
         : undefined
-    if (page?.contentDir !== undefined && slug !== undefined) {
+    if (page.contentDir !== undefined && slug !== undefined) {
       return { page, contentDir: page.contentDir, slug }
     }
   }
   // The collection BASE PATH serves the `contentDir.index` article, so
   // its `<basePath>.md` / `Accept: text/markdown` twins serve the index body.
-  const indexMatch = matchContentDirIndexBasePath(pages, path)
+  const indexMatch = matchContentDirIndexBasePath(app.pages ?? [], path)
   if (indexMatch?.page.contentDir !== undefined) {
     return {
       page: indexMatch.page,

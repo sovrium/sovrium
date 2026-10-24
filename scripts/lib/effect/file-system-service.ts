@@ -11,8 +11,15 @@ import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import * as Schedule from 'effect/Schedule'
-import { format as prettierFormat } from 'prettier'
-import type { Options as PrettierOptions } from 'prettier'
+import { formatText } from '../format'
+
+/**
+ * The path `format()` formats content AS when the caller names none: a
+ * TypeScript file inside the tree, so the repository config applies (the
+ * Prettier-API version defaulted to the `typescript` parser the same way, but
+ * without the config).
+ */
+const DEFAULT_FORMAT_PATH = 'scripts/lib/effect/format-input.ts'
 
 /**
  * File System Error Types
@@ -91,27 +98,24 @@ export interface FileSystemService {
   readonly glob: (pattern: string) => Effect.Effect<readonly string[], GlobError>
 
   /**
-   * Format content with Prettier
+   * Format content with the repository formatter (`bun fmt`, [internal ref])
    * @param content - Content to format
-   * @param options - Prettier options (defaults to project config)
+   * @param filepath - The path the content is formatted AS: it picks the
+   *   language, and `.prettierrc.json` / `.prettierignore` apply to it as to a
+   *   real file there. It need not exist. Defaults to a TypeScript file.
    * @returns Effect that resolves to formatted content
    */
-  readonly format: (
-    content: string,
-    options?: PrettierOptions
-  ) => Effect.Effect<string, FormattingError>
+  readonly format: (content: string, filepath?: string) => Effect.Effect<string, FormattingError>
 
   /**
-   * Write file and format with Prettier
-   * @param path - File path
+   * Write file and format it with the repository formatter
+   * @param path - File path (also picks the language)
    * @param content - Content to write
-   * @param options - Prettier options
    * @returns Effect that completes when write + format is successful
    */
   readonly writeFormatted: (
     path: string,
-    content: string,
-    options?: PrettierOptions
+    content: string
   ) => Effect.Effect<void, FileWriteError | DirectoryCreateError | FormattingError>
 }
 
@@ -220,30 +224,16 @@ export const FileSystemServiceLive = Layer.succeed(
         catch: (error) => new GlobError({ pattern, cause: error }),
       }).pipe(Effect.retry(defaultRetryPolicy)),
 
-    format: (content: string, options?: PrettierOptions) =>
-      Effect.tryPromise({
-        try: async () => {
-          // Default to TypeScript parser if no options provided
-          const defaultOptions: PrettierOptions = {
-            parser: 'typescript',
-            ...options,
-          }
-          return await prettierFormat(content, defaultOptions)
-        },
+    format: (content: string, filepath: string = DEFAULT_FORMAT_PATH) =>
+      Effect.try({
+        try: () => formatText(content, filepath),
         catch: (error) => new FormattingError({ content: content.slice(0, 100), cause: error }),
       }),
 
-    writeFormatted: (path: string, content: string, options?: PrettierOptions) =>
+    writeFormatted: (path: string, content: string) =>
       Effect.gen(function* () {
-        const formatted = yield* Effect.tryPromise({
-          try: async () => {
-            const defaultOptions: PrettierOptions = {
-              parser: 'typescript',
-              filepath: path, // Auto-detect parser from file extension
-              ...options,
-            }
-            return await prettierFormat(content, defaultOptions)
-          },
+        const formatted = yield* Effect.try({
+          try: () => formatText(content, path),
           catch: (error) => new FormattingError({ content: content.slice(0, 100), cause: error }),
         })
 
@@ -256,7 +246,7 @@ export const FileSystemServiceLive = Layer.succeed(
           })
         }
 
-        // Write formatted file. Retried on its own — re-running Prettier and
+        // Write formatted file. Retried on its own — re-running the formatter and
         // `mkdir` because a write failed buys nothing: formatting is
         // deterministic and `mkdir -p` is idempotent, so the only step whose
         // second attempt can differ is the write itself.
@@ -311,14 +301,12 @@ export const glob = (pattern: string) =>
  * Format content with FileSystemService
  * @public
  */
-export const format = (content: string, options?: PrettierOptions) =>
-  FileSystemService.pipe(Effect.flatMap((service) => service.format(content, options)))
+export const format = (content: string, filepath?: string) =>
+  FileSystemService.pipe(Effect.flatMap((service) => service.format(content, filepath)))
 
 /**
  * Write formatted file with FileSystemService
  * @public
  */
-export const writeFormatted = (path: string, content: string, options?: PrettierOptions) =>
-  FileSystemService.pipe(
-    Effect.flatMap((service) => service.writeFormatted(path, content, options))
-  )
+export const writeFormatted = (path: string, content: string) =>
+  FileSystemService.pipe(Effect.flatMap((service) => service.writeFormatted(path, content)))

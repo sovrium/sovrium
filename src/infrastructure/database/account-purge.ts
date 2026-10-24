@@ -16,6 +16,7 @@ import {
   removeFromEveryUserList,
   sweepAppTableAuthorship,
 } from './account-purge-authorship'
+import { deleteAddressKeyedRows } from './account-purge-email-suppressions'
 import { deleteFormSubmissionsOf } from './account-purge-form-submissions'
 import {
   LIVE_ERASURE_SEAMS,
@@ -40,7 +41,6 @@ import {
   shedGrantIssuerIdentifier,
   shedLinkAuthorIdentifier,
 } from './account-purge-steps'
-import { deleteVerificationRows } from './account-purge-verification'
 import { scrubWhatErasureReaches } from './account-purge-webhooks'
 import { executeRaw } from './sql/dialect-execute'
 import { authTableRef, systemTableRef } from './sql/dialect-sql'
@@ -260,7 +260,8 @@ async function eraseAccountRows(
   // 6. Her pending tokens — reset, deletion and invitation links, trusted
   //    devices, emailed codes — by her id or her address; see
   //    {@link deleteVerificationRows}.
-  await deleteVerificationRows(tx, userId, erasedEmail)
+  //    6a. Her address also leaves `email_suppressions` (keyed by address, not by id).
+  await deleteAddressKeyedRows(tx, userId, erasedEmail)
 
   // 6b. Shed this user's identifier from OTHER people's sessions.
   //     `auth.session.impersonated_by` records an ADMIN who impersonated the

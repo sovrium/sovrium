@@ -33,6 +33,7 @@
  */
 
 import { CHECKBOX_FIELD_TYPES, checkboxLiteralOf } from './checkbox-literal-service'
+import { readDriverValue } from './driver-value-service'
 
 /** The field types stored as a number. */
 export const NUMBER_FIELD_TYPES: ReadonlySet<string> = new Set([
@@ -74,16 +75,16 @@ const readStoredNumber = (value: unknown): unknown => {
   return Number.isFinite(numeric) ? numeric : value
 }
 
-/** A valid `Date`, or `undefined`. */
-const validDate = (value: unknown): Readonly<Date> | undefined =>
-  value instanceof Date && !Number.isNaN(value.getTime()) ? value : undefined
-
-/** A stored day as `YYYY-MM-DD`: a driver's `Date` is read on the UTC calendar. */
-const readStoredDate = (value: unknown): unknown =>
-  validDate(value)?.toISOString().slice(0, 10) ?? value
+/**
+ * A stored day as `YYYY-MM-DD`: a driver's `Date` is read as the records API
+ * reads a day ({@link readDriverValue}, on the UTC calendar). Exported for the
+ * form skeleton, which writes a `date` field's value into its control and so
+ * must hold the day, not the `Date`'s local-time text.
+ */
+export const readStoredDate = (value: unknown): unknown => readDriverValue(value, true)
 
 /** A stored instant as the text the write path stores: `2026-10-01T09:30:00.000Z`. */
-const readStoredDatetime = (value: unknown): unknown => validDate(value)?.toISOString() ?? value
+const readStoredDatetime = (value: unknown): unknown => readDriverValue(value, false)
 
 /** The reader of one declared field type, or `undefined` for a type read as it is. */
 const readerOf = (type: string): ((value: unknown) => unknown) | undefined => {

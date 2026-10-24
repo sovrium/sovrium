@@ -139,6 +139,7 @@ export const decodeUsersDirectoryQuery = (
       // An empty facet (`?role=`) is no facet, not a role nobody holds.
       role: raw['role'] === '' ? undefined : raw['role'],
       status: raw['status'] === '' ? undefined : raw['status'],
+      id: raw['id'],
     }),
     {
       onNone: () => ({
@@ -146,13 +147,14 @@ export const decodeUsersDirectoryQuery = (
         reason: 'malformed',
         message: 'Invalid query parameters',
       }),
-      onSome: ({ q, page, limit, sort, order, role, status }) => ({
+      onSome: ({ q, page, limit, sort, order, role, status, id }) => ({
         _tag: 'Ok',
         input: {
           ...(q !== undefined ? { q } : {}),
           ...(sort !== undefined ? { sort, order } : {}),
           ...(role !== undefined ? { role } : {}),
           ...(status !== undefined ? { status } : {}),
+          ...(id !== undefined ? { id } : {}),
           page,
           limit,
         },
@@ -166,7 +168,7 @@ const usersDirectory = defineAdminRead<UsersDirectoryQuery>({
   method: 'get',
   path: '/api/admin/users',
   pathParams: [],
-  queryParams: ['q', 'page', 'limit', 'sort', 'order', 'role', 'status'],
+  queryParams: ['q', 'page', 'limit', 'sort', 'order', 'role', 'status', 'id'],
   tool: {
     suffix: 'users_list',
     description:
@@ -187,6 +189,7 @@ const usersDirectory = defineAdminRead<UsersDirectoryQuery>({
           enum: ['banned', 'active'],
           description: 'Only the banned accounts, or only the others.',
         },
+        id: { type: 'string', description: 'Only the account with exactly this id.' },
         page: { type: 'integer', minimum: 1, description: '1-based page (default 1).' },
         limit: { type: 'integer', minimum: 1, maximum: 200, description: 'Accounts per page.' },
       },
@@ -195,8 +198,8 @@ const usersDirectory = defineAdminRead<UsersDirectoryQuery>({
   openapi: {
     summary: 'List the accounts',
     description:
-      'The secret-free account directory, searched over email and name, narrowed by `role` ' +
-      'and `status`, ordered and paged; ' +
+      'The secret-free account directory, searched over email and name, narrowed by `role`, ' +
+      '`status` and an exact account `id`, ordered and paged; ' +
       '`q` is echoed back as `appliedQuery`. `?format=csv` downloads every matching account ' +
       'instead of the page. Admin only.',
     operationIdBase: 'listAdminUsers',

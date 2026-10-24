@@ -50,6 +50,10 @@ When the binding returns no record, a list says its `listDisplay.emptyMessage` �
     itemTemplate: { title: $record.label }
 ```
 
+## A list inside another list's row
+
+A list drawn from `children` may hold, in its row template, a list bound to a table of its own — the members under each team. The inner list reads its own records in every row of the outer one, with its own `filter`, its reader's permissions and its own `emptyMessage`, exactly as it would at the top of the page; `$record.` inside it reads the inner record. The outer row still fills the inner list's binding, so `filter: [{ field: team, operator: eq, value: $record.id }]` lists each team's own members.
+
 ## Groups come from the view
 
 Bound to one of the table's views, a list draws the view's `groupBy`: a header per group carrying the group's value and its count, in the order the view's `direction` gives, each group's records in the view's sort, and the records whose grouping field is empty in one last group under a neutral heading. Each header opens and closes its group; a view whose `groupBy` declares `collapsed: true` starts with every group closed. A list bound directly to the table is not grouped — the grouping belongs to the view, so a list has no `groupBy` of its own. Only the view's first grouping level is drawn: a `thenBy` nested inside it, which a grid draws as sub-groups, is not drawn on a list, so its records stay in one group per first-level value.

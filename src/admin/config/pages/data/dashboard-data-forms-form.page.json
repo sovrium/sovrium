@@ -314,16 +314,10 @@
                         },
                         "selection": {
                           "mode": "multiple"
-                        }
+                        },
+                        "viewOptions": "toolbar",
+                        "caption": "$t:admin.forms.scope"
                       }
-                    },
-                    {
-                      "type": "text",
-                      "element": "p",
-                      "props": {
-                        "className": "text-foreground-subtle mt-2 text-md"
-                      },
-                      "content": "$t:admin.forms.scope"
                     },
                     {
                       "component": "console-record-sheet",

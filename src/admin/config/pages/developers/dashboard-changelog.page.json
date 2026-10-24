@@ -235,7 +235,8 @@
                       }
                     ],
                     "emptyMessage": "$t:admin.changelog.ledger.empty",
-                    "noMatchMessage": "$t:admin.changelog.ledger.noMatch"
+                    "noMatchMessage": "$t:admin.changelog.ledger.noMatch",
+                    "viewOptions": "toolbar"
                   }
                 },
                 {

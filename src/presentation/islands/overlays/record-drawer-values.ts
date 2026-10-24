@@ -167,23 +167,3 @@ export const invalidJsonFields = (
       return held !== '' && parsedJson(held) === undefined
     })
     .map((entry) => entry.name)
-
-/**
- * The multi-valued links an edit took a record OFF, which the records API only
- * removes when the field is first written empty: a many-to-many write ADDS the
- * links it names and never drops one it leaves out.
- */
-export function droppedLinkFields(
-  entries: ReadonlyArray<ValueEntry>,
-  values: Values,
-  record: Readonly<Record<string, unknown>>
-): readonly string[] {
-  return entries
-    .filter((entry) => entry.type === 'relationship' && entry.allowMultiple === true)
-    .filter((entry) => {
-      const kept = new Set(readLinkedIds(values[entry.name] ?? '', true))
-      const held = readLinkedIds(toEntryFormValue(entry, record[entry.name]), true)
-      return held.some((id) => !kept.has(id))
-    })
-    .map((entry) => entry.name)
-}

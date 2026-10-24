@@ -26,6 +26,16 @@ export type DateInterval = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quart
 /** How the categories are ordered along the axis, or around the pie. */
 export type CategoryOrder = 'option' | 'label' | 'value-asc' | 'value-desc'
 
+/**
+ * The order used when the chart declares none, and whether its categories are
+ * numbers (a number grouping field), which `label` order then counts up.
+ */
+type CategoryOrdering =
+  CategoryOrder | { readonly fallback: CategoryOrder; readonly numeric?: boolean }
+
+const readOrdering = (ordering: CategoryOrdering) =>
+  typeof ordering === 'string' ? { fallback: ordering, numeric: false } : ordering
+
 export interface ChartAggregateConfig {
   readonly function: AggregateFunction
   readonly field?: string
@@ -42,6 +52,8 @@ export interface ChartAggregateConfig {
   readonly fillEmpty?: boolean
   /** The window to fill, resolved on the server; else the first to the last bucket. */
   readonly fillWindow?: { readonly from: string; readonly to: string }
+  /** The grouping field is a number field, resolved on the server: `label` order counts up. */
+  readonly numericKeys?: boolean
 }
 
 /**
@@ -142,7 +154,8 @@ export function aggregateRecords(
     }
   })
   const filled = [...data, ...emptyBuckets(Object.keys(buckets), config)]
-  return foldPastLimit(orderCategories(filled, config.order, options, fallback), buckets, config)
+  const ordering = { fallback, numeric: config.numericKeys === true }
+  return foldPastLimit(orderCategories(filled, config.order, options, ordering), buckets, config)
 }
 
 /** The length of the intervals a window can be stepped through. */
@@ -234,6 +247,12 @@ function categoryLabels(
   }, {})
 }
 
+/** A numeric category's key as its number; one that holds none sorts after every number. */
+const numericKey = (key: string): number => {
+  const value = key.trim() === '' ? Number.NaN : Number(key)
+  return Number.isFinite(value) ? value : Number.POSITIVE_INFINITY
+}
+
 /** Position of a category in the declared options; undeclared ones sort last. */
 const optionRank = (key: string, options: readonly ChartCategoryOption[]): number => {
   const index = options.findIndex((option) => option.value === key)
@@ -260,16 +279,23 @@ const displayName = (
  * the options do not declare goes after the declared ones, by name; ties on a
  * value order break by name too, so a redraw never reshuffles equal bars.
  * Names compare by the label shown, with the stored value as the tie-break.
+ * A `numeric` ordering (a number grouping field) compares its keys by the numbers they
+ * hold, so a 0–10 score counts up — 2, 8, 9, 10 — rather than reading as text.
  */
 export function orderCategories<D extends AggregatedDatum>(
   data: readonly D[],
   order: CategoryOrder | undefined,
   options: readonly ChartCategoryOption[] | undefined,
-  fallback: CategoryOrder = 'label'
+  ordering: CategoryOrdering = 'label'
 ): readonly D[] {
+  const { fallback, numeric } = readOrdering(ordering)
   const effective = order ?? (options && options.length > 0 ? 'option' : fallback)
+  const byNumber = (a: D, b: D): number =>
+    numeric === true ? numericKey(a.key) - numericKey(b.key) : 0
   const byName = (a: D, b: D): number =>
-    displayName(a, options).localeCompare(displayName(b, options)) || a.key.localeCompare(b.key)
+    byNumber(a, b) ||
+    displayName(a, options).localeCompare(displayName(b, options)) ||
+    a.key.localeCompare(b.key)
   if (effective === 'value-asc') return data.toSorted((a, b) => a.value - b.value || byName(a, b))
   if (effective === 'value-desc') return data.toSorted((a, b) => b.value - a.value || byName(a, b))
   if (effective === 'option' && options) {

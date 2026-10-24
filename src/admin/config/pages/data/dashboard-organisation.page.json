@@ -309,7 +309,8 @@
                                         "label": "$t:admin.organisation.exceptions.detail"
                                       }
                                     ],
-                                    "emptyMessage": "$t:admin.organisation.exceptions.empty"
+                                    "emptyMessage": "$t:admin.organisation.exceptions.empty",
+                                    "viewOptions": "toolbar"
                                   }
                                 }
                               ]
@@ -1062,7 +1063,8 @@
                                     }
                                   }
                                 ],
-                                "emptyMessage": "$t:admin.organisation.reach.empty"
+                                "emptyMessage": "$t:admin.organisation.reach.empty",
+                                "viewOptions": "toolbar"
                               }
                             },
                             {

@@ -17,6 +17,7 @@
 import { zonedEndOfIsoDate, zonedStartOfIsoDate } from '@/domain/kernel/time/zoned-calendar'
 import { automationsRunsListQuerySchema } from '@/domain/models/api/admin/automations'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { routineRunSources } from '@/domain/models/app/automations/routine-run-service'
 import { triggerNameFilterOf } from '@/domain/models/app/automations/trigger-entries-service'
 import type { AdminRunsListInput } from './automations-overview'
 import type { AdminRunsListFilters } from '@/application/ports/repositories/automations/admin-automations-repository'
@@ -129,6 +130,7 @@ export function decodeAdminRunsListQuery(raw: unknown, timeZone: string): AdminR
       from,
       to,
       onDemand: query.onDemand === undefined ? undefined : query.onDemand === 'true',
+      routine: query.routine === 'true',
       q: query.q,
       cursor: query.cursor,
       page: query.page,
@@ -161,6 +163,7 @@ export function runsListFilters(app: App, input: AdminRunsListInput): AdminRunsL
     from: input.from === undefined ? undefined : new Date(input.from),
     to: input.to === undefined ? undefined : new Date(input.to),
     onDemand: input.onDemand,
+    hideRoutineOf: input.routine === true ? undefined : routineRunSources(app.automations),
     q: input.q,
     cursorBefore,
     limit: input.limit,

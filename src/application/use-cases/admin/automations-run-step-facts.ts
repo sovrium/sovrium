@@ -12,7 +12,9 @@
 
 import { stepLogEntrySchema } from '@/domain/models/api/automations'
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
+import { stepConnectionOf } from '@/domain/models/app/connections/connection-usage-service'
 import type { AdminRunStep } from '@/domain/models/api/admin/automations'
+import type { App } from '@/domain/models/app'
 
 const decodeStepLogEntry = decodeSafe(stepLogEntrySchema)
 
@@ -43,3 +45,40 @@ export const stepTimingOf = (step: StepTimingColumns) => ({
   completedAt: step.completedAt ?? null,
   durationMs: step.durationMs ?? null,
 })
+
+/** A run-detail step, as far as naming the one a failed run stopped on goes. */
+interface FailedStepCandidate {
+  readonly index: number
+  readonly name: string
+  readonly label?: string | null | undefined
+  readonly status: string
+}
+
+/**
+ * The top-level step a failed run stopped on — its index, its position counted
+ * from 1 and its label — with the connection it reaches its provider through,
+ * so the run page can lead to that one connection. `null` for a run that did
+ * not fail, and for a failed run no step of which failed.
+ */
+export function failedStepOf(
+  app: App,
+  automationName: string,
+  runStatus: string | null,
+  steps: readonly FailedStepCandidate[]
+): {
+  readonly index: number
+  readonly number: number
+  readonly label: string
+  readonly connection?: string
+  readonly connectionLabel?: string
+} | null {
+  const position = runStatus === 'failed' ? steps.findIndex((step) => step.status === 'failed') : -1
+  const failed = steps[position]
+  if (failed === undefined) return null
+  return {
+    index: failed.index,
+    number: position + 1,
+    label: failed.label ?? failed.name,
+    ...stepConnectionOf(app.automations, app.connections, automationName, failed.name),
+  }
+}

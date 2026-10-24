@@ -77,6 +77,25 @@ const answerToasts = ({ successToast, errorToast, close }: CrudFormIslandProps) 
   close,
 })
 
+/**
+ * What the record holds as this form last saw it: the version it was filled
+ * from, then the one each save produced — a second save from the same form
+ * must not conflict with the first one — and the values, so a save can tell
+ * which links it takes off.
+ */
+function useHeldRecord(
+  record: CrudFormIslandProps['record'],
+  filled: Readonly<Record<string, string>>
+) {
+  const [updatedAt, setUpdatedAt] = useState(() => readResponseToken(record))
+  const rememberUpdatedAt = (response: unknown) => {
+    const token = readResponseToken(response)
+    if (token !== undefined) setUpdatedAt(token)
+  }
+  const [heldValues, rememberHeld] = useState(filled)
+  return { updatedAt, rememberUpdatedAt, heldValues, rememberHeld }
+}
+
 export function useCrudFormState(props: CrudFormIslandProps) {
   const {
     operation,
@@ -95,13 +114,7 @@ export function useCrudFormState(props: CrudFormIslandProps) {
   const [filled] = useState(() => buildInitialValues(fields, record, initialValues))
   const [values, setValues] = useState(filled)
   const [state, setState] = useState<FormState>({ isPending: false })
-  // The version the form was filled from, then the one each save produced: a
-  // second save from the same form must not conflict with the first one.
-  const [updatedAt, setUpdatedAt] = useState(() => readResponseToken(record))
-  const rememberUpdatedAt = (response: unknown) => {
-    const token = readResponseToken(response)
-    if (token !== undefined) setUpdatedAt(token)
-  }
+  const { updatedAt, rememberUpdatedAt, heldValues, rememberHeld } = useHeldRecord(record, filled)
   const resetValues = () =>
     setValues((prev) => buildResetValues(fields, prev, preserveFields ?? []))
   const ctx: SubmitContext = {
@@ -111,6 +124,8 @@ export function useCrudFormState(props: CrudFormIslandProps) {
     recordId,
     ...(updatedAt !== undefined && { updatedAt }),
     rememberUpdatedAt,
+    heldValues,
+    rememberHeld,
     redirectUrl,
     ...answerToasts(props),
     resetOnSuccess,

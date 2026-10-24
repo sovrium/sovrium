@@ -13,7 +13,7 @@
  * colour (record data the author declared — never a platform hue); a date in
  * the page language (`3 Nov 2026`); a checkbox as Yes or No; an amount (a
  * currency field, a formula declaring `format: currency`) as the grid prints
- * it; and an empty value as a muted em dash, the way a `record-field` draws
+ * it; a file as a link to it, one per file; and an empty value as a muted em dash, the way a `record-field` draws
  * one, so the row keeps its place in any page language rather than collapsing
  * as if it had never been declared.
  *
@@ -28,6 +28,7 @@ import { optionColor, optionLabel, optionValue } from '@/domain/models/app/table
 import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { resolveOptionChipPaint } from '@/presentation/design/option-chip-paint'
 import { formatRecordValue } from '@/presentation/render/props/record-value-format'
+import { ATTACHMENT_FIELD_TYPES, renderAttachmentLinks } from './record-attachment-links'
 import type { Tables } from '@/domain/models/app/tables'
 import type { SelectOptionLike } from '@/domain/models/app/tables/select-option'
 import type { ReactElement, ReactNode } from 'react'
@@ -36,6 +37,7 @@ const CHIP_CLASSES = 'inline-flex items-center rounded-sm px-1.5 text-xs font-me
 
 interface FieldMeta {
   readonly type?: string
+  readonly bucket?: unknown
   readonly options?: readonly SelectOptionLike[]
   readonly max?: number
 }
@@ -104,6 +106,12 @@ function choiceChips(
   return undefined
 }
 
+/** A choice as its chips, a file list as its links; `undefined` for a value read as text. */
+function structuredDetail(type: string, value: unknown, meta: FieldMeta | undefined): ReactNode {
+  if (ATTACHMENT_FIELD_TYPES.has(type)) return renderAttachmentLinks(value, meta)
+  return choiceChips(type, value, meta?.options)
+}
+
 /** The value as text when it is an object (a user, a linked record): its name. */
 const plainText = (value: unknown): string => {
   if (typeof value !== 'object' || value === null) return String(value)
@@ -144,8 +152,8 @@ export function renderFieldDetail({
   if (isEmptyCell(value)) return undefined
   const meta = fieldMetaOf(tables, tableName, fieldName)
   const type = meta?.type ?? ''
-  const chips = choiceChips(type, value, meta?.options)
-  if (chips !== undefined) return chips
+  const nodes = structuredDetail(type, value, meta)
+  if (nodes !== undefined) return nodes
   if (type === 'rating') return `${String(value)} of ${String(meta?.max ?? 5)}`
   const toText = TEXT_BY_TYPE[type]
   return toText === undefined

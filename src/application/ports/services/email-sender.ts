@@ -54,6 +54,12 @@ export interface OutgoingEmail {
   readonly replyTo?: readonly string[] | undefined
   /** Files attached to the message; every transport carries them or fails the send. */
   readonly attachments?: readonly EmailAttachment[] | undefined
+  /**
+   * Extra message headers, name to value, already checked against the
+   * allow-list and free of line breaks (`email/send`'s `headers`, and the
+   * unsubscribe pair a bulk send carries). Carried by the SMTP transport.
+   */
+  readonly headers?: Readonly<Record<string, string>> | undefined
 }
 
 export class EmailSender extends Context.Service<

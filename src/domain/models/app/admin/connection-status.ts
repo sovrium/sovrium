@@ -121,15 +121,21 @@ export const deriveConnectionHealth = (
  * The connection-level status the console lists: {@link deriveConnectionHealth}
  * of its tokens, except that an `oauth2` connection holding no token at all is
  * `not-connected` — nobody has authorized it, so nothing can call the provider
- * yet. A static-secret connection (apiKey, basic, bearer) never holds a token
- * and stays `active`.
+ * yet. A static-secret connection (apiKey, basic, bearer) never holds a token:
+ * it is `active` when its credential resolves, and `not-configured` when
+ * `credentialUnset` says it reads a `$env.` variable that is not set on this
+ * instance — every run that needs it is skipped until it is.
  */
 export const deriveConnectionListStatus = (
   type: string,
   tokens: readonly TokenHealthInput[],
-  now: number = Date.now()
-): ConnectionStatus =>
-  type === 'oauth2' && tokens.length === 0 ? 'not-connected' : deriveConnectionHealth(tokens, now)
+  now: number = Date.now(),
+  credentialUnset = false
+): ConnectionStatus => {
+  if (type === 'oauth2' && tokens.length === 0) return 'not-connected'
+  if (type !== 'oauth2' && tokens.length === 0 && credentialUnset) return 'not-configured'
+  return deriveConnectionHealth(tokens, now)
+}
 
 /**
  * Compute the SOONEST expiry across a connection's token rows as an epoch-

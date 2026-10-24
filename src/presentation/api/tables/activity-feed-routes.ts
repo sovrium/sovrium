@@ -25,10 +25,12 @@ import { toErrorResponse } from '@/presentation/api/runtime/run-effect'
 import {
   activityAdmission,
   admitsActivityEntry,
+  entryReaderRows,
   filterAudienceEntries,
   projectActivityActor,
   projectActivityChanges,
   projectEntryActor,
+  readerIsAdmin,
   toWireEntry,
 } from './activity-reader-gate'
 import { buildPaginatedResponse, parsePaginationParams } from './activity-response'
@@ -77,12 +79,14 @@ async function handleGetActivityById(c: Context, app: App) {
   }
 
   const activity = result.success
-  if (!(await admitsActivityEntry(c, app, activity))) return activityNotFound(c)
+  // The caller's rows are read once, for the admission and the projection alike.
+  const rows = readerIsAdmin(c, app) ? undefined : await entryReaderRows(c, app, activity.tableName)
+  if (!(await admitsActivityEntry(c, app, activity, rows))) return activityNotFound(c)
 
   return c.json(
     {
       ...activity,
-      changes: await projectActivityChanges(c, app, activity),
+      changes: await projectActivityChanges(c, app, activity, rows),
       user: projectActivityActor(c, app, activity.user),
     },
     200

@@ -305,7 +305,8 @@
                             "align": "right"
                           }
                         ],
-                        "emptyMessage": "$t:admin.analytics.noPages"
+                        "emptyMessage": "$t:admin.analytics.noPages",
+                        "viewOptions": "toolbar"
                       }
                     },
                     {
@@ -364,7 +365,8 @@
                                     "align": "right"
                                   }
                                 ],
-                                "emptyMessage": "$t:admin.pages.noReferrers"
+                                "emptyMessage": "$t:admin.pages.noReferrers",
+                                "viewOptions": "toolbar"
                               }
                             },
                             {
@@ -402,7 +404,8 @@
                                     "align": "right"
                                   }
                                 ],
-                                "emptyMessage": "$t:admin.pages.noCampaigns"
+                                "emptyMessage": "$t:admin.pages.noCampaigns",
+                                "viewOptions": "toolbar"
                               }
                             }
                           ]
@@ -465,7 +468,8 @@
                                     "align": "right"
                                   }
                                 ],
-                                "emptyMessage": "$t:admin.analytics.noDevices"
+                                "emptyMessage": "$t:admin.analytics.noDevices",
+                                "viewOptions": "toolbar"
                               }
                             },
                             {
@@ -500,7 +504,8 @@
                                     "align": "right"
                                   }
                                 ],
-                                "emptyMessage": "$t:admin.analytics.noBrowsers"
+                                "emptyMessage": "$t:admin.analytics.noBrowsers",
+                                "viewOptions": "toolbar"
                               }
                             },
                             {
@@ -535,7 +540,8 @@
                                     "align": "right"
                                   }
                                 ],
-                                "emptyMessage": "$t:admin.analytics.noOs"
+                                "emptyMessage": "$t:admin.analytics.noOs",
+                                "viewOptions": "toolbar"
                               }
                             }
                           ]
@@ -590,7 +596,8 @@
                                 "format": "datetime"
                               }
                             ],
-                            "emptyMessage": "$t:admin.analytics.noEvents"
+                            "emptyMessage": "$t:admin.analytics.noEvents",
+                            "viewOptions": "toolbar"
                           }
                         }
                       ]
@@ -843,7 +850,8 @@
                                 }
                               }
                             ],
-                            "emptyMessage": "$t:admin.footprint.nothing"
+                            "emptyMessage": "$t:admin.footprint.nothing",
+                            "viewOptions": "toolbar"
                           }
                         },
                         {
@@ -904,7 +912,8 @@
                                 }
                               }
                             ],
-                            "emptyMessage": "$t:admin.footprint.noLevers"
+                            "emptyMessage": "$t:admin.footprint.noLevers",
+                            "viewOptions": "toolbar"
                           }
                         },
                         {
@@ -1215,7 +1224,8 @@
                                 }
                               }
                             ],
-                            "emptyMessage": "$t:admin.footprint.nothing"
+                            "emptyMessage": "$t:admin.footprint.nothing",
+                            "viewOptions": "toolbar"
                           }
                         },
                         {
@@ -1276,7 +1286,8 @@
                                 }
                               }
                             ],
-                            "emptyMessage": "$t:admin.footprint.noLevers"
+                            "emptyMessage": "$t:admin.footprint.noLevers",
+                            "viewOptions": "toolbar"
                           }
                         },
                         {
@@ -1586,7 +1597,8 @@
                                 }
                               }
                             ],
-                            "emptyMessage": "$t:admin.footprint.nothing"
+                            "emptyMessage": "$t:admin.footprint.nothing",
+                            "viewOptions": "toolbar"
                           }
                         },
                         {
@@ -1647,7 +1659,8 @@
                                 }
                               }
                             ],
-                            "emptyMessage": "$t:admin.footprint.noLevers"
+                            "emptyMessage": "$t:admin.footprint.noLevers",
+                            "viewOptions": "toolbar"
                           }
                         },
                         {

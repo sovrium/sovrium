@@ -40,6 +40,7 @@ import {
 import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { readableName } from '@/domain/models/app/auth/readable-name-service'
 import { logError } from '@/infrastructure/logging/logger'
+import { signInMethodLabelOf } from './sign-in-method-labels'
 import type { ConsoleLabels } from '@/application/use-cases/admin/operator-language'
 
 /**
@@ -63,7 +64,11 @@ const DEFAULT_DIRECTORY_ROLE = 'member'
  * make the two identical to every reader of the response.
  */
 /** Without a reader's labels, both read the name made readable. */
-const READABLE_LABELS: ConsoleLabels = { role: readableName, group: readableName }
+const READABLE_LABELS: ConsoleLabels = {
+  role: readableName,
+  group: readableName,
+  signInMethod: (id) => signInMethodLabelOf(id, 'en'),
+}
 
 /** The row's role and what the console calls it. */
 const roleOf = (
@@ -121,10 +126,17 @@ export interface UsersDirectoryInput {
   readonly role?: string | undefined
   /** `banned` keeps the banned accounts, `active` the others. */
   readonly status?: 'banned' | 'active' | undefined
+  /**
+   * Only the account with exactly this id: how a page addressed by an account
+   * id reads its one account. Looked up, never searched — an id nobody holds
+   * (an email address included) matches no row.
+   */
+  readonly id?: string | undefined
 }
 
 /** Whether a projected row passes the directory's role and status filters. */
 const passesFilters = (row: Readonly<ProjectedRow>, input: UsersDirectoryInput): boolean =>
+  (input.id === undefined || row.id === input.id) &&
   (input.role === undefined || row.role === input.role) &&
   (input.status === undefined || row.banned === (input.status === 'banned'))
 
@@ -213,13 +225,29 @@ const withGroups = (
   })
 
 /**
+ * Whether nobody has claimed the account, and its state in one word. Unclaimed
+ * is no way to sign in and no sign-in ever (a passwordless sign-in leaves a
+ * session, not a method); pending invitees never reach here, the directory
+ * leaves them out.
+ */
+const claimOf = (
+  banned: boolean,
+  signInMethods: readonly string[],
+  lastSignInAt: string | null
+): { readonly unclaimed: boolean; readonly status: 'active' | 'banned' | 'unclaimed' } => {
+  const unclaimed = signInMethods.length === 0 && lastSignInAt === null
+  return { unclaimed, status: banned ? 'banned' : unclaimed ? 'unclaimed' : 'active' }
+}
+
+/**
  * Attach to each row what its sessions and sign-in accounts say — when it last
  * signed in, how many sessions it holds unexpired, and how it signs in — in ONE
  * read for the whole page. An account that never signed in reads `null`, `0`
  * and an empty list.
  */
 const withAccountFacts = (
-  rows: readonly ProjectedRow[]
+  rows: readonly ProjectedRow[],
+  labels: ConsoleLabels
 ): Effect.Effect<readonly DirectoryRow[], UsersDirectoryDatabaseError, UsersDirectoryRepository> =>
   Effect.gen(function* () {
     const now = new Date(yield* Clock.currentTimeMillis)
@@ -229,11 +257,15 @@ const withAccountFacts = (
     )
     return rows.map((row) => {
       const fact = facts.get(row.id)
+      const signInMethods = [...(fact?.signInMethods ?? [])]
+      const lastSignInAt = isoOf(fact?.lastSignInAt ?? null)
       return {
         ...row,
-        lastSignInAt: isoOf(fact?.lastSignInAt ?? null),
+        lastSignInAt,
         activeSessionCount: fact?.activeSessionCount ?? 0,
-        signInMethods: [...(fact?.signInMethods ?? [])],
+        signInMethods,
+        signInMethodLabels: signInMethods.map(labels.signInMethod ?? readableName),
+        ...claimOf(row.banned, signInMethods, lastSignInAt),
       }
     })
   })
@@ -283,7 +315,10 @@ export const BuildUsersDirectory = (
       .filter((row) => passesFilters(row, input))
     const body = {
       users: [
-        ...(yield* withGroups(yield* withAccountFacts(orderAndPage(matching, input)), labels)),
+        ...(yield* withGroups(
+          yield* withAccountFacts(orderAndPage(matching, input), labels),
+          labels
+        )),
       ],
       total: matching.length,
       // `null`, not `undefined`: the KEY's presence is the signal (see

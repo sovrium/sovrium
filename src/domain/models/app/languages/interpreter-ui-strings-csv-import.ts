@@ -86,7 +86,7 @@ export const CSV_IMPORT_UI_STRINGS: Readonly<Record<string, Readonly<Record<stri
   /** The import running, and what it did. */
   'csvImport.importing': { en: 'Importing records', fr: 'Import des enregistrements' },
   'csvImport.imported': {
-    en: '{count} records imported successfully',
+    en: '{count} records imported',
     fr: '{count} enregistrements importés',
   },
   'csvImport.created': { en: '{count} records created', fr: '{count} enregistrements créés' },

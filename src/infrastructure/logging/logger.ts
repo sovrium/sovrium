@@ -259,6 +259,27 @@ export const logError = (message: string, cause?: unknown, attributes?: LogAttri
 export const logWarning = (message: string, attributes?: LogAttributes): void =>
   emitTelemetryLog('warn', message, undefined, { attributes: redactLogAttributes(attributes) })
 
+/** The messages {@link logWarningOnce} has already printed in this process. */
+const warnedOnce = new Set<string>()
+
+/**
+ * Log a warning the first time this exact message is seen in the process, and
+ * never again.
+ *
+ * For a condition that stays true on every request — a file a page reads that
+ * is not there — where a line per request would bury every other line in the
+ * log. The memory lasts as long as the process and grows with each distinct
+ * message, so the message must come from a bounded set (names the config
+ * declares), never from request input.
+ *
+ * @param message - Warning message, which is also what makes it "the same"
+ */
+export const logWarningOnce = (message: string, attributes?: LogAttributes): void => {
+  if (warnedOnce.has(message)) return
+  warnedOnce.add(message)
+  logWarning(message, attributes)
+}
+
 /**
  * Log an info message
  *

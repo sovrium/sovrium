@@ -33,6 +33,8 @@ Hard delete removes the row irreversibly and is reserved for an **admin-equivale
 
 **Reserve this for genuine erasure**, such as answering a right-to-erasure request over personal data. A financial ledger or anything audit-adjacent should rely on soft delete alone: there is no restore after a permanent delete, and the change history cannot reconstitute the row.
 
+A record that other rows still link to — through a relationship with no `onDelete` — cannot be deleted for good while those links exist: the delete answers `409` with `code: CONFLICT`, saying which table still links to it, and nothing is deleted. Unlink those rows, or delete them first, then delete the record again. The table is named only to a caller who may read it; anyone else receives the same `409` without the name.
+
 ### `?purge=true` — erasure that also takes the files
 
 ```

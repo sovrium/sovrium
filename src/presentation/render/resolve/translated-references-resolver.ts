@@ -16,6 +16,15 @@ const BODY_REFERENCE = /\$(?:record|app|param)\./
 /** The head fills `$app.*` and `$param.*` itself, per language; only the record is the page's. */
 const HEAD_REFERENCE = /\$record\./
 
+/** `card` with its `description` passed through `translate`, when it has one. */
+const withTranslatedDescription = <T extends { readonly description?: string | undefined }>(
+  card: T,
+  translate: (text: string) => string
+): T =>
+  typeof card.description === 'string'
+    ? { ...card, description: translate(card.description) }
+    : card
+
 /**
  * Translate, ahead of the reference passes, every `$t:` value whose translation
  * carries a reference those passes fill — so a byline written as
@@ -31,10 +40,11 @@ const HEAD_REFERENCE = /\$record\./
  * row by its own pass.
  *
  * Every other `$t:` value is left as the key, so the renderer's own
- * translation — and its per-language data — is unchanged. A `meta.title` or
- * `meta.description` is translated here only for a `$record.*` reference: the
- * head fills `$app.*` and `$param.*` in every language itself, and a title
- * naming the page's record is composed for the served language.
+ * translation — and its per-language data — is unchanged. A `meta.title`, a
+ * `meta.description` or a sharing card's description is translated here only
+ * for a `$record.*` reference: the head fills `$app.*` and `$param.*` in every
+ * language itself, and a title naming the page's record is composed for the
+ * served language. So the three descriptions resolve alike.
  */
 export function translateReferencedKeys(
   page: Page,
@@ -50,6 +60,7 @@ export function translateReferencedKeys(
       return reference.test(translated) ? translated : text
     }
   const { meta } = page
+  const head = translateIf(HEAD_REFERENCE)
   return {
     ...page,
     components: mapStringsDeep(page.components, translateIf(BODY_REFERENCE)) as Page['components'],
@@ -59,9 +70,13 @@ export function translateReferencedKeys(
     ...(meta !== undefined && {
       meta: {
         ...meta,
-        ...(typeof meta.title === 'string' && { title: translateIf(HEAD_REFERENCE)(meta.title) }),
-        ...(typeof meta.description === 'string' && {
-          description: translateIf(HEAD_REFERENCE)(meta.description),
+        ...(typeof meta.title === 'string' && { title: head(meta.title) }),
+        ...(typeof meta.description === 'string' && { description: head(meta.description) }),
+        ...(meta.openGraph !== undefined && {
+          openGraph: withTranslatedDescription(meta.openGraph, head),
+        }),
+        ...(meta.twitter !== undefined && {
+          twitter: withTranslatedDescription(meta.twitter, head),
         }),
       },
     }),

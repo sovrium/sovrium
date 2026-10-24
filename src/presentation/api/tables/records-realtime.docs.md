@@ -116,6 +116,8 @@ On a table the records API reads row by row — one listed in `auth.scopeTables`
 - a delete is delivered when they could read the row before it was deleted;
 - any other change is not delivered at all.
 
+The `X-Subscription-Fields` response header lists the fields the subscriber's own role reads on the table: the role-level set. An event for a row a per-record grant opens to them may carry more fields than the header names — those the grant's role reads on that row — so a client that needs to know which fields an event holds reads them from the event, not from the header. For a subscriber with no grant, the header names exactly the fields their events carry.
+
 ## A change to the subscriber's access closes the subscription
 
 Who the subscriber is — their roles, their groups and the records assigned to them — is read when the subscription opens. When it changes, the subscriber's open connections are closed, and the client reconnects and is judged again: with the new access it gets a stream with the new columns and rows; with none it gets the `404` of a table that does not exist, and stops.

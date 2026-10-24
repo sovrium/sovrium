@@ -65,7 +65,8 @@ export const commentsFields = {
   /** Optional explicit record id (overrides `$record.id`). */
   recordId: Schema.optional(
     Schema.String.annotate({
-      description: 'Record id whose comments to display (auto-resolved to $record.id by default)',
+      description:
+        'Record id whose comments to display (auto-resolved to $record.id by default). A $record.* reference resolves against the page record, in both displays.',
     })
   ),
   /** Comments per page (default: 20). */

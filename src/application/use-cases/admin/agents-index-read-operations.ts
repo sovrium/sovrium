@@ -45,6 +45,7 @@ import {
 } from '@/domain/models/app/agents/agent-identity'
 import { buildChatToolDefinitions } from '@/domain/models/app/agents/ai-chat-tools'
 import { readableName } from '@/domain/models/app/auth/readable-name-service'
+import { toolLabelOf } from './agent-tool-labels'
 import type { AdminReadOperation } from '@/application/use-cases/admin/admin-read-operation'
 import type { App } from '@/domain/models/app'
 
@@ -244,7 +245,7 @@ const agentRead = defineAdminRead<string>({
         isSystem: isSystemAgentName(name),
         model: agentModel(app, name),
         tools,
-        toolLabels: tools.map((tool) => readableName(tool)),
+        toolLabels: tools.map((tool) => toolLabelOf(tool, language)),
         conversationCount,
       })
     }),

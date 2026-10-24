@@ -27,10 +27,13 @@ import { renderNow } from '@/presentation/render/page/render-clock'
 import { resolveActiveMarkers } from '@/presentation/render/resolve/active-marker-resolver'
 import { resolvePageAppVars } from '@/presentation/render/resolve/app-vars-resolver'
 import { withAvatarUsers } from '@/presentation/render/resolve/avatar-members-binding'
+import { linksAndLabelsFor } from '@/presentation/render/resolve/bound-record-links'
 import { resolveAddressedDrawerTitle } from '@/presentation/render/resolve/drawer-record-title-resolver'
 import { resolvePageInvitation } from '@/presentation/render/resolve/invitation-resolver'
 import { resolveCollectionPage } from '@/presentation/render/resolve/page-collection-resolver'
 import { resolvePageQueryProps } from '@/presentation/render/resolve/query-props-resolver'
+import { resolveReaderReferences } from '@/presentation/render/resolve/reader-reference-pass'
+import { recordLabelsOf } from '@/presentation/render/resolve/record-display-labels'
 import {
   callerRecordGateOf,
   readRowsForCaller,
@@ -115,7 +118,7 @@ function prepareRequestPage(input: {
     requestPath,
   } = input
   const request = { routeParams, session, lang, admitUndeclared: input.sampleAddress === true }
-  const boundTables = resolveRouteBoundTables(matchedPage, app, request)
+  const boundTables = resolveRouteBoundTables(matchedPage, app, { ...request, hostApp })
   if (boundTables === 'not-found') return 'not-found'
   // Answer columns come from the forms the admin API serves: a mount's host's.
   const { callerCapabilities } = input
@@ -232,8 +235,7 @@ export async function resolveCollectionAndFilter(
   // P7 then the four `$`-reference passes, in one step — see
   // `prepareRequestPage`. `'not-found'` is the route-bound-table 404.
   const invited = await resolveRequestBoundPasses(input)
-  // Pure pass-throughs to `resolveAndFilterPage` — the per-request locale and
-  // query context, grouped so it reads as one thing.
+  // Pass-throughs to `resolveAndFilterPage`: the per-request locale and query.
   const { detectedLanguage, requestQuery } = input
   // The page's served language, resolved ONCE: a route-bound grid's label
   // speaks it, and it rides on `db` to every `$record.` text site.
@@ -241,7 +243,8 @@ export async function resolveCollectionAndFilter(
   const translated = translateReferencedKeys(invited, lang, app.languages)
   const prepared = prepareRequestPage({ ...input, matchedPage: translated, lang })
   if (prepared === 'not-found') return undefined
-  const matchedPage = resolveSidebarState(prepared, cookies)
+  // The reader's references, made concrete on the template before any record is read.
+  const matchedPage = resolveSidebarState(resolveReaderReferences(prepared, session), cookies)
   const recordText = { locale: lang, tables: app.tables, languages: app.languages }
   const db = { ...input.db, recordText }
   // Editorial-role preview bypasses `collection.filter` so admins/editors can
@@ -269,8 +272,7 @@ export async function resolveCollectionAndFilter(
     collectionResolution.kind === 'match' ? collectionResolution.page : matchedPage,
     { app, session, db, requestQuery }
   )
-  // The collection record, for an embedded form's `inlinePrefill` `$record.*`
-  // tokens (`resolvePageParentRecord` handles `dataSource: single` only).
+  // The record, for an embedded form's `inlinePrefill` `$record.*` (`single` is the parent's).
   const collectionRecord =
     collectionResolution.kind === 'match' ? collectionResolution.record : undefined
   return resolveAndFilterPage({
@@ -341,8 +343,10 @@ function collectionReadGateOf(
   const gate = callerRecordGateOf({ app, tableName, session, db })
   if (gate.kind === 'refused') return { refuseRecord: true }
   const { address } = collectionAttachments(page, app, db)
+  const labelled = linksAndLabelsFor({ app, session, db, tableName })
   return {
-    projectRecord: async (record) => address(await gate.project(record)),
+    // Its many-to-many links and its labels, as the records API reads it for her.
+    projectRecord: async (record) => labelled(await address(await gate.project(record))),
     ...(gate.rowCheck !== undefined ? { rowLevelReadCheck: gate.rowCheck } : {}),
     readRows: async (query) =>
       (await readRowsForCaller({ app, tableName, session, db, query })).rows,
@@ -350,7 +354,7 @@ function collectionReadGateOf(
     readViewerRows: (lookup) => readViewerRowIds(lookup, { app, session, db }),
     // An avatar group's `users`: the people the record names, by the names she may read.
     fillFromRecord: async (components, record) =>
-      withAvatarUsers(components, await db.readRecordLabels?.(app, tableName, record, session)),
+      withAvatarUsers(components, recordLabelsOf(record)),
   }
 }
 

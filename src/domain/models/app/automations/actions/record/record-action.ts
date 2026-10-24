@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { RecordAggregateActionSchema } from './aggregate'
 import { RecordBatchCreateActionSchema } from './batch-create'
 import { RecordBatchDeleteActionSchema } from './batch-delete'
 import { RecordBatchUpdateActionSchema } from './batch-update'
@@ -31,6 +32,7 @@ export const RecordActionSchema = Schema.Union([
   RecordBatchUpdateActionSchema,
   RecordBatchDeleteActionSchema,
   RecordBatchUpsertActionSchema,
+  RecordAggregateActionSchema,
 ]).pipe(
   Schema.annotate({
     identifier: 'RecordAction',
