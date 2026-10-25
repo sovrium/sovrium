@@ -13,6 +13,10 @@ import { isPhysicalColumnField } from '../sql/sql-field-predicates'
 import { mapFieldTypeToPostgres } from '../sql/sql-generators'
 import { mapFormulaResultTypeToPostgres } from '../sql/sql-type-mappings'
 import { resolvePrimaryKeyColumnType } from '../table-operations/column-generators'
+import {
+  intervalDurationSubcommands,
+  isIntervalDurationConversion,
+} from './duration-column-conversion'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
 /**
@@ -316,6 +320,9 @@ export const generateAlterColumnTypeStatement = (
   const columnName = quoteSqlIdentifier(field.name)
   const normalizedExisting = normalizeDataType(existingDataType)
   const normalizedTarget = normalizeDataType(targetType)
+  if (isIntervalDurationConversion(field, normalizedExisting, normalizedTarget)) {
+    return `ALTER TABLE ${tableName} ${intervalDurationSubcommands(field, columnName)}`
+  }
   const usingClause =
     attachmentKeyToJsonbUsing(field, columnName, normalizedExisting, normalizedTarget) ??
     userIdToListUsing(field, columnName, normalizedExisting, normalizedTarget) ??

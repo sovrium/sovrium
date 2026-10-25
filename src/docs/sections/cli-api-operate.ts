@@ -11,6 +11,8 @@ import cliAdminBody from '@/cli/commands/cli-admin.docs.md' with { type: 'file' 
 import deployBody from '@/cli/commands/deploy.docs.md' with { type: 'file' }
 import envBody from '@/cli/commands/env.docs.md' with { type: 'file' }
 import loginBody from '@/cli/commands/login.docs.md' with { type: 'file' }
+import previewBody from '@/cli/commands/preview.docs.md' with { type: 'file' }
+import usageBody from '@/cli/commands/usage.docs.md' with { type: 'file' }
 import { defineArticle } from './define'
 import type { DocArticle } from './define'
 
@@ -64,6 +66,26 @@ export const operateCliArticles: readonly DocArticle[] = [
     body: backupBody,
     documents: [],
     stories: ['US-CLI-COMMANDS-BACKUP-RESTORE'],
+  }),
+  defineArticle({
+    slug: 'usage',
+    title: 'Measure an Install',
+    description:
+      'Print how many bytes an install holds with sovrium usage: the database with its write-ahead log or its PostgreSQL size, and the stored files, without changing anything.',
+    keywords: [
+      'sovrium usage',
+      'usage',
+      'database size',
+      'storage size',
+      'pg_database_size',
+      '--json',
+      '--report',
+    ],
+    order: 1436,
+    sidebarLabel: 'Measure an Install',
+    body: usageBody,
+    documents: [],
+    stories: ['US-CLI-COMMANDS-USAGE'],
   }),
   defineArticle({
     slug: 'bundle',
@@ -127,6 +149,7 @@ export const operateCliArticles: readonly DocArticle[] = [
       'requiredEnv',
       '--seed',
       'sovrium seed --app',
+      '--from-preview',
     ],
     order: 1439,
     sidebarLabel: 'Deploy',
@@ -155,5 +178,29 @@ export const operateCliArticles: readonly DocArticle[] = [
     body: envBody,
     documents: [],
     stories: ['US-CLI-COMMANDS-ENV'],
+  }),
+  defineArticle({
+    slug: 'preview',
+    title: 'Share a Preview',
+    description:
+      'Put a change online with sovrium preview: the same bundle sovrium deploy ships, running at a share address of its own until it expires, while the live app stays as it is — then promote it with sovrium deploy --from-preview.',
+    keywords: [
+      'sovrium preview',
+      'preview',
+      'share',
+      'share address',
+      'feedback',
+      'Expires',
+      '--from-preview',
+      'sovrium deploy --from-preview',
+      '--app',
+      '--no-wait',
+      '--env',
+    ],
+    order: 1442,
+    sidebarLabel: 'Preview',
+    body: previewBody,
+    documents: [],
+    stories: ['US-CLI-COMMANDS-PREVIEW'],
   }),
 ]

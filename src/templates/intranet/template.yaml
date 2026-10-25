@@ -1,0 +1,150 @@
+title: 'Halden Intranet'
+tagline: |
+  A company intranet: the must-read first, the news, a searchable directory, the resources, and a Publish page for managers.
+intro: |
+  Halden — a company intranet. A public welcome page, sign-in by a link emailed to a work
+  address (a password on its own page as the fallback), and behind it the hub everyone opens
+  in the morning: the must-read on top with how many colleagues have acknowledged it, the
+  latest news with who wrote it, what is coming up, who joined in the last 30 days, a
+  searchable directory and the company's resources. Managers publish from their own page;
+  nobody else is offered it.
+glance:
+  - |-
+    **Tables** (6): company (one row; its `headcount` counts the directory), members (the
+    directory, with a `manager` link to the same table), posts (announcements; `must_read_by`
+    makes one a must-read, `ack_line` reads "31 of 46"), acknowledgements, events, resources
+  - '**Forms** (1): publish-announcement (rendered on `/publish`)'
+  - |-
+    **Pages** (8): portal (`/portal`, Home), news, people, resources, publish (managers only),
+    home (`/`), sign-in (the link), sign-in-password (the fallback)
+  - |-
+    **Automations** (2): sign-new-announcement (signs, dates and addresses a new announcement),
+    and record-to-teams-channel — a library recipe (`library/recipe/`, with its
+    `library/connection/microsoft-365.yaml`) posting each new announcement to a Teams channel
+    once the Microsoft variables are set
+  - '**Singletons**: auth, design, env'
+  - |-
+    **Seed data**: `seed/` — eight sign-in accounts, forty-six colleagues (thirty-eight of them
+    invented), six announcements, thirty-one acknowledgements, three dates and ten resources,
+    dated relative to the day you seed
+  - '**Static assets**: `public/` (served at the site root)'
+glanceClose: |
+  Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
+assistant: |
+  Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+  run into `.claude/skills/`; start from `sovrium-app` for any change to the config. The
+  design system is in `config/design.yaml`: read its comments before changing a colour, keep
+  one accent, and keep colour for the outcomes of an announcement (acknowledged, due, a link
+  that expired). Never call an announcement or a colleague a "record" or a "row" in the
+  interface, and never tell someone they lack a role — leave out what they cannot use.
+whatsInside: |
+  - **Welcome** (`/`) — the public door: what the hub holds and one way in. It names nobody.
+  - **Sign-in** (`/sign-in`) — a work email and a link sent to it, no password to remember.
+    "Use a password instead" opens the password form on its own page (`/sign-in/password`).
+  - **Home** (`/portal`) — the must-read on top, with its acknowledge-by date and how many
+    colleagues have acknowledged it ("31 of 46"); the latest news with who wrote it; what is
+    coming up; who joined in the last 30 days; and the tools. A search box finds the hub's
+    pages you may open. An announcement's title opens it in a drawer.
+  - **News** — every announcement, newest first, with an index beside it that narrows by
+    topic or by a word of the title.
+  - **People** — everyone at the company with their role, team, office and manager; search by
+    name, narrow by team or office.
+  - **Resources** — guides, policies and tools, grouped, each with its address.
+  - **Publish** (managers only) — write an announcement; give it an "acknowledge by" date to
+    make it a must-read. It is signed with your name and lands on everyone's Home.
+  - Optional: each new announcement is also posted in your Microsoft Teams channel. It is the
+    `record-to-teams-channel` recipe from the Sovrium library (`sovrium library add
+  recipe/record-to-teams-channel`); set the Microsoft variables in `.env.example` to turn it
+    on — without them the app runs exactly the same.
+
+  Sign-up is closed: IT adds each colleague. Everything is declared in
+  [`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no application code. Edit the
+  config, restart, done.
+whatToTry: |
+  Load the demo data first. It creates eight accounts at Halden, a software company with six
+  offices, and a directory of forty-six colleagues — thirty-eight of them invented to fill it
+  out — with six announcements, dated relative to today:
+
+  ```bash
+  SOVRIUM_SEED_PASSWORD=choose-a-password sovrium seed app.yaml
+  sovrium start app.yaml
+  ```
+
+  1. Open `/sign-in`, choose **Use a password instead** and sign in as
+     **jules.marchand@halden.example** (member). Home greets you with the security training
+     on top: acknowledge within six days, 31 of 46 done.
+  2. Open the must-read from its title: who wrote it, what it asks and the full text.
+  3. On **People**, search for **Keiko**: data and reporting, in Berlin.
+  4. Sign in as **priya.raghunathan@halden.example** (a manager). **Publish** appears in the
+     navigation. Publish an announcement with an acknowledge-by date: it tops everyone's Home.
+  5. Sign in as **omar.haddad@halden.example** (IT, the admin), the only one who can delete an
+     announcement.
+
+  The acknowledgements are demo data: the app counts them, but has no Acknowledge button yet.
+  A post is addressed to the whole company; one team or one office only is not something an
+  announcement can be limited to.
+env:
+  - name: 'SOVRIUM_SEED_PASSWORD'
+    section: 'Demo data'
+    description: |-
+      `sovrium seed` creates the eight demo accounts of seed/users.yaml with this
+      password. Seeding refuses to run without it.
+      Every seeded account shares it, the admin included: pick a strong one, or
+      do not seed an app other people can reach.
+  - name: 'SMTP_HOST'
+    section: 'Email (the sign-in link, operator emails)'
+    description: |-
+      The sign-in link is sent by email, so it needs SMTP. Without SMTP_HOST no
+      email leaves the app and the link never arrives — sign in with a password
+      instead ("Use a password instead" on the sign-in page), which works
+      without any of these.
+  - name: 'SMTP_PORT'
+    section: 'Email (the sign-in link, operator emails)'
+    description: |-
+      The sign-in link is sent by email, so it needs SMTP. Without SMTP_HOST no
+      email leaves the app and the link never arrives — sign in with a password
+      instead ("Use a password instead" on the sign-in page), which works
+      without any of these.
+    example: '587'
+  - name: 'SMTP_USER'
+    section: 'Email (the sign-in link, operator emails)'
+    description: |-
+      The sign-in link is sent by email, so it needs SMTP. Without SMTP_HOST no
+      email leaves the app and the link never arrives — sign in with a password
+      instead ("Use a password instead" on the sign-in page), which works
+      without any of these.
+  - name: 'SMTP_PASS'
+    section: 'Email (the sign-in link, operator emails)'
+    description: |-
+      The sign-in link is sent by email, so it needs SMTP. Without SMTP_HOST no
+      email leaves the app and the link never arrives — sign in with a password
+      instead ("Use a password instead" on the sign-in page), which works
+      without any of these.
+  - name: 'MICROSOFT_CLIENT_ID'
+    section: 'Microsoft Teams (optional)'
+    description: |-
+      A Microsoft Entra app (client id and secret) and the ids of a team and one of
+      its channels turn on posting each new announcement to that channel. Connect
+      the account once from the admin console's Connections page. Without them the
+      app runs and only that automation is idle.
+  - name: 'MICROSOFT_CLIENT_SECRET'
+    section: 'Microsoft Teams (optional)'
+    description: |-
+      A Microsoft Entra app (client id and secret) and the ids of a team and one of
+      its channels turn on posting each new announcement to that channel. Connect
+      the account once from the admin console's Connections page. Without them the
+      app runs and only that automation is idle.
+  - name: 'TEAMS_TEAM_ID'
+    section: 'Microsoft Teams (optional)'
+    description: |-
+      A Microsoft Entra app (client id and secret) and the ids of a team and one of
+      its channels turn on posting each new announcement to that channel. Connect
+      the account once from the admin console's Connections page. Without them the
+      app runs and only that automation is idle.
+  - name: 'TEAMS_CHANNEL_ID'
+    section: 'Microsoft Teams (optional)'
+    description: |-
+      A Microsoft Entra app (client id and secret) and the ids of a team and one of
+      its channels turn on posting each new announcement to that channel. Connect
+      the account once from the admin console's Connections page. Without them the
+      app runs and only that automation is idle.

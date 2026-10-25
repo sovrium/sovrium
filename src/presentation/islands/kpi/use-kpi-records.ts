@@ -43,7 +43,7 @@ export function buildFilterParam(filters: readonly DataFilter[] | undefined): st
 }
 
 /** One page of records — through the bound view's route when there is one, so the view's filter applies. */
-const requestRecords = (
+export const requestRecords = (
   table: string,
   view: string | undefined,
   query: Readonly<Record<string, string>>

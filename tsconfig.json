@@ -75,8 +75,8 @@
       // It is still WIDER than the shipped declaration in one direction: src/index.ts
       // is the internal entry point, so it also exports four runtime VALUES that a
       // declaration cannot carry. scripts/drift/check-sovrium-specifier-surface.ts is what
-      // stops a config importing one — ESLint cannot, because templates/** is in
-      // the global ignores.
+      // stops a config importing one — ESLint cannot, because the config trees it reads
+      // are in the global ignores.
       //
       // Without this alias a clean checkout fails typecheck with TS2307 the moment
       // anything in the program imports it. Matches the @/* pattern above.
@@ -86,8 +86,8 @@
   // Bound the typecheck program to the three source roots only (the fourth,
   // `apps`, left with the business apps — ADR-038). Without an explicit
   // `include`, tsc defaults to "every .ts under the project root minus exclude",
-  // silently pulling in stray files (templates/, and historically packages/types,
-  // which carried its own tsconfig). Dependents that override `include`
+  // silently pulling in stray files (historically packages/types, which carried its
+  // own tsconfig, and the root-level templates/ before it became src/templates/). Dependents that override `include`
   // (tsconfig.build.json → ["src"], tsconfig.eslint.json → []) are unaffected.
   "include": ["src", "specs", "scripts"],
   "exclude": ["node_modules", "dist", "tmp", "vendor", "docs"]

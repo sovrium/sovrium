@@ -20,11 +20,11 @@ import { DestinationPropSchema } from './shared'
  *
  * The extraction is a REMUX: the audio packets are copied byte for byte into
  * a new container, and nothing is decoded or re-encoded. A remux cannot change
- * the codec, so the output container follows the source rather than a choice
+ * the codec, so the output container follows the codec rather than a choice
  * the author makes:
  *
- * - an MP4 or QuickTime (`.mov`) video carrying AAC gives an `.m4a`
- *   (`audio/mp4`);
+ * - AAC, from an MP4, QuickTime (`.mov`) or Matroska (`.mkv`) video, gives an
+ *   `.m4a` (`audio/mp4`);
  * - a Matroska (`.mkv`) or WebM video carrying Opus or Vorbis gives a `.webm`
  *   (`audio/webm`).
  *
@@ -51,7 +51,7 @@ export const FileExtractAudioActionSchema = Schema.Struct({
     source: TemplateStringSchema.pipe(
       Schema.annotate({
         description:
-          "The video whose audio track is extracted, as a storage key or an attachment field's value: an MP4 or QuickTime file carrying AAC, or a Matroska or WebM file carrying Opus or Vorbis",
+          "The video whose audio track is extracted, as a storage key or an attachment field's value: an MP4, QuickTime or Matroska file carrying AAC, or a Matroska or WebM file carrying Opus or Vorbis",
       })
     ),
 

@@ -129,6 +129,10 @@ Each name is a field the form draws: an entry of its `fields[]` when it declares
 
 A form's `props.className` lands on the `<form>` element itself, merged with the classes its `layout` gives it, so a form can be laid out as a grid of its own: `className: 'grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_22rem] gap-6'` sets its sections side by side on a wide screen. For the common content-and-settings editor, `layout: main-aside` below says the same thing without a class list.
 
+A form placed with `formRef` is the exception. Its `props.className` lands on the element that names the component, the one holding the form's title, so a column width or padding frames the title and the form together and a selector such as `[&_.form-title]:sr-only` reaches the title. Its `<form>` is laid out through `classes.parts.body` instead: `classes: { parts: { body: 'grid grid-cols-2 gap-4' } }` sets the fields two by two.
+
+That element is a block: with no width of its own, an embedded form fills the element it is placed in — a card, a column, a dialog's body — and its inputs span it. Releases before 0.44 drew it shrink-wrapped around its content; to keep that look, give it a width in `props.className`, such as `w-fit` or `max-w-md`.
+
 `layout: main-aside` is the editor's shape: the fields whose `region` is `aside` — and the submit button — sit in a narrow column beside the others from the `lg` breakpoint up, and everything stacks on one column below it. `asideWidth` sets that column's width in `px` or `rem` (20rem by default); the main column takes the rest. A field without a `region` is in `main`. `showHeader: false` drops the form's own title and description, for a form placed under a page heading that already says what it is for — typically a referenced form whose title repeats the page's.
 
 ## It is the one type a specimen may not draw

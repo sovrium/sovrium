@@ -48,9 +48,10 @@ const translationLine = (change: ReportPage['translations'][number]): string => 
     (change.needsTranslation ?? []).length === 0
       ? ''
       : `; needs translation: ${(change.needsTranslation ?? []).join(', ')}`
+  const file = change.file === undefined ? '' : ` in ${change.file}`
   return change.written === undefined
     ? `  kept, translated copy ${change.key} at ${change.node}: ${texts} (not written: ${change.reason ?? 'no reason given'}${pending})`
-    : `  ~ ${change.node} ${change.key} [${change.written}]: ${texts}${pending}`
+    : `  ~ ${change.node} ${change.key} [${change.written}]${file}: ${texts}${pending}`
 }
 
 /** Every line one page's report holds, or one line saying it holds nothing. */
@@ -103,6 +104,29 @@ const tokenLines = (tokens: PageImportReport['tokens']): readonly string[] =>
           : `  not written: ${tokens.reason ?? 'no reason given'}`,
       ]
 
+/**
+ * What a write in place did, line by line: the literals of a TypeScript
+ * config, or the files of a config assembled from `$ref` partials.
+ */
+const rewrittenLines = (
+  written: NonNullable<PageImportReport['written']>
+): readonly string[] | undefined => {
+  const { literals, files, bytes } = written
+  if (literals !== undefined) {
+    return [
+      `Rewrote ${literals.length} literal${literals.length === 1 ? '' : 's'} in place (${bytes} bytes changed):`,
+      ...literals.map(
+        (edit) => `  ${edit.file}:${edit.line} ${quoted(edit.before)} -> ${quoted(edit.after)}`
+      ),
+    ]
+  }
+  if (files === undefined) return undefined
+  return [
+    `Wrote ${files.length} file${files.length === 1 ? '' : 's'} (${bytes} bytes changed):`,
+    ...files.map((file) => `  ${file.file} (${file.bytes} bytes changed)`),
+  ]
+}
+
 /** What `--write` did, or what a dry run would do. */
 const writtenLines = (report: PageImportReport, dryRun: boolean): readonly string[] => {
   const { written } = report
@@ -112,14 +136,8 @@ const writtenLines = (report: PageImportReport, dryRun: boolean): readonly strin
   if (written.bytes === 0 && (written.sidecars ?? []).length === 0) {
     return ['Nothing to change, so nothing was written.']
   }
-  if (written.literals !== undefined) {
-    return [
-      `Rewrote ${written.literals.length} literal${written.literals.length === 1 ? '' : 's'} in place (${written.bytes} bytes changed):`,
-      ...written.literals.map(
-        (edit) => `  ${edit.file}:${edit.line} ${quoted(edit.before)} -> ${quoted(edit.after)}`
-      ),
-    ]
-  }
+  const rewritten = rewrittenLines(written)
+  if (rewritten !== undefined) return rewritten
   if (written.sidecars === undefined) {
     return [
       `Wrote the pages into ${displayPath(written.config ?? '')} (${written.bytes} bytes changed).`,
@@ -158,13 +176,15 @@ const sidecarImportLines = (importLine: string, created: boolean): readonly stri
  *
  * @param report - the report `--json` prints.
  * @param merged - every page's merge, in report order.
- * @param dryRun - whether nothing was asked to be written.
+ * @param options - whether nothing was asked to be written, and each page's
+ *   own file when a `$ref` partial holds it.
  */
 export const renderPagesReport = (
   report: PageImportReport,
   merged: readonly MergedPage[],
-  dryRun: boolean
+  options: { readonly dryRun: boolean; readonly pageFiles?: ReadonlyMap<string, string> }
 ): string => {
+  const { dryRun, pageFiles = new Map<string, string>() } = options
   const { source, templates } = report
   const lines = [
     `Pages read from ${displayPath(source.path)} (${source.format}, ${source.forced ? 'named with --from' : 'detected'})`,
@@ -173,7 +193,10 @@ export const renderPagesReport = (
       `skipped ${entry.drawing}`,
       `  not imported: ${entry.reason}`,
     ]),
-    ...merged.flatMap(({ name, plan }) => ['', name, ...pageLines(plan.report)]),
+    ...merged.flatMap(({ name, plan }) => {
+      const file = pageFiles.get(name)
+      return ['', file === undefined ? name : `${name} (${file})`, ...pageLines(plan.report)]
+    }),
     ...tokenLines(report.tokens),
     ...(templates.found === 0
       ? []

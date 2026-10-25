@@ -84,13 +84,13 @@ const formatArrayDefault = (defaultValue: readonly unknown[]): string => {
 }
 
 /**
- * Format special default values (date/time functions, INTERVAL, arrays).
+ * Format special default values (date/time functions, durations, arrays).
  *
  * SQLite differences:
  *   - `CURRENT_DATE` works on SQLite unchanged.
  *   - `NOW()` is Postgres-only — SQLite's equivalent is `CURRENT_TIMESTAMP`.
- *   - Duration fields store a count of seconds as an `INTEGER`, so the default
- *     is the raw number (no `INTERVAL` literal).
+ *   - Duration fields store a count of seconds as an `INTEGER` on both
+ *     engines, so the default is the raw number (no `INTERVAL` literal).
  */
 const formatSpecialDefault = (field: Fields[number], defaultValue: unknown): string | undefined => {
   // CURRENT_DATE is portable across both dialects.
@@ -106,11 +106,9 @@ const formatSpecialDefault = (field: Fields[number], defaultValue: unknown): str
   if (typeof defaultValue === 'string' && ['NOW()', 'NOW'].includes(defaultValue.toUpperCase())) {
     return isSqliteRuntime() ? ` DEFAULT (${SQLITE_ISO_NOW})` : ' DEFAULT NOW()'
   }
-  // Duration fields: Postgres uses INTERVAL; SQLite stores seconds as INTEGER.
+  // Duration fields store a whole number of seconds on both engines.
   if (field.type === 'duration' && typeof defaultValue === 'number') {
-    return isSqliteRuntime()
-      ? ` DEFAULT ${defaultValue}`
-      : ` DEFAULT INTERVAL '${defaultValue} seconds'`
+    return ` DEFAULT ${defaultValue}`
   }
   // Array fields (multi-select): native array literal vs JSON text.
   if (Array.isArray(defaultValue)) {

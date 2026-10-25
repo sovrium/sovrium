@@ -556,6 +556,9 @@ export const PROTOTYPE_RUNTIME = String.raw`function (config, doc, props, makeSt
     var button = scope.querySelector('[data-sovrium-id="' + update.id + '"], [${MOUNTED_NODE}="' + update.id + '"]')
     if (!button || !store) return
     var target = button.tagName === 'BUTTON' ? button : button.querySelector('button') || button
+    // The page's own script never runs here: the board plays the button itself.
+    target.removeAttribute('disabled')
+    target.removeAttribute('data-awaits-script')
     // Offered as drawn, it writes nothing for a role the table does not let update.
     target.addEventListener('click', function () {
       if (store.may({ table: update.table, operation: 'update' })) store.update(update.table, store.recordId(), update.data)

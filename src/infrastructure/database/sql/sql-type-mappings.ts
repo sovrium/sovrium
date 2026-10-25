@@ -44,7 +44,7 @@ export const fieldTypeToPostgresMap: Readonly<Record<string, string>> = {
   currency: 'DECIMAL',
   percentage: 'DECIMAL',
   rating: 'INTEGER',
-  duration: 'INTERVAL',
+  duration: 'INTEGER', // a whole number of seconds, as on SQLite
   color: 'VARCHAR(7)',
   progress: 'INTEGER',
   json: 'JSONB',

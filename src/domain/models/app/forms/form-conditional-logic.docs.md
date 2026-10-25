@@ -1,8 +1,8 @@
 # Form Conditional Logic
 
-> Showing or requiring a field based on what the submitter has entered — one condition shape shared by three rules.
+> Showing or requiring a field based on what the submitter has entered — one condition shape shared by two rules.
 
-`visibleWhen`, `requiredWhen` and `disabledWhen` all share the same condition shape, so learning one teaches all three.
+`visibleWhen` and `requiredWhen` share the same condition shape, so learning one teaches both.
 
 ```yaml
 fields:
@@ -20,11 +20,11 @@ fields:
 
 A checkbox on a single-page form is sent as `on` when ticked and not at all when left clear.
 
-| Rule           | Effect when the condition is **true**                                     |
-| -------------- | ------------------------------------------------------------------------- |
-| `visibleWhen`  | The field is shown; when false it is hidden and not submitted             |
-| `requiredWhen` | The field becomes required; when false it is optional                     |
-| `disabledWhen` | Deprecated on a hosted form: it has no effect there, and validation warns |
+| Rule           | Effect when the condition is **true**                                        |
+| -------------- | ---------------------------------------------------------------------------- |
+| `visibleWhen`  | The field is shown; when false it is hidden and not submitted                |
+| `requiredWhen` | The field becomes required; when false it is optional                        |
+| `disabledWhen` | Refused on a hosted form since 0.44: it never had an effect there, see below |
 
 On a hosted form, a page that embeds one with `formRef`, and a dialog that wraps one, `visibleWhen` and `requiredWhen` are applied live as the person answers, and the page is served with them already applied to its prefilled values. A field hidden by `visibleWhen` is taken off screen and its inputs disabled, so it is neither validated nor sent; `requiredWhen` switches the input's required state. The server applies the same rules again on submit, so a rule always decides what is stored. A rule that reads a `hidden: true` field is applied by the server only, because that field's value never reaches the page.
 
@@ -68,9 +68,9 @@ visibleWhen:
 
 Unlike an automation's condition group, these **do** nest, so a disjunction of conjunctions is expressible here directly.
 
-## `disabledWhen` is deprecated on a hosted form
+## `disabledWhen` is refused on a hosted form
 
-A form declared under `forms` has never acted on `disabledWhen`: the field stays editable in the browser, and the server stores whatever it receives for it. Since 0.43 the key on a hosted form field is deprecated — `sovrium validate` and `sovrium start` print a warning naming the field — and 0.44 refuses it. Buttons, button fields and row actions still honour `disabledWhen`. When a field should drop out under a condition, use `visibleWhen`: a field it hides is neither validated nor sent, and what was typed into it is discarded.
+A form declared under `forms` never acted on `disabledWhen`: the field stayed editable in the browser, and the server stored whatever it received for it. 0.43 deprecated the key on a hosted form field with a warning, and since 0.44 `sovrium validate` and `sovrium start` refuse it, naming the field. Buttons, button fields and row actions still honour `disabledWhen`. When a field should drop out under a condition, use `visibleWhen`: a field it hides is neither validated nor sent, and what was typed into it is discarded.
 
 ## Step branching
 
@@ -94,4 +94,4 @@ steps:
 
 ## Conditions travel with the form
 
-When a top-level form is embedded in a page, all of its conditional logic comes along: the three rules and step branching behave identically whether the form is rendered at its own route or inline on a host page. Define the conditions once, and every embed inherits them.
+When a top-level form is embedded in a page, all of its conditional logic comes along: both rules and step branching behave identically whether the form is rendered at its own route or inline on a host page. Define the conditions once, and every embed inherits them.

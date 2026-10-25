@@ -112,7 +112,7 @@ export const OPERATOR_CONSOLE_APP_NAME = 'sovrium-admin-dashboard'
  * preset) — so keeping end-user chrome off it is NOT structural; it has to be
  * deliberate. The "Built with Sovrium" badge achieves that with `badge: false`
  * in the console's own config; chrome gated on ENV rather than on app config
- * (the demo context notice) has no such config seam and asks this predicate.
+ * (the dev-mode notice) has no such config seam and asks this predicate.
  *
  * Identity is matched on the app NAME, not the request path: a mounted console
  * page is `/_admin`-stripped before it renders, so its pages carry

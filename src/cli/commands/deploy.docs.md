@@ -145,6 +145,16 @@ Fix what the report names, then run 'sovrium deploy' again.
 
 `--seed` waits for the deployment, so it cannot be combined with `--no-wait`; the command refuses before anything is sent. If the bundle has no `seed/` folder, or the seed fails on the host, the app stays live and the command exits `1` with `Deployed, but not seeded:` and the reason.
 
+### Promoting a preview
+
+`sovrium deploy --from-preview <id>` deploys the bundle that a preview made with [`sovrium preview`](/en/docs/preview) runs — nothing is bundled or uploaded again — and follows it to `Live at` as any deploy. The id is the number `sovrium preview` printed, and it is required. The app is `--app`, else the project's link. `--env` is refused here; set the variables first with `sovrium env push <file>`. `--seed` works as above.
+
+```bash
+sovrium deploy --from-preview 57
+```
+
+Promoting the same preview again answers the release made the first time. An id that is no preview of the app, or a preview that is not live yet, is refused, saying which.
+
 ### Network rules
 
 The same as [`sovrium login`](/en/docs/login): `https` only, plain `http` for a private or loopback address under `SOVRIUM_ALLOW_PRIVATE_OUTBOUND=1`, and nothing at all under `SOVRIUM_DISABLE_NETWORK=1`. A cloud that does not answer ends the command with one line naming it.

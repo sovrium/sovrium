@@ -182,7 +182,7 @@ export default {
 }
 ```
 
-Put the import at the top of the file and replace the inline `design: { … }` block with `design,`. The sidecar already holds your own design merged with the import, so the swap loses nothing. An existing `design.json` is replaced only when it already holds this config's design; any other file of that name is refused rather than overwritten. A `design` that takes any part of itself from another file through `$ref` is not patched in place either: copy the dry-run changes into that file instead. A run with nothing to change writes nothing, and every write goes through a temporary file, so an interrupted one never leaves a half-written config.
+Put the import at the top of the file and replace the inline `design: { … }` block with `design,`. The sidecar already holds your own design merged with the import, so the swap loses nothing. An existing `design.json` is replaced only when it already holds this config's design; any other file of that name is refused rather than overwritten. A `design` that takes any part of itself from another file through `$ref` is written through it: each changed value lands in the partial that holds it, on its own line in YAML and in the file's own layout in JSON, the include left as written, and each change in the report names that `file`. A partial outside the folder holding the config is refused by name. A run with nothing to change writes nothing, and every write goes through a temporary file, so an interrupted one never leaves a half-written config.
 
 The import reads a local file or folder only: a URL is refused, and it makes no network call. It never runs over HTTP or in the console. `--json` prints the report as one document for tooling.
 

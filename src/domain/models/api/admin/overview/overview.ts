@@ -174,13 +174,13 @@ export const overviewUsersSchema = Schema.Struct({
  * Storage roll-up — total bytes stored across every bucket.
  *
  * `totalBytes` is the sum of stored file sizes across all live buckets
- * (identical semantics to buckets-overview `totals.totalBytes`). `0` when
- * storage is disabled (no provider configured) or no files are stored.
+ * (identical semantics to buckets-overview `totals.totalBytes`). `0` when no
+ * files are stored.
  */
 export const overviewStorageSchema = Schema.Struct({
   totalBytes: Schema.Int.annotate({
     description:
-      'Total stored bytes across every live bucket. Equals buckets-overview `totals.totalBytes`. `0` when storage is disabled or no files are stored.',
+      'Total stored bytes across every live bucket. Equals buckets-overview `totals.totalBytes`. `0` when no files are stored.',
   }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
   degraded: degradedField,
 }).annotate({ identifier: 'AdminOverviewStorage' })

@@ -154,7 +154,7 @@ export const selectFields = {
   // by nothing — `buildSelectProps` never picked them up, so setting them had
   // no observable effect in any renderer. Their only appearances repo-wide were
   // the four specs that asserted on a disabled skeleton and one published docs
-  // row. (`displayField` in `templates/**` is the unrelated
+  // row. (`displayField` in `src/templates/**` is the unrelated
   // `tables[].fields[].displayField` on relationship fields.)
   //
   // The pair now lives INSIDE `dataSource`, where it has a real job: naming the

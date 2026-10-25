@@ -458,7 +458,7 @@ export function validateDataTableColumns(
   // `dataSource` is OPTIONAL, and this additionally runs against the RAW parsed
   // config (see `validateDataTableFieldReferences`), where even a declared type
   // is a promise rather than a fact — a bare `'table' in dataSource` threw a
-  // TypeError on the five data-tables in `apps/website` and `templates/intranet`
+  // TypeError on the five data-tables in `apps/website` and `src/templates/intranet`
   // that nest their whole config under `props`, turning a validation miss into a
   // crashed CLI. A component with no object `dataSource` binds to nothing this
   // rule can check, so it is skipped exactly as an unresolvable table name is.

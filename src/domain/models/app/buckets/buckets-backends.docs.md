@@ -19,10 +19,14 @@ All three backends support the full surface: upload, download, delete, signed UR
 | -------- | ---------- | ------------------------------------------------------------ |
 | `s3`     | either     | S3; four variables are then required                         |
 | `local`  | either     | Local files; the directory is **required**, with no fallback |
+| `bytea`  | PostgreSQL | Bytes in the database, as when left unset                    |
+| `bytea`  | SQLite     | Refused at boot: these bytes live in PostgreSQL              |
 | unset    | PostgreSQL | Bytes in the database you already run                        |
 | unset    | SQLite     | Local files under the data directory                         |
 
 The two unset rows are the zero-config path, mirroring the SQLite-default posture: nothing external to provision and nothing to credential.
+
+Any other value is refused at boot, naming the value and the three accepted ones (`s3`, `local`, `bytea`): a misspelt backend stops the start instead of running with file storage off.
 
 Note the asymmetry. An **explicit** local provider fails at boot without a directory, while an **implicit** one picks the default directory for you. The explicit form is treated as a deliberate statement about placement, so a missing directory there is a mistake worth surfacing rather than a gap worth filling.
 

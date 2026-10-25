@@ -22,7 +22,7 @@ Never click or type on a page you have not read. First take an accessibility sna
 
 ## The pass, step by step
 
-1. **Navigate** to the URL `sovrium start --watch` printed. After a restart-class reload the port may have changed: re-read the printed URL.
+1. **Navigate** to the URL `sovrium dev` printed, and sign in with the account its `Sign in` row names (the dev panel's **Fill sign-in form** button fills it in). After a restart-class reload the port may have changed: re-read the printed URL.
 2. **Wait** until the network is idle (or until a known element is visible).
 3. **Snapshot** the accessibility tree. This is your primary evidence for structure: headings, landmarks, labels, the number of rows in a table, the text of an empty state.
 4. **Screenshot** only when the question is how it looks (spacing, colour, dark mode, overflow). Save it to a file and keep the path for the report.

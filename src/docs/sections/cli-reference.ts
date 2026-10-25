@@ -7,12 +7,14 @@
 
 import changelogBody from '@/cli/commands/changelog.docs.md' with { type: 'file' }
 import renderBody from '@/cli/commands/render.docs.md' with { type: 'file' }
+import templatesBody from '@/cli/commands/templates.docs.md' with { type: 'file' }
 import { defineArticle } from './define'
 import type { DocArticle } from './define'
 
 /**
  * The CLI articles of the verbs that read something offline and print it —
- * a template filled with sample values, the release notes the binary carries —
+ * a template filled with sample values, the release notes the binary carries,
+ * the templates `init` can scaffold —
  * kept beside `cli-api.ts`, which lists them in its section, so that file stays
  * under its line ceiling.
  */
@@ -58,5 +60,24 @@ export const cliReferenceArticles: readonly DocArticle[] = [
     body: changelogBody,
     documents: [],
     stories: ['US-CLI-COMMANDS-CHANGELOG'],
+  }),
+  defineArticle({
+    slug: 'cli-templates',
+    title: 'Templates',
+    description:
+      'List the templates your Sovrium binary carries — grouped by category, or as one JSON document for a script — and pick one for sovrium init --template without guessing a name.',
+    keywords: [
+      'sovrium templates',
+      'templates',
+      'template gallery',
+      'sovrium init --template',
+      'headless',
+      '--json',
+    ],
+    order: 1499,
+    sidebarLabel: 'Templates',
+    body: templatesBody,
+    documents: [],
+    stories: ['US-CLI-TEMPLATES-COMMAND'],
   }),
 ]

@@ -1,0 +1,111 @@
+title: 'App starter'
+tagline: |
+  A business-app skeleton: every sign-in way, a dashboard, settings pages and record pages.
+intro: |
+  App starter — the skeleton most business apps grow from, built from the library's
+  application blocks: every way in (password, emailed link, passkey, two-step, single
+  sign-on, invitations), a dashboard with a period selector, settings and profile pages, and
+  a list of projects that each open in a side panel and on their own page.
+glance:
+  - '**Tables** (8): projects, tasks, activity, clients, people, workspace_settings, reminders, bookings'
+  - |-
+    **Pages** (25): eight sign-in pages, overview (`/`), metrics, worklist, five settings
+    pages, projects, a project page and its edit page, and six `/kit/*` pages showing every
+    other application block in its stock copy
+  - |-
+    **Library blocks** (60) — every application block: under `library/block/`, each starting with a
+    `sovrium-library:` line naming the entry and version it was installed from
+  - |-
+    **Forms** (5): the worklist's "New" dialog, the project page's "Add a task", and the
+    drawer, modal and two-column forms the `/kit/data` page shows
+  - '**Singletons**: auth'
+  - |-
+    **Seed data**: `seed/` — one file per table plus `users.yaml` (three sign-in accounts,
+    one per role), dated relative to the day you seed. `sovrium start` does not seed: run
+    `SOVRIUM_SEED_PASSWORD=… sovrium seed app.yaml` first, or every table opens empty
+  - |-
+    **Settings navigation**: `config/pages/_settings-nav.yaml`, pulled into each settings page
+    with `$ref`; each page names its own section as the default of its `section` query
+    parameter, which is how the matching link is marked current
+  - '**Static assets**: `public/` (served at the site root)'
+glanceClose: |
+  Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`
+  and `library/`.
+assistant: |
+  Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+  run into `.claude/skills/`; start from `sovrium-app` for any change to the config. The page
+  blocks are ordinary config: edit them in place, or run `sovrium library add block/<name>`
+  for another one — `sovrium library list` shows them all.
+whatsInside: |
+  The pages almost every business app needs, around one table of projects you rename to
+  your own records:
+
+  - **Every way in** — sign in with a password, an emailed link, a passkey or single sign-on;
+    two-step verification, whose code is asked on its own page once the password is right;
+    sign up; reset a forgotten password; accept an invitation. Each alternative is drawn
+    only when `config/auth.yaml` turns it on.
+  - **Overview** (`/`) and **Metrics** — figures, a trend, a breakdown and the latest
+    activity, all narrowed by one period selector.
+  - **Worklist** — the active projects in tabs, with the figures that matter and a "New" dialog.
+  - **Settings** — your account, your security (passkeys, two-step, signed-in devices), your
+    API keys, the team with its invitations, and the workspace. Every settings page shares the
+    list of sections on its left (`config/pages/_settings-nav.yaml`); on a phone it folds into
+    one menu, as the top bar's links do.
+  - **Projects** — a list whose rows open in a side panel with Previous and Next, and a page
+    per project with its facts, its tasks, its comments and an edit page.
+
+  The **Blocks** pages (`/kit/navigation`, `/kit/feedback`, `/kit/data`, a client page and two
+  application frames) show every other application block of the library in its stock copy —
+  bracketed words are the ones you replace. Every link on them was pointed at a page this app
+  serves — a project, the Worklist, the Metrics, a client — so none leads to a page the app
+  does not have; "New project" opens the Worklist, where projects are created. Keep the ones
+  you need, delete the rest.
+
+  Every page is made of blocks from the Sovrium library, installed with
+  `sovrium library add` — each file under [`library/block/`](./library/block) starts with
+  the line naming the block and the version it came from. They are plain config: change
+  them in place.
+
+  Single sign-on needs `SSO_CLIENT_ID` and `SSO_CLIENT_SECRET` from your identity provider.
+  Without them the app still starts; the single sign-on button cannot finish a sign-in
+  until you set them.
+whatToTry: |
+  Load the demo data first, or every table starts empty. It creates three accounts (one per
+  role), six projects with their tasks, a week of activity, this week's meetings, the team
+  directory, two clients, the payment reminders and the workspace settings, all dated
+  relative to today. The **Kit** pages' sample links open the first demo client and project, so
+  they need it too:
+
+  ```bash
+  SOVRIUM_SEED_PASSWORD=choose-a-password sovrium seed app.yaml
+  sovrium start app.yaml
+  ```
+
+  Sign in as **ana.lindqvist@starter.example** (admin), **marc.oyelaran@starter.example**
+  (member) or **sana.okafor@starter.example** (viewer), with the password you chose. Then:
+
+  1. On the **Overview**, switch the period between 7, 30 and 90 days and watch every panel follow.
+  2. Open **Projects**, click a row, and step through the list with Next.
+  3. Open a project's own page: add a task — it is linked to the project already — and leave a comment.
+  4. In **Settings → Security**, add a passkey, then sign out and back in with it.
+  5. As Ana, open **Settings → Team**, invite someone, and open the link the email carries: it
+     lands on this app's own invitation page. Without an email provider the email is printed
+     in the server log.
+env:
+  - name: 'SOVRIUM_SEED_PASSWORD'
+    section: 'Demo data'
+    description: |-
+      `sovrium seed` creates the three accounts of seed/users.yaml (an admin, a
+      member and a viewer) with this password. Seeding refuses to run without it.
+      Every seeded account shares it, the admin included: pick a strong one, or
+      do not seed an app other people can reach.
+  - name: 'SSO_CLIENT_ID'
+    section: 'Single sign-on'
+    description: |-
+      The company provider in config/auth.yaml reads these two. Without them the app
+      starts; the single sign-on button simply cannot finish a sign-in.
+  - name: 'SSO_CLIENT_SECRET'
+    section: 'Single sign-on'
+    description: |-
+      The company provider in config/auth.yaml reads these two. Without them the app
+      starts; the single sign-on button simply cannot finish a sign-in.

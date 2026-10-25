@@ -20,6 +20,7 @@ import { InstanceSeedActionSchema } from './seed'
 import { InstanceStartActionSchema } from './start'
 import { InstanceStatusActionSchema } from './status'
 import { InstanceStopActionSchema } from './stop'
+import { InstanceUsageActionSchema } from './usage'
 
 /**
  * Instance Action — operators that supervise OTHER Sovrium apps running on the
@@ -34,6 +35,7 @@ import { InstanceStopActionSchema } from './stop'
  */
 export const InstanceActionSchema = Schema.Union([
   InstanceStatusActionSchema,
+  InstanceUsageActionSchema,
   InstanceStartActionSchema,
   InstanceStopActionSchema,
   InstanceRestartActionSchema,
@@ -52,7 +54,7 @@ export const InstanceActionSchema = Schema.Union([
     identifier: 'InstanceAction',
     title: 'Instance Action',
     description:
-      'Supervise other Sovrium apps on this host: read their state, start, stop, restart, apply a signed release, roll back, remove, probe, read logs, back up, restore, seed, and install and prune the engines they run on. Requires SOVRIUM_HOST_ACTIONS=1',
+      'Supervise other Sovrium apps on this host: read their state and what they hold, start, stop, restart, apply a signed release, roll back, remove, probe, read logs, back up, restore, seed, and install and prune the engines they run on. Requires SOVRIUM_HOST_ACTIONS=1',
   })
 )
 

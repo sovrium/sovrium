@@ -80,9 +80,9 @@ export const STAMP_PATH = join(PROJECT_ROOT, '.sovrium-binary-build.json')
  *
  * | Root               | Why it is an input                                                        |
  * | ------------------ | ------------------------------------------------------------------------- |
- * | `src`              | the bundled module graph, plus the four `*.generated.ts` embed manifests   |
- * | `templates`        | embedded verbatim by `generate-embedded-static-assets.ts`, and scanned for |
- * |                    | Tailwind candidates by `generate-css-assets.ts`                           |
+ * | `src`              | the bundled module graph, plus the four `*.generated.ts` embed manifests;  |
+ * |                    | and `src/templates/`, embedded verbatim by                                |
+ * |                    | `generate-embedded-static-assets.ts` and scanned for Tailwind candidates  |
  * | `drizzle`          | migration journal + `*.sql`, embedded by the static-asset manifest         |
  * | `[internal ref]` | the generators themselves — a codegen change changes the embedded output |
  * | `package.json`     | `--define=__SOVRIUM_VERSION__` and the dependency set                      |
@@ -98,7 +98,7 @@ export const STAMP_PATH = join(PROJECT_ROOT, '.sovrium-binary-build.json')
  * Over-triggering costs one rebuild; under-triggering ships a stale artifact
  * behind a green gate, so the asymmetry is taken deliberately.
  */
-const INPUT_ROOTS = ['src', 'templates', 'drizzle', 'scripts/build'] as const
+const INPUT_ROOTS = ['src', 'drizzle', 'scripts/build'] as const
 const INPUT_FILES = ['package.json', 'bun.lock'] as const
 
 /**
@@ -108,7 +108,7 @@ const INPUT_FILES = ['package.json', 'bun.lock'] as const
  *
  * The dot-directory default is the load-bearing one here, not `__snapshots__`:
  * `bun run app:template` and the template previews create
- * `templates/<name>/.sovrium/` (SQLite db + lock + storage), so a fingerprint
+ * `src/templates/<name>/.sovrium/` (SQLite db + lock + storage), so a fingerprint
  * that walked it would change on every preview boot and rebuild the binary for
  * no reason. `__snapshots__` is the one exclusion {@link walkSync} does not
  * already cover, so it is the only entry left to name explicitly.

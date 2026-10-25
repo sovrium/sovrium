@@ -1,5 +1,5 @@
 ---
-expect: 'called after browser_navigate to a record page under http://localhost:3000/clients/'
+# Not an argument guard: called after browser_navigate to a record page under http://localhost:3000/clients/.
 ---
 
 - main:

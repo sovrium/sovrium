@@ -25,9 +25,10 @@
  * refusal too.
  *
  * `design.codeBlock` was the first entry (deprecated in 0.40, inert, refused
- * from 0.41). It has left this table for `design/removed-keys.ts`. The hosted
- * form field's `disabledWhen`, which a hosted form never applied, is the
- * current entry.
+ * from 0.41); it left this table for `design/removed-keys.ts`. The hosted form
+ * field's `disabledWhen`, which a hosted form never applied, was the second
+ * (deprecated in 0.43, refused from 0.44); it left for `forms/removed-keys.ts`.
+ * The table is empty until the next deprecation.
  *
  * ## Why a walk over the raw config rather than the reporter
  *
@@ -73,16 +74,7 @@ export interface DeprecationWarning {
  * Every deprecated key: the keys between their warning release and their
  * removal.
  */
-export const DEPRECATED_KEYS: readonly DeprecatedKey[] = [
-  {
-    node: /^forms\[\d+\]\.fields\[\d+\]$/,
-    key: 'disabledWhen',
-    replacement:
-      'It has no effect on a hosted form field; use `visibleWhen` to take the field out under a condition.',
-    deprecatedIn: '0.43',
-    removedIn: '0.44',
-  },
-]
+export const DEPRECATED_KEYS: readonly DeprecatedKey[] = []
 
 type Segment = string | number
 

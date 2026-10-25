@@ -191,6 +191,12 @@ export interface DataTableIslandProps {
    */
   readonly rowExpandInline?: InlineExpandConfig
   /**
+   * The `onRowClick` is the one `rowExpand` synthesizes to open its panel, not
+   * one the author wrote: on a phone it does not justify dropping the action
+   * columns. Absent on every other grid.
+   */
+  readonly rowExpandPanel?: true
+  /**
    * Interpreter-provided commit / dismiss labels, resolved server-side the same
    * way. They label the inline select-editor's commit + cancel pair (an `editSelect.saveLabel` still wins
    * for that one button). Default to the English strings when absent.

@@ -44,7 +44,7 @@ import {
 } from './form-bound-record'
 import { ftsFirstRows, ftsSearchProps } from './fts-search-binding'
 import { restrictedColumnsForReader } from './reader-row-admission'
-import { withRecordLabels } from './record-display-labels'
+import { labelledPageRows, withRecordLabels } from './record-display-labels'
 import { readRowsForCaller, type CallerRowsQuery } from './record-read-gate'
 import { substituteRecordInComponent } from './record-substitution'
 import { addressRowAttachments, recordAddresser } from './row-attachment-addresses'
@@ -145,7 +145,7 @@ async function resolveSingleMode(
   }
   const gatedRecord = await readBoundRecordForCaller({
     ...options,
-    at: paramValue ? { field: paramName, value: paramValue } : 'first-readable',
+    at: paramValue ? { param: paramName, value: paramValue } : 'first-readable',
     fields: options.requestedFields,
     binding: component.dataSource,
   })
@@ -224,7 +224,7 @@ async function resolveListMode(
   const sign = ctx.db.signFileUrl
   const own = await bindReadRows(component, rows, ctx)
   const addressed = await addressRowAttachments({ ...own, app: ctx.app, tableName, sign })
-  const pageRows = addressed.rows.map((row) => pageRecordOf(row, tableName, ctx.db.recordText))
+  const pageRows = await labelledPageRows(addressed.rows, { ...ctx, tableName })
   return expandBoundRows(addressed.component, pageRows, paginationMeta, ctx)
 }
 

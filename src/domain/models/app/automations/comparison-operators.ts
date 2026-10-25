@@ -20,7 +20,7 @@
  * the impure parts around it — resolving a `field` against a record, or
  * substituting a `{{...}}` template — and those stay where they are.
  *
- * Covers all 15 operators in `ComparisonOperatorSchema`
+ * Covers all 17 operators in `ComparisonOperatorSchema`
  * (`src/domain/models/app/automations/conditions.ts`); the table is the reason
  * callers stay trivial, and coverage is extended by adding an entry here rather
  * than by growing a switch in each caller.
@@ -117,6 +117,24 @@ const tryRegexTest = (lhs: unknown, pattern: unknown): boolean => {
 }
 
 /**
+ * The candidates of a set-membership operator: a single value is a list of one
+ * (the records API's rule), so `in: 'normal'` reads as `in: ['normal']`.
+ */
+const candidatesOf = (expected: unknown): readonly unknown[] =>
+  Array.isArray(expected) ? expected : [expected]
+
+/**
+ * Whether a present value is one of the candidates, compared on the canonical
+ * string form `equals` uses. A missing or null value is in no list and
+ * outside none — the records API's `IS NOT NULL AND NOT IN` — so both
+ * set operators answer `false` for it.
+ */
+const isOneOf = (lhs: unknown, expected: unknown): boolean =>
+  candidatesOf(expected).some(
+    (candidate) => isDefined(candidate) && formatComparable(candidate) === formatComparable(lhs)
+  )
+
+/**
  * Map of supported comparison operators to (lhs, expected) → boolean.
  *
  * Ordered comparisons (greaterThan/lessThan/...) coerce by type via
@@ -158,4 +176,6 @@ export const COMPARATORS: Readonly<Record<string, (lhs: unknown, expected: unkno
   isNull: (lhs) => lhs === null || lhs === undefined,
   isNotNull: (lhs) => lhs !== null && lhs !== undefined,
   matches: tryRegexTest,
+  in: (lhs, expected) => isDefined(lhs) && isOneOf(lhs, expected),
+  notIn: (lhs, expected) => isDefined(lhs) && !isOneOf(lhs, expected),
 }

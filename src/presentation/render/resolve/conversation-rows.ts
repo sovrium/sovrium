@@ -119,13 +119,17 @@ async function authorNamesOf(
     const id = authorOf(row, authorField)
     return id === undefined || seen.has(id) ? seen : new Map([...seen, [id, row]])
   }, new Map())
-  const named = await Promise.all(
-    Array.from(firstByAuthor, async ([id, row]) => {
-      const labels = await read(reader.app, tableName, row, reader.session)
-      const label = labels?.[authorField]
-      return [id, typeof label === 'string' ? label : undefined] as const
-    })
+  const authors = Array.from(firstByAuthor)
+  const labels = await read(
+    reader.app,
+    tableName,
+    authors.map(([, row]) => row),
+    reader.session
   )
+  const named = authors.map(([id], index) => {
+    const label = labels[index]?.[authorField]
+    return [id, typeof label === 'string' ? label : undefined] as const
+  })
   return new Map(named.flatMap(([id, name]) => (name === undefined ? [] : [[id, name] as const])))
 }
 

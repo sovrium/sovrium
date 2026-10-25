@@ -63,9 +63,10 @@ import {
   type DesignSystemBundleFailure,
 } from './design-system-bundle'
 import { kitDocument, kitStylesheetOf } from './design-system-kit-document'
+import { seedAsAccountOf } from './design-system-page-account-seed'
 import { prototypeStoreOf, unsimulatedNoticesOf } from './design-system-page-app'
 import { pageSectionOf, type PageDrawOptions } from './design-system-page-boards'
-import { canvasEntriesOf } from './design-system-page-canvas'
+import { canvasEntriesOf, drawnWithOf } from './design-system-page-canvas'
 import {
   drawPagesOf,
   type DesignSystemPageDrawError,
@@ -248,12 +249,13 @@ const appCanvasOf = (
         ? []
         : [{ ...drawing.appView, body: withImagesAt(drawing.appView.body, images, '../assets/') }]
     ),
+    // Drawn as a seeded account (`--as`), the store holds that account's view and plays its role only.
     store: prototypeStoreOf(
       app,
       pages.filter((page) => drawings.some((drawing) => drawing.page === page.name)),
-      selection.draw
+      { ...selection.draw, seed: seedAsAccountOf(app, selection.draw.seed, selection.draw.as) }
     ),
-    roles: appRolesOf(app),
+    roles: selection.draw.as === undefined ? appRolesOf(app) : [selection.draw.as.role],
   }
 }
 
@@ -280,6 +282,7 @@ const pageEntriesOf = (app: App, bundle: DesignSystemBundle, selection: PageExpo
       prototype: selection.draw?.prototype !== undefined,
       app: appCanvasOf(app, drawings, selection, images),
       recordTexts: selection.draw !== undefined,
+      drawnWith: drawnWithOf(selection.draw),
     })
     const entries = [
       ...drawings.map((drawing) => drawingEntryOf(drawing, images)),

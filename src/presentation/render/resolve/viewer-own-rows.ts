@@ -16,8 +16,11 @@
  * no reader, hence no row.
  */
 
+import { RECORD_TEXT_KEY } from '@/domain/models/app/pages/substitute-record-vars'
+import { recordTextEntriesOf } from '@/presentation/render/props/record-value-format'
 import { withAvatarMembers } from './avatar-members-binding'
 import { withProgressRatio } from './progress-ratio-binding'
+import { labelledPageRows } from './record-display-labels'
 import { readRowsForCaller } from './record-read-gate'
 import type { DataSourceDb } from './data-source-contracts'
 import type { App } from '@/domain/models/app'
@@ -42,12 +45,12 @@ const linkKey = (value: unknown): string | undefined =>
 
 /**
  * The reader's own rows of `lookup.table`, keyed by the item each points at
- * (its `link` value), each answering that row's id. Empty without a reader.
+ * (its `link` value). Empty without a reader.
  */
-export async function readViewerRowIds(
+async function readViewerRows(
   lookup: ViewerRowLookup,
   ctx: ViewerReadContext
-): Promise<ReadonlyMap<string, unknown>> {
+): Promise<ReadonlyMap<string, Row>> {
   const userId = ctx.session?.userId
   if (userId === undefined || userId === '') return new Map()
   const { rows } = await readRowsForCaller({
@@ -64,9 +67,52 @@ export async function readViewerRowIds(
     rows.flatMap((row) => {
       const key = linkKey(row[lookup.link])
       // A row read back without its person (a column she may not read) is not hers to show.
-      return key === undefined || String(row[lookup.user]) !== userId ? [] : [[key, row['id']]]
+      return key === undefined || String(row[lookup.user]) !== userId ? [] : [[key, row]]
     })
   )
+}
+
+/**
+ * The reader's own rows of `lookup.table`, keyed by the item each points at
+ * (its `link` value), each answering that row's id. Empty without a reader.
+ */
+export async function readViewerRowIds(
+  lookup: ViewerRowLookup,
+  ctx: ViewerReadContext
+): Promise<ReadonlyMap<string, unknown>> {
+  const rows = await readViewerRows(lookup, ctx)
+  return new Map(Array.from(rows, ([key, row]) => [key, row['id']]))
+}
+
+/**
+ * The fields of the reader's own row an item reads as `$record.<as>.<field>`:
+ * each stored value under `<as>.<field>`, and the text a text site prints of it
+ * — a date by its type, a linked record or a person by its label — in the
+ * item's text map. `$record.<as>` itself stays the row's id. With no row, every
+ * `$record.<as>.<field>` reads empty.
+ */
+function ownRowFieldsOf(as: string, prepared: Row | undefined): Row {
+  if (prepared === undefined) return {}
+  const fields = Object.entries(prepared).filter(([key]) => !key.startsWith('_'))
+  const printed = recordTextEntriesOf(prepared)
+  return {
+    ...Object.fromEntries(fields.map(([key, value]) => [`${as}.${key}`, value])),
+    [RECORD_TEXT_KEY]: Object.fromEntries(printed.map(([key, value]) => [`${as}.${key}`, value])),
+  }
+}
+
+/** The reader's own rows, labelled and formatted as the lookup table's rows read on a page. */
+async function preparedViewerRows(
+  lookup: ViewerRowLookup,
+  ctx: ViewerReadContext
+): Promise<ReadonlyMap<string, Row>> {
+  const own = await readViewerRows(lookup, ctx)
+  const keys = Array.from(own.keys())
+  const prepared = await labelledPageRows(Array.from(own.values()), {
+    ...ctx,
+    tableName: lookup.table,
+  })
+  return new Map(keys.map((key, index) => [key, prepared[index] as Row]))
 }
 
 /**
@@ -157,14 +203,17 @@ async function bindViewerRows<
 ): Promise<{ readonly component: C; readonly rows: readonly Row[] }> {
   const mine = component.dataSource?.mine
   if (mine === undefined) return { component, rows }
-  const own = await readViewerRowIds(mine, ctx)
-  const joined = rows.map((row) => ({ ...row, [mine.as]: own.get(String(row['id'])) ?? null }))
+  const own = await preparedViewerRows(mine, ctx)
+  const joined = rows.map((row) => {
+    const mineRow = own.get(String(row['id']))
+    return { ...row, ...ownRowFieldsOf(mine.as, mineRow), [mine.as]: mineRow?.['id'] ?? null }
+  })
   const props = (component.props ?? {}) as Readonly<Record<string, unknown>>
   if (component.type === 'gallery') {
     const stamp: ViewerRowsStamp = {
       ...mine,
       userId: ctx.session?.userId ?? '',
-      rows: Object.fromEntries(own),
+      rows: Object.fromEntries(Array.from(own, ([key, row]) => [key, row['id']])),
     }
     return { component: { ...component, props: { ...props, _viewerRows: stamp } }, rows: joined }
   }

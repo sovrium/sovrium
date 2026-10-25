@@ -14,7 +14,7 @@ concurrency:
 # NOTHING at the top level, and every job states its own block. The default
 # token used to carry `contents`/`packages`/`id-token`/`attestations: write`
 # into every lane, so a compromised third-party action in a Homebrew push or a
-# demo deploy could rewrite the release, push a GHCR image and mint OIDC tokens.
+# template-mirror push could rewrite the release, push a GHCR image and mint OIDC tokens.
 # Now each job holds only what its own steps do:
 #
 #   contents: write      — the jobs that create, upload to, or un-draft the
@@ -24,7 +24,7 @@ concurrency:
 #                          lanes, the desktop installers, the combined checksums
 #   packages: write      — `build-docker` alone (GHCR push)
 #   contents: read       — everything else (checkout of this public repo);
-#                          the tap, template and demo jobs write elsewhere with
+#                          the tap and template jobs write elsewhere with
 #                          their OWN secrets, never with this token
 #
 # `Workflow Pins` (scripts/drift/check-workflow-pins.ts) fails on any `write`
@@ -168,7 +168,7 @@ jobs:
           # Opt into the deterministic dev key so boot reaches the CSS route.
           SOVRIUM_ALLOW_DEV_KEY: '1'
         run: |
-          PORT=3210 ./sovrium-darwin-arm64 start templates/landing-page/app.yaml &
+          PORT=3210 ./sovrium-darwin-arm64 start src/templates/landing-page/app.yaml &
           SERVER_PID=$!
           CSS=""
           for _ in $(seq 1 30); do
@@ -312,7 +312,7 @@ jobs:
           # Opt into the deterministic dev key so boot reaches the CSS route.
           SOVRIUM_ALLOW_DEV_KEY: '1'
         run: |
-          PORT=3210 ./sovrium-linux-x64 start templates/landing-page/app.yaml &
+          PORT=3210 ./sovrium-linux-x64 start src/templates/landing-page/app.yaml &
           SERVER_PID=$!
           CSS=""
           for _ in $(seq 1 30); do
@@ -1297,7 +1297,7 @@ jobs:
   # `publish-release` needs `build-desktop`, so on v0.28.0 — where the release
   # published fine with five engines and three desktop lanes went red — the
   # failure propagated straight past a SUCCESSFUL `publish-release` and skipped
-  # the Homebrew tap, the Scoop bucket, the template mirrors and the demo fleet.
+  # the Homebrew tap, the Scoop bucket and the template mirrors.
   # `brew install sovrium` was still serving 0.25.0 afterwards, and nothing in
   # the run said so: the jobs were grey, not red.
   #
@@ -1311,7 +1311,7 @@ jobs:
   #
   # `!cancelled()` rather than `always()`: `always()` also fires on a CANCELLED
   # run, so cancelling a release after the un-draft would still push the taps
-  # and deploy the demo fleet. `!cancelled()` breaks the failure propagation
+  # and publish the template mirrors. `!cancelled()` breaks the failure propagation
   # the same way and stops on a cancel.
   #
   # The run still ends RED when a desktop lane fails: the failed job is part of
@@ -1323,7 +1323,10 @@ jobs:
   #
   # If one of these jobs fails for its OWN reason, the repair is its manual
   # companion workflow, never a re-run of this one — `update-taps-manual.yml`,
-  # `publish-templates-manual.yml`, `deploy-demos-manual.yml`.
+  # `publish-templates-manual.yml`.
+  #
+  # The chain ends at `verify-mirrors`. The demo fleet is deployed by the
+  # website repository at its pinned engine version, not by this workflow.
   update-homebrew:
     name: Update Homebrew Formula
     permissions:
@@ -1453,7 +1456,7 @@ jobs:
           git commit -m "sovrium ${VERSION}"
           git push
 
-  # ── Publish templates/ to standalone sovrium/<slug>-template repos ──
+  # ── Publish src/templates/ to standalone sovrium/<slug>-template repos ──
   # Mirrors only ever reflect a PUBLISHED release: this job runs after
   # publish-release, from the tag's own tree (CI validated these configs
   # against this exact binary), and stamps .sovrium-version to match — a
@@ -1506,7 +1509,7 @@ jobs:
             --version "${{ steps.version.outputs.version }}"
 
   # ── Verify every template mirror landed at this release ─────
-  # Gates the demo deploy: asserts each sovrium/<slug>-template repo carries the
+  # The last job of the chain: asserts each sovrium/<slug>-template repo carries the
   # v<version> tag AND a .sovrium-version matching this release. Fails red on any
   # lagging mirror (no continue-on-error).
   verify-mirrors:
@@ -1535,7 +1538,7 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           TAG="v${VERSION}"
           MISLAG=0
-          for slug in $(jq -r 'keys[]' templates/catalog.json); do
+          for slug in $(jq -r 'keys[]' src/templates/catalog.json); do
             repo="sovrium/${slug}-template"
             stamped=$(gh api "repos/${repo}/contents/.sovrium-version" \
               -H "Accept: application/vnd.github.raw" 2>/dev/null | tr -d '[:space:]' || true)
@@ -1552,40 +1555,6 @@ jobs:
             exit 1
           fi
           echo "OK: all template mirrors at ${VERSION}"
-
-  # ── Deploy the template demos to Sovrium Cloud ──────────────
-  # Runs after the template mirrors verify, and ships every demo THROUGH THE
-  # PRODUCT: the released binary's own `sovrium bundle` + `sovrium deploy`
-  # against cloud.sovrium.com, signed in with SOVRIUM_CLOUD_API_KEY. The steps
-  # live in deploy-demos-manual.yml, which is also the manual re-run / rollback
-  # entry point, so the two can never drift apart.
-  #
-  # Nothing moves over SSH: each bundle names its engine and the fleet's node
-  # installs it per app. A read-only pre-flight refuses a node without the
-  # per-app engine store; `hello-world-demo` goes first as the canary, then the
-  # demos in batches of 4, and a failed batch stops the rest. Fails red if any
-  # demo does not come back (no continue-on-error). The engine is a Sovrium
-  # Cloud CUSTOMER here: the fleet's side of the contract, and how the secret is
-  # minted, live with the Cloud operator (`sovrium/cloud`
-  # infra/fleet/operations.md, "Deploying the demos from CI").
-  deploy-demos:
-    name: Deploy demo fleet
-    permissions:
-      contents: read
-    needs: [verify-mirrors]
-    # See verify-mirrors. The mirror check remains a hard gate on the deploy.
-    # The repository variable DEMO_DEPLOY set to `hold` skips this job, so a
-    # release can publish while the demo fleet is not ready for its engine;
-    # the demos then move by a manual run of deploy-demos-manual.yml. Unset,
-    # or any other value, deploys as before.
-    if: ${{ !cancelled() && needs.verify-mirrors.result == 'success' && vars.DEMO_DEPLOY != 'hold' }}
-    uses: ./.github/workflows/deploy-demos-manual.yml
-    with:
-      version: ${{ github.ref_name }}
-    # Named, never `inherit`: the release-signing key and the publish tokens
-    # have no business in a deploy job.
-    secrets:
-      SOVRIUM_CLOUD_API_KEY: ${{ secrets.SOVRIUM_CLOUD_API_KEY }}
 
   # ── Build and push multi-arch Docker image ──────────────────
   build-docker:

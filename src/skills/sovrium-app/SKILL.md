@@ -1,6 +1,6 @@
 ---
 name: sovrium-app
-description: Use when creating, editing, debugging or reviewing a Sovrium app — an app.yaml, app.yml or app.ts config and its $ref partials, interpreted by the sovrium binary — or when the user mentions sovrium validate, sovrium start --watch, sovrium docs, the sovrium config MCP, a Sovrium page that looks wrong, or an API answer that surprises them. Also use to decide which specialist Sovrium skill (data model, pages, automations, SEO) a request belongs to.
+description: Use when creating, editing, debugging or reviewing a Sovrium app — an app.yaml, app.yml or app.ts config and its $ref partials, interpreted by the sovrium binary — or when the user mentions sovrium validate, sovrium start --watch, sovrium dev, sovrium docs, the sovrium config MCP, a Sovrium page that looks wrong, or an API answer that surprises them. Also use to decide which specialist Sovrium skill (data model, pages, design, automations, SEO, security, performance, AI and agents, reporting an issue) a request belongs to.
 license: BSL-1.1
 compatibility: Needs the sovrium binary on PATH or the sovrium config MCP; a browser MCP (Playwright MCP, Chrome DevTools MCP or Claude in Chrome) is optional but recommended
 metadata:
@@ -50,10 +50,10 @@ Copy this checklist into your working notes and tick it as you go.
 
 ```
 - [ ] 1  Read: the config files you will touch, and the manual article for each option you will use
-- [ ] 2  Plan the smallest change; write the plan down first when it touches tables, automations or auth
+- [ ] 2  Plan the smallest change; when it touches tables, automations or auth, write the plan down first as a `proposed` entry under `decisions:`
 - [ ] 3  Edit
 - [ ] 4  sovrium validate  (add --json for machine-readable findings); fix until valid
-- [ ] 5  Keep sovrium start --watch running; read what it printed (hot swap or restart)
+- [ ] 5  Keep sovrium dev running; read what it printed (the URL, the account, hot swap or restart)
 - [ ] 6  ONE browser pass on the URL it printed (references/browser-loop.md)
 - [ ] 7  API check on every table you touched (references/api-checks.md)
 - [ ] 8  Fix everything the passes found, in one batch; back to step 4
@@ -61,7 +61,7 @@ Copy this checklist into your working notes and tick it as you go.
 - [ ] 10 Report evidence: screenshot path, console excerpt, the API status and body
 ```
 
-Step 5 in detail: `sovrium start --watch` reloads on save. A change under `tables`, `automations`, `auth`, `agents`, `connections`, `env`, `analytics` or `buckets` forces a full restart (a new port may be bound — re-read the printed URL); everything else is swapped in place. A restart that would drop data is refused and the server keeps the configuration it already serves; read the reason it prints before you retry.
+Step 5 in detail: `sovrium dev` boots on a fresh copy of the seed, prints an account to sign in with, and reloads on save like `sovrium start --watch`, which stays the form to use when the data must survive between runs or a supervisor runs the server. A change under `tables`, `automations`, `auth`, `agents`, `connections`, `env`, `analytics` or `buckets` forces a full restart (a new port may be bound — re-read the printed URL); everything else is swapped in place. A restart that would drop data is refused and the server keeps the configuration it already serves; read the reason it prints before you retry.
 
 Step 6 in one line, with a browser MCP (Playwright MCP or Claude in Chrome): navigate → wait for the network to settle → accessibility snapshot for structure → screenshot only when appearance is the question → console errors filtered by pattern and failed network requests → resize to desktop, tablet, mobile. No browser MCP? `curl` the HTML, or write a short Playwright script (`references/browser-loop.md`).
 
@@ -77,16 +77,26 @@ Step 7 in one line: `GET /api/tables/<table>/records` for each table you touched
 - **`/_admin` never edits configuration.** It shows data and runs; configuration changes happen in the file.
 - **Never edit configuration through a browser.** The browser is for looking; the file is for changing.
 - **Destructive schema changes are opt-in.** Dropping a column needs `allowDestructive: true` on the table and the operator's explicit agreement.
+- **A change that contradicts an `accepted` decision is a supersession, not an edit.** Read `decisions:` before planning; write the superseding record and mark the old one superseded. Manual: `sovrium docs app-schema/decisions`, or `sovrium docs search decisions`.
 - **These skill files are plain files.** `sovrium skills` refuses to write through a symlink at a skill folder, a file inside one or its `.sovrium-skills.json`; only the `.claude/skills` folder itself may be a link, and only to somewhere inside the project.
 
 ## Which skill next
 
-| The request is about                                                 | Use                   |
-| -------------------------------------------------------------------- | --------------------- |
-| Tables, fields, relations, permissions, seed data, migrations        | `sovrium-data-model`  |
-| Pages, components, layout, design tokens, copy, forms                | `sovrium-pages`       |
-| Automations, triggers, actions, connections, webhooks, notifications | `sovrium-automations` |
-| Search engines, social previews, AI visibility, sitemaps, `llms.txt` | `sovrium-seo-geo`     |
+| The request is about                                                           | Use                                                                                      |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Tables, fields, relations, permissions, seed data, migrations                  | `sovrium-data-model`                                                                     |
+| Pages, components, layout, states, copy, forms                                 | `sovrium-pages`                                                                          |
+| Automations, triggers, actions, connections, webhooks, notifications           | `sovrium-automations`                                                                    |
+| Search engines, social previews, AI visibility, sitemaps, `llms.txt`           | `sovrium-seo-geo`                                                                        |
+| The `design` block, tokens, colour, type, the component-wide look              | `sovrium-design`                                                                         |
+| A launch review, who can see what, sign-up, secrets, GDPR, hardening           | `sovrium-security`                                                                       |
+| A slow or heavy app, caching, images, indexes, the `ECO_*` levers              | `sovrium-performance`                                                                    |
+| `agents[]`, `ai-chat`, AI fields, providers, RAG, the app's MCP server         | `sovrium-agents`                                                                         |
+| A Sovrium failure, a bug or a vulnerability in Sovrium to report               | `sovrium-report-issue`                                                                   |
+| Connecting Claude Code, Cursor or Claude Desktop, the config MCP, the dev loop | this skill's `references/config-mcp.md` and the `sovrium-config-editor` agent            |
+| "Design first", "mock it up", a page prototyped before it is built             | `sovrium-pages` (Design first) and the `sovrium-config-editor` agent's design-first mode |
+
+Design first needs a shell: the canvas export and import are commands, so over the config MCP alone, say the mode cannot run there and offer to build the page config-first or give the person the two commands to run in a terminal.
 
 Keep this skill's loop running underneath whichever specialist you load.
 

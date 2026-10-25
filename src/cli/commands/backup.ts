@@ -73,9 +73,9 @@ const readSources = (): Sources => {
       ? { source: 'environment' }
       : { source: 'file', path: defaultEncryptionKeyPath() }
     const storageSource: BackupStorageSource =
-      storage?.provider === 's3'
+      storage.provider === 's3'
         ? { provider: 's3', bucket: storage.bucket }
-        : storage?.provider === 'local'
+        : storage.provider === 'local'
           ? { provider: 'local', directory: resolve(storage.directory) }
           : { provider: 'database' }
     return { database, encryptionKey, storage: storageSource }

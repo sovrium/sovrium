@@ -252,5 +252,15 @@ export class InstanceSupervisor extends Context.Service<
       request: Readonly<Record<string, unknown>>,
       timeoutMs: number
     ) => Effect.Effect<SeedUnitOutcome, InstanceSupervisorError>
+    /**
+     * Run the app's usage unit and hand back the report it left, parsed (a
+     * `sovrium usage` report, unchecked). A report left by an earlier run is
+     * deleted before the unit starts and the one read is deleted after; a
+     * refused unit, or one that leaves no report, fails naming the unit.
+     */
+    readonly usage: (
+      slug: string,
+      timeoutMs: number
+    ) => Effect.Effect<unknown, InstanceSupervisorError>
   }
 >()('InstanceSupervisor') {}

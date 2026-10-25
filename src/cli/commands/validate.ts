@@ -12,6 +12,7 @@ import { detectFormat } from '@/domain/kernel/config-parsing/format-detection'
 import { formatMessageReport } from '@/domain/models/app/app-config-report-service'
 import { messageAsConfigFinding } from '@/domain/models/app/app-excess-property-report'
 import { sessionWebhookCacheWarnings } from '@/domain/models/app/automations/trigger/webhook-session-validation'
+import { emptyLookupReadNotices } from '@/domain/models/app/tables/lookup-empty-read-service'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { lazyImportSchema } from './utils'
 import {
@@ -235,7 +236,8 @@ export interface ValidationOutcome {
    */
   readonly report: readonly string[]
   /**
-   * Non-fatal notices from the shared pipeline — today, deprecated config keys.
+   * Non-fatal notices — deprecated config keys from the shared pipeline, and
+   * each lookup that reads empty for a role allowed to read it.
    *
    * Kept apart from `errors` all the way to the print site. A deprecation is
    * not a refusal: the config is valid, it ships, and it keeps shipping until
@@ -317,7 +319,8 @@ export const validateParsedConfig = async (
     // nothing to act on.
     findings: postDecodeErrors.map((error) => messageAsConfigFinding(error)),
     report: formatMessageReport(postDecodeErrors),
-    notices: decoded.notices,
+    // Only `validate` says it: the boot decodes through the pipeline, not here.
+    notices: [...decoded.notices, ...emptyLookupReadNotices(decoded.app)],
     warnings: [
       ...(await missingMarkdownFileWarnings(decoded.app.pages, projectDir)),
       ...sessionWebhookCacheWarnings(parsed),

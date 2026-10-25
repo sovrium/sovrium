@@ -275,21 +275,13 @@ const writtenScalar = (value: Scalar, previous: string): string | undefined => {
   return candidates.find((candidate) => candidate !== '' && readsAs(candidate, value))
 }
 
-/**
- * The lines of one YAML entry with only its changed scalars rewritten in
- * place, or `undefined` when the change is not a set of scalar edits this
- * locator can place.
- *
- * @param lines - the entry's lines as written, its first line opening `- `.
- * @param before - the entry as those lines parse.
- * @param after - the entry to write.
- */
-export const patchYamlEntryInPlace = (
+/** The lines of a YAML node with its changed scalars rewritten in place, its sites keyed under `prefix`. */
+const patchInPlace = (
   lines: readonly string[],
-  before: unknown,
-  after: unknown
+  change: { readonly before: unknown; readonly after: unknown },
+  prefix: Path
 ): readonly string[] | undefined => {
-  const changes = scalarChanges(before, after, [])
+  const changes = scalarChanges(change.before, change.after, [])
   if (changes === undefined) return undefined
   if (changes.length === 0) return lines
   const first = nextSignificant(lines, 0)
@@ -300,10 +292,10 @@ export const patchYamlEntryInPlace = (
     path: [],
   })
   const edits = changes.map((path) => {
-    const site = sites.get(keyOf([0, ...path]))
+    const site = sites.get(keyOf([...prefix, ...path]))
     const value = path.reduce<unknown>(
       (node, step) => (node as Readonly<Record<string | number, unknown>>)[step],
-      after
+      change.after
     ) as Scalar
     const line = site === undefined ? undefined : lines[site.line]
     const written =
@@ -320,6 +312,41 @@ export const patchYamlEntryInPlace = (
     return acc.with(site.line, `${line.slice(0, site.from)}${written}${line.slice(site.to)}`)
   }, lines)
 }
+
+/**
+ * The lines of one YAML entry with only its changed scalars rewritten in
+ * place, or `undefined` when the change is not a set of scalar edits this
+ * locator can place.
+ *
+ * @param lines - the entry's lines as written, its first line opening `- `.
+ * @param before - the entry as those lines parse.
+ * @param after - the entry to write.
+ */
+export const patchYamlEntryInPlace = (
+  lines: readonly string[],
+  before: unknown,
+  after: unknown
+): readonly string[] | undefined => patchInPlace(lines, { before, after }, [0])
+
+/**
+ * A whole YAML document with only its changed scalars rewritten in place, as
+ * an entry is: a `$ref` partial holding one page, a fragment, a language's
+ * translations or a part of `design`. `undefined` when the change is not a set
+ * of scalar edits this locator can place.
+ *
+ * @param lines - the document's lines.
+ * @param before - the document as those lines parse.
+ * @param after - the document to write.
+ */
+export const patchYamlDocumentInPlace = (
+  lines: readonly string[],
+  before: unknown,
+  after: unknown
+): readonly string[] | undefined => patchInPlace(lines, { before, after }, [])
+
+/** Whether two values have one shape, so only their scalars differ. */
+export const isScalarEdit = (before: unknown, after: unknown): boolean =>
+  scalarChanges(before, after, []) !== undefined
 
 /** One scalar to set in place, by its path from the document root. */
 export interface YamlScalarEdit {

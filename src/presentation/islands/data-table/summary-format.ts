@@ -24,6 +24,7 @@ import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
 import { defaultAlignOfFieldType } from '@/domain/models/app/tables/field-type-presentation-service'
 import { formatRecordText } from '@/domain/models/app/tables/record-text-service'
 import { resolvePageTimezone } from '../runtime/page-timezone'
+import { presentedTypeOf } from './cells/type-placement'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type {
   DataTableColumn,
@@ -59,7 +60,8 @@ const summaryColumn = (field: string, context: SummaryFormatContext): FieldColum
  */
 function formatByFieldType(value: number, field: string, context: SummaryFormatContext): string {
   const meta = context.fieldMeta?.[field]
-  if (meta?.type === 'currency') {
+  const type = presentedTypeOf(meta)
+  if (type === 'currency') {
     const currency = resolveCurrencyOptions(meta)
     return formatRecordText(
       value,
@@ -67,8 +69,8 @@ function formatByFieldType(value: number, field: string, context: SummaryFormatC
       context.locale
     )
   }
-  if (meta?.type === 'percentage') {
-    const precision = meta.display?.precision
+  if (type === 'percentage') {
+    const precision = meta?.display?.precision
     return formatRecordText(
       value,
       { format: 'percent', ...(precision === undefined ? {} : { precision }) },
@@ -86,7 +88,7 @@ function formatByFieldType(value: number, field: string, context: SummaryFormatC
 export function summaryAlignClass(field: string, context: SummaryFormatContext): string {
   const align =
     summaryColumn(field, context)?.align ??
-    defaultAlignOfFieldType(context.fieldMeta?.[field]?.type)
+    defaultAlignOfFieldType(presentedTypeOf(context.fieldMeta?.[field]))
   if (align === 'right') return 'text-right'
   if (align === 'center') return 'text-center'
   return ''

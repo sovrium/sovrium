@@ -27,7 +27,7 @@ import { defineConfig } from 'vite'
 import { sovriumTemplates } from './vite-plugin-templates.ts'
 
 export default defineConfig({
-  // The engine's `templates/catalog.json`, inlined as a virtual module so the
+  // The engine's `src/templates/catalog.json`, inlined as a virtual module so the
   // first-run gallery and the binary's embedded templates cannot disagree.
   plugins: [sovriumTemplates()],
   clearScreen: false,

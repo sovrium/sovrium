@@ -105,6 +105,10 @@ A `code` action runs a TypeScript `execute(context)` function, type-checked when
 - A green run of an email step is not proof of delivery on an instance without SMTP.
 - A run stuck `pending` may be waiting on a concurrency slot, not broken.
 
+## Report
+
+Report each automation you built or changed with its trigger, the run you fired and what it did, and end with `Decisions to record: <title — touches>`, one line per nominated decision, or `Decisions to record: none`. Nominate only a choice a future operator would ask about (the data-model shape, the permissions or auth model, SQLite or PostgreSQL, a design character, a disabled automation, a security trade-off left in place such as dev mode on a public origin or an open table), never labels, copy or colours. Skills only nominate; only the `sovrium-config-editor` agent writes the `decisions:` register.
+
 ## Anti-patterns
 
 - A record trigger on `update` with no `watchFields`.

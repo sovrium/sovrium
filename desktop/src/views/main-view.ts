@@ -80,7 +80,7 @@ interface ViewContext {
  *
  * A category the engine adds later ranks last rather than breaking the sort, so
  * a new template appears at the bottom instead of not appearing. Read the real
- * set with `jq -r '.[].category' templates/catalog.json | sort -u`.
+ * set with `jq -r '.[].category' src/templates/catalog.json | sort -u`.
  */
 const CATEGORY_ORDER = [
   'starter',

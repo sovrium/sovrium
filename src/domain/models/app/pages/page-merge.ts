@@ -57,7 +57,14 @@ import {
 } from './page-merge-edits-service'
 import { matchByPosition, reshapedUnstamped, unstamped } from './page-merge-position-service'
 import { ruleFindings } from './page-merge-rules-service'
-import type { DrawnNode, DrawnPage, DrawnStampEntry, PlacedDrawnNode } from './page-drawing'
+import type {
+  DrawnConflict,
+  DrawnLayout,
+  DrawnNode,
+  DrawnPage,
+  DrawnStampEntry,
+  PlacedDrawnNode,
+} from './page-drawing'
 import type { SpacingSteps } from './page-merge-layout-service'
 import type { PaintTokens } from './page-merge-paint-service'
 import type { RuleReferences } from './page-merge-rules-service'
@@ -654,6 +661,27 @@ const freshOf = <T>(drawn: readonly T[], unedited: readonly T[], keyOf: (entry: 
   ).kept
 }
 
+/**
+ * Whether a conflict only sets the export's own `data-kit-layout` against a
+ * value the config already holds: that stamp lags the class the designer
+ * wrote, and once the config holds that class's value the board changes
+ * nothing. A conflict between two sources a designer writes is always named.
+ */
+const isSettledConflict = (
+  unedited: ReadonlyMap<string, DrawnNode>,
+  conflict: DrawnConflict
+): boolean =>
+  conflict.overridden.every((source) => source === 'data-kit-layout') &&
+  layoutValueAt(unedited.get(conflict.node), conflict.property) === conflict.value
+
+/** A node's layout value at a dotted path (`layout.gap`, `responsive.md.gap`). */
+const layoutValueAt = (node: DrawnNode | undefined, path: string): string | undefined => {
+  const [scope, first = '', second = ''] = path.split('.')
+  const [layout, property] =
+    scope === 'layout' ? [node?.layout, first] : [node?.responsive?.[first], second]
+  return layout?.[property as keyof DrawnLayout]?.value
+}
+
 /** The findings a parser worded itself, less those an unedited drawing holds too. */
 const parserReports = (
   input: PageMergeInput
@@ -672,6 +700,7 @@ const parserReports = (
       pick(input.baseline) ?? [],
       (entry) => `${entry.node} ${entry.reason}`
     )
+  const unedited = drawnNodesById(input.baseline)
   return {
     refused: fresh((page) => page.reported?.notAKitComponent).map((entry) => ({
       node: entry.node,
@@ -683,13 +712,15 @@ const parserReports = (
       input.drawn.reported?.conflicts ?? [],
       input.baseline.reported?.conflicts ?? [],
       (entry) => JSON.stringify(entry)
-    ).map(({ node, property, kept, overridden, value }) => ({
-      node,
-      property,
-      kept,
-      overridden,
-      value,
-    })),
+    )
+      .filter((entry) => !isSettledConflict(unedited, entry))
+      .map(({ node, property, kept, overridden, value }) => ({
+        node,
+        property,
+        kept,
+        overridden,
+        value,
+      })),
   }
 }
 

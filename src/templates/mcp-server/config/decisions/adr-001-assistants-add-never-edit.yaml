@@ -1,0 +1,25 @@
+# One decision record: why an assistant may add a document but never change or
+# remove one. The reasoning lives here, beside the `aiAccess` block it decided,
+# so whoever inherits the app reads the why with the what.
+id: ADR-001
+title: An assistant adds documents, it never edits or deletes them
+status: accepted
+date: '2026-03-02'
+deciders:
+  - Priya Nair
+  - Marco Bianchi
+touches:
+  - tables › documents › aiAccess
+  - tables › tags › aiAccess
+context: >-
+  The knowledge base is read far more than it is written, and most writes an
+  assistant would make come from a conversation nobody reviewed. A silent edit
+  to a runbook is found during the next incident, when it is too late.
+decision: >-
+  Documents offer three tools: list, read and create. There is no update or
+  delete tool, a created document starts as a draft, and only title, body, tag
+  and status reach the model. Tags are read-only.
+consequences: >-
+  Every change an assistant makes is a new draft a person publishes, so it is
+  easy to review and easy to undo. Fixing a typo in a published runbook is done
+  by a person, in the admin console.

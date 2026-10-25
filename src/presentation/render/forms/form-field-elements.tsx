@@ -45,7 +45,13 @@ import {
   SelectInput,
 } from './form-field-elements-design'
 import { FileInput, UserInput } from './form-field-elements-media'
-import { RatingInput, RequiredMark, SectionHeading, zonedValue } from './form-field-elements-typed'
+import {
+  CheckboxInput,
+  RatingInput,
+  RequiredMark,
+  SectionHeading,
+  zonedValue,
+} from './form-field-elements-typed'
 import { HelpText } from './form-help-text'
 import type { ControlAttributeField } from '@/presentation/design/field-control-attributes'
 import type { ReactElement } from 'react'
@@ -380,16 +386,11 @@ const LockedHiddenInput = ({
  * under the max-lines-per-function cap. This is the leaf dispatcher.
  */
 
-/** A `section` item and a `rating` scale, the two items that are not a single input. */
+/** A `section` item, a `rating` scale and a checkbox, the items not drawn as a labelled box. */
 function dispatchAnswerlessOrScale(field: ResolvedFormField, defaultValue: string | undefined) {
   if (field.inputElement === 'section') return <SectionHeading field={field} />
-  if (field.inputElement === 'rating')
-    return (
-      <RatingInput
-        field={field}
-        defaultValue={defaultValue}
-      />
-    )
+  if (field.inputElement === 'rating') return <RatingInput {...{ field, defaultValue }} />
+  if (field.inputElement === 'checkbox') return <CheckboxInput {...{ field, defaultValue }} />
   return undefined
 }
 
@@ -403,13 +404,7 @@ function designOrNative(field: ResolvedFormField, defaultValue: string | undefin
 function dispatchFieldInput(field: ResolvedFormField, defaultValue: string | undefined) {
   const f = field
   const dv = defaultValue
-  if (f.inputElement === 'textarea')
-    return (
-      <TextareaInput
-        field={f}
-        defaultValue={dv}
-      />
-    )
+  if (f.inputElement === 'textarea') return <TextareaInput {...{ field: f, defaultValue: dv }} />
   if (f.inputElement === 'select' || f.inputElement === 'date') return designOrNative(f, dv)
   if (f.inputElement === 'radio')
     return (

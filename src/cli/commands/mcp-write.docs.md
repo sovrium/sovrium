@@ -53,6 +53,6 @@ An accepted write copies the **pre-write** state into the history described in *
 
 Undo puts the **file** back unconditionally. Whether a running instance follows it is a separate question: reverting a field you added is a column **drop**, so the watcher's own pre-flight refuses that reload without `allowDestructive`, keeps the configuration it is already serving, and publishes the reason. Your app stays up and your rows stay where they are.
 
-**A write does not make anything live.** It puts bytes on disk; `_config_status` is how you find out whether an instance took them. Calls are answered one at a time, in the order you sent them, so a write followed by an undo happens in that order.
+**A write does not make anything live.** It puts bytes on disk; `_config_status` is how you find out whether an instance took them. Only an instance that watches the file takes them on save: `sovrium dev` runs one on fresh seed data, and `sovrium start --watch` one on the data you keep (**The Dev Session**). Calls are answered one at a time, in the order you sent them, so a write followed by an undo happens in that order.
 
 The four read tools, how a client is pointed at the server and which config it reads are in **Your Config over MCP**.

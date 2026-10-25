@@ -247,10 +247,9 @@ const holdsKitElement = (nodes: readonly HtmlNode[]): boolean =>
  */
 const contentOf = (element: HtmlElementNode, stampedId: string | undefined): string => {
   if (attribute(element, CANVAS_STAMP.locked) !== undefined) return ''
-  const shown = () => shownTextOf(element, ownTextOf(element.children), isKitElement)
-  if (stampedId === undefined || attribute(element, CANVAS_STAMP.content) !== undefined) {
-    return shown()
-  }
+  const literal = stampedId !== undefined && attribute(element, CANVAS_STAMP.content) !== undefined
+  const shown = () => shownTextOf(element, ownTextOf(element.children), isKitElement, literal)
+  if (stampedId === undefined || literal) return shown()
   return holdsKitElement(element.children) ? '' : shown()
 }
 

@@ -16,7 +16,7 @@
  */
 
 import { join, resolve } from 'node:path'
-import { Effect, Console } from 'effect'
+import { Cause, Console, Effect, Exit, Fiber, Option } from 'effect'
 import {
   restoreBackup,
   type RestoreRequest,
@@ -24,9 +24,12 @@ import {
 } from '@/application/use-cases/server/restore-programs'
 import { parseDataDir } from '@/domain/models/process-env/data-dir'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
+import { parseStorageEnvConfig } from '@/domain/models/process-env/storage/storage'
 import { BackupWorkspaceLive } from '@/infrastructure/filesystem/backup-workspace-live'
 import { CLI_INDENT, inflect, printFailure, printStderr } from '@/infrastructure/logging/cli-output'
 import { getCurrentVersion } from './update'
+import type { BackupIoError } from '@/application/ports/services/backup-workspace'
+import type { RestoreRefusal } from '@/application/use-cases/server/restore-refusal'
 
 /** Everything `sovrium restore` reads from the command line. */
 export interface RestoreCommandOptions {
@@ -51,8 +54,24 @@ const readPostgresUrl = (): string | undefined | { readonly error: string } => {
   }
 }
 
+/**
+ * Where the restored server will look for uploads, resolved as the server
+ * resolves it at boot. Unset storage on PostgreSQL, or the database provider,
+ * means the database; an environment with no usable storage keeps today's
+ * local folder.
+ */
+const readStorageDestination = ():
+  RestoreRequest['storageDestination'] | { readonly error: string } => {
+  try {
+    const { provider } = parseStorageEnvConfig()
+    return provider === 'bytea' ? 'database' : provider === 's3' ? 's3' : 'local'
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
 /** The `Restored …` line and its data block (T22, T24/T25). */
-const formatReport = (summary: RestoreSummary, projectDirectory: string, storage: string) =>
+const formatReport = (summary: RestoreSummary, projectDirectory: string) =>
   [
     `Restored the backup taken on ${summary.manifest.createdAt.slice(0, 10)} by Sovrium v${summary.manifest.engineVersion}.`,
     '',
@@ -60,7 +79,7 @@ const formatReport = (summary: RestoreSummary, projectDirectory: string, storage
     `Encryption key: ${summary.keyPath ?? `not in the backup (set ${summary.manifest.encryptionKey.source === 'environment' ? summary.manifest.encryptionKey.variable : 'SOVRIUM_ENCRYPTION_KEY'})`}`,
     `Config: ${inflect(summary.configFiles, 'file')} (${projectDirectory})`,
     summary.manifest.storage.provider === 'local'
-      ? `Storage: ${inflect(summary.storageFiles, 'file')} (${storage})`
+      ? `Storage: ${inflect(summary.storageFiles, 'file')} (${summary.storageLocation})`
       : `Storage: ${summary.manifest.storage.provider}, ${inflect(summary.manifest.storage.files, 'file')} listed, not in the backup`,
     `Checksums: ${summary.verified} of ${summary.verified} verified`,
   ]
@@ -98,6 +117,14 @@ const buildRequest = async (
       [postgresUrl.error]
     )
   }
+  const storageDestination = readStorageDestination()
+  if (typeof storageDestination === 'object') {
+    return fail(
+      'The storage settings do not name a place the uploads can go — nothing was restored.',
+      'Correct the STORAGE_* variables, or unset STORAGE_PROVIDER.',
+      [storageDestination.error]
+    )
+  }
   const dataDirectory = options.dataDir === undefined ? parseDataDir() : resolve(options.dataDir)
   return {
     archivePath,
@@ -107,6 +134,7 @@ const buildRequest = async (
     storageDirectory: process.env.STORAGE_LOCAL_DIRECTORY
       ? resolve(process.env.STORAGE_LOCAL_DIRECTORY)
       : join(dataDirectory, 'storage'),
+    storageDestination,
     force: options.force,
     engineVersion: await getCurrentVersion(),
     postgresUrl,
@@ -114,17 +142,84 @@ const buildRequest = async (
   }
 }
 
-/** Handle `sovrium restore`. Exits 1 on any refusal; returns on success. */
+/** The exit code of a process ended by a signal: 128 plus its number. */
+const SIGNAL_EXIT_CODES = { SIGINT: 130, SIGTERM: 143 } as const
+
+type StopSignal = keyof typeof SIGNAL_EXIT_CODES
+
+/**
+ * Run the restore as a fiber that `SIGINT` and `SIGTERM` interrupt rather than
+ * kill: interruption runs the restore's own cleanup (the migrate child is
+ * stopped, the PostgreSQL database emptied again, the temporary copy of the
+ * data removed). A second signal while that runs is ignored, with a note.
+ * Resolves with the outcome, or the signal that interrupted it.
+ */
+const runInterruptibly = async (
+  request: RestoreRequest
+): Promise<
+  | {
+      readonly _tag: 'Done'
+      readonly exit: Exit.Exit<RestoreSummary, RestoreRefusal | BackupIoError>
+    }
+  | { readonly _tag: 'Interrupted'; readonly signal: StopSignal }
+> => {
+  const fiber = Effect.runFork(restoreBackup(request).pipe(Effect.provide(BackupWorkspaceLive)))
+  let received: StopSignal | undefined
+  const onSignal = (signal: StopSignal) => () => {
+    if (received !== undefined) {
+      printStderr('Cleanup is in progress; the restore stops as soon as it has finished.')
+      return
+    }
+    received = signal
+    printStderr('Interrupting the restore and cleaning up…')
+    Effect.runFork(Fiber.interrupt(fiber))
+  }
+  const handlers = { SIGINT: onSignal('SIGINT'), SIGTERM: onSignal('SIGTERM') }
+  process.on('SIGINT', handlers.SIGINT)
+  process.on('SIGTERM', handlers.SIGTERM)
+  try {
+    const exit = await new Promise<Exit.Exit<RestoreSummary, RestoreRefusal | BackupIoError>>(
+      (settle) => {
+        fiber.addObserver(settle)
+      }
+    )
+    return received !== undefined && Exit.hasInterrupts(exit)
+      ? { _tag: 'Interrupted', signal: received }
+      : { _tag: 'Done', exit }
+  } finally {
+    process.off('SIGINT', handlers.SIGINT)
+    process.off('SIGTERM', handlers.SIGTERM)
+  }
+}
+
+/** Handle `sovrium restore`. Exits 1 on any refusal, 130/143 when interrupted; returns on success. */
 export const handleRestoreCommand = async (options: RestoreCommandOptions): Promise<void> => {
   const request = await buildRequest(options, await requireArchive(options.archivePath))
-  const outcome = await Effect.runPromise(
-    restoreBackup(request).pipe(Effect.provide(BackupWorkspaceLive), Effect.result)
-  )
+  const run = await runInterruptibly(request)
+
+  if (run._tag === 'Interrupted') {
+    printFailure({
+      headline: `The restore was interrupted by ${run.signal} — nothing was restored.`,
+      guidance: "Run 'sovrium restore' again when you are ready.",
+    })
+    process.exit(SIGNAL_EXIT_CODES[run.signal])
+  }
+
+  const outcome = Exit.isSuccess(run.exit)
+    ? { _tag: 'Success' as const, success: run.exit.value }
+    : { _tag: 'Failure' as const, failure: Exit.findErrorOption(run.exit) }
 
   if (outcome._tag === 'Failure') {
-    const { failure } = outcome
+    if (Option.isNone(outcome.failure)) {
+      return fail(
+        'The restore stopped on an unexpected error — nothing was restored.',
+        'Run the command again; if it keeps failing, report it with sovrium report.',
+        [Exit.isFailure(run.exit) ? Cause.pretty(run.exit.cause) : '']
+      )
+    }
+    const failure = outcome.failure.value
     return failure._tag === 'RestoreRefusal'
-      ? fail(`${failure.reason} — nothing was restored.`, failure.guidance)
+      ? fail(`${failure.reason} — nothing was restored.`, failure.guidance, failure.detail)
       : fail(
           `Sovrium could not ${failure.action}, and the restore stopped there.`,
           'Fix the cause above, then run the command again with --force.',
@@ -132,8 +227,6 @@ export const handleRestoreCommand = async (options: RestoreCommandOptions): Prom
         )
   }
 
-  Effect.runSync(
-    Console.log(formatReport(outcome.success, request.projectDirectory, request.storageDirectory))
-  )
+  Effect.runSync(Console.log(formatReport(outcome.success, request.projectDirectory)))
   outcome.success.warnings.forEach((warning) => printStderr(`Warning: ${warning}`))
 }

@@ -25,6 +25,7 @@ import {
   usePublishedValueInAddress,
   useSharedFilterPublisher,
 } from '../hooks/use-shared-filter-publisher'
+import { emptyRowProps } from './select-empty-row'
 import { ChevronDown, ChevronUp, XMark } from './select-icons'
 import { SelectOptions } from './select-option-renderers'
 import type { OptionItem, SelectIslandProps } from './select-island-types'
@@ -354,14 +355,14 @@ export function PlainSelect({
   uiStrings,
 }: SelectIslandProps): ReactElement {
   const { clear, rootValue } = useSelectValue({ publishes, defaultValue, multiple, clearable })
-  const items = useMemo(() => options ?? [], [options])
-  const renderValue = useValueRenderer(items, placeholder)
+  const root = useMemo(() => ({ items: options ?? [], ...emptyRowProps(options) }), [options])
+  const renderValue = useValueRenderer(root.items, placeholder)
   const parts = partClasses(designClasses, designFloor, designReplace)
 
   return (
     <div className={cn(className)}>
       <Select.Root
-        items={items}
+        {...root}
         multiple={multiple}
         modal={false}
         disabled={disabled}

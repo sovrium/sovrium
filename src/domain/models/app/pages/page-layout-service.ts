@@ -85,6 +85,10 @@ const SPACING_UTILITIES: Readonly<Record<string, keyof Layout>> = {
   w: 'width',
 }
 
+/** A utility's step: a number, or a step the app declares by name (its `line` step). */
+const isSpacingStep = (suffix: string, spacing: SpacingScale): boolean =>
+  /^\d+(?:\.\d+)?$/.test(suffix) || Object.hasOwn(spacing, suffix)
+
 /** The layout property one utility class sets, or `undefined` for any other class. */
 const layoutOfClass = (
   utility: string,
@@ -92,9 +96,9 @@ const layoutOfClass = (
 ): readonly [keyof Layout, LayoutValue] | undefined => {
   const direction = DIRECTIONS[utility]
   if (direction !== undefined) return ['direction', { value: direction }]
-  const [, prefix = '', suffix = ''] = /^([a-z]+)-([a-z0-9.]+)$/.exec(utility) ?? []
+  const [, prefix = '', suffix = ''] = /^([a-z]+)-([a-z0-9.-]+)$/.exec(utility) ?? []
   const spaced = SPACING_UTILITIES[prefix]
-  if (spaced !== undefined && /^\d+(?:\.\d+)?$/.test(suffix)) {
+  if (spaced !== undefined && isSpacingStep(suffix, spacing)) {
     return [spaced, spacingValue(suffix, spacing)]
   }
   const keyword = KEYWORD_UTILITIES[prefix]

@@ -137,31 +137,43 @@ function labelReaderOf(app: Parameters<ReadRecordLabels>[0], session: SessionInf
  */
 const recordLabelReader =
   (c: Context): ReadRecordLabels =>
-  async (app, tableName, record, session) => {
-    const { id } = record
-    if (id === undefined || id === null) return undefined
+  async (app, tableName, records, session) => {
+    const unlabelled = records.map(() => undefined)
+    const stored = records.flatMap((row) =>
+      // A raw row: on SQLite a list of people is still its JSON text.
+      row['id'] === undefined || row['id'] === null
+        ? []
+        : [{ id: String(row['id']), fields: decodeUserListValuesIn(app.tables, tableName, row) }]
+    )
+    if (stored.length === 0) return unlabelled
     const reader = labelReaderOf(app, session)
-    // A raw row: on SQLite a list of people is still its JSON text.
-    const fields = decodeUserListValuesIn(app.tables, tableName, record)
-    const stored = { id: String(id), fields, createdAt: '', updatedAt: '' }
     const answer = await runOnRequest(
       c,
-      enrichRecordsWithRelatedLabels(app, tableName, [stored as TransformedRecord], {
-        reader: relatedReaderOf(reader),
-        linkReader: reader,
-      }).pipe(
+      enrichRecordsWithRelatedLabels(
+        app,
+        tableName,
+        stored.map((record) => ({ ...record, createdAt: '', updatedAt: '' }) as TransformedRecord),
+        { reader: relatedReaderOf(reader), linkReader: reader }
+      ).pipe(
         Effect.tapCause((cause) =>
           Effect.sync(() => {
-            logError(`[pages] labels of a ${tableName} record could not be read`, cause)
+            logError(`[pages] labels of ${tableName} records could not be read`, cause)
           })
         )
       )
     )
     // effect-swallow: see the tap above. The page still renders, its user and
     // relationship fields reading as their stored ids rather than failing it.
-    if (answer._tag !== 'Success') return undefined
-    return (answer.success[0] as { readonly _display?: Record<string, string> } | undefined)
-      ?._display
+    if (answer._tag !== 'Success') return unlabelled
+    const byId = new Map(
+      answer.success.map((record) => [
+        String(record.id),
+        (record as { readonly _display?: Record<string, string> })._display,
+      ])
+    )
+    return records.map(({ id }) =>
+      id === undefined || id === null ? undefined : byId.get(String(id))
+    )
   }
 
 /** The memo key of a row-rule context: everything it is built from, so two readers never share one. */

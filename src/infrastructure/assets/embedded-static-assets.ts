@@ -94,8 +94,8 @@ export const materializeMigrations = async (dialect: EmbeddedDialect): Promise<s
  * Embedded entries for a template's directory tree, keyed by path relative to
  * the template root (e.g. `app.yaml`, `config/tables/contacts.yaml`).
  *
- * Templates ship as directory trees (`templates/<name>/**`) — the generator
- * walks `templates/` recursively and uses paths relative to `templates/` as
+ * Templates ship as directory trees (`src/templates/<name>/**`) — the generator
+ * walks `src/templates/` recursively and uses paths relative to that root as
  * keys. This helper filters the manifest to entries under `<name>/` and
  * strips the `<name>/` prefix from each key so callers see paths rooted at
  * the template directory.
@@ -112,6 +112,18 @@ export const embeddedTemplateDir = (name: string): Readonly<Record<string, strin
   )
   return Object.fromEntries(entries)
 }
+
+/**
+ * The embedded path of one file at the ROOT of `src/templates/` — beside the
+ * template directories rather than inside one, such as `catalog.json` — or
+ * `undefined` when the manifest holds no such key.
+ *
+ * A plain property read on the frozen manifest, like the other lookups here:
+ * the key is never joined onto a path, so a key naming a nested file or a
+ * traversal is simply a miss.
+ */
+export const embeddedTemplateRootFile = (key: string): string | undefined =>
+  key.includes('/') ? undefined : TEMPLATES[key]
 
 /** One embedded file, ready to become a `Response` body. */
 export interface EmbeddedAsset {

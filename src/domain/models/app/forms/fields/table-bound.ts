@@ -12,6 +12,7 @@ import {
   FormFieldAutocompleteSchema,
   FormRecordAudioSchema,
 } from '../form-field-props'
+import { FormFieldChoiceSchema } from './standalone'
 
 /**
  * Table-bound field — references a column on the form's `submitTo.table`.
@@ -46,6 +47,23 @@ export const TableBoundFieldSchema = Schema.Struct({
       description:
         "Overrides the choices a `relationship` column offers (by default its related table's rows, labelled by the column's `displayField`). Reads this field's choices from a table's rows each time the form is served: `displayField` is shown, `valueField` (default `id`) is stored. Resolved on the server with the form's own authority, so a public form needs no read permission on the table; only those two columns reach the page. Mutually exclusive with `options`.",
     })
+  ),
+  /**
+   * The subset of a `single-select` or `multi-select` column's options this
+   * field offers, in the order listed, each `{ value, label? }` as a standalone
+   * field's choices are (a `label` renames the option on this form only). Every
+   * value must be one of the column's options, listed once; refused on any
+   * other column type, and a submitted value outside the list is refused like
+   * a value the column does not hold (`form-option-subset-validation.ts`,
+   * `form-option-subset-service.ts`).
+   */
+  options: Schema.optional(
+    Schema.Array(FormFieldChoiceSchema)
+      .annotate({
+        description:
+          "The options of a `single-select` or `multi-select` column this field offers, in the order listed; without it, every option of the column is offered. Each entry is a `value` of the column and an optional `label` that renames it on this form only. An allow-list: an option the column gains later is not offered until it is listed here, and a submitted value outside the list is refused like a value the column does not hold. Refused on any other column type, and when a value is not one of the column's, is listed twice, or a literal `defaultValue` is outside the list (a reference such as `$query.plan` is held to the list when the form is submitted).",
+      })
+      .pipe(Schema.check(Schema.isMinLength(1)))
   ),
   /** Comma-separated MIME types or extensions for attachment inputs. */
   accept: Schema.optional(

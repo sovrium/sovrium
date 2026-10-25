@@ -23,9 +23,14 @@ import { dirname, join } from 'node:path'
 import { Database } from 'bun:sqlite'
 import { Effect, Layer } from 'effect'
 import { BackupIoError, BackupWorkspace } from '@/application/ports/services/backup-workspace'
+import {
+  dropRestoredObjects,
+  inspectPostgresTarget,
+} from '@/infrastructure/database/postgres-restore-target'
 import { listFilesBelow } from '@/infrastructure/filesystem/list-files-below'
 import { scanContentDirFiles } from '@/infrastructure/markdown/content-dir-enumerator'
 import { isProcessRunning, lockFilePathIn } from '@/infrastructure/server/lock-file'
+import { buildSchemaInChild, copyRows } from './backup-workspace-cross-dialect'
 
 const isMissing = (cause: unknown): boolean =>
   (cause as { readonly code?: string } | null)?.code === 'ENOENT'
@@ -286,6 +291,20 @@ export const BackupWorkspaceLive = Layer.succeed(BackupWorkspace, {
     attempt(`write ${path}`, () => writeOne(path, bytes, mode)),
   removePath: (path: string) =>
     attempt(`remove ${path}`, () => rm(path, { recursive: true, force: true })),
+  createPrivateDirectory: attempt('create a private temporary directory', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'sovrium-restore-'))
+    await chmod(directory, 0o700)
+    return directory
+  }),
+  inspectPostgresTarget: (databaseUrl: string) =>
+    // effect-promise: total -- inspectPostgresTarget catches every failure into `reachable: false`
+    Effect.promise(() => inspectPostgresTarget(databaseUrl)),
+  buildSchema: buildSchemaInChild,
+  copySqliteToPostgres: copyRows,
+  dropCreatedObjects: (databaseUrl: string, preExistingSchemas: readonly string[]) =>
+    attempt('empty the PostgreSQL database again', () =>
+      dropRestoredObjects(databaseUrl, preExistingSchemas)
+    ),
   isServerRunning: (lockDirectory: string) =>
     attempt(`read the lock in ${lockDirectory}`, () => lockedByLiveServer(lockDirectory)),
 })

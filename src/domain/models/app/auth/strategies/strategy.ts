@@ -9,6 +9,14 @@ import { Schema } from 'effect'
 import { OAuthProviderSchema } from './oauth/providers'
 
 /**
+ * The one description every branch's `type` carries. The option tree merges
+ * the branches into a single `auth.strategies[].type` row and keeps a
+ * description only when every branch agrees, so the three must share it.
+ */
+const STRATEGY_TYPE_DESCRIPTION =
+  'Which sign-in strategy this entry configures: emailAndPassword (an email and a password), magicLink (a one-time link sent by email) or oauth (a social provider such as Google or GitHub).'
+
+/**
  * Email and Password Strategy Schema
  *
  * Traditional credential-based authentication.
@@ -21,10 +29,7 @@ import { OAuthProviderSchema } from './oauth/providers'
  */
 export const EmailAndPasswordStrategySchema = Schema.Struct({
   type: Schema.Literal('emailAndPassword').pipe(
-    Schema.annotate({
-      description:
-        "Constant value 'emailAndPassword' for type discrimination in discriminated unions",
-    })
+    Schema.annotate({ description: STRATEGY_TYPE_DESCRIPTION })
   ),
   minPasswordLength: Schema.optional(
     Schema.Finite.pipe(
@@ -87,9 +92,7 @@ export type EmailAndPasswordStrategy = Schema.Schema.Type<typeof EmailAndPasswor
  */
 export const MagicLinkStrategySchema = Schema.Struct({
   type: Schema.Literal('magicLink').pipe(
-    Schema.annotate({
-      description: "Constant value 'magicLink' for type discrimination in discriminated unions",
-    })
+    Schema.annotate({ description: STRATEGY_TYPE_DESCRIPTION })
   ),
   expirationMinutes: Schema.optional(
     Schema.Finite.pipe(
@@ -126,11 +129,7 @@ export type MagicLinkStrategy = Schema.Schema.Type<typeof MagicLinkStrategySchem
  * ```
  */
 export const OAuthStrategySchema = Schema.Struct({
-  type: Schema.Literal('oauth').pipe(
-    Schema.annotate({
-      description: "Constant value 'oauth' for type discrimination in discriminated unions",
-    })
-  ),
+  type: Schema.Literal('oauth').pipe(Schema.annotate({ description: STRATEGY_TYPE_DESCRIPTION })),
   providers: Schema.NonEmptyArray(OAuthProviderSchema).pipe(
     Schema.annotate({
       description: 'OAuth providers to enable. Credentials loaded from environment variables.',

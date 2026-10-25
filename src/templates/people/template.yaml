@@ -1,0 +1,121 @@
+title: 'Meridian People'
+tagline: |
+  A small company's HR workspace: the team, who is away, and who decides.
+intro: |
+  Meridian People — a small company's HR workspace. The directory lists the team and withholds each
+  salary from everyone but an admin, on the server; time off shows who is away by name and what waits
+  on a decision; a request is filed by the person it concerns and waits on an admin, who decides in the
+  app; and the HR overview counts the team and its time off.
+glance:
+  - '**Tables** (2): employees, time_off_requests'
+  - '**Pages** (5): directory (`/`), time-off, requests (admin), overview (admin), sign-in'
+  - |-
+    **Automations** (3): approve-time-off; join-new-account-to-directory (an auth trigger on
+    `signUp`, with an `auth` assignRole step for the People team); and record-to-google-doc — a
+    library recipe (`library/recipe/`, with its `library/connection/google.yaml`) copying a
+    welcome document for each new hire once the Google variables are set
+  - '**Singletons**: auth, design, env'
+  - |-
+    **Seed data**: `seed/` — twelve sign-in accounts, twelve people with their managers, and eleven
+    time-off requests, dated relative to the day you seed
+  - '**Static assets**: `public/` (served at the site root)'
+glanceClose: |
+  Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
+assistant: |
+  Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+  run into `.claude/skills/`; start from `sovrium-app` for any change to the config. The
+  design system is in `config/design.yaml`: read its comments before changing a colour, keep
+  one accent, and keep colour for the three decisions (approved, pending, rejected). A field a
+  member may not read belongs in the table's `permissions.fields`, never only in a page.
+whatsInside: |
+  - **Directory** (`/`) — everyone at the company by name, role and team. Opening a person
+    shows who they report to, their time off this year and their requests. Their salary is
+    sent to an admin only: for everyone else the server leaves the field out of every
+    response, so it never reaches the browser.
+  - **Time off** — who is away this month, labelled by name: approved absences in green,
+    requests waiting on a decision in amber, rejected ones not drawn. **Request time off**
+    asks for the type and the dates only: the request is stamped with whoever is signed in.
+  - **Requests** (admins) — every request, the ones waiting on a decision first, with
+    Approve and Reject on each row. A request filed in the app also starts an approval run
+    that only an admin can resolve — listed below the grid, where approving it resumes the run
+    and marks the request Approved.
+  - **HR overview** (admins) — headcount, the requests waiting on a decision, and headcount by
+    team and approved days by type.
+
+  - **A new account finds its row** — add the person to the directory, then create their
+    account: an automation on the account's creation writes it on the row with the same email,
+    and makes a member of the People team an admin, since People is HR.
+  - Optional: every person added to the directory gets their own copy of your Google Docs
+    welcome document. It is the `record-to-google-doc` recipe from the Sovrium library
+    (`sovrium library add recipe/record-to-google-doc`); set the Google variables in
+    `.env.example` to turn it on — without them the app runs exactly the same.
+
+  Sign-up is closed: an admin adds each account. Everything is declared in
+  [`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no application code. Edit the
+  config, restart, done.
+whatToTry: |
+  Load the demo data first. It creates twelve accounts — the team of Meridian — each linked to
+  their row in the directory, and eleven time-off requests dated relative to today:
+
+  ```bash
+  SOVRIUM_SEED_PASSWORD=choose-a-password sovrium seed app.yaml
+  sovrium start app.yaml
+  ```
+
+  Sign in as **noor.haddad@meridian.example** (admin, runs HR) or
+  **tomas.ferreira@meridian.example** (member, a backend engineer), with the password you chose.
+  Then:
+
+  1. On **Time off**, see who is away this month and the four requests waiting on a decision.
+  2. As Tomás, click **Request time off** and ask for a few days: the form does not ask who
+     you are.
+  3. As Noor, open **Requests**: Tomás's request waits in the approval runs below the grid.
+     Approve it, and it turns Approved on the calendar.
+  4. Open Tomás in the **Directory** as Noor: his salary is there. Open the same card as Tomás:
+     it is not, because the server never sent it.
+  5. As Tomás, try to open **Requests** or the **HR overview**: you are sent away.
+env:
+  - name: 'SOVRIUM_SEED_PASSWORD'
+    section: 'Demo data'
+    description: |-
+      `sovrium seed` creates the twelve demo accounts of seed/users.yaml with this
+      password. Seeding refuses to run without it.
+      Every seeded account shares it, the admin included: pick a strong one, or
+      do not seed an app other people can reach.
+  - name: 'SMTP_HOST'
+    section: 'Email (the approval emails and the operator emails)'
+    description: 'Without SMTP_HOST, an admin decides from the Requests page alone.'
+  - name: 'SMTP_PORT'
+    section: 'Email (the approval emails and the operator emails)'
+    description: 'Without SMTP_HOST, an admin decides from the Requests page alone.'
+    example: '587'
+  - name: 'SMTP_USER'
+    section: 'Email (the approval emails and the operator emails)'
+    description: 'Without SMTP_HOST, an admin decides from the Requests page alone.'
+  - name: 'SMTP_PASS'
+    section: 'Email (the approval emails and the operator emails)'
+    description: 'Without SMTP_HOST, an admin decides from the Requests page alone.'
+  - name: 'GOOGLE_CLIENT_ID'
+    section: 'Google (optional)'
+    description: |-
+      A Google Cloud OAuth app (client id and secret) and the id of a Google Docs
+      welcome document turn on a copy of that document, named after each new hire
+      and shared with them. Connect the account once from the admin console's
+      Connections page. Without them the app runs and only that automation is
+      idle.
+  - name: 'GOOGLE_CLIENT_SECRET'
+    section: 'Google (optional)'
+    description: |-
+      A Google Cloud OAuth app (client id and secret) and the id of a Google Docs
+      welcome document turn on a copy of that document, named after each new hire
+      and shared with them. Connect the account once from the admin console's
+      Connections page. Without them the app runs and only that automation is
+      idle.
+  - name: 'ONBOARDING_DOC_TEMPLATE_ID'
+    section: 'Google (optional)'
+    description: |-
+      A Google Cloud OAuth app (client id and secret) and the id of a Google Docs
+      welcome document turn on a copy of that document, named after each new hire
+      and shared with them. Connect the account once from the admin console's
+      Connections page. Without them the app runs and only that automation is
+      idle.

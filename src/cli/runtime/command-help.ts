@@ -8,12 +8,14 @@
 import { BACKUP_HELP_TEXT, RESTORE_HELP_TEXT } from './backup-help'
 import { CLOUD_COMMAND_HELP } from './cloud-help'
 import { DESIGN_SYSTEM_HELP_TEXT } from './design-system-help'
+import { DEV_HELP_TEXT } from './dev-help'
 import { IMPORT_HELP_TEXT } from './import-help'
 import { REFERENCE_HELP } from './reference-help'
 import { RENDER_HELP_TEXT } from './render-help'
 import { REPORT_HELP_TEXT } from './report-help'
 import { SEED_HELP_TEXT } from './seed-help'
 import { UPDATE_HELP_TEXT } from './update-help'
+import { USAGE_HELP_TEXT } from './usage-help'
 
 /**
  * Per-command `--help` text for every dispatchable `sovrium` command.
@@ -256,6 +258,7 @@ const ADMIN_HELP_TEXT = [
   '',
   'Create an admin user in the configured database.',
   'The password is prompted for unless --password is supplied.',
+  'The account is named after --name, else AUTH_ADMIN_NAME, else "Administrator".',
   '',
   'Arguments:',
   '  email                         Email address of the admin to create',
@@ -263,6 +266,7 @@ const ADMIN_HELP_TEXT = [
   '',
   'Options:',
   '  --password <value>            Admin password (for scripting / CI; else prompted)',
+  '  --name <name>                 Display name of the new admin',
   '  --help, -h                    Show this help message',
   '',
   'Examples:',
@@ -328,11 +332,14 @@ const SKILLS_HELP_TEXT = [
   '',
   "Write this binary's agent skills into the project: one folder per skill, each a",
   'SKILL.md your AI reads when a task matches it plus its references/, and a',
-  '.sovrium-skills.json recording a SHA-256 for every file written.',
+  '.sovrium-skills.json recording a SHA-256 for every file written. The default',
+  'target, claude, also writes the config editor agent file to .claude/agents/;',
+  'agents does not.',
   '',
   'Run it again after upgrading: files Sovrium wrote and you did not change are',
   'replaced, a skill this version dropped is removed, and a file you edited is',
-  'refused (exit 1) until you pass --force. Skills with other names are never touched.',
+  'refused (exit 1) until you pass --force. Skills and agent files with other names',
+  'are never touched.',
   '',
   'Options:',
   '  --output <dir>                Project root (default: current directory)',
@@ -358,6 +365,7 @@ const SKILLS_HELP_TEXT = [
  */
 const COMMAND_HELP: Readonly<Record<string, string>> = {
   start: START_HELP_TEXT,
+  dev: DEV_HELP_TEXT,
   build: BUILD_HELP_TEXT,
   schema: SCHEMA_HELP_TEXT,
   types: TYPES_HELP_TEXT,
@@ -377,6 +385,7 @@ const COMMAND_HELP: Readonly<Record<string, string>> = {
   restart: RESTART_HELP_TEXT,
   reload: RELOAD_HELP_TEXT,
   backup: BACKUP_HELP_TEXT,
+  usage: USAGE_HELP_TEXT,
   ...CLOUD_COMMAND_HELP,
   restore: RESTORE_HELP_TEXT,
   render: RENDER_HELP_TEXT,

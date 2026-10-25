@@ -15,6 +15,10 @@ import {
   coerceDatetimeAnswers,
 } from '@/application/use-cases/forms/coerce-datetime-columns'
 import {
+  withheldChoiceRefusal,
+  type FormFieldConstraintError,
+} from '@/application/use-cases/forms/submit-form-constraint-errors'
+import {
   FormFieldFormatError,
   validateFieldFormats,
 } from '@/application/use-cases/forms/submit-form-format-validation'
@@ -27,6 +31,7 @@ import {
   isFieldRequired,
   isFieldVisible,
 } from '@/domain/models/app/forms/form-field-helpers'
+import { findWithheldChoiceField } from '@/domain/models/app/forms/form-option-subset-service'
 import { FormClosedError, FormFieldRequiredError, FormNotYetOpenError } from './submit-form-errors'
 import {
   applyFieldDefaults,
@@ -248,7 +253,11 @@ export const processSubmissionBody = (
   form: Readonly<Form>,
   body: Readonly<Record<string, unknown>>,
   query: Readonly<Record<string, string>>
-): Effect.Effect<Record<string, unknown>, FormFieldRequiredError | FormFieldFormatError, never> =>
+): Effect.Effect<
+  Record<string, unknown>,
+  FormFieldRequiredError | FormFieldFormatError | FormFieldConstraintError,
+  never
+> =>
   Effect.gen(function* () {
     // Overlay defaults (literals + `$query.X` / `$now`) BEFORE the
     // declared-fields filter so hidden-only identifiers survive. Mapping is
@@ -270,6 +279,9 @@ export const processSubmissionBody = (
     const visibilityFiltered = stripHiddenGroupFields(stepFiltered, hiddenGroupFields)
     // Enforce form-level required fields before any write so a missing field surfaces a focused 400.
     yield* checkFormRequiredFields(form, visibilityFiltered, hiddenGroupFields, checkboxColumns)
+    // A value a field's `options` withhold is refused as one the column does not hold.
+    const withheld = findWithheldChoiceField(form.fields, visibilityFiltered)
+    if (withheld !== undefined) return yield* withheldChoiceRefusal(withheld)
     // Server-side format validation (email, etc.) before any DB write so garbage never lands in the bound table.
     yield* validateFieldFormats(app, form, visibilityFiltered)
     // Calculations are recomputed from the inputs in dependency order: an

@@ -29,17 +29,14 @@ import type { BucketAdminItem, BucketProvider } from '@/domain/models/api/admin/
 import type { BucketsOverviewResponse } from '@/domain/models/api/admin/buckets/overview'
 import type { App } from '@/domain/models/app'
 
-/** The env-resolved backend's provider and region, or `null` with storage off. */
+/** The env-resolved backend's provider and region. File storage always resolves to one. */
 const resolveDefaultBucket = (): {
   readonly provider: BucketProvider
   readonly region: string | null
-} | null => {
+} => {
   const config = parseStorageEnvConfig()
-  if (!config) return null
   if (config.provider === 's3') return { provider: 's3', region: config.region }
-  if (config.provider === 'local') return { provider: 'local', region: null }
-  if (config.provider === 'bytea') return { provider: 'bytea', region: null }
-  return null
+  return { provider: config.provider, region: null }
 }
 
 /**
@@ -162,7 +159,6 @@ export const buildBucketItems = (
 ): Effect.Effect<readonly BucketAdminItem[], never, AdminBucketFilesRepository | Logger> =>
   Effect.gen(function* () {
     const meta = resolveDefaultBucket()
-    if (!meta) return []
     const usage = yield* degradeTo(ReadBucketUsage, 'bucket usage', EMPTY_USAGE)
     const now = DateTime.formatIso(yield* DateTime.now)
     return declaredBucketNames(app.buckets).map((name) => ({
@@ -200,9 +196,6 @@ export const buildOverviewTotals = (
 ): Effect.Effect<BucketsOverviewResponse['totals'], never, AdminBucketFilesRepository | Logger> =>
   Effect.gen(function* () {
     const meta = resolveDefaultBucket()
-    if (!meta) {
-      return { buckets: 0, files: 0, totalBytes: 0, by_provider: { s3: 0, local: 0, bytea: 0 } }
-    }
     const buckets = declaredBucketNames(app.buckets).length
     const catalog = yield* degradeTo(
       Effect.gen(function* () {

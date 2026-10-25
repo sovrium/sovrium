@@ -14,14 +14,17 @@ Provision an admin user directly in the database. This is the bootstrap path —
 sovrium admin create me@example.com                             # prompt for the password
 sovrium admin create me@example.com --password 's3cret-pass'    # CI, provisioning scripts
 sovrium admin create me@example.com app.yaml                    # resolve auth from a config
+sovrium admin create me@example.com --name 'Ines Moreau'        # set the display name
 ```
 
 The password is prompted for with echo disabled unless `--password` is supplied. The auth configuration is resolved in order: the config path given as the **fourth positional argument**, after the verb and the email, then `APP_SCHEMA`, then a minimal built-in default — so the bare form works with no config file at all. There is no `--config` flag, and passing one is refused before the command runs. Migrations run first, so this also works against an empty database.
 
+The account's display name, the one the console's users page shows, comes from `--name`, else from `AUTH_ADMIN_NAME` when it is set and not blank (the same variable the first-start bootstrap reads), else `Administrator`. The value is trimmed. A `--name` that is empty or only spaces is refused with exit `1` before anything is created: an empty flag is usually an unset shell variable, not a request for the default.
+
 Two things to know before scripting it:
 
 - **No TTY and no `--password` is an error.** In a non-interactive shell you must pass `--password`, or the command exits `1` rather than hanging on a prompt.
-- **It is idempotent.** If the email already has an account, nothing is changed.
+- **It is idempotent.** If the email already has an account, nothing is changed, its name included.
 
 If the resolved config has no `auth` block, the command refuses and tells you to add one.
 

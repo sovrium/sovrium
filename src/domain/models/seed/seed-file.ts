@@ -13,7 +13,7 @@
  * Seed data is not configuration. It is the *content* an app happens to start
  * with, it is large, and it changes on a completely different cadence from the
  * schema that shapes it. Putting it in `app.yaml` would have three costs that
- * each land somewhere visible: every `templates/<slug>/app.yaml` is republished
+ * each land somewhere visible: every `src/templates/<slug>/app.yaml` is republished
  * verbatim on its public `/apps/<slug>` page, so inlined rows would degrade a
  * marketing page; a config property implies a running app reads it, and nothing
  * would; and it would make "reseed" a config edit rather than an operation.
@@ -23,7 +23,7 @@
  * second layout.
  *
  * ```
- * templates/crm/
+ * src/templates/crm/
  *   config/tables/{companies,contacts,deals}.yaml
  *   seed/{companies,contacts,deals}.yaml     <- same names
  *   seed/assets/*.{avif,png}                 <- optional binaries

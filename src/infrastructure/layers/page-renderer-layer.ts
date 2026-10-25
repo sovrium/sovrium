@@ -186,8 +186,8 @@ export const PageRendererLive = Layer.effect(
                 fetchSystemRows: specimenSystemRows,
                 islandBuilder,
                 engineVersion,
-                // Nor anything the hosting environment adds around a page: no demo notice.
-                demoNotice: false,
+                // Nor anything the hosting environment adds around a page: no dev-mode notice.
+                devNotice: false,
                 // The address is the caller's sample, never a visitor's request.
                 sampleAddress: true,
               })

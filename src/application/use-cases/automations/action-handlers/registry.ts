@@ -120,6 +120,7 @@ import {
 import { handleInstanceApply } from './instance-apply'
 import { handleInstanceEngineInstall, handleInstanceEnginePrune } from './instance-engine'
 import { handleInstanceSeed } from './instance-seed'
+import { handleInstanceUsage } from './instance-usage'
 import { handleLinkCreate, handleLinkDelete, handleLinkUpdate } from './link'
 import { handleLoopEach } from './loop'
 import { handleNotificationCreate } from './notification'
@@ -294,6 +295,7 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['instance/backup', handleInstanceBackup],
   ['instance/restore', handleInstanceRestore],
   ['instance/seed', handleInstanceSeed],
+  ['instance/usage', handleInstanceUsage],
   ['app/seed', handleAppSeed],
   ['instance/engineInstall', handleInstanceEngineInstall],
   ['instance/enginePrune', handleInstanceEnginePrune],

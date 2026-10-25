@@ -484,7 +484,7 @@ export const DataSourceMineSchema = Schema.Struct({
   as: Schema.String.pipe(
     Schema.annotate({
       description:
-        "Name the reader's row is read under on each item: `$record.<as>`, empty when there is none. A letter or underscore, then letters, digits or underscores",
+        "Name the reader's row is read under on each item: `$record.<as>` is its id, `$record.<as>.<field>` one of its fields, both empty when there is none. A letter or underscore, then letters, digits or underscores",
       examples: ['enrolment', 'done'],
     }),
     Schema.check(Schema.isPattern(/^[A-Za-z_][A-Za-z0-9_]*$/))
@@ -654,7 +654,8 @@ export const DataSourceSchema = Schema.Struct({
   /** Route parameter name for single-record mode */
   param: Schema.optional(
     Schema.String.annotate({
-      description: 'Route parameter name for single mode (e.g., slug, id)',
+      description:
+        "Route parameter name for single mode (e.g., slug, id). The segment's value matches the column of that name when the table declares one, and the record id otherwise; a value no record holds answers the page's 404.",
       examples: ['slug', 'id'],
     })
   ),

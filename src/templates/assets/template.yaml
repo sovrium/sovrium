@@ -1,0 +1,126 @@
+title: 'Arden Assets'
+tagline: |
+  An asset register for a small firm: what it owns, who holds it, where it is, what is due back.
+intro: |
+  Arden Assets — the asset register of a small design studio. The Register is the home page:
+  everything the firm owns grouped by category, with each asset's tag, holder and place, four
+  figures above it, and one word beside the assets that need someone (missing at the last
+  count, due back today or overdue, a warranty ending). An asset opens in a drawer with its
+  check-outs and its history. Lifecycle is the board by stage, Gallery the assets in service as
+  cards, Locations the places they sit.
+glance:
+  - '**Tables** (4): locations, assets, check_outs, asset_events'
+  - '**Pages** (5): register (`/`), lifecycle, gallery, locations, sign-in'
+  - |-
+    **Automations** (2): register-export (the register to a dated CSV in storage on the first
+    of each month, with `file.generateCsv`), and record-to-teams-channel — a library recipe
+    (`library/recipe/`, with its `library/connection/microsoft-365.yaml`) posting each asset
+    event to a Teams channel once the Microsoft keys are set
+  - '**Singletons**: auth, design'
+  - |-
+    **Seed data**: `seed/` — five sign-in accounts, five locations, fourteen assets, their
+    check-outs and their history, dated relative to the day you seed
+  - '**Static assets**: `public/` (served at the site root)'
+glanceClose: |
+  Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
+sections:
+  - heading: 'How holders and check-outs work here'
+    body: |
+      A holder is a sign-in account in `assets.assigned_to`, never a name typed into the asset's
+      name. Each hand-over is a `check_outs` row that stays open until `checked_in_at` is filled;
+      `assets.due_back` reads the open row's return date, and `assets.flag` turns it into "Due back
+      today" or "Overdue". A count that does not find an asset ticks `missing_at_last_count`.
+      `asset_events` is the plain-words history the drawer shows.
+assistant: |
+  Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+  run into `.claude/skills/`; start from `sovrium-app` for any change to the config. The
+  design system is in `config/design.yaml`: read its comments before changing a colour, and
+  keep colour for consequences (overdue, missing, ending, back).
+whatsInside: |
+  An asset register for a firm of five to fifty, built around what you own, who has it and
+  where it is:
+
+  - **Register** (`/`) — everything the firm owns grouped by category, with each asset's tag,
+    holder, place, purchase date and value, and the value totalled per category. Four figures
+    above it: what the kit in service is worth, how much is checked out, what needs attention
+    and which warranties are ending. An asset missing at the last count, due back today,
+    overdue or near the end of its warranty carries one word beside its name. An asset opens in
+    a drawer with its check-outs and its history.
+  - **Lifecycle** — the assets by stage: in storage, in use, in repair. Retired is a folded
+    column; drag a card to move an asset on.
+  - **Gallery** — the assets in service as cards, to walk the floor with; pick a location to
+    see what should be there.
+  - **Locations** — the offices, the storeroom, the repair shop, and Remote for kit that lives
+    at someone's home.
+  - On the first of each month, the register written to a dated CSV file under `exports/` in the
+    app's storage, with the columns an accountant's fixed-asset ledger asks for.
+  - Optional: each asset event — a check-out, a repair, a return — posted to a Microsoft Teams
+    channel. It is the `record-to-teams-channel` recipe from the Sovrium library (`sovrium
+  library add recipe/record-to-teams-channel`); set `MICROSOFT_CLIENT_ID`,
+    `MICROSOFT_CLIENT_SECRET`, `TEAMS_TEAM_ID` and `TEAMS_CHANNEL_ID` to turn it on — without
+    them the app runs exactly the same.
+
+  A holder is a person with an account, never a name typed into the asset's name, and each
+  hand-over is a check-out with its return date. Every asset has a unique tag and a unique
+  barcode. Sign-up is closed; an admin adds each account.
+
+  Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree —
+  no application code. Edit the config, restart, done.
+whatToTry: |
+  Load the demo data first. It creates five demo accounts, five locations, fourteen assets,
+  their check-outs and their history, dated relative to today:
+
+  ```bash
+  SOVRIUM_SEED_PASSWORD=choose-a-password sovrium seed app.yaml
+  sovrium start app.yaml
+  ```
+
+  Sign in as **claire.arden@arden.example** (admin, the office manager) or
+  **tomas.ferreira@arden.example** (member, who holds a laptop), with the password you chose.
+  Both are demo accounts. Then:
+
+  1. On the **Register**, read the four figures, the value per category, and the two marked
+     assets: the MacBook due back today and the monitor missing at the last count.
+  2. Open the MacBook Tomás has: its return date, its two check-outs, and its history back to
+     the day it was registered.
+  3. On **Lifecycle**, drag the spare MacBook Air from In storage to In use; expand the folded
+     Retired column.
+  4. On **Gallery**, pick Paris HQ and walk the floor with the cards.
+  5. Sign in as Tomás: a member hands assets over and takes them back, but only an admin
+     deletes one.
+env:
+  - name: 'SOVRIUM_SEED_PASSWORD'
+    section: 'Demo data'
+    description: |-
+      `sovrium seed` creates the five demo accounts of seed/users.yaml with this
+      password. Seeding refuses to run without it.
+      Every seeded account shares it, the admin included: pick a strong one, or
+      do not seed an app other people can reach.
+  - name: 'MICROSOFT_CLIENT_ID'
+    section: 'Microsoft Teams (optional)'
+    description: |-
+      A Microsoft Entra app registration and the ids of a team and one of its
+      channels turn on the post of each asset event (a check-out, a repair, a
+      return) to that channel. Connect the Microsoft account once from the admin
+      console. Without them the app runs and only that automation is idle.
+  - name: 'MICROSOFT_CLIENT_SECRET'
+    section: 'Microsoft Teams (optional)'
+    description: |-
+      A Microsoft Entra app registration and the ids of a team and one of its
+      channels turn on the post of each asset event (a check-out, a repair, a
+      return) to that channel. Connect the Microsoft account once from the admin
+      console. Without them the app runs and only that automation is idle.
+  - name: 'TEAMS_TEAM_ID'
+    section: 'Microsoft Teams (optional)'
+    description: |-
+      A Microsoft Entra app registration and the ids of a team and one of its
+      channels turn on the post of each asset event (a check-out, a repair, a
+      return) to that channel. Connect the Microsoft account once from the admin
+      console. Without them the app runs and only that automation is idle.
+  - name: 'TEAMS_CHANNEL_ID'
+    section: 'Microsoft Teams (optional)'
+    description: |-
+      A Microsoft Entra app registration and the ids of a team and one of its
+      channels turn on the post of each asset event (a check-out, a repair, a
+      return) to that channel. Connect the Microsoft account once from the admin
+      console. Without them the app runs and only that automation is idle.

@@ -137,23 +137,16 @@ export const applyFormPartClasses = (
     : withFormAttribute(withControls, 'data-error-class', error)
 }
 
-/** The `<form>` tag of `html` with the placing node's `props.className` merged in. */
-const withNodeClassName = (html: string, node: unknown): string => {
-  const props = (node as { readonly props?: { readonly className?: unknown } } | undefined)?.props
-  const className = props?.className
-  if (typeof className !== 'string' || className.trim() === '') return html
-  return html.replace(PART_TAGS['body']!, (tag) => withClasses(tag, className))
-}
-
 /**
  * {@link applyFormPartClasses} for the page node that placed the form: the
- * app's `design.components.form` under the node's own `classes`, then the
- * node's own `props.className` on the `<form>` itself — merged over its layout
- * classes, as a page form's is.
+ * app's `design.components.form` under the node's own `classes`. The node's
+ * `props.className` is not applied here: it lands on the wrapper that names the
+ * component and holds the title (`buildWrapperProps`), and the `<form>` itself
+ * takes its layout from the `body` part.
  *
  * @param html - The form body the form renderer drew.
  * @param design - The app's `design` key, if any.
- * @param node - The `form` node carrying `formRef`, whose `classes` and `props.className` are read.
+ * @param node - The `form` node carrying `formRef`, whose `classes` are read.
  */
 export const applyNodeFormParts = (
   html: string,
@@ -161,9 +154,5 @@ export const applyNodeFormParts = (
   node: unknown
 ): string => {
   const classes = (node as { readonly classes?: ComponentStyle } | undefined)?.classes
-  const parted = applyFormPartClasses(
-    html,
-    resolveComponentStyle(design, 'form', undefined, classes)
-  )
-  return withNodeClassName(parted, node)
+  return applyFormPartClasses(html, resolveComponentStyle(design, 'form', undefined, classes))
 }

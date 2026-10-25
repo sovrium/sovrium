@@ -61,3 +61,11 @@ export const constraintRefusalForField = (error: {
     message: FIELD_REFUSAL_MESSAGES[violation],
   })
 }
+
+/**
+ * The refusal of a value a field's `options` withhold: word for word the one a
+ * value outside the column's accepted set draws, so the answer does not tell a
+ * withheld value from an unknown one.
+ */
+export const withheldChoiceRefusal = (fieldName: string): Readonly<FormFieldConstraintError> =>
+  new FormFieldConstraintError({ fieldName, message: FIELD_REFUSAL_MESSAGES.check })

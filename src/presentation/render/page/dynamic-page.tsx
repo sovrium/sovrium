@@ -86,13 +86,13 @@ type DynamicPageProps = {
    */
   readonly badgePlacement?: BadgePlacement
   /**
-   * Demo context notice toggle. INVERSE default to `badgePlacement`: undefined
+   * Dev-mode notice toggle. INVERSE default to `badgePlacement`: undefined
    * means "render if the env enables it", because whether the notice appears at
-   * all is decided by `SOVRIUM_DEMO_*` inside `DemoNotice`, not by the caller.
+   * all is decided by `SOVRIUM_DEV_*` inside `DevNotice`, not by the caller.
    * Callers pass `false` only to SUPPRESS it on a surface that must stay free of
    * end-user chrome — today just the `/_admin` operator console.
    */
-  readonly demoNoticeEnabled?: boolean
+  readonly devNoticeEnabled?: boolean
 }
 
 type DynamicPageBodyProps = {
@@ -127,7 +127,7 @@ type DynamicPageBodyProps = {
   readonly markdownPayload?: ResolvedMarkdownPage
   readonly session?: SessionInfo
   readonly badgePlacement?: BadgePlacement
-  readonly demoNoticeEnabled?: boolean
+  readonly devNoticeEnabled?: boolean
 }
 
 /**
@@ -255,7 +255,7 @@ function DynamicPageBody({
   markdownPayload,
   session,
   badgePlacement,
-  demoNoticeEnabled,
+  devNoticeEnabled,
 }: DynamicPageBodyProps): Readonly<ReactElement> {
   const dataAttributes = buildDataAttributes(routeParams, primaryPagePath(page.path))
   const sidebarSections = selectSidebarSections(resolvedSidebar, page)
@@ -309,7 +309,7 @@ function DynamicPageBody({
       <PlatformChrome
         lang={lang}
         badgePlacement={badgePlacement}
-        demoNoticeEnabled={demoNoticeEnabled}
+        devNoticeEnabled={devNoticeEnabled}
       />
 
       <PageBodyScripts
@@ -356,7 +356,7 @@ export function DynamicPage({
   session,
   cssHref,
   badgePlacement,
-  demoNoticeEnabled,
+  devNoticeEnabled,
   feedTitle,
 }: DynamicPageProps): Readonly<ReactElement> {
   // Resolve the locale ONCE, then hand it to the metadata extractor. Both used
@@ -425,7 +425,7 @@ export function DynamicPage({
         markdownPayload={markdownPayload}
         session={session}
         badgePlacement={placed.badgePlacement}
-        demoNoticeEnabled={demoNoticeEnabled}
+        devNoticeEnabled={devNoticeEnabled}
       />
     </html>
   )

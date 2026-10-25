@@ -135,6 +135,9 @@ export const FLAG_VALUE_OPTIONS = [
   '--host',
   '--api-key',
   '--app',
+  // `sovrium deploy --from-preview <id>`. Both lists: absent here, the id would
+  // be read as the config path.
+  '--from-preview',
   // `sovrium deploy --env <file>`, `sovrium env push --plain <NAME>`,
   // `sovrium seed --confirm <slug>`. Both lists: absent here, the file or the
   // name would be read as the config path.
@@ -230,6 +233,8 @@ const KNOWN_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   '--status',
   '--logout',
   '--no-wait',
+  // `sovrium dev --no-open`: boot without opening the browser.
+  '--no-open',
   // `sovrium deploy --seed`: seed the app, if-empty, once it is live.
   '--seed',
   // `sovrium env push --overwrite | --redeploy`.
@@ -314,6 +319,8 @@ const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
   '--host',
   '--api-key',
   '--app',
+  // `sovrium deploy --from-preview <id>`: the preview to deploy as the release.
+  '--from-preview',
   // `sovrium deploy --env <file>`, `sovrium env push --plain <NAME>`, `--confirm <slug>`.
   '--env',
   '--plain',

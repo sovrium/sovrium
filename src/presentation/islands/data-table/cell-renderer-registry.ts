@@ -18,7 +18,6 @@
 import {
   ArrayChipsCell,
   CodeInlineCell,
-  CountBadgeCell,
   JsonPreviewCell,
   LinkedRecordPillCell,
   StatusPillCell,
@@ -68,10 +67,12 @@ export const FIELD_TYPE_TO_CELL_RENDERER: Readonly<Record<string, CellRenderer>>
   'created-by': UserPillCell,
   'updated-by': UserPillCell,
   'deleted-by': UserPillCell,
-  // Relational field-types (3 schemas, 1 visual)
+  // Relational field-types (2 schemas, 1 visual). A `rollup` is not one: it is
+  // drawn as what it computes — money, a number, a list, text — through the
+  // type the server resolves for it (`presentedFieldType`); one whose result is
+  // unknown reads as its text or JSON preview.
   relationship: LinkedRecordPillCell,
   lookup: LinkedRecordPillCell,
-  rollup: LinkedRecordPillCell,
   // Selection (3 schemas, 2 visuals — one chip for a single chosen value, a
   // chip wrap for many). `single-select` and `multi-select` had NO entry here
   // at all and fell through to TanStack's `String(value)` default, so a
@@ -83,7 +84,8 @@ export const FIELD_TYPE_TO_CELL_RENDERER: Readonly<Record<string, CellRenderer>>
   // Advanced field-types (5 distinct visuals)
   formula: FormulaReadonlyCell,
   geolocation: GeolocationCell,
-  count: CountBadgeCell,
+  // A count is a number of records, read as stored like any integer.
+  count: StoredValueCell,
   json: JsonPreviewCell,
   array: ArrayChipsCell,
   code: CodeInlineCell,

@@ -6,7 +6,9 @@ You want a git-push deploy on a European PaaS, with a managed database and no se
 
 ## Configure the app
 
-Scalingo builds with buildpacks, not with your Dockerfile, so the repository needs three files. `.buildpacks` selects the Sovrium buildpack, which downloads the released, checksum-verified binary into `bin/`. `.sovrium-version` pins which release to fetch. The `Procfile` boots it.
+Start from the project `sovrium init` gives you: an `app.yaml` (or an `app.ts` with `--typescript`), a `public/` folder, a `.gitignore` and an `.env.example`. It writes no Scalingo file, so commit the project to git and add the two files Scalingo needs yourself.
+
+Scalingo builds with buildpacks, not with a Dockerfile. `.buildpacks` selects the Sovrium buildpack, which downloads the released, checksum-verified binary into `bin/`. `.sovrium-version` pins which release it fetches.
 
 ```text
 # .buildpacks
@@ -18,16 +20,18 @@ https://github.com/sovrium/scalingo-buildpack
 X.Y.Z
 ```
 
-Replace `X.Y.Z` with the release you want — the latest one is on the project's releases page, and running the newest release is how you receive security fixes. The buildpack verifies the checksum before installing it. A version that does not exist fails the build rather than deploying something unexpected.
+Replace `X.Y.Z` with the release you want — the latest one is on the project's releases page, and running the newest release is how you receive security fixes. The buildpack verifies the checksum before installing it. A version that does not exist fails the build rather than deploying something unexpected. Without the file, the buildpack installs whatever release is newest at build time, so two deploys of the same commit can run different versions; pin it.
+
+You do not need a `Procfile`. The buildpack finds the config at the root of the repository (`app.yaml`, then `app.yml`, then `app.ts`) and starts the web process with `bin/sovrium start <that file>`. Add a `Procfile` only to start something else, and keep the `bin/` prefix, because the buildpack installs the binary into the app tree, not onto the system `PATH`:
 
 ```text
-# Procfile
+# Procfile — optional; this is what the buildpack runs without one
 web: bin/sovrium start app.yaml
 ```
 
-The `bin/` prefix matters: the buildpack installs the binary into the app tree, not onto the system `PATH`.
+The `.env.example` that `init` wrote lists the variables a deployment reads; on Scalingo they are set with `scalingo env-set` below, never committed in a `.env` file.
 
-Then add a managed PostgreSQL database so the app runs on PostgreSQL instead of the SQLite default, and set the environment:
+Then add a managed PostgreSQL database so the app runs on PostgreSQL instead of the SQLite default — the SQLite file lives on the container filesystem, which Scalingo rebuilds on every deploy and restart — and set the environment:
 
 ```bash
 scalingo --app my-app addons-add postgresql postgresql-starter-1024

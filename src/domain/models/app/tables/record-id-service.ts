@@ -68,7 +68,7 @@ export const withStringRelationshipValues = (
 }
 
 /** The largest id a `SERIAL` (int4) key holds. */
-const MAX_SERIAL_KEY = 2_147_483_647n
+export const MAX_SERIAL_KEY = 2_147_483_647n
 
 /** The largest id a `BIGSERIAL` (int8) key holds. */
 const MAX_BIGSERIAL_KEY = 9_223_372_036_854_775_807n

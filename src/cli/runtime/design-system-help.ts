@@ -35,6 +35,7 @@ export const DESIGN_SYSTEM_HELP_TEXT = [
   '  --seed <dir>                  Draw the pages from this seed folder (files only); secrets masked',
   '  --records <n>                 With --seed: boards per routed record page (default: 5)',
   '  --now <instant>               The RFC 3339 instant relative dates are drawn against',
+  '  --as <email>                  With --seed: draw every page as this seeded account',
   '  --state <page>:<key>=<value>  One more board of a page at that state; repeatable',
   '  --prototype[=app]             Clickable Claude Design boards; =app adds a stateful Prototype board',
   '  --help, -h                    Show this help message',

@@ -17,7 +17,7 @@
 import { Schema } from 'effect'
 import { optionalField } from '@/domain/models/api/combinators/optional-field'
 import { queryString } from './params'
-import { aggregationsSchema, recordGroupSchema } from './tables'
+import { aggregateRatioSchema, aggregationsSchema, recordGroupSchema } from './tables'
 
 /**
  * Aggregate read query parameters — `GET /api/tables/:tableId/aggregate`.
@@ -61,25 +61,6 @@ export const aggregateRecordsQuerySchema = Schema.Struct({
  * and a cap the caller cannot see is a wrong answer, not a bounded one.
  */
 export const MAX_AGGREGATE_GROUPS = 500
-
-/**
- * A ratio's answer — the two counts, both computed by the same read, and their
- * quotient as a percentage.
- *
- * `percent` is `null` when nothing matches the denominator: a share of nothing
- * is undefined, and answering `0` would read as "none of them" on a dashboard.
- */
-const aggregateRatioSchema = Schema.Struct({
-  numerator: Schema.Finite.annotate({
-    description: 'How many records match both filter and numerator',
-  }),
-  denominator: Schema.Finite.annotate({
-    description: 'How many records match both filter and denominator',
-  }),
-  percent: Schema.NullOr(Schema.Finite).annotate({
-    description: 'numerator ÷ denominator × 100; null when the denominator is 0',
-  }),
-}).annotate({ description: 'The two counts of a ratio and their quotient as a percentage' })
 
 /**
  * Aggregate read response — `GET /api/tables/:tableId/aggregate`.

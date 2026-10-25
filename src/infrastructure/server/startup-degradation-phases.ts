@@ -27,6 +27,7 @@ import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite
 import { formatPathForDisplay } from '@/infrastructure/logging/format-path'
 import { formatDuration } from '@/infrastructure/logging/startup-summary'
 import { collectPostureWarnings, getNodeEnv } from '@/infrastructure/process/env'
+import { collectDevModePhases } from '@/infrastructure/server/dev-mode-phases'
 import { getTelemetryConfig } from '@/infrastructure/telemetry/telemetry-config'
 import type { App } from '@/domain/models/app'
 import type { DatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
@@ -42,49 +43,25 @@ import type { StartupPhase } from '@/infrastructure/logging/startup-summary'
  */
 
 /**
- * Emit a warning startup phase when storage is unconfigured.
- *
- * Detects the "no-storage stub" branch in `storage-service-live.ts` and warns
- * at startup that attachment fields will fail-fast (instead of letting the
- * operator discover it on the first upload).
+ * Emit the startup phase naming where files are persisted.
  *
  * Keyed directly off `parseStorageEnvConfig()` — the single source of truth for
- * storage resolution — so it stays correct for every dialect:
+ * storage resolution, which always resolves to a backend (PostgreSQL with no
+ * `STORAGE_PROVIDER` → bytea; SQLite → local files under the data directory;
+ * any other value is refused at boot) — and mirroring `databaseStartupLabel`.
+ * For local storage the label includes the resolved directory.
  *
- * - PostgreSQL with no `STORAGE_PROVIDER` → bytea auto-fallback (configured).
- * - SQLite (zero-config) with no `STORAGE_PROVIDER` → local filesystem default
- *   at `<dataDir>/uploads` (configured — `success` label with the resolved dir).
- * - No database and no `STORAGE_PROVIDER` → genuinely undefined → warning.
- *
- * When storage IS configured, emits a `success` phase naming the active
- * provider (mirroring `databaseStartupLabel`) so the operator sees where files
- * are persisted — for local storage this includes the resolved directory. When
- * storage is unconfigured, the warning text matches the docstring in
- * `storage-service-live.ts` verbatim so a "grep for the warning" search works
- * from either side.
- *
- * ── GATED ON THE CONFIG, BOTH BRANCHES ─────────────────────────────────────
+ * ── GATED ON THE CONFIG ────────────────────────────────────────────────────
  *
  * An app that declares no bucket, no attachment column and no file-upload form
- * field cannot put a byte in storage, so NEITHER branch has anything to tell
- * its operator: the success row names a subsystem they do not use, and the
- * warning warns about a capability they never asked for. Both go silent there
- * — the same silent-skip contract as `collectPublicDirPhases` /
- * `collectAiListenerPhases`. A CLI log output spec (a bucket → the row appears)
- * against a CLI log output spec (nothing → no row in either form).
+ * field cannot put a byte in storage, so the row would name a subsystem its
+ * operator does not use, and goes silent there — the same silent-skip contract
+ * as `collectPublicDirPhases` / `collectAiListenerPhases`. A CLI log output spec
+ * (a bucket → the row appears) against a CLI log output spec (nothing → no row).
  */
 export const collectStoragePhases = (app: Readonly<App>): readonly StartupPhase[] => {
   if (!appUsesStorage(app)) return []
-  const config = parseStorageEnvConfig()
-  if (config === undefined) {
-    return [
-      {
-        label: 'Storage: Not configured (attachment fields will be disabled)',
-        type: 'warning' as const,
-      },
-    ]
-  }
-  return [{ label: storageStartupLabel(config), type: 'success' as const }]
+  return [{ label: storageStartupLabel(parseStorageEnvConfig()), type: 'success' as const }]
 }
 
 /**
@@ -359,6 +336,7 @@ export const buildStartupPhases = (params: {
   const mode = getNodeEnv() === 'production' ? 'production' : 'development'
   return [
     ...collectPostureWarnings(params.bindHost),
+    ...collectDevModePhases(params.bindHost),
     { label: `Mode: ${mode}`, type: 'success' as const },
     ...collectRootSecretPhases(params.app),
     ...params.infraPhases,

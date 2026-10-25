@@ -115,7 +115,7 @@ export function buildInstanceRuntimeFacts(
   return {
     bootedAt,
     database: parseDatabaseDialectConfig().dialect === 'postgres' ? 'postgresql' : 'sqlite',
-    storage: parseStorageEnvConfig()?.provider ?? 'disabled',
+    storage: parseStorageEnvConfig().provider,
     aiProvider: routing?.resolvedProvider ?? null,
   }
 }

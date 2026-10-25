@@ -65,6 +65,8 @@ On SQLite, a datetime or a time an earlier version stored as it was typed is rew
 
 An elapsed time, stored in **seconds** whatever the display format. Storing the unit rather than a formatted string is what lets a duration be summed by a rollup and compared by a filter.
 
+On PostgreSQL the value is an integer column; a column an earlier version stored as an interval is converted to seconds when the server starts.
+
 <!-- sovrium:options DurationFieldSchema -->
 
 ```yaml

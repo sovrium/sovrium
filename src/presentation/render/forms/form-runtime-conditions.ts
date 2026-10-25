@@ -46,9 +46,8 @@ import type { VisibleWhenCondition } from '@/domain/models/app/forms/visible-whe
  * step into (earlier steps are no longer in the DOM, but their answers still
  * decide what a later step shows).
  *
- * `disabledWhen` is deliberately NOT applied here: a `disabled` control is not
- * submitted, while the rule promises the value still is. Nothing on the server
- * applies it to a hosted form either — the rule is accepted and has no effect.
+ * A hosted form field takes no `disabledWhen`: validation refuses a config
+ * that sets one, so there is nothing to apply here or on the server.
  */
 export const FORM_RUNTIME_CONDITION_EVALUATOR_SCRIPT = `
   // ---- Condition evaluator (mirrors the server's rule semantics) ------------
@@ -292,8 +291,8 @@ export interface RuntimeConditionsConfig extends RuntimeCalculationsConfig {
    * The `visibleWhen` / `requiredWhen` rules the runtime applies live
    * keyed by the field's submitted name. Present only
    * when at least one field carries a rule, so a form without any pays
-   * nothing on the wire. `disabledWhen` is not applied on a hosted form at
-   * all, here or on the server.
+   * nothing on the wire. A hosted form field takes no `disabledWhen`;
+   * validation refuses one.
    */
   readonly conditions?: ReadonlyArray<FormRuntimeCondition>
   /** The required mark's classes; present only when a `requiredWhen` rule exists. */

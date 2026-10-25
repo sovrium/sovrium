@@ -6,9 +6,9 @@
  */
 
 /**
- * `--help` for the REFERENCE verbs — `docs`, `changelog`, `licenses` and `library` — which
- * read the catalogues compiled into the binary (the manual, the release notes
- * and the installable library) rather than an app. Split out of
+ * `--help` for the REFERENCE verbs — `docs`, `changelog`, `licenses`, `library` and
+ * `templates` — which read the catalogues compiled into the binary (the manual,
+ * the release notes, the installable library and the templates) rather than an app. Split out of
  * `command-help.ts`, which sits at its line ceiling; `COMMAND_HELP` there still
  * owns the lookup.
  */
@@ -146,10 +146,28 @@ export const LICENSES_HELP_TEXT = [
   '  sovrium licenses --format json',
 ].join('\n')
 
+export const TEMPLATES_HELP_TEXT = [
+  'Usage: sovrium templates [--json]',
+  '',
+  'List the templates this binary carries, the names `sovrium init --template`',
+  'accepts — offline, with no config file, no database and no network. They are',
+  'grouped by category in gallery order; `(headless)` marks an API or MCP server.',
+  '',
+  'Options:',
+  '  --json                        One JSON document for tooling, nothing else on stdout',
+  '  --help, -h                    Show this help message',
+  '',
+  'Examples:',
+  '  sovrium templates                             # Every template, by category',
+  "  sovrium templates --json | jq -r '.templates[].slug'",
+  '  sovrium init my-app --template crm            # Then scaffold one',
+].join('\n')
+
 /** The reference verbs' help, spread into `COMMAND_HELP` in `command-help.ts`. */
 export const REFERENCE_HELP: Readonly<Record<string, string>> = {
   docs: DOCS_HELP_TEXT,
   changelog: CHANGELOG_HELP_TEXT,
   licenses: LICENSES_HELP_TEXT,
   library: LIBRARY_HELP_TEXT,
+  templates: TEMPLATES_HELP_TEXT,
 }

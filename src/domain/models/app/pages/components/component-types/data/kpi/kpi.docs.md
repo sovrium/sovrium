@@ -34,6 +34,8 @@ pages:
 
 A rate — replies over conversations, meetings over calls — is two counts, and `function: ratio` shows them as one figure. `numerator` and `denominator` are each `{ filter }`, a list of conditions in the `dataSource.filter` grammar, and both are required with `ratio` and refused with any other function. Each side counts the records of the card's own data source that also meet its `filter`, so a condition on `dataSource.filter` applies to both. The figure is `numerator ÷ denominator × 100`, which `kpiFormat: { type: percentage }` prints as is, and the two counts are written under it as `3 / 8`. Both counts come from one aggregate read.
 
+`caption` words that footer instead: a sentence in which `{numerator}` and `{denominator}` are replaced by the two counts — `caption: "{numerator} replied out of {denominator} contacted"` reads "3 replied out of 8 contacted" — and a `$t:` key is read in the page language first. `caption: false` draws no footer, so the card is the height of its neighbours. Without `caption` the footer reads `3 / 8`; a caption is refused on any function but `ratio`.
+
 ```yaml
 - type: kpi
   label: LinkedIn reply rate
@@ -53,6 +55,8 @@ A rate — replies over conversations, meetings over calls — is two counts, an
 ```
 
 When nothing matches the denominator the card shows no figure — the neutral dash — over `0 / 0`, rather than a `0%` that would read as "none of them". `ratio` is a KPI function only: a chart keeps `count`, `sum`, `avg`, `min`, `max` and the percentiles, and a table footer keeps the first five.
+
+Bound to a view, a ratio counts both sides over every row the view admits, through the view's own read, with the same caption and empty state.
 
 The aggregate read answers a ratio when it is sent `numerator` and `denominator` filter expressions beside `filter`; its response then carries `ratio: { numerator, denominator, percent }`, with `percent` `null` over an empty denominator. Sending one side without the other answers `400`.
 

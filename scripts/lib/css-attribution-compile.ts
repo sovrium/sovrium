@@ -20,6 +20,7 @@ import { __unstable__loadDesignSystem, compile, type Polyfills } from 'tailwindc
 import { loadSchemaFromFile } from '@/infrastructure/config/file-loader'
 import { buildSourceCSS } from '@/infrastructure/css/source-css'
 import { loadCodeBlockDarkPalette } from '@/infrastructure/css/theme/code-block-theme-palette'
+import { TEMPLATES_ROOT, templatesRootAbsolute } from './template-root'
 import type { App } from '@/domain/models/app'
 
 export const REPO_ROOT = join(import.meta.dir, '..', '..')
@@ -125,10 +126,10 @@ export interface TemplateApp {
   readonly app: App
 }
 
-/** Every `templates/<slug>/app.*` config, `$ref`s resolved, undecoded. */
+/** Every `src/templates/<slug>/app.*` config, `$ref`s resolved, undecoded. */
 export const loadTemplateApps = async (): Promise<readonly TemplateApp[]> => {
   const { readdirSync } = await import('node:fs')
-  const root = join(REPO_ROOT, 'templates')
+  const root = templatesRootAbsolute()
   const slugs = readdirSync(root, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
@@ -141,7 +142,8 @@ export const loadTemplateApps = async (): Promise<readonly TemplateApp[]> => {
     if (config === undefined) continue
     apps.push({ slug, app: (await loadSchemaFromFile(config)) as unknown as App })
   }
-  if (apps.length < 10) return fail(`only ${apps.length} template configs found under templates/`)
+  if (apps.length < 10)
+    return fail(`only ${apps.length} template configs found under ${TEMPLATES_ROOT}/`)
   return apps
 }
 

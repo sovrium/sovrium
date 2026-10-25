@@ -88,7 +88,7 @@ const DOCS_CHROME_LABELS: Readonly<Record<string, DocsChromeLabels>> = {
  * (e.g. an unmapped `de`) — a graceful English fallback.
  *
  * Shares {@link resolveForLanguage} with the three other platform-chrome maps
- * (the badge, the demo notice, the toast dismiss control), so a regional tag
+ * (the badge, the dev-mode notice, the toast dismiss control), so a regional tag
  * resolves through its primary subtag (`fr-FR` → `fr`) rather than missing the
  * map and falling back to English.
  *

@@ -57,8 +57,10 @@ export const PathBranchActionSchema: Schema.Codec<Action & { readonly type: 'pat
               return ActionSchema
             })
           ).pipe(
-            Schema.annotate({ description: 'Actions to execute on this path' }),
-            Schema.check(Schema.isMinLength(1))
+            Schema.annotate({
+              description:
+                'Actions to execute on this path. May be empty: a path with no actions does nothing, and under first-match it still claims the run, so no later path runs',
+            })
           ),
         })
       ).pipe(

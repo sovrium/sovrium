@@ -8,6 +8,7 @@
 import { isUserListField } from '@/domain/models/app/tables/user-list-field-service'
 import { getPhysicalTableName } from '@/infrastructure/database/lookup/lookup-view-generators'
 import { logDebug } from '@/infrastructure/logging/logger'
+import { findIntervalDurationColumns } from '../schema-migration/duration-column-conversion'
 import {
   findDriftedFormulaColumns,
   findOneAccountListColumns,
@@ -23,15 +24,21 @@ import type { Table } from '@/domain/models/app/tables'
  *   - a `user` field holding several people that an older binary stored as ONE
  *     account (`findOneAccountListColumns`). The full migration makes it a list,
  *     rebuilding the table's view around the change, which the boot-time
- *     reconciler cannot do for a view-backed table.
- * One catalog read serves both; it is empty on SQLite, which has neither drift.
+ *     reconciler cannot do for a view-backed table;
+ *   - a `duration` field an earlier version stored as a PostgreSQL `INTERVAL`
+ *     (`findIntervalDurationColumns`), which the full migration converts to a
+ *     whole number of seconds.
+ * One catalog read serves all three; it is empty on SQLite, which has none of
+ * these drifts.
  */
 export const columnTypesCurrent = async (
   liveColumnTypes: () => Promise<ReadonlyMap<string, ReadonlyMap<string, string>>>,
   tables: readonly Table[]
 ): Promise<boolean> => {
   const checked = tables.filter((table) =>
-    table.fields.some((field) => field.type === 'formula' || isUserListField(field))
+    table.fields.some(
+      (field) => field.type === 'formula' || field.type === 'duration' || isUserListField(field)
+    )
   )
   if (checked.length === 0) return true
   const live = await liveColumnTypes()
@@ -39,7 +46,8 @@ export const columnTypesCurrent = async (
     const types = live.get(getPhysicalTableName(table)) ?? new Map<string, string>()
     return (
       findDriftedFormulaColumns(table.fields, types).length > 0 ||
-      findOneAccountListColumns(table.fields, types).length > 0
+      findOneAccountListColumns(table.fields, types).length > 0 ||
+      findIntervalDurationColumns(table.fields, types).length > 0
     )
   })?.name
   if (drifted === undefined) return true

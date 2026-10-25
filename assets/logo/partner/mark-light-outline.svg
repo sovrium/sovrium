@@ -2,11 +2,13 @@
 <!--
   Sovrium Partner mark — •Sp, the element symbol with its atomic-number dot
   (nuclide-prefix position, top-left of the S). Glyph-only — no tile;
-  one ink. Same composition at every size.
+  one ink for the letters. Same composition at every size.
   Descender lift: the whole composition sits 1.6 above the
   house baseline so the p descender clears the 64-box.
   LIGHT surfaces, outlined (font-independent) — ink #1b1614.
   Source: mark-light.svg.
+  The dot carries the unit colour, Partner green #1f6b45 (the app's primary);
+  the letters stay in ink.
 -->
 <svg
   width="64"
@@ -20,7 +22,7 @@
     cx="7.96"
     cy="10.48"
     r="3.94"
-    fill="#1b1614"
+    fill="#1f6b45"
   />
   <path
     fill="#1b1614"

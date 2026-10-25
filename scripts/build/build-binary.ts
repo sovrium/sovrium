@@ -382,7 +382,7 @@ export const DOCS_BEHAVIOUR_MIN_BYTES = 32_000
  * The generator's own test holds the payload to that list exactly.
  */
 export const SKILLS_MANIFEST_MIN_BYTES = 2000
-export const SKILLS_MIN_COUNT = 5
+export const SKILLS_MIN_COUNT = 9
 
 /**
  * Assert the freshly generated skills payload holds at least

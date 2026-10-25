@@ -2,7 +2,8 @@
 <!--
   Sovrium Cloud mark — •Sc, the element symbol with its atomic-number dot
   (nuclide-prefix position, top-left of the S). Glyph-only — no tile;
-  one ink. Same composition at every size.
+  the dot in the unit colour #6737b7,
+  the letters in one ink. Same composition at every size.
   LIGHT surfaces, outlined (font-independent) — ink #1b1614.
   Source: mark-light.svg.
 -->
@@ -18,7 +19,7 @@
     cx="7.96"
     cy="12.08"
     r="3.94"
-    fill="#1b1614"
+    fill="#6737b7"
   />
   <path
     fill="#1b1614"

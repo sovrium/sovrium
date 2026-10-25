@@ -21,8 +21,10 @@ import { validateTranslatedFormAddresses } from './form-address-validation'
 import { validateFormAutocompleteHints } from './form-autocomplete-validation'
 import { validateCalculationFormulas } from './form-calculation-validation'
 import { validateFormCreatePaths } from './form-create-path-validation'
+import { isReferenceDefaultValue } from './form-field-helpers'
 import { validateFormLookupDefaults } from './form-lookup-default-validation'
 import { validateFormOptionSources } from './form-option-source-validation'
+import { validateFormOptionSubsets } from './form-option-subset-validation'
 import { validateFormTakenMessages } from './form-taken-message-validation'
 
 /**
@@ -54,7 +56,6 @@ interface FormFieldShape {
   readonly hidden?: boolean
   readonly visibleWhen?: ConditionRuleShape
   readonly requiredWhen?: ConditionRuleShape
-  readonly disabledWhen?: ConditionRuleShape
 }
 
 interface FormStepShape {
@@ -385,17 +386,6 @@ const validateFieldNameUniqueness = (forms: ReadonlyArray<FormShape>): string | 
   }, undefined)
 
 /**
- * Allowed prefix references in `defaultValue`. `$query.X`, `$user.X`,
- * `$parent.X`, and `$now` resolve at submit time and are valid for any
- * input type (the resolved value is then coerced).
- */
-const isReferenceDefaultValue = (value: unknown): boolean => {
-  if (typeof value !== 'string') return false
-  if (value === '$now') return true
-  return /^\$(query|user|parent)\./.test(value)
-}
-
-/**
  * Validate that `defaultValue` matches the field's input type for kinds
  * where we can statically determine the expected JS type. Only the
  * standalone kind is checked here — table-field defaults are coerced
@@ -432,8 +422,8 @@ const validateDefaultValueTypes = (forms: ReadonlyArray<FormShape>): string | un
 /**
  * the forms specs helpers — conditional-logic cross-validation.
  *
- * Walks every `visibleWhen` / `requiredWhen` / `disabledWhen` rule on every
- * field of every form. Two checks per simple sub-rule:
+ * Walks every `visibleWhen` / `requiredWhen` rule on every field of every
+ * form. Two checks per simple sub-rule:
  *   - referenced `field` must exist in the same form (matched against the
  *     field's submitter-facing identifier — `column` for table-bound,
  *     `name` for standalone / signature / calculation).
@@ -554,7 +544,6 @@ const validateConditionalFieldReferences = (forms: ReadonlyArray<FormShape>): st
       const conditions: ReadonlyArray<readonly [string, ConditionRuleShape | undefined]> = [
         ['visibleWhen', field.visibleWhen],
         ['requiredWhen', field.requiredWhen],
-        ['disabledWhen', field.disabledWhen],
       ]
       return conditions.reduce<string | undefined>((condAcc, [propName, rule]) => {
         if (condAcc !== undefined) return condAcc
@@ -584,7 +573,6 @@ const validateConditionalOperatorTypes = (
       const conditions: ReadonlyArray<readonly [string, ConditionRuleShape | undefined]> = [
         ['visibleWhen', field.visibleWhen],
         ['requiredWhen', field.requiredWhen],
-        ['disabledWhen', field.disabledWhen],
       ]
       return conditions.reduce<string | undefined>((condAcc, [propName, rule]) => {
         if (condAcc !== undefined) return condAcc
@@ -721,6 +709,8 @@ export const validateAllFormsReferences = (app: AppForFormsValidation): string |
     () => validateCalculationFormulas(forms),
     // Choices read from a table: structure first, then what a form may publish.
     () => validateFormOptionSources(app),
+    // A field's `options` narrows its select column: each listed value the column's, once.
+    () => validateFormOptionSubsets(forms, tables),
     // A `$t:` address a form sends its visitor to, checked in every language.
     () => validateTranslatedFormAddresses(app),
     () => validateFormAutocompleteHints(app),

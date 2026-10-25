@@ -12,6 +12,13 @@ import type { RefObject, UIEvent, SyntheticEvent } from 'react'
 const SLACK = 1
 
 /**
+ * The region's visible width, kept on the region as a custom property so a
+ * full-width message inside an overflowing grid can be held to what is on
+ * screen (see `HELD_TO_VIEW` in `body.tsx`).
+ */
+export const VISIBLE_WIDTH_VAR = '--table-visible-width'
+
+/**
  * Whether the region still hides content past its right edge. Logical, so a
  * right-to-left grid (whose `scrollLeft` runs negative) reads the same.
  */
@@ -27,7 +34,8 @@ const overflowsEnd = (region: HTMLElement): boolean =>
  * columns are still clipped past it, which is the one cue a wide grid gives that
  * there is more to the right — the trailing action column included. The end is
  * re-read on resize as well as on scroll: a grid that fits on a wide screen
- * stops fitting when the window narrows, with no scroll event to say so.
+ * stops fitting when the window narrows, with no scroll event to say so. The
+ * same reading keeps the region's visible width on it (`VISIBLE_WIDTH_VAR`).
  */
 export function useScrollEdges(): {
   readonly regionRef: RefObject<HTMLDivElement | null>
@@ -41,6 +49,7 @@ export function useScrollEdges(): {
     const end = overflowsEnd(region)
     region.setAttribute('data-scrolled', String(region.scrollLeft !== 0))
     region.setAttribute('data-overflow-end', String(end))
+    region.style.setProperty(VISIBLE_WIDTH_VAR, `${region.clientWidth}px`)
     setOverflowEnd(end)
   }, [])
 

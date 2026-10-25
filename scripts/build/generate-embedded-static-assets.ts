@@ -24,9 +24,8 @@
  * A textual encoding would inflate every binary asset by a third and add a
  * decode step to a read path that currently has none.
  *
- * Regenerate after adding a migration, a template or a console sample — note
- * each template's own `[internal ref]` bundle ships too, via the recursive
- * `templates/` walk:
+ * Regenerate after adding a migration, a template or a console sample — every
+ * tracked file of a template ships, via the recursive `src/templates/` walk:
  *   bun run scripts/build/generate-embedded-static-assets.ts
  * (also run automatically by `build` and `build:binary`).
  *
@@ -152,14 +151,16 @@ ${entries.join('\n')}
 const pgBlock = buildDialect('drizzle')
 const sqliteBlock = buildDialect('drizzle/sqlite')
 
-// Templates — recursively walk `templates/`, embedding every non-source file.
-// Keys use the path relative to `templates/` (e.g. `crm/app.yaml`,
-// `crm/config/tables/contacts.yaml`) so init can enumerate per-template
-// directory trees. `.ts` templates are excluded: embedding them pulls them into
-// the tsc program, which declaration-emits stray `templates/*.d.ts`. init only
-// uses `.yaml`. Top-level non-directory files (README.md, CLAUDE.md.template)
-// are kept under their filename key for back-compat.
-const TEMPLATES_ROOT = join(PROJECT_ROOT, 'templates')
+// Templates — recursively walk `src/templates/` ([internal ref] A4), embedding every
+// non-source file. Keys use the path relative to the templates ROOT, not the
+// repository (e.g. `crm/app.yaml`, `crm/config/tables/contacts.yaml`), so they
+// did not change when the tree moved under `src/` and init enumerates
+// per-template directory trees exactly as before. A `.ts` is never embedded:
+// the tree holds none (its layout policy forbids code), and embedding one would
+// pull it into the tsc program. Top-level files (`catalog.json`, `README.md`)
+// are kept under their filename key.
+const TEMPLATES_ROOT_REL = 'src/templates'
+const TEMPLATES_ROOT = join(PROJECT_ROOT, TEMPLATES_ROOT_REL)
 
 /** One parsed `.gitignore` line. */
 interface IgnoreRule {
@@ -295,7 +296,7 @@ export const collectTemplateFiles = (
 
 const templateEntries = collectTemplateFiles(TEMPLATES_ROOT).map((abs) => {
   const key = posixRelative(TEMPLATES_ROOT, abs)
-  return `  ${JSON.stringify(key)}: ${addImport(`templates/${key}`)},`
+  return `  ${JSON.stringify(key)}: ${addImport(`${TEMPLATES_ROOT_REL}/${key}`)},`
 })
 
 // Design-system console sample media — the still, the clip and the chime that

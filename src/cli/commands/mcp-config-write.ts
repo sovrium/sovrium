@@ -424,8 +424,8 @@ const writeConfigFile = async (
       reloadHint:
         `The bytes are on disk. Whether a running instance TOOK them is a separate question: ` +
         `call \`${context.appName}_config_status\` and watch \`seq\` advance while ` +
-        `\`lastReload\` reports the verdict, or start an instance with ` +
-        `\`sovrium start --watch\`.`,
+        `\`lastReload\` reports the verdict, or run an instance that reloads on save: ` +
+        `\`sovrium dev\` (fresh seed data) or \`sovrium start --watch\`.`,
     },
   }
 }

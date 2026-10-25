@@ -1,6 +1,6 @@
 {
   "name": "sovrium",
-  "version": "0.43.1",
+  "version": "0.44.0",
   "private": true,
   "packageManager": "bun@1.4.4",
   "description": "Configuration-driven web application platform — distributed as standalone binary",
@@ -29,7 +29,7 @@
   ],
   "files": [
     "dist/**/*.js",
-    "templates/**"
+    "src/templates/**"
   ],
   "scripts": {
     "build": "bun run scripts/build/build.ts",

@@ -113,9 +113,11 @@ These four are read-only, and they are all a session offers until you say otherw
 
 ## The skills, as prompts
 
-The same session offers Sovrium's agent skills as MCP **prompts**, one per skill: `sovrium-app`, `sovrium-data-model`, `sovrium-pages`, `sovrium-automations`, `sovrium-seo-geo` and `sovrium-report-issue`. A client lists them in its prompt menu; picking one adds that skill's `SKILL.md` text to the conversation, without its frontmatter.
+The same session offers Sovrium's agent skills as MCP **prompts**, one per skill: `sovrium-app`, `sovrium-data-model`, `sovrium-pages`, `sovrium-design`, `sovrium-automations`, `sovrium-security`, `sovrium-performance`, `sovrium-agents`, `sovrium-seo-geo` and `sovrium-report-issue`. A client lists them in its prompt menu; picking one adds that skill's `SKILL.md` text to the conversation, without its frontmatter.
 
 This is the path for a client with no shell and no project skill folder, which is Claude Desktop. A client that can run commands gets the fuller version by running `sovrium skills` in the project, which also writes each skill's `references/` — a prompt carries the `SKILL.md` alone. See **Agent Skills**.
+
+The config editor agent file that `sovrium skills` writes for Claude Code, `.claude/agents/sovrium-config-editor.md`, is not a skill and is not offered as a prompt.
 
 The prompts read no configuration and write nothing, so they answer with writing switched off, and even in a folder that holds no config yet. They are offered over this pipe only: a deployed app's MCP endpoint serves no prompts.
 

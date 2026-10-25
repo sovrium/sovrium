@@ -140,12 +140,16 @@ const SPACING_PREFIX: Readonly<Partial<Record<LayoutProperty, string>>> = {
   width: 'w',
 }
 
-/** Which class of a list sets a property, unprefixed: the family a new utility replaces. */
+/**
+ * Which class of a list sets a property, unprefixed: the family a new utility
+ * replaces. A spacing family takes a step named by the app (its `line` step) as it takes a
+ * numbered one, so a write lands on the class already there, never beside it.
+ */
 const FAMILY: Readonly<Record<LayoutProperty, RegExp>> = {
   direction: /^flex-(?:row|col)(?:-reverse)?$/,
-  gap: /^gap-\d+(?:\.\d+)?$/,
-  padding: /^p-\d+(?:\.\d+)?$/,
-  width: /^w-(?:\d+(?:\.\d+)?|full|screen|auto)$/,
+  gap: /^gap-(?![xy]-)[a-z0-9.-]+$/,
+  padding: /^p-[a-z0-9.-]+$/,
+  width: /^w-[a-z0-9.-]+$/,
   align: /^items-(?:start|center|end|stretch|baseline)$/,
   justify: /^justify-(?:start|center|end|between|around|evenly)$/,
 }

@@ -7,6 +7,7 @@
 
 import { Result } from 'effect'
 import { isSingleMailbox } from '@/domain/kernel/sanitize/email-validation'
+import { groupListMemberRefusal } from '@/domain/models/app/automations/condition-validation'
 import { templateContextPathsFor } from '@/domain/models/app/automations/template-context-service'
 import { lookupPath, resolveTriggerInValue } from '../resolve-trigger-data'
 import type {
@@ -102,15 +103,79 @@ const takesRunData = (authored: string): boolean => /\{\{(?!\s*\$env\.\w+\s*\}\}
 /** A template that is exactly one `{{path}}`, whose value is read as it is. */
 const WHOLE_PATH = /^\{\{\s*([\w.]+)\s*\}\}$/
 
+/** The list a whole `{{path}}` template reads from run data, or `undefined` when it reads none. */
+const wholeTemplateList = (authored: string, context: Props): readonly unknown[] | undefined => {
+  const whole = WHOLE_PATH.exec(authored.trim())
+  const found = whole === null ? undefined : lookupPath(context, whole[1] as string)
+  return Array.isArray(found) ? found : undefined
+}
+
 /**
  * The recipients one authored address value names: a whole `{{path}}` reading
  * a list names each of its items, anything else the one rendered string.
  */
-const recipientsOf = (authored: string, rendered: unknown, context: Props): readonly unknown[] => {
-  const whole = WHOLE_PATH.exec(authored.trim())
-  const found = whole === null ? undefined : lookupPath(context, whole[1] as string)
-  return Array.isArray(found) ? found : [rendered]
+const recipientsOf = (authored: string, rendered: unknown, context: Props): readonly unknown[] =>
+  wholeTemplateList(authored, context) ?? [rendered]
+
+/**
+ * The list a whole-template `in` / `notIn` value names, kept a list. The text
+ * pass would render `{{trigger.data.statuses}}` as the text `normal,low`, and
+ * the condition would compare against one string; read whole, it keeps the
+ * list it points at. Anything else keeps its rendered value.
+ */
+const listTemplateValue = (condition: unknown, rendered: unknown, context: Props): unknown => {
+  if (condition === null || typeof condition !== 'object') return rendered
+  const { operator, value } = condition as Props
+  if ((operator !== 'in' && operator !== 'notIn') || typeof value !== 'string') return rendered
+  return wholeTemplateList(value, context) ?? rendered
 }
+
+/** One condition group (`filter` of a record step, `condition` of a filter) with its list templates kept. */
+const keepListTemplatesIn = (authored: unknown, rendered: unknown, context: Props): unknown => {
+  if (authored === null || typeof authored !== 'object') return rendered
+  if (rendered === null || typeof rendered !== 'object') return rendered
+  const { conditions } = authored as Props
+  const { conditions: filled } = rendered as Props
+  if (!Array.isArray(conditions) || !Array.isArray(filled)) return rendered
+  return {
+    ...(rendered as Props),
+    conditions: filled.map((condition: unknown, index) => {
+      if (condition === null || typeof condition !== 'object') return condition
+      const { value } = condition as Props
+      const kept = listTemplateValue(conditions[index], value, context)
+      return kept === value ? condition : { ...(condition as Props), value: kept }
+    }),
+  }
+}
+
+/** The rendered props with the list templates of their condition groups kept lists. */
+const keepListTemplates = (authored: Props, rendered: Props, context: Props): Props =>
+  Object.fromEntries(
+    Object.entries(rendered).map(([key, value]) => [
+      key,
+      key === 'filter' || key === 'condition'
+        ? keepListTemplatesIn(authored[key], value, context)
+        : value,
+    ])
+  )
+
+/**
+ * Why the filled props cannot be used, judged on the whole: a whole-template
+ * list holding an object or a nested list cannot be compared, and an
+ * `email/send` address from run data must name one recipient.
+ */
+const filledPropsRefusal = (input: {
+  readonly type: string
+  readonly operator: string
+  readonly authored: Props
+  readonly props: Props
+  readonly context: Props
+}): string | undefined =>
+  groupListMemberRefusal(input.props['filter']) ??
+  groupListMemberRefusal(input.props['condition']) ??
+  (input.type === 'email' && input.operator === 'send'
+    ? emailAddressRefusal(input.authored, input.props, input.context)
+    : undefined)
 
 const ADDRESS_FIELDS = ['from', 'to', 'cc', 'bcc', 'replyTo'] as const
 
@@ -242,12 +307,14 @@ export const renderActionProps = (input: {
       onFailure: (reason) => ({ key, value: value as unknown, refusal: `\`${key}\`: ${reason}` }),
     })
   })
-  const props = Object.fromEntries(entries.map(({ key, value }) => [key, value]))
+  const props = keepListTemplates(
+    authored,
+    Object.fromEntries(entries.map(({ key, value }) => [key, value])),
+    context
+  )
   const refused =
     entries.find((entry) => entry.refusal !== undefined)?.refusal ??
-    (type === 'email' && operator === 'send'
-      ? emailAddressRefusal(authored, props, context)
-      : undefined)
+    filledPropsRefusal({ type, operator, authored, props, context })
   return refused === undefined
     ? { props }
     : { props, refusal: `${type}.${operator} refused: ${refused}` }

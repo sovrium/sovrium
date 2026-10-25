@@ -7,9 +7,18 @@
 
 import {
   defaultAlignOfFieldType,
+  presentedFieldType,
   readsInTabularFigures,
 } from '@/domain/models/app/tables/field-type-presentation-service'
+import type { FieldMeta } from '../../hooks/use-inline-editing'
 import type { ColumnAlign } from '../column-align'
+
+/**
+ * The type a field's cells are drawn as: its own, except a `rollup`, which is
+ * drawn as what it computes (`presentedFieldType`).
+ */
+export const presentedTypeOf = (meta: FieldMeta | undefined): string | undefined =>
+  presentedFieldType(meta?.type, meta?.rollupResult)
 
 /**
  * Where a column's values sit, from its field type: a quantity is

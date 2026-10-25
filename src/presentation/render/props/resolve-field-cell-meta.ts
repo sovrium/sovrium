@@ -5,6 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  rollupResultKind,
+  type RollupResultKind,
+} from '@/domain/models/app/tables/rollup-currency-service'
+import type { Tables } from '@/domain/models/app/tables'
+
 /**
  * WHICH DECLARED FIELD PROPERTIES REACH A GRID CELL, AND IN WHICH BAG.
  *
@@ -150,4 +156,18 @@ export function resolveFieldEditMeta(
   field: Readonly<Record<string, unknown>>
 ): Record<string, unknown> | undefined {
   return pickDeclaredKeys(field, EDIT_META_KEYS)
+}
+
+/**
+ * What a `rollup` computes (`rollupResultKind`), carried beside its meta so the
+ * grid draws it as money, a number, a list or text: only the source field can
+ * say, and the browser never sees the table. Empty for every other field.
+ */
+export function rollupResultMeta(
+  field: Tables[number]['fields'][number],
+  table: Tables[number],
+  tables: Tables
+): { readonly rollupResult?: RollupResultKind } {
+  const rollupResult = rollupResultKind(field, table, tables)
+  return rollupResult === undefined ? {} : { rollupResult }
 }

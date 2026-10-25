@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isNumericFormulaResult } from './formula-result-type-service'
+
 /**
  * The currency display a field is SHOWN in, which for a rollup is not always
  * the one it declares.
@@ -47,6 +49,30 @@ interface TableLike {
 const findField = (table: TableLike | undefined, name: unknown): FieldLike | undefined =>
   typeof name === 'string' ? table?.fields.find((field) => field.name === name) : undefined
 
+/** The row id every table carries without declaring it: an integer. */
+const IMPLICIT_ID: FieldLike = { name: 'id', type: 'integer' }
+
+/**
+ * The field a rollup reads in its related table, through its relationship, or
+ * `undefined` when the relationship or the source does not resolve. `id` is
+ * never declared but always there, as validation reads it.
+ */
+const rollupSourceOf = (
+  field: FieldLike,
+  table: TableLike,
+  tables: readonly TableLike[]
+): FieldLike | undefined => {
+  const link = findField(table, field['relationshipField'])
+  if (link?.type !== 'relationship') return undefined
+  const related = tables.find((candidate) => candidate.name === link['relatedTable'])
+  if (related === undefined) return undefined
+  return field['relatedField'] === 'id' ? IMPLICIT_ID : findField(related, field['relatedField'])
+}
+
+/** A rollup's aggregation, lower-cased; empty when it declares none. */
+const aggregationOf = (field: FieldLike): string =>
+  typeof field.aggregation === 'string' ? field.aggregation.toLowerCase() : ''
+
 /**
  * The `currency` field a rollup aggregates as an amount, or `undefined` when
  * the field is not such a rollup: another type, a counting aggregation, a
@@ -57,16 +83,61 @@ export const rollupCurrencySource = (
   table: TableLike,
   tables: readonly TableLike[]
 ): FieldLike | undefined => {
-  if (field.type !== 'rollup') return undefined
-  const { aggregation } = field
-  if (typeof aggregation !== 'string' || !AMOUNT_AGGREGATIONS.has(aggregation.toLowerCase())) {
-    return undefined
-  }
-  const link = findField(table, field['relationshipField'])
-  if (link?.type !== 'relationship') return undefined
-  const related = tables.find((candidate) => candidate.name === link['relatedTable'])
-  const source = findField(related, field['relatedField'])
+  if (field.type !== 'rollup' || !AMOUNT_AGGREGATIONS.has(aggregationOf(field))) return undefined
+  const source = rollupSourceOf(field, table, tables)
   return source?.type === 'currency' ? source : undefined
+}
+
+/** What a rollup computes, which decides how its value is drawn. */
+export type RollupResultKind = 'currency' | 'number' | 'list' | 'text'
+
+/** The aggregations whose result is a number of records, whatever they read. */
+const COUNTING_AGGREGATIONS: ReadonlySet<string> = new Set(['count', 'counta', 'countall'])
+
+/** The source types an amount aggregation turns into a plain number. */
+const NUMERIC_SOURCE_TYPES: ReadonlySet<string> = new Set([
+  'number',
+  'integer',
+  'decimal',
+  'percentage',
+  'autonumber',
+  'count',
+  'duration',
+])
+
+/**
+ * What a sum, average, minimum or maximum of `source` is. A formula reads as its
+ * declared result: a number only when validation also counts it as one, and no
+ * currency is ever inferred from it.
+ */
+const amountResultKind = (source: FieldLike | undefined): RollupResultKind => {
+  if (source?.type === 'currency') return 'currency'
+  const numeric =
+    source?.type === 'formula'
+      ? isNumericFormulaResult(source['resultType'])
+      : NUMERIC_SOURCE_TYPES.has(source?.type ?? '')
+  return numeric ? 'number' : 'text'
+}
+
+/**
+ * What a rollup's value IS, read from its aggregation and its source: money in
+ * the source's currency (an amount aggregation over a `currency` field), a
+ * number (a count of records, or an amount aggregation over a numeric field,
+ * the row `id`, or a formula whose `resultType` is numeric),
+ * a list (`ARRAYUNIQUE`), else text — the earliest name, a source that does not
+ * resolve. `undefined` for a field that is not a rollup.
+ */
+export const rollupResultKind = (
+  field: FieldLike,
+  table: TableLike,
+  tables: readonly TableLike[]
+): RollupResultKind | undefined => {
+  if (field.type !== 'rollup') return undefined
+  const aggregation = aggregationOf(field)
+  if (aggregation === 'arrayunique') return 'list'
+  if (COUNTING_AGGREGATIONS.has(aggregation)) return 'number'
+  if (!AMOUNT_AGGREGATIONS.has(aggregation)) return 'text'
+  return amountResultKind(rollupSourceOf(field, table, tables))
 }
 
 /**

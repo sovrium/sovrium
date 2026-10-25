@@ -71,13 +71,54 @@ const bindValue = (value: unknown): Readonly<SQL> => {
  * escaped, so only the operator's own wildcards stay active. Paired with the
  * `ESCAPE` clause in `buildFilterCondition`, as `filter-operators.ts` does.
  */
-const bindLikePattern = (value: unknown): Readonly<SQL> =>
-  sql`${likePatternOf('contains', typeof value === 'string' ? value : String(value))}`
+const bindLikePattern = (
+  value: unknown,
+  operator: 'contains' | 'startsWith' = 'contains'
+): Readonly<SQL> =>
+  sql`${likePatternOf(operator, typeof value === 'string' ? value : String(value))}`
+
+/** The predicate no row matches: what a filter answers when it can match nothing. */
+const NO_ROW = sql`1 = 0`
+
+/**
+ * A text operator as a case-folded `LIKE`: a bare `LIKE` is case-SENSITIVE on
+ * PostgreSQL and case-INSENSITIVE on SQLite, so both sides are folded and the
+ * same filter binds the same rows on both engines.
+ */
+const likeCondition = (
+  field: SqlIdentifier,
+  value: unknown,
+  operator: 'contains' | 'startsWith'
+): Readonly<SQL> =>
+  // sql-literal: keyword -- the escape character is a module constant
+  sql`LOWER(${field}) LIKE LOWER(${bindLikePattern(value, operator)}) ESCAPE ${sql.raw(`'${LIKE_ESCAPE_CHARACTER}'`)}`
+
+/**
+ * `between [low, high]`: both ends kept, each a bound value, so a date
+ * compares as a date on PostgreSQL. Anything but a two-item list matches no row.
+ */
+const betweenCondition = (field: SqlIdentifier, value: unknown): Readonly<SQL> => {
+  if (!Array.isArray(value) || value.length !== 2) return NO_ROW
+  const low: unknown = value[0]
+  const high: unknown = value[1]
+  if (low === null || low === undefined || high === null || high === undefined) return NO_ROW
+  return sql`${field} >= ${bindValue(low)} AND ${field} <= ${bindValue(high)}`
+}
 
 export function buildFilterCondition(filter: DataFilter): Readonly<SQL> {
   const field = sql.identifier(sanitizeTableName(filter.field))
-  const { operator, value } = filter
+  return serverOperatorCondition(filter, field) ?? valueCondition(field, filter)
+}
 
+/**
+ * The operators the engine itself writes into a filter, never an author:
+ * `undefined` for an author's operator.
+ */
+function serverOperatorCondition(
+  filter: DataFilter,
+  field: SqlIdentifier
+): Readonly<SQL> | undefined {
+  const { operator, value } = filter
   // `contains` on a list of people, rewritten by the read gate into membership.
   if ((operator as string) === LIST_MEMBER_OPERATOR) return listMemberFragment(field, value)
   // A row its reader did not create, as the activity log records it: a
@@ -85,35 +126,34 @@ export function buildFilterCondition(filter: DataFilter): Readonly<SQL> {
   if ((operator as string) === NOT_LOGGED_CREATOR_OPERATOR && isNotLoggedCreatorValue(value)) {
     return notLoggedCreatorFragment(sanitizeTableName(filter.field), value)
   }
+  return undefined
+}
 
-  if (operator === 'contains') {
-    // Case-folded on both sides: a bare `LIKE` is case-SENSITIVE on PostgreSQL
-    // and case-INSENSITIVE on SQLite, so the same page `dataSource.filters`
-    // block would bind different rows depending on the engine. Matches the
-    // records-API decision in `table-queries/filter-operators.ts`.
-    // sql-literal: keyword -- the escape character is a module constant
-    return sql`LOWER(${field}) LIKE LOWER(${bindLikePattern(value)}) ESCAPE ${sql.raw(`'${LIKE_ESCAPE_CHARACTER}'`)}`
+/** An author's operator over `field`, every value a bound parameter. */
+function valueCondition(field: SqlIdentifier, filter: DataFilter): Readonly<SQL> {
+  const { operator, value } = filter
+  // Matches the records-API decision in `table-queries/filter-operators.ts`.
+  if (operator === 'contains' || operator === 'startsWith') {
+    return likeCondition(field, value, operator)
   }
+  if (operator === 'between') return betweenCondition(field, value)
+  if (operator === 'in') return buildInClause(field, value)
 
-  if (operator === 'in') {
-    return buildInClause(field, value)
-  }
-
-  // `isEmpty` / `isNotEmpty` take no value: the records API's own rule
-  // (NULL, empty text, an empty list — the `isEmpty`/`isNotEmpty` data-source filter design), so a server-drawn list and
-  // a grid over the same data source never disagree about emptiness.
+  // `isEmpty` / `isNotEmpty` take no value: the records API's own rule (NULL,
+  // empty text, an empty list), so a server-drawn list and a grid over the same
+  // data source never disagree about emptiness.
   if (operator === 'isEmpty') return emptyValueCondition(field)
   if (operator === 'isNotEmpty') return nonEmptyValueCondition(field)
 
   // The comparison operator reaches SQL only through this closed literal map,
-  // never as caller text; an unrecognised operator falls through to `=`.
+  // never as caller text. An operator with no case here is refused — it
+  // matches no row — never compared as equality.
   const sqlOp = DATA_SOURCE_OPERATOR_MAP[operator]
   if (sqlOp) {
     // sql-literal: keyword -- `sqlOp` comes from the closed DATA_SOURCE_OPERATOR_MAP
     return sql`${field} ${sql.raw(sqlOp)} ${bindValue(value)}`
   }
-
-  return sql`${field} = ${bindValue(value)}`
+  return NO_ROW
 }
 
 /**
@@ -132,12 +172,12 @@ export function buildFilterCondition(filter: DataFilter): Readonly<SQL> {
  */
 function buildInClause(field: SqlIdentifier, value: unknown): Readonly<SQL> {
   if (Array.isArray(value)) {
-    if (value.length === 0) return sql`1 = 0`
+    if (value.length === 0) return NO_ROW
     return sql`${field} IN (${sql.join(
       value.map((element) => bindValue(element)),
       sql.raw(', ')
     )})`
   }
-  if (value === undefined || value === null || value === '') return sql`1 = 0`
+  if (value === undefined || value === null || value === '') return NO_ROW
   return sql`${field} = ${bindValue(value)}`
 }

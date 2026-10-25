@@ -47,6 +47,8 @@ The host resolves public-origin-first: the host of `BASE_URL`, then the address 
 
 The reverse is the trap: a loopback `BASE_URL` such as `http://localhost:3000` relaxes the posture even when the port is published and reachable from the internet, because `BASE_URL` is read before the socket's real reach. On any host other people can reach, set `BASE_URL` to the public `https://` address they type.
 
+Turn dev mode off before launch: unset `SOVRIUM_DEV_MODE`, which `sovrium dev` sets, so the sign-in page stops showing an account to every visitor. The startup banner prints a `⚠` line while it is on behind a public origin.
+
 Two consequences worth knowing:
 
 - `0.0.0.0` and `::` are deliberately **not** loopback. They are the wildcard bind — every interface the machine has — so the ordinary container idiom `SOVRIUM_BIND_HOST=0.0.0.0` is a public bind and keeps the secure posture.

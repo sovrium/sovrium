@@ -13,6 +13,7 @@ import { buildGuestSession } from '../build-guest-session'
 import {
   extractIdFromFilter,
   toQueryFilter,
+  uncompilableFilterOperator,
   type DeclaredFilterFields,
 } from './record-filter-shape'
 import { writeFailureOutcome } from './record-write-failure'
@@ -96,6 +97,12 @@ export const filterFieldRefusal = (
   queryFilter: QueryFilter,
   declaredFields: ReadonlySet<string> | undefined
 ): Readonly<UnknownFilterFieldError> | undefined => {
+  // An operator no record filter compiles is refused first, whether or not the
+  // table's fields are known: compiling it would test something else.
+  const uncompilable = uncompilableFilterOperator(queryFilter)
+  if (uncompilable !== undefined) {
+    return new UnknownFilterFieldError(uncompilable.message, uncompilable.field)
+  }
   if (declaredFields === undefined) return undefined
   const unresolvable = unresolvableFilterField(queryFilter, declaredFields)
   if (unresolvable === undefined) return undefined

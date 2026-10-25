@@ -46,7 +46,7 @@ pages:
 
 ## Record detail routes
 
-To serve one record at a URL without generating a route per record, pair a dynamic segment with a `single`-mode data source. `param` names the path segment to read the record id from:
+To serve one record at a URL without generating a route per record, pair a dynamic segment with a `single`-mode data source. `param` names the path segment, and the segment is matched against the column of that name when the table declares one (`/authors/:slug` on a table with a `slug` field), and against the record id otherwise — so `/tasks/:id` and `/shelves/:shelf` both read the record by its id:
 
 ```yaml
 name: my-app
@@ -67,7 +67,7 @@ pages:
       - { type: text, content: '$record.description' }
 ```
 
-A request whose parameter matches no record returns a `404`. A page-level `dataSource` may also name a platform endpoint through `system` instead of a table. That record is read on the server, before the page is sent, **as the visitor**: someone who cannot read the record gets the page's `404`, never a page with empty placeholders. The read is addressed to the running server's own listener over loopback, not to the address the request arrived on, so it behaves identically behind a reverse proxy, a load balancer or a custom domain, whatever `BASE_URL` says. Such a record has no field types, so where page text prints one of its values — a sentence, a description list — a date and time the endpoint writes in ISO form prints as a date and time in the page language, and a list prints its items joined as the page language joins a list; a link built from the same value keeps it as stored.
+A request whose parameter matches no record returns a `404`, and so does a value no record could hold, such as `abc` where the id is a number. A segment the column's type cannot hold — an impossible date such as February 30th, a number out of an integer column's range — answers `404` too, and so does any segment compared with a column holding a list, a document or a file. A segment compared with a column the reader's field permissions do not let her read answers `404` for her whatever its value, as on the records API; a reader of that column reads the record, and a segment naming the record id is unaffected. A page-level `dataSource` may also name a platform endpoint through `system` instead of a table. That record is read on the server, before the page is sent, **as the visitor**: someone who cannot read the record gets the page's `404`, never a page with empty placeholders. The read is addressed to the running server's own listener over loopback, not to the address the request arrived on, so it behaves identically behind a reverse proxy, a load balancer or a custom domain, whatever `BASE_URL` says. Such a record has no field types, so where page text prints one of its values — a sentence, a description list — a date and time the endpoint writes in ISO form prints as a date and time in the page language, and a list prints its items joined as the page language joins a list; a link built from the same value keeps it as stored.
 
 A page bound to one record — either arm — may also draw a list the record carries with a `container` `repeat`: the copies are drawn on the server, so they arrive in the first response like every other `$record.` value on the page. The contract is the drawer's (see **Overlays**), with one difference in position: a `repeat` inside a component that reads rows of its own (a `dataSource` row template) is refused, because there `$record.` is the row and not the page's record.
 

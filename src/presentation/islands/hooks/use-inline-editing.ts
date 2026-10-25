@@ -13,6 +13,7 @@ import type { CalendarWeekday } from '@/domain/kernel/format/calendar-date'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type { DurationDisplayFormat } from '@/domain/kernel/format/duration-format'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
+import type { RollupResultKind } from '@/domain/models/app/tables/rollup-currency-service'
 import type { SelectOptionLike } from '@/domain/models/app/tables/select-option'
 import type { BadgeForm, OptionChipPaint } from '@/presentation/design/option-chip-paint'
 
@@ -199,6 +200,11 @@ export interface FieldMeta {
    * the grid offers an input for it.
    */
   readonly readOnly?: boolean
+  /**
+   * What a `rollup` computes — money, a number, a list or text — resolved on
+   * the server from its aggregation and source, so the grid draws it as that.
+   */
+  readonly rollupResult?: RollupResultKind
 }
 
 export type FieldMetaMap = Readonly<Record<string, FieldMeta>>

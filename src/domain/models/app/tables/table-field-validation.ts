@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { isNumericFormulaResult } from './formula-result-type-service'
+
 /**
  * Shared table field type for validation parameters.
  */
@@ -123,21 +125,9 @@ const findRelatedFieldType = (params: {
   const { resultType } = relatedFieldObj as { resultType?: unknown }
   return {
     type: relatedFieldObj.type,
-    numericFormula:
-      relatedFieldObj.type === 'formula' &&
-      typeof resultType === 'string' &&
-      NUMERIC_FORMULA_RESULT_TYPES.has(resultType.toLowerCase()),
+    numericFormula: relatedFieldObj.type === 'formula' && isNumericFormulaResult(resultType),
   }
 }
-
-/** Formula result types that store a number (`formulaResultTypeMap`). */
-const NUMERIC_FORMULA_RESULT_TYPES: ReadonlySet<string> = new Set([
-  'number',
-  'decimal',
-  'numeric',
-  'integer',
-  'int',
-])
 
 /**
  * Field types `SUM` / `AVG` may be rolled up over: every type that stores a

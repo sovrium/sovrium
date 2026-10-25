@@ -82,7 +82,7 @@ rm -f "$JAR"
 
 | You got                               | Likely meaning                                                                  | Do                                                                   |
 | ------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `404` on a table you just added       | The server has not restarted onto the new config, or the caller may not read it | Check what `sovrium start --watch` printed; retry as admin           |
+| `404` on a table you just added       | The server has not restarted onto the new config, or the caller may not read it | Check what `sovrium dev` printed; retry as the admin it names        |
 | `404` for one role, `200` for another | Permissions working as written                                                  | Compare with the permissions you intended                            |
 | `401`                                 | No session or key was sent                                                      | Re-run sign-in; check `$JAR` still exists                            |
 | `400` with a field name               | Value fails the field's type or a required field is missing                     | Read the message; check `sovrium docs config tables[].fields[].type` |

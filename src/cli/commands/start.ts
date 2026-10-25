@@ -47,6 +47,7 @@ import { holdReloadPath } from './start-watch'
 import { lazyImportIndex, lazyImportLogger, lazyImportCli, resolveConfigAnchor } from './utils'
 import { collectConfigAttribution } from './validate'
 import type { StartOptions } from '@/application/use-cases/server/start-server-options'
+import type { SimpleServer } from '@/index'
 
 /**
  * What a start Sovrium could not complete prints: the failure, then the
@@ -128,7 +129,21 @@ const refuseBusyStrictPort = async (options: StartOptions): Promise<void> => {
 }
 
 /**
+ * What a completed boot hands its caller: the running server and the config it
+ * runs. `sovrium dev` prints its session block from it; `sovrium start` ignores it.
+ */
+export interface StartedSession {
+  readonly server: SimpleServer
+  readonly configFile: string | undefined
+  readonly configPath: string | undefined
+}
+
+/**
  * Handle the 'start' command
+ *
+ * Resolves once the server serves (and, from a config file, once the reload
+ * path is held — under `--watch`, after `Watching … for changes` is printed);
+ * the process then stays alive on the server's own handles.
  *
  * `helpRequested` is forwarded from `src/cli/index.ts` when `--help`/`-h`
  * follows a positional (e.g. `start app.yaml --watch --help`). Without this
@@ -140,10 +155,10 @@ export const handleStartCommand = async (
   watchMode = false,
   publicDir?: string | false,
   helpRequested = false
-): Promise<void> => {
+): Promise<StartedSession | undefined> => {
   if (helpRequested) {
     showStartHelp()
-    return
+    return undefined
   }
   // Before anything prints: every line this server writes follows the format.
   activateLogFormat(resolveSovriumLogFormat(process.env))
@@ -297,4 +312,5 @@ export const handleStartCommand = async (
       bootReadStartedAt,
     })
   }
+  return { server, configFile, configPath }
 }

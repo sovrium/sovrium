@@ -1,0 +1,136 @@
+title: 'Kerlo Automations'
+tagline: |
+  Automations that run in your own app, with every run kept.
+intro: |
+  Kerlo Automations — six automations running inside the app they serve, for a small studio's
+  lead intake. The public page (`/`) shows each recipe as its trigger, its steps and the lines
+  of configuration that declare it. Behind sign-in, Activity is every run with its outcome and
+  one line of why — four figures above it, and a run opens in a drawer with its attempts and
+  its error — and Leads is the leads the recipes wrote.
+glance:
+  - '**Tables** (2): leads, activity_log'
+  - '**Pages** (4): activity, leads, home (`/`, public), sign-in'
+  - |-
+    **Automations** (7): capture-lead-from-webhook, log-new-lead, daily-digest,
+    alert-on-failure, review-recent-leads (manual trigger, a branch with a stop step, a call),
+    score-leads (automation-call trigger, a loop, a `$ref` step, a return), and
+    record-to-mistral-summary — a library recipe (`library/recipe/`, with its
+    `library/connection/mistral.yaml`) summarising a lead's message once `MISTRAL_API_KEY` is set
+  - '**Reusable actions** (1): log-lead-review, under `actions:` in `app.yaml`'
+  - '**Singletons**: auth, design, env (`LEADS_WEBHOOK_TOKEN`, required to boot)'
+  - |-
+    **Seed data**: `seed/` — two sign-in accounts, eight leads and a week of runs, dated
+    relative to the moment you seed
+  - '**Static assets**: `public/` (served at the site root)'
+glanceClose: |
+  Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
+sections:
+  - heading: 'How the runs are written here'
+    body: |
+      `activity_log` is written by the recipes themselves: recipes 1, 2 and 3 add a line when they
+      succeed (recipe 2 writes Retried when its email needed a second try), and recipe 4, the
+      `automation-failure` handler, writes the line of any run that failed after its last retry.
+      The platform keeps the full record of every run in the admin console and emails the
+      operators on a failure; recipe 4 does not send a second email. The recipe cards on
+      `config/pages/home.yaml` are written by hand from `config/automations/`: change one, change
+      the other.
+assistant: |
+  Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+  run into `.claude/skills/`; start from `sovrium-automations` for any change to a recipe and
+  `sovrium-app` for the rest. The design system is in `config/design.yaml`: read its comments
+  before changing a colour, and keep colour for run outcomes.
+whatsInside: |
+  A small studio's lead intake, automated by six recipes that run inside the app:
+
+  1. **Webhook → record** (`capture-lead-from-webhook`) — a POST carrying the bearer token
+     becomes a lead. Without the token it is refused and writes nothing.
+  2. **Record → email + log** (`log-new-lead`) — every new lead emails the team and adds a
+     line to the activity log. The email is tried three times, with a growing wait, before the
+     run fails.
+  3. **Cron → digest** (`daily-digest`) — weekday evenings at 18:00, Paris time, one email to
+     the team.
+  4. **Failure → alert** (`alert-on-failure`) — a run that failed after its last retry is
+     written to the activity log with its error. Sovrium itself emails the operators; this
+     recipe does not send a second email.
+  5. **Manual → sub-automation** (`review-recent-leads`) — the **Review latest leads** button
+     on Activity. With no lead it stops at once, as a success; otherwise it calls recipe 6 and
+     waits for its answer.
+  6. **Sub-automation** (`score-leads`) — started only by another automation: it loops over
+     the ten latest leads and logs each with its tier through `log-lead-review`, one step
+     declared once under `actions:` in `app.yaml` and placed with `$ref`.
+
+  Optional: a lead that arrives with a `message` gets a two-sentence summary written into it.
+  It is the `record-to-mistral-summary` recipe from the Sovrium library (`sovrium library add
+  recipe/record-to-mistral-summary`); set `MISTRAL_API_KEY` to turn it on — without it the app
+  runs exactly the same.
+
+  The pages:
+
+  - **Recipes** (`/`, public) — the first four recipes, each as its trigger, its steps and the lines
+    of configuration that declare it, and a way to sign in.
+  - **Activity** — every run, newest first, with its recipe, its outcome and one line of why,
+    and four figures above: runs in the log, succeeded, succeeded after a retry, failed after
+    retries. `/activity?record=<id>` opens one run in a drawer with its attempts and its error.
+  - **Leads** — the leads the recipes wrote, newest first.
+
+  Sign-up is closed; an admin adds each account. Everything is declared in
+  [`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no application code. Edit the
+  config, restart, done.
+whatToTry: |
+  Load the demo data first. It creates two demo accounts, eight leads and a week of runs,
+  dated relative to now:
+
+  ```bash
+  SOVRIUM_SEED_PASSWORD=choose-a-password sovrium seed app.yaml
+  LEADS_WEBHOOK_TOKEN=choose-a-long-random-token sovrium start app.yaml
+  ```
+
+  The week holds 17 runs: 15 succeeded, 1 succeeded after a retry (lead #7, Liam Carver) and 1
+  failed after 3 attempts (lead #6, Sofia Ricci: the mailbox rejected the sender).
+
+  1. Open `/` without signing in: the first four recipes and their declarations.
+  2. Sign in as **maelle.kerlo@kerlo.example** (admin) with the password you chose; you land
+     on **Activity**. Find the Retried and the Failed run, and open the failed one with
+     `/activity?record=12`: 3 attempts, and the error word for word.
+  3. Post a lead to the webhook, first without the token (refused, 401), then with it:
+
+     ```bash
+     curl -X POST http://localhost:3000/api/automations/capture-lead-from-webhook/webhook \
+       -H 'Content-Type: application/json' \
+       -H 'Authorization: Bearer choose-a-long-random-token' \
+       -d '{"name": "Inès Carvalho", "email": "ines.carvalho@porto-design.example", "company": "Porto Design"}'
+     ```
+
+     The lead appears on **Leads**, and the run at the top of **Activity**.
+
+  4. Press **Review latest leads** on Activity: eight lines, one per lead, land at the top of
+     the list, and the admin console's Runs page shows the two runs — the manual one and the
+     one it called.
+  5. Sign in as **jules.morvan@kerlo.example** (member): he reads the runs and the leads, but
+     only an admin deletes one. Both are demo accounts.
+env:
+  - name: 'LEADS_WEBHOOK_TOKEN'
+    section: 'The lead webhook (required)'
+    description: |-
+      The bearer token a caller must send to
+      /api/automations/capture-lead-from-webhook/webhook. The app refuses to start
+      without it. Generate one with: sovrium secret generate
+  - name: 'SMTP_HOST'
+    section: 'Email'
+    description: "Without SMTP_HOST, the recipes' emails are logged instead of sent."
+  - name: 'SMTP_PORT'
+    section: 'Email'
+    description: "Without SMTP_HOST, the recipes' emails are logged instead of sent."
+    example: '587'
+  - name: 'SMTP_USER'
+    section: 'Email'
+    description: "Without SMTP_HOST, the recipes' emails are logged instead of sent."
+  - name: 'SMTP_PASS'
+    section: 'Email'
+    description: "Without SMTP_HOST, the recipes' emails are logged instead of sent."
+  - name: 'MISTRAL_API_KEY'
+    section: 'Mistral (optional)'
+    description: |-
+      An API key of your Mistral account turns on the two-sentence summary of each
+      lead that arrives with a message. Without it the app runs and only that
+      automation is idle.

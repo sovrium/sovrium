@@ -36,6 +36,7 @@ import {
   gateAdmitsRecord,
   type CallerReader,
 } from '@/domain/models/app/tables/caller-record-gate-service'
+import { columnReadableBy } from '@/domain/models/app/tables/route-param-lookup-service'
 import { admitsRow } from '@/domain/models/app/tables/row-read-admission-service'
 import { readerListsEveryRow, readerRowsOf, rowsReaderMayNotList } from '../row-read-admission'
 import { loadCallerIdentity } from './caller-write-authority'
@@ -205,4 +206,27 @@ export const callerListsTable = (input: {
     return judge.listsAnyRow
   }).pipe(
     Effect.withSpan('tables.caller-lists-table', { attributes: { 'table.name': input.tableName } })
+  )
+
+/**
+ * Whether the caller `userId` names — `undefined` for someone not signed in —
+ * may read the column `field` of `tableName`: the verdict the records API
+ * applies to a filter on that column ({@link columnReadableBy}). A table that
+ * is not declared, and an account that cannot be loaded, read no column.
+ */
+export const callerReadsColumn = (input: {
+  readonly app: App
+  readonly tableName: string
+  readonly userId: string | undefined
+  readonly field: string
+}): Effect.Effect<boolean, never, Requirements> =>
+  Effect.gen(function* () {
+    const { app, tableName, userId, field } = input
+    const table = app.tables?.find((t) => t.name === tableName)
+    if (table === undefined) return false
+    if (userId === undefined) return columnReadableBy(app, tableName, undefined)(field)
+    const loaded = yield* loadCallerReader(app, userId, table)
+    return loaded !== undefined && columnReadableBy(app, tableName, loaded.reader)(field)
+  }).pipe(
+    Effect.withSpan('tables.caller-reads-column', { attributes: { 'table.name': input.tableName } })
   )

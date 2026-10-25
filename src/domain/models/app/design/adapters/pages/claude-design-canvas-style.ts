@@ -459,6 +459,25 @@ const whiteSpaceOf = (
  */
 export const shownText = (text: string): string => text.replace(/\s+/g, ' ').trim()
 
+/** One space for an edge run of white space typed on the line, none for a line break's indentation. */
+const edgeOf = (run: string): string => (run === '' || /[\r\n]/.test(run) ? '' : ' ')
+
+/**
+ * Literal copy as a browser shows it inline: every run of white space one
+ * space, and the space it starts or ends with kept, since the space between
+ * two literal spans belongs to one of them (`accompanied `). An edge that is a
+ * line break and its indentation is a tool's re-serialisation, never copy.
+ *
+ * @param text - the text as written.
+ */
+export const shownLiteral = (text: string): string => {
+  const shown = shownText(text)
+  if (shown === '') return ''
+  const [lead = ''] = /^\s*/.exec(text) ?? []
+  const [trail = ''] = /\s*$/.exec(text) ?? []
+  return `${edgeOf(lead)}${shown}${edgeOf(trail)}`
+}
+
 /**
  * An element's text as a browser shows it. Inside a `<pre>`, a `<textarea>`
  * or an element whose `white-space` keeps its spaces (`pre`, `pre-wrap`,
@@ -469,15 +488,17 @@ export const shownText = (text: string): string => text.replace(/\s+/g, ' ').tri
  * @param element - the element whose text it is.
  * @param text - its text as written.
  * @param isKit - whether an element is a kit component, whose inside is its own.
+ * @param literal - the text is literal copy: the space it starts or ends with is kept.
  */
 export const shownTextOf = (
   element: HtmlElementNode,
   text: string,
-  isKit: (element: HtmlElementNode) => boolean
+  isKit: (element: HtmlElementNode) => boolean,
+  literal = false
 ): string => {
   const mode = whiteSpaceOf(element, isKit)
   if (mode === 'preserve') return text
-  if (mode === 'collapse') return shownText(text)
+  if (mode === 'collapse') return literal ? shownLiteral(text) : shownText(text)
   return text
     .split(/\r?\n/)
     .map((line) => shownText(line))

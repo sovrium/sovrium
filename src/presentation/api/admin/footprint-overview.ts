@@ -94,7 +94,6 @@ const unmeasuredConsumer = (type: 'table' | 'bucket', name: string): StorageCons
 const resolveStorageName = (): string => {
   try {
     const config = parseStorageEnvConfig()
-    if (config === undefined) return 'storage (disabled)'
     if (config.provider === 's3') return config.bucket
     if (config.provider === 'local') return config.directory
     return 'bytea'

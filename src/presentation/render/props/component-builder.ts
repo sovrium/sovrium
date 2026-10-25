@@ -46,26 +46,31 @@ export type ComponentPropsConfig = {
   readonly element?: string
   /** `design.components[<type>]`, pre-resolved by `ComponentRenderer`. */
   readonly designStyles?: ComponentDesignResolution
+  /** Markup the engine synthesized for the node (an embedded form): content, not an empty box. */
+  readonly trustedContent?: string
 }
 
 /**
  * The authored shape fields the props builder reads straight off the component
- * node: the button/badge variant and size, and the HTML element it is drawn as.
+ * node: the button/badge variant and size, and the HTML element it is drawn as —
+ * plus the markup the engine synthesized for it, which counts as its content.
  */
 export function pickAuthoredShapeFields(
   component: object
-): Pick<ComponentPropsConfig, 'variant' | 'size' | 'badgeVariant' | 'element'> {
+): Pick<ComponentPropsConfig, 'variant' | 'size' | 'badgeVariant' | 'element' | 'trustedContent'> {
   const node = component as {
     readonly variant?: string
     readonly size?: string
     readonly badgeVariant?: string
     readonly element?: unknown
+    readonly trustedContent?: unknown
   }
   return {
     variant: node.variant,
     size: node.size,
     badgeVariant: node.badgeVariant,
     ...(typeof node.element === 'string' && { element: node.element }),
+    ...(typeof node.trustedContent === 'string' && { trustedContent: node.trustedContent }),
   }
 }
 
@@ -216,7 +221,7 @@ export function buildComponentProps(config: ComponentPropsConfig): {
     componentInstanceIndex,
     firstTranslationKey,
     translationData,
-    hasContent: Boolean(content || children?.length),
+    hasContent: Boolean(content || config.trustedContent || children?.length),
     hasChildren: Boolean(children?.length),
     design,
     childIndex,

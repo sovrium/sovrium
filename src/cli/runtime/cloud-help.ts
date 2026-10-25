@@ -7,7 +7,7 @@
 
 /**
  * `--help` text for the verbs that ship an app to a host — `bundle`,
- * `login`, `deploy` and `env` — registered as one group by `command-help.ts`, which
+ * `login`, `deploy`, `preview` and `env` — registered as one group by `command-help.ts`, which
  * stays under its line ceiling that way.
  */
 
@@ -62,13 +62,19 @@ const DEPLOY_HELP_TEXT = [
   'prints the validate report and nothing is sent. Deploying unchanged content to',
   'the same app again is answered with the first deployment. Nothing is retried.',
   '',
+  'With --from-preview <id>, the bundle preview <id> runs is deployed as the release:',
+  'nothing is bundled or uploaded, and the app is --app, else the linked one.',
+  '',
   'Arguments:',
   '  config                        Path to config file (.json, .yaml, .yml, .ts)',
   '                                (auto-discovered when omitted)',
   '',
   'Options:',
-  '  --app <slug>                  The hosted app to deploy to (required)',
+  '  --app <slug>                  The hosted app (default: the link, else the name)',
   '  --host <url>                  The cloud (default: the one you signed in to)',
+  '  --yes                         Create a free address without asking (needed in a script)',
+  '  --env <file>                  Set the variables the config declares from that file first',
+  '  --from-preview <id>           Deploy the bundle that preview runs, uploading nothing',
   '  --no-wait                     Return once the deployment is recorded',
   '  --seed                        Then fill its empty tables from seed/ (not with --no-wait)',
   '  --help, -h                    Show this help message',
@@ -82,6 +88,41 @@ const DEPLOY_HELP_TEXT = [
   '',
   'Exit codes:',
   '  0                             Live, or recorded (--no-wait)',
+  '  1                             Refused, failed, or the host could not be reached',
+].join('\n')
+
+const PREVIEW_HELP_TEXT = [
+  'Usage: sovrium preview [config] [--app <slug>] [options]',
+  '',
+  'Bundle the app and run it on the Sovrium cloud this machine is signed in to,',
+  'at a share address of its own, without touching the app at its address.',
+  '',
+  'Everything up to the upload is what `sovrium deploy` does: the app is --app,',
+  'else the linked one, else the address the config name gives; variables the',
+  'config requires and the app lacks stop the command before anything is uploaded.',
+  'The command follows the preview until its share address answers, then prints',
+  'the address and the day it expires. Promote it with',
+  '`sovrium deploy --from-preview <id>`.',
+  '',
+  'Arguments:',
+  '  config                        Path to config file (.json, .yaml, .yml, .ts)',
+  '                                (auto-discovered when omitted)',
+  '',
+  'Options:',
+  '  --app <slug>                  The hosted app to preview (default: the link, else the name)',
+  '  --host <url>                  The cloud (default: the one you signed in to)',
+  '  --yes                         Create a free address without asking (needed in a script)',
+  '  --env <file>                  Set the variables the config declares from that file first',
+  '  --no-wait                     Return once the preview is recorded, with its address',
+  '  --help, -h                    Show this help message',
+  '',
+  'Environment variables:',
+  '  SOVRIUM_API_KEY               A key to sign with instead of the stored sign-in',
+  '  SOVRIUM_HOST                  The cloud that key belongs to (default: cloud.sovrium.com)',
+  '  SOVRIUM_DISABLE_NETWORK       Refuse before any request',
+  '',
+  'Exit codes:',
+  '  0                             The preview answers, or is recorded (--no-wait)',
   '  1                             Refused, failed, or the host could not be reached',
 ].join('\n')
 
@@ -109,10 +150,11 @@ const ENV_HELP_TEXT = [
   '  1                             Refused, or the cloud could not be reached',
 ].join('\n')
 
-/** `bundle`, `login`, `deploy` and `env`, keyed by command. */
+/** `bundle`, `login`, `deploy`, `preview` and `env`, keyed by command. */
 export const CLOUD_COMMAND_HELP: Readonly<Record<string, string>> = {
   bundle: BUNDLE_HELP_TEXT,
   login: LOGIN_HELP_TEXT,
   deploy: DEPLOY_HELP_TEXT,
+  preview: PREVIEW_HELP_TEXT,
   env: ENV_HELP_TEXT,
 }

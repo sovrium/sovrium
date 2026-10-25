@@ -14,6 +14,7 @@
  * name the same value differently.
  */
 
+import { displayLabelText, pageRecordOf } from '@/presentation/render/props/record-value-format'
 import type { DataSourceDb } from './data-source-contracts'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -42,9 +43,15 @@ export function recordDisplayOf(
   if (typeof fieldName !== 'string') return undefined
   const block = record[RECORD_DISPLAY_KEY]
   if (block === null || typeof block !== 'object') return undefined
-  const label = (block as Readonly<Record<string, unknown>>)[fieldName]
-  if (typeof label === 'string') return label
-  return Array.isArray(label) && label.length > 0 ? label.map(String).join(', ') : undefined
+  return displayLabelText((block as Readonly<Record<string, unknown>>)[fieldName])
+}
+
+/** Who a record's labels are read for, through which database, on which table. */
+interface LabelReader {
+  readonly app: App
+  readonly session: SessionInfo | undefined
+  readonly db: Pick<DataSourceDb, 'readRecordLabels'>
+  readonly tableName: string
 }
 
 /**
@@ -55,14 +62,37 @@ export function recordDisplayOf(
  */
 export async function withRecordLabels(
   record: Readonly<Record<string, unknown>>,
-  reader: {
-    readonly app: App
-    readonly session: SessionInfo | undefined
-    readonly db: Pick<DataSourceDb, 'readRecordLabels'>
-    readonly tableName: string
-  }
+  reader: LabelReader
 ): Promise<Readonly<Record<string, unknown>>> {
+  const [labelled] = await withRowLabels([record], reader)
+  return labelled ?? record
+}
+
+/**
+ * `rows` with the labels the records API gives this reader, read ONCE for the
+ * whole list — never once per row — so a list row names a person and a linked
+ * record as its record page does. Unchanged when the adapter reads no labels.
+ */
+async function withRowLabels(
+  rows: readonly Readonly<Record<string, unknown>>[],
+  reader: LabelReader
+): Promise<readonly Readonly<Record<string, unknown>>[]> {
   const { app, session, db, tableName } = reader
-  const labels = await db.readRecordLabels?.(app, tableName, record, session)
-  return labels === undefined ? record : { ...record, [RECORD_DISPLAY_KEY]: labels }
+  if (rows.length === 0 || db.readRecordLabels === undefined) return rows
+  const labels = await db.readRecordLabels(app, tableName, rows, session)
+  return rows.map((row, index) => {
+    const labelled = labels[index]
+    return labelled === undefined ? row : { ...row, [RECORD_DISPLAY_KEY]: labelled }
+  })
+}
+
+/** A list's rows labelled ({@link withRowLabels}) and prepared for `$record.` substitution. */
+export async function labelledPageRows(
+  rows: readonly Readonly<Record<string, unknown>>[],
+  reader: LabelReader & {
+    readonly db: Pick<DataSourceDb, 'readRecordLabels' | 'recordText'>
+  }
+): Promise<readonly Record<string, unknown>[]> {
+  const labelled = await withRowLabels(rows, reader)
+  return labelled.map((row) => pageRecordOf(row, reader.tableName, reader.db.recordText))
 }

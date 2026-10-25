@@ -100,11 +100,6 @@ export const commonFieldProps = {
    */
   requiredWhen: Schema.optional(VisibleWhenConditionSchema),
   /**
-   * Conditional disabled — disable based on another field's value.
-   * Same shape as `visibleWhen`; supports compound AND/OR composition.
-   */
-  disabledWhen: Schema.optional(VisibleWhenConditionSchema),
-  /**
    * Per-field read permissions used by admin exports + per-submission
    * detail. When `read` excludes the requesting role, the field value
    * is omitted from CSV (column header retained, value blank) and from

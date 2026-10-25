@@ -4,7 +4,7 @@
 
 > Generated from the Sovrium schema by scripts/build/generate-skill-references.ts — do not edit. It carries no version on purpose: when it and the binary you run disagree, the binary is right.
 
-Every trigger an automation can start from (9) and every action a step can run (141), in the words of the schema. An action is chosen by its `type` and, within a family, its `operator`.
+Every trigger an automation can start from (9) and every action a step can run (142), in the words of the schema. An action is chosen by its `type` and, within a family, its `operator`.
 
 ## Contents
 
@@ -160,6 +160,7 @@ Read: `sovrium docs automation-actions`
 | `sovrium` | `validateBundle` | Check a stored bundle archive — its manifest, every entry against its sha256, and the config it carries — and expose { valid, name, manifest, errors } |
 | `app` | `seed` | Seed this app's own data from its seed files, or reset it to them, as `sovrium seed` would; switched on by the host with SOVRIUM_SELF_SEED |
 | `instance` | `status` | Read a supervised app's unit state, restart count, memory use, how its last run ended, current revision and the engine it runs |
+| `instance` | `usage` | Measure how many bytes a supervised app's database and stored files hold, as the app, through its one-shot usage unit |
 | `instance` | `start` | Start a supervised app's socket, so the next request wakes the app |
 | `instance` | `stop` | Suspend a supervised app: stop its socket, its proxy and the app |
 | `instance` | `restart` | Restart a supervised app so it reads its current release and environment again: its socket, its proxy and the app stop in one call, then the socket and the app start, so requests arriving meanwhile wait for the new release |

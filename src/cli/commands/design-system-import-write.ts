@@ -45,6 +45,8 @@ export const SIDECAR_NAME = 'design.json'
 /** What a write did, as the report records it. */
 export interface WrittenDesign {
   readonly config?: string
+  /** Each file a write through `$ref` partials changed, with its byte count. */
+  readonly files?: readonly { readonly file: string; readonly bytes: number }[]
   readonly sidecar?: string
   readonly importLine?: string
   readonly propertyLine?: string

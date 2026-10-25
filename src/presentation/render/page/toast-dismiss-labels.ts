@@ -11,7 +11,7 @@ import { resolveForLanguage } from '@/domain/models/app/languages/locale-lookup-
  * Per-locale accessible name for a toast's dismiss control.
  *
  * The control is platform CHROME (exactly like the "Built with Sovrium" badge in
- * `badge-labels.ts` and the demo notice in `demo-notice-labels.ts`, whose
+ * `badge-labels.ts` and the dev-mode notice in `dev-notice-labels.ts`, whose
  * pattern this mirrors): its label follows the page's active locale through an
  * internal map — it is NOT app-authored `$t:` translation content and is not
  * customizable. The word names a platform affordance, not anything the author

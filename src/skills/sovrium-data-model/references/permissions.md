@@ -16,13 +16,15 @@
 
 Manual: `sovrium docs tables/table-permissions`, `sovrium docs auth-access/auth-roles-rbac`, `sovrium docs auth-access/auth-groups`, `sovrium docs buckets/buckets-permissions`.
 
+This file is the permission grammar: how a table, a field, a row and a bucket say who may do what, and how to test it. Everything around it (who may sign up, the public origin, page and form access, secrets, rate limits, the app's AI and MCP exposure, GDPR, a launch review) is `sovrium-security`.
+
 ## Start from deny
 
 Sovrium's table and bucket defaults are open, so a safe app is one where every table and every bucket says who may do what.
 
 - **Write a `permissions` block on every table**, even one you think is internal. A table with no block stays open to every role except `viewer` — custom roles included.
 - **Set `auth.allowSignUp: false` for an internal tool or a customer portal.** It defaults to `true`, and every self-registered account gets the default role, so an open table plus open sign-up means anyone on the internet who fills in the form.
-- **Declare `upload` and `delete` on every bucket** (see Bucket permissions below).
+- **Declare `upload` and `download` on every bucket**, and `delete` where the uploader rule does not fit (see Bucket permissions below).
 - Widen deliberately, one operation and one role at a time, and test each widening.
 
 ## The three layers
@@ -94,7 +96,7 @@ Is the caller an admin? Then the table rules do not stop them (permanent delete 
 
 Files follow their own block on each bucket, with the same three value shapes. Its defaults are open in a different way (`sovrium docs buckets/buckets-permissions`):
 
-- An undeclared `upload` or `delete` lets **any signed-in user** write or delete files in that bucket, whatever their role. Declare both, usually to a role list.
+- An undeclared `upload` lets **any signed-in user** add files to that bucket, whatever their role, and an undeclared `download` lets any signed-in user read every file in it unless the bucket is `public`. An undeclared `delete`, and replacing a file at its key, fall back to **the file's uploader or an admin**; anyone else gets `404`. Declare `upload` and `download`, usually to a role list, and `delete` when someone other than the uploader must remove files.
 - `public: true` opens **downloads** to everyone and nothing else; uploads and deletes keep their gate.
 - One carve-out: in an app with **no `auth` block**, a public bucket accepts anonymous uploads. Do not add `public: true` to a bucket on such an app unless anonymous uploads are the intent.
 - Signed links (`sign`, `signUpload`) are admin-only until declared; `sign: all` lets anyone mint one.
@@ -119,7 +121,7 @@ Create test users per role; sign in as each (see `sovrium-app`, `references/api-
 - Treating "logged in" as authorisation (`read: authenticated` on payroll).
 - Leaving a table with no block and assuming it is admin-only.
 - Leaving `allowSignUp` at its default on an internal tool.
-- A bucket with no `upload`/`delete` declared, so any signed-in user can delete its files.
+- A bucket with no `upload` or `download` declared, so any signed-in user can add files to it and read every file in it.
 - Hiding rows with a page filter instead of a row predicate.
 - One role per person.
 - Reporting a correct 404 as a bug.

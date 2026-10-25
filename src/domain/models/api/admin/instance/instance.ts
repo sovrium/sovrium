@@ -180,7 +180,7 @@ export const instanceFactsResponseSchema = Schema.Struct({
   }),
   storage: Schema.String.annotate({
     description:
-      'The file storage provider, the same word `GET /api/admin/storage/status` reads: `local`, `s3`, `bytea`, or `disabled` when none is configured. The provider only, never a bucket key or secret.',
+      'The file storage provider, the same word `GET /api/admin/storage/status` reads: `local`, `s3` or `bytea`. The provider only, never a bucket key or secret.',
   }).pipe(Schema.check(Schema.isMinLength(1))),
   aiProvider: Schema.NullOr(
     Schema.String.annotate({

@@ -11,9 +11,9 @@
 
 /**
  * The hosted-form parts that follow a TYPED column or carry no answer at all —
- * the required mark every label shares, the rating scale, and a section's
- * heading — split out of `form-field-elements.tsx` to keep that file under its
- * size cap.
+ * the required mark every label shares, the checkbox, the rating scale, and a
+ * section's heading — split out of `form-field-elements.tsx` to keep that file
+ * under its size cap.
  *
  * A hosted form document mounts no React island: the inline runtime
  * (`form-runtime.tsx`) is all the script it carries. So the rating here is the
@@ -37,6 +37,11 @@ import {
   computeFormHelpTextClasses,
   computeFormRequiredMarkClasses,
 } from '@/presentation/design/form-layout-classes'
+import {
+  computeFormCheckboxClasses,
+  computeFormCheckboxFieldClasses,
+  computeFormCheckboxTextClasses,
+} from '@/presentation/design/forms-default-classes'
 import { RatingGlyph } from '@/presentation/design/rating-glyph'
 import { toLocalInputValue } from '@/presentation/design/zoned-datetime'
 import { ariaRequired, FIELD_LABEL_CLASS, fieldWrapperAttributes } from './form-field-chrome'
@@ -59,6 +64,54 @@ export function RequiredMark({ required }: { readonly required: boolean }) {
     >
       {' *'}
     </span>
+  )
+}
+
+const CHECKBOX_FIELD_CLASS = `form-field form-field-checkbox ${computeFormCheckboxFieldClasses()}`
+const CHECKBOX_TEXT_CLASS = computeFormCheckboxTextClasses()
+const CHECKBOX_CLASS = computeFormCheckboxClasses()
+
+/**
+ * A `checkbox` column or field, laid out horizontally: the box first, on the
+ * label's first line, then the label (which checks it) with the help text under
+ * it. A checked box sends `true`; an unchecked one sends nothing, as a browser
+ * posts no unchecked box.
+ */
+export function CheckboxInput({
+  field,
+  defaultValue,
+}: {
+  readonly field: ResolvedFormField
+  readonly defaultValue: string | undefined
+}) {
+  return (
+    <div
+      className={CHECKBOX_FIELD_CLASS}
+      {...fieldWrapperAttributes(field)}
+    >
+      <input
+        id={`field-${field.name}`}
+        type="checkbox"
+        data-component-type="checkbox"
+        name={field.name}
+        value="true"
+        required={field.required}
+        {...ariaRequired(field.required)}
+        disabled={field.conditionHidden}
+        defaultChecked={defaultValue === 'true'}
+        className={CHECKBOX_CLASS}
+      />
+      <div className={CHECKBOX_TEXT_CLASS}>
+        <label
+          htmlFor={`field-${field.name}`}
+          className={FIELD_LABEL_CLASS}
+        >
+          {field.label}
+          <RequiredMark required={field.required} />
+        </label>
+        <HelpText html={field.helpTextHtml} />
+      </div>
+    </div>
   )
 }
 

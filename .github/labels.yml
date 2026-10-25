@@ -70,7 +70,6 @@ axes:
     excluded:
       ci: Container setup shared by CI runs; harness, not product behaviour.
       containers: Helper services (a fake AI server) the tests boot; harness only.
-      demo: A product spec, but of the hosted demo notice, which only the demo fleet's environment turns on; no operator configures it, so its issues are domain:infrastructure.
       fixtures: Shared test data and app configs used by every domain.
       helpers: Shared test helpers used by every domain.
 

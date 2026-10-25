@@ -91,17 +91,20 @@ export function TextChipCell({
 
 /**
  * A text value as written, or as a chip coloured by its matching tone when the
- * column asks for one.
+ * column asks for one. `shown` is the words drawn in place of the value (its
+ * `valueLabels` entry); the tone is still matched on the value itself, which is
+ * what the column's `cellStyle` rules were written against.
  */
 export function textCellContent(
   value: unknown,
   col: Pick<FieldColumn, 'badgeForm' | 'cellStyle'>,
-  fieldOptions: CellFieldOptions | undefined
+  fieldOptions: CellFieldOptions | undefined,
+  shown?: string
 ): React.ReactNode {
-  if (col.badgeForm === undefined) return String(value ?? '')
+  if (col.badgeForm === undefined) return String(shown ?? value ?? '')
   return (
     <TextChipCell
-      value={value}
+      value={shown ?? value}
       form={col.badgeForm}
       tone={matchedCellTone(value, col.cellStyle)}
       chipClassName={fieldOptions?.display?.chipClassName}

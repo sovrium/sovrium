@@ -1,5 +1,5 @@
 ---
-expect: 'called after browser_navigate to http://localhost:3000/fr/ or http://localhost:3000/en/'
+# Not an argument guard: called after browser_navigate to http://localhost:3000/fr/ or http://localhost:3000/en/.
 ---
 
 - banner:

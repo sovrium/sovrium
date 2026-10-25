@@ -1,3 +1,71 @@
+## [0.44.0](https://github.com/sovrium/sovrium/compare/v0.43.1...v0.44.0) (2026-10-25)
+
+### BREAKING CHANGES
+
+- **forms**: refuse disabledWhen on a hosted form field, deprecated since 0.43
+
+### Features
+
+- **design-system**: write imports through $ref partials into the file that owns each value
+- **cli**: load uploads into the PostgreSQL database on a SQLite-to-PostgreSQL restore
+- **automations**: extract AAC audio from Matroska videos into .m4a
+- **automations**: measure what a supervised app holds, and a sovrium usage command
+- **automations**: in and notIn condition operators, and branch paths with no actions
+- **cli**: restore a SQLite backup into an empty PostgreSQL database
+- **cli**: notice a lookup that reads empty for a role allowed to read it
+- **cli**: name the account created by sovrium admin create with --name
+- **pages**: word or drop the counts footer of a ratio KPI
+- **design-system**: draw a page export as a chosen seeded account
+- **forms**: let a form field bound to a select column offer a subset of its options
+- **cli**: share a preview of an app with sovrium preview, and promote it with deploy --from-preview
+- **skills**: add an opt-in design-first mode for page changes
+- **server**: keep a public dev-mode instance out of search indexes with SOVRIUM_DEV_PUBLIC
+- **cli**: sovrium templates lists the templates the binary embeds
+- **cli**: sovrium init and sovrium skills write a config-editor subagent for Claude Code
+- **skills**: add the sovrium-agents skill
+- **skills**: add the sovrium-security skill
+- **skills**: add the sovrium-performance skill
+- **skills**: add the sovrium-design skill
+- **cli**: sovrium dev boots a fresh seeded state and dev mode replaces the demo notice
+
+### Bug Fixes
+
+- **templates**: explain BASE_URL again in the scaffolded .env.example
+- **docs**: match the Scalingo deploy guide to the project init scaffolds
+- **pages**: count a ratio KPI bound to a view over every row of the view
+- **pages**: match startsWith and between in a page data source instead of comparing as equal
+- **pages**: a record page bound by a column its reader cannot read answers not found
+- **pages**: draw a rollup over a numeric formula or an id as a number
+- **buckets**: honour STORAGE_PROVIDER=bytea and refuse an unknown storage backend at startup
+- **forms**: an embedded form fills the element it is placed in
+- **tables**: match %, \_ and backslash literally in view and lookup text filters
+- **tables**: store duration fields as whole seconds on PostgreSQL
+- **automations**: refuse a record filter operator that cannot be compiled instead of matching equality
+- **automations**: compile notContains in record-step filters instead of matching equality
+- **cli**: keep an edited skill file on refresh and refresh the rest
+- **pages**: open a themed select on its empty row when no default is set
+- **pages**: paint a card badge in its declared tone and classes
+- **realtime**: admit presence on a record page by the record its segment names
+- **pages**: answer 404 for a record segment its column type cannot hold
+- **pages**: match an inline form's parent record as its page does
+- **design-system**: keep the space an edited literal starts or ends with in a page import
+- **design-system**: read a named spacing step's class back as its value in a page import
+- **pages**: let a folded kanban column give its width to the open ones
+- **design-system**: import a seeded page canvas against a drawing made the same way
+- **pages**: read a field of the reader's own joined row on each item
+- **pages**: print a relationship or a person by its label in page text
+- **forms**: lay a checkbox field out beside its label
+- **pages**: keep a relabelled text chip in its chip and its tone in a grid
+- **pages**: draw a grid's count and rollup columns as the values they compute
+- **pages**: keep an empty grid's message inside the visible width on a narrow screen
+- **pages**: crud buttons on a record page act on the page's record
+- **pages**: match a record route segment by column, else by id
+- **pages**: an avatar on a record page reads the page's record
+- **forms**: put an embedded form's className on the element that names it
+- **pages**: keep a grid's action columns on a phone when its rows open the rowExpand panel
+- **cli**: find an identifier written with underscores with sovrium docs search
+- **cli**: sovrium init and the template repositories no longer carry Scalingo deploy manifests
+
 ## [0.43.1](https://github.com/sovrium/sovrium/compare/v0.43.0...v0.43.1) (2026-10-24)
 
 ### Bug Fixes

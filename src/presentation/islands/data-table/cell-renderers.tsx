@@ -10,13 +10,12 @@
  * implicit `column.format` literal ([internal ref], Phase 4 slice 3).
  *
  * TanStack Table's default `String(value)` passthrough produces unusable
- * cells for these 9 field-types:
+ * cells for these 8 field-types:
  *   - user / created-by / updated-by / deleted-by  → raw user-id text
- *   - relationship / lookup / rollup               → raw foreign-id text
+ *   - relationship / lookup                        → raw foreign-id text
  *   - status                                       → raw option value (no color)
  *   - formula                                      → raw computed value (no kind awareness)
  *   - geolocation                                  → raw "{lat,lng}" object
- *   - count                                        → raw integer text
  *   - json                                         → "[object Object]" or huge stringified blob
  *   - array                                        → comma-separated raw string
  *   - code                                         → unformatted text in proportional font
@@ -44,7 +43,6 @@ import {
   computeArrayChipClasses,
   computeArrayChipsWrapClasses,
   computeCodeInlineClasses,
-  computeCountBadgeClasses,
   computeJsonPreviewClasses,
   computeLinkedRecordPillClasses,
   computeLinkedRecordWrapClasses,
@@ -182,12 +180,12 @@ export function UserPillCell({ value }: { value: unknown }): React.ReactNode {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// LINKED RECORD pill (relationship / lookup / rollup)
+// LINKED RECORD pill (relationship / lookup)
 // ──────────────────────────────────────────────────────────────────────────────
 
 /**
- * Render a linked-record value (relationship / lookup / rollup). If the cell
- * value is an array (lookup / rollup that resolved to many records), wrap a
+ * Render a linked-record value (relationship / lookup). If the cell value is
+ * an array (a lookup that resolved to many records), wrap a
  * row of pills; if scalar, render a single pill.
  *
  * Each pill carries `data-linked-record` so one link and several can be told
@@ -274,21 +272,6 @@ export function StatusPillCell({
       {optionText(display, selectOptions)}
     </span>
   )
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// COUNT badge
-// ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * Render a count-field value as a small numeric badge. Coerces the value to
- * a number first; non-numeric values fall through to the em-dash.
- */
-export function CountBadgeCell({ value }: { value: unknown }): React.ReactNode {
-  if (isMissing(value)) return EMPTY_VALUE
-  const num = typeof value === 'number' ? value : Number(value)
-  if (Number.isNaN(num)) return EMPTY_VALUE
-  return <span className={computeCountBadgeClasses()}>{num}</span>
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

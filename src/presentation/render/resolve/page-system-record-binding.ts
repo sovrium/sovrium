@@ -67,6 +67,7 @@ import {
   injectRecordIntoNestedSingleMode,
   substituteRecordInMeta,
 } from '@/presentation/render/resolve/page-collection-resolver'
+import { bindPageRecordToButtons } from '@/presentation/render/resolve/page-record-buttons'
 import { pageRecordScope } from '@/presentation/render/resolve/record-repeat-expansion'
 import { filterChildrenForRecord } from '@/presentation/render/resolve/record-visibility'
 import { systemRecordWithText } from '@/presentation/render/resolve/system-record-text'
@@ -186,9 +187,18 @@ function substitutePageComponents(
     // The DB arm names its table, so the record also reaches every form on the
     // page that is bound to it — the same pass the `collection` arm runs. The
     // `{ system }` arm has no table and nothing to hand a form.
+    // Its `crud` buttons act on the page's record, by the record's own id.
     return tableName === undefined
       ? substituted
-      : injectRecordIntoNestedSingleMode(substituted, record as Record<string, unknown>, tableName)
+      : bindPageRecordToButtons(
+          injectRecordIntoNestedSingleMode(
+            substituted,
+            record as Record<string, unknown>,
+            tableName
+          ),
+          record,
+          tableName
+        )
   })
 }
 

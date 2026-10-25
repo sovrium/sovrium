@@ -8,7 +8,7 @@
 /**
  * Resolve a value from a locale-keyed table against the page's active language.
  *
- * Platform CHROME — the "Built with Sovrium" badge, the demo context notice, the
+ * Platform CHROME — the "Built with Sovrium" badge, the dev-mode notice, the
  * toast dismiss control — carries its own locale → copy map rather than going
  * through app-authored `$t:` translations. Each of those maps is a
  * `Readonly<Record<string, T>>` keyed by SHORT code (`en`, `fr`), and each was

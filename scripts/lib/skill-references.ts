@@ -29,4 +29,7 @@ export const SKILL_REFERENCE_FILES: readonly string[] = [
   'src/skills/sovrium-pages/references/component-catalogue.generated.md',
   'src/skills/sovrium-automations/references/triggers-and-actions.generated.md',
   'src/skills/sovrium-seo-geo/references/seo-options.generated.md',
+  'src/skills/sovrium-design/references/design-options.generated.md',
+  'src/skills/sovrium-security/references/auth-options.generated.md',
+  'src/skills/sovrium-agents/references/agent-options.generated.md',
 ]

@@ -213,10 +213,43 @@ const tablePlanOf = (
 }
 
 /**
+ * The text each relationship and `user` field of a record reads as: the labels
+ * the records API gives this reader (`_display`) — a linked record by its
+ * display field, a person by name, a to-many link's labels joined. A linked
+ * record she may not read has no label, and its field keeps its stored id.
+ */
+const labelTextOf = (record: Readonly<Record<string, unknown>>): readonly [string, string][] => {
+  const display = record['_display']
+  if (display === null || typeof display !== 'object' || Array.isArray(display)) return []
+  return Object.entries(display).flatMap(([field, label]): readonly [string, string][] => {
+    const text = displayLabelText(label)
+    return text === undefined ? [] : [[field, text]]
+  })
+}
+
+/**
+ * The text one `_display` label reads as: a label as it is, a to-many link's
+ * labels joined, nothing for an empty list or anything else.
+ */
+export const displayLabelText = (label: unknown): string | undefined => {
+  if (typeof label === 'string') return label
+  return Array.isArray(label) && label.length > 0 ? label.map(String).join(', ') : undefined
+}
+
+/** The text a record already carries under `RECORD_TEXT_KEY` (a joined row's, say). */
+export const recordTextEntriesOf = (
+  record: Readonly<Record<string, unknown>>
+): readonly [string, unknown][] => {
+  const carried = record[RECORD_TEXT_KEY]
+  return carried !== null && typeof carried === 'object' ? Object.entries(carried) : []
+}
+
+/**
  * A record read for a page, prepared for `$record.` substitution: every value
  * as the records API returns it, and — when the page context is known — each
  * formatted field's text under `RECORD_TEXT_KEY`, which a TEXT site prints and
- * an address site never reads.
+ * an address site never reads: a date or an amount by its type, a relationship
+ * or a person by its label ({@link labelTextOf}).
  *
  * A `null` value carries no text: it prints nothing either way.
  */
@@ -235,11 +268,12 @@ export const pageRecordOf = (
   )
   if (context === undefined || plan === undefined) return stored
   const now = renderNow()
-  const text = Object.entries(stored).flatMap(([fieldName, value]) => {
+  const formatted = Object.entries(stored).flatMap(([fieldName, value]) => {
     const field = plan.get(fieldName)?.text
     if (value === undefined || value === null || field === undefined) return []
     return [[fieldName, formatRecordText(value, field, context.locale, now)] as const]
   })
+  const text = [...recordTextEntriesOf(stored), ...formatted, ...labelTextOf(stored)]
   return text.length === 0 ? stored : { ...stored, [RECORD_TEXT_KEY]: Object.fromEntries(text) }
 }
 

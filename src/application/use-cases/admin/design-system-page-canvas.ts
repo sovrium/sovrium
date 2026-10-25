@@ -42,10 +42,32 @@ import {
   type DesignSystemBundle,
   type DesignSystemBundleEntry,
 } from './design-system-bundle'
+import type { PageDrawOptions } from './design-system-page-boards'
 import type { ProjectedPage } from './design-system-page-projection'
 import type { PageExportStamp } from '@/domain/models/api/admin/design-system/page-design-tree'
 import type { App } from '@/domain/models/app'
+import type { CanvasDrawnWith } from '@/domain/models/app/design/adapters/pages/claude-design-canvas-drawn-with'
 import type { BoardPrototype } from '@/domain/models/app/design/adapters/pages/claude-design-canvas-prototype'
+
+/**
+ * The drawing inputs the canvas records for the import: the seed folder
+ * relative to the config, the instant, the record count, the account and the
+ * prototype kind; never seed content. `undefined` when none was given.
+ */
+export const drawnWithOf = (draw: PageDrawOptions | undefined): CanvasDrawnWith | undefined => {
+  if (draw === undefined) return undefined
+  const { seed, now, records, as, prototype } = draw
+  const recorded = Object.fromEntries(
+    Object.entries({
+      seed: seed === undefined ? undefined : seed.dir || '.',
+      now: now?.toISOString(),
+      records,
+      as: as?.email,
+      prototype,
+    }).filter(([, value]) => value !== undefined)
+  ) as CanvasDrawnWith
+  return Object.keys(recorded).length === 0 ? undefined : recorded
+}
 
 /** The Claude Design project's tokens, which the canvas installs as its design system. */
 const PROJECT_TOKENS = 'adapters/claude-design/project/tokens.json'
@@ -239,6 +261,8 @@ export const canvasEntriesOf = (
     readonly app?: ClaudeDesignCanvasInput['app']
     /** The boards draw values the config does not hold: record what each bound node drew. */
     readonly recordTexts?: boolean | undefined
+    /** The drawing inputs, recorded for the import's baseline. */
+    readonly drawnWith?: CanvasDrawnWith | undefined
   }
 ) =>
   Effect.gen(function* () {
@@ -254,6 +278,7 @@ export const canvasEntriesOf = (
       prototype: drawnWith.prototype,
       app: drawnWith.app,
       recordTexts: drawnWith.recordTexts,
+      drawnWith: drawnWith.drawnWith,
     }
     const entriesOf = (files: ReturnType<typeof claudeDesignCanvasFiles>) =>
       files.map((file) => textEntry(file.path, 'adapter', file.content))

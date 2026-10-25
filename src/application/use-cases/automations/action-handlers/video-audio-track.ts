@@ -69,7 +69,7 @@ export const extractionRefusal = (name: string, error: Readonly<AudioExtractErro
     case 'no-audio-track':
       return `"${name}" holds no audio track`
     case 'unsupported-codec':
-      return `the audio of "${name}" is ${error.codec ?? 'an unknown codec'}, which cannot be copied into an audio file without re-encoding it: only AAC from an MP4 or QuickTime video, and Opus or Vorbis from a Matroska or WebM video, are extracted`
+      return `the audio of "${name}" is ${error.codec ?? 'an unknown codec'}, which cannot be copied into an audio file without re-encoding it: only AAC from an MP4, QuickTime or Matroska video, and Opus or Vorbis from a Matroska or WebM video, are extracted`
     case 'not-a-container':
       return `"${name}" is not an MP4, QuickTime, Matroska or WebM video`
     case 'malformed':

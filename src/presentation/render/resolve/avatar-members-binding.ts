@@ -73,12 +73,11 @@ export async function withAvatarMembers<
       })
     ).values(),
   ]
-  const named = await Promise.all(
-    people.map(async (row) =>
-      namesOf((await label?.(ctx.app, table, row, ctx.session))?.[userField])
-    )
+  const labels = (await label?.(ctx.app, table, people, ctx.session)) ?? []
+  return withMembers(
+    component,
+    labels.flatMap((labelled) => namesOf(labelled?.[userField]))
   )
-  return withMembers(component, named.flat())
 }
 
 /** `users: $record.<field>` — the field a group draws its people from. */

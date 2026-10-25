@@ -5,8 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { withListMembershipConditions } from '@/domain/models/app/tables/user-list-field-service'
-import type { QueryFilter } from '@/application/ports/repositories/tables/table-repository'
+import {
+  isCompilableFilterOperator,
+  uncompilableOperatorMessage,
+} from '@/domain/models/app/automations/condition-validation'
+import {
+  LIST_MEMBER_OPERATOR,
+  withListMembershipConditions,
+} from '@/domain/models/app/tables/user-list-field-service'
+import type {
+  QueryFilter,
+  QueryFilterNode,
+} from '@/application/ports/repositories/tables/table-repository'
 
 /**
  * The shape of a record action's `filter` and what it is compiled against:
@@ -142,3 +152,41 @@ export const declaredFilterFields = (
   fields: declaredFieldNames(app, tableName),
   table: declaredTableFields(app, tableName),
 })
+
+/** Every `{ field, operator }` leaf of a compiled filter tree. */
+const filterLeaves = (
+  node: QueryFilterNode
+): readonly { readonly field: string; readonly operator: string }[] => {
+  if ('operator' in node && typeof node.operator === 'string' && typeof node.field === 'string') {
+    return [{ field: node.field, operator: node.operator }]
+  }
+  if ('and' in node && Array.isArray(node.and)) return node.and.flatMap(filterLeaves)
+  if ('or' in node && Array.isArray(node.or)) return node.or.flatMap(filterLeaves)
+  return []
+}
+
+/**
+ * The first condition of a compiled filter whose operator no record filter
+ * compiles, with the message refusing it — or undefined when all compile.
+ *
+ * The run-time half of the boot-time refusal: a filter a run hands over — a
+ * batch item, a `{{template}}` a webhook caller filled — is never decoded, so
+ * a misspelt `notEqual` would otherwise reach the SQL compiler. The only other
+ * operator allowed is the list-membership test {@link toQueryFilter} writes
+ * itself.
+ */
+export const uncompilableFilterOperator = (
+  queryFilter: QueryFilter
+): { readonly field: string; readonly message: string } | undefined => {
+  const refused = (queryFilter.and ?? [])
+    .flatMap(filterLeaves)
+    .find(
+      ({ operator }) => operator !== LIST_MEMBER_OPERATOR && !isCompilableFilterOperator(operator)
+    )
+  return refused === undefined
+    ? undefined
+    : {
+        field: refused.field,
+        message: `filter on field '${refused.field}': ${uncompilableOperatorMessage(refused.operator)}`,
+      }
+}

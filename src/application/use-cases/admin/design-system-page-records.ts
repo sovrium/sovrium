@@ -11,13 +11,19 @@
  * seeded records its filter keeps, a `contentDir` page at its first file's
  * slug; and why a routed page with no such address is skipped rather than
  * drawn at an address the app answers nothing at.
+ *
+ * Drawn as a seeded account (`--as`), a single-record page is drawn only at
+ * the records that account's row-level read rule admits, judged by the rule
+ * the renderer applies, and the records it hides are counted in a note.
  */
 
 import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { queriedSeededRows } from '@/domain/models/app/pages/seeded-rows-service'
+import { readableRowsOf } from './design-system-page-account-seed'
 import { cappedSeedRows } from './design-system-page-seed'
 import type { PageDrawOptions } from './design-system-page-boards'
 import type { PageSeedRow } from './design-system-page-seed-folder'
+import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 
 /** How many record boards a routed record page gets when `--records` says nothing. */
@@ -86,11 +92,45 @@ const seededRecordsOf = (route: RecordRoute, seed: PageDrawOptions['seed']) => {
 }
 
 /**
+ * Of a routed page's seeded rows, those the account it is drawn as (`--as`)
+ * may read by its table's row-level read rule; every one without `--as`.
+ */
+const readableRecordsOf = (
+  app: App,
+  route: RecordRoute,
+  options: PageDrawOptions,
+  rows: readonly PageSeedRow[] = seededRecordsOf(route, options.seed)
+) => readableRowsOf(app, route.table, rows, options.as)
+
+/**
+ * The note naming the seeded records of a routed page the account it is drawn
+ * as (`--as`) may not read, which get no board; `undefined` when it reads them all.
+ */
+export const leftOutRecordsNoticeOf = (
+  app: App,
+  page: Page,
+  options: PageDrawOptions
+): string | undefined => {
+  const route = recordRouteOf(page)
+  if (route === undefined || options.as === undefined) return undefined
+  const rows = seededRecordsOf(route, options.seed)
+  const seeded = rows.length
+  const readable = readableRecordsOf(app, route, options, rows).length
+  if (readable === seeded) return undefined
+  const skipped = readable === 0 ? ', so the page has nothing to be drawn at and is skipped' : ''
+  return (
+    `Note: page ${page.name} is drawn as ${options.as.email}, whose row rule on ${route.table} ` +
+    `hides ${seeded - readable} of its ${seeded} seeded records: they get no board${skipped}.`
+  )
+}
+
+/**
  * The addresses a routed page is drawn at, at most `--records`: its seeded
  * records, by the field its route names them by, or a content folder's files
  * by their slugs; none for any other page.
  */
 export const recordAddressesOf = (
+  app: App,
   page: Page,
   options: PageDrawOptions,
   contentSlugs: readonly string[] | undefined
@@ -113,11 +153,22 @@ export const recordAddressesOf = (
   return {
     param: route.param,
     table: route.table,
-    records: seededRecordsOf(route, options.seed)
+    records: readableRecordsOf(app, route, options)
       .slice(0, limit)
       .map((row) => ({ value: String(row[route.key] ?? ''), row })),
   }
 }
+
+/** The note of a routed page whose every seeded record the account it is drawn as may not read. */
+const allHiddenNoticeOf = (
+  app: App,
+  page: Page,
+  route: RecordRoute,
+  options: PageDrawOptions
+): string | undefined =>
+  readableRecordsOf(app, route, options).length === 0
+    ? leftOutRecordsNoticeOf(app, page, options)
+    : undefined
 
 /**
  * Why a routed page has nothing to be drawn at, or `undefined` when it has an
@@ -125,6 +176,7 @@ export const recordAddressesOf = (
  * keeps; a content-folder page whose folder holds no file it includes.
  */
 export const unaddressedPageNoticeOf = (
+  app: App,
   page: Page,
   options: PageDrawOptions,
   contentSlugs: readonly string[] | undefined
@@ -138,6 +190,8 @@ export const unaddressedPageNoticeOf = (
           'holds no file it includes, so it has nothing to be drawn at and is skipped.'
   }
   const route = recordRouteOf(page)
+  const hidden = route === undefined ? undefined : allHiddenNoticeOf(app, page, route, options)
+  if (hidden !== undefined) return hidden
   if (route?.filter === undefined || options.seed === undefined) return undefined
   return seededRecordsOf(route, options.seed).length > 0
     ? undefined

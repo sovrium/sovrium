@@ -1,0 +1,113 @@
+title: 'Brunel Stock'
+tagline: |
+  A stock workspace for a small distributor: products, stock per warehouse, orders, suppliers.
+intro: |
+  Brunel Stock — the stock workspace of a small distributor. Products is the home page: the
+  catalogue grouped by category with its stock on hand and value at cost, and a Reorder list
+  tab; a product opens in a drawer with every movement that made its stock. Stock is the signed
+  ledger per warehouse, Orders the customer orders by status, Suppliers the lead times, and the
+  Assistant answers from all of it.
+glance:
+  - '**Tables** (6): suppliers, warehouses, products, stock_movements, orders, purchase_orders'
+  - '**Pages** (6): products (`/`), stock, orders, suppliers, assistant, sign-in'
+  - |-
+    **Automations** (2): low-stock-digest (weekday 07:30 email to purchasing, counted, sorted
+    and trimmed with `data` steps), and record-to-google-doc — a library recipe
+    (`library/recipe/`, with its `library/connection/google.yaml`) writing each new order's
+    confirmation in Google Docs once the Google keys are set
+  - |-
+    **AI agents** (1): catalog-assistant — reads the tables and drafts purchase orders, with
+    the member role
+  - '**Singletons**: auth, design'
+  - |-
+    **Seed data**: `seed/` — two sign-in accounts, eleven products, three warehouses, five
+    suppliers, the stock ledger, eight orders and three purchase orders, dated relative to
+    the day you seed
+  - '**Static assets**: `public/` (served at the site root)'
+glanceClose: |
+  Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
+sections:
+  - heading: 'How stock works here'
+    body: |
+      Stock on hand is never typed. `products.stock_on_hand` is a rollup that sums the product's
+      signed `stock_movements.quantity` (positive in, negative out), `value_at_cost` multiplies it
+      by `unit_cost`, and `stock_state` compares it with `reorder_at`. To change stock, record a
+      movement; a count that finds a difference records it as a `Count` movement.
+assistant: |
+  Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+  run into `.claude/skills/`; start from `sovrium-app` for any change to the config. The
+  design system is in `config/design.yaml`: read its comments before changing a colour, and
+  keep colour for stock outcomes (under the reorder point, out of stock, shipped, cancelled).
+whatsInside: |
+  A stock workspace for a team of two to ten, built around what you hold, where, and what to
+  buy next:
+
+  - **Products** (`/`) — the catalogue grouped by category, with stock on hand, reorder point
+    and value at cost per product, totalled per category and for the whole catalogue. The
+    products under their reorder point are marked, and the **Reorder list** tab keeps only
+    those. A product opens in a drawer with every movement that made its stock.
+  - **Stock** — every movement in and out, signed and dated, grouped by warehouse with the net
+    per warehouse: receipts, picks, transfers as a pair of rows, and counts.
+  - **Orders** — customer orders by status, each card with its lines, units and value. Shipped
+    and Cancelled are folded columns; drag a card to move an order on.
+  - **Suppliers** — who you buy from, with each one's lead time.
+  - **Assistant** — ask what to reorder and from whom, and have it draft the purchase order
+    (needs an AI provider, see below).
+  - Every weekday at 07:30, an email to purchasing with how many products to reorder and the
+    one closest to running out (needs SMTP, see `.env.example`).
+  - Optional: an order confirmation in Google Docs for each new order, shared with the customer.
+    It is the `record-to-google-doc` recipe from the Sovrium library (`sovrium library add
+  recipe/record-to-google-doc`); set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and
+    `GOOGLE_ORDER_TEMPLATE_ID` to turn it on — without them the app runs exactly the same.
+
+  Stock on hand is never typed: it is the sum of the product's movements, so it cannot drift
+  from the ledger. Sign-up is closed; an admin adds each account.
+
+  Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree —
+  no application code. Edit the config, restart, done.
+whatToTry: |
+  Load the demo data first. It creates two demo accounts, eleven products in three warehouses,
+  a month of stock movements, eight orders and three purchase orders, dated relative to today:
+
+  ```bash
+  SOVRIUM_SEED_PASSWORD=choose-a-password sovrium seed app.yaml
+  sovrium start app.yaml
+  ```
+
+  Sign in as **elise.brunel@brunel-fils.example** (admin, the stock manager) or
+  **maxime.vidal@brunel-fils.example** (member, the warehouse operator), with the password you
+  chose. Both are demo accounts. Then:
+
+  1. On **Products**, read the totals per category and the four products marked Reorder or
+     Out of stock; open the **Reorder list** tab.
+  2. Open the void-fill paper: 34 on hand in Lyon South, and the delivery, the pick and the
+     count that got it there.
+  3. On **Stock**, find the transfer from Lille to Lyon: one reference, two signed rows.
+  4. On **Orders**, Cardinal Freight's order is being picked; expand the folded Shipped column.
+  5. Sign in as Maxime: a member records movements and moves orders, but only an admin deletes
+     a product.
+env:
+  - name: 'GOOGLE_CLIENT_ID'
+    section: 'Google (optional)'
+    description: |-
+      An OAuth client of your Google Cloud project and the id of a Google Docs
+      template turn on the order confirmation: each new order gets a copy named
+      after its number, shared with the customer to read. Connect the Google
+      account once from the admin console. Without them the app runs and only that
+      automation is idle.
+  - name: 'GOOGLE_CLIENT_SECRET'
+    section: 'Google (optional)'
+    description: |-
+      An OAuth client of your Google Cloud project and the id of a Google Docs
+      template turn on the order confirmation: each new order gets a copy named
+      after its number, shared with the customer to read. Connect the Google
+      account once from the admin console. Without them the app runs and only that
+      automation is idle.
+  - name: 'GOOGLE_ORDER_TEMPLATE_ID'
+    section: 'Google (optional)'
+    description: |-
+      An OAuth client of your Google Cloud project and the id of a Google Docs
+      template turn on the order confirmation: each new order gets a copy named
+      after its number, shared with the customer to read. Connect the Google
+      account once from the admin console. Without them the app runs and only that
+      automation is idle.

@@ -13,6 +13,7 @@ import cliSeedBody from '@/cli/commands/cli-seed.docs.md' with { type: 'file' }
 import cliValidateBody from '@/cli/commands/cli-validate.docs.md' with { type: 'file' }
 import cliBody from '@/cli/commands/cli.docs.md' with { type: 'file' }
 import configSnapshotHistoryBody from '@/cli/commands/config-snapshot-history.docs.md' with { type: 'file' }
+import devBody from '@/cli/commands/dev.docs.md' with { type: 'file' }
 import docsBody from '@/cli/commands/docs.docs.md' with { type: 'file' }
 import libraryBody from '@/cli/commands/library.docs.md' with { type: 'file' }
 import reportBody from '@/cli/commands/report.docs.md' with { type: 'file' }
@@ -161,6 +162,28 @@ export const section = defineSection({
         'US-CLI-SERVING-STATIC-ASSETS-PRECEDENCE',
         'US-CLI-SERVING-STATIC-ASSETS-SEO',
       ],
+    }),
+    defineArticle({
+      slug: 'cli-dev',
+      title: 'The Dev Session',
+      description:
+        'Boot the app for development in one command: fresh seed data, an account to sign in with printed and shown on every page, the sign-in page opened, and a reload on every save.',
+      keywords: [
+        'sovrium dev',
+        'dev mode',
+        'development',
+        'seed data',
+        'fresh state',
+        '--no-open',
+        'SOVRIUM_DEV_MODE',
+        'SOVRIUM_DEV_PASSWORD',
+        '.sovrium/dev',
+      ],
+      order: 1412,
+      sidebarLabel: 'Dev Session',
+      body: devBody,
+      documents: [],
+      stories: ['US-CLI-COMMANDS-DEV', 'US-CLI-COMMANDS-DEV-NOTICE'],
     }),
     defineArticle({
       slug: 'undo-and-reset',

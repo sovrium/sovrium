@@ -1,0 +1,101 @@
+title: 'Corvel handbook'
+tagline: |
+  A private company handbook: markdown articles in sections, a managers' section, a search and an assistant — behind sign-in.
+intro: |
+  Corvel handbook — a private company handbook. A public welcome page that names the
+  sections, a sign-in, and behind it the handbook itself: a sidebar of sections, the article
+  with its outline and the date it was last updated, previous and next across sections. A
+  managers' section only managers can open, a search box that answers with what the reader may
+  read, and an assistant that answers from the handbook.
+glance:
+  - |-
+    **Pages** (6): kb (`/kb/:path*`, one route per article under `content/kb/`, `/kb` itself is
+    `start.md`), kb-managers (`/kb/managers/:path*`, managers and the admin only), assistant,
+    home (`/`), sign-in, not-found (`/404`, the library block
+    `library/block/not-found-with-links.yaml` pointed at the handbook)
+  - '**Agents** (1): handbook-assistant (reads the five articles everyone may read)'
+  - |-
+    **Markdown content**: `content/kb/` — the handbook, one folder per section; each article's
+    frontmatter carries `title`, `category`, `order` and `updated`. `content/kb-managers/` —
+    the managers' section, served by its own page
+  - '**Singletons**: auth, design'
+  - '**Seed data**: `seed/users.yaml` — the two demo accounts'
+  - |-
+    **Static assets**: `public/` (served at the site root; the laptop article's image is in
+    `public/handbook/`)
+glanceClose: |
+  Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
+assistant: |
+  Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+  run into `.claude/skills/`; start from `sovrium-app` for any change to the config. An article
+  is a markdown file: add one under `content/kb/<section>/` with a `category` the sidebar
+  already knows (`config/pages/kb.yaml`, `groupLabels`), and an `order` that places it where
+  previous and next should find it. The design system is in `config/design.yaml`: read its
+  comments before changing a colour, keep one accent, and keep colour for the outcomes an
+  article can have (checked, past its review date). Never call an article a "record", a "row"
+  or a "file" in front of a reader.
+whatsInside: |
+  - **Welcome** (`/`) — the public door: the three sections, by name and purpose, and one way
+    in. It names no article.
+  - **Sign-in** (`/sign-in`) — a work email and a password. Sign-up is closed: a new colleague
+    is added by their manager.
+  - **The handbook** (`/kb`) — the start page: where to begin and what changed recently.
+    Beside every article, the sections; above it, a search box; in it, the outline, the date it
+    was last updated, and previous / next that follow the sidebar across sections. A policy
+    past its review date carries a warning callout.
+  - **For managers** (`/kb/managers/…`) — hiring and pay reviews. Managers and the admin see it
+    in their sidebar; a member's page carries none of its links, the search never offers them,
+    and asking for one sends them to sign in.
+  - **Ask the handbook** (`/assistant`) — an assistant that answers from the five articles
+    everyone may read. It needs an AI provider.
+  - **Not found** — an address the handbook does not hold answers 404 with three ways on: the
+    start page, the policies and the assistant. It is the `not-found-with-links` block from
+    the Sovrium library (`sovrium library add block/not-found-with-links`), pointed at this
+    handbook.
+
+  Every article is a plain markdown file under [`content/`](./content), versioned with the
+  rest of the app; `/llms.txt` and the sitemap list none of them, because the handbook is
+  private. Everything else is declared in [`app.yaml`](./app.yaml) and the
+  [`config/`](./config) tree — no application code. Edit a file, restart, done.
+whatToTry: |
+  Create the two demo accounts first:
+
+  ```bash
+  SOVRIUM_SEED_PASSWORD=choose-a-password sovrium seed app.yaml
+  sovrium start app.yaml
+  ```
+
+  1. Sign in as **lea.bernard@corvel.example** (a member, on her first week). The handbook
+     opens on its start page: the three sections and what changed recently.
+  2. Open **Your first week**: the outline beside it, the date it was last updated, and next —
+     **Setting up your laptop**, in the IT section.
+  3. Open the **Expense policy**: a warning says it is past its review date.
+  4. Search for **expense** in the bar: the policy is among the answers.
+  5. Sign in as **hannah.okafor@corvel.example** (the admin who owns the handbook). A **For
+     managers** section appears under the sidebar; Léa never sees it.
+
+  To add an article, write a markdown file under `content/kb/<section>/` with a `title`, a
+  `category`, an `order` and an `updated` date in its frontmatter.
+env:
+  - name: 'AI_PROVIDER'
+    section: 'AI (the assistant on /assistant)'
+    description: |-
+      The assistant answers from the handbook through the provider you choose.
+      Without a provider the rest of the handbook runs and the assistant page
+      says it is not configured. Local-first: point it at your own Ollama, or
+      bring your own key for a hosted provider.
+    example: 'ollama'
+  - name: 'AI_MODEL'
+    section: 'AI (the assistant on /assistant)'
+    description: |-
+      The assistant answers from the handbook through the provider you choose.
+      Without a provider the rest of the handbook runs and the assistant page
+      says it is not configured. Local-first: point it at your own Ollama, or
+      bring your own key for a hosted provider.
+  - name: 'AI_API_KEY'
+    section: 'AI (the assistant on /assistant)'
+    description: |-
+      The assistant answers from the handbook through the provider you choose.
+      Without a provider the rest of the handbook runs and the assistant page
+      says it is not configured. Local-first: point it at your own Ollama, or
+      bring your own key for a hosted provider.

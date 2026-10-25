@@ -73,6 +73,10 @@ The `at` path is a position in the **resolved** config — `pages[0]` is the fir
   companies.yaml: Unknown field type "web-site" in field "website"
 ```
 
+## Imports write into the partial that holds the value
+
+`sovrium design-system import --write`, for tokens or for pages, writes each changed value into the file that holds it: the innermost partial whose content holds it, else the root config, and a new value into the file holding its parent. The include itself is never replaced by its content, every other line keeps its bytes, and a file outside the folder holding the root config is refused rather than written, though reading it stays allowed. The whole result is validated before any file is written, and one refusal anywhere writes nothing anywhere.
+
 ## Editor help inside a partial
 
 A partial holds one section of the config, so the schema for a whole config does not describe it. `sovrium schema --output schemas/app.json` also writes one schema per top-level key, under `schemas/app/`. Point a partial at the file for the key it stands in for — a file listed under `tables` at `app/tables.json`:

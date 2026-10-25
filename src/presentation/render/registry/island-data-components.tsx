@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { resolveCardBadgeClasses } from '@/presentation/design/card-badge-class-resolution'
 import {
   computeTableFillShellClasses,
   computeTableShellClasses,
@@ -122,7 +123,7 @@ function extractKanbanProps(elementProps: Record<string, unknown>): Record<strin
   return {
     dataSource: elementProps.dataSource,
     kanbanGroupBy: elementProps.kanbanGroupBy,
-    card: elementProps.card,
+    card: resolveCardBadgeClasses(elementProps.card),
     drag: elementProps.drag,
     emptyColumnMessage: elementProps.emptyColumnMessage,
     colorField: elementProps.colorField,
@@ -307,7 +308,7 @@ export const islandDataComponents: Partial<Record<DispatchableComponentType, Com
     const expandRowClick = resolveRowExpandRowClick(component)
     const propsJson = JSON.stringify({
       ...withGridChipPart(extractDataTableProps(elementProps), ctx.designStyles?.parts?.['chip']),
-      ...(expandRowClick && { onRowClick: expandRowClick }),
+      ...(expandRowClick && { onRowClick: expandRowClick, rowExpandPanel: true }),
       ...(expandInline && { rowExpandInline: expandInline }),
     })
     // `layout: 'fill'` dresses the mount host SERVER-side, before a line of

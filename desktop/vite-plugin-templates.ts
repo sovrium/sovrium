@@ -8,7 +8,7 @@
 /**
  * Bundle the engine's template catalogue into the shell's first-run gallery.
  *
- * `templates/catalog.json` at the repository root is the engine's own
+ * `src/templates/catalog.json` in the repository is the engine's own
  * description of the 19 templates it ships embedded. The gallery must show
  * exactly those, so the catalogue is a build INPUT rather than a copy: a
  * hand-maintained second list would drift the moment a template is added, and
@@ -57,7 +57,7 @@ interface CatalogEntry {
 
 const catalogPath = (): string => {
   const here = dirname(fileURLToPath(import.meta.url))
-  return join(here, '..', 'templates', 'catalog.json')
+  return join(here, '..', 'src', 'templates', 'catalog.json')
 }
 
 const readCatalog = (path: string): Record<string, CatalogEntry> => {

@@ -167,3 +167,15 @@ export const isFieldRequired = (
   if (field.requiredWhen !== undefined) return evaluateVisibleWhen(field.requiredWhen, values)
   return field.required === true
 }
+
+/**
+ * Allowed prefix references in `defaultValue`. `$query.X`, `$user.X`,
+ * `$parent.X`, and `$now` resolve at submit time and are valid for any
+ * input type (the resolved value is then coerced). Such a default names no
+ * value until the form is opened, so it is never checked against a literal list.
+ */
+export const isReferenceDefaultValue = (value: unknown): boolean => {
+  if (typeof value !== 'string') return false
+  if (value === '$now') return true
+  return /^\$(query|user|parent)\./.test(value)
+}

@@ -254,7 +254,8 @@ sovrium start app.yaml --watch
 
 ## Templates
 
-`sovrium init --template <name>` copies a complete, runnable app. Each one is also
+`sovrium init --template <name>` copies a complete, runnable app, and `sovrium templates`
+lists the names the binary you run carries. Each one is also
 published as its own GitHub repository, which the same flag reads when given
 `<owner>/<repo>` instead of a name (for example `sovrium/crm-template`), and each can be
 opened from the desktop app.
@@ -303,13 +304,14 @@ A config path is optional wherever it is shown in brackets: Sovrium finds `app.y
 
 <br />
 
-| Command                    | What it does                                            | Key flags       |
-| -------------------------- | ------------------------------------------------------- | --------------- |
-| `sovrium start [config]`   | Start the server (also the default: `sovrium app.yaml`) | `--watch`, `-w` |
-| `sovrium stop`             | Stop the running server                                 |                 |
-| `sovrium restart [config]` | Restart the running server                              |                 |
-| `sovrium reload`           | Apply the edited config to the running server           |                 |
-| `sovrium build [config]`   | Build the pages as static files                         |                 |
+| Command                    | What it does                                                               | Key flags       |
+| -------------------------- | -------------------------------------------------------------------------- | --------------- |
+| `sovrium start [config]`   | Start the server (also the default: `sovrium app.yaml`)                    | `--watch`, `-w` |
+| `sovrium dev [config]`     | Boot on fresh seed data with a dev account to sign in with, reload on save | `--no-open`     |
+| `sovrium stop`             | Stop the running server                                                    |                 |
+| `sovrium restart [config]` | Restart the running server                                                 |                 |
+| `sovrium reload`           | Apply the edited config to the running server                              |                 |
+| `sovrium build [config]`   | Build the pages as static files                                            |                 |
 
 </details>
 
@@ -321,6 +323,7 @@ A config path is optional wherever it is shown in brackets: Sovrium finds `app.y
 | Command                       | What it does                                                                                                                                                                    | Key flags                                                                                                    |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `sovrium init [dir]`          | Scaffold a project, blank or from a template                                                                                                                                    | `--template <name\|owner/repo>`, `--typescript`, `--name`                                                    |
+| `sovrium templates`           | List the templates `init` can scaffold, read out of the binary                                                                                                                  | `--json`                                                                                                     |
 | `sovrium validate <config>`   | Validate a config without starting anything                                                                                                                                     | `--json`                                                                                                     |
 | `sovrium schema`              | Print the JSON Schema every config is validated against                                                                                                                         | `--output <file>`                                                                                            |
 | `sovrium types`               | Write `sovrium.d.ts` and `tsconfig.json` for an `app.ts`                                                                                                                        | `--output <dir>`                                                                                             |
@@ -333,7 +336,7 @@ A config path is optional wherever it is shown in brackets: Sovrium finds `app.y
 | `sovrium bundle [config]`     | Package the validated config, the markdown files its pages read, `public/` and `seed/` for deployment                                                                           | `--output`                                                                                                   |
 | `sovrium docs [address]`      | Read the platform manual out of the binary, offline                                                                                                                             | `--full`, `--section`, `--list-sections`, `--format`                                                         |
 | `sovrium changelog [version]` | Read the release notes this binary carries                                                                                                                                      | `--list`, `--since <version>`                                                                                |
-| `sovrium skills`              | Write this version's Agent Skills into `.claude/skills/`                                                                                                                        | `--target claude\|agents\|all`, `--check`                                                                    |
+| `sovrium skills`              | Write this version's Agent Skills into `.claude/skills/`                                                                                                                        | `--target claude\|agents\|all`, `--check`, `--force`                                                         |
 | `sovrium mcp`                 | Serve the config tools to a local AI client over stdio                                                                                                                          | `--project <dir>`                                                                                            |
 | `sovrium report`              | Print a prefilled issue address for a bug, an idea or a server error; nothing is sent                                                                                           | `--last-error`, `--request-id <id>`, `--feature <kind>`, `--open`                                            |
 | `sovrium licenses`            | Print the third-party license notices this binary carries                                                                                                                       | `--format`                                                                                                   |
@@ -345,17 +348,19 @@ A config path is optional wherever it is shown in brackets: Sovrium finds `app.y
 
 <br />
 
-| Command                        | What it does                                                | Key flags                         |
-| ------------------------------ | ----------------------------------------------------------- | --------------------------------- |
-| `sovrium admin create <email>` | Create an admin account                                     | `--password` (else prompted)      |
-| `sovrium secret generate`      | Print fresh secrets as `.env` lines                         |                                   |
-| `sovrium secret adopt`         | Persist `$SOVRIUM_ENCRYPTION_KEY` to the data directory     |                                   |
-| `sovrium backup [config]`      | Write the database, key, config and uploads to one archive  | `--output`                        |
-| `sovrium restore <file>`       | Put a backup back (never over a running server)             | `--data-dir`, `--force`           |
-| `sovrium update`               | Update to the latest version                                |                                   |
-| `sovrium login`                | Sign the CLI in to a Sovrium Cloud                          | `--host`, `--api-key`, `--status` |
-| `sovrium deploy [config]`      | Ship the app to your Sovrium Cloud and follow it until live | `--app`, `--no-wait`, `--yes`     |
-| `sovrium env <verb>`           | Set, list or remove the variables of a hosted app           | `--app`                           |
+| Command                        | What it does                                                                                   | Key flags                                            |
+| ------------------------------ | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `sovrium admin create <email>` | Create an admin account                                                                        | `--name`, `--password` (else prompted)               |
+| `sovrium secret generate`      | Print fresh secrets as `.env` lines                                                            |                                                      |
+| `sovrium secret adopt`         | Persist `$SOVRIUM_ENCRYPTION_KEY` to the data directory                                        |                                                      |
+| `sovrium backup [config]`      | Write the database, key, config and uploads to one archive                                     | `--output`                                           |
+| `sovrium restore <file>`       | Put a backup back (never over a running server)                                                | `--data-dir`, `--force`                              |
+| `sovrium usage [config]`       | Print how many bytes the database and the stored files hold                                    | `--json`, `--report <file>`                          |
+| `sovrium update`               | Update to the latest version                                                                   |                                                      |
+| `sovrium login`                | Sign the CLI in to a Sovrium Cloud                                                             | `--host`, `--api-key`, `--status`                    |
+| `sovrium deploy [config]`      | Ship the app to your Sovrium Cloud and follow it until live                                    | `--app`, `--from-preview <id>`, `--no-wait`, `--yes` |
+| `sovrium preview [config]`     | Run the app on your Sovrium Cloud at a share address of its own, without touching the live app | `--app`, `--no-wait`, `--yes`                        |
+| `sovrium env <verb>`           | Set, list or remove the variables of a hosted app                                              | `--app`                                              |
 
 </details>
 
@@ -514,7 +519,7 @@ same manual ships inside the binary (`sovrium docs`).
 | Security hardening            | [sovrium.com/en/docs/security-hardening](https://sovrium.com/en/docs/security-hardening)             |
 | Templates and examples        | [sovrium.com/en/docs/templates-examples](https://sovrium.com/en/docs/templates-examples)             |
 
-Runnable example configs ship in [`templates/`](templates/).
+Runnable example configs ship in [`src/templates/`](src/templates/); `sovrium templates` lists them.
 
 <details>
 <summary><strong>Built with</strong></summary>

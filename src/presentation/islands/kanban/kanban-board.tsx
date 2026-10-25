@@ -98,7 +98,7 @@ function KanbanColumnRow({
             expanded={foldable ? !folded.has(column.value) : undefined}
             onToggle={foldable ? toggle : undefined}
             idPrefix={idPrefix}
-            placement={kanbanColumnPlacement(groupBy, column.value)}
+            placement={kanbanColumnPlacement(groupBy, column.value, folded.has(column.value))}
           />
         ))}
       </div>

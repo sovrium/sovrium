@@ -58,6 +58,7 @@ agent and never to Sovrium's defaults.
 - When the design block is empty or thin, use the platform defaults as they are. Do not invent a brand the author never asked for.
 - When the plan needs a token the app does not have, propose adding it to `design`, with the reason, rather than hard-coding a value on one component.
 - Token categories and their options: `sovrium docs theming/design`.
+- Token questions: `sovrium-design`.
 
 ## 3. Structure in greyscale
 
@@ -115,6 +116,7 @@ Type carries most of the hierarchy on a restrained page, so it is planned explic
 - Never place muted grey text on a coloured fill; use the foreground the colour role pairs with.
 - Check every text and control pairing against the contrast gates in `accessibility.md` in both light and dark schemes.
 - Dark mode is planned now, not patched later (see `states-and-forms.md`).
+- Token questions: `sovrium-design`.
 
 ## 8. One novel element, at most
 

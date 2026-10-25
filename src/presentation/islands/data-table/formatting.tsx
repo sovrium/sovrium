@@ -7,7 +7,7 @@
 
 import { resolveColumnLabel } from '@/presentation/design/field-display'
 import { listEditedFields } from './cell-plain'
-import { typePlacementOf } from './cells/type-placement'
+import { presentedTypeOf, typePlacementOf } from './cells/type-placement'
 import { buildFieldCellRenderer } from './cells/value-cell'
 import { columnPresentationMeta, columnSortable } from './column-presentation'
 import {
@@ -98,7 +98,7 @@ export function mapColumnsToColumnDefs(
           // Carried beside `size` above so the header cell can tell an authored
           // width from TanStack's merged-in default, which `getSize()` cannot.
           authoredWidth: col.width,
-          ...typePlacementOf(col.align, options.fieldMeta?.[col.field]?.type),
+          ...typePlacementOf(col.align, presentedTypeOf(options.fieldMeta?.[col.field])),
         },
       } satisfies DataTableColumnDef
     }

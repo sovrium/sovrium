@@ -19,11 +19,10 @@ import { optionalField } from '@/domain/models/api/combinators/optional-field'
  * - `s3`: region, bucket, endpoint, forcePathStyle
  * - `local`: directory
  * - `bytea`: (no extra fields)
- * - `disabled`: returned when no storage provider is configured
  */
 export const storageStatusResponseSchema = Schema.Struct({
-  provider: Schema.Literals(['s3', 'local', 'bytea', 'disabled']).annotate({
-    description: 'Active storage provider, or "disabled" if none is configured',
+  provider: Schema.Literals(['s3', 'local', 'bytea']).annotate({
+    description: 'Active storage provider',
   }),
   region: optionalField(
     Schema.String.annotate({ description: 'AWS region (S3 only; defaults to us-east-1)' })

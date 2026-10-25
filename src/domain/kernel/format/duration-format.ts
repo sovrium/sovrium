@@ -9,14 +9,14 @@
  * Duration display formatting, shared by the records API's `?format=display`
  * path and the data-table's read-only grid cell.
  *
- * ## The stored unit is SECONDS, and the two dialects disagree on the shape
+ * ## The stored unit is SECONDS, and a legacy column may still hand back text
  *
- * A `duration` column is `INTERVAL` on Postgres and `INTEGER` on SQLite, and
- * both hold *a count of seconds*. What reaches this module differs by driver:
- *
- *  - Postgres hands back the interval **string** (`'01:00:00'`, or the verbose
- *    `'1 hour 30 minutes'` form).
- *  - SQLite hands back the **number** (`3600`).
+ * A `duration` column is an `INTEGER` count of seconds on both engines, and the
+ * driver hands back the **number** (`3600`). An earlier version stored it as a
+ * PostgreSQL `INTERVAL`, which the driver hands back as a **string**
+ * (`'01:00:00'`, or the verbose `'1 hour 30 minutes'` form); the server
+ * converts such a column at boot, but a value read before that conversion, or
+ * passed through as text, must still print correctly.
  *
  * So a formatter that normalises only one representation leaves the other
  * broken. {@link durationToSeconds} accepts both and answers in seconds.

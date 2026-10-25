@@ -17,7 +17,8 @@ If the first positional argument looks like a config file — it ends in `.json`
 Each group has its own article. `sovrium --help` prints the same list, and `sovrium help` is its bare-word spelling.
 
 - **Lifecycle** — `sovrium start`, `sovrium stop`, `sovrium restart`, `sovrium reload`.
-- **Project** — `sovrium init`, `sovrium build`, `sovrium schema`, `sovrium validate`, `sovrium types`.
+- **The dev session** — `sovrium dev` boots the app on fresh seed data with an account to sign in with, and reloads on save.
+- **Project** — `sovrium init`, `sovrium build`, `sovrium schema`, `sovrium validate`, `sovrium types`; `sovrium templates` lists the templates `init` can scaffold.
 - **Migrating a database** — `sovrium migrate`.
 - **Seeding data** — `sovrium seed`.
 - **Validation & schema generation** — `sovrium validate`, `sovrium schema`, `sovrium design-system`.

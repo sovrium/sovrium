@@ -78,7 +78,7 @@ const pagesOf = (root: unknown): readonly JsonObject[] => {
 }
 
 /** The parsed root with each patched page entry in its place, and each new page after them. */
-const withPatches = (parsed: unknown, patches: readonly PagePatch[]): JsonObject => ({
+export const withPatches = (parsed: unknown, patches: readonly PagePatch[]): JsonObject => ({
   ...(parsed as JsonObject),
   pages: [
     ...pagesOf(parsed).map(
@@ -96,7 +96,10 @@ const objectAt = (value: unknown, key: string): JsonObject => {
 }
 
 /** A root with each translation entry set in its language. */
-const withTranslations = (root: JsonObject, writes: readonly TranslationWrite[]): JsonObject => {
+export const withTranslations = (
+  root: JsonObject,
+  writes: readonly TranslationWrite[]
+): JsonObject => {
   if (writes.length === 0) return root
   const languages = objectAt(root, 'languages')
   const translations = writes.reduce<JsonObject>(
@@ -377,7 +380,7 @@ export const judgeMergedPages = async (
 }
 
 /** Every translation entry the pages write, one per key; a key drawn two ways is refused. */
-const translationWritesOf = (merged: readonly MergedPage[]): readonly TranslationWrite[] => {
+export const translationWritesOf = (merged: readonly MergedPage[]): readonly TranslationWrite[] => {
   const writes = merged.flatMap(({ plan }) => plan.translationWrites)
   const conflicting = conflictingKeys(writes)
   if (conflicting.size > 0) {

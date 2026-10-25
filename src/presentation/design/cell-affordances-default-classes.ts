@@ -24,17 +24,16 @@
  * field-type it represents, not as a stringified opaque blob.
  *
  *   - user-pill         → small avatar circle + name (user / created-by / updated-by / deleted-by)
- *   - linked-record     → neutral rounded pill for relational / lookup / rollup values
+ *   - linked-record     → neutral rounded pill for relational / lookup values
  *   - status-pill       → the shared outline badge, filled by the option's own hue
  *   - formula-readonly  → mono-aware readout for computed values
  *   - geolocation       → pin glyph + lat/lng mono pair, no chrome
- *   - count-badge       → the shared secondary badge, tabular
  *   - json-preview      → single-line truncated mono, no chrome
  *   - array-chips       → wrap of the same outline badge, one hue per option
  *   - code-inline       → inline mono, no chrome
  *
  * ## Chips route through the SHARED badge
- * Three of the computers above stopped owning a chip string and now compose
+ * Two of the computers above stopped owning a chip string and now compose
  * {@link computeBadgeClasses} instead. A cell chip, a nav badge and a status
  * label are the same object, and they had drifted into three shapes — a
  * `rounded-full` pill here, a 2px-radius tag there, three different paddings —
@@ -243,26 +242,6 @@ export const computeGeolocationCoordClasses = (): string =>
  */
 export const computeGeolocationPinClasses = (): string =>
   ['inline-flex items-center text-xs leading-none', `text-muted-foreground`].join(' ')
-
-// ──────────────────────────────────────────────────────────────────────────────
-// COUNT — small numeric badge
-// ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * Compute the default className for a count-field badge — the chip holding the
- * integer a relational field aggregates ("5 tasks", "12 attachments").
- *
- * The shared badge at `secondary`, which is the drawings' `.b-neu`: a filled
- * neutral chip, the tone reserved for a number the platform computed rather
- * than a value the author chose. `tabular-nums` on top so a column of counts
- * aligns at the digit, and `justify-center` so a one-digit count sits under a
- * two-digit one rather than beside it.
- */
-export const computeCountBadgeClasses = (): string =>
-  [
-    computeBadgeClasses({ variant: 'secondary' }),
-    'min-w-[1.5rem] justify-center tabular-nums',
-  ].join(' ')
 
 // ──────────────────────────────────────────────────────────────────────────────
 // JSON — single-line truncated mono preview

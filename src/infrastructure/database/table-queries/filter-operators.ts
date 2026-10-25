@@ -7,20 +7,16 @@
 
 import { sql, type SQL } from 'drizzle-orm'
 import { likePatternOf } from '@/domain/kernel/sql/like-pattern'
-import { LIKE_ESCAPE_CHARACTER } from '@/domain/kernel/sql/sql-formatting'
+import { LIKE_ESCAPE_CHARACTER, LIKE_ESCAPE_CLAUSE } from '@/domain/kernel/sql/sql-formatting'
 import { formatSqlValue, formatLikePattern, escapeSqlString } from '../sql/sql-utils'
 import { betweenFragment, betweenSqlCondition } from './between-condition'
+import { notContainsFragment, notContainsSqlCondition } from './not-contains-condition'
 import { serverOperatorDdlCondition, serverOperatorFragment } from './server-operator-fragment'
 
-/**
- * Return type of `sql.identifier()` — a safely-escaped SQL identifier chunk.
- */
+/** Return type of `sql.identifier()` — a safely-escaped SQL identifier chunk. */
 type SqlIdentifier = Readonly<ReturnType<typeof sql.identifier>>
 
-/**
- * SQL operator mapping for comparison operators
- * Maps domain filter operators to SQL comparison operators
- */
+/** Maps domain filter operators to SQL comparison operators. */
 export const SQL_OPERATOR_MAP: Readonly<Record<string, string>> = {
   equals: '=',
   notEquals: '!=',
@@ -28,10 +24,16 @@ export const SQL_OPERATOR_MAP: Readonly<Record<string, string>> = {
   lessThan: '<',
   greaterThanOrEqual: '>=',
   lessThanOrEqual: '<=',
+  eq: '=',
+  neq: '!=',
+  gt: '>',
+  lt: '<',
+  gte: '>=',
+  lte: '<=',
 }
 
 /**
- * Handle LIKE pattern operators (contains, startsWith, endsWith)
+ * Handle LIKE pattern operators (contains, startsWith, endsWith, notContains)
  *
  * Case-folded on BOTH sides — see the DECISION note further down this file. A
  * bare `LIKE` here is not a neutral choice: it is case-SENSITIVE on PostgreSQL
@@ -44,9 +46,9 @@ const handlePatternOperator = (
   value: unknown
 ): string | undefined => {
   if (operator === 'contains' || operator === 'startsWith' || operator === 'endsWith') {
-    return `LOWER(${field}) LIKE LOWER(${formatLikePattern(value, operator)})`
+    return `LOWER(${field}) LIKE LOWER(${formatLikePattern(value, operator)}) ${LIKE_ESCAPE_CLAUSE}`
   }
-  return undefined
+  return notContainsSqlCondition(field, operator, value)
 }
 
 /**
@@ -82,9 +84,7 @@ const handleNullOperator = (field: string, operator: string): string | undefined
   return undefined
 }
 
-/**
- * Handle boolean operators (isTrue, isFalse)
- */
+/** Handle boolean operators (isTrue, isFalse) */
 const handleBooleanOperator = (field: string, operator: string): string | undefined => {
   if (operator === 'isTrue') {
     return `${field} = true`
@@ -137,8 +137,14 @@ const handleInOperator = (field: string, operator: string, value: unknown): stri
 }
 
 /**
- * Format value based on options
+ * An operator neither compiler knows fails closed: compiling it as `=` (the
+ * old fallback) selected the very rows a misspelt negation meant to leave out.
  */
+const unknownOperator = (operator: string): never => {
+  throw new Error(`filter operator "${operator}" cannot be compiled into SQL`)
+}
+
+/** Format value based on options */
 const formatValue = (value: unknown, useEscapeSqlString: boolean): string => {
   if (useEscapeSqlString && typeof value === 'string') {
     return `'${escapeSqlString(value)}'`
@@ -174,11 +180,9 @@ export const generateSqlCondition = (
   const nullCondition = handleNullOperator(field, operator)
   if (nullCondition) return nullCondition
 
-  // Handle boolean operators
   const booleanCondition = handleBooleanOperator(field, operator)
   if (booleanCondition) return booleanCondition
 
-  // Handle IN operator
   const inCondition = handleInOperator(field, operator, value)
   if (inCondition) return inCondition
 
@@ -187,16 +191,13 @@ export const generateSqlCondition = (
   )
   if (between) return between
 
-  // Handle comparison operators
   const sqlOperator = SQL_OPERATOR_MAP[operator]
   if (sqlOperator) {
     const formattedValue = formatValue(value, useEscapeSqlString)
     return `${field} ${sqlOperator} ${formattedValue}`
   }
 
-  // Fallback to equals if operator not recognized
-  const formattedValue = formatValue(value, useEscapeSqlString)
-  return `${field} = ${formattedValue}`
+  return unknownOperator(operator)
 }
 
 // ---------------------------------------------------------------------------
@@ -216,12 +217,8 @@ export const generateSqlCondition = (
 // All VALUES go through `sql\`${value}\`` placeholder binding.
 // ---------------------------------------------------------------------------
 
-// The LIKE escape character and the metacharacter-escaping routine are IMPORTED
-// from `sql/dialect-sql-helpers`, not restated here. This path is where they
-// were first worked out; the command-palette / trash / user-directory helper
-// (`containsInsensitive`) then needed exactly the same rule, and a second copy
-// of a rule that decides which rows a search returns is how the two spellings
-// drift apart. One definition, two consumers.
+// The LIKE escape character and the escaping routine are IMPORTED, never
+// restated: a second copy of a rule deciding which rows match drifts apart.
 
 // ---------------------------------------------------------------------------
 // DECISION — `contains` / `startsWith` / `endsWith` match text WITHOUT regard
@@ -268,7 +265,7 @@ const buildPatternFragment = (
   value: unknown
 ): Readonly<SQL> | undefined => {
   if (operator !== 'contains' && operator !== 'startsWith' && operator !== 'endsWith') {
-    return undefined
+    return notContainsFragment(column, operator, value)
   }
   const pattern = likePatternOf(operator, typeof value === 'string' ? value : String(value))
   // sql-literal: keyword -- the escape character is a module constant
@@ -392,9 +389,10 @@ export const generateSqlConditionFragment = (
   const between = betweenFragment(column, operator, value)
   if (between) return between
 
-  // Comparison operators (equals, notEquals, gt, lt, gte, lte) and fallback.
-  // The SQL operator keyword is static; the value is bound as a parameter.
-  const sqlOperator = SQL_OPERATOR_MAP[operator] ?? '='
+  // Comparison operators (equals, notEquals, gt, lt, gte, lte). The SQL
+  // operator keyword is static; the value is bound as a parameter.
+  const sqlOperator = SQL_OPERATOR_MAP[operator]
+  if (sqlOperator === undefined) return unknownOperator(operator)
   // sql-literal: keyword -- `sqlOperator` comes from the closed SQL_OPERATOR_MAP
   return sql`${column} ${sql.raw(sqlOperator)} ${value}`
 }

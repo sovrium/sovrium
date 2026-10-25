@@ -8,7 +8,7 @@ The backend is operator-controlled, so the same config runs against a local disk
 
 | Variable                       | Default              | Description                                                                                                     |
 | ------------------------------ | -------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `STORAGE_PROVIDER`             | auto                 | `s3` or `local`. Unset selects PostgreSQL bytes when a database URL is set, local files otherwise               |
+| `STORAGE_PROVIDER`             | auto                 | `s3`, `local` or `bytea` (PostgreSQL only). Unset selects PostgreSQL bytes on PostgreSQL, local files otherwise |
 | `STORAGE_LOCAL_DIRECTORY`      | `<data dir>/storage` | Upload directory; required for `local`                                                                          |
 | `STORAGE_S3_ENDPOINT`          | —                    | S3-compatible endpoint URL; required for `s3`                                                                   |
 | `STORAGE_S3_BUCKET`            | —                    | Bucket name; required for `s3`                                                                                  |
@@ -137,19 +137,21 @@ Read when generating a static site.
 | `SOVRIUM_BUNDLE_OPTIMIZATION` | —                                | `split` or `none`                                                                                       |
 | `SOVRIUM_PUBLIC_DIR`          | —                                | Static-asset directory to copy; `none` disables static serving                                          |
 
-## Demo instances
+## Development mode
 
-Renders a banner marking an instance as a throwaway demo. Off unless explicitly enabled, so a production deployment can never announce itself as disposable by accident.
+Shows a small panel at the bottom-left of every page: the instance is in development mode, its data is disposable, and here is the account to sign in with, with a button that fills the sign-in form. Off unless explicitly turned on, so a production deployment can never present itself as disposable by accident.
 
-| Variable                | Description                                                                       |
-| ----------------------- | --------------------------------------------------------------------------------- |
-| `SOVRIUM_DEMO_NOTICE`   | Master switch; `on`, `true`, `1` or `yes` enables it, anything else leaves it off |
-| `SOVRIUM_DEMO_NAME`     | Template display name shown in the panel title                                    |
-| `SOVRIUM_DEMO_URL`      | Target of the notice's call to action                                             |
-| `SOVRIUM_DEMO_EMAIL`    | Display-only sign-in email, never sourced from the admin seed                     |
-| `SOVRIUM_DEMO_PASSWORD` | Display-only sign-in password, never sourced from the admin seed                  |
+`sovrium dev` sets them for you on every run — the email and the password only when the app declares `auth` (**The Dev Session**); a hosted demo sets them per app. A value already set wins.
 
-Those last two are display-only on purpose: a demo banner that read the real seeded credentials would publish them the moment someone enabled the banner on a real instance.
+| Variable               | Description                                                                        |
+| ---------------------- | ---------------------------------------------------------------------------------- |
+| `SOVRIUM_DEV_MODE`     | Master switch; `on`, `true`, `1` or `yes` turns it on, anything else leaves it off |
+| `SOVRIUM_DEV_NAME`     | Name shown in the panel title                                                      |
+| `SOVRIUM_DEV_URL`      | Target of the panel's "Learn more" link                                            |
+| `SOVRIUM_DEV_EMAIL`    | Display-only sign-in email, never sourced from the admin seed                      |
+| `SOVRIUM_DEV_PASSWORD` | Display-only sign-in password, never sourced from the admin seed                   |
+
+Those last two are display-only on purpose: a panel that read the real seeded credentials would publish them the moment someone turned dev mode on for a real instance. With dev mode on behind a public origin, the startup banner prints a warning naming the email every visitor can read. The `SOVRIUM_DEMO_*` names of earlier versions are no longer read.
 
 ## Map tiles
 

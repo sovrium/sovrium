@@ -18,6 +18,11 @@
 
 import { readOoxmlPackage } from '@/application/use-cases/automations/ooxml/ooxml-package'
 import { parseHtmlElementTree, type HtmlNode } from '@/domain/kernel/sanitize/html-element-tree'
+import { parseJson } from '@/domain/models/app/design/adapters/import/canonical-tokens-service'
+import {
+  canvasDrawnWithOf,
+  type CanvasDrawnWith,
+} from '@/domain/models/app/design/adapters/pages/claude-design-canvas-drawn-with'
 import { CANVAS_STAMP_FILE } from '@/domain/models/app/design/adapters/pages/claude-design-canvas-export'
 import { fromClaudeDesignCanvas } from '@/domain/models/app/design/adapters/pages/claude-design-canvas-parse'
 import { parseFigmaPage } from '@/domain/models/app/design/adapters/pages/figma-pages-parse'
@@ -130,10 +135,15 @@ const drawnPageOfBoard = (drawing: ParsedPageDrawing, text: string): DrawnPage =
   })
 }
 
+/** The path of one file of a canvas project, inside the folder the source located it in. */
+const canvasFileOf = (files: readonly string[], name: string): string => {
+  const [folder = ''] = files
+  return folder === '' ? name : `${folder}/${name}`
+}
+
 /** A Claude Design canvas project: its index and every board it names, read in one pass. */
 const readCanvas: PageDrawingReader = async (view, files, scale) => {
-  const [folder = ''] = files
-  const at = (name: string): string => (folder === '' ? name : `${folder}/${name}`)
+  const at = (name: string): string => canvasFileOf(files, name)
   const indexBytes = await view.read(at('canvas.json'))
   if (indexBytes === undefined) return { error: 'The canvas project holds no canvas.json.' }
   const indexText = decoder.decode(indexBytes)
@@ -179,6 +189,21 @@ const readCanvas: PageDrawingReader = async (view, files, scale) => {
       reason: `${capitalised(finding.detail)}.`,
     })),
   }
+}
+
+/**
+ * The drawing inputs a canvas's stamp file records (seed folder, instant,
+ * record count, account, prototype kind); none for another tool's drawing or
+ * a canvas exported before they were recorded.
+ */
+export const recordedDrawingOf = async (located: {
+  readonly format: PageFormat
+  readonly view: PageSourceView
+  readonly files: readonly string[]
+}): Promise<CanvasDrawnWith | undefined> => {
+  if (located.format !== 'claude-design') return undefined
+  const bytes = await located.view.read(canvasFileOf(located.files, CANVAS_STAMP_FILE))
+  return bytes === undefined ? undefined : canvasDrawnWithOf(parseJson(decoder.decode(bytes)))
 }
 
 /** A finding's detail as the start of a sentence. */

@@ -213,8 +213,8 @@ export function resolveChartAggregateRead(
 
 /**
  * Whether a KPI's figure can come from one aggregate read: a count, a ratio
- * (two counts), or a number — and never for a KPI bound to a view (see
- * `readsThroughView`).
+ * (two counts), or a number — and, for a KPI bound to a view (see
+ * `readsThroughView`), only a ratio, which the view's own read counts.
  */
 export const resolveKpiAggregateRead = (
   tables: Tables,
@@ -222,9 +222,10 @@ export const resolveKpiAggregateRead = (
   component: KpiComponent
 ): boolean => {
   const aggregate = component.kpiAggregate ?? { function: 'count' }
+  // A ratio bound to a view reads its two counts through the view's own read.
   return (
-    !readsThroughView(component) &&
-    (aggregate.function === 'ratio' || numericFigure(tables, table.name, aggregate))
+    aggregate.function === 'ratio' ||
+    (!readsThroughView(component) && numericFigure(tables, table.name, aggregate))
   )
 }
 

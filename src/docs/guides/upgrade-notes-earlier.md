@@ -130,15 +130,15 @@ pages:
 
 Each of these validated on 0.30 and is refused by `sovrium validate` and at startup on 0.31, with a message naming the replacement:
 
-| Removed from the page `form`                                             | Replace with                                                                           |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| `action: { type: crud, operation: create }` on a `form`                  | A `forms[]` entry with `submitTo.table`, placed with `formRef`                         |
-| `onSuccess.type: reset` and `onSuccess.type: successPage` of that create | `forms[].onSuccess` with `type: reset` or `type: successPage`                          |
-| `wizard`                                                                 | `forms[].layout: multi-step` with `steps[]`                                            |
-| `fieldGroups`                                                            | `forms[].fieldGroups`                                                                  |
-| `fields[].visibleWhen`, `fields[].requiredWhen`, `fields[].disabledWhen` | The same keys on `forms[].fields[]`                                                    |
-| `fields[].accept`, `fields[].dropZone`, `fields[].maxFiles`              | An attachment field of a `forms[]` entry, with the same keys                           |
-| `inlinePrefill` on a form declared in place (one without `formRef`)      | `inlinePrefill` on the `form` component that places the `forms[]` entry with `formRef` |
+| Removed from the page `form`                                             | Replace with                                                                                       |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `action: { type: crud, operation: create }` on a `form`                  | A `forms[]` entry with `submitTo.table`, placed with `formRef`                                     |
+| `onSuccess.type: reset` and `onSuccess.type: successPage` of that create | `forms[].onSuccess` with `type: reset` or `type: successPage`                                      |
+| `wizard`                                                                 | `forms[].layout: multi-step` with `steps[]`                                                        |
+| `fieldGroups`                                                            | `forms[].fieldGroups`                                                                              |
+| `fields[].visibleWhen`, `fields[].requiredWhen`, `fields[].disabledWhen` | The same keys on `forms[].fields[]` (`disabledWhen` is refused there from 0.44: use `visibleWhen`) |
+| `fields[].accept`, `fields[].dropZone`, `fields[].maxFiles`              | An attachment field of a `forms[]` entry, with the same keys                                       |
+| `inlinePrefill` on a form declared in place (one without `formRef`)      | `inlinePrefill` on the `form` component that places the `forms[]` entry with `formRef`             |
 
 An attachment column on an edit form still draws its default upload control; only the upload options moved. To move a create form, lift its fields into a `forms[]` entry and leave a `formRef` where it was:
 

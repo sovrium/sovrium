@@ -35,8 +35,12 @@
 
 import { Effect } from 'effect'
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import { callerReadsRecord } from '@/application/use-cases/tables/permissions/caller-record-gate'
+import {
+  callerReadsColumn,
+  callerReadsRecord,
+} from '@/application/use-cases/tables/permissions/caller-record-gate'
 import { findPageRoute } from '@/domain/kernel/matching/localized-path'
+import { routeParamLookupOf } from '@/domain/models/app/tables/route-param-lookup-service'
 import type { App } from '@/domain/models/app'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
@@ -158,11 +162,18 @@ interface RevalidationContext {
 type RevalidationLookup =
   | { readonly kind: 'not-applicable' }
   | {
-      readonly kind: 'lookup'
-      readonly tableName: string
-      readonly paramField: string
+      readonly kind: 'segment'
+      readonly dataSource: { readonly table: string; readonly param: string }
       readonly paramValue: string
     }
+
+/** The parent a segment names: `lookup` reads it; `no-parent` names none, so nothing is read. */
+type ParentLookup = {
+  readonly kind: 'lookup' | 'no-parent'
+  readonly tableName: string
+  readonly paramField: string
+  readonly paramValue: string
+}
 
 /**
  * Resolve the host page for the submission's Referer URL and verify it
@@ -192,12 +203,48 @@ const resolveRevalidationLookup = (ctx: RevalidationContext): RevalidationLookup
   const paramValue = match.params[dataSource.param]
   if (paramValue === undefined || paramValue === '') return { kind: 'not-applicable' }
 
-  return {
-    kind: 'lookup',
-    tableName: dataSource.table,
-    paramField: dataSource.param,
-    paramValue,
-  }
+  return { kind: 'segment', dataSource, paramValue }
+}
+
+/**
+ * The parent a segment names, as the page that drew the form read it: by the
+ * column named like the parameter, else by id. A value no such column could
+ * hold, or a table the app does not declare, names no parent at all.
+ */
+const segmentLookupOf = (
+  app: App,
+  segment: Extract<RevalidationLookup, { readonly kind: 'segment' }>,
+  readable: (field: string) => boolean
+): ParentLookup => {
+  const { dataSource, paramValue } = segment
+  const table = app.tables?.find((candidate) => candidate.name === dataSource.table)
+  const row =
+    table === undefined
+      ? undefined
+      : routeParamLookupOf(
+          table,
+          { param: dataSource.param, value: paramValue },
+          { scopeTables: app.auth?.scopeTables, readable }
+        )
+  return row === undefined
+    ? { kind: 'no-parent', tableName: dataSource.table, paramField: dataSource.param, paramValue }
+    : { kind: 'lookup', tableName: dataSource.table, paramField: row.field, paramValue: row.value }
+}
+
+/**
+ * Whether the submitter may read the column the segment is compared with —
+ * asked only when the table declares a column named like the parameter, since
+ * a segment naming the record id is read by every reader of the record.
+ */
+const submitterReadsParamColumn = (
+  ctx: RevalidationContext,
+  segment: Extract<RevalidationLookup, { readonly kind: 'segment' }>
+) => {
+  const { table: tableName, param } = segment.dataSource
+  const table = ctx.app.tables?.find((candidate) => candidate.name === tableName)
+  return table?.fields.some((field) => field.name === param) === true
+    ? callerReadsColumn({ app: ctx.app, tableName, userId: ctx.submitterUserId, field: param })
+    : Effect.succeed(true)
 }
 
 /**
@@ -218,18 +265,25 @@ const resolveRevalidationLookup = (ctx: RevalidationContext): RevalidationLookup
  */
 export const revalidateInlinePrefillParent = (ctx: RevalidationContext) =>
   Effect.gen(function* () {
-    const lookup = resolveRevalidationLookup(ctx)
-    if (lookup.kind === 'not-applicable') return { kind: 'not-applicable' as const }
+    const segment = resolveRevalidationLookup(ctx)
+    if (segment.kind === 'not-applicable') return { kind: 'not-applicable' as const }
+    // A column the submitter may not read names no parent for her, as a value
+    // no record holds does: the same answer, and no query.
+    const readsColumn = yield* submitterReadsParamColumn(ctx, segment)
+    const lookup = segmentLookupOf(ctx.app, segment, () => readsColumn)
 
     const repo = yield* DataSourceRepository
     // Live rows only: a trashed parent answers as missing, as on the records API.
-    const record = yield* repo.fetchSingleRecord(
-      lookup.tableName,
-      lookup.paramField,
-      lookup.paramValue,
-      undefined,
-      { liveOnly: true }
-    )
+    const record =
+      lookup.kind === 'no-parent'
+        ? undefined
+        : yield* repo.fetchSingleRecord(
+            lookup.tableName,
+            lookup.paramField,
+            lookup.paramValue,
+            undefined,
+            { liveOnly: true }
+          )
     // The parent is judged as the WHOLE of its submitter reads it — the gate the
     // page that drew it and the records API answer — and a parent she may not
     // read answers exactly as a missing one, so the 422-versus-201 answer tells

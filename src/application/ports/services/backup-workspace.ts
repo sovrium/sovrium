@@ -14,6 +14,50 @@ export class BackupIoError extends Data.TaggedError('BackupIoError')<{
   readonly cause: unknown
 }> {}
 
+/**
+ * A SQLite or PostgreSQL schema build (`sovrium migrate`) that did not
+ * complete. `output` is what the build reported, for the operator.
+ */
+export class SchemaBuildFailure extends Data.TaggedError('SchemaBuildFailure')<{
+  readonly dialect: 'sqlite' | 'postgres'
+  readonly output: string
+}> {}
+
+/**
+ * The copy of a SQLite database into PostgreSQL stopped. `table` is always
+ * named; `column` and `rowId` when one value is at fault. Nothing was kept: the
+ * copy runs in one transaction.
+ */
+export class CrossDialectCopyFailure extends Data.TaggedError('CrossDialectCopyFailure')<{
+  readonly table: string
+  readonly column: string | undefined
+  readonly rowId: string | undefined
+  readonly problem: string
+}> {}
+
+/** What a restore found in the PostgreSQL database `DATABASE_URL` names. */
+export type PostgresTargetState =
+  | { readonly reachable: false }
+  | {
+      readonly reachable: true
+      /** `schema.name` of every relation outside the catalogue, tables first; empty when empty. */
+      readonly relations: readonly string[]
+      /**
+       * Which of the engine's schemas (`auth`, `system`, `drizzle`) already
+       * exist, so a cleanup removes only the ones the restore created.
+       */
+      readonly preExistingSchemas: readonly string[]
+    }
+
+/** One schema build: the database, the config it builds, and a private scratch directory. */
+export interface SchemaBuildRequest {
+  readonly dialect: 'sqlite' | 'postgres'
+  /** `file:<path>` for SQLite, the PostgreSQL URL otherwise. */
+  readonly databaseUrl: string
+  readonly configPath: string
+  readonly scratchDirectory: string
+}
+
 /** The config a backup starts from: its declared name and every file it was read from. */
 export interface BackupConfigGraph {
   /** `name` as the config declares it, when it declares one. */
@@ -105,6 +149,48 @@ export class BackupWorkspace extends Context.Service<
     ) => Effect.Effect<void, BackupIoError>
     /** Remove a file or a directory tree; nothing to remove is not an error. */
     readonly removePath: (path: string) => Effect.Effect<void, BackupIoError>
+    /**
+     * A new directory readable by its owner only (`0700`), for what a
+     * cross-dialect restore holds in clear while it works; each run creates a
+     * new one. The caller removes it.
+     */
+    readonly createPrivateDirectory: Effect.Effect<string, BackupIoError>
+    /**
+     * Whether the PostgreSQL database is reachable, and every relation it holds
+     * outside the catalogue and the installed extensions. Read-only.
+     */
+    readonly inspectPostgresTarget: (databaseUrl: string) => Effect.Effect<PostgresTargetState>
+    /**
+     * Build a database's schema exactly as `sovrium migrate` does — the
+     * engine's migrations, then the config's tables — in a child process, so
+     * the two dialects of one restore never share the process-wide database
+     * layer.
+     */
+    readonly buildSchema: (request: SchemaBuildRequest) => Effect.Effect<void, SchemaBuildFailure>
+    /**
+     * Copy every row of a SQLite database into a PostgreSQL database whose
+     * schema was built from the same config, in one transaction, sequences
+     * continued past the highest number ever issued. With `uploads` (storage
+     * key → bytes), each file is loaded into the database's file table beside
+     * its file record, in the same transaction, and the record rewritten to say
+     * the database holds it; a file without a record, or a locally stored
+     * record without its file, stops the copy.
+     */
+    readonly copySqliteToPostgres: (
+      sqlitePath: string,
+      databaseUrl: string,
+      uploads: ReadonlyMap<string, Uint8Array> | undefined
+    ) => Effect.Effect<number, CrossDialectCopyFailure>
+    /**
+     * Return a PostgreSQL database a failed restore built into to empty: drop
+     * only the schemas and relations the restore created (`preExistingSchemas`
+     * from {@link inspectPostgresTarget} are kept), never an extension's
+     * objects, under a short lock timeout. Fails when it cannot.
+     */
+    readonly dropCreatedObjects: (
+      databaseUrl: string,
+      preExistingSchemas: readonly string[]
+    ) => Effect.Effect<void, BackupIoError>
     /**
      * Whether a live server holds the lock in `lockDirectory` — the lock
      * `sovrium stop` reads. A lock whose process has gone is not a live server.

@@ -105,12 +105,32 @@ export const RUNTIME_ARTEFACT_PREFIXES: readonly string[] = [
 ]
 
 /**
+ * The same two artefacts for every shipped TEMPLATE, as patterns because the
+ * slugs are many ([internal ref] A4: `src/templates/<slug>/` is the fifth DATA tree).
+ *
+ * `bun run app:template <slug>` boots a template in place, and a boot writes
+ * what a console boot writes: the `.sovrium/` data dir (and its `.sovrium-*`
+ * siblings, such as an import snapshot) beside `app.yaml`, and the generated
+ * search index under `public/sovrium-search/`. Unlike the console's, a
+ * template's `public/` IS authored — its images, its `robots.txt` — so only the
+ * index directory is an artefact, never `public/` itself.
+ */
+export const RUNTIME_ARTEFACT_PATTERNS: readonly RegExp[] = [
+  /^src\/templates\/[^/]+\/\.sovrium[^/]*\//,
+  /^src\/templates\/[^/]+\/public\/sovrium-search\//,
+]
+
+/**
  * A {@link WalkOptions.filter} that drops every {@link RUNTIME_ARTEFACT_PREFIXES}
- * path. Compose it with `&&` when a caller needs a filter of its own.
+ * and {@link RUNTIME_ARTEFACT_PATTERNS} path. Compose it with `&&` when a
+ * caller needs a filter of its own.
  */
 export const excludeRuntimeArtefacts = (absolutePath: string): boolean => {
   const rel = toPosixPath(relative(REPO_ROOT, absolutePath))
-  return !RUNTIME_ARTEFACT_PREFIXES.some((prefix) => rel.startsWith(prefix))
+  return (
+    !RUNTIME_ARTEFACT_PREFIXES.some((prefix) => rel.startsWith(prefix)) &&
+    !RUNTIME_ARTEFACT_PATTERNS.some((pattern) => pattern.test(rel))
+  )
 }
 
 /**

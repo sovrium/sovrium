@@ -6,7 +6,7 @@
  */
 
 import { readIsoAudioTrack } from './iso-bmff-read'
-import { writeM4a } from './iso-bmff-write'
+import { writeM4a, writeMatroskaAacM4a } from './iso-bmff-write'
 import { readMatroskaAudioTrack } from './matroska-read'
 import { writeWebmAudio } from './matroska-write'
 import { latin1, RemuxRefusal } from './media-bytes'
@@ -14,7 +14,8 @@ import type { ExtractedAudio } from '@/application/ports/services/audio-track-ex
 
 /**
  * The audio remux: tell the container from its first bytes, take its audio
- * track out, and write it into the audio container its codec belongs to.
+ * track out, and write it into the audio container its codec belongs to —
+ * AAC into an M4A whatever it came in, Opus and Vorbis into a WebM.
  * Throws a {@link RemuxRefusal}; the adapter turns it into a typed error.
  */
 
@@ -61,6 +62,14 @@ export const remuxAudio = (bytes: Uint8Array): ExtractedAudio => {
   }
   if (container === 'matroska') {
     const track = readMatroskaAudioTrack(bytes)
+    if (track.codec === 'A_AAC') {
+      return {
+        bytes: writeMatroskaAacM4a(bytes, track),
+        mimeType: 'audio/mp4',
+        extension: 'm4a',
+        hadVideo: track.hadVideo,
+      }
+    }
     return {
       bytes: writeWebmAudio(track),
       mimeType: 'audio/webm',

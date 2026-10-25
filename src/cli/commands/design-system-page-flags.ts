@@ -14,6 +14,8 @@
  *   `system/<name>.yaml`, and no database is opened;
  * - `--records <n>` (with `--seed`) how many boards a routed record page gets;
  * - `--now <instant>` the instant relative times are drawn against;
+ * - `--as <email>` (with `--seed`) draws every board as the seeded account
+ *   holding that address, instead of the first seeded administrator;
  * - `--state <page>:<key>=<value>` one more board of a page, at that state;
  * - `--prototype[=app]` clickable Claude Design boards.
  *
@@ -24,7 +26,15 @@
 
 import { stat } from 'node:fs/promises'
 import { dirname, join, relative, resolve } from 'node:path'
-import { pageSeedOf } from '@/application/use-cases/admin/design-system-page-seed-folder'
+import {
+  seededAccountOf,
+  type PageDrawOptions,
+} from '@/application/use-cases/admin/design-system-page-boards'
+import {
+  pageSeedOf,
+  type PageSeed,
+  type PageSeedAccount,
+} from '@/application/use-cases/admin/design-system-page-seed-folder'
 import {
   checkPageState,
   type PageStateRequest,
@@ -33,8 +43,8 @@ import { getFlagValue, getFlagValues } from '@/cli/runtime/flag-vocabulary'
 import { SPECIMEN_INSTANT } from '@/domain/models/app/pages/specimen-sample-service'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { discoverSeedFiles, loadSeedFiles, parseSeedText } from './seed-load'
-import type { PageDrawOptions } from '@/application/use-cases/admin/design-system-page-boards'
 import type { App } from '@/domain/models/app'
+import type { CanvasDrawnWith } from '@/domain/models/app/design/adapters/pages/claude-design-canvas-drawn-with'
 
 /** The drawing flags as typed: each RAW value, and whether the flag was given at all. */
 export interface PageDrawFlags {
@@ -44,6 +54,8 @@ export interface PageDrawFlags {
   readonly recordsRequested?: boolean
   readonly now?: string | undefined
   readonly nowRequested?: boolean
+  readonly as?: string | undefined
+  readonly asRequested?: boolean
   readonly states?: readonly string[]
   /** `''` for a bare `--prototype`, the value after `=` otherwise; absent without the flag. */
   readonly prototype?: string | undefined
@@ -59,6 +71,8 @@ export const drawFlagsOf = (argv: readonly string[]): PageDrawFlags => {
     recordsRequested: argv.includes('--records'),
     now: getFlagValue(argv, '--now'),
     nowRequested: argv.includes('--now'),
+    as: getFlagValue(argv, '--as'),
+    asRequested: argv.includes('--as'),
     states: getFlagValues(argv, '--state'),
     prototype: prototype === undefined ? undefined : prototype.slice('--prototype='.length),
   }
@@ -83,6 +97,7 @@ const givenFlags = (flags: PageDrawFlags): readonly string[] => [
   ...(flags.seedRequested === true ? ['--seed'] : []),
   ...(flags.recordsRequested === true ? ['--records'] : []),
   ...(flags.nowRequested === true ? ['--now'] : []),
+  ...(flags.asRequested === true ? ['--as'] : []),
   ...((flags.states ?? []).length > 0 ? ['--state'] : []),
   ...(flags.prototype === undefined ? [] : ['--prototype']),
 ]
@@ -95,6 +110,10 @@ interface FlagRefusal {
   readonly when: (flags: PageDrawFlags, pages: boolean) => boolean
   readonly says: (flags: PageDrawFlags) => string
 }
+
+/** The first `--state <page>:role=<value>` asked for, which draws another account. */
+const roleStateOf = (flags: PageDrawFlags): string | undefined =>
+  (flags.states ?? []).find((state) => /:role=/.test(state))
 
 /** The refusals of the drawing flags, in the order they are checked. */
 const FLAG_REFUSALS: readonly FlagRefusal[] = [
@@ -117,6 +136,21 @@ const FLAG_REFUSALS: readonly FlagRefusal[] = [
     when: (flags) => flags.recordsRequested === true && flags.seedRequested !== true,
     says: () =>
       '--records counts the seeded records a page is drawn for, so it needs --seed <dir>.',
+  },
+  {
+    when: (flags) => flags.asRequested === true && flags.seedRequested !== true,
+    says: () =>
+      '--as draws the pages as one seeded account, so it needs --seed <dir> to find it in.',
+  },
+  {
+    when: (flags) => flags.asRequested === true && roleStateOf(flags) !== undefined,
+    says: (flags) =>
+      `--as draws every board as one seeded account, so it cannot be given with --state ` +
+      `${roleStateOf(flags) ?? ''}, whose role=<value> board would draw another account.`,
+  },
+  {
+    when: (flags) => flags.asRequested === true && (flags.as ?? '') === '',
+    says: () => '--as names the email address of a seeded account: --as <email>.',
   },
   {
     when: (flags) => flags.recordsRequested === true && !/^[1-9]\d*$/.test(flags.records ?? ''),
@@ -172,14 +206,22 @@ const readLists = async (folder: string): Promise<Readonly<Record<string, readon
   return Object.fromEntries(lists)
 }
 
-/** Read the seed folder `--seed` named, refusing one that is missing or does not read. */
-const readSeed = async (app: App, configPath: string, raw: string, now: Readonly<Date>) => {
-  const folder = resolve(process.cwd(), raw)
+/**
+ * Read the seed folder `--seed` named, refusing one that is missing or does
+ * not read; `named` is how a refusal names it.
+ */
+const readSeed = async (
+  app: App,
+  configPath: string,
+  folder: string,
+  seeded: { readonly now: Readonly<Date>; readonly named: string }
+) => {
+  const { now, named } = seeded
   if (!(await isFolder(folder))) {
-    return refuse(`--seed ${raw}: there is no such folder (${folder}).`)
+    return refuse(`${named}: there is no such folder (${folder}).`)
   }
   const loaded = await loadSeedFiles(folder)
-  if (!loaded.ok) return refuse(`--seed ${raw} does not read:\n\n  ${loaded.errors.join('\n  ')}`)
+  if (!loaded.ok) return refuse(`${named} does not read:\n\n  ${loaded.errors.join('\n  ')}`)
   return pageSeedOf(
     app,
     {
@@ -190,6 +232,29 @@ const readSeed = async (app: App, configPath: string, raw: string, now: Readonly
       system: await readLists(join(folder, 'system')),
     },
     now
+  )
+}
+
+/**
+ * The seeded account an `--as` address names, refusing an address no seeded
+ * account holds (`named` is how the refusal names the flag); none without one.
+ */
+const accountOf = (
+  seed: PageSeed | undefined,
+  email: string | undefined,
+  named: string
+): PageSeedAccount | undefined => {
+  if (email === undefined || seed === undefined) return undefined
+  const account = seed.accounts.find(
+    (candidate) => candidate.email.toLowerCase() === email.toLowerCase()
+  )
+  if (account !== undefined) return account
+  const held = seed.accounts.map((candidate) => candidate.email)
+  return refuse(
+    `${named}: no seeded account holds the address ${email}.\n\n  ` +
+      (held.length === 0
+        ? 'The seed folder declares no account.'
+        : `The seeded accounts are: ${held.join(', ')}.`)
   )
 }
 
@@ -215,13 +280,65 @@ export const pageDrawRequestFor = async (
   const seed =
     flags.seed === undefined
       ? undefined
-      : await readSeed(app, configPath, flags.seed, now ?? SPECIMEN_INSTANT)
+      : await readSeed(app, configPath, resolve(process.cwd(), flags.seed), {
+          now: now ?? SPECIMEN_INSTANT,
+          named: `--seed ${flags.seed}`,
+        })
   return {
     seed,
     now,
+    as: accountOf(seed, flags.as, `--as ${flags.as ?? ''}`),
     records: flags.records === undefined ? undefined : Number(flags.records),
     states: checks.flatMap((check) => (check.ok ? [check.state] : [])),
     prototype:
       flags.prototype === undefined ? undefined : flags.prototype === 'app' ? 'app' : 'board',
+  }
+}
+
+/**
+ * Name the seed folder and the account an import's comparison is drawn from.
+ * A recorded folder may sit outside the project (a shared seed): naming it is
+ * the safeguard.
+ */
+const nameComparison = (folder: string, reader: PageSeedAccount | undefined): void =>
+  printStderr(
+    `Compared against a drawing made from the seed folder ${folder}, ` +
+      `as ${reader?.email ?? 'the sample administrator'}.`
+  )
+
+/**
+ * What the canvas being imported was drawn with, rebuilt from the inputs its
+ * export recorded: the seed folder (read relative to the config, as the
+ * export named it), the instant, the account, the record count and the
+ * prototype kind.
+ * Refuses, naming it, a recorded seed folder that is missing or no longer
+ * reads, and names on stderr the folder and the account the comparison is
+ * drawn as; `undefined` when the canvas recorded nothing.
+ */
+export const recordedDrawRequestFor = async (
+  app: App,
+  configPath: string,
+  recorded: CanvasDrawnWith | undefined
+): Promise<PageDrawRequest | undefined> => {
+  if (recorded === undefined) return undefined
+  const now = clockOf(recorded.now)
+  const folder =
+    recorded.seed === undefined ? undefined : resolve(dirname(resolve(configPath)), recorded.seed)
+  const seed =
+    folder === undefined
+      ? undefined
+      : await readSeed(app, configPath, folder, {
+          now: now ?? SPECIMEN_INSTANT,
+          named: `The seed folder "${recorded.seed ?? ''}" the canvas was exported with`,
+        })
+  const as = accountOf(seed, recorded.as, 'The account the canvas was exported as')
+  if (folder !== undefined) nameComparison(folder, as ?? seededAccountOf(seed, 'admin'))
+  return {
+    seed,
+    now,
+    as,
+    records: recorded.records,
+    states: [],
+    prototype: recorded.prototype,
   }
 }

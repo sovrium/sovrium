@@ -61,12 +61,18 @@ function openItemOf(columns: readonly DataTableColumn[]): RowClick | undefined {
  * with nowhere to open keeps its columns: its actions are then reached by
  * scrolling sideways, under the scroll edge.
  *
+ * The panel `rowExpand` builds (`rowExpandPanel`) is not somewhere to open in
+ * that sense: it carries only fields, so dropping the columns for it would leave
+ * the actions reachable from nowhere. Its row keeps opening the panel, and the
+ * columns stay unless a navigate-only Open item is there to take the tap.
+ *
  * Above `md`, or with no open target, the props come back untouched.
  */
 export function phoneRowOpen(props: DataTableIslandProps, belowMd: boolean): DataTableIslandProps {
   const { columns } = props
   if (!belowMd || columns === undefined || !columns.some(isActionColumn)) return props
-  const onRowClick = props.onRowClick ?? openItemOf(columns)
+  const authored = props.rowExpandPanel === true ? undefined : props.onRowClick
+  const onRowClick = authored ?? openItemOf(columns)
   if (onRowClick === undefined) return props
   return { ...props, onRowClick, columns: columns.filter((column) => !isActionColumn(column)) }
 }

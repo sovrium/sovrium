@@ -6,9 +6,10 @@
  */
 
 /**
- * `sovrium deploy` waiting for its deployment: the record read every two
- * seconds (longer while the cloud is busy), each state and attempt printed
- * once, and — on `live` — the app's address checked before the command says so.
+ * `sovrium deploy` and `sovrium preview` waiting for their deployment: the
+ * answer announced, then the record read every two seconds (longer while the
+ * cloud is busy), each state and attempt printed once, and — on `live` — the
+ * address checked before the command says so.
  */
 
 import { Effect, Schema } from 'effect'
@@ -23,6 +24,7 @@ import {
 } from './deploy-progress'
 import { awaitAddress } from './deploy-target'
 import type { SignedInCloud } from './cloud-sign-in'
+import type { DeployResponse } from '@/domain/models/api/automations/automations'
 
 /**
  * The line naming the app's operator console, from the deploy answer — only
@@ -39,6 +41,9 @@ export const adminLineOf = (answer: {
 
 /** How often the deployment is read while the command waits. */
 const POLL_INTERVAL_MS = 2000
+
+/** How long the command waits for `live`, `failed` or `replaced`. */
+const WAIT_LIMIT_MS = 10 * 60 * 1000
 
 /** The refusal once the 10 minutes run out with the deployment not yet at an end. */
 const stillWaiting = (id: string, status: string): CliRefusal =>
@@ -68,6 +73,19 @@ const readDeployment = (
     expired: () => stillWaiting(wait.id, wait.status),
   })
 
+/** What is said once the address answers: `Live at`, and the console line when there is one. */
+const arrivalLines = (
+  deployment: {
+    readonly adminLine?: string
+    readonly arrived?: (address: string) => readonly string[]
+  },
+  address: string
+): readonly string[] =>
+  deployment.arrived?.(address) ?? [
+    `Live at ${address}.`,
+    ...(deployment.adminLine === undefined ? [] : [deployment.adminLine]),
+  ]
+
 /**
  * Read the deployment until it is `live`, `failed` or `replaced`, printing each
  * state it enters and each new attempt the cloud makes, and return which of
@@ -83,6 +101,10 @@ export const follow = (
     readonly deadline: number
     /** The console line printed under `Live at`, when the cloud's answer names one. */
     readonly adminLine?: string
+    /** The verb a failed deployment is run again with; `deploy` when absent. */
+    readonly verb?: string
+    /** What is said once the address answers, in place of `Live at <address>.` */
+    readonly arrived?: (address: string) => readonly string[]
   },
   printed: PrintedProgress
 ): Effect.Effect<'live' | 'replaced', CliRefusal> =>
@@ -100,8 +122,7 @@ export const follow = (
       })
       const address = fields.url == null || fields.url === '' ? deployment.url : fields.url
       yield* awaitAddress(address, deployment.id)
-      yield* say(`Live at ${address}.`)
-      if (deployment.adminLine !== undefined) yield* say(deployment.adminLine)
+      yield* Effect.forEach(arrivalLines(deployment, address), say, { discard: true })
       return 'live' as const
     }
     yield* Effect.forEach(progressLines(deployment.id, printed, read), say, { discard: true })
@@ -111,7 +132,7 @@ export const follow = (
       return yield* new CliRefusal({
         headline: `Deployment ${deployment.id} failed on ${cloud.origin.origin}.`,
         ...(fields.report == null ? {} : { detail: fields.report.split('\n') }),
-        guidance: "Fix what the report names, then run 'sovrium deploy' again.",
+        guidance: `Fix what the report names, then run 'sovrium ${deployment.verb ?? 'deploy'}' again.`,
       })
     }
     if (Date.now() > deployment.deadline) return yield* stillWaiting(deployment.id, fields.status)
@@ -120,4 +141,65 @@ export const follow = (
       status: fields.status,
       attempt: fields.attempt ?? printed.attempt,
     })
+  })
+
+/** How a command speaks of the deployment the cloud accepted, and where it waits for it. */
+export interface Announcement {
+  /** The app the deployment belongs to, named while it waits for a machine. */
+  readonly slug: string
+  /** Said in place of the first state when the cloud replayed a known request. */
+  readonly replayed: string
+  /** The address `live` is checked at, when the record names none. */
+  readonly url: string
+  /** Return once announced, saying `noWaitLines`, instead of following it. */
+  readonly noWait: boolean
+  readonly noWaitLines?: readonly string[]
+  /** As {@link follow}'s `verb` and `arrived`. */
+  readonly verb?: string
+  readonly arrived?: (address: string) => readonly string[]
+}
+
+/**
+ * Announce an accepted deployment — its first state (or the replay), a wait
+ * for a machine, the cloud's hint, its attempt — then, unless `noWait`,
+ * {@link follow} it for up to 10 minutes. Returns how it ended, or `undefined`
+ * under `noWait`.
+ */
+export const announceAndFollow = (
+  cloud: SignedInCloud,
+  answer: DeployResponse,
+  announcement: Announcement
+): Effect.Effect<'live' | 'replaced' | undefined, CliRefusal> =>
+  Effect.gen(function* () {
+    const id = answer.deploymentId
+    yield* say(
+      answer.replayed
+        ? announcement.replayed
+        : `Deployment ${id}: ${describeDeploymentStatus(answer.status)}`
+    )
+    if (answer.placement === 'waiting') {
+      yield* say(
+        `Deployment ${id}: waiting for a machine — it starts once one takes ${announcement.slug}.`
+      )
+    }
+    if (answer.hint !== undefined) yield* say(`Deployment ${id}: ${answer.hint}`)
+    const first = { attempt: answer.attempt, previous: answer.previousAttempt }
+    yield* Effect.forEach(attemptLines(id, undefined, first), say, { discard: true })
+    if (announcement.noWait) {
+      yield* Effect.forEach(announcement.noWaitLines ?? [], say, { discard: true })
+      return undefined
+    }
+    const adminLine = adminLineOf(answer)
+    return yield* follow(
+      cloud,
+      {
+        id,
+        url: announcement.url,
+        deadline: Date.now() + WAIT_LIMIT_MS,
+        ...(adminLine === undefined ? {} : { adminLine }),
+        ...(announcement.verb === undefined ? {} : { verb: announcement.verb }),
+        ...(announcement.arrived === undefined ? {} : { arrived: announcement.arrived }),
+      },
+      { status: answer.status, attempt: answer.attempt }
+    )
   })

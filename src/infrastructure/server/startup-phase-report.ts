@@ -207,7 +207,7 @@ const collectInfraPhases = (
  * a CLI log output spec (both hold → the row, directly under the URL),
  * a CLI log output spec (console off), a CLI log output spec (no auth).
  */
-const adminConsoleLocator = (app: App, url: string): string | undefined => {
+export const adminConsoleLocator = (app: App, url: string): string | undefined => {
   if (!app.auth) return undefined
   const [mount] = adminMountsFor(app)
   if (!mount) return undefined

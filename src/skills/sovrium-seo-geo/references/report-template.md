@@ -49,6 +49,8 @@ One line per finding, most severe first:
 - Sovrium limitations met (with the "today" notes from the skill).
 - What was not checked (field Core Web Vitals, Search Console data, off-site mentions).
 
+End the report with one `Decisions to record: <title — touches>` line per nominated decision, or `Decisions to record: none`. Nominate only a data-model shape, the permissions or auth model, SQLite versus PostgreSQL, a design character choice, a disabled or deferred automation, or a security trade-off left in place — never labels, copy or colours. Nominate here; the `sovrium-config-editor` agent writes the `decisions:` record, never this skill.
+
 ## Example
 
 ```
@@ -58,4 +60,5 @@ config/pages/pricing.yaml:3   T-CANON   no canonical                            
 config/pages/pricing.yaml:12  OG-AVIF   og:image is .avif (fails on X, LinkedIn) →  export a 1200×630 PNG, set openGraph.image
 .env                          T-ORIGIN  BASE_URL unset; hreflang relative        →  BASE_URL=https://acme.example
 app.yaml                      T-NOINDEX /thank-you noindex but linked in nav      →  keep noindex; drop it from the nav and set sitemap: false
+Decisions to record: none
 ```

@@ -26,6 +26,9 @@ export function buildCrudRecordUpdateAttributes(
     url: `/api/tables/${encodeURIComponent(action.table)}/records/${encodeURIComponent(String(recordId))}`,
     method: 'PATCH',
     body: { fields: action.data },
+    // The toasts the action declares, in the fetch action's shape.
+    ...(action.onSuccess?.toast !== undefined ? { onSuccess: { ...action.onSuccess.toast } } : {}),
+    ...(action.onError?.toast !== undefined ? { onError: { ...action.onError.toast } } : {}),
     ...(action.confirm === true ? { confirm: true } : {}),
     ...(action.confirmMessage !== undefined ? { confirmMessage: action.confirmMessage } : {}),
   } as FetchAction)

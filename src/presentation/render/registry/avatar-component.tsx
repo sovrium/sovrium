@@ -159,7 +159,9 @@ const renderBody = ({
   readonly label: string | undefined
   readonly shape: AvatarShape
 }): ReactElement | undefined => {
-  if (src !== undefined) {
+  // An empty address is no picture: a record with no photo stored draws its
+  // initials rather than a broken image.
+  if (src !== undefined && src !== '') {
     return (
       <img
         data-avatar-image=""

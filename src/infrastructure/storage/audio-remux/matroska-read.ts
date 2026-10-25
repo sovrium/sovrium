@@ -25,8 +25,18 @@ import { ensureCount, malformed, MAX_AUDIO_FRAMES, RemuxRefusal } from './media-
  * Cluster is read to where the next top-level element starts.
  */
 
-/** The audio codecs a WebM carries, and so the only ones this remux copies. */
-const WEBM_AUDIO_CODECS: ReadonlySet<string> = new Set(['A_OPUS', 'A_VORBIS'])
+/**
+ * The audio codecs this remux copies: the two a WebM carries, and AAC, which
+ * goes into an M4A instead (the codec, not the source container, decides).
+ */
+const COPIED_AUDIO_CODECS: ReadonlySet<string> = new Set(['A_OPUS', 'A_VORBIS', 'A_AAC'])
+
+/** Where one block's frame lies in the file, and when it plays, in timecode ticks. */
+export interface MatroskaFrame {
+  readonly offset: number
+  readonly size: number
+  readonly tick: number
+}
 
 const TRACK_TYPE_VIDEO = 1
 const TRACK_TYPE_AUDIO = 2
@@ -47,6 +57,16 @@ export interface MatroskaAudioTrack {
   readonly trackNumber: number
   readonly clusters: readonly AudioCluster[]
   readonly hadVideo: boolean
+  /** The track's CodecID (`A_OPUS`, `A_VORBIS`, `A_AAC`). */
+  readonly codec: string
+  /** The track's CodecPrivate — for AAC, its AudioSpecificConfig. */
+  readonly codecPrivate: Uint8Array | undefined
+  readonly sampleRate: number
+  readonly channels: number
+  /** The track's DefaultDuration in nanoseconds, 0 when it states none. */
+  readonly defaultDuration: number
+  /** Every block's single frame, in file order; laced blocks are not listed. */
+  readonly frames: readonly MatroskaFrame[]
 }
 
 interface TrackInfo {
@@ -55,6 +75,46 @@ interface TrackInfo {
   readonly type: number
   readonly codec: string
   readonly defaultDuration: number
+  readonly codecPrivate: Uint8Array | undefined
+  readonly sampleRate: number
+  readonly channels: number
+}
+
+/** The sampling frequency and channel count of a track's Audio element (8 kHz mono by default). */
+const readAudioSettings = (
+  bytes: Uint8Array,
+  entry: Element
+): { readonly sampleRate: number; readonly channels: number } => {
+  const audio = childElement(bytes, entry, EBML_ID.audio)
+  const rate = childElement(bytes, audio, EBML_ID.samplingFrequency)
+  const channels = childElement(bytes, audio, EBML_ID.channels)
+  return {
+    sampleRate: rate === undefined ? 8000 : floatValue(bytes, rate),
+    channels: channels === undefined ? 1 : uintValue(bytes, channels),
+  }
+}
+
+/** The most an AAC CodecPrivate is read: an AudioSpecificConfig is a few bytes. */
+const MAX_CODEC_PRIVATE_BYTES = 1024
+
+/**
+ * Refuse, as a malformed file, an audio header no output could carry: a rate
+ * that is not a whole number from 1 to 2^32 − 1, a channel count outside
+ * 1..255, or an AAC CodecPrivate past {@link MAX_CODEC_PRIVATE_BYTES}. Never
+ * written into an output header as found.
+ */
+const checkAudioHeader = (track: TrackInfo): void => {
+  const rate = track.sampleRate
+  if (!Number.isInteger(rate) || rate < 1 || rate > 0xff_ff_ff_ff) {
+    malformed(`an audio sampling frequency of ${String(rate)}`)
+  }
+  if (track.channels < 1 || track.channels > 255) {
+    malformed(`an audio track of ${String(track.channels)} channels`)
+  }
+  // Only AAC's is bounded: a Vorbis CodecPrivate carries its codebooks, kilobytes long.
+  if (track.codec === 'A_AAC' && (track.codecPrivate?.length ?? 0) > MAX_CODEC_PRIVATE_BYTES) {
+    malformed('an AAC CodecPrivate longer than 1 KiB')
+  }
 }
 
 const readTrack = (bytes: Uint8Array, entry: Element): TrackInfo => {
@@ -63,7 +123,13 @@ const readTrack = (bytes: Uint8Array, entry: Element): TrackInfo => {
   const type = field(EBML_ID.trackType)
   const codec = field(EBML_ID.codecId)
   const defaultDuration = field(EBML_ID.defaultDuration)
+  const codecPrivate = field(EBML_ID.codecPrivate)
   return {
+    ...readAudioSettings(bytes, entry),
+    codecPrivate:
+      codecPrivate === undefined
+        ? undefined
+        : bytes.subarray(codecPrivate.payload, codecPrivate.end),
     entry,
     number: number === undefined ? 0 : uintValue(bytes, number),
     type: type === undefined ? 0 : uintValue(bytes, type),
@@ -76,16 +142,28 @@ const readTrack = (bytes: Uint8Array, entry: Element): TrackInfo => {
 const blockHeader = (
   bytes: Uint8Array,
   block: Element
-): { readonly track: number; readonly relative: number } => {
+): {
+  readonly track: number
+  readonly relative: number
+  readonly laced: boolean
+  readonly frameAt: number
+} => {
   const track = readVint(bytes, block.payload, false)
   const at = block.payload + track.length
-  if (at + 2 > block.end) malformed('a block shorter than its header')
+  if (at + 3 > block.end) malformed('a block shorter than its header')
   const raw = (bytes[at]! << 8) | bytes[at + 1]!
-  return { track: track.value, relative: raw >= 0x80_00 ? raw - 0x1_00_00 : raw }
+  return {
+    track: track.value,
+    relative: raw >= 0x80_00 ? raw - 0x1_00_00 : raw,
+    // Bits 1-2 of the flags byte name the lacing; 0 is one frame, unlaced.
+    laced: (bytes[at + 2]! & 0x06) !== 0,
+    frameAt: at + 3,
+  }
 }
 
 interface ClusterRead {
   readonly cluster: AudioCluster
+  readonly frames: readonly MatroskaFrame[]
   /** Where the cluster's last audio block ends, in ticks; 0 when it holds none. */
   readonly lastTick: number
 }
@@ -100,6 +178,7 @@ const readCluster = (
   const timecodeElement = children.find((child) => child.id === EBML_ID.timecode)
   const timecode = timecodeElement === undefined ? 0 : uintValue(bytes, timecodeElement)
   const blocks: Uint8Array[] = []
+  const frames: MatroskaFrame[] = []
   let lastTick = 0
   children.forEach((child) => {
     const block =
@@ -113,6 +192,11 @@ const readCluster = (
     if (header.track !== track.number) return
     // eslint-disable-next-line no-restricted-syntax -- sanctioned mutation: appending each block to one array keeps a cluster read linear
     blocks.push(elementBytes(bytes, child))
+    if (!header.laced) {
+      const tick = timecode + header.relative
+      // eslint-disable-next-line no-restricted-syntax -- sanctioned mutation: same linear read as the blocks above
+      frames.push({ offset: header.frameAt, size: block.end - header.frameAt, tick })
+    }
     const durationElement =
       child.id === EBML_ID.blockGroup
         ? childElement(bytes, child, EBML_ID.blockDuration)
@@ -121,16 +205,16 @@ const readCluster = (
       durationElement === undefined ? defaultTicks : uintValue(bytes, durationElement)
     lastTick = Math.max(lastTick, timecode + header.relative + duration)
   })
-  return { cluster: { timecode, blocks }, lastTick }
+  return { cluster: { timecode, blocks }, frames, lastTick }
 }
 
-/** The audio track to copy: the first WebM carries, refusing a file with none, or whose audio is another codec. */
+/** The audio track to copy: the first this remux copies, refusing a file with none, or whose audio is another codec. */
 const chooseAudioTrack = (tracks: readonly TrackInfo[], hadVideo: boolean): TrackInfo => {
   const audio = tracks.filter((track) => track.type === TRACK_TYPE_AUDIO)
   if (audio.length === 0) {
     throw new RemuxRefusal('no-audio-track', 'holds no audio track', { hadVideo })
   }
-  const chosen = audio.find((track) => WEBM_AUDIO_CODECS.has(track.codec))
+  const chosen = audio.find((track) => COPIED_AUDIO_CODECS.has(track.codec))
   if (chosen === undefined) {
     const codec = audio[0]!.codec || 'an unnamed codec'
     throw new RemuxRefusal('unsupported-codec', `carries ${codec} audio`, { codec, hadVideo })
@@ -164,6 +248,7 @@ export const readMatroskaAudioTrack = (bytes: Uint8Array): MatroskaAudioTrack =>
     .map((entry) => readTrack(bytes, entry))
   const hadVideo = tracks.some((track) => track.type === TRACK_TYPE_VIDEO)
   const chosen = chooseAudioTrack(tracks, hadVideo)
+  checkAudioHeader(chosen)
   const info = readInfo(
     bytes,
     level1.find((element) => element.id === EBML_ID.info)
@@ -192,5 +277,11 @@ export const readMatroskaAudioTrack = (bytes: Uint8Array): MatroskaAudioTrack =>
     trackNumber: chosen.number,
     clusters,
     hadVideo,
+    codec: chosen.codec,
+    codecPrivate: chosen.codecPrivate,
+    sampleRate: chosen.sampleRate,
+    channels: chosen.channels,
+    defaultDuration: chosen.defaultDuration,
+    frames: reads.flatMap((read) => read.frames),
   }
 }

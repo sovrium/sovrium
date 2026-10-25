@@ -1,0 +1,25 @@
+# One decision record: why an MCP client authenticates with its owner's API key
+# instead of a shared service account.
+id: ADR-002
+title: An MCP client acts as the person whose key it holds
+status: accepted
+date: '2026-03-02'
+deciders:
+  - Priya Nair
+touches:
+  - auth › apiKeys
+  - auth › roles
+  - tables › documents › permissions
+context: >-
+  Several people connect their own assistant to the same server. One shared
+  credential would give every assistant the widest rights any of them needs,
+  and the record of who added what would name the credential, not the person.
+decision: >-
+  Each person mints their own API key and the client sends it on `x-api-key`.
+  A tool call runs as that person, with their role read afresh on every call,
+  under the same table permissions as the REST API and the admin console.
+  Nobody signs up from outside: an admin adds each account.
+consequences: >-
+  A viewer's assistant can read but never create. Demoting someone narrows
+  their key at once, and revoking it is one action. There is no machine account
+  to rotate, and an assistant can never write what its owner could not.

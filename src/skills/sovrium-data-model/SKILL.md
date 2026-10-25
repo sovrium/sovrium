@@ -11,7 +11,7 @@ metadata:
 
 A bare agent models a Sovrium app like a spreadsheet: one wide table, comma-separated lists in a text cell, a copy of the customer's email on every order, a select that should have been a table, and permissions added last as an afterthought. Then it renames a field by deleting and recreating it, and the column's data goes with it. In Sovrium the table list is also the API, the permission boundary and the migration plan, so these mistakes ship to users.
 
-Run the core loop from `sovrium-app` underneath this skill: edit → `sovrium validate` → `sovrium start --watch` → browser → API.
+Run the core loop from `sovrium-app` underneath this skill: edit → `sovrium validate` → `sovrium dev` → browser → API.
 
 ## Ask first
 
@@ -120,7 +120,8 @@ Produce these, in this order, before or with the config edit:
 
 4. **Permissions table**: `table | read | create | update | delete | field and row rules`.
 5. **The config edit**, then `sovrium validate`.
-6. **Verification**: `sovrium start --watch`; `GET /api/tables/<table>/records` as an allowed role and as a denied one (expect `404` or an omitted field); one record page in the browser; a lower-privilege account sees what it should and nothing more.
+6. **Verification**: `sovrium dev` (fresh seed, a printed admin); `GET /api/tables/<table>/records` as an allowed role and as a denied one (expect `404` or an omitted field); one record page in the browser; a lower-privilege account sees what it should and nothing more.
+7. **Decisions to record**: `Decisions to record: <title — touches>`, one line per nominated decision, or `Decisions to record: none`. Nominate only a choice a future operator would ask about (the data-model shape, the permissions or auth model, SQLite or PostgreSQL, a design character, a disabled automation, a security trade-off left in place such as dev mode on a public origin or an open table), never labels, copy or colours. Skills only nominate; only the `sovrium-config-editor` agent writes the `decisions:` register.
 
 ## Anti-patterns
 

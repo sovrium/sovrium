@@ -106,6 +106,7 @@ export function ComboboxItemRenderer(item: OptionItem): ReactElement {
       disabled={item.disabled}
       className={computeComboboxItemClasses()}
       data-slot="combobox-item"
+      data-value={item.value}
     >
       {item.label}
       <Combobox.ItemIndicator className={computeSelectItemIndicatorClasses()}>

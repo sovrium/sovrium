@@ -378,9 +378,9 @@ export function renderFileUpload(config: RenderFileUploadConfig): ReactElement {
  * path is unreachable from any schema-authored `customHTML` component — the
  * decoded schema only exposes `content` / `htmlSrc`.
  *
- * The `data-component="customHTML"` attribute matches the schema type literal
- * (consistent with `data-component="dataTable"` etc.) and is used by E2E specs
- * to assert the component rendered.
+ * An authored node carries `data-component="customHTML"`, the schema type literal
+ * E2E specs assert on; an embedded form (it carries `data-form-ref`) does not:
+ * the author wrote a `form`, and that element is named `form` only.
  */
 export function renderCustomHTML(
   props: ElementProps,
@@ -391,7 +391,7 @@ export function renderCustomHTML(
   return (
     <div
       {...omitInternalMarkers(props)}
-      data-component="customHTML"
+      data-component={props['data-form-ref'] === undefined ? 'customHTML' : undefined}
       // Safe: HTML has been sanitized to remove <script>, inline handlers, javascript: URLs
       // eslint-disable-next-line sovrium/require-sanitized-html -- sanitizeRichTextHTML output on every schema path; the unsanitized branch is the engine's own embedded-form markup, which no schema can reach
       dangerouslySetInnerHTML={{ __html: sanitizedHTML }}

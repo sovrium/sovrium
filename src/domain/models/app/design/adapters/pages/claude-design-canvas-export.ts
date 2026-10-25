@@ -44,6 +44,7 @@ import type {
   PageExportStamp,
 } from '@/domain/models/api/admin/design-system/page-design-tree'
 import type { AdapterFile } from '@/domain/models/app/design/adapters/export/adapter-export-values'
+import type { CanvasDrawnWith } from '@/domain/models/app/design/adapters/pages/claude-design-canvas-drawn-with'
 import type { CanvasLinkRoute } from '@/domain/models/app/design/adapters/pages/claude-design-canvas-links'
 
 /**
@@ -169,6 +170,8 @@ export interface ClaudeDesignCanvasInput {
    * canvas back tells a drawn value from an edit.
    */
   readonly recordTexts?: boolean | undefined
+  /** The drawing inputs, recorded in the stamp file so the import draws its baseline the same way. */
+  readonly drawnWith?: CanvasDrawnWith | undefined
   /** The stateful prototype (`--prototype=app`): one Prototype board over one store. */
   readonly app?:
     | {
@@ -561,6 +564,7 @@ const stampFileOf = (input: ClaudeDesignCanvasInput, layout: CanvasLayout): stri
     {
       format: CANVAS_STAMP_FORMAT,
       version: 1,
+      ...(input.drawnWith === undefined ? {} : { drawnWith: input.drawnWith }),
       boards: Object.fromEntries(
         layout.placed.map(({ board, path }) => {
           const texts =

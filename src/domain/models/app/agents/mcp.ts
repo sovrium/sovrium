@@ -55,7 +55,15 @@ export const AgentMcpSchema = Schema.Struct({
   ),
   /** List of allowed MCP tool names the agent can invoke */
   allowedTools: Schema.optional(
-    Schema.Array(Schema.String.pipe(Schema.check(Schema.isMinLength(1)))).pipe(
+    Schema.Array(
+      Schema.String.pipe(
+        Schema.annotate({
+          description:
+            "One tool to keep: the tool's own name (lookup_company) or its qualified <server>__<tool> form.",
+        }),
+        Schema.check(Schema.isMinLength(1))
+      )
+    ).pipe(
       Schema.annotate({
         description:
           "Narrows the tools of the servers in mcp.servers to these names: a tool's own name (lookup_company) or its qualified <server>__<tool> form. Every tool of those servers when omitted.",

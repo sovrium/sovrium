@@ -54,6 +54,7 @@
 import { Effect, Console } from 'effect'
 import { getCommandHelp } from '@/cli/runtime/command-help'
 import { parseArgs } from '@/cli/runtime/dispatch'
+import { failIfCrashInjected } from '@/cli/runtime/fault-injection'
 import { findUnknownFlag, getFlagValue, getFlagValues } from '@/cli/runtime/flag-vocabulary'
 import { printFailure } from '@/infrastructure/logging/cli-output'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
@@ -78,6 +79,7 @@ const HELP_TEXT = [
   '',
   'Run:',
   '  sovrium start [config]        Start the server (default command)',
+  '  sovrium dev [config]          Boot on fresh seed data with a dev account, reload on save',
   '  sovrium stop                  Stop the running server',
   '  sovrium restart [config]      Restart the running server',
   '  sovrium reload                Apply the edited config to the running server',
@@ -85,6 +87,7 @@ const HELP_TEXT = [
   '',
   'Project:',
   '  sovrium init [dir]            Scaffold a new project (in [dir], or cwd)',
+  '  sovrium templates             List the templates init can scaffold (--json for tooling)',
   '  sovrium schema                Print JSON Schema to stdout',
   '  sovrium types                 Emit sovrium.d.ts + tsconfig.json for a .ts config',
   "  sovrium skills                Write this version's agent skills into .claude/skills/",
@@ -108,9 +111,11 @@ const HELP_TEXT = [
   '  sovrium secret adopt          Persist $SOVRIUM_ENCRYPTION_KEY to the data dir',
   '  sovrium backup [config]       Write database, key, config and uploads to one archive',
   '  sovrium restore <file>        Put a backup back (never over a running server)',
+  '  sovrium usage [config]        Print how many bytes the database and stored files hold',
   '  sovrium update                Update to the latest version',
   '  sovrium login                 Sign the CLI in to a Sovrium cloud',
   '  sovrium deploy [config]       Ship the app to your Sovrium cloud, follow it until live',
+  '  sovrium preview [config]      Share a preview of the app on your Sovrium cloud',
   '  sovrium env <verb>            Set, list or remove the variables of a hosted app',
   '',
   'Options:',
@@ -127,7 +132,7 @@ const HELP_TEXT = [
   '  --list                        List every release, newest first (changelog)',
   '  --since <version>             Every release after <version>, breaking first (changelog)',
   '  --template <name>             Bundled template, or <owner>/<repo>[#ref] from GitHub (init)',
-  '  --name <name>                 App name (init)',
+  '  --name <name>                 App name (init), display name (admin create)',
   '  --password <value>            Admin password (admin create; else prompted)',
   '  --force                       Overwrite existing files (init, restore), edited skill files (skills)',
   '  --data-dir <dir>              Data directory to restore into (restore)',
@@ -152,11 +157,11 @@ const HELP_TEXT = [
   '  --limit <n>                   The most results to print (library search)',
   '  --host <url>                  The Sovrium cloud (login, deploy, seed)',
   '  --api-key <key>               Sign in with a key you already have (login)',
-  '  --open                        Open the page in your browser (login, report)',
+  '  --open | --no-open            Open the page in your browser (login, report); skip it (dev)',
   '  --status | --logout           Print or end the stored sign-in (login)',
-  '  --app <slug>                  The hosted app (deploy, env, seed)',
+  '  --app <slug>                  The hosted app (deploy, preview, env, seed)',
   '  --remote                      Seed the app this project is linked to (seed)',
-  '  --no-wait                     Return once the deployment is recorded (deploy)',
+  '  --no-wait                     Return once the deployment is recorded (deploy, preview)',
   '  --feature <kind>              config-option | engine-primitive | recipe (report)',
   '  --security                    The private form for a vulnerability (report)',
   '  --last-error                  Report the last failed command again (report)',
@@ -207,6 +212,9 @@ const showHelp = (): void => {
   Effect.runSync(Console.log(HELP_TEXT))
 }
 
+/** What `deploy` and `preview` read: the config, and the whole command line. */
+const shipOptions = () => ({ configFile: parsed.configFile, argv: rawArgs })
+
 /**
  * Commands that exit after completion (no persistent server)
  *
@@ -238,6 +246,7 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
       {
         configFile: parsed.configFile,
         password: parsed.password,
+        name: parsed.appName,
       }
     ),
   secret: async () =>
@@ -250,17 +259,16 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
       configFile: parsed.configFile,
       outputPath: parsed.outputPath,
     }),
+  usage: async () =>
+    (await import('@/cli/commands/usage')).handleUsageCommand(parsed.configFile, rawArgs),
   bundle: async () =>
     (await import('@/cli/commands/bundle')).handleBundleCommand({
       configFile: parsed.configFile,
       outputPath: parsed.outputPath,
     }),
   login: async () => (await import('@/cli/commands/login')).handleLoginCommand(rawArgs),
-  deploy: async () =>
-    (await import('@/cli/commands/deploy')).handleDeployCommand({
-      configFile: parsed.configFile,
-      argv: rawArgs,
-    }),
+  deploy: async () => (await import('@/cli/commands/deploy')).handleDeployCommand(shipOptions()),
+  preview: async () => (await import('@/cli/commands/preview')).handlePreviewCommand(shipOptions()),
   env: async () =>
     (await import('@/cli/commands/env')).handleEnvCommand({
       args: parsed.positionalArgs ?? [],
@@ -311,6 +319,8 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
   // An EXIT command: it renders one template and stops — no server, no database.
   render: async () => (await import('@/cli/commands/render')).handleRenderCommand(rawArgs),
   report: async () => (await import('@/cli/commands/report')).handleReportCommand(rawArgs),
+  // An EXIT command: it prints the embedded template catalogue and stops.
+  templates: async () => (await import('@/cli/commands/templates')).handleTemplatesCommand(parsed),
   licenses: async () =>
     (await import('@/cli/commands/licenses')).handleLicensesCommand({
       format: parsed.format,
@@ -325,7 +335,7 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
 /**
  * Commands that may keep the process alive (server mode)
  */
-const persistentCommands: Readonly<Record<string, () => Promise<void>>> = {
+const persistentCommands: Readonly<Record<string, () => Promise<unknown>>> = {
   start: async () =>
     (await import('@/cli/commands/start')).handleStartCommand(
       parsed.configFile,
@@ -333,6 +343,7 @@ const persistentCommands: Readonly<Record<string, () => Promise<void>>> = {
       parsed.publicDir,
       parsed.helpRequested ?? false
     ),
+  dev: async () => (await import('@/cli/commands/dev')).handleDevCommand(parsed, rawArgs),
   build: async () =>
     (await import('@/cli/commands/build')).handleBuildCommand(parsed.configFile, parsed.publicDir),
   schema: async () =>
@@ -457,20 +468,6 @@ const rejectUnknownFlag = (): void => {
   process.exit(1)
 }
 
-/** Throw the injected crash when `SOVRIUM_FAULT_INJECTION=crash` asks for one. */
-const failIfCrashInjected = async (): Promise<void> => {
-  const { parseFaultInjection } = await import('@/domain/models/process-env/fault-injection')
-  const fault = parseFaultInjection(process.env)
-  if (fault?.kind !== 'crash') return
-  const { InjectedFaultError } = await import('@/domain/errors/injected-fault-error')
-  throw new InjectedFaultError({
-    value: fault.value,
-    command: parsed.command,
-    cwd: process.cwd(),
-    detail: fault.detail,
-  })
-}
-
 const runCommand = async (): Promise<void> => {
   // The E2E harness's generic-stylesheet seam, ahead of everything else: it
   // ignores the command line. Not a capability — see the module's docblock.
@@ -489,7 +486,7 @@ const runCommand = async (): Promise<void> => {
 
   // The non-production `SOVRIUM_FAULT_INJECTION=crash` seam: a failure before
   // the named command runs, which only the crash handler below catches.
-  await failIfCrashInjected()
+  await failIfCrashInjected(parsed.command)
 
   const exitHandler = exitCommands[parsed.command]
   if (exitHandler) {

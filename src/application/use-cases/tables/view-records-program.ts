@@ -46,6 +46,7 @@ import {
   viewReader,
   viewSortParam,
 } from '@/domain/models/app/tables/views/view-read-service'
+import { createAggregateRecordsProgram, type AggregateRatio } from './aggregate-records-program'
 import { createListRecordsProgram } from './list-records-program'
 import { TableNotFoundError, viewReadAdmits, type TableCaller } from './table-operations'
 import type { AggregateConfig } from './aggregation-helpers'
@@ -58,7 +59,7 @@ import type {
   QueryFilter,
   TableRepository,
 } from '@/application/ports/repositories/tables/table-repository'
-import type { DatabaseError } from '@/domain/errors'
+import type { DatabaseError, ValidationError } from '@/domain/errors'
 import type { ListRecordsResponse } from '@/domain/models/api/tables/tables'
 import type { App } from '@/domain/models/app'
 
@@ -75,6 +76,11 @@ export interface ViewRecordsQuery {
    * computed over the rows the view returns (its filters included).
    */
   readonly aggregate?: AggregateConfig
+  /**
+   * `?numerator=` and `?denominator=` — a ratio's two sides, each counted over
+   * every row the view returns (its filters, the caller's and the row rule).
+   */
+  readonly ratio?: { readonly numerator?: QueryFilter; readonly denominator?: QueryFilter }
 }
 
 interface ViewRecordsConfig {
@@ -107,11 +113,52 @@ const callerOf = (config: ViewRecordsConfig): TableCaller => ({
 const readerOf = (config: ViewRecordsConfig) =>
   viewReader(config.session.userId, config.userRole, isGuestSession(config.session.userId))
 
-export function getViewRecordsProgram(
-  config: ViewRecordsConfig
+/** Both conditions of a filter, ANDed: the read's own and one ratio side's. */
+const andFilters = (
+  left: QueryFilter | undefined,
+  right: QueryFilter | undefined
+): QueryFilter => ({ and: [...(left?.and ?? []), ...(right?.and ?? [])] })
+
+/**
+ * A ratio's two counts over every row the view returns, read by the aggregate
+ * read's own counting (reader rows and related-text rules included); nothing
+ * when no ratio was asked.
+ */
+const readViewRatio = (
+  config: ViewRecordsConfig,
+  input: { readonly tableName: string; readonly filter: QueryFilter | undefined }
 ): Effect.Effect<
-  Pick<ListRecordsResponse, 'records' | 'pagination' | 'aggregations' | 'groups'>,
-  TableNotFoundError | ForbiddenError | DatabaseError,
+  { readonly ratio?: AggregateRatio },
+  DatabaseError | ValidationError | TableNotFoundError,
+  TableRepository | AuthRepository | DataSourceRepository
+> => {
+  const sides = config.query?.ratio
+  if (sides === undefined) return Effect.succeed({})
+  return createAggregateRecordsProgram({
+    session: config.session,
+    tableName: input.tableName,
+    app: config.app,
+    userRole: config.userRole,
+    userGroups: config.userGroups,
+    filter: input.filter,
+    includeDeleted: false,
+    ratio: {
+      numerator: andFilters(input.filter, sides.numerator),
+      denominator: andFilters(input.filter, sides.denominator),
+    },
+  }).pipe(
+    Effect.map(({ ratio }) => (ratio === undefined ? {} : { ratio })),
+    // A reader who may read no row of the table is answered as if it did not exist.
+    Effect.catchTag('NotFoundError', () => Effect.fail(new TableNotFoundError('Table not found'))),
+    Effect.withSpan('tables.read-view-ratio')
+  )
+}
+
+export function getViewRecordsProgram(config: ViewRecordsConfig): Effect.Effect<
+  Pick<ListRecordsResponse, 'records' | 'pagination' | 'aggregations' | 'groups'> & {
+    readonly ratio?: AggregateRatio
+  },
+  TableNotFoundError | ForbiddenError | DatabaseError | ValidationError,
   TableRepository | AuthRepository | DataSourceRepository | AiComputeStatusRepository
 > {
   return Effect.gen(function* () {
@@ -134,6 +181,9 @@ export function getViewRecordsProgram(
 
     const query = config.query ?? {}
     const groupBy = viewGroupByParam(view.groupBy)
+    // A condition naming the reader (`owner equals $currentUser.id`) reads as theirs.
+    const readerFilters = viewFiltersForReader(view.filters, readerOf(config), table.fields)
+    const filter = mergeViewFilter(readerFilters, query.filter)
     const page = yield* createListRecordsProgram({
       session,
       tableName: table.name,
@@ -141,11 +191,7 @@ export function getViewRecordsProgram(
       userRole,
       userGroups: config.userGroups,
       labels: query.labels,
-      // A condition naming the reader (`owner equals $currentUser.id`) reads as theirs.
-      filter: mergeViewFilter(
-        viewFiltersForReader(view.filters, readerOf(config), table.fields),
-        query.filter
-      ),
+      filter,
       includeDeleted: false,
       sort: query.sort ?? viewSortParam(view.sorts),
       sortByOptionOrder: true,
@@ -160,7 +206,8 @@ export function getViewRecordsProgram(
       Effect.catchTag('NotFoundError', () => Effect.fail(new TableNotFoundError('Table not found')))
     )
 
-    return servedPage(page)
+    const ratio = yield* readViewRatio(config, { tableName: table.name, filter })
+    return { ...servedPage(page), ...ratio }
   }).pipe(Effect.withSpan('tables.get-view-records-program'))
 }
 

@@ -1,5 +1,5 @@
 ---
-expect: 'called after browser_navigate to http://localhost:3000/_admin (the run history of an automation)'
+# Not an argument guard: called after browser_navigate to http://localhost:3000/_admin (the run history of an automation).
 ---
 
 - main:

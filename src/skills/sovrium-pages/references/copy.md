@@ -8,7 +8,6 @@ app's voice, not its own.
 
 - [The invariant](#the-invariant)
 - [Read the app's voice first](#read-the-apps-voice-first)
-- [The voice chart](#the-voice-chart)
 - [The four moments, plus one](#the-four-moments-plus-one)
 - [Mechanics](#mechanics)
 - [Calls to action and buttons](#calls-to-action-and-buttons)
@@ -32,26 +31,8 @@ app's voice, not its own.
 - A zone may depart from the app's voice (`design.zones`); check which zone a page belongs to.
 - Literal strings live in the app's translations when the app is multilingual, not hard-coded per page: `sovrium docs app-schema/languages`.
 - When the app declares no voice, write plainly using this file, and propose a `design.voice` block to the author rather than silently inventing a personality.
+- Building a voice from the product's principles (the voice chart), and every key of `design.voice`: the `sovrium-design` skill.
 - Voice options: `sovrium docs theming/design`.
-
-## The voice chart
-
-When the app has no voice yet and the author wants one, build a voice chart before writing
-copy. It turns two or three product principles into concrete writing rules.
-
-Columns are the product's principles (for example "reliable", "plain-spoken"); rows are the
-five dimensions below. Each cell is one instruction a writer can obey.
-
-| Dimension      | Question it answers               | Example cell for "plain-spoken"              |
-| -------------- | --------------------------------- | -------------------------------------------- |
-| Vocabulary     | Which words do we use and refuse? | Say "delete", not "purge"                    |
-| Verbosity      | How much do we say?               | One sentence per idea; one idea per sentence |
-| Grammar        | Which constructions?              | Active voice, present tense                  |
-| Punctuation    | Which marks, and which never?     | No exclamation marks                         |
-| Capitalisation | Which case, where?                | Sentence case everywhere                     |
-
-- Keep the chart to two or three principles; more and they start to contradict.
-- Each cell becomes a candidate `design.voice.prefer` or `avoid` line; propose them to the author.
 
 ## The four moments, plus one
 

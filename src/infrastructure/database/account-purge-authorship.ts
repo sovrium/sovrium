@@ -66,7 +66,7 @@ const SHED_AUTHORSHIP_FIELDS = [AUTHORSHIP_FIELDS.UPDATED_BY, AUTHORSHIP_FIELDS.
  * table field and generates a column called `author`; nothing auto-creates a
  * `created_by` alongside it. Matching `created_by` by literal name would delete
  * ZERO app-table rows, silently, for a config that never uses that spelling —
- * `templates/api-only` and `templates/mcp-server` are exactly this shape —
+ * `src/templates/api-only` and `src/templates/mcp-server` are exactly this shape —
  * behind an HTTP 200 and a truthful-looking `purgedCount: 1`.
  *
  * Resolution is by FIELD TYPE, via the same `authorship-fields` helpers the

@@ -207,6 +207,8 @@ const READS_NOTHING: ReadonlySet<string> = new Set([
   'http/delete',
   // The supervised app's unit state, a release written, a probe: never this app's data.
   'instance/status',
+  // Byte counts of the supervised app's database and files: numbers, never its data.
+  'instance/usage',
   'instance/start',
   'instance/stop',
   'instance/restart',

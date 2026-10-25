@@ -85,6 +85,8 @@ A `create` step's output carries the new record's `id`, so a later step reads it
     offset: 0
 ```
 
+A `filter` takes the comparison operators of any condition group, and runs in the database. `in` and `notIn` read as they do in the records API: a row with no value is kept by neither, a single value is a list of one, and the list may come from one whole template. `notContains` keeps the rows whose value does not contain the text, ignoring case as `contains` does, and the rows with no value. `matches` is refused in the filter of a `list`, `update`, `delete`, `batchDelete`, `upsert` or `aggregate` step, naming the step: the database does not evaluate the pattern the way a branch does. Test a pattern in a `path` or `filter` condition instead.
+
 `sort` is a list of ordering keys applied left to right — the second breaks ties in the first — and each `direction` defaults to ascending. Ordering and paging happen in the database rather than by fetching the table and trimming it afterwards. A `sort` field naming no column is refused: at startup when written literally, at run time when it arrives from a template.
 
 An implicit ascending `id` is appended as the **final** ordering key whenever paging applies, including alongside a `sort` you wrote yourself. Rows that tie on your keys have no defined order between them, and untied rows are repeated or skipped across a page boundary just as readily as with no sort at all. The query that runs therefore carries one ordering key more than the configuration names.

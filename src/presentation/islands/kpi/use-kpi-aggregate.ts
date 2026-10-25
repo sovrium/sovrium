@@ -12,7 +12,12 @@ import { useLazySharedFilter } from '../hooks/use-lazy-shared-filter'
 import { useLiveRefresh } from '../hooks/use-realtime-subscription'
 import { retryFaultsOnly } from '../runtime/read-failure'
 import { aggregateKpi, type KpiAggregateConfig } from './kpi-compute'
-import { buildFilterParam, useKpiRecords, type KpiRecordsDataSource } from './use-kpi-records'
+import {
+  buildFilterParam,
+  requestRecords,
+  useKpiRecords,
+  type KpiRecordsDataSource,
+} from './use-kpi-records'
 
 const apiClient = createRecordsClient(typeof window !== 'undefined' ? window.location.origin : '')
 
@@ -56,7 +61,7 @@ const figureOf = (
   answer: AggregateAnswer | undefined,
   aggregate: KpiAggregateConfig
 ): KpiFigure => {
-  if (aggregate.function === 'ratio') return ratioFigure(answer?.ratio)
+  if (aggregate.function === 'ratio') return ratioFigure(answer?.ratio, aggregate.caption)
   const figure = answer?.aggregations?.[aggregate.function]
   // A percentile over no values is no figure — the neutral dash — never a 0 that reads as instant.
   if (figure === null && aggregate.function.startsWith('p')) return { metric: null }
@@ -64,11 +69,24 @@ const figureOf = (
   return { metric: Number.isFinite(value) ? value : 0 }
 }
 
-/** A ratio's percentage, or `null` with a `0 / 0` caption before any answer. */
-const ratioFigure = ({ numerator, denominator, percent } = EMPTY_RATIO) => ({
-  metric: percent,
-  caption: `${String(numerator)} / ${String(denominator)}`,
-})
+/**
+ * A ratio's percentage, or `null` before any answer, and its footer: the
+ * author's sentence with the two counts in place of every `{numerator}` and
+ * `{denominator}`, the bare `3 / 8` when none is written, nothing for `false`.
+ */
+const ratioFigure = (
+  ratio = EMPTY_RATIO,
+  caption: string | false = '{numerator} / {denominator}'
+): KpiFigure =>
+  caption === false
+    ? { metric: ratio.percent }
+    : {
+        metric: ratio.percent,
+        caption: caption.replace(
+          /\{(numerator|denominator)\}/g,
+          (_, side: 'numerator' | 'denominator') => String(ratio[side])
+        ),
+      }
 
 /** The aggregate read's `numerator` and `denominator` parameters for a ratio KPI. */
 const ratioQuery = (aggregate: KpiAggregateConfig): Readonly<Record<string, string>> => {
@@ -79,15 +97,19 @@ const ratioQuery = (aggregate: KpiAggregateConfig): Readonly<Record<string, stri
     : {}
 }
 
-/** Ask the aggregate read; a signed-out visitor's refusal reads as no figure (GAP-I1). */
+/**
+ * Ask the aggregate read — or, for a ratio bound to a view, the view's own
+ * read, which counts both sides over every row the view returns; a signed-out
+ * visitor's refusal reads as no figure (GAP-I1).
+ */
 const fetchAggregations = async (
   table: string,
+  view: string | undefined,
   query: Readonly<Record<string, string>>
 ): Promise<AggregateAnswer | undefined> => {
-  const res = await apiClient.api.tables[':tableId'].aggregate.$get({
-    param: { tableId: table },
-    query,
-  })
+  const res = await (view === undefined
+    ? apiClient.api.tables[':tableId'].aggregate.$get({ param: { tableId: table }, query })
+    : requestRecords(table, view, { ...query, limit: '1' }))
   // A KPI on a public page read by a signed-out visitor keeps its label with a
   // neutral figure rather than an error region.
   if (res.status === 401 || res.status === 403) return undefined
@@ -127,20 +149,17 @@ export function useKpiAggregate(
     ...ratioQuery(aggregate),
   }
   const table = dataSource?.table
+  const view = dataSource?.view
 
   return useQuery({
-    queryKey: ['table-aggregate', table, query],
+    queryKey: ['table-aggregate', table, view, query],
     enabled: table !== undefined && shared.ready,
     retry: retryFaultsOnly,
     queryFn: () =>
-      table === undefined ? Promise.resolve(undefined) : fetchAggregations(table, query),
+      table === undefined ? Promise.resolve(undefined) : fetchAggregations(table, view, query),
     select: (answer: AggregateAnswer | undefined) => figureOf(answer, aggregate),
   })
 }
-
-/** A view-bound tile reads the view's records, whatever the server resolved. */
-const readsAggregate = (source: KpiRecordsDataSource, resolved: boolean): boolean =>
-  resolved && source.view === undefined
 
 /**
  * What a table-bound KPI card draws: its figure (from the aggregate read when
@@ -155,8 +174,9 @@ export function useKpiTileFigure(
     readonly sparkline: boolean
   }
 ) {
-  const { aggregate } = options
-  const aggregateRead = readsAggregate(source, options.aggregateRead)
+  // `aggregateRead` is the server's: never for a view-bound tile, save a ratio,
+  // whose two counts the view's own read answers (`resolveKpiAggregateRead`).
+  const { aggregate, aggregateRead } = options
   const readsRecords = !aggregateRead || options.sparkline
   const figure = useKpiAggregate(aggregateRead ? source : undefined, aggregate)
   const listed = useKpiRecords(readsRecords ? source : undefined)

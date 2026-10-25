@@ -1,0 +1,107 @@
+title: 'Fernhill Projects'
+tagline: |
+  A project workspace for a small team: dashboard, task board, timeline, calendar.
+intro: |
+  Fernhill Projects — a project workspace for a small team. The dashboard is the home page, with
+  what needs attention this week before how the portfolio is doing; the board holds open tasks by
+  status and opens a task in a drawer; the timeline lays every task out by project with what it
+  waits on; and the calendar shows the month's deadlines beside your own tasks.
+glance:
+  - '**Tables** (2): projects, tasks'
+  - '**Pages** (5): dashboard (`/`), board, timeline, calendar, sign-in'
+  - |-
+    **Automations** (3): notify-assignee-on-blocked; chase-blocked-tasks (a manual trigger,
+    pressed from the dashboard, with a one-day delay); and record-to-teams-channel — a library
+    recipe (`library/recipe/`, with its `library/connection/microsoft-365.yaml`) posting each
+    new project to a Teams channel once the Microsoft variables are set
+  - '**Singletons**: auth, design, env'
+  - |-
+    **Seed data**: `seed/` — five sign-in accounts, six projects and eighteen tasks, dated
+    relative to the day you seed
+  - '**Static assets**: `public/` (served at the site root)'
+glanceClose: |
+  Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
+assistant: |
+  Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+  run into `.claude/skills/`; start from `sovrium-app` for any change to the config. The
+  design system is in `config/design.yaml`: read its comments before changing a colour, and
+  keep colour for outcomes (done, at risk, blocked, overdue).
+whatsInside: |
+  A project workspace for a team of three to fifteen, built around who does what by when:
+
+  - **Dashboard** (`/`) — four figures (active projects, open tasks, overdue tasks, budget
+    committed), open work by status and by person, the tasks already late, and every project
+    with its owner, dates, progress and budget.
+  - **Board** — open tasks by status, each card with its project, due date and person. Done
+    is a folded column; drag a card to move a task on, or open it in a drawer to see what it
+    waits on and what waits on it.
+  - **Timeline** — every task as a bar from its start to its due date, grouped by project,
+    with a link to the task it waits on and a rule at today.
+  - **Calendar** — the month's deadlines, with your own open tasks beside them.
+  - An email to a task's assignee when it turns Blocked, and sign-up closed: an admin adds
+    each account.
+  - **Check blockers tomorrow** — a button on the dashboard that notes today's Blocked tasks,
+    waits a day, and emails the team lead how many are still Blocked. The waiting run is
+    visible under Runs in the admin console.
+  - Optional: each new project announced in your Microsoft Teams channel. It is the
+    `record-to-teams-channel` recipe from the Sovrium library (`sovrium library add
+  recipe/record-to-teams-channel`); set the Microsoft variables in `.env.example` to turn it
+    on — without them the app runs exactly the same.
+
+  Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree —
+  no application code. Edit the config, restart, done.
+whatToTry: |
+  Load the demo data first. It creates five accounts, six projects and eighteen tasks, dated
+  relative to today:
+
+  ```bash
+  SOVRIUM_SEED_PASSWORD=choose-a-password sovrium seed app.yaml
+  sovrium start app.yaml
+  ```
+
+  Sign in as **camille.roux@fernhill.example** (admin, the project lead) or
+  **jonas.weber@fernhill.example** (member), with the password you chose. Then:
+
+  1. On the **Dashboard**, read the four figures and the two tasks already late.
+  2. Open the **Timeline**: the checkout rebuild waits on the payment vendor's keys, and the
+     Ledger migration's sign-off waits on its dry run.
+  3. On the **Board**, open "Collect DPAs from every sub-processor" to read what is holding it
+     up and which task waits on it; expand the folded Done column.
+  4. Open the **Calendar**: the month's deadlines, and your own open tasks beside them.
+  5. Sign in as Jonas: a member adds and moves tasks, but only an admin deletes one.
+env:
+  - name: 'SOVRIUM_SEED_PASSWORD'
+    section: 'Demo data'
+    description: |-
+      `sovrium seed` creates the five demo accounts of seed/users.yaml with this
+      password. Seeding refuses to run without it.
+      Every seeded account shares it, the admin included: pick a strong one, or
+      do not seed an app other people can reach.
+  - name: 'MICROSOFT_CLIENT_ID'
+    section: 'Microsoft Teams (optional)'
+    description: |-
+      A Microsoft Entra app (client id and secret) and the ids of a team and one of
+      its channels turn on the new-project post to that channel. Connect the
+      account once from the admin console's Connections page. Without them the
+      app runs and only that automation is idle.
+  - name: 'MICROSOFT_CLIENT_SECRET'
+    section: 'Microsoft Teams (optional)'
+    description: |-
+      A Microsoft Entra app (client id and secret) and the ids of a team and one of
+      its channels turn on the new-project post to that channel. Connect the
+      account once from the admin console's Connections page. Without them the
+      app runs and only that automation is idle.
+  - name: 'TEAMS_TEAM_ID'
+    section: 'Microsoft Teams (optional)'
+    description: |-
+      A Microsoft Entra app (client id and secret) and the ids of a team and one of
+      its channels turn on the new-project post to that channel. Connect the
+      account once from the admin console's Connections page. Without them the
+      app runs and only that automation is idle.
+  - name: 'TEAMS_CHANNEL_ID'
+    section: 'Microsoft Teams (optional)'
+    description: |-
+      A Microsoft Entra app (client id and secret) and the ids of a team and one of
+      its channels turn on the new-project post to that channel. Connect the
+      account once from the admin console's Connections page. Without them the
+      app runs and only that automation is idle.

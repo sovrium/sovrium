@@ -8,10 +8,16 @@
 import { Effect } from 'effect'
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import { readerRowsOf } from '@/application/use-cases/tables/row-read-admission'
+import { isGroupReference, stripGroupPrefix } from '@/domain/models/app/auth/groups/group-reference'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import {
   placedTemplatesOf,
   renderedNodesWhere,
 } from '@/domain/models/app/pages/component-tree-has-type'
+import {
+  columnReadableBy,
+  routeParamLookupOf,
+} from '@/domain/models/app/tables/route-param-lookup-service'
 import { admitsRow } from '@/domain/models/app/tables/row-read-admission-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
 import { logError } from '@/infrastructure/logging/logger'
@@ -23,6 +29,7 @@ import { checkGetReadGate } from './row-level-read-helpers'
 import type { LinkReader } from '@/application/use-cases/tables/linked-row-visibility'
 import type { App, Table } from '@/domain/models/app'
 import type { DeclaredPageMatch } from '@/domain/models/app/pages/page-path-resolvability'
+import type { CallerReader } from '@/domain/models/app/tables/caller-record-gate-service'
 import type { Context } from 'hono'
 
 /** The page-level single-record binding a record page declares. */
@@ -130,7 +137,8 @@ type BoundRecordVerdict =
  *     no record is read, and a refusal stops here for every address alike —
  *     then the rows a list of the table returns her (`readerRowsOf`), which
  *     depend on her grants alone, never on the record the address names;
- *  2. ONE read of the record by the address, every column;
+ *  2. ONE read of the record by the address, every column — none for a
+ *     segment no column of that type could hold, which names no record;
  *  3. the row-level read rule judged in memory on that row, when the caller is
  *     held to one, and the row's id among the rows step 1 admits her. No
  *     record → refused; a record the rule or her rows hide → refused.
@@ -144,18 +152,54 @@ async function admitsBoundRecord(
   const tableName = boundTableName(binding, match)
   const table = app.tables?.find((t) => t.name === tableName)
   if (table === undefined) return { admitted: false }
-  const paramField = binding.param ?? table.name
-  const paramValue = match.params[paramField]
+  const param = binding.param ?? table.name
+  const paramValue = match.params[param]
   if (paramValue === undefined) return undefined
   const gate = await readGateOf(c, app, table)
   if (gate === 'refused') return { admitted: false }
   const { admission } = await runDomainPromise(c, readerRowsOf(app, table.name, gate.reader))
-  const row = await findLiveRecord(c, table.name, { paramField, paramValue })
+  const row = await findSegmentRecord(c, app, { table, param, paramValue })
   const recordId = idOf(row)
   if (row === undefined || recordId === undefined) return { admitted: false }
   if (!passesRowReadRule(table, row, gate.guard)) return { admitted: false }
   if (!admitsRow(admission, recordId)) return { admitted: false }
   return { admitted: true, watched: { table: table.name, recordId } }
+}
+
+/**
+ * The live record a segment names, as the page reads it: by the column named
+ * like the parameter, else by id. A value no such column could hold, or a
+ * column the caller may not read, names none — refused after the same gate
+ * reads, so the answer is the one a missing record gets.
+ */
+async function findSegmentRecord(
+  c: Context,
+  app: App,
+  segment: { readonly table: Table; readonly param: string; readonly paramValue: string }
+): Promise<Readonly<Record<string, unknown>> | undefined> {
+  const { table, param, paramValue } = segment
+  const readable = columnReadableBy(app, table.name, callerReaderOf(c, app))
+  const lookup = routeParamLookupOf(
+    table,
+    { param, value: paramValue },
+    { scopeTables: app.auth?.scopeTables, readable }
+  )
+  return lookup === undefined
+    ? undefined
+    : findLiveRecord(c, table.name, { paramField: lookup.field, paramValue: lookup.value })
+}
+
+/** The caller as a read decision sees her: her role and groups, or no one when signed out. */
+function callerReaderOf(c: Context, app: App): CallerReader | undefined {
+  const { session, userRole, userGroups } = getTableContext(c)
+  if ((session as typeof session | undefined) === undefined) return undefined
+  return {
+    userId: session.userId,
+    role: userRole,
+    groups: userGroups.map((group) => (isGroupReference(group) ? stripGroupPrefix(group) : group)),
+    accessRoles: [],
+    isUnrestricted: isAdminEquivalent(userRole, app),
+  }
 }
 
 /** A row's id as the records API names it, or `undefined` for no row. */
@@ -207,8 +251,9 @@ function passesRowReadRule(
  * address (`/orders/42`), so watching it is reading that record. Every
  * `mode: 'single'` binding the page draws — its own `dataSource`, or a
  * component's — resolves the address to its record exactly as the page does:
- * the binding's `param` (or the table name) is the route parameter AND the
- * column it is looked up by. Each record so named must then pass the records
+ * the binding's `param` (or the table name) names the route parameter, matched
+ * against the column of that name when the table declares one and the record
+ * id otherwise. Each record so named must then pass the records
  * API's rules: the table's read grant, then its row-level read rule — in the
  * order {@link admitsBoundRecord} states, so a record that does not exist and
  * one the rule hides cost the same reads. Either, and a table the app does not

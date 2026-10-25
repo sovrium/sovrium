@@ -45,12 +45,36 @@ const KPIRatioSideSchema = Schema.Struct({
   description: "The records of the KPI's data source counted on one side of a ratio",
 })
 
+/**
+ * What a ratio card writes in its footer about the two counts: a sentence with
+ * `{numerator}` and `{denominator}` placeholders, or `false` for no footer.
+ * Absent, the footer is the bare `3 / 8`.
+ */
+const KPIRatioCaptionSchema = Schema.Union([
+  Schema.String.pipe(
+    Schema.annotate({
+      description:
+        'The sentence written in the card footer, `{numerator}` and `{denominator}` replaced by the two counts — "{numerator} replied out of {denominator} contacted". A `$t:` key is resolved in the page language first',
+      examples: ['{numerator} replied out of {denominator} contacted'],
+    }),
+    Schema.check(Schema.isMinLength(1))
+  ),
+  Schema.Literal(false).annotate({
+    description: 'Draw no footer: the card shows the label and the percentage only',
+  }),
+]).annotate({
+  title: 'KPI Ratio Caption',
+  description:
+    'With function: ratio, what the card footer says about the two counts: a sentence with {numerator} and {denominator} placeholders, or false for no footer (default: the bare "3 / 8")',
+})
+
 /** Why a declaration is refused, or `true` when the function and its keys agree. */
 const ratioKeysAgree = (aggregate: {
   readonly function: string
   readonly field?: string
   readonly numerator?: unknown
   readonly denominator?: unknown
+  readonly caption?: unknown
 }): true | string => {
   if (aggregate.function === 'ratio') {
     if (aggregate.numerator === undefined || aggregate.denominator === undefined)
@@ -58,6 +82,7 @@ const ratioKeysAgree = (aggregate: {
     if (aggregate.field !== undefined) return 'a ratio counts records and takes no field'
     return true
   }
+  if (aggregate.caption !== undefined) return 'caption belongs to function: ratio'
   return aggregate.numerator === undefined && aggregate.denominator === undefined
     ? true
     : 'numerator and denominator belong to function: ratio'
@@ -80,11 +105,12 @@ export const KPIAggregateSchema = Schema.Struct({
         'With function: ratio, the records counted below the line — for a reply rate, every conversation',
     })
   ),
+  caption: Schema.optional(KPIRatioCaptionSchema),
 })
   .annotate({
     title: 'KPI Aggregate',
     description:
-      'Aggregate function configuration for KPI metric computation. A ratio counts the records matching numerator.filter and denominator.filter on the same data source and shows numerator ÷ denominator × 100',
+      'Aggregate function configuration for KPI metric computation. A ratio counts the records matching numerator.filter and denominator.filter on the same data source and shows numerator ÷ denominator × 100, its two counts in the card footer as caption words them',
   })
   .check(Schema.makeFilter(ratioKeysAgree))
 

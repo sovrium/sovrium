@@ -180,10 +180,10 @@ async function renderDeclaredPage(
      */
     readonly requestPath?: string | undefined
     /**
-     * `false` keeps the hosting environment's demo notice out of this document:
+     * `false` keeps the hosting environment's dev-mode notice out of this document:
      * a design-system frame pictures the operator's template, not the instance.
      */
-    readonly demoNotice?: false
+    readonly devNotice?: false
   }
 ): Promise<PageRenderResult> {
   const {
@@ -364,7 +364,7 @@ async function renderDeclaredPage(
     resolvedSidebar,
     markdownPayload,
     session,
-    demoNotice: options?.demoNotice,
+    devNotice: options?.devNotice,
     ...documentRequestFacts(app, routeParams, path, options),
   })
   // Shiki splices its markup into each standalone `code` placeholder (a no-op without one), after

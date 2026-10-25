@@ -7,6 +7,11 @@
 
 import { Schema } from 'effect'
 import { optionalField } from '@/domain/models/api/combinators/optional-field'
+import {
+  importPathInFileSchema,
+  importTargetFileSchema,
+  importWrittenFileSchema,
+} from '@/domain/models/app/design/adapters/import/design-import-report'
 import { pageInterchangeNameSchema, pageNodeIdSchema } from './page-design-tree'
 
 /**
@@ -99,6 +104,8 @@ export const pageImportChangeSchema = Schema.Struct({
   after: optionalField(
     Schema.String.annotate({ description: 'The value after the import; absent for a removal' })
   ),
+  file: optionalField(importTargetFileSchema),
+  pathInFile: optionalField(importPathInFileSchema),
 }).annotate({
   strictKeys: true,
   title: 'sovrium:strict-keys',
@@ -196,6 +203,8 @@ export const pageImportTranslationSchema = Schema.Struct({
       description: 'Why the change was not written, in a sentence; absent when it was',
     })
   ),
+  file: optionalField(importTargetFileSchema),
+  pathInFile: optionalField(importPathInFileSchema),
 }).annotate({
   strictKeys: true,
   title: 'sovrium:strict-keys',
@@ -308,6 +317,8 @@ export const pageImportTokenChangeSchema = Schema.Struct({
   ),
   before: Schema.String.annotate({ description: 'The value the config declares' }),
   after: Schema.String.annotate({ description: 'The value the canvas now holds' }),
+  file: optionalField(importTargetFileSchema),
+  pathInFile: optionalField(importPathInFileSchema),
 }).annotate({
   strictKeys: true,
   title: 'sovrium:strict-keys',
@@ -442,6 +453,12 @@ export const pageImportReportSchema = Schema.Struct({
     Schema.Struct({
       config: optionalField(
         Schema.String.annotate({ description: 'The YAML or JSON config the import patched' })
+      ),
+      files: optionalField(
+        Schema.Array(importWrittenFileSchema).annotate({
+          description:
+            "Every file the write changed, the config or a `$ref` partial, relative to the config's folder; absent when nothing changed",
+        })
       ),
       bytes: Schema.Int.annotate({
         description: 'How many bytes the write changed; zero when nothing changed',

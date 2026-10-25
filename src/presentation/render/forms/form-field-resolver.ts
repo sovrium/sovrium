@@ -18,6 +18,7 @@ import {
   isFieldRequired,
   isFieldVisible,
 } from '@/domain/models/app/forms/form-field-helpers'
+import { offeredChoices } from '@/domain/models/app/forms/form-option-subset-service'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { optionLabel, optionValue } from '@/domain/models/app/tables/select-option'
 import {
@@ -155,6 +156,9 @@ function columnControlConfig(column: Readonly<Table['fields'][number]>): Control
   }
 }
 
+/** The column types whose own `options` a form draws as its choices. */
+const SELECTION_COLUMN_TYPES = new Set(['single-select', 'multi-select', 'status'])
+
 /**
  * Pull `options[]` off a selection-type column (`single-select` /
  * `multi-select` / `status`) so the form renderer can emit `<option>` children.
@@ -170,13 +174,7 @@ export function readColumnOptions(
   activeLang: string | undefined
 ): ReadonlyArray<{ readonly value: string; readonly label: string }> | undefined {
   if (!column) return undefined
-  if (
-    column.type !== 'single-select' &&
-    column.type !== 'multi-select' &&
-    column.type !== 'status'
-  ) {
-    return undefined
-  }
+  if (!SELECTION_COLUMN_TYPES.has(column.type ?? '')) return undefined
   const raw = column.options
   if (!Array.isArray(raw)) return undefined
   return (raw as ReadonlyArray<SelectOption>).map((entry) => {
@@ -357,19 +355,21 @@ const readUserAllowMultiple = (
 }
 
 /**
- * A table-bound field's choices: a relationship or user column's are the rows
- * or accounts read for this render (none when nothing was read), a selection
- * column's are its own.
+ * A table-bound field's choices: a relationship or user column's are the rows or
+ * accounts read for this render (none when nothing was read), a selection column's
+ * its own, narrowed to the field's `options` so a withheld value never reaches the page.
  */
 const tableFieldOptions = (
   field: Readonly<TableBoundField>,
   column: Readonly<Table['fields'][number]> | undefined,
   optionSets: FormOptionSets,
-  locale: { readonly languages: Languages | undefined; readonly activeLang: string | undefined }
+  { languages, activeLang }: { readonly languages?: Languages; readonly activeLang?: string }
 ): ResolvedFormField['options'] =>
   column?.type === 'relationship' || column?.type === 'user'
     ? (optionSets[field.column] ?? [])
-    : readColumnOptions(column, locale.languages, locale.activeLang)
+    : offeredChoices(readColumnOptions(column, languages, activeLang), field.options, (label) =>
+        resolveText(label, languages, label, activeLang)
+      )
 
 /**
  * The text naming a table-bound control: the form's own `label`, else the

@@ -63,6 +63,34 @@ export const designSystemImportUnmappedKindSchema = Schema.Literals([
     'What kind of thing was left out: a colour `mode` beyond light and dark, a token `family` or `group` that names no `design` key, a `token-type` with no `design` home, a `text-style` outside the type-scale ladder, an `alias` that does not resolve, or a value `modifier` the import does not apply',
 })
 
+/**
+ * The file that holds an imported value. A config assembled from `$ref`
+ * partials keeps each value in one file only, and the import writes it there.
+ */
+export const importTargetFileSchema = Schema.String.annotate({
+  description:
+    "The file that holds the value, relative to the config's folder: the config itself, or the `$ref` partial that owns it",
+  examples: ['app.yaml', 'config/pages/menu.yaml', 'config/design.yaml'],
+})
+
+/** Where an imported value sits inside the file that holds it. */
+export const importPathInFileSchema = Schema.String.annotate({
+  description: 'Where the value sits inside that file, as a JSON Pointer from the root of the file',
+  examples: ['/pages/1/components/0/content', '/components/0/content', '/colors/primary'],
+})
+
+/** One file a `--write` changed. */
+export const importWrittenFileSchema = Schema.Struct({
+  file: importTargetFileSchema,
+  bytes: Schema.Int.annotate({
+    description: 'How many bytes the write changed in that file',
+  }).check(Schema.isGreaterThanOrEqualTo(1)),
+}).annotate({
+  strictKeys: true,
+  title: 'sovrium:strict-keys',
+  identifier: 'DesignSystemImportWrittenFile',
+})
+
 /** One leaf of `design` the import adds or changes. */
 export const designSystemImportChangeSchema = Schema.Struct({
   path: Schema.String.annotate({
@@ -78,6 +106,8 @@ export const designSystemImportChangeSchema = Schema.Struct({
     description: 'The value after the import, as it is written',
     examples: ['#1d4ed8', '0.625rem', '768px'],
   }),
+  file: optionalField(importTargetFileSchema),
+  pathInFile: optionalField(importPathInFileSchema),
 }).annotate({
   strictKeys: true,
   title: 'sovrium:strict-keys',
@@ -137,6 +167,12 @@ export const designSystemImportReportSchema = Schema.Struct({
     Schema.Struct({
       config: optionalField(
         Schema.String.annotate({ description: 'The YAML or JSON config the import patched' })
+      ),
+      files: optionalField(
+        Schema.Array(importWrittenFileSchema).annotate({
+          description:
+            "Every file the write changed, the config or a `$ref` partial, relative to the config's folder; absent when nothing changed",
+        })
       ),
       sidecar: optionalField(
         Schema.String.annotate({

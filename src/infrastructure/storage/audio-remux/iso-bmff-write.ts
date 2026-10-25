@@ -6,14 +6,17 @@
  */
 
 import { writeBox, writeFullBox } from './iso-bmff-boxes'
-import { concatBytes, latin1Bytes, malformed, uintBytes } from './media-bytes'
+import { SampleList } from './iso-bmff-samples'
+import { concatBytes, latin1Bytes, malformed, RemuxRefusal, uintBytes } from './media-bytes'
 import type { EditEntry, IsoAudioTrack, MediaHeader } from './iso-bmff-read'
+import type { MatroskaAudioTrack } from './matroska-read'
 
 /**
  * Writing a progressive M4A around one AAC track: `ftyp` (`M4A `), then a
  * `moov` indexing the track as a single chunk, then one `mdat` holding only
- * its samples, copied byte for byte. The sample description (`stsd`) is the
- * source's own; the timing tables are rebuilt from the sample list, so a
+ * its samples, copied byte for byte. From an MP4, the sample description
+ * (`stsd`) is the source's own; from Matroska it is built from the track's
+ * CodecPrivate. The timing tables are rebuilt from the sample list, so a
  * fragmented source comes out indexed like any other.
  */
 
@@ -235,3 +238,106 @@ export const writeM4a = (source: Uint8Array, track: IsoAudioTrack): Uint8Array =
   copySamples(source, track.samples, out, dataOffset)
   return out
 }
+
+/** An MPEG-4 descriptor: its tag, a four-byte size (as common muxers write it), its payload. */
+const descriptor = (tag: number, payload: Uint8Array): Uint8Array => {
+  const size = payload.length
+  return concatBytes([
+    Uint8Array.of(tag, 0x80 | ((size >> 21) & 0x7f), 0x80 | ((size >> 14) & 0x7f)),
+    Uint8Array.of(0x80 | ((size >> 7) & 0x7f), size & 0x7f),
+    payload,
+  ])
+}
+
+/**
+ * The `stsd` of an AAC track: one `mp4a` sample entry with its channel count
+ * and rate, and an `esds` whose DecoderSpecificInfo is the AudioSpecificConfig
+ * unchanged — without it no decoder can open the frames.
+ */
+const aacStsd = (audioSpecificConfig: Uint8Array, channels: number, sampleRate: number) => {
+  const decoderConfig = descriptor(
+    0x04,
+    concatBytes([
+      // objectTypeIndication 0x40 (MPEG-4 audio), streamType 5 (audio) << 2 | 1
+      Uint8Array.of(0x40, 0x15),
+      zeros(3),
+      u32(0),
+      u32(0),
+      descriptor(0x05, audioSpecificConfig),
+    ])
+  )
+  const es = descriptor(
+    0x03,
+    concatBytes([u16(0), Uint8Array.of(0), decoderConfig, descriptor(0x06, Uint8Array.of(0x02))])
+  )
+  const mp4a = writeBox('mp4a', [
+    zeros(6),
+    u16(1),
+    zeros(8),
+    u16(channels),
+    u16(16),
+    zeros(4),
+    // 16.16 fixed point: a rate past 65535 Hz does not fit and is left to the esds
+    u32(sampleRate > 0xff_ff ? 0 : sampleRate * 0x1_00_00),
+    writeFullBox('esds', 0, 0, [es]),
+  ])
+  return writeFullBox('stsd', 0, 0, [u32(1), mp4a])
+}
+
+/** `und`, packed as three five-bit letters. */
+const LANGUAGE_UNDETERMINED = 0x55_c4
+
+/** The samples an AAC frame usually holds, for a last frame with no stated duration. */
+const AAC_FRAME_SAMPLES = 1024
+
+/**
+ * The AAC track of a Matroska file as the M4A writer needs it: each block's
+ * frame where it lies in `source`, its duration rebuilt from the block
+ * timestamps in the track's own sample rate, and an `stsd` built from the
+ * track's CodecPrivate, channel count and rate.
+ */
+const isoTrackFromMatroskaAac = (source: Uint8Array, track: MatroskaAudioTrack): IsoAudioTrack => {
+  const config = track.codecPrivate
+  if (config === undefined || config.length === 0) {
+    throw new RemuxRefusal('unsupported-codec', 'carries AAC audio with no decoder configuration', {
+      codec: track.codec,
+      hadVideo: track.hadVideo,
+    })
+  }
+  const blocks = track.clusters.reduce((total, cluster) => total + cluster.blocks.length, 0)
+  if (track.frames.length !== blocks) {
+    // A laced block packs several frames whose sizes this remux does not split.
+    throw new RemuxRefusal('unsupported-codec', 'carries AAC audio in laced blocks', {
+      codec: track.codec,
+      hadVideo: track.hadVideo,
+    })
+  }
+  const rate = track.sampleRate
+  const at = (tick: number): number => Math.round((tick * track.timecodeScale * rate) / 1e9)
+  const lastDuration =
+    track.defaultDuration > 0 ? Math.round((track.defaultDuration * rate) / 1e9) : AAC_FRAME_SAMPLES
+  const samples = new SampleList(source.length)
+  track.frames.forEach((frame, i) => {
+    const next = track.frames[i + 1]
+    const duration = next === undefined ? lastDuration : Math.max(0, at(next.tick) - at(frame.tick))
+    samples.add(frame.offset, frame.size, duration)
+  })
+  return {
+    stsd: aacStsd(config, track.channels, rate),
+    media: {
+      creation: 0,
+      modification: 0,
+      timescale: rate,
+      duration: 0,
+      language: LANGUAGE_UNDETERMINED,
+    },
+    movieTimescale: rate,
+    edits: undefined,
+    samples,
+    hadVideo: track.hadVideo,
+  }
+}
+
+/** The M4A file holding the AAC track of a Matroska file, its frames copied byte for byte. */
+export const writeMatroskaAacM4a = (source: Uint8Array, track: MatroskaAudioTrack): Uint8Array =>
+  writeM4a(source, isoTrackFromMatroskaAac(source, track))

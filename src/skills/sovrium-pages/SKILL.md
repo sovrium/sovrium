@@ -1,6 +1,6 @@
 ---
 name: sovrium-pages
-description: Use when creating, redesigning or polishing the pages of a Sovrium app — routes, layouts and page access, choosing and composing components, binding pages to table data or collections, forms, design tokens in the design block, dark mode and responsive behaviour, empty, error and loading states, and the words on the page. Triggers include "add a page", "make this page look better", "landing page", "dashboard", "list of records", "record detail page", "form", "dark mode", "mobile layout", "the design looks generic", and "rewrite the copy".
+description: Use when creating, redesigning or polishing the pages of a Sovrium app — routes, layouts and page access, choosing and composing components, binding pages to table data or collections, forms, dark mode and responsive behaviour on the page, empty, error and loading states, and the words on the page. Triggers include "add a page", "make this page look better", "landing page", "dashboard", "list of records", "record detail page", "form", "dark mode", "mobile layout", "the design looks generic", "rewrite the copy", and "design first", "mock it up" or "prototype it before building" on a Claude Design canvas. Not this skill for the app-wide visual system — tokens, the brand, component-wide styles — which is `sovrium-design`; nor for discoverability, which is `sovrium-seo-geo`.
 license: BSL-1.1
 metadata:
   author: sovrium
@@ -11,7 +11,9 @@ metadata:
 
 A bare agent builds a Sovrium page the way it would build a React page: it invents a `hero` component that does not exist, writes colours inline, uses the removed `theme` block, binds nothing to data and hard-codes sample rows, leaves every list without an empty state, and ships the same centred-gradient landing page every model produces. In Sovrium a page is configuration: components come from a fixed catalogue, data comes from tables through bindings, and the look comes from the app's `design` block.
 
-Run the core loop from `sovrium-app` underneath this skill: edit → `sovrium validate` → `sovrium start --watch` → browser → API.
+Run the core loop from `sovrium-app` underneath this skill: edit → `sovrium validate` → `sovrium dev` → browser → API.
+
+**Asked to design first?** ("design first", "mock it up", "prototype it before building", "show me before you build it".) Then the page is designed on a Claude Design canvas before any edit under `pages`: follow [Design first: the canvas loop](#design-first-the-canvas-loop) from its first step. Do not plan the page in chat and do not edit `pages`: once the config holds what the design needs, the first command is the canvas export, `sovrium design-system <config> --format bundle --pages --prototype=app --output <dir>`, its guide `project/SOVRIUM.md` is read before any board is touched, the plan is drawn on its boards, and nothing is written to `pages` until the person approves them.
 
 ## Routes and layouts
 
@@ -44,15 +46,12 @@ Run the core loop from `sovrium-app` underneath this skill: edit → `sovrium va
 
 ## Design tokens
 
-- Read the app's design brief before touching anything: `sovrium design-system` prints the resolved `design` block (tokens, principles, voice) as markdown.
-- The live key is **`design`**: colours in `design.colors` (and `design.darkColors` for the dark scheme), type in `design.typeScale`, spacing in `design.spacing`, radius in `design.radius`. The old `theme` block is refused by `sovrium validate`, which names each replacement key. Manual: `sovrium docs theming/design` and `sovrium docs theming/theme`.
-- Dark mode: `sovrium docs theming/theme-dark-mode`. Responsive behaviour: `sovrium docs theming/responsive-design`.
-- Change a token once in `design`, never a colour inline on one component.
-- The voice lives in `design.voice`; `design.voice.tone` says how it shifts from one moment to the next, including the confirmation of a destructive action (`sovrium docs config design.voice.tone`).
+- Read the app's brief before touching anything (`sovrium design-system <config>`) and use its tokens, voice and principles as they are; never a colour, size or font written inline on one component.
+- Adding or changing a token, the palette, dark colours, fonts, the voice, or the style of every instance of a type is the `sovrium-design` skill.
 
 ## Plan before you build
 
-Write a short design plan before adding or changing a component: which mode this is (a new page, a refinement, or a redesign), what the app's `design` block already decides, the structure in greyscale, then type, spacing and layout, and colour last. A plan is cheap to change; a built page is not, and a page built without one drifts toward the generic defaults. The steps and the plan template: `references/design-plan.md`.
+Write a short design plan before adding or changing a component: which mode this is (a new page, a refinement, or a redesign), what the app's `design` block already decides, the structure in greyscale, then type, spacing and layout, and colour last. A plan is cheap to change; a built page is not, and a page built without one drifts toward the generic defaults. The steps and the plan template: `references/design-plan.md`. In design-first mode the same plan is drawn on the canvas boards instead.
 
 ## States and forms
 
@@ -71,7 +70,7 @@ screenshot. It runs **one** batched inspection, fixes what it found in **one** b
 ### Before the pass
 
 - Read the design brief (`sovrium design-system <config>`) again. A finding that contradicts the app's own principles, tokens or voice is not a finding; the author's system wins.
-- Boot the app (`sovrium start --watch`) and validate the config (`sovrium validate`) so the pass runs against what will ship.
+- Boot the app (`sovrium dev`) and validate the config (`sovrium validate`) so the pass runs against what will ship.
 
 ### The inspection (one pass, all of it)
 
@@ -107,6 +106,7 @@ Severity:
 - Apply all Blocker and High fixes, and the cheap Medium ones, in **one** batch of config edits; validate after the batch.
 - Run **one** confirmation pass over only the recorded issues and the widths and schemes where they appeared.
 - Stop. Report what was fixed, what remains (with severity), and any finding that needs a decision from the author or a capability the config cannot express.
+- End the report with one `Decisions to record: <title — touches>` line per nominated decision, or `Decisions to record: none`. Nominate only a data-model shape, the permissions or auth model, SQLite versus PostgreSQL, a design character choice, a disabled or deferred automation, or a security trade-off left in place — never labels, copy or colours. Nominate here; the `sovrium-config-editor` agent writes the `decisions:` record, never this skill.
 - A fix that would contradict the app's `design` block is not applied; it is reported as a question to the author.
 
 ### The rubric: ten heuristics, as checks
@@ -124,14 +124,26 @@ Severity:
 | 9   | Help users recognise, diagnose and recover from errors | Every error says what, why and what next, beside its source, without colour alone, keeping the visitor's input                                                               |
 | 10  | Help and documentation                                 | Hints beside complex fields; empty states that teach the one thing a first-time visitor needs; links to help where the task is genuinely complex                             |
 
-## Iterating through a design canvas
+## Design first: the canvas loop
 
-A page can also be reworked in a Claude Design canvas and brought back: `sovrium design-system <config> --format bundle --pages --output <dir>` draws every page onto a canvas, and `sovrium design-system import <canvas> --pages --config <config>` reads the edited canvas back. The canvas carries its own guide, `project/SOVRIUM.md`, generated from what the import carries, keeps and refuses: read it before editing a board, and design within it. Manual: `sovrium docs theming/design-pages-import`.
+When the person asks to see a page before it is built ("design first", "mock it up", "prototype it before building"), every change under `pages` is drawn on a Claude Design canvas, approved, then read back into the config. Without that request, edit the config directly. The canvas is a folder of files: `sovrium design-system` writes it, `sovrium design-system import` reads it back, and only the nodes it stamped come back. Manual: `sovrium docs theming/design-pages-import`.
 
-- **Edit the canvas** for polish: layout on the spacing scale, copy, variants and sizes, order, adding or removing kit components, colours and type that match a token, and the rules a component carries in its `data-sovrium-*` attributes (a binding, a visibility rule, a data source, a form).
-- **Edit the config** for anything new in kind: a table, a field, a form, an automation, an action, a component outside the kit, a value off the scale. The import refuses those, by name, rather than guessing.
-- **The loop**: export, edit, `import --pages --dry-run --json` to read each board's verdict (carried, kept, refused, with node ids), fix what was refused, then `--write` and review the diff. A TypeScript config is edited literal by literal, and an edit to a computed value is refused with the file and line to change by hand.
-- **A new page from a board**: a board for a page the config does not have comes back with `--new-pages`. Name the page on the board's root (`data-sovrium-page`) and give it a page path (`data-sovrium-path`): the file name is ignored, and a path that is not a page path or is already taken is refused, nothing written. Draw the rules on its nodes as on any board; a node naming a table, form or page the config lacks is left out by name while the rest of the page is created, so declare it in the config first. In a TypeScript config the page is appended to a literal `pages` array; a computed `pages` is refused with its file and line, and `--sidecar` is the way through. Writing the canvas back again changes nothing, so the loop can repeat.
+1. **Before.** Declare in the config any table, field, form or page the design needs, then validate. A node naming one the config lacks is left out by name.
+2. **Export.** `sovrium design-system <config> --format bundle --pages --prototype=app --seed <dir> --output <dir>` draws every page as a clickable board, adds one stateful Prototype board, and, with `--seed`, takes the boards' rows from the app's seed folder (leave it out when the app has none). `--state <page>:<key>=<value>` adds a board for each state to review (an empty list, an error).
+3. **Draft.** Read the canvas's own guide, `project/SOVRIUM.md` (beside the canvas, under `adapters/claude-design/` in a bundle), before editing a board: it says what the import carries, keeps and refuses. Rework a board by editing its `.dc.html` within that guide. A new page starts as a copy of the closest stamped board, with `data-sovrium-page`, `data-sovrium-path` and `data-sovrium-like` on its root (the page it takes its access from), and kit components only. Never add a stub entry to `pages` first: `--new-pages` creates the page from its board.
+4. **Review.** The person opens the canvas folder in Claude Design, or reviews the board files, and the edited files come back into the same folder. The Prototype board is for clicking through and is never imported.
+5. **Approval.** Write nothing until the person approves the boards, by name.
+6. **Dry run.** `sovrium design-system import <dir> --pages --config <config> --dry-run --json` (add `--from claude-design` when the folder is a whole bundle) gives each board's verdict: carried, kept or refused, with node ids. Fix every refusal on the board or in the config, then run it again.
+7. **Write.** Run the same command with `--write`: `--new-pages` for a board of a page the config does not have, `--page <name>` for one page, `--sidecar` when a TypeScript config computes `pages`. In a config split with `$ref`, each value is written into the partial that holds it, and the report's `file` and `pathInFile` name where; a fragment several pages include is written only when every board draws it the same, and a file outside the config's folder is refused, so change that one by hand. Edited copy behind a `$t:` key is written in the default language, and the report names the languages left to translate. Review the diff. Writing the same canvas back again changes nothing, so the loop can repeat.
+8. **Verify.** The Verify pass below, as for any page change.
+
+What belongs where:
+
+- **Edit the canvas** for the page itself: layout on the spacing scale, copy, variants and sizes, order, adding or removing kit components, colours and type that match a token, and the rules a component carries in its `data-sovrium-*` attributes (a binding, a visibility rule, a data source, a form).
+- **Edit the config** for anything new in kind: a table, a field, a form, an automation, an action, a component outside the kit, a value off the scale. The import refuses those, by name, rather than guessing. A TypeScript config is edited literal by literal; an edit to a computed value is refused with the file and line to change by hand.
+- **Never** invent a `data-sovrium-*` stamp, write config from a screenshot or a picture, or draw a component outside the kit: the import refuses each, or silently leaves it out.
+
+Colours, type and radii changed in the canvas's Theme menu come back through the token import, which is the `sovrium-design` skill. A client with no shell (the config MCP alone) cannot run the export or the import: say so and build config-first, or give the person the two commands.
 
 ## Verify
 

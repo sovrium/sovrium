@@ -21,7 +21,7 @@ sovrium init ./my-app --typescript
 
 `--name` is written into the scaffolded config and defaults to the directory name. `--force` allows an existing config file to be overwritten.
 
-`--template` takes a bundled template name — an unknown one exits `1` and prints the list — or a **GitHub repository** in any of the forms `owner/repo`, `gh:owner/repo` or `https://github.com/owner/repo`, each with an optional `#ref` naming a branch, tag or SHA. Only `github.com` is supported.
+`--template` takes a bundled template name — `sovrium templates` lists the bundled names, and an unknown one exits `1` and prints the list — or a **GitHub repository** in any of the forms `owner/repo`, `gh:owner/repo` or `https://github.com/owner/repo`, each with an optional `#ref` naming a branch, tag or SHA. Only `github.com` is supported.
 
 `--from-url <url>` forks one published `.yaml`, `.yml` or `.json` config over HTTPS, and `--git` initialises a repository and lands the scaffold as one commit. Both are described below.
 

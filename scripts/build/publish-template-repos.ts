@@ -6,50 +6,75 @@
  */
 
 /**
- * Publish each `templates/<slug>/` directory to its standalone GitHub template
+ * Publish each `src/templates/<slug>/` directory to its standalone GitHub template
  * repository `github.com/sovrium/<slug>-template` — the auto-published mirrors
- * behind the website /apps gallery ("Use this template" + "Deploy on Scalingo").
- * The `-template` suffix is applied ONLY to the GitHub repo name; the local
- * `templates/<slug>` dir, the catalog key, and the `sovrium.com/apps/<slug>`
- * website route all stay on the bare slug.
+ * behind the website /apps gallery ("Use this template"). The `-template`
+ * suffix is applied ONLY to the GitHub repo name; the local `src/templates/<slug>`
+ * dir, the catalog key, and the `sovrium.com/apps/<slug>` website route all
+ * stay on the bare slug.
  *
  * Model: MIRROR, not move. The monorepo stays the source of truth (validated
  * every commit, embedded in the binary for offline `sovrium init`); this
  * script runs from `.github/workflows/release.yml` AFTER `publish-release`,
  * so a mirror only ever reflects a *published* release whose configs CI
- * validated against that exact binary. The stamped `.sovrium-version` pins
- * the Scalingo buildpack to the same release — a mirror can never be newer
- * than the binary it deploys.
+ * validated against that exact binary. The stamped `.sovrium-version` names
+ * that release — a mirror can never be newer than the binary it was checked
+ * against.
  *
- * Per slug (driven by `templates/catalog.json`):
+ * Per slug (driven by `src/templates/catalog.json`):
  *   1. ensure the repo exists (creation requires --create) and reconcile
  *      metadata: is_template, description, homepage, topics (idempotent).
- *   2. build the publish tree: `templates/<slug>/.` verbatim (including the
- *      template's own `CLAUDE.md`) plus a stamped `.sovrium-version`. No agent
- *      file rides along: the Agent Skills are embedded in the binary and
- *      written into a project by `sovrium init` / `sovrium skills`, never
- * checked into a template ([internal ref] A2).
+ *   2. build the publish tree: the template's config, `seed/` and `public/`,
+ *      then the wrapper files rendered from its `template.yaml` by the same
+ *      renderers `sovrium init` uses — `CLAUDE.md`, `.env.example`,
+ *      `README.md`, the MIT `LICENSE`, and `public/README.md` for a web-facing
+ *      template — then a stamped `.sovrium-version`. The manifest itself is
+ *      not published, and neither is any hosting provider's deploy manifest:
+ *      the README points at `sovrium deploy`. No agent file rides along: the
+ *      Agent Skills are embedded in the binary and written into a project by
+ *      `sovrium init` / `sovrium skills`, never checked into a template.
  *   3. push as ONE incremental commit on main (`sovrium <version>`) + tag
  *      `v<version>` — diffable release-to-release, idempotent no-op when the
  *      tree is unchanged, never force-pushed.
  *
  * Flags: --version <x.y.z> (required) · --dry-run · --only <slug> · --create
+ *        · --out <dir> (build the trees there and keep them, for a diff)
  * Env:   GH_TOKEN (fine-grained PAT; Contents write + Metadata, plus
  *        Administration only for --create bootstrap runs)
  */
 
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
+import { join, relative } from 'node:path'
 import * as Cause from 'effect/Cause'
 import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
+import { PUBLIC_README_BODY } from '@/cli/commands/init-scaffold-content'
+import { renderTemplateClaudeMd } from '@/cli/commands/init-template-claude-md'
+import { renderTemplateEnvExample } from '@/cli/commands/init-template-env'
+import { collectTemplateFacts, isTemplateConfigText } from '@/cli/commands/init-template-facts'
+import {
+  decodeTemplateManifest,
+  TEMPLATE_MANIFEST_FILE,
+} from '@/cli/commands/init-template-manifest'
+import { renderTemplateReadme, TEMPLATE_LICENSE_MIT } from '@/cli/commands/init-template-mirror'
+import { isHeadlessEntry } from '@/cli/commands/templates-catalog'
+import { templateRepositoryUrl } from '@/cli/commands/templates-render'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { CommandServiceLive, spawn } from '../lib/effect/command-service'
+import { TEMPLATES_ROOT as TEMPLATES_ROOT_REL, templatesRootAbsolute } from '../lib/template-root'
 import type { CommandService } from '../lib/effect/command-service'
 
 const PROJECT_ROOT = join(import.meta.dir, '..', '..')
-const TEMPLATES_ROOT = join(PROJECT_ROOT, 'templates')
+const TEMPLATES_ROOT = templatesRootAbsolute()
 const ORG = 'sovrium'
 
 /**
@@ -76,17 +101,21 @@ const LOCAL_OP_TIMEOUT_MS = 15_000
 const NETWORK_TIMEOUT_MS = 60_000
 
 /**
- * Local slug → standalone GitHub repo name. The `-template` suffix lives ONLY
- * here (and its callers below); the bare slug is retained for the local dir,
- * the catalog key, and the `sovrium.com/apps/<slug>` homepage.
+ * Local slug → standalone GitHub repo name: the last segment of
+ * `templateRepositoryUrl`, the one place the naming rule is written (and the
+ * address `sovrium templates` prints). The bare slug is retained for the local
+ * dir, the catalog key, and the `sovrium.com/apps/<slug>` homepage.
  */
-export const repoName = (slug: string): string => `${slug}-template`
+export const repoName = (slug: string): string =>
+  templateRepositoryUrl(slug).split('/').at(-1) ?? slug
 
 interface CatalogEntry {
   readonly name: string
   readonly description: string
   readonly category: string
   readonly topics: readonly string[]
+  /** A template with no web pages (an API or an MCP server): no `public/README.md`. */
+  readonly headless?: boolean
 }
 
 interface CliOptions {
@@ -94,6 +123,7 @@ interface CliOptions {
   readonly dryRun: boolean
   readonly only: string | null
   readonly create: boolean
+  readonly out: string | null
 }
 
 export function parseCliOptions(argv: readonly string[]): CliOptions {
@@ -103,13 +133,28 @@ export function parseCliOptions(argv: readonly string[]): CliOptions {
     throw new Error(`--version is required and must be semver (got: ${JSON.stringify(version)})`)
   }
   const onlyIdx = argv.indexOf('--only')
+  const outIdx = argv.indexOf('--out')
+  const out = outIdx >= 0 ? (argv[outIdx + 1] ?? '') : null
+  // `--out` names a directory this script empties slug by slug; a missing
+  // value, or the next flag read as one, would point that at the wrong place.
+  if (out !== null && (out === '' || out.startsWith('-'))) {
+    throw new Error(`--out needs a directory (got: ${JSON.stringify(out)})`)
+  }
   return {
     version,
     dryRun: argv.includes('--dry-run'),
     only: onlyIdx >= 0 ? (argv[onlyIdx + 1] ?? null) : null,
     create: argv.includes('--create'),
+    out,
   }
 }
+
+/**
+ * A catalogue key is joined onto the templates root, the work directory and
+ * a GitHub repository name, so it must be a plain kebab-case slug: no
+ * separator, no `..`, nothing a path or a URL would read as structure.
+ */
+const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
 export function readCatalog(root: string = TEMPLATES_ROOT): Readonly<Record<string, CatalogEntry>> {
   const raw = JSON.parse(readFileSync(join(root, 'catalog.json'), 'utf-8')) as Record<
@@ -117,17 +162,23 @@ export function readCatalog(root: string = TEMPLATES_ROOT): Readonly<Record<stri
     CatalogEntry
   >
   for (const [slug, entry] of Object.entries(raw)) {
-    // Every published mirror must carry a config and its CLAUDE.md. Checked
+    if (!SLUG.test(slug)) {
+      throw new Error(`catalog.json key ${JSON.stringify(slug)} is not a kebab-case slug`)
+    }
+    // Every published mirror must carry a config and its manifest. Checked
     // here rather than at copy time so an incomplete template fails the run
-    // before any repo is touched. The config is `app.yaml` or `app.ts` — a
-    // typed template ships the latter.
-    if (!['app.yaml', 'app.ts'].some((config) => existsSync(join(root, slug, config)))) {
+    // before any repo is touched. The config is `app.yaml`: a template is pure
+    // config data and carries no `.ts` ([internal ref] A4).
+    if (!existsSync(join(root, slug, 'app.yaml'))) {
       throw new Error(
-        `catalog.json lists "${slug}" but templates/${slug}/ has neither app.yaml nor app.ts`
+        `catalog.json lists "${slug}" but ${TEMPLATES_ROOT_REL}/${slug}/ has no app.yaml`
       )
     }
-    if (!existsSync(join(root, slug, 'CLAUDE.md'))) {
-      throw new Error(`catalog.json lists "${slug}" but templates/${slug}/CLAUDE.md is missing`)
+    // Every published mirror renders its wrapper files from `template.yaml`.
+    if (!existsSync(join(root, slug, TEMPLATE_MANIFEST_FILE))) {
+      throw new Error(
+        `catalog.json lists "${slug}" but ${TEMPLATES_ROOT_REL}/${slug}/${TEMPLATE_MANIFEST_FILE} is missing`
+      )
     }
     if (!entry.description) throw new Error(`catalog.json entry "${slug}" has no description`)
   }
@@ -138,28 +189,96 @@ export function readCatalog(root: string = TEMPLATES_ROOT): Readonly<Record<stri
 const STRIP = new Set(['.DS_Store', '.env', '.sovrium'])
 
 /**
+ * Template-root files never published: the manifest the wrappers are rendered
+ * from, and a hosting provider's deploy manifest an older tree may still carry.
+ */
+const ROOT_STRIP = new Set([TEMPLATE_MANIFEST_FILE, 'scalingo.json', '.buildpacks', 'Procfile'])
+
+/** Every file of a directory, keyed by its path relative to `root`. */
+const readTree = (root: string, dir: string = root): ReadonlyArray<readonly [string, string]> =>
+  readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name)
+    if (entry.isDirectory()) return readTree(root, path)
+    return [
+      [relative(root, path), isTemplateConfigText(entry.name) ? readFileSync(path, 'utf-8') : ''],
+    ]
+  })
+
+/** Write a file unless the tree already has one, creating its directory. */
+const writeIfAbsent = (path: string, content: string): void => {
+  if (existsSync(path)) return
+  mkdirSync(join(path, '..'), { recursive: true })
+  writeFileSync(path, content)
+}
+
+/**
+ * Render the wrapper files of one template from its `template.yaml`, the facts
+ * of its config and the engine's constants. A tree with no manifest keeps the
+ * files it checks in.
+ */
+const writeRenderedWrappers = (
+  slug: string,
+  sourceDir: string,
+  destDir: string,
+  entry: CatalogEntry | undefined
+): void => {
+  const manifestPath = join(sourceDir, TEMPLATE_MANIFEST_FILE)
+  if (!existsSync(manifestPath)) return
+  const decoded = decodeTemplateManifest(readFileSync(manifestPath, 'utf-8'))
+  if (decoded._tag === 'Failure') {
+    throw new Error(
+      `${TEMPLATES_ROOT_REL}/${slug}/${TEMPLATE_MANIFEST_FILE}: ${decoded.failure.message}`
+    )
+  }
+  const manifest = decoded.success
+  const facts = collectTemplateFacts(slug, Object.fromEntries(readTree(sourceDir)), entry)
+  writeIfAbsent(join(destDir, 'CLAUDE.md'), renderTemplateClaudeMd(manifest, facts))
+  writeIfAbsent(join(destDir, '.env.example'), renderTemplateEnvExample(manifest, facts))
+  writeIfAbsent(join(destDir, 'README.md'), renderTemplateReadme(manifest, facts, slug))
+  writeIfAbsent(join(destDir, 'LICENSE'), TEMPLATE_LICENSE_MIT)
+  // The same headless rule `init` applies when it decides on a `public/`.
+  if (facts.hasPublic && (entry === undefined || !isHeadlessEntry(entry))) {
+    writeIfAbsent(join(destDir, 'public', 'README.md'), PUBLIC_README_BODY)
+  }
+}
+
+/**
  * Build the publish tree for one slug into `destDir`: the template directory
- * verbatim, minus runtime residue, plus the release pin.
+ * minus runtime residue, the manifest and any host deploy manifest; then the
+ * wrapper files rendered from the manifest (each only where the tree has none);
+ * then the release pin.
  *
- * The recursive copy carries the template's checked-in `CLAUDE.md` and any
- * dot-directory (a `[internal ref]` settings folder, say) along with everything
- * else — `STRIP` filters on basename and never matches a directory name it
- * does not list, so nothing needs a special case.
+ * The recursive copy carries any dot-directory (a `[internal ref]` settings folder,
+ * say) along with everything else — `STRIP` filters on basename and never
+ * matches a directory name it does not list, so nothing needs a special case.
  */
 export function buildPublishTree(
   slug: string,
   version: string,
   destDir: string,
-  templatesRoot: string = TEMPLATES_ROOT
+  templatesRoot: string = TEMPLATES_ROOT,
+  entry?: CatalogEntry
 ): void {
-  cpSync(join(templatesRoot, slug), destDir, {
+  const sourceDir = join(templatesRoot, slug)
+  cpSync(sourceDir, destDir, {
     recursive: true,
     filter: (src) => {
       const base = src.split('/').at(-1) ?? ''
-      return !STRIP.has(base) && !base.startsWith('.sovrium')
+      const atRoot = relative(sourceDir, src) === base
+      return !STRIP.has(base) && !base.startsWith('.sovrium') && !(atRoot && ROOT_STRIP.has(base))
     },
   })
+  writeRenderedWrappers(slug, sourceDir, destDir, entry)
   writeFileSync(join(destDir, '.sovrium-version'), `${version}\n`)
+}
+
+/**
+ * The push remote carries `GH_TOKEN` in its URL; every message built from a
+ * command line or its stderr goes through this before it can reach a log.
+ */
+const redactToken = (text: string): string => {
+  const token = process.env['GH_TOKEN'] ?? ''
+  return token === '' ? text : text.split(token).join('***')
 }
 
 /** Run a command, failing with the exit code and stderr when it does not succeed. */
@@ -173,13 +292,15 @@ const run = (
       CommandTimeoutError: () =>
         Effect.fail(
           new TemplatePublishError({
-            message: `command timed out after ${timeoutMs}ms: ${cmd.join(' ')}`,
+            message: redactToken(`command timed out after ${timeoutMs}ms: ${cmd.join(' ')}`),
           })
         ),
       CommandSpawnError: (error) =>
         Effect.fail(
           new TemplatePublishError({
-            message: `failed to spawn: ${cmd.join(' ')}${error.cause ? ` — ${String(error.cause)}` : ''}`,
+            message: redactToken(
+              `failed to spawn: ${cmd.join(' ')}${error.cause ? ` — ${String(error.cause)}` : ''}`
+            ),
           })
         ),
       // Unreachable under `throwOnError: false` — kept so the Effect's error
@@ -187,7 +308,9 @@ const run = (
       CommandFailedError: (error) =>
         Effect.fail(
           new TemplatePublishError({
-            message: `command failed (${error.exitCode}): ${cmd.join(' ')}\n${error.stderr}`,
+            message: redactToken(
+              `command failed (${error.exitCode}): ${cmd.join(' ')}\n${error.stderr}`
+            ),
           })
         ),
     }),
@@ -195,7 +318,9 @@ const run = (
       result.exitCode !== 0
         ? Effect.fail(
             new TemplatePublishError({
-              message: `command failed (${result.exitCode}): ${cmd.join(' ')}\n${result.stderr}`,
+              message: redactToken(
+                `command failed (${result.exitCode}): ${cmd.join(' ')}\n${result.stderr}`
+              ),
             })
           )
         : Effect.succeed(result.stdout.trim())
@@ -368,8 +493,15 @@ const main: Effect.Effect<number, never, CommandService> = Effect.gen(function* 
     `Publishing ${slugs.length} template repo(s) at v${opts.version}${opts.dryRun ? ' [dry-run]' : ''}`
   )
 
-  const workRoot = join(PROJECT_ROOT, '.template-publish')
-  rmSync(workRoot, { recursive: true, force: true })
+  const workRoot = opts.out ?? join(PROJECT_ROOT, '.template-publish')
+  // The default work dir is this script's own scratch and is emptied whole.
+  // A `--out` directory is the caller's: only the per-slug trees this run
+  // rebuilds are removed from it, never the directory itself.
+  if (opts.out === null) rmSync(workRoot, { recursive: true, force: true })
+  slugs.forEach((slug) => {
+    rmSync(join(workRoot, slug), { recursive: true, force: true })
+    rmSync(join(workRoot, `${slug}-clone`), { recursive: true, force: true })
+  })
   // Resilient loop: one failing repo must NOT skip the rest (fail-fast would
   // leave later mirrors stale and — under continue-on-error — invisibly green).
   // Each slug is isolated; failures are collected and re-raised as a non-zero
@@ -385,7 +517,7 @@ const main: Effect.Effect<number, never, CommandService> = Effect.gen(function* 
     const entry = catalog[slug]!
     const treeDir = join(workRoot, slug)
     const outcome = yield* Effect.gen(function* () {
-      buildPublishTree(slug, opts.version, treeDir)
+      buildPublishTree(slug, opts.version, treeDir, TEMPLATES_ROOT, entry)
       if (opts.dryRun) {
         const files = (yield* run(['find', '.', '-type', 'f'], LOCAL_OP_TIMEOUT_MS, treeDir)).split(
           '\n'
@@ -407,7 +539,8 @@ const main: Effect.Effect<number, never, CommandService> = Effect.gen(function* 
     )
     results.push(outcome)
   }
-  rmSync(workRoot, { recursive: true, force: true })
+  // `--out` keeps the built trees for a diff; the default work dir is scratch.
+  if (opts.out === null) rmSync(workRoot, { recursive: true, force: true })
   console.log(results.join('\n'))
   const ok = slugs.length - failures.length
   if (failures.length > 0) {

@@ -56,6 +56,7 @@ import {
   rollbackRelease,
   writeRelease,
 } from './instance-releases'
+import { usage } from './instance-usage'
 import { RUN_PROPERTIES, STATUS_PROPERTIES, parseRunFacts, parseShow } from './systemd-unit-show'
 
 /**
@@ -65,11 +66,9 @@ import { RUN_PROPERTIES, STATUS_PROPERTIES, parseRunFacts, parseShow } from './s
  * The host defines, per supervised app `<slug>`: `sovrium-app@<slug>.service`
  * (the app), `sovrium-app@<slug>.socket` (wakes it on the first request),
  * `sovrium-proxy@<slug>.service` (the idle-exit proxy between them), and the
- * one-shot `sovrium-backup@<slug>.service` / `sovrium-restore@<slug>.service` /
- * `sovrium-seed@<slug>.service`, which run `sovrium backup` / `sovrium restore`
- * / `sovrium seed` as the app's own user. The
- * host's polkit rule grants this process `start`, `stop` and `restart` on those
- * units and nothing else, which is why no other verb is ever asked.
+ * one-shot `sovrium-{backup,restore,seed,usage}@<slug>.service`, which run that
+ * `sovrium` verb as the app's own user. The host's polkit rule grants this
+ * process `start`, `stop` and `restart` on those units and nothing else.
  *
  * Every command is an argv — never a shell line — whose only caller value is
  * the slug, re-checked here before it is used.
@@ -383,6 +382,7 @@ export const SystemdSupervisorLive = Layer.effect(
       backup: (slug, timeoutMs) => backup(runner, slug, timeoutMs),
       restore: (slug, archive, timeoutMs) => restore(runner, slug, archive, timeoutMs),
       seed: (slug, request, timeoutMs) => seed(runner, slug, request, timeoutMs),
+      usage: (slug, ms) => usage((u, t) => systemctl(runner, ['start', u], t), slug, ms),
       readRelease,
       releaseEngine: (slug, revision) =>
         instanceDir(slug).pipe(Effect.flatMap((dir) => releaseEngineIn(dir, revision))),

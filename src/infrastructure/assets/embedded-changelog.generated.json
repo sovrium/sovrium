@@ -3,6 +3,259 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.44.0",
+      "date": "2026-10-25",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.43.1...v0.44.0",
+      "sections": [
+        {
+          "kind": "breaking",
+          "heading": "BREAKING CHANGES",
+          "entries": [
+            {
+              "scope": "forms",
+              "text": "refuse disabledWhen on a hosted form field, deprecated since 0.43"
+            }
+          ]
+        },
+        {
+          "kind": "features",
+          "heading": "Features",
+          "entries": [
+            {
+              "scope": "design-system",
+              "text": "write imports through $ref partials into the file that owns each value"
+            },
+            {
+              "scope": "cli",
+              "text": "load uploads into the PostgreSQL database on a SQLite-to-PostgreSQL restore"
+            },
+            {
+              "scope": "automations",
+              "text": "extract AAC audio from Matroska videos into .m4a"
+            },
+            {
+              "scope": "automations",
+              "text": "measure what a supervised app holds, and a sovrium usage command"
+            },
+            {
+              "scope": "automations",
+              "text": "in and notIn condition operators, and branch paths with no actions"
+            },
+            {
+              "scope": "cli",
+              "text": "restore a SQLite backup into an empty PostgreSQL database"
+            },
+            {
+              "scope": "cli",
+              "text": "notice a lookup that reads empty for a role allowed to read it"
+            },
+            {
+              "scope": "cli",
+              "text": "name the account created by sovrium admin create with --name"
+            },
+            {
+              "scope": "pages",
+              "text": "word or drop the counts footer of a ratio KPI"
+            },
+            {
+              "scope": "design-system",
+              "text": "draw a page export as a chosen seeded account"
+            },
+            {
+              "scope": "forms",
+              "text": "let a form field bound to a select column offer a subset of its options"
+            },
+            {
+              "scope": "cli",
+              "text": "share a preview of an app with sovrium preview, and promote it with deploy --from-preview"
+            },
+            {
+              "scope": "skills",
+              "text": "add an opt-in design-first mode for page changes"
+            },
+            {
+              "scope": "server",
+              "text": "keep a public dev-mode instance out of search indexes with SOVRIUM_DEV_PUBLIC"
+            },
+            {
+              "scope": "cli",
+              "text": "sovrium templates lists the templates the binary embeds"
+            },
+            {
+              "scope": "cli",
+              "text": "sovrium init and sovrium skills write a config-editor subagent for Claude Code"
+            },
+            {
+              "scope": "skills",
+              "text": "add the sovrium-agents skill"
+            },
+            {
+              "scope": "skills",
+              "text": "add the sovrium-security skill"
+            },
+            {
+              "scope": "skills",
+              "text": "add the sovrium-performance skill"
+            },
+            {
+              "scope": "skills",
+              "text": "add the sovrium-design skill"
+            },
+            {
+              "scope": "cli",
+              "text": "sovrium dev boots a fresh seeded state and dev mode replaces the demo notice"
+            }
+          ]
+        },
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "templates",
+              "text": "explain BASE_URL again in the scaffolded .env.example"
+            },
+            {
+              "scope": "docs",
+              "text": "match the Scalingo deploy guide to the project init scaffolds"
+            },
+            {
+              "scope": "pages",
+              "text": "count a ratio KPI bound to a view over every row of the view"
+            },
+            {
+              "scope": "pages",
+              "text": "match startsWith and between in a page data source instead of comparing as equal"
+            },
+            {
+              "scope": "pages",
+              "text": "a record page bound by a column its reader cannot read answers not found"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a rollup over a numeric formula or an id as a number"
+            },
+            {
+              "scope": "buckets",
+              "text": "honour STORAGE_PROVIDER=bytea and refuse an unknown storage backend at startup"
+            },
+            {
+              "scope": "forms",
+              "text": "an embedded form fills the element it is placed in"
+            },
+            {
+              "scope": "tables",
+              "text": "match %, \\_ and backslash literally in view and lookup text filters"
+            },
+            {
+              "scope": "tables",
+              "text": "store duration fields as whole seconds on PostgreSQL"
+            },
+            {
+              "scope": "automations",
+              "text": "refuse a record filter operator that cannot be compiled instead of matching equality"
+            },
+            {
+              "scope": "automations",
+              "text": "compile notContains in record-step filters instead of matching equality"
+            },
+            {
+              "scope": "cli",
+              "text": "keep an edited skill file on refresh and refresh the rest"
+            },
+            {
+              "scope": "pages",
+              "text": "open a themed select on its empty row when no default is set"
+            },
+            {
+              "scope": "pages",
+              "text": "paint a card badge in its declared tone and classes"
+            },
+            {
+              "scope": "realtime",
+              "text": "admit presence on a record page by the record its segment names"
+            },
+            {
+              "scope": "pages",
+              "text": "answer 404 for a record segment its column type cannot hold"
+            },
+            {
+              "scope": "pages",
+              "text": "match an inline form's parent record as its page does"
+            },
+            {
+              "scope": "design-system",
+              "text": "keep the space an edited literal starts or ends with in a page import"
+            },
+            {
+              "scope": "design-system",
+              "text": "read a named spacing step's class back as its value in a page import"
+            },
+            {
+              "scope": "pages",
+              "text": "let a folded kanban column give its width to the open ones"
+            },
+            {
+              "scope": "design-system",
+              "text": "import a seeded page canvas against a drawing made the same way"
+            },
+            {
+              "scope": "pages",
+              "text": "read a field of the reader's own joined row on each item"
+            },
+            {
+              "scope": "pages",
+              "text": "print a relationship or a person by its label in page text"
+            },
+            {
+              "scope": "forms",
+              "text": "lay a checkbox field out beside its label"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a relabelled text chip in its chip and its tone in a grid"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a grid's count and rollup columns as the values they compute"
+            },
+            {
+              "scope": "pages",
+              "text": "keep an empty grid's message inside the visible width on a narrow screen"
+            },
+            {
+              "scope": "pages",
+              "text": "crud buttons on a record page act on the page's record"
+            },
+            {
+              "scope": "pages",
+              "text": "match a record route segment by column, else by id"
+            },
+            {
+              "scope": "pages",
+              "text": "an avatar on a record page reads the page's record"
+            },
+            {
+              "scope": "forms",
+              "text": "put an embedded form's className on the element that names it"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a grid's action columns on a phone when its rows open the rowExpand panel"
+            },
+            {
+              "scope": "cli",
+              "text": "find an identifier written with underscores with sovrium docs search"
+            },
+            {
+              "scope": "cli",
+              "text": "sovrium init and the template repositories no longer carry Scalingo deploy manifests"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.43.1",
       "date": "2026-10-24",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.43.0...v0.43.1",

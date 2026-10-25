@@ -41,7 +41,10 @@ import { planDesignImport } from '@/domain/models/app/design/design-import-servi
 import { getFlagValue } from '../runtime/flag-vocabulary'
 import { refuse } from './app-prelude'
 import { loadValidConfig, resolveConfig } from './design-system-import-config'
+import { assembledConfig } from './design-system-import-pages-ref'
 import { isPageDrawingFile } from './design-system-import-pages-source'
+import { positionOf, type ConfigFiles } from './design-system-import-ref-owners'
+import { writeThrough } from './design-system-import-ref-write'
 import { readImportSourcePath, type ReadSource } from './design-system-import-source'
 import {
   designCommentLines,
@@ -131,6 +134,8 @@ interface RunOutcome {
   readonly modes: DesignSystemImportReport['modes']
   readonly components: number
   readonly written: WrittenDesign | undefined
+  /** The config's files, when it is assembled from `$ref` includes. */
+  readonly assembled: ConfigFiles | undefined
 }
 
 const buildReport = ({
@@ -141,6 +146,7 @@ const buildReport = ({
   modes,
   components,
   written,
+  assembled,
 }: RunOutcome): DesignSystemImportReport => ({
   format: 'sovrium.design-system.import-report',
   version: 1,
@@ -150,6 +156,7 @@ const buildReport = ({
     path: `design.${change.path.join('.')}`,
     ...(change.before === undefined ? {} : { before: change.before }),
     after: String(change.value),
+    ...(assembled === undefined ? {} : positionOf(assembled, ['design', ...change.path])),
   })),
   unmapped: plan.unmapped,
   components: { imported: false, found: components },
@@ -191,6 +198,9 @@ const writtenLines = (written: WrittenDesign | undefined, dryRun: boolean): read
         ? 'Nothing written (dry run). Run again with --write to apply.'
         : 'Nothing to change, so nothing was written.',
     ]
+  }
+  if (written.files !== undefined) {
+    return [`Wrote design into ${written.files.map((file) => file.file).join(', ')}.`]
   }
   if (written.sidecar === undefined) return [`Wrote design into ${written.config ?? ''}.`]
   return [
@@ -238,10 +248,35 @@ const renderText = (
   return `${lines.join('\n').trimEnd()}\n`
 }
 
+/** Write `design` through the config's includes, each value into the file that holds it. */
+const writeThroughRefs = async (
+  assembled: ConfigFiles,
+  parsed: unknown,
+  plan: DesignImportPlan,
+  dryRun: boolean
+): Promise<WrittenDesign> => {
+  const written = await writeThrough(
+    {
+      config: assembled,
+      old: parsed,
+      next: { ...(parsed as Readonly<Record<string, unknown>>), design: plan.design },
+      counts: () => true,
+      placeOf: (position) => position.join('.'),
+      invalid: 'Error: The imported design does not validate, so nothing was written.',
+    },
+    dryRun
+  )
+  return {
+    config: written.config,
+    ...(written.files === undefined ? {} : { files: written.files }),
+  }
+}
+
 const write = async (
   configPath: string,
   loaded: { readonly parsed: unknown; readonly refSources: ReadonlyMap<string, string> },
-  plan: DesignImportPlan
+  plan: DesignImportPlan,
+  assembled: ConfigFiles | undefined
 ): Promise<WrittenDesign | undefined> => {
   // Nothing to change writes nothing, a sidecar included: an unchanged design
   // needs no file to paste.
@@ -250,6 +285,7 @@ const write = async (
   if (format === 'typescript') {
     return writeDesignSidecar(configPath, loaded.parsed, loaded.refSources, plan.design)
   }
+  if (assembled !== undefined) return writeThroughRefs(assembled, loaded.parsed, plan, false)
   const declared = (loaded.parsed as Readonly<Record<string, unknown>> | undefined)?.['design']
   const include = designIncludeOf(await Bun.file(configPath).text(), format, declared)
   if (include !== undefined) {
@@ -259,6 +295,24 @@ const write = async (
     )
   }
   return writeConfigDesign(configPath, format, plan.design)
+}
+
+/**
+ * Write the design, or on a dry run into an assembled config decide every
+ * refusal the write would make; `undefined` when nothing was written.
+ */
+const writeOrJudge = async (
+  configPath: string,
+  loaded: { readonly parsed: unknown; readonly refSources: ReadonlyMap<string, string> },
+  plan: DesignImportPlan,
+  target: { readonly assembled: ConfigFiles | undefined; readonly write: boolean }
+): Promise<WrittenDesign | undefined> => {
+  const { assembled } = target
+  if (target.write) return write(configPath, loaded, plan, assembled)
+  if (assembled !== undefined && plan.changes.length > 0) {
+    await writeThroughRefs(assembled, loaded.parsed, plan, true)
+  }
+  return undefined
 }
 
 /**
@@ -298,7 +352,11 @@ const importTokens = async (
     plan.changes.length > 0 && rootFormatOf(configPath) === 'yaml'
       ? designCommentLines(await Bun.file(configPath).text())
       : 0
-  const written = request.write ? await write(configPath, loaded, plan) : undefined
+  const assembled = await assembledConfig(configPath)
+  const written = await writeOrJudge(configPath, loaded, plan, {
+    assembled,
+    write: request.write,
+  })
   const components = read.isFolder || format === 'claude-design' ? read.components : 0
   const modes =
     result.value.dark === undefined ? (['light'] as const) : (['light', 'dark'] as const)
@@ -310,6 +368,7 @@ const importTokens = async (
     modes,
     components,
     written,
+    assembled,
   })
   process.stdout.write(
     request.json

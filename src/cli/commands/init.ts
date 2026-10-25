@@ -7,6 +7,7 @@
 
 import { mkdir, writeFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
+import { Effect } from 'effect'
 import { ENV_EXAMPLE_CONTENT } from '@/cli/commands/env-example-template'
 import {
   assertForkableUrl,
@@ -20,60 +21,59 @@ import {
   scaffoldFromRemoteTemplate,
 } from '@/cli/commands/init-remote-template'
 import { CLAUDE_MD_BODY, PUBLIC_README_BODY } from '@/cli/commands/init-scaffold-content'
+import {
+  isScaffoldedTemplateFile,
+  writeRenderedTemplateWrappers,
+} from '@/cli/commands/init-template-scaffold'
 import { writeSkillsForScaffold } from '@/cli/commands/skills-files'
+import { isHeadlessEntry, readEmbeddedTemplateCatalog } from '@/cli/commands/templates-catalog'
 import { writeConfigTypesFiles } from '@/cli/commands/types'
 import { embeddedTemplateDir } from '@/infrastructure/assets/embedded-static-assets'
 import { printDocument, printFailure, printStderr } from '@/infrastructure/logging/cli-output'
+import type { TemplateCatalog } from '@/cli/commands/templates-catalog'
 
 /**
- * Template name → directory name under `templates/`.
+ * The bundled templates, read from the catalogue the binary embeds.
  *
- * Each template is a directory under `templates/<template>/` (post-2026-05 split,
- * see the CLAUDE.md split rules in `CLAUDE_MD_BODY`). Init copies the entire
- * tree into the target verbatim — including the template's own `CLAUDE.md`.
- * The agent skills are not part of any template: they come from the binary
- * (`writeSkillsForScaffold`), added beside the tree without overwriting.
+ * Each template is a directory under `src/templates/<template>/`, named after its
+ * slug one-to-one (business jobs such as `crm`, `intranet`, with no aliases
+ * for older names — the templates are pre-1.0 content, not API). Init copies
+ * the template's config, `seed/` and `public/` into the target and renders its
+ * `CLAUDE.md` and `.env.example` from its `template.yaml`
+ * (`init-template-scaffold.ts`). The agent skills are not part of any
+ * template: they come from the binary (`writeSkillsForScaffold`), added beside
+ * the tree without overwriting.
  *
- * Template names are their directory names, one-to-one, named after business
- * jobs (`crm`, `intranet`) with no aliases for older names — the templates are
- * pre-1.0 content, not API.
+ * The slugs and their `headless` flags come from the SAME reader
+ * `sovrium templates` prints from, so the list a developer is shown and the
+ * names this command accepts cannot disagree. A catalogue that does not
+ * decode is a build defect and exits 1.
  */
-const TEMPLATE_MAP: Readonly<Record<string, string>> = {
-  'hello-world': 'hello-world',
-  'landing-page': 'landing-page',
-  crm: 'crm',
-  'api-only': 'api-only',
-  intranet: 'intranet',
-  'mcp-server': 'mcp-server',
-  blog: 'blog',
-  'docs-site': 'docs-site',
-  projects: 'projects',
-  helpdesk: 'helpdesk',
-  'content-calendar': 'content-calendar',
-  people: 'people',
-  events: 'events',
-  assets: 'assets',
-  inventory: 'inventory',
-  expenses: 'expenses',
-  'company-os': 'company-os',
-  'automation-recipes': 'automation-recipes',
-  'knowledge-base': 'knowledge-base',
-  'app-starter': 'app-starter',
-  'marketing-site': 'marketing-site',
+const templateCatalog = (): TemplateCatalog => {
+  const outcome = Effect.runSync(Effect.result(readEmbeddedTemplateCatalog))
+  if (outcome._tag === 'Failure') {
+    printStderr(`Error: ${outcome.failure.message}`)
+    process.exit(1)
+  }
+  return outcome.success
 }
+
+/** The template directory a bundled name resolves to, or `undefined` for an unknown name. */
+const templateDirOf = (templateName: string): string | undefined =>
+  Object.hasOwn(templateCatalog(), templateName) ? templateName : undefined
 
 /**
  * Templates that ship with a user-facing front-end and benefit from a
- * pre-scaffolded `public/` directory next to `app.yaml`: every template except
- * the headless `api-only` and `mcp-server`, where a blank public/ would just be
- * noise. The default no-template `init` (no positional template
- * arg) also scaffolds `public/` so the convention is discoverable from
- * the very first run.
+ * pre-scaffolded `public/` directory next to `app.yaml`: every template the
+ * catalogue does not mark headless (the API and MCP templates, where a blank
+ * public/ would just be noise). The default no-template `init` (no positional
+ * template arg) also scaffolds `public/` so the convention is discoverable
+ * from the very first run.
  */
-const HEADLESS_TEMPLATE_NAMES: ReadonlySet<string> = new Set(['api-only', 'mcp-server'])
-const WEB_FACING_TEMPLATE_NAMES: ReadonlySet<string> = new Set(
-  Object.values(TEMPLATE_MAP).filter((template) => !HEADLESS_TEMPLATE_NAMES.has(template))
-)
+const isWebFacingCatalogTemplate = (template: string): boolean => {
+  const entry = templateCatalog()[template]
+  return entry !== undefined && !isHeadlessEntry(entry)
+}
 
 /**
  * Sanitize a directory name into a valid npm package name for use in app.yaml.
@@ -233,7 +233,7 @@ const writeScaffoldFiles = async (
 }
 
 /**
- * Resolve and validate a template name, returning its directory under `templates/`.
+ * Resolve and validate a template name, returning its directory under `src/templates/`.
  *
  * Exits with code 1 (and a list of available templates) on an unknown name,
  * and on a known name whose embedded template directory turns out to be empty
@@ -241,11 +241,11 @@ const writeScaffoldFiles = async (
  * exists but no files were embedded), not a user error, but still fatal.
  */
 const resolveTemplate = (templateName: string): string => {
-  const entry = TEMPLATE_MAP[templateName]
+  const entry = templateDirOf(templateName)
   if (entry === undefined) {
     printStderr(
       `Error: Unknown template "${templateName}" — does not exist\n\nAvailable templates: ` +
-        Object.keys(TEMPLATE_MAP).join(', ')
+        Object.keys(templateCatalog()).join(', ')
     )
     process.exit(1)
   }
@@ -286,25 +286,13 @@ const writeOneTreeFile = async (
   return true
 }
 
-/**
- * Template-root files that exist for the mirrored `sovrium/<slug>` GitHub
- * repos (auto-published from `templates/`), not for scaffolded projects: the
- * mirror README's "PRs go upstream" notice and the MIT LICENSE are statements
- * about OUR repository and would be wrong inside a user's new project. The
- * deploy manifests (`scalingo.json`, `.buildpacks`, `Procfile`, `.env.example`)
- * ARE copied — a scaffolded project pushed to GitHub is one-click deployable.
- */
-const MIRROR_ONLY_FILES: ReadonlySet<string> = new Set(['README.md', 'LICENSE'])
-
 const copyTemplateTree = async (
   templateName: string,
   targetDir: string,
   forceFlag: boolean
 ): Promise<readonly string[]> => {
   const tree = embeddedTemplateDir(templateName)
-  const relPaths = Object.keys(tree)
-    .filter((relPath) => !MIRROR_ONLY_FILES.has(relPath))
-    .toSorted()
+  const relPaths = Object.keys(tree).filter(isScaffoldedTemplateFile).toSorted()
   // `app.yaml` is the only file `init` owns — `--force` clobbers just it; every
   // other tree file (including `public/README.md`) is additive.
   const written = await Promise.all(
@@ -313,7 +301,14 @@ const copyTemplateTree = async (
       return writeOneTreeFile(tree[relPath]!, join(targetDir, relPath), clobber)
     })
   )
-  return relPaths.filter((_, i) => written[i] === true)
+  const copied = relPaths.filter((_, i) => written[i] === true)
+  const rendered = await writeRenderedTemplateWrappers(
+    templateName,
+    tree,
+    targetDir,
+    templateCatalog()[templateName]
+  )
+  return [...copied, ...rendered]
 }
 
 /**
@@ -347,11 +342,10 @@ export interface InitCommandOptions {
 }
 
 /**
- * Scaffold from a `--template <name>` — a pure copy of the embedded tree.
- *
- * The template's own `CLAUDE.md` is checked into `templates/<slug>/`, so it
- * lands with the rest of the tree. Nothing is overwritten on top: whatever the
- * template ships is what the user gets.
+ * Scaffold from a `--template <name>`: the template's config, `seed/` and
+ * `public/`, plus the `CLAUDE.md` and `.env.example` rendered from its
+ * `template.yaml` (see `init-template-scaffold.ts`). Never the manifest, the
+ * published repository's README and licence, or a host's deploy manifest.
  */
 const scaffoldFromTemplate = async (
   templateName: string,
@@ -415,8 +409,8 @@ const assertNoConflict = async (targetPath: string, forceFlag: boolean): Promise
  */
 const isWebFacingTemplate = (templateName: string | undefined): boolean => {
   if (templateName === undefined) return true
-  const template = TEMPLATE_MAP[templateName]
-  return template !== undefined && WEB_FACING_TEMPLATE_NAMES.has(template)
+  const template = templateDirOf(templateName)
+  return template !== undefined && isWebFacingCatalogTemplate(template)
 }
 
 /**

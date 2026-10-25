@@ -221,7 +221,6 @@ const footprint = defineAdminRead<undefined>({
  */
 const buildStorageStatus = (): StorageStatusResponse => {
   const config = parseStorageEnvConfig()
-  if (!config) return { provider: 'disabled' }
   if (config.provider === 's3') {
     return {
       provider: 's3',

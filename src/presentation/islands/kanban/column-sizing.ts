@@ -36,15 +36,24 @@ const FILL = 'md:w-auto md:min-w-48 md:flex-1'
 const NAMED = 'md:w-[var(--kanban-column-width)] md:flex-none'
 
 /**
+ * A folded column of a filling board, from md up: as wide as its header and no
+ * wider, without the 12rem floor, so the width it gives up goes to the open
+ * columns. Below md it keeps the fixed width like every other column.
+ */
+const FOLDED_FILL = 'md:w-auto md:flex-none'
+
+/**
  * Where one column of a single-axis board sits, from `kanbanGroupBy.columnSizing`
  * and `kanbanGroupBy.columnWidths`.
  *
  * @param groupBy - The board's `kanbanGroupBy`, if any.
  * @param value - The column value, as the grouping field spells it.
+ * @param folded - Whether the reader has the column folded right now.
  */
 export const kanbanColumnPlacement = (
   groupBy: KanbanGroupBy | undefined,
-  value: string
+  value: string,
+  folded = false
 ): KanbanColumnPlacement => {
   const width = groupBy?.columnWidths?.[value]
   if (width !== undefined) {
@@ -53,8 +62,9 @@ export const kanbanColumnPlacement = (
       style: { ['--kanban-column-width' as string]: width } as CSSProperties,
     }
   }
+  if (groupBy?.columnSizing !== 'fill') return { className: FIXED, style: undefined }
   return {
-    className: groupBy?.columnSizing === 'fill' ? `${FIXED} ${FILL}` : FIXED,
+    className: folded ? `${FIXED} ${FOLDED_FILL}` : `${FIXED} ${FILL}`,
     style: undefined,
   }
 }

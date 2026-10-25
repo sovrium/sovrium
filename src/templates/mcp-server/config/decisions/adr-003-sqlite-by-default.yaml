@@ -1,0 +1,22 @@
+# One decision record: why the template keeps its data in SQLite, and when to
+# write the record that replaces this one.
+id: ADR-003
+title: SQLite until the server is shared beyond one team
+status: accepted
+date: '2026-04-15'
+deciders:
+  - Priya Nair
+  - Elin Sundberg
+touches:
+  - engine › DATABASE_URL
+context: >-
+  One team of a handful of people reads and adds a few hundred documents. The
+  server runs on one machine, and nobody wants a second service to operate for
+  a knowledge base.
+decision: >-
+  No DATABASE_URL. The app keeps its SQLite file in its data directory, beside
+  the binary, and backs up by copying that directory.
+consequences: >-
+  Nothing else to run or pay for. When a second instance or another team needs
+  the same data, set DATABASE_URL to a Postgres database and record that choice
+  as a new decision that supersedes this one.

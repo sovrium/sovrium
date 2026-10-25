@@ -3,6 +3,7 @@ out
 dist
 .sovrium
 .sovrium-wt
+.sovrium-imports/
 src/admin/public/sovrium-search/
 website/build
 *.tgz

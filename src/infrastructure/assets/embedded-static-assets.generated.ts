@@ -117,888 +117,746 @@ import _a102 from '../../../drizzle/sqlite/20261022145845_user_presence/migratio
 import _a103 from '../../../drizzle/sqlite/20261022150932_notifications/migration.sql' with { type: 'file' }
 import _a104 from '../../../drizzle/sqlite/20261023131322_account_baselines/migration.sql' with { type: 'file' }
 import _a105 from '../../../drizzle/sqlite/20261023235008_email_deliverability/migration.sql' with { type: 'file' }
-import _a106 from '../../../templates/api-only/.buildpacks' with { type: 'file' }
-import _a107 from '../../../templates/api-only/.env.example' with { type: 'file' }
-import _a108 from '../../../templates/api-only/app.yaml' with { type: 'file' }
-import _a109 from '../../../templates/api-only/CLAUDE.md' with { type: 'file' }
-import _a110 from '../../../templates/api-only/config/auth.yaml' with { type: 'file' }
-import _a111 from '../../../templates/api-only/config/automations/task-done-call-out.yaml' with { type: 'file' }
-import _a112 from '../../../templates/api-only/config/automations/task-intake.yaml' with { type: 'file' }
-import _a113 from '../../../templates/api-only/config/design.yaml' with { type: 'file' }
-import _a114 from '../../../templates/api-only/config/pages/home.yaml' with { type: 'file' }
-import _a115 from '../../../templates/api-only/config/tables/projects.yaml' with { type: 'file' }
-import _a116 from '../../../templates/api-only/config/tables/tasks.yaml' with { type: 'file' }
-import _a117 from '../../../templates/api-only/library/connection/linear.yaml' with { type: 'file' }
-import _a118 from '../../../templates/api-only/library/recipe/record-to-linear-issue.yaml' with { type: 'file' }
-import _a119 from '../../../templates/api-only/LICENSE' with { type: 'file' }
-import _a120 from '../../../templates/api-only/Procfile' with { type: 'file' }
-import _a121 from '../../../templates/api-only/public/favicon.svg' with { type: 'file' }
-import _a122 from '../../../templates/api-only/README.md' with { type: 'file' }
-import _a123 from '../../../templates/api-only/scalingo.json' with { type: 'file' }
-import _a124 from '../../../templates/api-only/seed/projects.yaml' with { type: 'file' }
-import _a125 from '../../../templates/api-only/seed/tasks.yaml' with { type: 'file' }
-import _a126 from '../../../templates/api-only/seed/users.yaml' with { type: 'file' }
-import _a127 from '../../../templates/app-starter/.buildpacks' with { type: 'file' }
-import _a128 from '../../../templates/app-starter/.env.example' with { type: 'file' }
-import _a129 from '../../../templates/app-starter/app.yaml' with { type: 'file' }
-import _a130 from '../../../templates/app-starter/CLAUDE.md' with { type: 'file' }
-import _a131 from '../../../templates/app-starter/config/auth.yaml' with { type: 'file' }
-import _a132 from '../../../templates/app-starter/config/pages/_nav.yaml' with { type: 'file' }
-import _a133 from '../../../templates/app-starter/config/pages/_settings-nav.yaml' with { type: 'file' }
-import _a134 from '../../../templates/app-starter/config/pages/invite.yaml' with { type: 'file' }
-import _a135 from '../../../templates/app-starter/config/pages/kit-client.yaml' with { type: 'file' }
-import _a136 from '../../../templates/app-starter/config/pages/kit-data.yaml' with { type: 'file' }
-import _a137 from '../../../templates/app-starter/config/pages/kit-feedback.yaml' with { type: 'file' }
-import _a138 from '../../../templates/app-starter/config/pages/kit-navigation.yaml' with { type: 'file' }
-import _a139 from '../../../templates/app-starter/config/pages/kit-shell-sidebar.yaml' with { type: 'file' }
-import _a140 from '../../../templates/app-starter/config/pages/kit-shell-stacked.yaml' with { type: 'file' }
-import _a141 from '../../../templates/app-starter/config/pages/magic-link.yaml' with { type: 'file' }
-import _a142 from '../../../templates/app-starter/config/pages/metrics.yaml' with { type: 'file' }
-import _a143 from '../../../templates/app-starter/config/pages/overview.yaml' with { type: 'file' }
-import _a144 from '../../../templates/app-starter/config/pages/project-edit.yaml' with { type: 'file' }
-import _a145 from '../../../templates/app-starter/config/pages/project.yaml' with { type: 'file' }
-import _a146 from '../../../templates/app-starter/config/pages/projects.yaml' with { type: 'file' }
-import _a147 from '../../../templates/app-starter/config/pages/reset-password-new.yaml' with { type: 'file' }
-import _a148 from '../../../templates/app-starter/config/pages/reset-password.yaml' with { type: 'file' }
-import _a149 from '../../../templates/app-starter/config/pages/settings-api-keys.yaml' with { type: 'file' }
-import _a150 from '../../../templates/app-starter/config/pages/settings-security.yaml' with { type: 'file' }
-import _a151 from '../../../templates/app-starter/config/pages/settings-team.yaml' with { type: 'file' }
-import _a152 from '../../../templates/app-starter/config/pages/settings-workspace.yaml' with { type: 'file' }
-import _a153 from '../../../templates/app-starter/config/pages/settings.yaml' with { type: 'file' }
-import _a154 from '../../../templates/app-starter/config/pages/sign-in.yaml' with { type: 'file' }
-import _a155 from '../../../templates/app-starter/config/pages/sign-up.yaml' with { type: 'file' }
-import _a156 from '../../../templates/app-starter/config/pages/sso.yaml' with { type: 'file' }
-import _a157 from '../../../templates/app-starter/config/pages/two-step.yaml' with { type: 'file' }
-import _a158 from '../../../templates/app-starter/config/pages/worklist.yaml' with { type: 'file' }
-import _a159 from '../../../templates/app-starter/config/tables/activity.yaml' with { type: 'file' }
-import _a160 from '../../../templates/app-starter/config/tables/bookings.yaml' with { type: 'file' }
-import _a161 from '../../../templates/app-starter/config/tables/clients.yaml' with { type: 'file' }
-import _a162 from '../../../templates/app-starter/config/tables/people.yaml' with { type: 'file' }
-import _a163 from '../../../templates/app-starter/config/tables/projects.yaml' with { type: 'file' }
-import _a164 from '../../../templates/app-starter/config/tables/reminders.yaml' with { type: 'file' }
-import _a165 from '../../../templates/app-starter/config/tables/tasks.yaml' with { type: 'file' }
-import _a166 from '../../../templates/app-starter/config/tables/workspace-settings.yaml' with { type: 'file' }
-import _a167 from '../../../templates/app-starter/library/block/alert-inline.yaml' with { type: 'file' }
-import _a168 from '../../../templates/app-starter/library/block/alert-validation-summary.yaml' with { type: 'file' }
-import _a169 from '../../../templates/app-starter/library/block/app-navbar-command.yaml' with { type: 'file' }
-import _a170 from '../../../templates/app-starter/library/block/app-navbar-search.yaml' with { type: 'file' }
-import _a171 from '../../../templates/app-starter/library/block/auth-invitation-accept.yaml' with { type: 'file' }
-import _a172 from '../../../templates/app-starter/library/block/auth-magic-link.yaml' with { type: 'file' }
-import _a173 from '../../../templates/app-starter/library/block/auth-password-reset-new.yaml' with { type: 'file' }
-import _a174 from '../../../templates/app-starter/library/block/auth-password-reset.yaml' with { type: 'file' }
-import _a175 from '../../../templates/app-starter/library/block/auth-sign-in.yaml' with { type: 'file' }
-import _a176 from '../../../templates/app-starter/library/block/auth-sign-up.yaml' with { type: 'file' }
-import _a177 from '../../../templates/app-starter/library/block/auth-sso.yaml' with { type: 'file' }
-import _a178 from '../../../templates/app-starter/library/block/auth-two-factor.yaml' with { type: 'file' }
-import _a179 from '../../../templates/app-starter/library/block/breadcrumb-chevron.yaml' with { type: 'file' }
-import _a180 from '../../../templates/app-starter/library/block/breadcrumb-slash.yaml' with { type: 'file' }
-import _a181 from '../../../templates/app-starter/library/block/calendar-month.yaml' with { type: 'file' }
-import _a182 from '../../../templates/app-starter/library/block/calendar-week.yaml' with { type: 'file' }
-import _a183 from '../../../templates/app-starter/library/block/card-heading.yaml' with { type: 'file' }
-import _a184 from '../../../templates/app-starter/library/block/comments-feed.yaml' with { type: 'file' }
-import _a185 from '../../../templates/app-starter/library/block/dashboard-metrics.yaml' with { type: 'file' }
-import _a186 from '../../../templates/app-starter/library/block/dashboard-overview.yaml' with { type: 'file' }
-import _a187 from '../../../templates/app-starter/library/block/dashboard-worklist.yaml' with { type: 'file' }
-import _a188 from '../../../templates/app-starter/library/block/data-table.yaml' with { type: 'file' }
-import _a189 from '../../../templates/app-starter/library/block/dl-rows.yaml' with { type: 'file' }
-import _a190 from '../../../templates/app-starter/library/block/dl-stacked.yaml' with { type: 'file' }
-import _a191 from '../../../templates/app-starter/library/block/drawer-form.yaml' with { type: 'file' }
-import _a192 from '../../../templates/app-starter/library/block/empty-basic.yaml' with { type: 'file' }
-import _a193 from '../../../templates/app-starter/library/block/empty-with-starters.yaml' with { type: 'file' }
-import _a194 from '../../../templates/app-starter/library/block/gallery-cards.yaml' with { type: 'file' }
-import _a195 from '../../../templates/app-starter/library/block/kpi-row-trend.yaml' with { type: 'file' }
-import _a196 from '../../../templates/app-starter/library/block/kpi-sparkline.yaml' with { type: 'file' }
-import _a197 from '../../../templates/app-starter/library/block/list-avatars.yaml' with { type: 'file' }
-import _a198 from '../../../templates/app-starter/library/block/modal-confirm-destructive.yaml' with { type: 'file' }
-import _a199 from '../../../templates/app-starter/library/block/modal-form.yaml' with { type: 'file' }
-import _a200 from '../../../templates/app-starter/library/block/page-heading-actions.yaml' with { type: 'file' }
-import _a201 from '../../../templates/app-starter/library/block/pagination-numbered.yaml' with { type: 'file' }
-import _a202 from '../../../templates/app-starter/library/block/pagination-simple.yaml' with { type: 'file' }
-import _a203 from '../../../templates/app-starter/library/block/progress-bar.yaml' with { type: 'file' }
-import _a204 from '../../../templates/app-starter/library/block/record-comments.yaml' with { type: 'file' }
-import _a205 from '../../../templates/app-starter/library/block/record-edit-sections.yaml' with { type: 'file' }
-import _a206 from '../../../templates/app-starter/library/block/record-form-two-column.yaml' with { type: 'file' }
-import _a207 from '../../../templates/app-starter/library/block/record-header.yaml' with { type: 'file' }
-import _a208 from '../../../templates/app-starter/library/block/record-history.yaml' with { type: 'file' }
-import _a209 from '../../../templates/app-starter/library/block/record-meta-sidebar.yaml' with { type: 'file' }
-import _a210 from '../../../templates/app-starter/library/block/record-related-list.yaml' with { type: 'file' }
-import _a211 from '../../../templates/app-starter/library/block/record-sheet.yaml' with { type: 'file' }
-import _a212 from '../../../templates/app-starter/library/block/section-heading-tabs.yaml' with { type: 'file' }
-import _a213 from '../../../templates/app-starter/library/block/settings-account.yaml' with { type: 'file' }
-import _a214 from '../../../templates/app-starter/library/block/settings-api-keys.yaml' with { type: 'file' }
-import _a215 from '../../../templates/app-starter/library/block/settings-form.yaml' with { type: 'file' }
-import _a216 from '../../../templates/app-starter/library/block/settings-security.yaml' with { type: 'file' }
-import _a217 from '../../../templates/app-starter/library/block/settings-team.yaml' with { type: 'file' }
-import _a218 from '../../../templates/app-starter/library/block/shell-sidebar.yaml' with { type: 'file' }
-import _a219 from '../../../templates/app-starter/library/block/shell-stacked.yaml' with { type: 'file' }
-import _a220 from '../../../templates/app-starter/library/block/steps-horizontal.yaml' with { type: 'file' }
-import _a221 from '../../../templates/app-starter/library/block/tabs-segmented.yaml' with { type: 'file' }
-import _a222 from '../../../templates/app-starter/library/block/tabs-underline.yaml' with { type: 'file' }
-import _a223 from '../../../templates/app-starter/library/block/timeline-activity.yaml' with { type: 'file' }
-import _a224 from '../../../templates/app-starter/library/block/toast-confirm.yaml' with { type: 'file' }
-import _a225 from '../../../templates/app-starter/library/block/vertical-nav-grouped.yaml' with { type: 'file' }
-import _a226 from '../../../templates/app-starter/library/block/vertical-nav-settings.yaml' with { type: 'file' }
-import _a227 from '../../../templates/app-starter/library/form/dashboard-worklist-new.yaml' with { type: 'file' }
-import _a228 from '../../../templates/app-starter/library/form/drawer-form.yaml' with { type: 'file' }
-import _a229 from '../../../templates/app-starter/library/form/modal-form.yaml' with { type: 'file' }
-import _a230 from '../../../templates/app-starter/library/form/record-form-two-column.yaml' with { type: 'file' }
-import _a231 from '../../../templates/app-starter/library/form/record-related-list-add.yaml' with { type: 'file' }
-import _a232 from '../../../templates/app-starter/LICENSE' with { type: 'file' }
-import _a233 from '../../../templates/app-starter/Procfile' with { type: 'file' }
-import _a234 from '../../../templates/app-starter/public/favicon.svg' with { type: 'file' }
-import _a235 from '../../../templates/app-starter/public/README.md' with { type: 'file' }
-import _a236 from '../../../templates/app-starter/README.md' with { type: 'file' }
-import _a237 from '../../../templates/app-starter/scalingo.json' with { type: 'file' }
-import _a238 from '../../../templates/app-starter/seed/activity.yaml' with { type: 'file' }
-import _a239 from '../../../templates/app-starter/seed/bookings.yaml' with { type: 'file' }
-import _a240 from '../../../templates/app-starter/seed/clients.yaml' with { type: 'file' }
-import _a241 from '../../../templates/app-starter/seed/people.yaml' with { type: 'file' }
-import _a242 from '../../../templates/app-starter/seed/projects.yaml' with { type: 'file' }
-import _a243 from '../../../templates/app-starter/seed/reminders.yaml' with { type: 'file' }
-import _a244 from '../../../templates/app-starter/seed/tasks.yaml' with { type: 'file' }
-import _a245 from '../../../templates/app-starter/seed/users.yaml' with { type: 'file' }
-import _a246 from '../../../templates/app-starter/seed/workspace_settings.yaml' with { type: 'file' }
-import _a247 from '../../../templates/assets/.buildpacks' with { type: 'file' }
-import _a248 from '../../../templates/assets/.env.example' with { type: 'file' }
-import _a249 from '../../../templates/assets/app.yaml' with { type: 'file' }
-import _a250 from '../../../templates/assets/CLAUDE.md' with { type: 'file' }
-import _a251 from '../../../templates/assets/config/auth.yaml' with { type: 'file' }
-import _a252 from '../../../templates/assets/config/automations/nightly-reset.yaml' with { type: 'file' }
-import _a253 from '../../../templates/assets/config/automations/register-export.yaml' with { type: 'file' }
-import _a254 from '../../../templates/assets/config/design.yaml' with { type: 'file' }
-import _a255 from '../../../templates/assets/config/forms/register-asset.yaml' with { type: 'file' }
-import _a256 from '../../../templates/assets/config/pages/_register-asset.yaml' with { type: 'file' }
-import _a257 from '../../../templates/assets/config/pages/_shell.yaml' with { type: 'file' }
-import _a258 from '../../../templates/assets/config/pages/gallery.yaml' with { type: 'file' }
-import _a259 from '../../../templates/assets/config/pages/lifecycle.yaml' with { type: 'file' }
-import _a260 from '../../../templates/assets/config/pages/locations.yaml' with { type: 'file' }
-import _a261 from '../../../templates/assets/config/pages/register.yaml' with { type: 'file' }
-import _a262 from '../../../templates/assets/config/pages/sign-in.yaml' with { type: 'file' }
-import _a263 from '../../../templates/assets/config/tables/asset_events.yaml' with { type: 'file' }
-import _a264 from '../../../templates/assets/config/tables/assets.yaml' with { type: 'file' }
-import _a265 from '../../../templates/assets/config/tables/check_outs.yaml' with { type: 'file' }
-import _a266 from '../../../templates/assets/config/tables/locations.yaml' with { type: 'file' }
-import _a267 from '../../../templates/assets/library/connection/microsoft-365.yaml' with { type: 'file' }
-import _a268 from '../../../templates/assets/library/recipe/record-to-teams-channel.yaml' with { type: 'file' }
-import _a269 from '../../../templates/assets/LICENSE' with { type: 'file' }
-import _a270 from '../../../templates/assets/Procfile' with { type: 'file' }
-import _a271 from '../../../templates/assets/public/.gitkeep' with { type: 'file' }
-import _a272 from '../../../templates/assets/public/favicon.svg' with { type: 'file' }
-import _a273 from '../../../templates/assets/public/README.md' with { type: 'file' }
-import _a274 from '../../../templates/assets/README.md' with { type: 'file' }
-import _a275 from '../../../templates/assets/scalingo.json' with { type: 'file' }
-import _a276 from '../../../templates/assets/seed/asset_events.yaml' with { type: 'file' }
-import _a277 from '../../../templates/assets/seed/assets.yaml' with { type: 'file' }
-import _a278 from '../../../templates/assets/seed/check_outs.yaml' with { type: 'file' }
-import _a279 from '../../../templates/assets/seed/locations.yaml' with { type: 'file' }
-import _a280 from '../../../templates/assets/seed/users.yaml' with { type: 'file' }
-import _a281 from '../../../templates/automation-recipes/.buildpacks' with { type: 'file' }
-import _a282 from '../../../templates/automation-recipes/.env.example' with { type: 'file' }
-import _a283 from '../../../templates/automation-recipes/app.yaml' with { type: 'file' }
-import _a284 from '../../../templates/automation-recipes/CLAUDE.md' with { type: 'file' }
-import _a285 from '../../../templates/automation-recipes/config/auth.yaml' with { type: 'file' }
-import _a286 from '../../../templates/automation-recipes/config/automations/alert-on-failure.yaml' with { type: 'file' }
-import _a287 from '../../../templates/automation-recipes/config/automations/capture-lead-from-webhook.yaml' with { type: 'file' }
-import _a288 from '../../../templates/automation-recipes/config/automations/daily-digest.yaml' with { type: 'file' }
-import _a289 from '../../../templates/automation-recipes/config/automations/log-new-lead.yaml' with { type: 'file' }
-import _a290 from '../../../templates/automation-recipes/config/automations/nightly-reset.yaml' with { type: 'file' }
-import _a291 from '../../../templates/automation-recipes/config/automations/review-recent-leads.yaml' with { type: 'file' }
-import _a292 from '../../../templates/automation-recipes/config/automations/score-leads.yaml' with { type: 'file' }
-import _a293 from '../../../templates/automation-recipes/config/design.yaml' with { type: 'file' }
-import _a294 from '../../../templates/automation-recipes/config/pages/_shell.yaml' with { type: 'file' }
-import _a295 from '../../../templates/automation-recipes/config/pages/activity.yaml' with { type: 'file' }
-import _a296 from '../../../templates/automation-recipes/config/pages/home.yaml' with { type: 'file' }
-import _a297 from '../../../templates/automation-recipes/config/pages/leads.yaml' with { type: 'file' }
-import _a298 from '../../../templates/automation-recipes/config/pages/sign-in.yaml' with { type: 'file' }
-import _a299 from '../../../templates/automation-recipes/config/tables/activity_log.yaml' with { type: 'file' }
-import _a300 from '../../../templates/automation-recipes/config/tables/leads.yaml' with { type: 'file' }
-import _a301 from '../../../templates/automation-recipes/library/connection/mistral.yaml' with { type: 'file' }
-import _a302 from '../../../templates/automation-recipes/library/recipe/record-to-mistral-summary.yaml' with { type: 'file' }
-import _a303 from '../../../templates/automation-recipes/LICENSE' with { type: 'file' }
-import _a304 from '../../../templates/automation-recipes/Procfile' with { type: 'file' }
-import _a305 from '../../../templates/automation-recipes/public/.gitkeep' with { type: 'file' }
-import _a306 from '../../../templates/automation-recipes/public/favicon.svg' with { type: 'file' }
-import _a307 from '../../../templates/automation-recipes/public/README.md' with { type: 'file' }
-import _a308 from '../../../templates/automation-recipes/README.md' with { type: 'file' }
-import _a309 from '../../../templates/automation-recipes/scalingo.json' with { type: 'file' }
-import _a310 from '../../../templates/automation-recipes/seed/activity_log.yaml' with { type: 'file' }
-import _a311 from '../../../templates/automation-recipes/seed/leads.yaml' with { type: 'file' }
-import _a312 from '../../../templates/automation-recipes/seed/users.yaml' with { type: 'file' }
-import _a313 from '../../../templates/blog/.buildpacks' with { type: 'file' }
-import _a314 from '../../../templates/blog/.env.example' with { type: 'file' }
-import _a315 from '../../../templates/blog/app.yaml' with { type: 'file' }
-import _a316 from '../../../templates/blog/CLAUDE.md' with { type: 'file' }
-import _a317 from '../../../templates/blog/config/agents/blog-editor.yaml' with { type: 'file' }
-import _a318 from '../../../templates/blog/config/auth.yaml' with { type: 'file' }
-import _a319 from '../../../templates/blog/config/automations/nightly-reset.yaml' with { type: 'file' }
-import _a320 from '../../../templates/blog/config/automations/publish-scheduled.yaml' with { type: 'file' }
-import _a321 from '../../../templates/blog/config/automations/schedule-on-date.yaml' with { type: 'file' }
-import _a322 from '../../../templates/blog/config/automations/stamp-new-comment.yaml' with { type: 'file' }
-import _a323 from '../../../templates/blog/config/automations/triage-comment.yaml' with { type: 'file' }
-import _a324 from '../../../templates/blog/config/design.yaml' with { type: 'file' }
-import _a325 from '../../../templates/blog/config/forms/comment.yaml' with { type: 'file' }
-import _a326 from '../../../templates/blog/config/forms/new-post.yaml' with { type: 'file' }
-import _a327 from '../../../templates/blog/config/forms/newsletter.yaml' with { type: 'file' }
-import _a328 from '../../../templates/blog/config/pages/_shell.yaml' with { type: 'file' }
-import _a329 from '../../../templates/blog/config/pages/_site-footer.yaml' with { type: 'file' }
-import _a330 from '../../../templates/blog/config/pages/_site-header.yaml' with { type: 'file' }
-import _a331 from '../../../templates/blog/config/pages/admin-ai-editor.yaml' with { type: 'file' }
-import _a332 from '../../../templates/blog/config/pages/admin-authors.yaml' with { type: 'file' }
-import _a333 from '../../../templates/blog/config/pages/admin-comments.yaml' with { type: 'file' }
-import _a334 from '../../../templates/blog/config/pages/admin-login.yaml' with { type: 'file' }
-import _a335 from '../../../templates/blog/config/pages/admin-post-edit.yaml' with { type: 'file' }
-import _a336 from '../../../templates/blog/config/pages/admin-posts.yaml' with { type: 'file' }
-import _a337 from '../../../templates/blog/config/pages/admin-tags.yaml' with { type: 'file' }
-import _a338 from '../../../templates/blog/config/pages/essay.yaml' with { type: 'file' }
-import _a339 from '../../../templates/blog/config/pages/index.yaml' with { type: 'file' }
-import _a340 from '../../../templates/blog/config/pages/not-found.yaml' with { type: 'file' }
-import _a341 from '../../../templates/blog/config/tables/authors.yaml' with { type: 'file' }
-import _a342 from '../../../templates/blog/config/tables/comments.yaml' with { type: 'file' }
-import _a343 from '../../../templates/blog/config/tables/posts.yaml' with { type: 'file' }
-import _a344 from '../../../templates/blog/config/tables/subscribers.yaml' with { type: 'file' }
-import _a345 from '../../../templates/blog/config/tables/tags.yaml' with { type: 'file' }
-import _a346 from '../../../templates/blog/library/block/newsletter-inline.yaml' with { type: 'file' }
-import _a347 from '../../../templates/blog/library/connection/brevo.yaml' with { type: 'file' }
-import _a348 from '../../../templates/blog/library/recipe/form-to-brevo.yaml' with { type: 'file' }
-import _a349 from '../../../templates/blog/LICENSE' with { type: 'file' }
-import _a350 from '../../../templates/blog/Procfile' with { type: 'file' }
-import _a351 from '../../../templates/blog/public/.gitkeep' with { type: 'file' }
-import _a352 from '../../../templates/blog/public/favicon.svg' with { type: 'file' }
-import _a353 from '../../../templates/blog/public/README.md' with { type: 'file' }
-import _a354 from '../../../templates/blog/README.md' with { type: 'file' }
-import _a355 from '../../../templates/blog/scalingo.json' with { type: 'file' }
-import _a356 from '../../../templates/blog/seed/assets/avatar-aoife.png' with { type: 'file' }
-import _a357 from '../../../templates/blog/seed/assets/avatar-mireille.png' with { type: 'file' }
-import _a358 from '../../../templates/blog/seed/assets/avatar-tomas.png' with { type: 'file' }
-import _a359 from '../../../templates/blog/seed/assets/cover-backup.png' with { type: 'file' }
-import _a360 from '../../../templates/blog/seed/assets/cover-config-file.png' with { type: 'file' }
-import _a361 from '../../../templates/blog/seed/assets/cover-design-decisions.png' with { type: 'file' }
-import _a362 from '../../../templates/blog/seed/assets/cover-first-five-minutes.png' with { type: 'file' }
-import _a363 from '../../../templates/blog/seed/assets/cover-licence.png' with { type: 'file' }
-import _a364 from '../../../templates/blog/seed/assets/cover-migration.png' with { type: 'file' }
-import _a365 from '../../../templates/blog/seed/assets/cover-thirty-people.png' with { type: 'file' }
-import _a366 from '../../../templates/blog/seed/authors.yaml' with { type: 'file' }
-import _a367 from '../../../templates/blog/seed/comments.yaml' with { type: 'file' }
-import _a368 from '../../../templates/blog/seed/posts.yaml' with { type: 'file' }
-import _a369 from '../../../templates/blog/seed/tags.yaml' with { type: 'file' }
-import _a370 from '../../../templates/blog/seed/users.yaml' with { type: 'file' }
-import _a371 from '../../../templates/catalog.json' with { type: 'file' }
-import _a372 from '../../../templates/company-os/.buildpacks' with { type: 'file' }
-import _a373 from '../../../templates/company-os/.env.example' with { type: 'file' }
-import _a374 from '../../../templates/company-os/app.yaml' with { type: 'file' }
-import _a375 from '../../../templates/company-os/CLAUDE.md' with { type: 'file' }
-import _a376 from '../../../templates/company-os/config/agents/ops-assistant.yaml' with { type: 'file' }
-import _a377 from '../../../templates/company-os/config/auth.yaml' with { type: 'file' }
-import _a378 from '../../../templates/company-os/config/automations/approve-time-off.yaml' with { type: 'file' }
-import _a379 from '../../../templates/company-os/config/automations/nightly-reset.yaml' with { type: 'file' }
-import _a380 from '../../../templates/company-os/config/automations/notify-contact-on-resolved-ticket.yaml' with { type: 'file' }
-import _a381 from '../../../templates/company-os/config/automations/open-project-on-won-deal.yaml' with { type: 'file' }
-import _a382 from '../../../templates/company-os/config/design.yaml' with { type: 'file' }
-import _a383 from '../../../templates/company-os/config/forms/add-deal.yaml' with { type: 'file' }
-import _a384 from '../../../templates/company-os/config/forms/add-task.yaml' with { type: 'file' }
-import _a385 from '../../../templates/company-os/config/forms/new-ticket.yaml' with { type: 'file' }
-import _a386 from '../../../templates/company-os/config/forms/request-time-off.yaml' with { type: 'file' }
-import _a387 from '../../../templates/company-os/config/pages/_add-deal.yaml' with { type: 'file' }
-import _a388 from '../../../templates/company-os/config/pages/_shell.yaml' with { type: 'file' }
-import _a389 from '../../../templates/company-os/config/pages/assistant.yaml' with { type: 'file' }
-import _a390 from '../../../templates/company-os/config/pages/companies.yaml' with { type: 'file' }
-import _a391 from '../../../templates/company-os/config/pages/delivery.yaml' with { type: 'file' }
-import _a392 from '../../../templates/company-os/config/pages/home.yaml' with { type: 'file' }
-import _a393 from '../../../templates/company-os/config/pages/people.yaml' with { type: 'file' }
-import _a394 from '../../../templates/company-os/config/pages/sales.yaml' with { type: 'file' }
-import _a395 from '../../../templates/company-os/config/pages/sign-in.yaml' with { type: 'file' }
-import _a396 from '../../../templates/company-os/config/pages/support.yaml' with { type: 'file' }
-import _a397 from '../../../templates/company-os/config/tables/companies.yaml' with { type: 'file' }
-import _a398 from '../../../templates/company-os/config/tables/contacts.yaml' with { type: 'file' }
-import _a399 from '../../../templates/company-os/config/tables/customer_invoices.yaml' with { type: 'file' }
-import _a400 from '../../../templates/company-os/config/tables/deals.yaml' with { type: 'file' }
-import _a401 from '../../../templates/company-os/config/tables/employees.yaml' with { type: 'file' }
-import _a402 from '../../../templates/company-os/config/tables/project_tasks.yaml' with { type: 'file' }
-import _a403 from '../../../templates/company-os/config/tables/projects.yaml' with { type: 'file' }
-import _a404 from '../../../templates/company-os/config/tables/tickets.yaml' with { type: 'file' }
-import _a405 from '../../../templates/company-os/config/tables/time_off_requests.yaml' with { type: 'file' }
-import _a406 from '../../../templates/company-os/library/block/clients-toolbar.yaml' with { type: 'file' }
-import _a407 from '../../../templates/company-os/library/connection/pennylane.yaml' with { type: 'file' }
-import _a408 from '../../../templates/company-os/library/recipe/pennylane-invoices-to-table.yaml' with { type: 'file' }
-import _a409 from '../../../templates/company-os/LICENSE' with { type: 'file' }
-import _a410 from '../../../templates/company-os/Procfile' with { type: 'file' }
-import _a411 from '../../../templates/company-os/public/.gitkeep' with { type: 'file' }
-import _a412 from '../../../templates/company-os/public/favicon.svg' with { type: 'file' }
-import _a413 from '../../../templates/company-os/public/README.md' with { type: 'file' }
-import _a414 from '../../../templates/company-os/README.md' with { type: 'file' }
-import _a415 from '../../../templates/company-os/scalingo.json' with { type: 'file' }
-import _a416 from '../../../templates/company-os/seed/companies.yaml' with { type: 'file' }
-import _a417 from '../../../templates/company-os/seed/contacts.yaml' with { type: 'file' }
-import _a418 from '../../../templates/company-os/seed/deals.yaml' with { type: 'file' }
-import _a419 from '../../../templates/company-os/seed/employees.yaml' with { type: 'file' }
-import _a420 from '../../../templates/company-os/seed/project_tasks.yaml' with { type: 'file' }
-import _a421 from '../../../templates/company-os/seed/projects.yaml' with { type: 'file' }
-import _a422 from '../../../templates/company-os/seed/tickets.yaml' with { type: 'file' }
-import _a423 from '../../../templates/company-os/seed/time_off_requests.yaml' with { type: 'file' }
-import _a424 from '../../../templates/company-os/seed/users.yaml' with { type: 'file' }
-import _a425 from '../../../templates/content-calendar/.buildpacks' with { type: 'file' }
-import _a426 from '../../../templates/content-calendar/.env.example' with { type: 'file' }
-import _a427 from '../../../templates/content-calendar/app.yaml' with { type: 'file' }
-import _a428 from '../../../templates/content-calendar/CLAUDE.md' with { type: 'file' }
-import _a429 from '../../../templates/content-calendar/config/auth.yaml' with { type: 'file' }
-import _a430 from '../../../templates/content-calendar/config/automations/approve-for-scheduling.yaml' with { type: 'file' }
-import _a431 from '../../../templates/content-calendar/config/automations/mint-tracked-link.yaml' with { type: 'file' }
-import _a432 from '../../../templates/content-calendar/config/automations/monday-digest.yaml' with { type: 'file' }
-import _a433 from '../../../templates/content-calendar/config/automations/nightly-reset.yaml' with { type: 'file' }
-import _a434 from '../../../templates/content-calendar/config/automations/own-new-piece.yaml' with { type: 'file' }
-import _a435 from '../../../templates/content-calendar/config/design.yaml' with { type: 'file' }
-import _a436 from '../../../templates/content-calendar/config/forms/new-piece.yaml' with { type: 'file' }
-import _a437 from '../../../templates/content-calendar/config/pages/_new-piece-dialog.yaml' with { type: 'file' }
-import _a438 from '../../../templates/content-calendar/config/pages/_piece-detail.yaml' with { type: 'file' }
-import _a439 from '../../../templates/content-calendar/config/pages/_shell.yaml' with { type: 'file' }
-import _a440 from '../../../templates/content-calendar/config/pages/calendar.yaml' with { type: 'file' }
-import _a441 from '../../../templates/content-calendar/config/pages/content.yaml' with { type: 'file' }
-import _a442 from '../../../templates/content-calendar/config/pages/pipeline.yaml' with { type: 'file' }
-import _a443 from '../../../templates/content-calendar/config/pages/sign-in.yaml' with { type: 'file' }
-import _a444 from '../../../templates/content-calendar/config/tables/campaigns.yaml' with { type: 'file' }
-import _a445 from '../../../templates/content-calendar/config/tables/content.yaml' with { type: 'file' }
-import _a446 from '../../../templates/content-calendar/library/connection/linkedin.yaml' with { type: 'file' }
-import _a447 from '../../../templates/content-calendar/library/recipe/record-to-linkedin-post.yaml' with { type: 'file' }
-import _a448 from '../../../templates/content-calendar/LICENSE' with { type: 'file' }
-import _a449 from '../../../templates/content-calendar/Procfile' with { type: 'file' }
-import _a450 from '../../../templates/content-calendar/public/.gitkeep' with { type: 'file' }
-import _a451 from '../../../templates/content-calendar/public/favicon.svg' with { type: 'file' }
-import _a452 from '../../../templates/content-calendar/public/README.md' with { type: 'file' }
-import _a453 from '../../../templates/content-calendar/README.md' with { type: 'file' }
-import _a454 from '../../../templates/content-calendar/scalingo.json' with { type: 'file' }
-import _a455 from '../../../templates/content-calendar/seed/assets/thumbnail-install.png' with { type: 'file' }
-import _a456 from '../../../templates/content-calendar/seed/campaigns.yaml' with { type: 'file' }
-import _a457 from '../../../templates/content-calendar/seed/content.yaml' with { type: 'file' }
-import _a458 from '../../../templates/content-calendar/seed/users.yaml' with { type: 'file' }
-import _a459 from '../../../templates/crm/.buildpacks' with { type: 'file' }
-import _a460 from '../../../templates/crm/.env.example' with { type: 'file' }
-import _a461 from '../../../templates/crm/app.yaml' with { type: 'file' }
-import _a462 from '../../../templates/crm/CLAUDE.md' with { type: 'file' }
-import _a463 from '../../../templates/crm/config/agents/records-assistant.yaml' with { type: 'file' }
-import _a464 from '../../../templates/crm/config/auth.yaml' with { type: 'file' }
-import _a465 from '../../../templates/crm/config/automations/deal-won-notification.yaml' with { type: 'file' }
-import _a466 from '../../../templates/crm/config/automations/nightly-reset.yaml' with { type: 'file' }
-import _a467 from '../../../templates/crm/config/design.yaml' with { type: 'file' }
-import _a468 from '../../../templates/crm/config/forms/add-contact.yaml' with { type: 'file' }
-import _a469 from '../../../templates/crm/config/forms/add-deal.yaml' with { type: 'file' }
-import _a470 from '../../../templates/crm/config/forms/add-task.yaml' with { type: 'file' }
-import _a471 from '../../../templates/crm/config/pages/_shell.yaml' with { type: 'file' }
-import _a472 from '../../../templates/crm/config/pages/assistant.yaml' with { type: 'file' }
-import _a473 from '../../../templates/crm/config/pages/companies.yaml' with { type: 'file' }
-import _a474 from '../../../templates/crm/config/pages/contacts.yaml' with { type: 'file' }
-import _a475 from '../../../templates/crm/config/pages/pipeline.yaml' with { type: 'file' }
-import _a476 from '../../../templates/crm/config/pages/sign-in.yaml' with { type: 'file' }
-import _a477 from '../../../templates/crm/config/pages/tasks.yaml' with { type: 'file' }
-import _a478 from '../../../templates/crm/config/tables/companies.yaml' with { type: 'file' }
-import _a479 from '../../../templates/crm/config/tables/contacts.yaml' with { type: 'file' }
-import _a480 from '../../../templates/crm/config/tables/deals.yaml' with { type: 'file' }
-import _a481 from '../../../templates/crm/config/tables/tasks.yaml' with { type: 'file' }
-import _a482 from '../../../templates/crm/library/block/companies-toolbar.yaml' with { type: 'file' }
-import _a483 from '../../../templates/crm/library/block/contacts-toolbar.yaml' with { type: 'file' }
-import _a484 from '../../../templates/crm/library/connection/hubspot.yaml' with { type: 'file' }
-import _a485 from '../../../templates/crm/library/connection/slack.yaml' with { type: 'file' }
-import _a486 from '../../../templates/crm/library/recipe/form-to-hubspot.yaml' with { type: 'file' }
-import _a487 from '../../../templates/crm/library/recipe/record-to-slack.yaml' with { type: 'file' }
-import _a488 from '../../../templates/crm/LICENSE' with { type: 'file' }
-import _a489 from '../../../templates/crm/Procfile' with { type: 'file' }
-import _a490 from '../../../templates/crm/public/.gitkeep' with { type: 'file' }
-import _a491 from '../../../templates/crm/public/favicon.svg' with { type: 'file' }
-import _a492 from '../../../templates/crm/public/README.md' with { type: 'file' }
-import _a493 from '../../../templates/crm/README.md' with { type: 'file' }
-import _a494 from '../../../templates/crm/scalingo.json' with { type: 'file' }
-import _a495 from '../../../templates/crm/seed/companies.yaml' with { type: 'file' }
-import _a496 from '../../../templates/crm/seed/contacts.yaml' with { type: 'file' }
-import _a497 from '../../../templates/crm/seed/deals.yaml' with { type: 'file' }
-import _a498 from '../../../templates/crm/seed/tasks.yaml' with { type: 'file' }
-import _a499 from '../../../templates/crm/seed/users.yaml' with { type: 'file' }
-import _a500 from '../../../templates/docs-site/.buildpacks' with { type: 'file' }
-import _a501 from '../../../templates/docs-site/.env.example' with { type: 'file' }
-import _a502 from '../../../templates/docs-site/app.yaml' with { type: 'file' }
-import _a503 from '../../../templates/docs-site/CLAUDE.md' with { type: 'file' }
-import _a504 from '../../../templates/docs-site/config/automations/nightly-reset.yaml' with { type: 'file' }
-import _a505 from '../../../templates/docs-site/config/design.yaml' with { type: 'file' }
-import _a506 from '../../../templates/docs-site/config/pages/_brand-bar.yaml' with { type: 'file' }
-import _a507 from '../../../templates/docs-site/config/pages/_docs-header.yaml' with { type: 'file' }
-import _a508 from '../../../templates/docs-site/config/pages/_section-cards.yaml' with { type: 'file' }
-import _a509 from '../../../templates/docs-site/config/pages/_site-footer.yaml' with { type: 'file' }
-import _a510 from '../../../templates/docs-site/config/pages/_site-header.yaml' with { type: 'file' }
-import _a511 from '../../../templates/docs-site/config/pages/docs.yaml' with { type: 'file' }
-import _a512 from '../../../templates/docs-site/config/pages/home.yaml' with { type: 'file' }
-import _a513 from '../../../templates/docs-site/config/pages/not-found.yaml' with { type: 'file' }
-import _a514 from '../../../templates/docs-site/content/docs/guides/configuration.md' with { type: 'file' }
-import _a515 from '../../../templates/docs-site/content/docs/guides/deployment.md' with { type: 'file' }
-import _a516 from '../../../templates/docs-site/content/docs/guides/theming.md' with { type: 'file' }
-import _a517 from '../../../templates/docs-site/content/docs/installation.md' with { type: 'file' }
-import _a518 from '../../../templates/docs-site/content/docs/introduction.md' with { type: 'file' }
-import _a519 from '../../../templates/docs-site/content/docs/quick-start.md' with { type: 'file' }
-import _a520 from '../../../templates/docs-site/LICENSE' with { type: 'file' }
-import _a521 from '../../../templates/docs-site/Procfile' with { type: 'file' }
-import _a522 from '../../../templates/docs-site/public/.gitkeep' with { type: 'file' }
-import _a523 from '../../../templates/docs-site/public/docs/files-to-pages.avif' with { type: 'file' }
-import _a524 from '../../../templates/docs-site/public/favicon.svg' with { type: 'file' }
-import _a525 from '../../../templates/docs-site/public/README.md' with { type: 'file' }
-import _a526 from '../../../templates/docs-site/README.md' with { type: 'file' }
-import _a527 from '../../../templates/docs-site/scalingo.json' with { type: 'file' }
-import _a528 from '../../../templates/events/.buildpacks' with { type: 'file' }
-import _a529 from '../../../templates/events/.env.example' with { type: 'file' }
-import _a530 from '../../../templates/events/app.yaml' with { type: 'file' }
-import _a531 from '../../../templates/events/CLAUDE.md' with { type: 'file' }
-import _a532 from '../../../templates/events/config/auth.yaml' with { type: 'file' }
-import _a533 from '../../../templates/events/config/automations/announce-event.yaml' with { type: 'file' }
-import _a534 from '../../../templates/events/config/automations/confirm-registration.yaml' with { type: 'file' }
-import _a535 from '../../../templates/events/config/automations/nightly-reset.yaml' with { type: 'file' }
-import _a536 from '../../../templates/events/config/automations/recount-seats.yaml' with { type: 'file' }
-import _a537 from '../../../templates/events/config/automations/track-registration.yaml' with { type: 'file' }
-import _a538 from '../../../templates/events/config/design.yaml' with { type: 'file' }
-import _a539 from '../../../templates/events/config/forms/join-waitlist.yaml' with { type: 'file' }
-import _a540 from '../../../templates/events/config/forms/new-event.yaml' with { type: 'file' }
-import _a541 from '../../../templates/events/config/forms/register.yaml' with { type: 'file' }
-import _a542 from '../../../templates/events/config/pages/_shell.yaml' with { type: 'file' }
-import _a543 from '../../../templates/events/config/pages/_site-footer.yaml' with { type: 'file' }
-import _a544 from '../../../templates/events/config/pages/_site-header.yaml' with { type: 'file' }
-import _a545 from '../../../templates/events/config/pages/calendar.yaml' with { type: 'file' }
-import _a546 from '../../../templates/events/config/pages/home.yaml' with { type: 'file' }
-import _a547 from '../../../templates/events/config/pages/on-the-waitlist.yaml' with { type: 'file' }
-import _a548 from '../../../templates/events/config/pages/register.yaml' with { type: 'file' }
-import _a549 from '../../../templates/events/config/pages/registrations.yaml' with { type: 'file' }
-import _a550 from '../../../templates/events/config/pages/sign-in.yaml' with { type: 'file' }
-import _a551 from '../../../templates/events/config/pages/thanks-event.yaml' with { type: 'file' }
-import _a552 from '../../../templates/events/config/pages/thanks.yaml' with { type: 'file' }
-import _a553 from '../../../templates/events/config/pages/waitlist.yaml' with { type: 'file' }
-import _a554 from '../../../templates/events/config/tables/calendar_events.yaml' with { type: 'file' }
-import _a555 from '../../../templates/events/config/tables/events.yaml' with { type: 'file' }
-import _a556 from '../../../templates/events/config/tables/registrations.yaml' with { type: 'file' }
-import _a557 from '../../../templates/events/library/connection/discord.yaml' with { type: 'file' }
-import _a558 from '../../../templates/events/library/connection/google.yaml' with { type: 'file' }
-import _a559 from '../../../templates/events/library/recipe/google-calendar-events-to-table.yaml' with { type: 'file' }
-import _a560 from '../../../templates/events/LICENSE' with { type: 'file' }
-import _a561 from '../../../templates/events/Procfile' with { type: 'file' }
-import _a562 from '../../../templates/events/public/.gitkeep' with { type: 'file' }
-import _a563 from '../../../templates/events/public/favicon.svg' with { type: 'file' }
-import _a564 from '../../../templates/events/public/README.md' with { type: 'file' }
-import _a565 from '../../../templates/events/README.md' with { type: 'file' }
-import _a566 from '../../../templates/events/scalingo.json' with { type: 'file' }
-import _a567 from '../../../templates/events/seed/events.yaml' with { type: 'file' }
-import _a568 from '../../../templates/events/seed/registrations.yaml' with { type: 'file' }
-import _a569 from '../../../templates/events/seed/users.yaml' with { type: 'file' }
-import _a570 from '../../../templates/expenses/.buildpacks' with { type: 'file' }
-import _a571 from '../../../templates/expenses/.env.example' with { type: 'file' }
-import _a572 from '../../../templates/expenses/app.yaml' with { type: 'file' }
-import _a573 from '../../../templates/expenses/CLAUDE.md' with { type: 'file' }
-import _a574 from '../../../templates/expenses/config/auth.yaml' with { type: 'file' }
-import _a575 from '../../../templates/expenses/config/automations/approve-expense.yaml' with { type: 'file' }
-import _a576 from '../../../templates/expenses/config/automations/mark-reimbursed.yaml' with { type: 'file' }
-import _a577 from '../../../templates/expenses/config/automations/nightly-reset.yaml' with { type: 'file' }
-import _a578 from '../../../templates/expenses/config/automations/reject-with-reason.yaml' with { type: 'file' }
-import _a579 from '../../../templates/expenses/config/design.yaml' with { type: 'file' }
-import _a580 from '../../../templates/expenses/config/forms/add-expense.yaml' with { type: 'file' }
-import _a581 from '../../../templates/expenses/config/pages/_shell.yaml' with { type: 'file' }
-import _a582 from '../../../templates/expenses/config/pages/home.yaml' with { type: 'file' }
-import _a583 from '../../../templates/expenses/config/pages/my-expenses.yaml' with { type: 'file' }
-import _a584 from '../../../templates/expenses/config/pages/reimburse.yaml' with { type: 'file' }
-import _a585 from '../../../templates/expenses/config/pages/review.yaml' with { type: 'file' }
-import _a586 from '../../../templates/expenses/config/pages/sign-in.yaml' with { type: 'file' }
-import _a587 from '../../../templates/expenses/config/tables/bank-transactions.yaml' with { type: 'file' }
-import _a588 from '../../../templates/expenses/config/tables/expenses.yaml' with { type: 'file' }
-import _a589 from '../../../templates/expenses/library/connection/qonto.yaml' with { type: 'file' }
-import _a590 from '../../../templates/expenses/library/recipe/qonto-transactions-to-table.yaml' with { type: 'file' }
-import _a591 from '../../../templates/expenses/LICENSE' with { type: 'file' }
-import _a592 from '../../../templates/expenses/Procfile' with { type: 'file' }
-import _a593 from '../../../templates/expenses/public/.gitkeep' with { type: 'file' }
-import _a594 from '../../../templates/expenses/public/favicon.svg' with { type: 'file' }
-import _a595 from '../../../templates/expenses/public/README.md' with { type: 'file' }
-import _a596 from '../../../templates/expenses/README.md' with { type: 'file' }
-import _a597 from '../../../templates/expenses/scalingo.json' with { type: 'file' }
-import _a598 from '../../../templates/expenses/seed/assets/breakfast.jpg' with { type: 'file' }
-import _a599 from '../../../templates/expenses/seed/assets/coffee.jpg' with { type: 'file' }
-import _a600 from '../../../templates/expenses/seed/assets/desk.jpg' with { type: 'file' }
-import _a601 from '../../../templates/expenses/seed/assets/dinner-lyon.jpg' with { type: 'file' }
-import _a602 from '../../../templates/expenses/seed/assets/flights-ber.pdf' with { type: 'file' }
-import _a603 from '../../../templates/expenses/seed/assets/headset.pdf' with { type: 'file' }
-import _a604 from '../../../templates/expenses/seed/assets/hotel-ber.pdf' with { type: 'file' }
-import _a605 from '../../../templates/expenses/seed/assets/invoice-seats.pdf' with { type: 'file' }
-import _a606 from '../../../templates/expenses/seed/assets/lunch.jpg' with { type: 'file' }
-import _a607 from '../../../templates/expenses/seed/assets/monitor.pdf' with { type: 'file' }
-import _a608 from '../../../templates/expenses/seed/assets/pm.pdf' with { type: 'file' }
-import _a609 from '../../../templates/expenses/seed/assets/rail.pdf' with { type: 'file' }
-import _a610 from '../../../templates/expenses/seed/assets/saas-annual.pdf' with { type: 'file' }
-import _a611 from '../../../templates/expenses/seed/assets/tablet.pdf' with { type: 'file' }
-import _a612 from '../../../templates/expenses/seed/assets/ticket.pdf' with { type: 'file' }
-import _a613 from '../../../templates/expenses/seed/assets/transfer.jpg' with { type: 'file' }
-import _a614 from '../../../templates/expenses/seed/assets/upgrade.pdf' with { type: 'file' }
-import _a615 from '../../../templates/expenses/seed/expenses.yaml' with { type: 'file' }
-import _a616 from '../../../templates/expenses/seed/users.yaml' with { type: 'file' }
-import _a617 from '../../../templates/hello-world/.buildpacks' with { type: 'file' }
-import _a618 from '../../../templates/hello-world/.env.example' with { type: 'file' }
-import _a619 from '../../../templates/hello-world/app.yaml' with { type: 'file' }
-import _a620 from '../../../templates/hello-world/CLAUDE.md' with { type: 'file' }
-import _a621 from '../../../templates/hello-world/LICENSE' with { type: 'file' }
-import _a622 from '../../../templates/hello-world/Procfile' with { type: 'file' }
-import _a623 from '../../../templates/hello-world/public/.gitkeep' with { type: 'file' }
-import _a624 from '../../../templates/hello-world/public/favicon.svg' with { type: 'file' }
-import _a625 from '../../../templates/hello-world/public/README.md' with { type: 'file' }
-import _a626 from '../../../templates/hello-world/README.md' with { type: 'file' }
-import _a627 from '../../../templates/hello-world/scalingo.json' with { type: 'file' }
-import _a628 from '../../../templates/helpdesk/.buildpacks' with { type: 'file' }
-import _a629 from '../../../templates/helpdesk/.env.example' with { type: 'file' }
-import _a630 from '../../../templates/helpdesk/app.yaml' with { type: 'file' }
-import _a631 from '../../../templates/helpdesk/CLAUDE.md' with { type: 'file' }
-import _a632 from '../../../templates/helpdesk/config/auth.yaml' with { type: 'file' }
-import _a633 from '../../../templates/helpdesk/config/automations/collect-ticket-notes.yaml' with { type: 'file' }
-import _a634 from '../../../templates/helpdesk/config/automations/morning-notes-digest.yaml' with { type: 'file' }
-import _a635 from '../../../templates/helpdesk/config/automations/nightly-reset.yaml' with { type: 'file' }
-import _a636 from '../../../templates/helpdesk/config/automations/when-a-ticket-arrives.yaml' with { type: 'file' }
-import _a637 from '../../../templates/helpdesk/config/automations/when-resolved.yaml' with { type: 'file' }
-import _a638 from '../../../templates/helpdesk/config/design.yaml' with { type: 'file' }
-import _a639 from '../../../templates/helpdesk/config/forms/contact-support.yaml' with { type: 'file' }
-import _a640 from '../../../templates/helpdesk/config/forms/rate-answer.yaml' with { type: 'file' }
-import _a641 from '../../../templates/helpdesk/config/pages/_shell.yaml' with { type: 'file' }
-import _a642 from '../../../templates/helpdesk/config/pages/_site-footer.yaml' with { type: 'file' }
-import _a643 from '../../../templates/helpdesk/config/pages/_site-header.yaml' with { type: 'file' }
-import _a644 from '../../../templates/helpdesk/config/pages/home.yaml' with { type: 'file' }
-import _a645 from '../../../templates/helpdesk/config/pages/rate.yaml' with { type: 'file' }
-import _a646 from '../../../templates/helpdesk/config/pages/reports.yaml' with { type: 'file' }
-import _a647 from '../../../templates/helpdesk/config/pages/sign-in.yaml' with { type: 'file' }
-import _a648 from '../../../templates/helpdesk/config/pages/thanks.yaml' with { type: 'file' }
-import _a649 from '../../../templates/helpdesk/config/pages/ticket.yaml' with { type: 'file' }
-import _a650 from '../../../templates/helpdesk/config/pages/tickets.yaml' with { type: 'file' }
-import _a651 from '../../../templates/helpdesk/config/pages/triage.yaml' with { type: 'file' }
-import _a652 from '../../../templates/helpdesk/config/tables/ratings.yaml' with { type: 'file' }
-import _a653 from '../../../templates/helpdesk/config/tables/ticket_replies.yaml' with { type: 'file' }
-import _a654 from '../../../templates/helpdesk/config/tables/tickets.yaml' with { type: 'file' }
-import _a655 from '../../../templates/helpdesk/library/block/record-comments.yaml' with { type: 'file' }
-import _a656 from '../../../templates/helpdesk/library/connection/linear.yaml' with { type: 'file' }
-import _a657 from '../../../templates/helpdesk/library/recipe/record-to-linear-issue.yaml' with { type: 'file' }
-import _a658 from '../../../templates/helpdesk/LICENSE' with { type: 'file' }
-import _a659 from '../../../templates/helpdesk/Procfile' with { type: 'file' }
-import _a660 from '../../../templates/helpdesk/public/.gitkeep' with { type: 'file' }
-import _a661 from '../../../templates/helpdesk/public/favicon.svg' with { type: 'file' }
-import _a662 from '../../../templates/helpdesk/public/README.md' with { type: 'file' }
-import _a663 from '../../../templates/helpdesk/README.md' with { type: 'file' }
-import _a664 from '../../../templates/helpdesk/scalingo.json' with { type: 'file' }
-import _a665 from '../../../templates/helpdesk/seed/ratings.yaml' with { type: 'file' }
-import _a666 from '../../../templates/helpdesk/seed/ticket_replies.yaml' with { type: 'file' }
-import _a667 from '../../../templates/helpdesk/seed/tickets.yaml' with { type: 'file' }
-import _a668 from '../../../templates/helpdesk/seed/users.yaml' with { type: 'file' }
-import _a669 from '../../../templates/intranet/.buildpacks' with { type: 'file' }
-import _a670 from '../../../templates/intranet/.env.example' with { type: 'file' }
-import _a671 from '../../../templates/intranet/app.yaml' with { type: 'file' }
-import _a672 from '../../../templates/intranet/CLAUDE.md' with { type: 'file' }
-import _a673 from '../../../templates/intranet/config/auth.yaml' with { type: 'file' }
-import _a674 from '../../../templates/intranet/config/automations/nightly-reset.yaml' with { type: 'file' }
-import _a675 from '../../../templates/intranet/config/automations/sign-new-announcement.yaml' with { type: 'file' }
-import _a676 from '../../../templates/intranet/config/design.yaml' with { type: 'file' }
-import _a677 from '../../../templates/intranet/config/forms/publish-announcement.yaml' with { type: 'file' }
-import _a678 from '../../../templates/intranet/config/pages/_post-card.yaml' with { type: 'file' }
-import _a679 from '../../../templates/intranet/config/pages/_post-drawer.yaml' with { type: 'file' }
-import _a680 from '../../../templates/intranet/config/pages/_shell.yaml' with { type: 'file' }
-import _a681 from '../../../templates/intranet/config/pages/_site-footer.yaml' with { type: 'file' }
-import _a682 from '../../../templates/intranet/config/pages/_site-header.yaml' with { type: 'file' }
-import _a683 from '../../../templates/intranet/config/pages/home.yaml' with { type: 'file' }
-import _a684 from '../../../templates/intranet/config/pages/news.yaml' with { type: 'file' }
-import _a685 from '../../../templates/intranet/config/pages/people.yaml' with { type: 'file' }
-import _a686 from '../../../templates/intranet/config/pages/portal.yaml' with { type: 'file' }
-import _a687 from '../../../templates/intranet/config/pages/publish.yaml' with { type: 'file' }
-import _a688 from '../../../templates/intranet/config/pages/resources.yaml' with { type: 'file' }
-import _a689 from '../../../templates/intranet/config/pages/sign-in-password.yaml' with { type: 'file' }
-import _a690 from '../../../templates/intranet/config/pages/sign-in.yaml' with { type: 'file' }
-import _a691 from '../../../templates/intranet/config/tables/acknowledgements.yaml' with { type: 'file' }
-import _a692 from '../../../templates/intranet/config/tables/company.yaml' with { type: 'file' }
-import _a693 from '../../../templates/intranet/config/tables/events.yaml' with { type: 'file' }
-import _a694 from '../../../templates/intranet/config/tables/members.yaml' with { type: 'file' }
-import _a695 from '../../../templates/intranet/config/tables/posts.yaml' with { type: 'file' }
-import _a696 from '../../../templates/intranet/config/tables/resources.yaml' with { type: 'file' }
-import _a697 from '../../../templates/intranet/library/connection/microsoft-365.yaml' with { type: 'file' }
-import _a698 from '../../../templates/intranet/library/recipe/record-to-teams-channel.yaml' with { type: 'file' }
-import _a699 from '../../../templates/intranet/LICENSE' with { type: 'file' }
-import _a700 from '../../../templates/intranet/Procfile' with { type: 'file' }
-import _a701 from '../../../templates/intranet/public/.gitkeep' with { type: 'file' }
-import _a702 from '../../../templates/intranet/public/favicon.svg' with { type: 'file' }
-import _a703 from '../../../templates/intranet/public/README.md' with { type: 'file' }
-import _a704 from '../../../templates/intranet/README.md' with { type: 'file' }
-import _a705 from '../../../templates/intranet/scalingo.json' with { type: 'file' }
-import _a706 from '../../../templates/intranet/seed/acknowledgements.yaml' with { type: 'file' }
-import _a707 from '../../../templates/intranet/seed/company.yaml' with { type: 'file' }
-import _a708 from '../../../templates/intranet/seed/events.yaml' with { type: 'file' }
-import _a709 from '../../../templates/intranet/seed/members.yaml' with { type: 'file' }
-import _a710 from '../../../templates/intranet/seed/posts.yaml' with { type: 'file' }
-import _a711 from '../../../templates/intranet/seed/resources.yaml' with { type: 'file' }
-import _a712 from '../../../templates/intranet/seed/users.yaml' with { type: 'file' }
-import _a713 from '../../../templates/inventory/.buildpacks' with { type: 'file' }
-import _a714 from '../../../templates/inventory/.env.example' with { type: 'file' }
-import _a715 from '../../../templates/inventory/app.yaml' with { type: 'file' }
-import _a716 from '../../../templates/inventory/CLAUDE.md' with { type: 'file' }
-import _a717 from '../../../templates/inventory/config/agents/catalog-assistant.yaml' with { type: 'file' }
-import _a718 from '../../../templates/inventory/config/auth.yaml' with { type: 'file' }
-import _a719 from '../../../templates/inventory/config/automations/low-stock-digest.yaml' with { type: 'file' }
-import _a720 from '../../../templates/inventory/config/design.yaml' with { type: 'file' }
-import _a721 from '../../../templates/inventory/config/forms/add-order.yaml' with { type: 'file' }
-import _a722 from '../../../templates/inventory/config/forms/add-product.yaml' with { type: 'file' }
-import _a723 from '../../../templates/inventory/config/forms/record-movement.yaml' with { type: 'file' }
-import _a724 from '../../../templates/inventory/config/pages/_add-order.yaml' with { type: 'file' }
-import _a725 from '../../../templates/inventory/config/pages/_add-product.yaml' with { type: 'file' }
-import _a726 from '../../../templates/inventory/config/pages/_product-columns.yaml' with { type: 'file' }
-import _a727 from '../../../templates/inventory/config/pages/_record-movement.yaml' with { type: 'file' }
-import _a728 from '../../../templates/inventory/config/pages/_shell.yaml' with { type: 'file' }
-import _a729 from '../../../templates/inventory/config/pages/assistant.yaml' with { type: 'file' }
-import _a730 from '../../../templates/inventory/config/pages/orders.yaml' with { type: 'file' }
-import _a731 from '../../../templates/inventory/config/pages/products.yaml' with { type: 'file' }
-import _a732 from '../../../templates/inventory/config/pages/sign-in.yaml' with { type: 'file' }
-import _a733 from '../../../templates/inventory/config/pages/stock.yaml' with { type: 'file' }
-import _a734 from '../../../templates/inventory/config/pages/suppliers.yaml' with { type: 'file' }
-import _a735 from '../../../templates/inventory/config/tables/orders.yaml' with { type: 'file' }
-import _a736 from '../../../templates/inventory/config/tables/products.yaml' with { type: 'file' }
-import _a737 from '../../../templates/inventory/config/tables/purchase_orders.yaml' with { type: 'file' }
-import _a738 from '../../../templates/inventory/config/tables/stock_movements.yaml' with { type: 'file' }
-import _a739 from '../../../templates/inventory/config/tables/suppliers.yaml' with { type: 'file' }
-import _a740 from '../../../templates/inventory/config/tables/warehouses.yaml' with { type: 'file' }
-import _a741 from '../../../templates/inventory/library/connection/google.yaml' with { type: 'file' }
-import _a742 from '../../../templates/inventory/library/recipe/record-to-google-doc.yaml' with { type: 'file' }
-import _a743 from '../../../templates/inventory/LICENSE' with { type: 'file' }
-import _a744 from '../../../templates/inventory/Procfile' with { type: 'file' }
-import _a745 from '../../../templates/inventory/public/.gitkeep' with { type: 'file' }
-import _a746 from '../../../templates/inventory/public/favicon.svg' with { type: 'file' }
-import _a747 from '../../../templates/inventory/public/README.md' with { type: 'file' }
-import _a748 from '../../../templates/inventory/README.md' with { type: 'file' }
-import _a749 from '../../../templates/inventory/scalingo.json' with { type: 'file' }
-import _a750 from '../../../templates/inventory/seed/orders.yaml' with { type: 'file' }
-import _a751 from '../../../templates/inventory/seed/products.yaml' with { type: 'file' }
-import _a752 from '../../../templates/inventory/seed/purchase_orders.yaml' with { type: 'file' }
-import _a753 from '../../../templates/inventory/seed/stock_movements.yaml' with { type: 'file' }
-import _a754 from '../../../templates/inventory/seed/suppliers.yaml' with { type: 'file' }
-import _a755 from '../../../templates/inventory/seed/users.yaml' with { type: 'file' }
-import _a756 from '../../../templates/inventory/seed/warehouses.yaml' with { type: 'file' }
-import _a757 from '../../../templates/knowledge-base/.buildpacks' with { type: 'file' }
-import _a758 from '../../../templates/knowledge-base/.env.example' with { type: 'file' }
-import _a759 from '../../../templates/knowledge-base/app.yaml' with { type: 'file' }
-import _a760 from '../../../templates/knowledge-base/CLAUDE.md' with { type: 'file' }
-import _a761 from '../../../templates/knowledge-base/config/agents/handbook-assistant.yaml' with { type: 'file' }
-import _a762 from '../../../templates/knowledge-base/config/auth.yaml' with { type: 'file' }
-import _a763 from '../../../templates/knowledge-base/config/automations/nightly-reset.yaml' with { type: 'file' }
-import _a764 from '../../../templates/knowledge-base/config/design.yaml' with { type: 'file' }
-import _a765 from '../../../templates/knowledge-base/config/pages/_kb-header.yaml' with { type: 'file' }
-import _a766 from '../../../templates/knowledge-base/config/pages/_managers-nav.yaml' with { type: 'file' }
-import _a767 from '../../../templates/knowledge-base/config/pages/_reading-frame.yaml' with { type: 'file' }
-import _a768 from '../../../templates/knowledge-base/config/pages/_site-footer.yaml' with { type: 'file' }
-import _a769 from '../../../templates/knowledge-base/config/pages/_site-header.yaml' with { type: 'file' }
-import _a770 from '../../../templates/knowledge-base/config/pages/assistant.yaml' with { type: 'file' }
-import _a771 from '../../../templates/knowledge-base/config/pages/home.yaml' with { type: 'file' }
-import _a772 from '../../../templates/knowledge-base/config/pages/kb-managers.yaml' with { type: 'file' }
-import _a773 from '../../../templates/knowledge-base/config/pages/kb.yaml' with { type: 'file' }
-import _a774 from '../../../templates/knowledge-base/config/pages/not-found.yaml' with { type: 'file' }
-import _a775 from '../../../templates/knowledge-base/config/pages/sign-in.yaml' with { type: 'file' }
-import _a776 from '../../../templates/knowledge-base/content/kb/getting-started/first-week.md' with { type: 'file' }
-import _a777 from '../../../templates/knowledge-base/content/kb/getting-started/welcome.md' with { type: 'file' }
-import _a778 from '../../../templates/knowledge-base/content/kb/it/laptop.md' with { type: 'file' }
-import _a779 from '../../../templates/knowledge-base/content/kb/policies/expense-policy.md' with { type: 'file' }
-import _a780 from '../../../templates/knowledge-base/content/kb/policies/security-policy.md' with { type: 'file' }
-import _a781 from '../../../templates/knowledge-base/content/kb/start.md' with { type: 'file' }
-import _a782 from '../../../templates/knowledge-base/content/kb-managers/hiring.md' with { type: 'file' }
-import _a783 from '../../../templates/knowledge-base/content/kb-managers/pay-reviews.md' with { type: 'file' }
-import _a784 from '../../../templates/knowledge-base/library/block/not-found-with-links.yaml' with { type: 'file' }
-import _a785 from '../../../templates/knowledge-base/LICENSE' with { type: 'file' }
-import _a786 from '../../../templates/knowledge-base/Procfile' with { type: 'file' }
-import _a787 from '../../../templates/knowledge-base/public/.gitkeep' with { type: 'file' }
-import _a788 from '../../../templates/knowledge-base/public/favicon.svg' with { type: 'file' }
-import _a789 from '../../../templates/knowledge-base/public/handbook/laptop-setup.avif' with { type: 'file' }
-import _a790 from '../../../templates/knowledge-base/public/README.md' with { type: 'file' }
-import _a791 from '../../../templates/knowledge-base/README.md' with { type: 'file' }
-import _a792 from '../../../templates/knowledge-base/scalingo.json' with { type: 'file' }
-import _a793 from '../../../templates/knowledge-base/seed/users.yaml' with { type: 'file' }
-import _a794 from '../../../templates/landing-page/.buildpacks' with { type: 'file' }
-import _a795 from '../../../templates/landing-page/.env.example' with { type: 'file' }
-import _a796 from '../../../templates/landing-page/app.yaml' with { type: 'file' }
-import _a797 from '../../../templates/landing-page/CLAUDE.md' with { type: 'file' }
-import _a798 from '../../../templates/landing-page/config/auth.yaml' with { type: 'file' }
-import _a799 from '../../../templates/landing-page/config/automations/nightly-reset.yaml' with { type: 'file' }
-import _a800 from '../../../templates/landing-page/config/components/feature-card.yaml' with { type: 'file' }
-import _a801 from '../../../templates/landing-page/config/components/language-switcher.yaml' with { type: 'file' }
-import _a802 from '../../../templates/landing-page/config/components/step-card.yaml' with { type: 'file' }
-import _a803 from '../../../templates/landing-page/config/design.yaml' with { type: 'file' }
-import _a804 from '../../../templates/landing-page/config/forms/demo-request.yaml' with { type: 'file' }
-import _a805 from '../../../templates/landing-page/config/languages.yaml' with { type: 'file' }
-import _a806 from '../../../templates/landing-page/config/pages/_body.yaml' with { type: 'file' }
-import _a807 from '../../../templates/landing-page/config/pages/_demo.yaml' with { type: 'file' }
-import _a808 from '../../../templates/landing-page/config/pages/_hero.yaml' with { type: 'file' }
-import _a809 from '../../../templates/landing-page/config/pages/_site-footer.yaml' with { type: 'file' }
-import _a810 from '../../../templates/landing-page/config/pages/_site-header.yaml' with { type: 'file' }
-import _a811 from '../../../templates/landing-page/config/pages/home.yaml' with { type: 'file' }
-import _a812 from '../../../templates/landing-page/config/tables/demo-requests.yaml' with { type: 'file' }
-import _a813 from '../../../templates/landing-page/library/connection/pipedrive.yaml' with { type: 'file' }
-import _a814 from '../../../templates/landing-page/library/recipe/form-to-pipedrive-lead.yaml' with { type: 'file' }
-import _a815 from '../../../templates/landing-page/LICENSE' with { type: 'file' }
-import _a816 from '../../../templates/landing-page/Procfile' with { type: 'file' }
-import _a817 from '../../../templates/landing-page/public/.gitkeep' with { type: 'file' }
-import _a818 from '../../../templates/landing-page/public/favicon.svg' with { type: 'file' }
-import _a819 from '../../../templates/landing-page/public/og-en.png' with { type: 'file' }
-import _a820 from '../../../templates/landing-page/public/og-fr.png' with { type: 'file' }
-import _a821 from '../../../templates/landing-page/public/README.md' with { type: 'file' }
-import _a822 from '../../../templates/landing-page/README.md' with { type: 'file' }
-import _a823 from '../../../templates/landing-page/scalingo.json' with { type: 'file' }
-import _a824 from '../../../templates/marketing-site/.buildpacks' with { type: 'file' }
-import _a825 from '../../../templates/marketing-site/.env.example' with { type: 'file' }
-import _a826 from '../../../templates/marketing-site/app.yaml' with { type: 'file' }
-import _a827 from '../../../templates/marketing-site/CLAUDE.md' with { type: 'file' }
-import _a828 from '../../../templates/marketing-site/config/auth.yaml' with { type: 'file' }
-import _a829 from '../../../templates/marketing-site/config/forms/contact.yaml' with { type: 'file' }
-import _a830 from '../../../templates/marketing-site/config/forms/newsletter.yaml' with { type: 'file' }
-import _a831 from '../../../templates/marketing-site/config/languages.yaml' with { type: 'file' }
-import _a832 from '../../../templates/marketing-site/config/pages/about.yaml' with { type: 'file' }
-import _a833 from '../../../templates/marketing-site/config/pages/article.yaml' with { type: 'file' }
-import _a834 from '../../../templates/marketing-site/config/pages/blog.yaml' with { type: 'file' }
-import _a835 from '../../../templates/marketing-site/config/pages/contact.yaml' with { type: 'file' }
-import _a836 from '../../../templates/marketing-site/config/pages/features.yaml' with { type: 'file' }
-import _a837 from '../../../templates/marketing-site/config/pages/guide.yaml' with { type: 'file' }
-import _a838 from '../../../templates/marketing-site/config/pages/home.yaml' with { type: 'file' }
-import _a839 from '../../../templates/marketing-site/config/pages/moved.yaml' with { type: 'file' }
-import _a840 from '../../../templates/marketing-site/config/pages/not-found.yaml' with { type: 'file' }
-import _a841 from '../../../templates/marketing-site/config/pages/pricing.yaml' with { type: 'file' }
-import _a842 from '../../../templates/marketing-site/config/pages/product.yaml' with { type: 'file' }
-import _a843 from '../../../templates/marketing-site/config/tables/messages.yaml' with { type: 'file' }
-import _a844 from '../../../templates/marketing-site/config/tables/orders.yaml' with { type: 'file' }
-import _a845 from '../../../templates/marketing-site/config/tables/posts.yaml' with { type: 'file' }
-import _a846 from '../../../templates/marketing-site/config/tables/subscribers.yaml' with { type: 'file' }
-import _a847 from '../../../templates/marketing-site/library/block/banner-top.yaml' with { type: 'file' }
-import _a848 from '../../../templates/marketing-site/library/block/bento-feature-stack.yaml' with { type: 'file' }
-import _a849 from '../../../templates/marketing-site/library/block/blog-cards.yaml' with { type: 'file' }
-import _a850 from '../../../templates/marketing-site/library/block/blog-list.yaml' with { type: 'file' }
-import _a851 from '../../../templates/marketing-site/library/block/contact-centered.yaml' with { type: 'file' }
-import _a852 from '../../../templates/marketing-site/library/block/contact-split.yaml' with { type: 'file' }
-import _a853 from '../../../templates/marketing-site/library/block/content-prose.yaml' with { type: 'file' }
-import _a854 from '../../../templates/marketing-site/library/block/content-with-toc.yaml' with { type: 'file' }
-import _a855 from '../../../templates/marketing-site/library/block/cta-banner.yaml' with { type: 'file' }
-import _a856 from '../../../templates/marketing-site/library/block/cta-split.yaml' with { type: 'file' }
-import _a857 from '../../../templates/marketing-site/library/block/faq-accordion.yaml' with { type: 'file' }
-import _a858 from '../../../templates/marketing-site/library/block/faq-two-column.yaml' with { type: 'file' }
-import _a859 from '../../../templates/marketing-site/library/block/feature-alternating.yaml' with { type: 'file' }
-import _a860 from '../../../templates/marketing-site/library/block/feature-grid.yaml' with { type: 'file' }
-import _a861 from '../../../templates/marketing-site/library/block/feature-list-icons.yaml' with { type: 'file' }
-import _a862 from '../../../templates/marketing-site/library/block/footer-columns.yaml' with { type: 'file' }
-import _a863 from '../../../templates/marketing-site/library/block/footer-simple.yaml' with { type: 'file' }
-import _a864 from '../../../templates/marketing-site/library/block/header-centered.yaml' with { type: 'file' }
-import _a865 from '../../../templates/marketing-site/library/block/header-with-links.yaml' with { type: 'file' }
-import _a866 from '../../../templates/marketing-site/library/block/hero-centered.yaml' with { type: 'file' }
-import _a867 from '../../../templates/marketing-site/library/block/hero-split-image.yaml' with { type: 'file' }
-import _a868 from '../../../templates/marketing-site/library/block/hero-with-screenshot.yaml' with { type: 'file' }
-import _a869 from '../../../templates/marketing-site/library/block/logos-grid.yaml' with { type: 'file' }
-import _a870 from '../../../templates/marketing-site/library/block/logos-marquee.yaml' with { type: 'file' }
-import _a871 from '../../../templates/marketing-site/library/block/navbar-flyout.yaml' with { type: 'file' }
-import _a872 from '../../../templates/marketing-site/library/block/navbar-simple.yaml' with { type: 'file' }
-import _a873 from '../../../templates/marketing-site/library/block/newsletter-centered.yaml' with { type: 'file' }
-import _a874 from '../../../templates/marketing-site/library/block/newsletter-inline.yaml' with { type: 'file' }
-import _a875 from '../../../templates/marketing-site/library/block/not-found-centered.yaml' with { type: 'file' }
-import _a876 from '../../../templates/marketing-site/library/block/not-found-with-links.yaml' with { type: 'file' }
-import _a877 from '../../../templates/marketing-site/library/block/pricing-comparison.yaml' with { type: 'file' }
-import _a878 from '../../../templates/marketing-site/library/block/pricing-three-tier.yaml' with { type: 'file' }
-import _a879 from '../../../templates/marketing-site/library/block/pricing-toggle.yaml' with { type: 'file' }
-import _a880 from '../../../templates/marketing-site/library/block/stats-from-table.yaml' with { type: 'file' }
-import _a881 from '../../../templates/marketing-site/library/block/stats-row.yaml' with { type: 'file' }
-import _a882 from '../../../templates/marketing-site/library/block/team-grid.yaml' with { type: 'file' }
-import _a883 from '../../../templates/marketing-site/library/block/team-list.yaml' with { type: 'file' }
-import _a884 from '../../../templates/marketing-site/library/block/testimonial-grid.yaml' with { type: 'file' }
-import _a885 from '../../../templates/marketing-site/library/block/testimonial-single.yaml' with { type: 'file' }
-import _a886 from '../../../templates/marketing-site/LICENSE' with { type: 'file' }
-import _a887 from '../../../templates/marketing-site/Procfile' with { type: 'file' }
-import _a888 from '../../../templates/marketing-site/public/favicon.svg' with { type: 'file' }
-import _a889 from '../../../templates/marketing-site/public/README.md' with { type: 'file' }
-import _a890 from '../../../templates/marketing-site/README.md' with { type: 'file' }
-import _a891 from '../../../templates/marketing-site/scalingo.json' with { type: 'file' }
-import _a892 from '../../../templates/marketing-site/seed/orders.yaml' with { type: 'file' }
-import _a893 from '../../../templates/marketing-site/seed/posts.yaml' with { type: 'file' }
-import _a894 from '../../../templates/mcp-server/.buildpacks' with { type: 'file' }
-import _a895 from '../../../templates/mcp-server/.env.example' with { type: 'file' }
-import _a896 from '../../../templates/mcp-server/app.yaml' with { type: 'file' }
-import _a897 from '../../../templates/mcp-server/CLAUDE.md' with { type: 'file' }
-import _a898 from '../../../templates/mcp-server/config/auth.yaml' with { type: 'file' }
-import _a899 from '../../../templates/mcp-server/config/automations/import-runbook.yaml' with { type: 'file' }
-import _a900 from '../../../templates/mcp-server/config/design.yaml' with { type: 'file' }
-import _a901 from '../../../templates/mcp-server/config/pages/home.yaml' with { type: 'file' }
-import _a902 from '../../../templates/mcp-server/config/tables/documents.yaml' with { type: 'file' }
-import _a903 from '../../../templates/mcp-server/config/tables/tags.yaml' with { type: 'file' }
-import _a904 from '../../../templates/mcp-server/library/connection/github.yaml' with { type: 'file' }
-import _a905 from '../../../templates/mcp-server/LICENSE' with { type: 'file' }
-import _a906 from '../../../templates/mcp-server/Procfile' with { type: 'file' }
-import _a907 from '../../../templates/mcp-server/public/favicon.svg' with { type: 'file' }
-import _a908 from '../../../templates/mcp-server/README.md' with { type: 'file' }
-import _a909 from '../../../templates/mcp-server/scalingo.json' with { type: 'file' }
-import _a910 from '../../../templates/mcp-server/seed/documents.yaml' with { type: 'file' }
-import _a911 from '../../../templates/mcp-server/seed/tags.yaml' with { type: 'file' }
-import _a912 from '../../../templates/mcp-server/seed/users.yaml' with { type: 'file' }
-import _a913 from '../../../templates/people/.buildpacks' with { type: 'file' }
-import _a914 from '../../../templates/people/.env.example' with { type: 'file' }
-import _a915 from '../../../templates/people/app.yaml' with { type: 'file' }
-import _a916 from '../../../templates/people/CLAUDE.md' with { type: 'file' }
-import _a917 from '../../../templates/people/config/auth.yaml' with { type: 'file' }
-import _a918 from '../../../templates/people/config/automations/approve-time-off.yaml' with { type: 'file' }
-import _a919 from '../../../templates/people/config/automations/join-new-account-to-directory.yaml' with { type: 'file' }
-import _a920 from '../../../templates/people/config/automations/nightly-reset.yaml' with { type: 'file' }
-import _a921 from '../../../templates/people/config/design.yaml' with { type: 'file' }
-import _a922 from '../../../templates/people/config/forms/add-person.yaml' with { type: 'file' }
-import _a923 from '../../../templates/people/config/forms/request-time-off.yaml' with { type: 'file' }
-import _a924 from '../../../templates/people/config/pages/_shell.yaml' with { type: 'file' }
-import _a925 from '../../../templates/people/config/pages/directory.yaml' with { type: 'file' }
-import _a926 from '../../../templates/people/config/pages/overview.yaml' with { type: 'file' }
-import _a927 from '../../../templates/people/config/pages/requests.yaml' with { type: 'file' }
-import _a928 from '../../../templates/people/config/pages/sign-in.yaml' with { type: 'file' }
-import _a929 from '../../../templates/people/config/pages/time-off.yaml' with { type: 'file' }
-import _a930 from '../../../templates/people/config/tables/employees.yaml' with { type: 'file' }
-import _a931 from '../../../templates/people/config/tables/time_off_requests.yaml' with { type: 'file' }
-import _a932 from '../../../templates/people/library/connection/google.yaml' with { type: 'file' }
-import _a933 from '../../../templates/people/library/recipe/record-to-google-doc.yaml' with { type: 'file' }
-import _a934 from '../../../templates/people/LICENSE' with { type: 'file' }
-import _a935 from '../../../templates/people/Procfile' with { type: 'file' }
-import _a936 from '../../../templates/people/public/.gitkeep' with { type: 'file' }
-import _a937 from '../../../templates/people/public/favicon.svg' with { type: 'file' }
-import _a938 from '../../../templates/people/public/README.md' with { type: 'file' }
-import _a939 from '../../../templates/people/README.md' with { type: 'file' }
-import _a940 from '../../../templates/people/scalingo.json' with { type: 'file' }
-import _a941 from '../../../templates/people/seed/employees.yaml' with { type: 'file' }
-import _a942 from '../../../templates/people/seed/time_off_requests.yaml' with { type: 'file' }
-import _a943 from '../../../templates/people/seed/users.yaml' with { type: 'file' }
-import _a944 from '../../../templates/projects/.buildpacks' with { type: 'file' }
-import _a945 from '../../../templates/projects/.env.example' with { type: 'file' }
-import _a946 from '../../../templates/projects/app.yaml' with { type: 'file' }
-import _a947 from '../../../templates/projects/CLAUDE.md' with { type: 'file' }
-import _a948 from '../../../templates/projects/config/auth.yaml' with { type: 'file' }
-import _a949 from '../../../templates/projects/config/automations/chase-blocked-tasks.yaml' with { type: 'file' }
-import _a950 from '../../../templates/projects/config/automations/nightly-reset.yaml' with { type: 'file' }
-import _a951 from '../../../templates/projects/config/automations/notify-assignee-on-blocked.yaml' with { type: 'file' }
-import _a952 from '../../../templates/projects/config/design.yaml' with { type: 'file' }
-import _a953 from '../../../templates/projects/config/forms/add-task.yaml' with { type: 'file' }
-import _a954 from '../../../templates/projects/config/forms/new-project.yaml' with { type: 'file' }
-import _a955 from '../../../templates/projects/config/pages/_add-task.yaml' with { type: 'file' }
-import _a956 from '../../../templates/projects/config/pages/_shell.yaml' with { type: 'file' }
-import _a957 from '../../../templates/projects/config/pages/board.yaml' with { type: 'file' }
-import _a958 from '../../../templates/projects/config/pages/calendar.yaml' with { type: 'file' }
-import _a959 from '../../../templates/projects/config/pages/dashboard.yaml' with { type: 'file' }
-import _a960 from '../../../templates/projects/config/pages/sign-in.yaml' with { type: 'file' }
-import _a961 from '../../../templates/projects/config/pages/timeline.yaml' with { type: 'file' }
-import _a962 from '../../../templates/projects/config/tables/projects.yaml' with { type: 'file' }
-import _a963 from '../../../templates/projects/config/tables/tasks.yaml' with { type: 'file' }
-import _a964 from '../../../templates/projects/library/connection/microsoft-365.yaml' with { type: 'file' }
-import _a965 from '../../../templates/projects/library/recipe/record-to-teams-channel.yaml' with { type: 'file' }
-import _a966 from '../../../templates/projects/LICENSE' with { type: 'file' }
-import _a967 from '../../../templates/projects/Procfile' with { type: 'file' }
-import _a968 from '../../../templates/projects/public/.gitkeep' with { type: 'file' }
-import _a969 from '../../../templates/projects/public/favicon.svg' with { type: 'file' }
-import _a970 from '../../../templates/projects/public/README.md' with { type: 'file' }
-import _a971 from '../../../templates/projects/README.md' with { type: 'file' }
-import _a972 from '../../../templates/projects/scalingo.json' with { type: 'file' }
-import _a973 from '../../../templates/projects/seed/projects.yaml' with { type: 'file' }
-import _a974 from '../../../templates/projects/seed/tasks.yaml' with { type: 'file' }
-import _a975 from '../../../templates/projects/seed/users.yaml' with { type: 'file' }
-import _a976 from '../../../templates/README.md' with { type: 'file' }
-import _a977 from '../../../src/admin/assets/samples/sample-chime.mp3' with { type: 'file' }
-import _a978 from '../../../src/admin/assets/samples/sample-motion.webm' with { type: 'file' }
-import _a979 from '../../../src/admin/assets/samples/sample-still.avif' with { type: 'file' }
-import _a980 from '../../../assets/logo/academy/mark-dark-outline.svg' with { type: 'file' }
-import _a981 from '../../../assets/logo/academy/mark-light-outline.svg' with { type: 'file' }
-import _a982 from '../../../assets/logo/cloud/mark-dark-outline.svg' with { type: 'file' }
-import _a983 from '../../../assets/logo/cloud/mark-light-outline.svg' with { type: 'file' }
-import _a984 from '../../../assets/logo/partner/mark-dark-outline.svg' with { type: 'file' }
-import _a985 from '../../../assets/logo/partner/mark-light-outline.svg' with { type: 'file' }
-import _a986 from '../../../assets/logo/sovrium/mark-dark-outline.svg' with { type: 'file' }
-import _a987 from '../../../assets/logo/sovrium/mark-light-outline.svg' with { type: 'file' }
+import _a106 from '../../../src/templates/api-only/app.yaml' with { type: 'file' }
+import _a107 from '../../../src/templates/api-only/config/auth.yaml' with { type: 'file' }
+import _a108 from '../../../src/templates/api-only/config/automations/task-done-call-out.yaml' with { type: 'file' }
+import _a109 from '../../../src/templates/api-only/config/automations/task-intake.yaml' with { type: 'file' }
+import _a110 from '../../../src/templates/api-only/config/design.yaml' with { type: 'file' }
+import _a111 from '../../../src/templates/api-only/config/pages/home.yaml' with { type: 'file' }
+import _a112 from '../../../src/templates/api-only/config/tables/projects.yaml' with { type: 'file' }
+import _a113 from '../../../src/templates/api-only/config/tables/tasks.yaml' with { type: 'file' }
+import _a114 from '../../../src/templates/api-only/library/connection/linear.yaml' with { type: 'file' }
+import _a115 from '../../../src/templates/api-only/library/recipe/record-to-linear-issue.yaml' with { type: 'file' }
+import _a116 from '../../../src/templates/api-only/public/favicon.svg' with { type: 'file' }
+import _a117 from '../../../src/templates/api-only/seed/projects.yaml' with { type: 'file' }
+import _a118 from '../../../src/templates/api-only/seed/tasks.yaml' with { type: 'file' }
+import _a119 from '../../../src/templates/api-only/seed/users.yaml' with { type: 'file' }
+import _a120 from '../../../src/templates/api-only/template.yaml' with { type: 'file' }
+import _a121 from '../../../src/templates/app-starter/app.yaml' with { type: 'file' }
+import _a122 from '../../../src/templates/app-starter/config/auth.yaml' with { type: 'file' }
+import _a123 from '../../../src/templates/app-starter/config/pages/_nav.yaml' with { type: 'file' }
+import _a124 from '../../../src/templates/app-starter/config/pages/_settings-nav.yaml' with { type: 'file' }
+import _a125 from '../../../src/templates/app-starter/config/pages/invite.yaml' with { type: 'file' }
+import _a126 from '../../../src/templates/app-starter/config/pages/kit-client.yaml' with { type: 'file' }
+import _a127 from '../../../src/templates/app-starter/config/pages/kit-data.yaml' with { type: 'file' }
+import _a128 from '../../../src/templates/app-starter/config/pages/kit-feedback.yaml' with { type: 'file' }
+import _a129 from '../../../src/templates/app-starter/config/pages/kit-navigation.yaml' with { type: 'file' }
+import _a130 from '../../../src/templates/app-starter/config/pages/kit-shell-sidebar.yaml' with { type: 'file' }
+import _a131 from '../../../src/templates/app-starter/config/pages/kit-shell-stacked.yaml' with { type: 'file' }
+import _a132 from '../../../src/templates/app-starter/config/pages/magic-link.yaml' with { type: 'file' }
+import _a133 from '../../../src/templates/app-starter/config/pages/metrics.yaml' with { type: 'file' }
+import _a134 from '../../../src/templates/app-starter/config/pages/overview.yaml' with { type: 'file' }
+import _a135 from '../../../src/templates/app-starter/config/pages/project-edit.yaml' with { type: 'file' }
+import _a136 from '../../../src/templates/app-starter/config/pages/project.yaml' with { type: 'file' }
+import _a137 from '../../../src/templates/app-starter/config/pages/projects.yaml' with { type: 'file' }
+import _a138 from '../../../src/templates/app-starter/config/pages/reset-password-new.yaml' with { type: 'file' }
+import _a139 from '../../../src/templates/app-starter/config/pages/reset-password.yaml' with { type: 'file' }
+import _a140 from '../../../src/templates/app-starter/config/pages/settings-api-keys.yaml' with { type: 'file' }
+import _a141 from '../../../src/templates/app-starter/config/pages/settings-security.yaml' with { type: 'file' }
+import _a142 from '../../../src/templates/app-starter/config/pages/settings-team.yaml' with { type: 'file' }
+import _a143 from '../../../src/templates/app-starter/config/pages/settings-workspace.yaml' with { type: 'file' }
+import _a144 from '../../../src/templates/app-starter/config/pages/settings.yaml' with { type: 'file' }
+import _a145 from '../../../src/templates/app-starter/config/pages/sign-in.yaml' with { type: 'file' }
+import _a146 from '../../../src/templates/app-starter/config/pages/sign-up.yaml' with { type: 'file' }
+import _a147 from '../../../src/templates/app-starter/config/pages/sso.yaml' with { type: 'file' }
+import _a148 from '../../../src/templates/app-starter/config/pages/two-step.yaml' with { type: 'file' }
+import _a149 from '../../../src/templates/app-starter/config/pages/worklist.yaml' with { type: 'file' }
+import _a150 from '../../../src/templates/app-starter/config/tables/activity.yaml' with { type: 'file' }
+import _a151 from '../../../src/templates/app-starter/config/tables/bookings.yaml' with { type: 'file' }
+import _a152 from '../../../src/templates/app-starter/config/tables/clients.yaml' with { type: 'file' }
+import _a153 from '../../../src/templates/app-starter/config/tables/people.yaml' with { type: 'file' }
+import _a154 from '../../../src/templates/app-starter/config/tables/projects.yaml' with { type: 'file' }
+import _a155 from '../../../src/templates/app-starter/config/tables/reminders.yaml' with { type: 'file' }
+import _a156 from '../../../src/templates/app-starter/config/tables/tasks.yaml' with { type: 'file' }
+import _a157 from '../../../src/templates/app-starter/config/tables/workspace-settings.yaml' with { type: 'file' }
+import _a158 from '../../../src/templates/app-starter/library/block/alert-inline.yaml' with { type: 'file' }
+import _a159 from '../../../src/templates/app-starter/library/block/alert-validation-summary.yaml' with { type: 'file' }
+import _a160 from '../../../src/templates/app-starter/library/block/app-navbar-command.yaml' with { type: 'file' }
+import _a161 from '../../../src/templates/app-starter/library/block/app-navbar-search.yaml' with { type: 'file' }
+import _a162 from '../../../src/templates/app-starter/library/block/auth-invitation-accept.yaml' with { type: 'file' }
+import _a163 from '../../../src/templates/app-starter/library/block/auth-magic-link.yaml' with { type: 'file' }
+import _a164 from '../../../src/templates/app-starter/library/block/auth-password-reset-new.yaml' with { type: 'file' }
+import _a165 from '../../../src/templates/app-starter/library/block/auth-password-reset.yaml' with { type: 'file' }
+import _a166 from '../../../src/templates/app-starter/library/block/auth-sign-in.yaml' with { type: 'file' }
+import _a167 from '../../../src/templates/app-starter/library/block/auth-sign-up.yaml' with { type: 'file' }
+import _a168 from '../../../src/templates/app-starter/library/block/auth-sso.yaml' with { type: 'file' }
+import _a169 from '../../../src/templates/app-starter/library/block/auth-two-factor.yaml' with { type: 'file' }
+import _a170 from '../../../src/templates/app-starter/library/block/breadcrumb-chevron.yaml' with { type: 'file' }
+import _a171 from '../../../src/templates/app-starter/library/block/breadcrumb-slash.yaml' with { type: 'file' }
+import _a172 from '../../../src/templates/app-starter/library/block/calendar-month.yaml' with { type: 'file' }
+import _a173 from '../../../src/templates/app-starter/library/block/calendar-week.yaml' with { type: 'file' }
+import _a174 from '../../../src/templates/app-starter/library/block/card-heading.yaml' with { type: 'file' }
+import _a175 from '../../../src/templates/app-starter/library/block/comments-feed.yaml' with { type: 'file' }
+import _a176 from '../../../src/templates/app-starter/library/block/dashboard-metrics.yaml' with { type: 'file' }
+import _a177 from '../../../src/templates/app-starter/library/block/dashboard-overview.yaml' with { type: 'file' }
+import _a178 from '../../../src/templates/app-starter/library/block/dashboard-worklist.yaml' with { type: 'file' }
+import _a179 from '../../../src/templates/app-starter/library/block/data-table.yaml' with { type: 'file' }
+import _a180 from '../../../src/templates/app-starter/library/block/dl-rows.yaml' with { type: 'file' }
+import _a181 from '../../../src/templates/app-starter/library/block/dl-stacked.yaml' with { type: 'file' }
+import _a182 from '../../../src/templates/app-starter/library/block/drawer-form.yaml' with { type: 'file' }
+import _a183 from '../../../src/templates/app-starter/library/block/empty-basic.yaml' with { type: 'file' }
+import _a184 from '../../../src/templates/app-starter/library/block/empty-with-starters.yaml' with { type: 'file' }
+import _a185 from '../../../src/templates/app-starter/library/block/gallery-cards.yaml' with { type: 'file' }
+import _a186 from '../../../src/templates/app-starter/library/block/kpi-row-trend.yaml' with { type: 'file' }
+import _a187 from '../../../src/templates/app-starter/library/block/kpi-sparkline.yaml' with { type: 'file' }
+import _a188 from '../../../src/templates/app-starter/library/block/list-avatars.yaml' with { type: 'file' }
+import _a189 from '../../../src/templates/app-starter/library/block/modal-confirm-destructive.yaml' with { type: 'file' }
+import _a190 from '../../../src/templates/app-starter/library/block/modal-form.yaml' with { type: 'file' }
+import _a191 from '../../../src/templates/app-starter/library/block/page-heading-actions.yaml' with { type: 'file' }
+import _a192 from '../../../src/templates/app-starter/library/block/pagination-numbered.yaml' with { type: 'file' }
+import _a193 from '../../../src/templates/app-starter/library/block/pagination-simple.yaml' with { type: 'file' }
+import _a194 from '../../../src/templates/app-starter/library/block/progress-bar.yaml' with { type: 'file' }
+import _a195 from '../../../src/templates/app-starter/library/block/record-comments.yaml' with { type: 'file' }
+import _a196 from '../../../src/templates/app-starter/library/block/record-edit-sections.yaml' with { type: 'file' }
+import _a197 from '../../../src/templates/app-starter/library/block/record-form-two-column.yaml' with { type: 'file' }
+import _a198 from '../../../src/templates/app-starter/library/block/record-header.yaml' with { type: 'file' }
+import _a199 from '../../../src/templates/app-starter/library/block/record-history.yaml' with { type: 'file' }
+import _a200 from '../../../src/templates/app-starter/library/block/record-meta-sidebar.yaml' with { type: 'file' }
+import _a201 from '../../../src/templates/app-starter/library/block/record-related-list.yaml' with { type: 'file' }
+import _a202 from '../../../src/templates/app-starter/library/block/record-sheet.yaml' with { type: 'file' }
+import _a203 from '../../../src/templates/app-starter/library/block/section-heading-tabs.yaml' with { type: 'file' }
+import _a204 from '../../../src/templates/app-starter/library/block/settings-account.yaml' with { type: 'file' }
+import _a205 from '../../../src/templates/app-starter/library/block/settings-api-keys.yaml' with { type: 'file' }
+import _a206 from '../../../src/templates/app-starter/library/block/settings-form.yaml' with { type: 'file' }
+import _a207 from '../../../src/templates/app-starter/library/block/settings-security.yaml' with { type: 'file' }
+import _a208 from '../../../src/templates/app-starter/library/block/settings-team.yaml' with { type: 'file' }
+import _a209 from '../../../src/templates/app-starter/library/block/shell-sidebar.yaml' with { type: 'file' }
+import _a210 from '../../../src/templates/app-starter/library/block/shell-stacked.yaml' with { type: 'file' }
+import _a211 from '../../../src/templates/app-starter/library/block/steps-horizontal.yaml' with { type: 'file' }
+import _a212 from '../../../src/templates/app-starter/library/block/tabs-segmented.yaml' with { type: 'file' }
+import _a213 from '../../../src/templates/app-starter/library/block/tabs-underline.yaml' with { type: 'file' }
+import _a214 from '../../../src/templates/app-starter/library/block/timeline-activity.yaml' with { type: 'file' }
+import _a215 from '../../../src/templates/app-starter/library/block/toast-confirm.yaml' with { type: 'file' }
+import _a216 from '../../../src/templates/app-starter/library/block/vertical-nav-grouped.yaml' with { type: 'file' }
+import _a217 from '../../../src/templates/app-starter/library/block/vertical-nav-settings.yaml' with { type: 'file' }
+import _a218 from '../../../src/templates/app-starter/library/form/dashboard-worklist-new.yaml' with { type: 'file' }
+import _a219 from '../../../src/templates/app-starter/library/form/drawer-form.yaml' with { type: 'file' }
+import _a220 from '../../../src/templates/app-starter/library/form/modal-form.yaml' with { type: 'file' }
+import _a221 from '../../../src/templates/app-starter/library/form/record-form-two-column.yaml' with { type: 'file' }
+import _a222 from '../../../src/templates/app-starter/library/form/record-related-list-add.yaml' with { type: 'file' }
+import _a223 from '../../../src/templates/app-starter/public/favicon.svg' with { type: 'file' }
+import _a224 from '../../../src/templates/app-starter/seed/activity.yaml' with { type: 'file' }
+import _a225 from '../../../src/templates/app-starter/seed/bookings.yaml' with { type: 'file' }
+import _a226 from '../../../src/templates/app-starter/seed/clients.yaml' with { type: 'file' }
+import _a227 from '../../../src/templates/app-starter/seed/people.yaml' with { type: 'file' }
+import _a228 from '../../../src/templates/app-starter/seed/projects.yaml' with { type: 'file' }
+import _a229 from '../../../src/templates/app-starter/seed/reminders.yaml' with { type: 'file' }
+import _a230 from '../../../src/templates/app-starter/seed/tasks.yaml' with { type: 'file' }
+import _a231 from '../../../src/templates/app-starter/seed/users.yaml' with { type: 'file' }
+import _a232 from '../../../src/templates/app-starter/seed/workspace_settings.yaml' with { type: 'file' }
+import _a233 from '../../../src/templates/app-starter/template.yaml' with { type: 'file' }
+import _a234 from '../../../src/templates/assets/app.yaml' with { type: 'file' }
+import _a235 from '../../../src/templates/assets/config/auth.yaml' with { type: 'file' }
+import _a236 from '../../../src/templates/assets/config/automations/nightly-reset.yaml' with { type: 'file' }
+import _a237 from '../../../src/templates/assets/config/automations/register-export.yaml' with { type: 'file' }
+import _a238 from '../../../src/templates/assets/config/design.yaml' with { type: 'file' }
+import _a239 from '../../../src/templates/assets/config/forms/register-asset.yaml' with { type: 'file' }
+import _a240 from '../../../src/templates/assets/config/pages/_register-asset.yaml' with { type: 'file' }
+import _a241 from '../../../src/templates/assets/config/pages/_shell.yaml' with { type: 'file' }
+import _a242 from '../../../src/templates/assets/config/pages/gallery.yaml' with { type: 'file' }
+import _a243 from '../../../src/templates/assets/config/pages/lifecycle.yaml' with { type: 'file' }
+import _a244 from '../../../src/templates/assets/config/pages/locations.yaml' with { type: 'file' }
+import _a245 from '../../../src/templates/assets/config/pages/register.yaml' with { type: 'file' }
+import _a246 from '../../../src/templates/assets/config/pages/sign-in.yaml' with { type: 'file' }
+import _a247 from '../../../src/templates/assets/config/tables/asset_events.yaml' with { type: 'file' }
+import _a248 from '../../../src/templates/assets/config/tables/assets.yaml' with { type: 'file' }
+import _a249 from '../../../src/templates/assets/config/tables/check_outs.yaml' with { type: 'file' }
+import _a250 from '../../../src/templates/assets/config/tables/locations.yaml' with { type: 'file' }
+import _a251 from '../../../src/templates/assets/library/connection/microsoft-365.yaml' with { type: 'file' }
+import _a252 from '../../../src/templates/assets/library/recipe/record-to-teams-channel.yaml' with { type: 'file' }
+import _a253 from '../../../src/templates/assets/public/.gitkeep' with { type: 'file' }
+import _a254 from '../../../src/templates/assets/public/favicon.svg' with { type: 'file' }
+import _a255 from '../../../src/templates/assets/seed/asset_events.yaml' with { type: 'file' }
+import _a256 from '../../../src/templates/assets/seed/assets.yaml' with { type: 'file' }
+import _a257 from '../../../src/templates/assets/seed/check_outs.yaml' with { type: 'file' }
+import _a258 from '../../../src/templates/assets/seed/locations.yaml' with { type: 'file' }
+import _a259 from '../../../src/templates/assets/seed/users.yaml' with { type: 'file' }
+import _a260 from '../../../src/templates/assets/template.yaml' with { type: 'file' }
+import _a261 from '../../../src/templates/automation-recipes/app.yaml' with { type: 'file' }
+import _a262 from '../../../src/templates/automation-recipes/config/auth.yaml' with { type: 'file' }
+import _a263 from '../../../src/templates/automation-recipes/config/automations/alert-on-failure.yaml' with { type: 'file' }
+import _a264 from '../../../src/templates/automation-recipes/config/automations/capture-lead-from-webhook.yaml' with { type: 'file' }
+import _a265 from '../../../src/templates/automation-recipes/config/automations/daily-digest.yaml' with { type: 'file' }
+import _a266 from '../../../src/templates/automation-recipes/config/automations/log-new-lead.yaml' with { type: 'file' }
+import _a267 from '../../../src/templates/automation-recipes/config/automations/nightly-reset.yaml' with { type: 'file' }
+import _a268 from '../../../src/templates/automation-recipes/config/automations/review-recent-leads.yaml' with { type: 'file' }
+import _a269 from '../../../src/templates/automation-recipes/config/automations/score-leads.yaml' with { type: 'file' }
+import _a270 from '../../../src/templates/automation-recipes/config/design.yaml' with { type: 'file' }
+import _a271 from '../../../src/templates/automation-recipes/config/pages/_shell.yaml' with { type: 'file' }
+import _a272 from '../../../src/templates/automation-recipes/config/pages/activity.yaml' with { type: 'file' }
+import _a273 from '../../../src/templates/automation-recipes/config/pages/home.yaml' with { type: 'file' }
+import _a274 from '../../../src/templates/automation-recipes/config/pages/leads.yaml' with { type: 'file' }
+import _a275 from '../../../src/templates/automation-recipes/config/pages/sign-in.yaml' with { type: 'file' }
+import _a276 from '../../../src/templates/automation-recipes/config/tables/activity_log.yaml' with { type: 'file' }
+import _a277 from '../../../src/templates/automation-recipes/config/tables/leads.yaml' with { type: 'file' }
+import _a278 from '../../../src/templates/automation-recipes/library/connection/mistral.yaml' with { type: 'file' }
+import _a279 from '../../../src/templates/automation-recipes/library/recipe/record-to-mistral-summary.yaml' with { type: 'file' }
+import _a280 from '../../../src/templates/automation-recipes/public/.gitkeep' with { type: 'file' }
+import _a281 from '../../../src/templates/automation-recipes/public/favicon.svg' with { type: 'file' }
+import _a282 from '../../../src/templates/automation-recipes/seed/activity_log.yaml' with { type: 'file' }
+import _a283 from '../../../src/templates/automation-recipes/seed/leads.yaml' with { type: 'file' }
+import _a284 from '../../../src/templates/automation-recipes/seed/users.yaml' with { type: 'file' }
+import _a285 from '../../../src/templates/automation-recipes/template.yaml' with { type: 'file' }
+import _a286 from '../../../src/templates/blog/app.yaml' with { type: 'file' }
+import _a287 from '../../../src/templates/blog/config/agents/blog-editor.yaml' with { type: 'file' }
+import _a288 from '../../../src/templates/blog/config/auth.yaml' with { type: 'file' }
+import _a289 from '../../../src/templates/blog/config/automations/nightly-reset.yaml' with { type: 'file' }
+import _a290 from '../../../src/templates/blog/config/automations/publish-scheduled.yaml' with { type: 'file' }
+import _a291 from '../../../src/templates/blog/config/automations/schedule-on-date.yaml' with { type: 'file' }
+import _a292 from '../../../src/templates/blog/config/automations/stamp-new-comment.yaml' with { type: 'file' }
+import _a293 from '../../../src/templates/blog/config/automations/triage-comment.yaml' with { type: 'file' }
+import _a294 from '../../../src/templates/blog/config/design.yaml' with { type: 'file' }
+import _a295 from '../../../src/templates/blog/config/forms/comment.yaml' with { type: 'file' }
+import _a296 from '../../../src/templates/blog/config/forms/new-post.yaml' with { type: 'file' }
+import _a297 from '../../../src/templates/blog/config/forms/newsletter.yaml' with { type: 'file' }
+import _a298 from '../../../src/templates/blog/config/pages/_shell.yaml' with { type: 'file' }
+import _a299 from '../../../src/templates/blog/config/pages/_site-footer.yaml' with { type: 'file' }
+import _a300 from '../../../src/templates/blog/config/pages/_site-header.yaml' with { type: 'file' }
+import _a301 from '../../../src/templates/blog/config/pages/admin-ai-editor.yaml' with { type: 'file' }
+import _a302 from '../../../src/templates/blog/config/pages/admin-authors.yaml' with { type: 'file' }
+import _a303 from '../../../src/templates/blog/config/pages/admin-comments.yaml' with { type: 'file' }
+import _a304 from '../../../src/templates/blog/config/pages/admin-login.yaml' with { type: 'file' }
+import _a305 from '../../../src/templates/blog/config/pages/admin-post-edit.yaml' with { type: 'file' }
+import _a306 from '../../../src/templates/blog/config/pages/admin-posts.yaml' with { type: 'file' }
+import _a307 from '../../../src/templates/blog/config/pages/admin-tags.yaml' with { type: 'file' }
+import _a308 from '../../../src/templates/blog/config/pages/essay.yaml' with { type: 'file' }
+import _a309 from '../../../src/templates/blog/config/pages/index.yaml' with { type: 'file' }
+import _a310 from '../../../src/templates/blog/config/pages/not-found.yaml' with { type: 'file' }
+import _a311 from '../../../src/templates/blog/config/tables/authors.yaml' with { type: 'file' }
+import _a312 from '../../../src/templates/blog/config/tables/comments.yaml' with { type: 'file' }
+import _a313 from '../../../src/templates/blog/config/tables/posts.yaml' with { type: 'file' }
+import _a314 from '../../../src/templates/blog/config/tables/subscribers.yaml' with { type: 'file' }
+import _a315 from '../../../src/templates/blog/config/tables/tags.yaml' with { type: 'file' }
+import _a316 from '../../../src/templates/blog/library/block/newsletter-inline.yaml' with { type: 'file' }
+import _a317 from '../../../src/templates/blog/library/connection/brevo.yaml' with { type: 'file' }
+import _a318 from '../../../src/templates/blog/library/recipe/form-to-brevo.yaml' with { type: 'file' }
+import _a319 from '../../../src/templates/blog/public/.gitkeep' with { type: 'file' }
+import _a320 from '../../../src/templates/blog/public/favicon.svg' with { type: 'file' }
+import _a321 from '../../../src/templates/blog/seed/assets/avatar-aoife.png' with { type: 'file' }
+import _a322 from '../../../src/templates/blog/seed/assets/avatar-mireille.png' with { type: 'file' }
+import _a323 from '../../../src/templates/blog/seed/assets/avatar-tomas.png' with { type: 'file' }
+import _a324 from '../../../src/templates/blog/seed/assets/cover-backup.png' with { type: 'file' }
+import _a325 from '../../../src/templates/blog/seed/assets/cover-config-file.png' with { type: 'file' }
+import _a326 from '../../../src/templates/blog/seed/assets/cover-design-decisions.png' with { type: 'file' }
+import _a327 from '../../../src/templates/blog/seed/assets/cover-first-five-minutes.png' with { type: 'file' }
+import _a328 from '../../../src/templates/blog/seed/assets/cover-licence.png' with { type: 'file' }
+import _a329 from '../../../src/templates/blog/seed/assets/cover-migration.png' with { type: 'file' }
+import _a330 from '../../../src/templates/blog/seed/assets/cover-thirty-people.png' with { type: 'file' }
+import _a331 from '../../../src/templates/blog/seed/authors.yaml' with { type: 'file' }
+import _a332 from '../../../src/templates/blog/seed/comments.yaml' with { type: 'file' }
+import _a333 from '../../../src/templates/blog/seed/posts.yaml' with { type: 'file' }
+import _a334 from '../../../src/templates/blog/seed/tags.yaml' with { type: 'file' }
+import _a335 from '../../../src/templates/blog/seed/users.yaml' with { type: 'file' }
+import _a336 from '../../../src/templates/blog/template.yaml' with { type: 'file' }
+import _a337 from '../../../src/templates/catalog.json' with { type: 'file' }
+import _a338 from '../../../src/templates/company-os/app.yaml' with { type: 'file' }
+import _a339 from '../../../src/templates/company-os/config/agents/ops-assistant.yaml' with { type: 'file' }
+import _a340 from '../../../src/templates/company-os/config/auth.yaml' with { type: 'file' }
+import _a341 from '../../../src/templates/company-os/config/automations/approve-time-off.yaml' with { type: 'file' }
+import _a342 from '../../../src/templates/company-os/config/automations/nightly-reset.yaml' with { type: 'file' }
+import _a343 from '../../../src/templates/company-os/config/automations/notify-contact-on-resolved-ticket.yaml' with { type: 'file' }
+import _a344 from '../../../src/templates/company-os/config/automations/open-project-on-won-deal.yaml' with { type: 'file' }
+import _a345 from '../../../src/templates/company-os/config/design.yaml' with { type: 'file' }
+import _a346 from '../../../src/templates/company-os/config/forms/add-deal.yaml' with { type: 'file' }
+import _a347 from '../../../src/templates/company-os/config/forms/add-task.yaml' with { type: 'file' }
+import _a348 from '../../../src/templates/company-os/config/forms/new-ticket.yaml' with { type: 'file' }
+import _a349 from '../../../src/templates/company-os/config/forms/request-time-off.yaml' with { type: 'file' }
+import _a350 from '../../../src/templates/company-os/config/pages/_add-deal.yaml' with { type: 'file' }
+import _a351 from '../../../src/templates/company-os/config/pages/_shell.yaml' with { type: 'file' }
+import _a352 from '../../../src/templates/company-os/config/pages/assistant.yaml' with { type: 'file' }
+import _a353 from '../../../src/templates/company-os/config/pages/companies.yaml' with { type: 'file' }
+import _a354 from '../../../src/templates/company-os/config/pages/delivery.yaml' with { type: 'file' }
+import _a355 from '../../../src/templates/company-os/config/pages/home.yaml' with { type: 'file' }
+import _a356 from '../../../src/templates/company-os/config/pages/people.yaml' with { type: 'file' }
+import _a357 from '../../../src/templates/company-os/config/pages/sales.yaml' with { type: 'file' }
+import _a358 from '../../../src/templates/company-os/config/pages/sign-in.yaml' with { type: 'file' }
+import _a359 from '../../../src/templates/company-os/config/pages/support.yaml' with { type: 'file' }
+import _a360 from '../../../src/templates/company-os/config/tables/companies.yaml' with { type: 'file' }
+import _a361 from '../../../src/templates/company-os/config/tables/contacts.yaml' with { type: 'file' }
+import _a362 from '../../../src/templates/company-os/config/tables/customer_invoices.yaml' with { type: 'file' }
+import _a363 from '../../../src/templates/company-os/config/tables/deals.yaml' with { type: 'file' }
+import _a364 from '../../../src/templates/company-os/config/tables/employees.yaml' with { type: 'file' }
+import _a365 from '../../../src/templates/company-os/config/tables/project_tasks.yaml' with { type: 'file' }
+import _a366 from '../../../src/templates/company-os/config/tables/projects.yaml' with { type: 'file' }
+import _a367 from '../../../src/templates/company-os/config/tables/tickets.yaml' with { type: 'file' }
+import _a368 from '../../../src/templates/company-os/config/tables/time_off_requests.yaml' with { type: 'file' }
+import _a369 from '../../../src/templates/company-os/library/block/clients-toolbar.yaml' with { type: 'file' }
+import _a370 from '../../../src/templates/company-os/library/connection/pennylane.yaml' with { type: 'file' }
+import _a371 from '../../../src/templates/company-os/library/recipe/pennylane-invoices-to-table.yaml' with { type: 'file' }
+import _a372 from '../../../src/templates/company-os/public/.gitkeep' with { type: 'file' }
+import _a373 from '../../../src/templates/company-os/public/favicon.svg' with { type: 'file' }
+import _a374 from '../../../src/templates/company-os/seed/companies.yaml' with { type: 'file' }
+import _a375 from '../../../src/templates/company-os/seed/contacts.yaml' with { type: 'file' }
+import _a376 from '../../../src/templates/company-os/seed/deals.yaml' with { type: 'file' }
+import _a377 from '../../../src/templates/company-os/seed/employees.yaml' with { type: 'file' }
+import _a378 from '../../../src/templates/company-os/seed/project_tasks.yaml' with { type: 'file' }
+import _a379 from '../../../src/templates/company-os/seed/projects.yaml' with { type: 'file' }
+import _a380 from '../../../src/templates/company-os/seed/tickets.yaml' with { type: 'file' }
+import _a381 from '../../../src/templates/company-os/seed/time_off_requests.yaml' with { type: 'file' }
+import _a382 from '../../../src/templates/company-os/seed/users.yaml' with { type: 'file' }
+import _a383 from '../../../src/templates/company-os/template.yaml' with { type: 'file' }
+import _a384 from '../../../src/templates/content-calendar/app.yaml' with { type: 'file' }
+import _a385 from '../../../src/templates/content-calendar/config/auth.yaml' with { type: 'file' }
+import _a386 from '../../../src/templates/content-calendar/config/automations/approve-for-scheduling.yaml' with { type: 'file' }
+import _a387 from '../../../src/templates/content-calendar/config/automations/mint-tracked-link.yaml' with { type: 'file' }
+import _a388 from '../../../src/templates/content-calendar/config/automations/monday-digest.yaml' with { type: 'file' }
+import _a389 from '../../../src/templates/content-calendar/config/automations/nightly-reset.yaml' with { type: 'file' }
+import _a390 from '../../../src/templates/content-calendar/config/automations/own-new-piece.yaml' with { type: 'file' }
+import _a391 from '../../../src/templates/content-calendar/config/design.yaml' with { type: 'file' }
+import _a392 from '../../../src/templates/content-calendar/config/forms/new-piece.yaml' with { type: 'file' }
+import _a393 from '../../../src/templates/content-calendar/config/pages/_new-piece-dialog.yaml' with { type: 'file' }
+import _a394 from '../../../src/templates/content-calendar/config/pages/_piece-detail.yaml' with { type: 'file' }
+import _a395 from '../../../src/templates/content-calendar/config/pages/_shell.yaml' with { type: 'file' }
+import _a396 from '../../../src/templates/content-calendar/config/pages/calendar.yaml' with { type: 'file' }
+import _a397 from '../../../src/templates/content-calendar/config/pages/content.yaml' with { type: 'file' }
+import _a398 from '../../../src/templates/content-calendar/config/pages/pipeline.yaml' with { type: 'file' }
+import _a399 from '../../../src/templates/content-calendar/config/pages/sign-in.yaml' with { type: 'file' }
+import _a400 from '../../../src/templates/content-calendar/config/tables/campaigns.yaml' with { type: 'file' }
+import _a401 from '../../../src/templates/content-calendar/config/tables/content.yaml' with { type: 'file' }
+import _a402 from '../../../src/templates/content-calendar/library/connection/linkedin.yaml' with { type: 'file' }
+import _a403 from '../../../src/templates/content-calendar/library/recipe/record-to-linkedin-post.yaml' with { type: 'file' }
+import _a404 from '../../../src/templates/content-calendar/public/.gitkeep' with { type: 'file' }
+import _a405 from '../../../src/templates/content-calendar/public/favicon.svg' with { type: 'file' }
+import _a406 from '../../../src/templates/content-calendar/seed/assets/thumbnail-install.png' with { type: 'file' }
+import _a407 from '../../../src/templates/content-calendar/seed/campaigns.yaml' with { type: 'file' }
+import _a408 from '../../../src/templates/content-calendar/seed/content.yaml' with { type: 'file' }
+import _a409 from '../../../src/templates/content-calendar/seed/users.yaml' with { type: 'file' }
+import _a410 from '../../../src/templates/content-calendar/template.yaml' with { type: 'file' }
+import _a411 from '../../../src/templates/crm/app.yaml' with { type: 'file' }
+import _a412 from '../../../src/templates/crm/config/agents/records-assistant.yaml' with { type: 'file' }
+import _a413 from '../../../src/templates/crm/config/auth.yaml' with { type: 'file' }
+import _a414 from '../../../src/templates/crm/config/automations/deal-won-notification.yaml' with { type: 'file' }
+import _a415 from '../../../src/templates/crm/config/automations/nightly-reset.yaml' with { type: 'file' }
+import _a416 from '../../../src/templates/crm/config/design.yaml' with { type: 'file' }
+import _a417 from '../../../src/templates/crm/config/forms/add-contact.yaml' with { type: 'file' }
+import _a418 from '../../../src/templates/crm/config/forms/add-deal.yaml' with { type: 'file' }
+import _a419 from '../../../src/templates/crm/config/forms/add-task.yaml' with { type: 'file' }
+import _a420 from '../../../src/templates/crm/config/pages/_shell.yaml' with { type: 'file' }
+import _a421 from '../../../src/templates/crm/config/pages/assistant.yaml' with { type: 'file' }
+import _a422 from '../../../src/templates/crm/config/pages/companies.yaml' with { type: 'file' }
+import _a423 from '../../../src/templates/crm/config/pages/contacts.yaml' with { type: 'file' }
+import _a424 from '../../../src/templates/crm/config/pages/pipeline.yaml' with { type: 'file' }
+import _a425 from '../../../src/templates/crm/config/pages/sign-in.yaml' with { type: 'file' }
+import _a426 from '../../../src/templates/crm/config/pages/tasks.yaml' with { type: 'file' }
+import _a427 from '../../../src/templates/crm/config/tables/companies.yaml' with { type: 'file' }
+import _a428 from '../../../src/templates/crm/config/tables/contacts.yaml' with { type: 'file' }
+import _a429 from '../../../src/templates/crm/config/tables/deals.yaml' with { type: 'file' }
+import _a430 from '../../../src/templates/crm/config/tables/tasks.yaml' with { type: 'file' }
+import _a431 from '../../../src/templates/crm/library/block/companies-toolbar.yaml' with { type: 'file' }
+import _a432 from '../../../src/templates/crm/library/block/contacts-toolbar.yaml' with { type: 'file' }
+import _a433 from '../../../src/templates/crm/library/connection/hubspot.yaml' with { type: 'file' }
+import _a434 from '../../../src/templates/crm/library/connection/slack.yaml' with { type: 'file' }
+import _a435 from '../../../src/templates/crm/library/recipe/form-to-hubspot.yaml' with { type: 'file' }
+import _a436 from '../../../src/templates/crm/library/recipe/record-to-slack.yaml' with { type: 'file' }
+import _a437 from '../../../src/templates/crm/public/.gitkeep' with { type: 'file' }
+import _a438 from '../../../src/templates/crm/public/favicon.svg' with { type: 'file' }
+import _a439 from '../../../src/templates/crm/seed/companies.yaml' with { type: 'file' }
+import _a440 from '../../../src/templates/crm/seed/contacts.yaml' with { type: 'file' }
+import _a441 from '../../../src/templates/crm/seed/deals.yaml' with { type: 'file' }
+import _a442 from '../../../src/templates/crm/seed/tasks.yaml' with { type: 'file' }
+import _a443 from '../../../src/templates/crm/seed/users.yaml' with { type: 'file' }
+import _a444 from '../../../src/templates/crm/template.yaml' with { type: 'file' }
+import _a445 from '../../../src/templates/docs-site/app.yaml' with { type: 'file' }
+import _a446 from '../../../src/templates/docs-site/config/automations/nightly-reset.yaml' with { type: 'file' }
+import _a447 from '../../../src/templates/docs-site/config/design.yaml' with { type: 'file' }
+import _a448 from '../../../src/templates/docs-site/config/pages/_brand-bar.yaml' with { type: 'file' }
+import _a449 from '../../../src/templates/docs-site/config/pages/_docs-header.yaml' with { type: 'file' }
+import _a450 from '../../../src/templates/docs-site/config/pages/_section-cards.yaml' with { type: 'file' }
+import _a451 from '../../../src/templates/docs-site/config/pages/_site-footer.yaml' with { type: 'file' }
+import _a452 from '../../../src/templates/docs-site/config/pages/_site-header.yaml' with { type: 'file' }
+import _a453 from '../../../src/templates/docs-site/config/pages/docs.yaml' with { type: 'file' }
+import _a454 from '../../../src/templates/docs-site/config/pages/home.yaml' with { type: 'file' }
+import _a455 from '../../../src/templates/docs-site/config/pages/not-found.yaml' with { type: 'file' }
+import _a456 from '../../../src/templates/docs-site/content/docs/guides/configuration.md' with { type: 'file' }
+import _a457 from '../../../src/templates/docs-site/content/docs/guides/deployment.md' with { type: 'file' }
+import _a458 from '../../../src/templates/docs-site/content/docs/guides/theming.md' with { type: 'file' }
+import _a459 from '../../../src/templates/docs-site/content/docs/installation.md' with { type: 'file' }
+import _a460 from '../../../src/templates/docs-site/content/docs/introduction.md' with { type: 'file' }
+import _a461 from '../../../src/templates/docs-site/content/docs/quick-start.md' with { type: 'file' }
+import _a462 from '../../../src/templates/docs-site/public/.gitkeep' with { type: 'file' }
+import _a463 from '../../../src/templates/docs-site/public/docs/files-to-pages.avif' with { type: 'file' }
+import _a464 from '../../../src/templates/docs-site/public/favicon.svg' with { type: 'file' }
+import _a465 from '../../../src/templates/docs-site/template.yaml' with { type: 'file' }
+import _a466 from '../../../src/templates/events/app.yaml' with { type: 'file' }
+import _a467 from '../../../src/templates/events/config/auth.yaml' with { type: 'file' }
+import _a468 from '../../../src/templates/events/config/automations/announce-event.yaml' with { type: 'file' }
+import _a469 from '../../../src/templates/events/config/automations/confirm-registration.yaml' with { type: 'file' }
+import _a470 from '../../../src/templates/events/config/automations/nightly-reset.yaml' with { type: 'file' }
+import _a471 from '../../../src/templates/events/config/automations/recount-seats.yaml' with { type: 'file' }
+import _a472 from '../../../src/templates/events/config/automations/track-registration.yaml' with { type: 'file' }
+import _a473 from '../../../src/templates/events/config/design.yaml' with { type: 'file' }
+import _a474 from '../../../src/templates/events/config/forms/join-waitlist.yaml' with { type: 'file' }
+import _a475 from '../../../src/templates/events/config/forms/new-event.yaml' with { type: 'file' }
+import _a476 from '../../../src/templates/events/config/forms/register.yaml' with { type: 'file' }
+import _a477 from '../../../src/templates/events/config/pages/_shell.yaml' with { type: 'file' }
+import _a478 from '../../../src/templates/events/config/pages/_site-footer.yaml' with { type: 'file' }
+import _a479 from '../../../src/templates/events/config/pages/_site-header.yaml' with { type: 'file' }
+import _a480 from '../../../src/templates/events/config/pages/calendar.yaml' with { type: 'file' }
+import _a481 from '../../../src/templates/events/config/pages/home.yaml' with { type: 'file' }
+import _a482 from '../../../src/templates/events/config/pages/on-the-waitlist.yaml' with { type: 'file' }
+import _a483 from '../../../src/templates/events/config/pages/register.yaml' with { type: 'file' }
+import _a484 from '../../../src/templates/events/config/pages/registrations.yaml' with { type: 'file' }
+import _a485 from '../../../src/templates/events/config/pages/sign-in.yaml' with { type: 'file' }
+import _a486 from '../../../src/templates/events/config/pages/thanks-event.yaml' with { type: 'file' }
+import _a487 from '../../../src/templates/events/config/pages/thanks.yaml' with { type: 'file' }
+import _a488 from '../../../src/templates/events/config/pages/waitlist.yaml' with { type: 'file' }
+import _a489 from '../../../src/templates/events/config/tables/calendar_events.yaml' with { type: 'file' }
+import _a490 from '../../../src/templates/events/config/tables/events.yaml' with { type: 'file' }
+import _a491 from '../../../src/templates/events/config/tables/registrations.yaml' with { type: 'file' }
+import _a492 from '../../../src/templates/events/library/connection/discord.yaml' with { type: 'file' }
+import _a493 from '../../../src/templates/events/library/connection/google.yaml' with { type: 'file' }
+import _a494 from '../../../src/templates/events/library/recipe/google-calendar-events-to-table.yaml' with { type: 'file' }
+import _a495 from '../../../src/templates/events/public/.gitkeep' with { type: 'file' }
+import _a496 from '../../../src/templates/events/public/favicon.svg' with { type: 'file' }
+import _a497 from '../../../src/templates/events/seed/events.yaml' with { type: 'file' }
+import _a498 from '../../../src/templates/events/seed/registrations.yaml' with { type: 'file' }
+import _a499 from '../../../src/templates/events/seed/users.yaml' with { type: 'file' }
+import _a500 from '../../../src/templates/events/template.yaml' with { type: 'file' }
+import _a501 from '../../../src/templates/expenses/app.yaml' with { type: 'file' }
+import _a502 from '../../../src/templates/expenses/config/auth.yaml' with { type: 'file' }
+import _a503 from '../../../src/templates/expenses/config/automations/approve-expense.yaml' with { type: 'file' }
+import _a504 from '../../../src/templates/expenses/config/automations/mark-reimbursed.yaml' with { type: 'file' }
+import _a505 from '../../../src/templates/expenses/config/automations/nightly-reset.yaml' with { type: 'file' }
+import _a506 from '../../../src/templates/expenses/config/automations/reject-with-reason.yaml' with { type: 'file' }
+import _a507 from '../../../src/templates/expenses/config/design.yaml' with { type: 'file' }
+import _a508 from '../../../src/templates/expenses/config/forms/add-expense.yaml' with { type: 'file' }
+import _a509 from '../../../src/templates/expenses/config/pages/_shell.yaml' with { type: 'file' }
+import _a510 from '../../../src/templates/expenses/config/pages/home.yaml' with { type: 'file' }
+import _a511 from '../../../src/templates/expenses/config/pages/my-expenses.yaml' with { type: 'file' }
+import _a512 from '../../../src/templates/expenses/config/pages/reimburse.yaml' with { type: 'file' }
+import _a513 from '../../../src/templates/expenses/config/pages/review.yaml' with { type: 'file' }
+import _a514 from '../../../src/templates/expenses/config/pages/sign-in.yaml' with { type: 'file' }
+import _a515 from '../../../src/templates/expenses/config/tables/bank-transactions.yaml' with { type: 'file' }
+import _a516 from '../../../src/templates/expenses/config/tables/expenses.yaml' with { type: 'file' }
+import _a517 from '../../../src/templates/expenses/library/connection/qonto.yaml' with { type: 'file' }
+import _a518 from '../../../src/templates/expenses/library/recipe/qonto-transactions-to-table.yaml' with { type: 'file' }
+import _a519 from '../../../src/templates/expenses/public/.gitkeep' with { type: 'file' }
+import _a520 from '../../../src/templates/expenses/public/favicon.svg' with { type: 'file' }
+import _a521 from '../../../src/templates/expenses/seed/assets/breakfast.jpg' with { type: 'file' }
+import _a522 from '../../../src/templates/expenses/seed/assets/coffee.jpg' with { type: 'file' }
+import _a523 from '../../../src/templates/expenses/seed/assets/desk.jpg' with { type: 'file' }
+import _a524 from '../../../src/templates/expenses/seed/assets/dinner-lyon.jpg' with { type: 'file' }
+import _a525 from '../../../src/templates/expenses/seed/assets/flights-ber.pdf' with { type: 'file' }
+import _a526 from '../../../src/templates/expenses/seed/assets/headset.pdf' with { type: 'file' }
+import _a527 from '../../../src/templates/expenses/seed/assets/hotel-ber.pdf' with { type: 'file' }
+import _a528 from '../../../src/templates/expenses/seed/assets/invoice-seats.pdf' with { type: 'file' }
+import _a529 from '../../../src/templates/expenses/seed/assets/lunch.jpg' with { type: 'file' }
+import _a530 from '../../../src/templates/expenses/seed/assets/monitor.pdf' with { type: 'file' }
+import _a531 from '../../../src/templates/expenses/seed/assets/pm.pdf' with { type: 'file' }
+import _a532 from '../../../src/templates/expenses/seed/assets/rail.pdf' with { type: 'file' }
+import _a533 from '../../../src/templates/expenses/seed/assets/saas-annual.pdf' with { type: 'file' }
+import _a534 from '../../../src/templates/expenses/seed/assets/tablet.pdf' with { type: 'file' }
+import _a535 from '../../../src/templates/expenses/seed/assets/ticket.pdf' with { type: 'file' }
+import _a536 from '../../../src/templates/expenses/seed/assets/transfer.jpg' with { type: 'file' }
+import _a537 from '../../../src/templates/expenses/seed/assets/upgrade.pdf' with { type: 'file' }
+import _a538 from '../../../src/templates/expenses/seed/expenses.yaml' with { type: 'file' }
+import _a539 from '../../../src/templates/expenses/seed/users.yaml' with { type: 'file' }
+import _a540 from '../../../src/templates/expenses/template.yaml' with { type: 'file' }
+import _a541 from '../../../src/templates/hello-world/app.yaml' with { type: 'file' }
+import _a542 from '../../../src/templates/hello-world/public/.gitkeep' with { type: 'file' }
+import _a543 from '../../../src/templates/hello-world/public/favicon.svg' with { type: 'file' }
+import _a544 from '../../../src/templates/hello-world/template.yaml' with { type: 'file' }
+import _a545 from '../../../src/templates/helpdesk/app.yaml' with { type: 'file' }
+import _a546 from '../../../src/templates/helpdesk/config/auth.yaml' with { type: 'file' }
+import _a547 from '../../../src/templates/helpdesk/config/automations/collect-ticket-notes.yaml' with { type: 'file' }
+import _a548 from '../../../src/templates/helpdesk/config/automations/morning-notes-digest.yaml' with { type: 'file' }
+import _a549 from '../../../src/templates/helpdesk/config/automations/nightly-reset.yaml' with { type: 'file' }
+import _a550 from '../../../src/templates/helpdesk/config/automations/when-a-ticket-arrives.yaml' with { type: 'file' }
+import _a551 from '../../../src/templates/helpdesk/config/automations/when-resolved.yaml' with { type: 'file' }
+import _a552 from '../../../src/templates/helpdesk/config/design.yaml' with { type: 'file' }
+import _a553 from '../../../src/templates/helpdesk/config/forms/contact-support.yaml' with { type: 'file' }
+import _a554 from '../../../src/templates/helpdesk/config/forms/rate-answer.yaml' with { type: 'file' }
+import _a555 from '../../../src/templates/helpdesk/config/pages/_shell.yaml' with { type: 'file' }
+import _a556 from '../../../src/templates/helpdesk/config/pages/_site-footer.yaml' with { type: 'file' }
+import _a557 from '../../../src/templates/helpdesk/config/pages/_site-header.yaml' with { type: 'file' }
+import _a558 from '../../../src/templates/helpdesk/config/pages/home.yaml' with { type: 'file' }
+import _a559 from '../../../src/templates/helpdesk/config/pages/rate.yaml' with { type: 'file' }
+import _a560 from '../../../src/templates/helpdesk/config/pages/reports.yaml' with { type: 'file' }
+import _a561 from '../../../src/templates/helpdesk/config/pages/sign-in.yaml' with { type: 'file' }
+import _a562 from '../../../src/templates/helpdesk/config/pages/thanks.yaml' with { type: 'file' }
+import _a563 from '../../../src/templates/helpdesk/config/pages/ticket.yaml' with { type: 'file' }
+import _a564 from '../../../src/templates/helpdesk/config/pages/tickets.yaml' with { type: 'file' }
+import _a565 from '../../../src/templates/helpdesk/config/pages/triage.yaml' with { type: 'file' }
+import _a566 from '../../../src/templates/helpdesk/config/tables/ratings.yaml' with { type: 'file' }
+import _a567 from '../../../src/templates/helpdesk/config/tables/ticket_replies.yaml' with { type: 'file' }
+import _a568 from '../../../src/templates/helpdesk/config/tables/tickets.yaml' with { type: 'file' }
+import _a569 from '../../../src/templates/helpdesk/library/block/record-comments.yaml' with { type: 'file' }
+import _a570 from '../../../src/templates/helpdesk/library/connection/linear.yaml' with { type: 'file' }
+import _a571 from '../../../src/templates/helpdesk/library/recipe/record-to-linear-issue.yaml' with { type: 'file' }
+import _a572 from '../../../src/templates/helpdesk/public/.gitkeep' with { type: 'file' }
+import _a573 from '../../../src/templates/helpdesk/public/favicon.svg' with { type: 'file' }
+import _a574 from '../../../src/templates/helpdesk/seed/ratings.yaml' with { type: 'file' }
+import _a575 from '../../../src/templates/helpdesk/seed/ticket_replies.yaml' with { type: 'file' }
+import _a576 from '../../../src/templates/helpdesk/seed/tickets.yaml' with { type: 'file' }
+import _a577 from '../../../src/templates/helpdesk/seed/users.yaml' with { type: 'file' }
+import _a578 from '../../../src/templates/helpdesk/template.yaml' with { type: 'file' }
+import _a579 from '../../../src/templates/intranet/app.yaml' with { type: 'file' }
+import _a580 from '../../../src/templates/intranet/config/auth.yaml' with { type: 'file' }
+import _a581 from '../../../src/templates/intranet/config/automations/nightly-reset.yaml' with { type: 'file' }
+import _a582 from '../../../src/templates/intranet/config/automations/sign-new-announcement.yaml' with { type: 'file' }
+import _a583 from '../../../src/templates/intranet/config/design.yaml' with { type: 'file' }
+import _a584 from '../../../src/templates/intranet/config/forms/publish-announcement.yaml' with { type: 'file' }
+import _a585 from '../../../src/templates/intranet/config/pages/_post-card.yaml' with { type: 'file' }
+import _a586 from '../../../src/templates/intranet/config/pages/_post-drawer.yaml' with { type: 'file' }
+import _a587 from '../../../src/templates/intranet/config/pages/_shell.yaml' with { type: 'file' }
+import _a588 from '../../../src/templates/intranet/config/pages/_site-footer.yaml' with { type: 'file' }
+import _a589 from '../../../src/templates/intranet/config/pages/_site-header.yaml' with { type: 'file' }
+import _a590 from '../../../src/templates/intranet/config/pages/home.yaml' with { type: 'file' }
+import _a591 from '../../../src/templates/intranet/config/pages/news.yaml' with { type: 'file' }
+import _a592 from '../../../src/templates/intranet/config/pages/people.yaml' with { type: 'file' }
+import _a593 from '../../../src/templates/intranet/config/pages/portal.yaml' with { type: 'file' }
+import _a594 from '../../../src/templates/intranet/config/pages/publish.yaml' with { type: 'file' }
+import _a595 from '../../../src/templates/intranet/config/pages/resources.yaml' with { type: 'file' }
+import _a596 from '../../../src/templates/intranet/config/pages/sign-in-password.yaml' with { type: 'file' }
+import _a597 from '../../../src/templates/intranet/config/pages/sign-in.yaml' with { type: 'file' }
+import _a598 from '../../../src/templates/intranet/config/tables/acknowledgements.yaml' with { type: 'file' }
+import _a599 from '../../../src/templates/intranet/config/tables/company.yaml' with { type: 'file' }
+import _a600 from '../../../src/templates/intranet/config/tables/events.yaml' with { type: 'file' }
+import _a601 from '../../../src/templates/intranet/config/tables/members.yaml' with { type: 'file' }
+import _a602 from '../../../src/templates/intranet/config/tables/posts.yaml' with { type: 'file' }
+import _a603 from '../../../src/templates/intranet/config/tables/resources.yaml' with { type: 'file' }
+import _a604 from '../../../src/templates/intranet/library/connection/microsoft-365.yaml' with { type: 'file' }
+import _a605 from '../../../src/templates/intranet/library/recipe/record-to-teams-channel.yaml' with { type: 'file' }
+import _a606 from '../../../src/templates/intranet/public/.gitkeep' with { type: 'file' }
+import _a607 from '../../../src/templates/intranet/public/favicon.svg' with { type: 'file' }
+import _a608 from '../../../src/templates/intranet/seed/acknowledgements.yaml' with { type: 'file' }
+import _a609 from '../../../src/templates/intranet/seed/company.yaml' with { type: 'file' }
+import _a610 from '../../../src/templates/intranet/seed/events.yaml' with { type: 'file' }
+import _a611 from '../../../src/templates/intranet/seed/members.yaml' with { type: 'file' }
+import _a612 from '../../../src/templates/intranet/seed/posts.yaml' with { type: 'file' }
+import _a613 from '../../../src/templates/intranet/seed/resources.yaml' with { type: 'file' }
+import _a614 from '../../../src/templates/intranet/seed/users.yaml' with { type: 'file' }
+import _a615 from '../../../src/templates/intranet/template.yaml' with { type: 'file' }
+import _a616 from '../../../src/templates/inventory/app.yaml' with { type: 'file' }
+import _a617 from '../../../src/templates/inventory/config/agents/catalog-assistant.yaml' with { type: 'file' }
+import _a618 from '../../../src/templates/inventory/config/auth.yaml' with { type: 'file' }
+import _a619 from '../../../src/templates/inventory/config/automations/low-stock-digest.yaml' with { type: 'file' }
+import _a620 from '../../../src/templates/inventory/config/design.yaml' with { type: 'file' }
+import _a621 from '../../../src/templates/inventory/config/forms/add-order.yaml' with { type: 'file' }
+import _a622 from '../../../src/templates/inventory/config/forms/add-product.yaml' with { type: 'file' }
+import _a623 from '../../../src/templates/inventory/config/forms/record-movement.yaml' with { type: 'file' }
+import _a624 from '../../../src/templates/inventory/config/pages/_add-order.yaml' with { type: 'file' }
+import _a625 from '../../../src/templates/inventory/config/pages/_add-product.yaml' with { type: 'file' }
+import _a626 from '../../../src/templates/inventory/config/pages/_product-columns.yaml' with { type: 'file' }
+import _a627 from '../../../src/templates/inventory/config/pages/_record-movement.yaml' with { type: 'file' }
+import _a628 from '../../../src/templates/inventory/config/pages/_shell.yaml' with { type: 'file' }
+import _a629 from '../../../src/templates/inventory/config/pages/assistant.yaml' with { type: 'file' }
+import _a630 from '../../../src/templates/inventory/config/pages/orders.yaml' with { type: 'file' }
+import _a631 from '../../../src/templates/inventory/config/pages/products.yaml' with { type: 'file' }
+import _a632 from '../../../src/templates/inventory/config/pages/sign-in.yaml' with { type: 'file' }
+import _a633 from '../../../src/templates/inventory/config/pages/stock.yaml' with { type: 'file' }
+import _a634 from '../../../src/templates/inventory/config/pages/suppliers.yaml' with { type: 'file' }
+import _a635 from '../../../src/templates/inventory/config/tables/orders.yaml' with { type: 'file' }
+import _a636 from '../../../src/templates/inventory/config/tables/products.yaml' with { type: 'file' }
+import _a637 from '../../../src/templates/inventory/config/tables/purchase_orders.yaml' with { type: 'file' }
+import _a638 from '../../../src/templates/inventory/config/tables/stock_movements.yaml' with { type: 'file' }
+import _a639 from '../../../src/templates/inventory/config/tables/suppliers.yaml' with { type: 'file' }
+import _a640 from '../../../src/templates/inventory/config/tables/warehouses.yaml' with { type: 'file' }
+import _a641 from '../../../src/templates/inventory/library/connection/google.yaml' with { type: 'file' }
+import _a642 from '../../../src/templates/inventory/library/recipe/record-to-google-doc.yaml' with { type: 'file' }
+import _a643 from '../../../src/templates/inventory/public/.gitkeep' with { type: 'file' }
+import _a644 from '../../../src/templates/inventory/public/favicon.svg' with { type: 'file' }
+import _a645 from '../../../src/templates/inventory/seed/orders.yaml' with { type: 'file' }
+import _a646 from '../../../src/templates/inventory/seed/products.yaml' with { type: 'file' }
+import _a647 from '../../../src/templates/inventory/seed/purchase_orders.yaml' with { type: 'file' }
+import _a648 from '../../../src/templates/inventory/seed/stock_movements.yaml' with { type: 'file' }
+import _a649 from '../../../src/templates/inventory/seed/suppliers.yaml' with { type: 'file' }
+import _a650 from '../../../src/templates/inventory/seed/users.yaml' with { type: 'file' }
+import _a651 from '../../../src/templates/inventory/seed/warehouses.yaml' with { type: 'file' }
+import _a652 from '../../../src/templates/inventory/template.yaml' with { type: 'file' }
+import _a653 from '../../../src/templates/knowledge-base/app.yaml' with { type: 'file' }
+import _a654 from '../../../src/templates/knowledge-base/config/agents/handbook-assistant.yaml' with { type: 'file' }
+import _a655 from '../../../src/templates/knowledge-base/config/auth.yaml' with { type: 'file' }
+import _a656 from '../../../src/templates/knowledge-base/config/automations/nightly-reset.yaml' with { type: 'file' }
+import _a657 from '../../../src/templates/knowledge-base/config/design.yaml' with { type: 'file' }
+import _a658 from '../../../src/templates/knowledge-base/config/pages/_kb-header.yaml' with { type: 'file' }
+import _a659 from '../../../src/templates/knowledge-base/config/pages/_managers-nav.yaml' with { type: 'file' }
+import _a660 from '../../../src/templates/knowledge-base/config/pages/_reading-frame.yaml' with { type: 'file' }
+import _a661 from '../../../src/templates/knowledge-base/config/pages/_site-footer.yaml' with { type: 'file' }
+import _a662 from '../../../src/templates/knowledge-base/config/pages/_site-header.yaml' with { type: 'file' }
+import _a663 from '../../../src/templates/knowledge-base/config/pages/assistant.yaml' with { type: 'file' }
+import _a664 from '../../../src/templates/knowledge-base/config/pages/home.yaml' with { type: 'file' }
+import _a665 from '../../../src/templates/knowledge-base/config/pages/kb-managers.yaml' with { type: 'file' }
+import _a666 from '../../../src/templates/knowledge-base/config/pages/kb.yaml' with { type: 'file' }
+import _a667 from '../../../src/templates/knowledge-base/config/pages/not-found.yaml' with { type: 'file' }
+import _a668 from '../../../src/templates/knowledge-base/config/pages/sign-in.yaml' with { type: 'file' }
+import _a669 from '../../../src/templates/knowledge-base/content/kb/getting-started/first-week.md' with { type: 'file' }
+import _a670 from '../../../src/templates/knowledge-base/content/kb/getting-started/welcome.md' with { type: 'file' }
+import _a671 from '../../../src/templates/knowledge-base/content/kb/it/laptop.md' with { type: 'file' }
+import _a672 from '../../../src/templates/knowledge-base/content/kb/policies/expense-policy.md' with { type: 'file' }
+import _a673 from '../../../src/templates/knowledge-base/content/kb/policies/security-policy.md' with { type: 'file' }
+import _a674 from '../../../src/templates/knowledge-base/content/kb/start.md' with { type: 'file' }
+import _a675 from '../../../src/templates/knowledge-base/content/kb-managers/hiring.md' with { type: 'file' }
+import _a676 from '../../../src/templates/knowledge-base/content/kb-managers/pay-reviews.md' with { type: 'file' }
+import _a677 from '../../../src/templates/knowledge-base/library/block/not-found-with-links.yaml' with { type: 'file' }
+import _a678 from '../../../src/templates/knowledge-base/public/.gitkeep' with { type: 'file' }
+import _a679 from '../../../src/templates/knowledge-base/public/favicon.svg' with { type: 'file' }
+import _a680 from '../../../src/templates/knowledge-base/public/handbook/laptop-setup.avif' with { type: 'file' }
+import _a681 from '../../../src/templates/knowledge-base/seed/users.yaml' with { type: 'file' }
+import _a682 from '../../../src/templates/knowledge-base/template.yaml' with { type: 'file' }
+import _a683 from '../../../src/templates/landing-page/app.yaml' with { type: 'file' }
+import _a684 from '../../../src/templates/landing-page/config/auth.yaml' with { type: 'file' }
+import _a685 from '../../../src/templates/landing-page/config/automations/nightly-reset.yaml' with { type: 'file' }
+import _a686 from '../../../src/templates/landing-page/config/components/feature-card.yaml' with { type: 'file' }
+import _a687 from '../../../src/templates/landing-page/config/components/language-switcher.yaml' with { type: 'file' }
+import _a688 from '../../../src/templates/landing-page/config/components/step-card.yaml' with { type: 'file' }
+import _a689 from '../../../src/templates/landing-page/config/design.yaml' with { type: 'file' }
+import _a690 from '../../../src/templates/landing-page/config/forms/demo-request.yaml' with { type: 'file' }
+import _a691 from '../../../src/templates/landing-page/config/languages.yaml' with { type: 'file' }
+import _a692 from '../../../src/templates/landing-page/config/pages/_body.yaml' with { type: 'file' }
+import _a693 from '../../../src/templates/landing-page/config/pages/_demo.yaml' with { type: 'file' }
+import _a694 from '../../../src/templates/landing-page/config/pages/_hero.yaml' with { type: 'file' }
+import _a695 from '../../../src/templates/landing-page/config/pages/_site-footer.yaml' with { type: 'file' }
+import _a696 from '../../../src/templates/landing-page/config/pages/_site-header.yaml' with { type: 'file' }
+import _a697 from '../../../src/templates/landing-page/config/pages/home.yaml' with { type: 'file' }
+import _a698 from '../../../src/templates/landing-page/config/tables/demo-requests.yaml' with { type: 'file' }
+import _a699 from '../../../src/templates/landing-page/library/connection/pipedrive.yaml' with { type: 'file' }
+import _a700 from '../../../src/templates/landing-page/library/recipe/form-to-pipedrive-lead.yaml' with { type: 'file' }
+import _a701 from '../../../src/templates/landing-page/public/.gitkeep' with { type: 'file' }
+import _a702 from '../../../src/templates/landing-page/public/favicon.svg' with { type: 'file' }
+import _a703 from '../../../src/templates/landing-page/public/og-en.png' with { type: 'file' }
+import _a704 from '../../../src/templates/landing-page/public/og-fr.png' with { type: 'file' }
+import _a705 from '../../../src/templates/landing-page/template.yaml' with { type: 'file' }
+import _a706 from '../../../src/templates/marketing-site/app.yaml' with { type: 'file' }
+import _a707 from '../../../src/templates/marketing-site/config/auth.yaml' with { type: 'file' }
+import _a708 from '../../../src/templates/marketing-site/config/forms/contact.yaml' with { type: 'file' }
+import _a709 from '../../../src/templates/marketing-site/config/forms/newsletter.yaml' with { type: 'file' }
+import _a710 from '../../../src/templates/marketing-site/config/languages.yaml' with { type: 'file' }
+import _a711 from '../../../src/templates/marketing-site/config/pages/about.yaml' with { type: 'file' }
+import _a712 from '../../../src/templates/marketing-site/config/pages/article.yaml' with { type: 'file' }
+import _a713 from '../../../src/templates/marketing-site/config/pages/blog.yaml' with { type: 'file' }
+import _a714 from '../../../src/templates/marketing-site/config/pages/contact.yaml' with { type: 'file' }
+import _a715 from '../../../src/templates/marketing-site/config/pages/features.yaml' with { type: 'file' }
+import _a716 from '../../../src/templates/marketing-site/config/pages/guide.yaml' with { type: 'file' }
+import _a717 from '../../../src/templates/marketing-site/config/pages/home.yaml' with { type: 'file' }
+import _a718 from '../../../src/templates/marketing-site/config/pages/moved.yaml' with { type: 'file' }
+import _a719 from '../../../src/templates/marketing-site/config/pages/not-found.yaml' with { type: 'file' }
+import _a720 from '../../../src/templates/marketing-site/config/pages/pricing.yaml' with { type: 'file' }
+import _a721 from '../../../src/templates/marketing-site/config/pages/product.yaml' with { type: 'file' }
+import _a722 from '../../../src/templates/marketing-site/config/tables/messages.yaml' with { type: 'file' }
+import _a723 from '../../../src/templates/marketing-site/config/tables/orders.yaml' with { type: 'file' }
+import _a724 from '../../../src/templates/marketing-site/config/tables/posts.yaml' with { type: 'file' }
+import _a725 from '../../../src/templates/marketing-site/config/tables/subscribers.yaml' with { type: 'file' }
+import _a726 from '../../../src/templates/marketing-site/library/block/banner-top.yaml' with { type: 'file' }
+import _a727 from '../../../src/templates/marketing-site/library/block/bento-feature-stack.yaml' with { type: 'file' }
+import _a728 from '../../../src/templates/marketing-site/library/block/blog-cards.yaml' with { type: 'file' }
+import _a729 from '../../../src/templates/marketing-site/library/block/blog-list.yaml' with { type: 'file' }
+import _a730 from '../../../src/templates/marketing-site/library/block/contact-centered.yaml' with { type: 'file' }
+import _a731 from '../../../src/templates/marketing-site/library/block/contact-split.yaml' with { type: 'file' }
+import _a732 from '../../../src/templates/marketing-site/library/block/content-prose.yaml' with { type: 'file' }
+import _a733 from '../../../src/templates/marketing-site/library/block/content-with-toc.yaml' with { type: 'file' }
+import _a734 from '../../../src/templates/marketing-site/library/block/cta-banner.yaml' with { type: 'file' }
+import _a735 from '../../../src/templates/marketing-site/library/block/cta-split.yaml' with { type: 'file' }
+import _a736 from '../../../src/templates/marketing-site/library/block/faq-accordion.yaml' with { type: 'file' }
+import _a737 from '../../../src/templates/marketing-site/library/block/faq-two-column.yaml' with { type: 'file' }
+import _a738 from '../../../src/templates/marketing-site/library/block/feature-alternating.yaml' with { type: 'file' }
+import _a739 from '../../../src/templates/marketing-site/library/block/feature-grid.yaml' with { type: 'file' }
+import _a740 from '../../../src/templates/marketing-site/library/block/feature-list-icons.yaml' with { type: 'file' }
+import _a741 from '../../../src/templates/marketing-site/library/block/footer-columns.yaml' with { type: 'file' }
+import _a742 from '../../../src/templates/marketing-site/library/block/footer-simple.yaml' with { type: 'file' }
+import _a743 from '../../../src/templates/marketing-site/library/block/header-centered.yaml' with { type: 'file' }
+import _a744 from '../../../src/templates/marketing-site/library/block/header-with-links.yaml' with { type: 'file' }
+import _a745 from '../../../src/templates/marketing-site/library/block/hero-centered.yaml' with { type: 'file' }
+import _a746 from '../../../src/templates/marketing-site/library/block/hero-split-image.yaml' with { type: 'file' }
+import _a747 from '../../../src/templates/marketing-site/library/block/hero-with-screenshot.yaml' with { type: 'file' }
+import _a748 from '../../../src/templates/marketing-site/library/block/logos-grid.yaml' with { type: 'file' }
+import _a749 from '../../../src/templates/marketing-site/library/block/logos-marquee.yaml' with { type: 'file' }
+import _a750 from '../../../src/templates/marketing-site/library/block/navbar-flyout.yaml' with { type: 'file' }
+import _a751 from '../../../src/templates/marketing-site/library/block/navbar-simple.yaml' with { type: 'file' }
+import _a752 from '../../../src/templates/marketing-site/library/block/newsletter-centered.yaml' with { type: 'file' }
+import _a753 from '../../../src/templates/marketing-site/library/block/newsletter-inline.yaml' with { type: 'file' }
+import _a754 from '../../../src/templates/marketing-site/library/block/not-found-centered.yaml' with { type: 'file' }
+import _a755 from '../../../src/templates/marketing-site/library/block/not-found-with-links.yaml' with { type: 'file' }
+import _a756 from '../../../src/templates/marketing-site/library/block/pricing-comparison.yaml' with { type: 'file' }
+import _a757 from '../../../src/templates/marketing-site/library/block/pricing-three-tier.yaml' with { type: 'file' }
+import _a758 from '../../../src/templates/marketing-site/library/block/pricing-toggle.yaml' with { type: 'file' }
+import _a759 from '../../../src/templates/marketing-site/library/block/stats-from-table.yaml' with { type: 'file' }
+import _a760 from '../../../src/templates/marketing-site/library/block/stats-row.yaml' with { type: 'file' }
+import _a761 from '../../../src/templates/marketing-site/library/block/team-grid.yaml' with { type: 'file' }
+import _a762 from '../../../src/templates/marketing-site/library/block/team-list.yaml' with { type: 'file' }
+import _a763 from '../../../src/templates/marketing-site/library/block/testimonial-grid.yaml' with { type: 'file' }
+import _a764 from '../../../src/templates/marketing-site/library/block/testimonial-single.yaml' with { type: 'file' }
+import _a765 from '../../../src/templates/marketing-site/public/favicon.svg' with { type: 'file' }
+import _a766 from '../../../src/templates/marketing-site/seed/orders.yaml' with { type: 'file' }
+import _a767 from '../../../src/templates/marketing-site/seed/posts.yaml' with { type: 'file' }
+import _a768 from '../../../src/templates/marketing-site/template.yaml' with { type: 'file' }
+import _a769 from '../../../src/templates/mcp-server/app.yaml' with { type: 'file' }
+import _a770 from '../../../src/templates/mcp-server/config/auth.yaml' with { type: 'file' }
+import _a771 from '../../../src/templates/mcp-server/config/automations/import-runbook.yaml' with { type: 'file' }
+import _a772 from '../../../src/templates/mcp-server/config/decisions/adr-001-assistants-add-never-edit.yaml' with { type: 'file' }
+import _a773 from '../../../src/templates/mcp-server/config/decisions/adr-002-a-key-acts-as-its-owner.yaml' with { type: 'file' }
+import _a774 from '../../../src/templates/mcp-server/config/decisions/adr-003-sqlite-by-default.yaml' with { type: 'file' }
+import _a775 from '../../../src/templates/mcp-server/config/design.yaml' with { type: 'file' }
+import _a776 from '../../../src/templates/mcp-server/config/pages/home.yaml' with { type: 'file' }
+import _a777 from '../../../src/templates/mcp-server/config/tables/documents.yaml' with { type: 'file' }
+import _a778 from '../../../src/templates/mcp-server/config/tables/tags.yaml' with { type: 'file' }
+import _a779 from '../../../src/templates/mcp-server/library/connection/github.yaml' with { type: 'file' }
+import _a780 from '../../../src/templates/mcp-server/public/favicon.svg' with { type: 'file' }
+import _a781 from '../../../src/templates/mcp-server/seed/documents.yaml' with { type: 'file' }
+import _a782 from '../../../src/templates/mcp-server/seed/tags.yaml' with { type: 'file' }
+import _a783 from '../../../src/templates/mcp-server/seed/users.yaml' with { type: 'file' }
+import _a784 from '../../../src/templates/mcp-server/template.yaml' with { type: 'file' }
+import _a785 from '../../../src/templates/people/app.yaml' with { type: 'file' }
+import _a786 from '../../../src/templates/people/config/auth.yaml' with { type: 'file' }
+import _a787 from '../../../src/templates/people/config/automations/approve-time-off.yaml' with { type: 'file' }
+import _a788 from '../../../src/templates/people/config/automations/join-new-account-to-directory.yaml' with { type: 'file' }
+import _a789 from '../../../src/templates/people/config/automations/nightly-reset.yaml' with { type: 'file' }
+import _a790 from '../../../src/templates/people/config/design.yaml' with { type: 'file' }
+import _a791 from '../../../src/templates/people/config/forms/add-person.yaml' with { type: 'file' }
+import _a792 from '../../../src/templates/people/config/forms/request-time-off.yaml' with { type: 'file' }
+import _a793 from '../../../src/templates/people/config/pages/_shell.yaml' with { type: 'file' }
+import _a794 from '../../../src/templates/people/config/pages/directory.yaml' with { type: 'file' }
+import _a795 from '../../../src/templates/people/config/pages/overview.yaml' with { type: 'file' }
+import _a796 from '../../../src/templates/people/config/pages/requests.yaml' with { type: 'file' }
+import _a797 from '../../../src/templates/people/config/pages/sign-in.yaml' with { type: 'file' }
+import _a798 from '../../../src/templates/people/config/pages/time-off.yaml' with { type: 'file' }
+import _a799 from '../../../src/templates/people/config/tables/employees.yaml' with { type: 'file' }
+import _a800 from '../../../src/templates/people/config/tables/time_off_requests.yaml' with { type: 'file' }
+import _a801 from '../../../src/templates/people/library/connection/google.yaml' with { type: 'file' }
+import _a802 from '../../../src/templates/people/library/recipe/record-to-google-doc.yaml' with { type: 'file' }
+import _a803 from '../../../src/templates/people/public/.gitkeep' with { type: 'file' }
+import _a804 from '../../../src/templates/people/public/favicon.svg' with { type: 'file' }
+import _a805 from '../../../src/templates/people/seed/employees.yaml' with { type: 'file' }
+import _a806 from '../../../src/templates/people/seed/time_off_requests.yaml' with { type: 'file' }
+import _a807 from '../../../src/templates/people/seed/users.yaml' with { type: 'file' }
+import _a808 from '../../../src/templates/people/template.yaml' with { type: 'file' }
+import _a809 from '../../../src/templates/projects/app.yaml' with { type: 'file' }
+import _a810 from '../../../src/templates/projects/config/auth.yaml' with { type: 'file' }
+import _a811 from '../../../src/templates/projects/config/automations/chase-blocked-tasks.yaml' with { type: 'file' }
+import _a812 from '../../../src/templates/projects/config/automations/nightly-reset.yaml' with { type: 'file' }
+import _a813 from '../../../src/templates/projects/config/automations/notify-assignee-on-blocked.yaml' with { type: 'file' }
+import _a814 from '../../../src/templates/projects/config/design.yaml' with { type: 'file' }
+import _a815 from '../../../src/templates/projects/config/forms/add-task.yaml' with { type: 'file' }
+import _a816 from '../../../src/templates/projects/config/forms/new-project.yaml' with { type: 'file' }
+import _a817 from '../../../src/templates/projects/config/pages/_add-task.yaml' with { type: 'file' }
+import _a818 from '../../../src/templates/projects/config/pages/_shell.yaml' with { type: 'file' }
+import _a819 from '../../../src/templates/projects/config/pages/board.yaml' with { type: 'file' }
+import _a820 from '../../../src/templates/projects/config/pages/calendar.yaml' with { type: 'file' }
+import _a821 from '../../../src/templates/projects/config/pages/dashboard.yaml' with { type: 'file' }
+import _a822 from '../../../src/templates/projects/config/pages/sign-in.yaml' with { type: 'file' }
+import _a823 from '../../../src/templates/projects/config/pages/timeline.yaml' with { type: 'file' }
+import _a824 from '../../../src/templates/projects/config/tables/projects.yaml' with { type: 'file' }
+import _a825 from '../../../src/templates/projects/config/tables/tasks.yaml' with { type: 'file' }
+import _a826 from '../../../src/templates/projects/library/connection/microsoft-365.yaml' with { type: 'file' }
+import _a827 from '../../../src/templates/projects/library/recipe/record-to-teams-channel.yaml' with { type: 'file' }
+import _a828 from '../../../src/templates/projects/public/.gitkeep' with { type: 'file' }
+import _a829 from '../../../src/templates/projects/public/favicon.svg' with { type: 'file' }
+import _a830 from '../../../src/templates/projects/seed/projects.yaml' with { type: 'file' }
+import _a831 from '../../../src/templates/projects/seed/tasks.yaml' with { type: 'file' }
+import _a832 from '../../../src/templates/projects/seed/users.yaml' with { type: 'file' }
+import _a833 from '../../../src/templates/projects/template.yaml' with { type: 'file' }
+import _a834 from '../../../src/templates/README.md' with { type: 'file' }
+import _a835 from '../../../src/admin/assets/samples/sample-chime.mp3' with { type: 'file' }
+import _a836 from '../../../src/admin/assets/samples/sample-motion.webm' with { type: 'file' }
+import _a837 from '../../../src/admin/assets/samples/sample-still.avif' with { type: 'file' }
+import _a838 from '../../../assets/logo/academy/mark-dark-outline.svg' with { type: 'file' }
+import _a839 from '../../../assets/logo/academy/mark-light-outline.svg' with { type: 'file' }
+import _a840 from '../../../assets/logo/cloud/mark-dark-outline.svg' with { type: 'file' }
+import _a841 from '../../../assets/logo/cloud/mark-light-outline.svg' with { type: 'file' }
+import _a842 from '../../../assets/logo/partner/mark-dark-outline.svg' with { type: 'file' }
+import _a843 from '../../../assets/logo/partner/mark-light-outline.svg' with { type: 'file' }
+import _a844 from '../../../assets/logo/sovrium/mark-dark-outline.svg' with { type: 'file' }
+import _a845 from '../../../assets/logo/sovrium/mark-light-outline.svg' with { type: 'file' }
 
 /** Per-dialect migration folder name → embedded `migration.sql` path. */
 export const MIGRATION_FILES = {
@@ -1120,894 +978,752 @@ export const MIGRATION_FILES = {
 
 /** Example filename → embedded path. */
 export const TEMPLATE_FILES = {
-  "api-only/.buildpacks": _a106,
-  "api-only/.env.example": _a107,
-  "api-only/app.yaml": _a108,
-  "api-only/CLAUDE.md": _a109,
-  "api-only/config/auth.yaml": _a110,
-  "api-only/config/automations/task-done-call-out.yaml": _a111,
-  "api-only/config/automations/task-intake.yaml": _a112,
-  "api-only/config/design.yaml": _a113,
-  "api-only/config/pages/home.yaml": _a114,
-  "api-only/config/tables/projects.yaml": _a115,
-  "api-only/config/tables/tasks.yaml": _a116,
-  "api-only/library/connection/linear.yaml": _a117,
-  "api-only/library/recipe/record-to-linear-issue.yaml": _a118,
-  "api-only/LICENSE": _a119,
-  "api-only/Procfile": _a120,
-  "api-only/public/favicon.svg": _a121,
-  "api-only/README.md": _a122,
-  "api-only/scalingo.json": _a123,
-  "api-only/seed/projects.yaml": _a124,
-  "api-only/seed/tasks.yaml": _a125,
-  "api-only/seed/users.yaml": _a126,
-  "app-starter/.buildpacks": _a127,
-  "app-starter/.env.example": _a128,
-  "app-starter/app.yaml": _a129,
-  "app-starter/CLAUDE.md": _a130,
-  "app-starter/config/auth.yaml": _a131,
-  "app-starter/config/pages/_nav.yaml": _a132,
-  "app-starter/config/pages/_settings-nav.yaml": _a133,
-  "app-starter/config/pages/invite.yaml": _a134,
-  "app-starter/config/pages/kit-client.yaml": _a135,
-  "app-starter/config/pages/kit-data.yaml": _a136,
-  "app-starter/config/pages/kit-feedback.yaml": _a137,
-  "app-starter/config/pages/kit-navigation.yaml": _a138,
-  "app-starter/config/pages/kit-shell-sidebar.yaml": _a139,
-  "app-starter/config/pages/kit-shell-stacked.yaml": _a140,
-  "app-starter/config/pages/magic-link.yaml": _a141,
-  "app-starter/config/pages/metrics.yaml": _a142,
-  "app-starter/config/pages/overview.yaml": _a143,
-  "app-starter/config/pages/project-edit.yaml": _a144,
-  "app-starter/config/pages/project.yaml": _a145,
-  "app-starter/config/pages/projects.yaml": _a146,
-  "app-starter/config/pages/reset-password-new.yaml": _a147,
-  "app-starter/config/pages/reset-password.yaml": _a148,
-  "app-starter/config/pages/settings-api-keys.yaml": _a149,
-  "app-starter/config/pages/settings-security.yaml": _a150,
-  "app-starter/config/pages/settings-team.yaml": _a151,
-  "app-starter/config/pages/settings-workspace.yaml": _a152,
-  "app-starter/config/pages/settings.yaml": _a153,
-  "app-starter/config/pages/sign-in.yaml": _a154,
-  "app-starter/config/pages/sign-up.yaml": _a155,
-  "app-starter/config/pages/sso.yaml": _a156,
-  "app-starter/config/pages/two-step.yaml": _a157,
-  "app-starter/config/pages/worklist.yaml": _a158,
-  "app-starter/config/tables/activity.yaml": _a159,
-  "app-starter/config/tables/bookings.yaml": _a160,
-  "app-starter/config/tables/clients.yaml": _a161,
-  "app-starter/config/tables/people.yaml": _a162,
-  "app-starter/config/tables/projects.yaml": _a163,
-  "app-starter/config/tables/reminders.yaml": _a164,
-  "app-starter/config/tables/tasks.yaml": _a165,
-  "app-starter/config/tables/workspace-settings.yaml": _a166,
-  "app-starter/library/block/alert-inline.yaml": _a167,
-  "app-starter/library/block/alert-validation-summary.yaml": _a168,
-  "app-starter/library/block/app-navbar-command.yaml": _a169,
-  "app-starter/library/block/app-navbar-search.yaml": _a170,
-  "app-starter/library/block/auth-invitation-accept.yaml": _a171,
-  "app-starter/library/block/auth-magic-link.yaml": _a172,
-  "app-starter/library/block/auth-password-reset-new.yaml": _a173,
-  "app-starter/library/block/auth-password-reset.yaml": _a174,
-  "app-starter/library/block/auth-sign-in.yaml": _a175,
-  "app-starter/library/block/auth-sign-up.yaml": _a176,
-  "app-starter/library/block/auth-sso.yaml": _a177,
-  "app-starter/library/block/auth-two-factor.yaml": _a178,
-  "app-starter/library/block/breadcrumb-chevron.yaml": _a179,
-  "app-starter/library/block/breadcrumb-slash.yaml": _a180,
-  "app-starter/library/block/calendar-month.yaml": _a181,
-  "app-starter/library/block/calendar-week.yaml": _a182,
-  "app-starter/library/block/card-heading.yaml": _a183,
-  "app-starter/library/block/comments-feed.yaml": _a184,
-  "app-starter/library/block/dashboard-metrics.yaml": _a185,
-  "app-starter/library/block/dashboard-overview.yaml": _a186,
-  "app-starter/library/block/dashboard-worklist.yaml": _a187,
-  "app-starter/library/block/data-table.yaml": _a188,
-  "app-starter/library/block/dl-rows.yaml": _a189,
-  "app-starter/library/block/dl-stacked.yaml": _a190,
-  "app-starter/library/block/drawer-form.yaml": _a191,
-  "app-starter/library/block/empty-basic.yaml": _a192,
-  "app-starter/library/block/empty-with-starters.yaml": _a193,
-  "app-starter/library/block/gallery-cards.yaml": _a194,
-  "app-starter/library/block/kpi-row-trend.yaml": _a195,
-  "app-starter/library/block/kpi-sparkline.yaml": _a196,
-  "app-starter/library/block/list-avatars.yaml": _a197,
-  "app-starter/library/block/modal-confirm-destructive.yaml": _a198,
-  "app-starter/library/block/modal-form.yaml": _a199,
-  "app-starter/library/block/page-heading-actions.yaml": _a200,
-  "app-starter/library/block/pagination-numbered.yaml": _a201,
-  "app-starter/library/block/pagination-simple.yaml": _a202,
-  "app-starter/library/block/progress-bar.yaml": _a203,
-  "app-starter/library/block/record-comments.yaml": _a204,
-  "app-starter/library/block/record-edit-sections.yaml": _a205,
-  "app-starter/library/block/record-form-two-column.yaml": _a206,
-  "app-starter/library/block/record-header.yaml": _a207,
-  "app-starter/library/block/record-history.yaml": _a208,
-  "app-starter/library/block/record-meta-sidebar.yaml": _a209,
-  "app-starter/library/block/record-related-list.yaml": _a210,
-  "app-starter/library/block/record-sheet.yaml": _a211,
-  "app-starter/library/block/section-heading-tabs.yaml": _a212,
-  "app-starter/library/block/settings-account.yaml": _a213,
-  "app-starter/library/block/settings-api-keys.yaml": _a214,
-  "app-starter/library/block/settings-form.yaml": _a215,
-  "app-starter/library/block/settings-security.yaml": _a216,
-  "app-starter/library/block/settings-team.yaml": _a217,
-  "app-starter/library/block/shell-sidebar.yaml": _a218,
-  "app-starter/library/block/shell-stacked.yaml": _a219,
-  "app-starter/library/block/steps-horizontal.yaml": _a220,
-  "app-starter/library/block/tabs-segmented.yaml": _a221,
-  "app-starter/library/block/tabs-underline.yaml": _a222,
-  "app-starter/library/block/timeline-activity.yaml": _a223,
-  "app-starter/library/block/toast-confirm.yaml": _a224,
-  "app-starter/library/block/vertical-nav-grouped.yaml": _a225,
-  "app-starter/library/block/vertical-nav-settings.yaml": _a226,
-  "app-starter/library/form/dashboard-worklist-new.yaml": _a227,
-  "app-starter/library/form/drawer-form.yaml": _a228,
-  "app-starter/library/form/modal-form.yaml": _a229,
-  "app-starter/library/form/record-form-two-column.yaml": _a230,
-  "app-starter/library/form/record-related-list-add.yaml": _a231,
-  "app-starter/LICENSE": _a232,
-  "app-starter/Procfile": _a233,
-  "app-starter/public/favicon.svg": _a234,
-  "app-starter/public/README.md": _a235,
-  "app-starter/README.md": _a236,
-  "app-starter/scalingo.json": _a237,
-  "app-starter/seed/activity.yaml": _a238,
-  "app-starter/seed/bookings.yaml": _a239,
-  "app-starter/seed/clients.yaml": _a240,
-  "app-starter/seed/people.yaml": _a241,
-  "app-starter/seed/projects.yaml": _a242,
-  "app-starter/seed/reminders.yaml": _a243,
-  "app-starter/seed/tasks.yaml": _a244,
-  "app-starter/seed/users.yaml": _a245,
-  "app-starter/seed/workspace_settings.yaml": _a246,
-  "assets/.buildpacks": _a247,
-  "assets/.env.example": _a248,
-  "assets/app.yaml": _a249,
-  "assets/CLAUDE.md": _a250,
-  "assets/config/auth.yaml": _a251,
-  "assets/config/automations/nightly-reset.yaml": _a252,
-  "assets/config/automations/register-export.yaml": _a253,
-  "assets/config/design.yaml": _a254,
-  "assets/config/forms/register-asset.yaml": _a255,
-  "assets/config/pages/_register-asset.yaml": _a256,
-  "assets/config/pages/_shell.yaml": _a257,
-  "assets/config/pages/gallery.yaml": _a258,
-  "assets/config/pages/lifecycle.yaml": _a259,
-  "assets/config/pages/locations.yaml": _a260,
-  "assets/config/pages/register.yaml": _a261,
-  "assets/config/pages/sign-in.yaml": _a262,
-  "assets/config/tables/asset_events.yaml": _a263,
-  "assets/config/tables/assets.yaml": _a264,
-  "assets/config/tables/check_outs.yaml": _a265,
-  "assets/config/tables/locations.yaml": _a266,
-  "assets/library/connection/microsoft-365.yaml": _a267,
-  "assets/library/recipe/record-to-teams-channel.yaml": _a268,
-  "assets/LICENSE": _a269,
-  "assets/Procfile": _a270,
-  "assets/public/.gitkeep": _a271,
-  "assets/public/favicon.svg": _a272,
-  "assets/public/README.md": _a273,
-  "assets/README.md": _a274,
-  "assets/scalingo.json": _a275,
-  "assets/seed/asset_events.yaml": _a276,
-  "assets/seed/assets.yaml": _a277,
-  "assets/seed/check_outs.yaml": _a278,
-  "assets/seed/locations.yaml": _a279,
-  "assets/seed/users.yaml": _a280,
-  "automation-recipes/.buildpacks": _a281,
-  "automation-recipes/.env.example": _a282,
-  "automation-recipes/app.yaml": _a283,
-  "automation-recipes/CLAUDE.md": _a284,
-  "automation-recipes/config/auth.yaml": _a285,
-  "automation-recipes/config/automations/alert-on-failure.yaml": _a286,
-  "automation-recipes/config/automations/capture-lead-from-webhook.yaml": _a287,
-  "automation-recipes/config/automations/daily-digest.yaml": _a288,
-  "automation-recipes/config/automations/log-new-lead.yaml": _a289,
-  "automation-recipes/config/automations/nightly-reset.yaml": _a290,
-  "automation-recipes/config/automations/review-recent-leads.yaml": _a291,
-  "automation-recipes/config/automations/score-leads.yaml": _a292,
-  "automation-recipes/config/design.yaml": _a293,
-  "automation-recipes/config/pages/_shell.yaml": _a294,
-  "automation-recipes/config/pages/activity.yaml": _a295,
-  "automation-recipes/config/pages/home.yaml": _a296,
-  "automation-recipes/config/pages/leads.yaml": _a297,
-  "automation-recipes/config/pages/sign-in.yaml": _a298,
-  "automation-recipes/config/tables/activity_log.yaml": _a299,
-  "automation-recipes/config/tables/leads.yaml": _a300,
-  "automation-recipes/library/connection/mistral.yaml": _a301,
-  "automation-recipes/library/recipe/record-to-mistral-summary.yaml": _a302,
-  "automation-recipes/LICENSE": _a303,
-  "automation-recipes/Procfile": _a304,
-  "automation-recipes/public/.gitkeep": _a305,
-  "automation-recipes/public/favicon.svg": _a306,
-  "automation-recipes/public/README.md": _a307,
-  "automation-recipes/README.md": _a308,
-  "automation-recipes/scalingo.json": _a309,
-  "automation-recipes/seed/activity_log.yaml": _a310,
-  "automation-recipes/seed/leads.yaml": _a311,
-  "automation-recipes/seed/users.yaml": _a312,
-  "blog/.buildpacks": _a313,
-  "blog/.env.example": _a314,
-  "blog/app.yaml": _a315,
-  "blog/CLAUDE.md": _a316,
-  "blog/config/agents/blog-editor.yaml": _a317,
-  "blog/config/auth.yaml": _a318,
-  "blog/config/automations/nightly-reset.yaml": _a319,
-  "blog/config/automations/publish-scheduled.yaml": _a320,
-  "blog/config/automations/schedule-on-date.yaml": _a321,
-  "blog/config/automations/stamp-new-comment.yaml": _a322,
-  "blog/config/automations/triage-comment.yaml": _a323,
-  "blog/config/design.yaml": _a324,
-  "blog/config/forms/comment.yaml": _a325,
-  "blog/config/forms/new-post.yaml": _a326,
-  "blog/config/forms/newsletter.yaml": _a327,
-  "blog/config/pages/_shell.yaml": _a328,
-  "blog/config/pages/_site-footer.yaml": _a329,
-  "blog/config/pages/_site-header.yaml": _a330,
-  "blog/config/pages/admin-ai-editor.yaml": _a331,
-  "blog/config/pages/admin-authors.yaml": _a332,
-  "blog/config/pages/admin-comments.yaml": _a333,
-  "blog/config/pages/admin-login.yaml": _a334,
-  "blog/config/pages/admin-post-edit.yaml": _a335,
-  "blog/config/pages/admin-posts.yaml": _a336,
-  "blog/config/pages/admin-tags.yaml": _a337,
-  "blog/config/pages/essay.yaml": _a338,
-  "blog/config/pages/index.yaml": _a339,
-  "blog/config/pages/not-found.yaml": _a340,
-  "blog/config/tables/authors.yaml": _a341,
-  "blog/config/tables/comments.yaml": _a342,
-  "blog/config/tables/posts.yaml": _a343,
-  "blog/config/tables/subscribers.yaml": _a344,
-  "blog/config/tables/tags.yaml": _a345,
-  "blog/library/block/newsletter-inline.yaml": _a346,
-  "blog/library/connection/brevo.yaml": _a347,
-  "blog/library/recipe/form-to-brevo.yaml": _a348,
-  "blog/LICENSE": _a349,
-  "blog/Procfile": _a350,
-  "blog/public/.gitkeep": _a351,
-  "blog/public/favicon.svg": _a352,
-  "blog/public/README.md": _a353,
-  "blog/README.md": _a354,
-  "blog/scalingo.json": _a355,
-  "blog/seed/assets/avatar-aoife.png": _a356,
-  "blog/seed/assets/avatar-mireille.png": _a357,
-  "blog/seed/assets/avatar-tomas.png": _a358,
-  "blog/seed/assets/cover-backup.png": _a359,
-  "blog/seed/assets/cover-config-file.png": _a360,
-  "blog/seed/assets/cover-design-decisions.png": _a361,
-  "blog/seed/assets/cover-first-five-minutes.png": _a362,
-  "blog/seed/assets/cover-licence.png": _a363,
-  "blog/seed/assets/cover-migration.png": _a364,
-  "blog/seed/assets/cover-thirty-people.png": _a365,
-  "blog/seed/authors.yaml": _a366,
-  "blog/seed/comments.yaml": _a367,
-  "blog/seed/posts.yaml": _a368,
-  "blog/seed/tags.yaml": _a369,
-  "blog/seed/users.yaml": _a370,
-  "catalog.json": _a371,
-  "company-os/.buildpacks": _a372,
-  "company-os/.env.example": _a373,
-  "company-os/app.yaml": _a374,
-  "company-os/CLAUDE.md": _a375,
-  "company-os/config/agents/ops-assistant.yaml": _a376,
-  "company-os/config/auth.yaml": _a377,
-  "company-os/config/automations/approve-time-off.yaml": _a378,
-  "company-os/config/automations/nightly-reset.yaml": _a379,
-  "company-os/config/automations/notify-contact-on-resolved-ticket.yaml": _a380,
-  "company-os/config/automations/open-project-on-won-deal.yaml": _a381,
-  "company-os/config/design.yaml": _a382,
-  "company-os/config/forms/add-deal.yaml": _a383,
-  "company-os/config/forms/add-task.yaml": _a384,
-  "company-os/config/forms/new-ticket.yaml": _a385,
-  "company-os/config/forms/request-time-off.yaml": _a386,
-  "company-os/config/pages/_add-deal.yaml": _a387,
-  "company-os/config/pages/_shell.yaml": _a388,
-  "company-os/config/pages/assistant.yaml": _a389,
-  "company-os/config/pages/companies.yaml": _a390,
-  "company-os/config/pages/delivery.yaml": _a391,
-  "company-os/config/pages/home.yaml": _a392,
-  "company-os/config/pages/people.yaml": _a393,
-  "company-os/config/pages/sales.yaml": _a394,
-  "company-os/config/pages/sign-in.yaml": _a395,
-  "company-os/config/pages/support.yaml": _a396,
-  "company-os/config/tables/companies.yaml": _a397,
-  "company-os/config/tables/contacts.yaml": _a398,
-  "company-os/config/tables/customer_invoices.yaml": _a399,
-  "company-os/config/tables/deals.yaml": _a400,
-  "company-os/config/tables/employees.yaml": _a401,
-  "company-os/config/tables/project_tasks.yaml": _a402,
-  "company-os/config/tables/projects.yaml": _a403,
-  "company-os/config/tables/tickets.yaml": _a404,
-  "company-os/config/tables/time_off_requests.yaml": _a405,
-  "company-os/library/block/clients-toolbar.yaml": _a406,
-  "company-os/library/connection/pennylane.yaml": _a407,
-  "company-os/library/recipe/pennylane-invoices-to-table.yaml": _a408,
-  "company-os/LICENSE": _a409,
-  "company-os/Procfile": _a410,
-  "company-os/public/.gitkeep": _a411,
-  "company-os/public/favicon.svg": _a412,
-  "company-os/public/README.md": _a413,
-  "company-os/README.md": _a414,
-  "company-os/scalingo.json": _a415,
-  "company-os/seed/companies.yaml": _a416,
-  "company-os/seed/contacts.yaml": _a417,
-  "company-os/seed/deals.yaml": _a418,
-  "company-os/seed/employees.yaml": _a419,
-  "company-os/seed/project_tasks.yaml": _a420,
-  "company-os/seed/projects.yaml": _a421,
-  "company-os/seed/tickets.yaml": _a422,
-  "company-os/seed/time_off_requests.yaml": _a423,
-  "company-os/seed/users.yaml": _a424,
-  "content-calendar/.buildpacks": _a425,
-  "content-calendar/.env.example": _a426,
-  "content-calendar/app.yaml": _a427,
-  "content-calendar/CLAUDE.md": _a428,
-  "content-calendar/config/auth.yaml": _a429,
-  "content-calendar/config/automations/approve-for-scheduling.yaml": _a430,
-  "content-calendar/config/automations/mint-tracked-link.yaml": _a431,
-  "content-calendar/config/automations/monday-digest.yaml": _a432,
-  "content-calendar/config/automations/nightly-reset.yaml": _a433,
-  "content-calendar/config/automations/own-new-piece.yaml": _a434,
-  "content-calendar/config/design.yaml": _a435,
-  "content-calendar/config/forms/new-piece.yaml": _a436,
-  "content-calendar/config/pages/_new-piece-dialog.yaml": _a437,
-  "content-calendar/config/pages/_piece-detail.yaml": _a438,
-  "content-calendar/config/pages/_shell.yaml": _a439,
-  "content-calendar/config/pages/calendar.yaml": _a440,
-  "content-calendar/config/pages/content.yaml": _a441,
-  "content-calendar/config/pages/pipeline.yaml": _a442,
-  "content-calendar/config/pages/sign-in.yaml": _a443,
-  "content-calendar/config/tables/campaigns.yaml": _a444,
-  "content-calendar/config/tables/content.yaml": _a445,
-  "content-calendar/library/connection/linkedin.yaml": _a446,
-  "content-calendar/library/recipe/record-to-linkedin-post.yaml": _a447,
-  "content-calendar/LICENSE": _a448,
-  "content-calendar/Procfile": _a449,
-  "content-calendar/public/.gitkeep": _a450,
-  "content-calendar/public/favicon.svg": _a451,
-  "content-calendar/public/README.md": _a452,
-  "content-calendar/README.md": _a453,
-  "content-calendar/scalingo.json": _a454,
-  "content-calendar/seed/assets/thumbnail-install.png": _a455,
-  "content-calendar/seed/campaigns.yaml": _a456,
-  "content-calendar/seed/content.yaml": _a457,
-  "content-calendar/seed/users.yaml": _a458,
-  "crm/.buildpacks": _a459,
-  "crm/.env.example": _a460,
-  "crm/app.yaml": _a461,
-  "crm/CLAUDE.md": _a462,
-  "crm/config/agents/records-assistant.yaml": _a463,
-  "crm/config/auth.yaml": _a464,
-  "crm/config/automations/deal-won-notification.yaml": _a465,
-  "crm/config/automations/nightly-reset.yaml": _a466,
-  "crm/config/design.yaml": _a467,
-  "crm/config/forms/add-contact.yaml": _a468,
-  "crm/config/forms/add-deal.yaml": _a469,
-  "crm/config/forms/add-task.yaml": _a470,
-  "crm/config/pages/_shell.yaml": _a471,
-  "crm/config/pages/assistant.yaml": _a472,
-  "crm/config/pages/companies.yaml": _a473,
-  "crm/config/pages/contacts.yaml": _a474,
-  "crm/config/pages/pipeline.yaml": _a475,
-  "crm/config/pages/sign-in.yaml": _a476,
-  "crm/config/pages/tasks.yaml": _a477,
-  "crm/config/tables/companies.yaml": _a478,
-  "crm/config/tables/contacts.yaml": _a479,
-  "crm/config/tables/deals.yaml": _a480,
-  "crm/config/tables/tasks.yaml": _a481,
-  "crm/library/block/companies-toolbar.yaml": _a482,
-  "crm/library/block/contacts-toolbar.yaml": _a483,
-  "crm/library/connection/hubspot.yaml": _a484,
-  "crm/library/connection/slack.yaml": _a485,
-  "crm/library/recipe/form-to-hubspot.yaml": _a486,
-  "crm/library/recipe/record-to-slack.yaml": _a487,
-  "crm/LICENSE": _a488,
-  "crm/Procfile": _a489,
-  "crm/public/.gitkeep": _a490,
-  "crm/public/favicon.svg": _a491,
-  "crm/public/README.md": _a492,
-  "crm/README.md": _a493,
-  "crm/scalingo.json": _a494,
-  "crm/seed/companies.yaml": _a495,
-  "crm/seed/contacts.yaml": _a496,
-  "crm/seed/deals.yaml": _a497,
-  "crm/seed/tasks.yaml": _a498,
-  "crm/seed/users.yaml": _a499,
-  "docs-site/.buildpacks": _a500,
-  "docs-site/.env.example": _a501,
-  "docs-site/app.yaml": _a502,
-  "docs-site/CLAUDE.md": _a503,
-  "docs-site/config/automations/nightly-reset.yaml": _a504,
-  "docs-site/config/design.yaml": _a505,
-  "docs-site/config/pages/_brand-bar.yaml": _a506,
-  "docs-site/config/pages/_docs-header.yaml": _a507,
-  "docs-site/config/pages/_section-cards.yaml": _a508,
-  "docs-site/config/pages/_site-footer.yaml": _a509,
-  "docs-site/config/pages/_site-header.yaml": _a510,
-  "docs-site/config/pages/docs.yaml": _a511,
-  "docs-site/config/pages/home.yaml": _a512,
-  "docs-site/config/pages/not-found.yaml": _a513,
-  "docs-site/content/docs/guides/configuration.md": _a514,
-  "docs-site/content/docs/guides/deployment.md": _a515,
-  "docs-site/content/docs/guides/theming.md": _a516,
-  "docs-site/content/docs/installation.md": _a517,
-  "docs-site/content/docs/introduction.md": _a518,
-  "docs-site/content/docs/quick-start.md": _a519,
-  "docs-site/LICENSE": _a520,
-  "docs-site/Procfile": _a521,
-  "docs-site/public/.gitkeep": _a522,
-  "docs-site/public/docs/files-to-pages.avif": _a523,
-  "docs-site/public/favicon.svg": _a524,
-  "docs-site/public/README.md": _a525,
-  "docs-site/README.md": _a526,
-  "docs-site/scalingo.json": _a527,
-  "events/.buildpacks": _a528,
-  "events/.env.example": _a529,
-  "events/app.yaml": _a530,
-  "events/CLAUDE.md": _a531,
-  "events/config/auth.yaml": _a532,
-  "events/config/automations/announce-event.yaml": _a533,
-  "events/config/automations/confirm-registration.yaml": _a534,
-  "events/config/automations/nightly-reset.yaml": _a535,
-  "events/config/automations/recount-seats.yaml": _a536,
-  "events/config/automations/track-registration.yaml": _a537,
-  "events/config/design.yaml": _a538,
-  "events/config/forms/join-waitlist.yaml": _a539,
-  "events/config/forms/new-event.yaml": _a540,
-  "events/config/forms/register.yaml": _a541,
-  "events/config/pages/_shell.yaml": _a542,
-  "events/config/pages/_site-footer.yaml": _a543,
-  "events/config/pages/_site-header.yaml": _a544,
-  "events/config/pages/calendar.yaml": _a545,
-  "events/config/pages/home.yaml": _a546,
-  "events/config/pages/on-the-waitlist.yaml": _a547,
-  "events/config/pages/register.yaml": _a548,
-  "events/config/pages/registrations.yaml": _a549,
-  "events/config/pages/sign-in.yaml": _a550,
-  "events/config/pages/thanks-event.yaml": _a551,
-  "events/config/pages/thanks.yaml": _a552,
-  "events/config/pages/waitlist.yaml": _a553,
-  "events/config/tables/calendar_events.yaml": _a554,
-  "events/config/tables/events.yaml": _a555,
-  "events/config/tables/registrations.yaml": _a556,
-  "events/library/connection/discord.yaml": _a557,
-  "events/library/connection/google.yaml": _a558,
-  "events/library/recipe/google-calendar-events-to-table.yaml": _a559,
-  "events/LICENSE": _a560,
-  "events/Procfile": _a561,
-  "events/public/.gitkeep": _a562,
-  "events/public/favicon.svg": _a563,
-  "events/public/README.md": _a564,
-  "events/README.md": _a565,
-  "events/scalingo.json": _a566,
-  "events/seed/events.yaml": _a567,
-  "events/seed/registrations.yaml": _a568,
-  "events/seed/users.yaml": _a569,
-  "expenses/.buildpacks": _a570,
-  "expenses/.env.example": _a571,
-  "expenses/app.yaml": _a572,
-  "expenses/CLAUDE.md": _a573,
-  "expenses/config/auth.yaml": _a574,
-  "expenses/config/automations/approve-expense.yaml": _a575,
-  "expenses/config/automations/mark-reimbursed.yaml": _a576,
-  "expenses/config/automations/nightly-reset.yaml": _a577,
-  "expenses/config/automations/reject-with-reason.yaml": _a578,
-  "expenses/config/design.yaml": _a579,
-  "expenses/config/forms/add-expense.yaml": _a580,
-  "expenses/config/pages/_shell.yaml": _a581,
-  "expenses/config/pages/home.yaml": _a582,
-  "expenses/config/pages/my-expenses.yaml": _a583,
-  "expenses/config/pages/reimburse.yaml": _a584,
-  "expenses/config/pages/review.yaml": _a585,
-  "expenses/config/pages/sign-in.yaml": _a586,
-  "expenses/config/tables/bank-transactions.yaml": _a587,
-  "expenses/config/tables/expenses.yaml": _a588,
-  "expenses/library/connection/qonto.yaml": _a589,
-  "expenses/library/recipe/qonto-transactions-to-table.yaml": _a590,
-  "expenses/LICENSE": _a591,
-  "expenses/Procfile": _a592,
-  "expenses/public/.gitkeep": _a593,
-  "expenses/public/favicon.svg": _a594,
-  "expenses/public/README.md": _a595,
-  "expenses/README.md": _a596,
-  "expenses/scalingo.json": _a597,
-  "expenses/seed/assets/breakfast.jpg": _a598,
-  "expenses/seed/assets/coffee.jpg": _a599,
-  "expenses/seed/assets/desk.jpg": _a600,
-  "expenses/seed/assets/dinner-lyon.jpg": _a601,
-  "expenses/seed/assets/flights-ber.pdf": _a602,
-  "expenses/seed/assets/headset.pdf": _a603,
-  "expenses/seed/assets/hotel-ber.pdf": _a604,
-  "expenses/seed/assets/invoice-seats.pdf": _a605,
-  "expenses/seed/assets/lunch.jpg": _a606,
-  "expenses/seed/assets/monitor.pdf": _a607,
-  "expenses/seed/assets/pm.pdf": _a608,
-  "expenses/seed/assets/rail.pdf": _a609,
-  "expenses/seed/assets/saas-annual.pdf": _a610,
-  "expenses/seed/assets/tablet.pdf": _a611,
-  "expenses/seed/assets/ticket.pdf": _a612,
-  "expenses/seed/assets/transfer.jpg": _a613,
-  "expenses/seed/assets/upgrade.pdf": _a614,
-  "expenses/seed/expenses.yaml": _a615,
-  "expenses/seed/users.yaml": _a616,
-  "hello-world/.buildpacks": _a617,
-  "hello-world/.env.example": _a618,
-  "hello-world/app.yaml": _a619,
-  "hello-world/CLAUDE.md": _a620,
-  "hello-world/LICENSE": _a621,
-  "hello-world/Procfile": _a622,
-  "hello-world/public/.gitkeep": _a623,
-  "hello-world/public/favicon.svg": _a624,
-  "hello-world/public/README.md": _a625,
-  "hello-world/README.md": _a626,
-  "hello-world/scalingo.json": _a627,
-  "helpdesk/.buildpacks": _a628,
-  "helpdesk/.env.example": _a629,
-  "helpdesk/app.yaml": _a630,
-  "helpdesk/CLAUDE.md": _a631,
-  "helpdesk/config/auth.yaml": _a632,
-  "helpdesk/config/automations/collect-ticket-notes.yaml": _a633,
-  "helpdesk/config/automations/morning-notes-digest.yaml": _a634,
-  "helpdesk/config/automations/nightly-reset.yaml": _a635,
-  "helpdesk/config/automations/when-a-ticket-arrives.yaml": _a636,
-  "helpdesk/config/automations/when-resolved.yaml": _a637,
-  "helpdesk/config/design.yaml": _a638,
-  "helpdesk/config/forms/contact-support.yaml": _a639,
-  "helpdesk/config/forms/rate-answer.yaml": _a640,
-  "helpdesk/config/pages/_shell.yaml": _a641,
-  "helpdesk/config/pages/_site-footer.yaml": _a642,
-  "helpdesk/config/pages/_site-header.yaml": _a643,
-  "helpdesk/config/pages/home.yaml": _a644,
-  "helpdesk/config/pages/rate.yaml": _a645,
-  "helpdesk/config/pages/reports.yaml": _a646,
-  "helpdesk/config/pages/sign-in.yaml": _a647,
-  "helpdesk/config/pages/thanks.yaml": _a648,
-  "helpdesk/config/pages/ticket.yaml": _a649,
-  "helpdesk/config/pages/tickets.yaml": _a650,
-  "helpdesk/config/pages/triage.yaml": _a651,
-  "helpdesk/config/tables/ratings.yaml": _a652,
-  "helpdesk/config/tables/ticket_replies.yaml": _a653,
-  "helpdesk/config/tables/tickets.yaml": _a654,
-  "helpdesk/library/block/record-comments.yaml": _a655,
-  "helpdesk/library/connection/linear.yaml": _a656,
-  "helpdesk/library/recipe/record-to-linear-issue.yaml": _a657,
-  "helpdesk/LICENSE": _a658,
-  "helpdesk/Procfile": _a659,
-  "helpdesk/public/.gitkeep": _a660,
-  "helpdesk/public/favicon.svg": _a661,
-  "helpdesk/public/README.md": _a662,
-  "helpdesk/README.md": _a663,
-  "helpdesk/scalingo.json": _a664,
-  "helpdesk/seed/ratings.yaml": _a665,
-  "helpdesk/seed/ticket_replies.yaml": _a666,
-  "helpdesk/seed/tickets.yaml": _a667,
-  "helpdesk/seed/users.yaml": _a668,
-  "intranet/.buildpacks": _a669,
-  "intranet/.env.example": _a670,
-  "intranet/app.yaml": _a671,
-  "intranet/CLAUDE.md": _a672,
-  "intranet/config/auth.yaml": _a673,
-  "intranet/config/automations/nightly-reset.yaml": _a674,
-  "intranet/config/automations/sign-new-announcement.yaml": _a675,
-  "intranet/config/design.yaml": _a676,
-  "intranet/config/forms/publish-announcement.yaml": _a677,
-  "intranet/config/pages/_post-card.yaml": _a678,
-  "intranet/config/pages/_post-drawer.yaml": _a679,
-  "intranet/config/pages/_shell.yaml": _a680,
-  "intranet/config/pages/_site-footer.yaml": _a681,
-  "intranet/config/pages/_site-header.yaml": _a682,
-  "intranet/config/pages/home.yaml": _a683,
-  "intranet/config/pages/news.yaml": _a684,
-  "intranet/config/pages/people.yaml": _a685,
-  "intranet/config/pages/portal.yaml": _a686,
-  "intranet/config/pages/publish.yaml": _a687,
-  "intranet/config/pages/resources.yaml": _a688,
-  "intranet/config/pages/sign-in-password.yaml": _a689,
-  "intranet/config/pages/sign-in.yaml": _a690,
-  "intranet/config/tables/acknowledgements.yaml": _a691,
-  "intranet/config/tables/company.yaml": _a692,
-  "intranet/config/tables/events.yaml": _a693,
-  "intranet/config/tables/members.yaml": _a694,
-  "intranet/config/tables/posts.yaml": _a695,
-  "intranet/config/tables/resources.yaml": _a696,
-  "intranet/library/connection/microsoft-365.yaml": _a697,
-  "intranet/library/recipe/record-to-teams-channel.yaml": _a698,
-  "intranet/LICENSE": _a699,
-  "intranet/Procfile": _a700,
-  "intranet/public/.gitkeep": _a701,
-  "intranet/public/favicon.svg": _a702,
-  "intranet/public/README.md": _a703,
-  "intranet/README.md": _a704,
-  "intranet/scalingo.json": _a705,
-  "intranet/seed/acknowledgements.yaml": _a706,
-  "intranet/seed/company.yaml": _a707,
-  "intranet/seed/events.yaml": _a708,
-  "intranet/seed/members.yaml": _a709,
-  "intranet/seed/posts.yaml": _a710,
-  "intranet/seed/resources.yaml": _a711,
-  "intranet/seed/users.yaml": _a712,
-  "inventory/.buildpacks": _a713,
-  "inventory/.env.example": _a714,
-  "inventory/app.yaml": _a715,
-  "inventory/CLAUDE.md": _a716,
-  "inventory/config/agents/catalog-assistant.yaml": _a717,
-  "inventory/config/auth.yaml": _a718,
-  "inventory/config/automations/low-stock-digest.yaml": _a719,
-  "inventory/config/design.yaml": _a720,
-  "inventory/config/forms/add-order.yaml": _a721,
-  "inventory/config/forms/add-product.yaml": _a722,
-  "inventory/config/forms/record-movement.yaml": _a723,
-  "inventory/config/pages/_add-order.yaml": _a724,
-  "inventory/config/pages/_add-product.yaml": _a725,
-  "inventory/config/pages/_product-columns.yaml": _a726,
-  "inventory/config/pages/_record-movement.yaml": _a727,
-  "inventory/config/pages/_shell.yaml": _a728,
-  "inventory/config/pages/assistant.yaml": _a729,
-  "inventory/config/pages/orders.yaml": _a730,
-  "inventory/config/pages/products.yaml": _a731,
-  "inventory/config/pages/sign-in.yaml": _a732,
-  "inventory/config/pages/stock.yaml": _a733,
-  "inventory/config/pages/suppliers.yaml": _a734,
-  "inventory/config/tables/orders.yaml": _a735,
-  "inventory/config/tables/products.yaml": _a736,
-  "inventory/config/tables/purchase_orders.yaml": _a737,
-  "inventory/config/tables/stock_movements.yaml": _a738,
-  "inventory/config/tables/suppliers.yaml": _a739,
-  "inventory/config/tables/warehouses.yaml": _a740,
-  "inventory/library/connection/google.yaml": _a741,
-  "inventory/library/recipe/record-to-google-doc.yaml": _a742,
-  "inventory/LICENSE": _a743,
-  "inventory/Procfile": _a744,
-  "inventory/public/.gitkeep": _a745,
-  "inventory/public/favicon.svg": _a746,
-  "inventory/public/README.md": _a747,
-  "inventory/README.md": _a748,
-  "inventory/scalingo.json": _a749,
-  "inventory/seed/orders.yaml": _a750,
-  "inventory/seed/products.yaml": _a751,
-  "inventory/seed/purchase_orders.yaml": _a752,
-  "inventory/seed/stock_movements.yaml": _a753,
-  "inventory/seed/suppliers.yaml": _a754,
-  "inventory/seed/users.yaml": _a755,
-  "inventory/seed/warehouses.yaml": _a756,
-  "knowledge-base/.buildpacks": _a757,
-  "knowledge-base/.env.example": _a758,
-  "knowledge-base/app.yaml": _a759,
-  "knowledge-base/CLAUDE.md": _a760,
-  "knowledge-base/config/agents/handbook-assistant.yaml": _a761,
-  "knowledge-base/config/auth.yaml": _a762,
-  "knowledge-base/config/automations/nightly-reset.yaml": _a763,
-  "knowledge-base/config/design.yaml": _a764,
-  "knowledge-base/config/pages/_kb-header.yaml": _a765,
-  "knowledge-base/config/pages/_managers-nav.yaml": _a766,
-  "knowledge-base/config/pages/_reading-frame.yaml": _a767,
-  "knowledge-base/config/pages/_site-footer.yaml": _a768,
-  "knowledge-base/config/pages/_site-header.yaml": _a769,
-  "knowledge-base/config/pages/assistant.yaml": _a770,
-  "knowledge-base/config/pages/home.yaml": _a771,
-  "knowledge-base/config/pages/kb-managers.yaml": _a772,
-  "knowledge-base/config/pages/kb.yaml": _a773,
-  "knowledge-base/config/pages/not-found.yaml": _a774,
-  "knowledge-base/config/pages/sign-in.yaml": _a775,
-  "knowledge-base/content/kb/getting-started/first-week.md": _a776,
-  "knowledge-base/content/kb/getting-started/welcome.md": _a777,
-  "knowledge-base/content/kb/it/laptop.md": _a778,
-  "knowledge-base/content/kb/policies/expense-policy.md": _a779,
-  "knowledge-base/content/kb/policies/security-policy.md": _a780,
-  "knowledge-base/content/kb/start.md": _a781,
-  "knowledge-base/content/kb-managers/hiring.md": _a782,
-  "knowledge-base/content/kb-managers/pay-reviews.md": _a783,
-  "knowledge-base/library/block/not-found-with-links.yaml": _a784,
-  "knowledge-base/LICENSE": _a785,
-  "knowledge-base/Procfile": _a786,
-  "knowledge-base/public/.gitkeep": _a787,
-  "knowledge-base/public/favicon.svg": _a788,
-  "knowledge-base/public/handbook/laptop-setup.avif": _a789,
-  "knowledge-base/public/README.md": _a790,
-  "knowledge-base/README.md": _a791,
-  "knowledge-base/scalingo.json": _a792,
-  "knowledge-base/seed/users.yaml": _a793,
-  "landing-page/.buildpacks": _a794,
-  "landing-page/.env.example": _a795,
-  "landing-page/app.yaml": _a796,
-  "landing-page/CLAUDE.md": _a797,
-  "landing-page/config/auth.yaml": _a798,
-  "landing-page/config/automations/nightly-reset.yaml": _a799,
-  "landing-page/config/components/feature-card.yaml": _a800,
-  "landing-page/config/components/language-switcher.yaml": _a801,
-  "landing-page/config/components/step-card.yaml": _a802,
-  "landing-page/config/design.yaml": _a803,
-  "landing-page/config/forms/demo-request.yaml": _a804,
-  "landing-page/config/languages.yaml": _a805,
-  "landing-page/config/pages/_body.yaml": _a806,
-  "landing-page/config/pages/_demo.yaml": _a807,
-  "landing-page/config/pages/_hero.yaml": _a808,
-  "landing-page/config/pages/_site-footer.yaml": _a809,
-  "landing-page/config/pages/_site-header.yaml": _a810,
-  "landing-page/config/pages/home.yaml": _a811,
-  "landing-page/config/tables/demo-requests.yaml": _a812,
-  "landing-page/library/connection/pipedrive.yaml": _a813,
-  "landing-page/library/recipe/form-to-pipedrive-lead.yaml": _a814,
-  "landing-page/LICENSE": _a815,
-  "landing-page/Procfile": _a816,
-  "landing-page/public/.gitkeep": _a817,
-  "landing-page/public/favicon.svg": _a818,
-  "landing-page/public/og-en.png": _a819,
-  "landing-page/public/og-fr.png": _a820,
-  "landing-page/public/README.md": _a821,
-  "landing-page/README.md": _a822,
-  "landing-page/scalingo.json": _a823,
-  "marketing-site/.buildpacks": _a824,
-  "marketing-site/.env.example": _a825,
-  "marketing-site/app.yaml": _a826,
-  "marketing-site/CLAUDE.md": _a827,
-  "marketing-site/config/auth.yaml": _a828,
-  "marketing-site/config/forms/contact.yaml": _a829,
-  "marketing-site/config/forms/newsletter.yaml": _a830,
-  "marketing-site/config/languages.yaml": _a831,
-  "marketing-site/config/pages/about.yaml": _a832,
-  "marketing-site/config/pages/article.yaml": _a833,
-  "marketing-site/config/pages/blog.yaml": _a834,
-  "marketing-site/config/pages/contact.yaml": _a835,
-  "marketing-site/config/pages/features.yaml": _a836,
-  "marketing-site/config/pages/guide.yaml": _a837,
-  "marketing-site/config/pages/home.yaml": _a838,
-  "marketing-site/config/pages/moved.yaml": _a839,
-  "marketing-site/config/pages/not-found.yaml": _a840,
-  "marketing-site/config/pages/pricing.yaml": _a841,
-  "marketing-site/config/pages/product.yaml": _a842,
-  "marketing-site/config/tables/messages.yaml": _a843,
-  "marketing-site/config/tables/orders.yaml": _a844,
-  "marketing-site/config/tables/posts.yaml": _a845,
-  "marketing-site/config/tables/subscribers.yaml": _a846,
-  "marketing-site/library/block/banner-top.yaml": _a847,
-  "marketing-site/library/block/bento-feature-stack.yaml": _a848,
-  "marketing-site/library/block/blog-cards.yaml": _a849,
-  "marketing-site/library/block/blog-list.yaml": _a850,
-  "marketing-site/library/block/contact-centered.yaml": _a851,
-  "marketing-site/library/block/contact-split.yaml": _a852,
-  "marketing-site/library/block/content-prose.yaml": _a853,
-  "marketing-site/library/block/content-with-toc.yaml": _a854,
-  "marketing-site/library/block/cta-banner.yaml": _a855,
-  "marketing-site/library/block/cta-split.yaml": _a856,
-  "marketing-site/library/block/faq-accordion.yaml": _a857,
-  "marketing-site/library/block/faq-two-column.yaml": _a858,
-  "marketing-site/library/block/feature-alternating.yaml": _a859,
-  "marketing-site/library/block/feature-grid.yaml": _a860,
-  "marketing-site/library/block/feature-list-icons.yaml": _a861,
-  "marketing-site/library/block/footer-columns.yaml": _a862,
-  "marketing-site/library/block/footer-simple.yaml": _a863,
-  "marketing-site/library/block/header-centered.yaml": _a864,
-  "marketing-site/library/block/header-with-links.yaml": _a865,
-  "marketing-site/library/block/hero-centered.yaml": _a866,
-  "marketing-site/library/block/hero-split-image.yaml": _a867,
-  "marketing-site/library/block/hero-with-screenshot.yaml": _a868,
-  "marketing-site/library/block/logos-grid.yaml": _a869,
-  "marketing-site/library/block/logos-marquee.yaml": _a870,
-  "marketing-site/library/block/navbar-flyout.yaml": _a871,
-  "marketing-site/library/block/navbar-simple.yaml": _a872,
-  "marketing-site/library/block/newsletter-centered.yaml": _a873,
-  "marketing-site/library/block/newsletter-inline.yaml": _a874,
-  "marketing-site/library/block/not-found-centered.yaml": _a875,
-  "marketing-site/library/block/not-found-with-links.yaml": _a876,
-  "marketing-site/library/block/pricing-comparison.yaml": _a877,
-  "marketing-site/library/block/pricing-three-tier.yaml": _a878,
-  "marketing-site/library/block/pricing-toggle.yaml": _a879,
-  "marketing-site/library/block/stats-from-table.yaml": _a880,
-  "marketing-site/library/block/stats-row.yaml": _a881,
-  "marketing-site/library/block/team-grid.yaml": _a882,
-  "marketing-site/library/block/team-list.yaml": _a883,
-  "marketing-site/library/block/testimonial-grid.yaml": _a884,
-  "marketing-site/library/block/testimonial-single.yaml": _a885,
-  "marketing-site/LICENSE": _a886,
-  "marketing-site/Procfile": _a887,
-  "marketing-site/public/favicon.svg": _a888,
-  "marketing-site/public/README.md": _a889,
-  "marketing-site/README.md": _a890,
-  "marketing-site/scalingo.json": _a891,
-  "marketing-site/seed/orders.yaml": _a892,
-  "marketing-site/seed/posts.yaml": _a893,
-  "mcp-server/.buildpacks": _a894,
-  "mcp-server/.env.example": _a895,
-  "mcp-server/app.yaml": _a896,
-  "mcp-server/CLAUDE.md": _a897,
-  "mcp-server/config/auth.yaml": _a898,
-  "mcp-server/config/automations/import-runbook.yaml": _a899,
-  "mcp-server/config/design.yaml": _a900,
-  "mcp-server/config/pages/home.yaml": _a901,
-  "mcp-server/config/tables/documents.yaml": _a902,
-  "mcp-server/config/tables/tags.yaml": _a903,
-  "mcp-server/library/connection/github.yaml": _a904,
-  "mcp-server/LICENSE": _a905,
-  "mcp-server/Procfile": _a906,
-  "mcp-server/public/favicon.svg": _a907,
-  "mcp-server/README.md": _a908,
-  "mcp-server/scalingo.json": _a909,
-  "mcp-server/seed/documents.yaml": _a910,
-  "mcp-server/seed/tags.yaml": _a911,
-  "mcp-server/seed/users.yaml": _a912,
-  "people/.buildpacks": _a913,
-  "people/.env.example": _a914,
-  "people/app.yaml": _a915,
-  "people/CLAUDE.md": _a916,
-  "people/config/auth.yaml": _a917,
-  "people/config/automations/approve-time-off.yaml": _a918,
-  "people/config/automations/join-new-account-to-directory.yaml": _a919,
-  "people/config/automations/nightly-reset.yaml": _a920,
-  "people/config/design.yaml": _a921,
-  "people/config/forms/add-person.yaml": _a922,
-  "people/config/forms/request-time-off.yaml": _a923,
-  "people/config/pages/_shell.yaml": _a924,
-  "people/config/pages/directory.yaml": _a925,
-  "people/config/pages/overview.yaml": _a926,
-  "people/config/pages/requests.yaml": _a927,
-  "people/config/pages/sign-in.yaml": _a928,
-  "people/config/pages/time-off.yaml": _a929,
-  "people/config/tables/employees.yaml": _a930,
-  "people/config/tables/time_off_requests.yaml": _a931,
-  "people/library/connection/google.yaml": _a932,
-  "people/library/recipe/record-to-google-doc.yaml": _a933,
-  "people/LICENSE": _a934,
-  "people/Procfile": _a935,
-  "people/public/.gitkeep": _a936,
-  "people/public/favicon.svg": _a937,
-  "people/public/README.md": _a938,
-  "people/README.md": _a939,
-  "people/scalingo.json": _a940,
-  "people/seed/employees.yaml": _a941,
-  "people/seed/time_off_requests.yaml": _a942,
-  "people/seed/users.yaml": _a943,
-  "projects/.buildpacks": _a944,
-  "projects/.env.example": _a945,
-  "projects/app.yaml": _a946,
-  "projects/CLAUDE.md": _a947,
-  "projects/config/auth.yaml": _a948,
-  "projects/config/automations/chase-blocked-tasks.yaml": _a949,
-  "projects/config/automations/nightly-reset.yaml": _a950,
-  "projects/config/automations/notify-assignee-on-blocked.yaml": _a951,
-  "projects/config/design.yaml": _a952,
-  "projects/config/forms/add-task.yaml": _a953,
-  "projects/config/forms/new-project.yaml": _a954,
-  "projects/config/pages/_add-task.yaml": _a955,
-  "projects/config/pages/_shell.yaml": _a956,
-  "projects/config/pages/board.yaml": _a957,
-  "projects/config/pages/calendar.yaml": _a958,
-  "projects/config/pages/dashboard.yaml": _a959,
-  "projects/config/pages/sign-in.yaml": _a960,
-  "projects/config/pages/timeline.yaml": _a961,
-  "projects/config/tables/projects.yaml": _a962,
-  "projects/config/tables/tasks.yaml": _a963,
-  "projects/library/connection/microsoft-365.yaml": _a964,
-  "projects/library/recipe/record-to-teams-channel.yaml": _a965,
-  "projects/LICENSE": _a966,
-  "projects/Procfile": _a967,
-  "projects/public/.gitkeep": _a968,
-  "projects/public/favicon.svg": _a969,
-  "projects/public/README.md": _a970,
-  "projects/README.md": _a971,
-  "projects/scalingo.json": _a972,
-  "projects/seed/projects.yaml": _a973,
-  "projects/seed/tasks.yaml": _a974,
-  "projects/seed/users.yaml": _a975,
-  "README.md": _a976,
+  "api-only/app.yaml": _a106,
+  "api-only/config/auth.yaml": _a107,
+  "api-only/config/automations/task-done-call-out.yaml": _a108,
+  "api-only/config/automations/task-intake.yaml": _a109,
+  "api-only/config/design.yaml": _a110,
+  "api-only/config/pages/home.yaml": _a111,
+  "api-only/config/tables/projects.yaml": _a112,
+  "api-only/config/tables/tasks.yaml": _a113,
+  "api-only/library/connection/linear.yaml": _a114,
+  "api-only/library/recipe/record-to-linear-issue.yaml": _a115,
+  "api-only/public/favicon.svg": _a116,
+  "api-only/seed/projects.yaml": _a117,
+  "api-only/seed/tasks.yaml": _a118,
+  "api-only/seed/users.yaml": _a119,
+  "api-only/template.yaml": _a120,
+  "app-starter/app.yaml": _a121,
+  "app-starter/config/auth.yaml": _a122,
+  "app-starter/config/pages/_nav.yaml": _a123,
+  "app-starter/config/pages/_settings-nav.yaml": _a124,
+  "app-starter/config/pages/invite.yaml": _a125,
+  "app-starter/config/pages/kit-client.yaml": _a126,
+  "app-starter/config/pages/kit-data.yaml": _a127,
+  "app-starter/config/pages/kit-feedback.yaml": _a128,
+  "app-starter/config/pages/kit-navigation.yaml": _a129,
+  "app-starter/config/pages/kit-shell-sidebar.yaml": _a130,
+  "app-starter/config/pages/kit-shell-stacked.yaml": _a131,
+  "app-starter/config/pages/magic-link.yaml": _a132,
+  "app-starter/config/pages/metrics.yaml": _a133,
+  "app-starter/config/pages/overview.yaml": _a134,
+  "app-starter/config/pages/project-edit.yaml": _a135,
+  "app-starter/config/pages/project.yaml": _a136,
+  "app-starter/config/pages/projects.yaml": _a137,
+  "app-starter/config/pages/reset-password-new.yaml": _a138,
+  "app-starter/config/pages/reset-password.yaml": _a139,
+  "app-starter/config/pages/settings-api-keys.yaml": _a140,
+  "app-starter/config/pages/settings-security.yaml": _a141,
+  "app-starter/config/pages/settings-team.yaml": _a142,
+  "app-starter/config/pages/settings-workspace.yaml": _a143,
+  "app-starter/config/pages/settings.yaml": _a144,
+  "app-starter/config/pages/sign-in.yaml": _a145,
+  "app-starter/config/pages/sign-up.yaml": _a146,
+  "app-starter/config/pages/sso.yaml": _a147,
+  "app-starter/config/pages/two-step.yaml": _a148,
+  "app-starter/config/pages/worklist.yaml": _a149,
+  "app-starter/config/tables/activity.yaml": _a150,
+  "app-starter/config/tables/bookings.yaml": _a151,
+  "app-starter/config/tables/clients.yaml": _a152,
+  "app-starter/config/tables/people.yaml": _a153,
+  "app-starter/config/tables/projects.yaml": _a154,
+  "app-starter/config/tables/reminders.yaml": _a155,
+  "app-starter/config/tables/tasks.yaml": _a156,
+  "app-starter/config/tables/workspace-settings.yaml": _a157,
+  "app-starter/library/block/alert-inline.yaml": _a158,
+  "app-starter/library/block/alert-validation-summary.yaml": _a159,
+  "app-starter/library/block/app-navbar-command.yaml": _a160,
+  "app-starter/library/block/app-navbar-search.yaml": _a161,
+  "app-starter/library/block/auth-invitation-accept.yaml": _a162,
+  "app-starter/library/block/auth-magic-link.yaml": _a163,
+  "app-starter/library/block/auth-password-reset-new.yaml": _a164,
+  "app-starter/library/block/auth-password-reset.yaml": _a165,
+  "app-starter/library/block/auth-sign-in.yaml": _a166,
+  "app-starter/library/block/auth-sign-up.yaml": _a167,
+  "app-starter/library/block/auth-sso.yaml": _a168,
+  "app-starter/library/block/auth-two-factor.yaml": _a169,
+  "app-starter/library/block/breadcrumb-chevron.yaml": _a170,
+  "app-starter/library/block/breadcrumb-slash.yaml": _a171,
+  "app-starter/library/block/calendar-month.yaml": _a172,
+  "app-starter/library/block/calendar-week.yaml": _a173,
+  "app-starter/library/block/card-heading.yaml": _a174,
+  "app-starter/library/block/comments-feed.yaml": _a175,
+  "app-starter/library/block/dashboard-metrics.yaml": _a176,
+  "app-starter/library/block/dashboard-overview.yaml": _a177,
+  "app-starter/library/block/dashboard-worklist.yaml": _a178,
+  "app-starter/library/block/data-table.yaml": _a179,
+  "app-starter/library/block/dl-rows.yaml": _a180,
+  "app-starter/library/block/dl-stacked.yaml": _a181,
+  "app-starter/library/block/drawer-form.yaml": _a182,
+  "app-starter/library/block/empty-basic.yaml": _a183,
+  "app-starter/library/block/empty-with-starters.yaml": _a184,
+  "app-starter/library/block/gallery-cards.yaml": _a185,
+  "app-starter/library/block/kpi-row-trend.yaml": _a186,
+  "app-starter/library/block/kpi-sparkline.yaml": _a187,
+  "app-starter/library/block/list-avatars.yaml": _a188,
+  "app-starter/library/block/modal-confirm-destructive.yaml": _a189,
+  "app-starter/library/block/modal-form.yaml": _a190,
+  "app-starter/library/block/page-heading-actions.yaml": _a191,
+  "app-starter/library/block/pagination-numbered.yaml": _a192,
+  "app-starter/library/block/pagination-simple.yaml": _a193,
+  "app-starter/library/block/progress-bar.yaml": _a194,
+  "app-starter/library/block/record-comments.yaml": _a195,
+  "app-starter/library/block/record-edit-sections.yaml": _a196,
+  "app-starter/library/block/record-form-two-column.yaml": _a197,
+  "app-starter/library/block/record-header.yaml": _a198,
+  "app-starter/library/block/record-history.yaml": _a199,
+  "app-starter/library/block/record-meta-sidebar.yaml": _a200,
+  "app-starter/library/block/record-related-list.yaml": _a201,
+  "app-starter/library/block/record-sheet.yaml": _a202,
+  "app-starter/library/block/section-heading-tabs.yaml": _a203,
+  "app-starter/library/block/settings-account.yaml": _a204,
+  "app-starter/library/block/settings-api-keys.yaml": _a205,
+  "app-starter/library/block/settings-form.yaml": _a206,
+  "app-starter/library/block/settings-security.yaml": _a207,
+  "app-starter/library/block/settings-team.yaml": _a208,
+  "app-starter/library/block/shell-sidebar.yaml": _a209,
+  "app-starter/library/block/shell-stacked.yaml": _a210,
+  "app-starter/library/block/steps-horizontal.yaml": _a211,
+  "app-starter/library/block/tabs-segmented.yaml": _a212,
+  "app-starter/library/block/tabs-underline.yaml": _a213,
+  "app-starter/library/block/timeline-activity.yaml": _a214,
+  "app-starter/library/block/toast-confirm.yaml": _a215,
+  "app-starter/library/block/vertical-nav-grouped.yaml": _a216,
+  "app-starter/library/block/vertical-nav-settings.yaml": _a217,
+  "app-starter/library/form/dashboard-worklist-new.yaml": _a218,
+  "app-starter/library/form/drawer-form.yaml": _a219,
+  "app-starter/library/form/modal-form.yaml": _a220,
+  "app-starter/library/form/record-form-two-column.yaml": _a221,
+  "app-starter/library/form/record-related-list-add.yaml": _a222,
+  "app-starter/public/favicon.svg": _a223,
+  "app-starter/seed/activity.yaml": _a224,
+  "app-starter/seed/bookings.yaml": _a225,
+  "app-starter/seed/clients.yaml": _a226,
+  "app-starter/seed/people.yaml": _a227,
+  "app-starter/seed/projects.yaml": _a228,
+  "app-starter/seed/reminders.yaml": _a229,
+  "app-starter/seed/tasks.yaml": _a230,
+  "app-starter/seed/users.yaml": _a231,
+  "app-starter/seed/workspace_settings.yaml": _a232,
+  "app-starter/template.yaml": _a233,
+  "assets/app.yaml": _a234,
+  "assets/config/auth.yaml": _a235,
+  "assets/config/automations/nightly-reset.yaml": _a236,
+  "assets/config/automations/register-export.yaml": _a237,
+  "assets/config/design.yaml": _a238,
+  "assets/config/forms/register-asset.yaml": _a239,
+  "assets/config/pages/_register-asset.yaml": _a240,
+  "assets/config/pages/_shell.yaml": _a241,
+  "assets/config/pages/gallery.yaml": _a242,
+  "assets/config/pages/lifecycle.yaml": _a243,
+  "assets/config/pages/locations.yaml": _a244,
+  "assets/config/pages/register.yaml": _a245,
+  "assets/config/pages/sign-in.yaml": _a246,
+  "assets/config/tables/asset_events.yaml": _a247,
+  "assets/config/tables/assets.yaml": _a248,
+  "assets/config/tables/check_outs.yaml": _a249,
+  "assets/config/tables/locations.yaml": _a250,
+  "assets/library/connection/microsoft-365.yaml": _a251,
+  "assets/library/recipe/record-to-teams-channel.yaml": _a252,
+  "assets/public/.gitkeep": _a253,
+  "assets/public/favicon.svg": _a254,
+  "assets/seed/asset_events.yaml": _a255,
+  "assets/seed/assets.yaml": _a256,
+  "assets/seed/check_outs.yaml": _a257,
+  "assets/seed/locations.yaml": _a258,
+  "assets/seed/users.yaml": _a259,
+  "assets/template.yaml": _a260,
+  "automation-recipes/app.yaml": _a261,
+  "automation-recipes/config/auth.yaml": _a262,
+  "automation-recipes/config/automations/alert-on-failure.yaml": _a263,
+  "automation-recipes/config/automations/capture-lead-from-webhook.yaml": _a264,
+  "automation-recipes/config/automations/daily-digest.yaml": _a265,
+  "automation-recipes/config/automations/log-new-lead.yaml": _a266,
+  "automation-recipes/config/automations/nightly-reset.yaml": _a267,
+  "automation-recipes/config/automations/review-recent-leads.yaml": _a268,
+  "automation-recipes/config/automations/score-leads.yaml": _a269,
+  "automation-recipes/config/design.yaml": _a270,
+  "automation-recipes/config/pages/_shell.yaml": _a271,
+  "automation-recipes/config/pages/activity.yaml": _a272,
+  "automation-recipes/config/pages/home.yaml": _a273,
+  "automation-recipes/config/pages/leads.yaml": _a274,
+  "automation-recipes/config/pages/sign-in.yaml": _a275,
+  "automation-recipes/config/tables/activity_log.yaml": _a276,
+  "automation-recipes/config/tables/leads.yaml": _a277,
+  "automation-recipes/library/connection/mistral.yaml": _a278,
+  "automation-recipes/library/recipe/record-to-mistral-summary.yaml": _a279,
+  "automation-recipes/public/.gitkeep": _a280,
+  "automation-recipes/public/favicon.svg": _a281,
+  "automation-recipes/seed/activity_log.yaml": _a282,
+  "automation-recipes/seed/leads.yaml": _a283,
+  "automation-recipes/seed/users.yaml": _a284,
+  "automation-recipes/template.yaml": _a285,
+  "blog/app.yaml": _a286,
+  "blog/config/agents/blog-editor.yaml": _a287,
+  "blog/config/auth.yaml": _a288,
+  "blog/config/automations/nightly-reset.yaml": _a289,
+  "blog/config/automations/publish-scheduled.yaml": _a290,
+  "blog/config/automations/schedule-on-date.yaml": _a291,
+  "blog/config/automations/stamp-new-comment.yaml": _a292,
+  "blog/config/automations/triage-comment.yaml": _a293,
+  "blog/config/design.yaml": _a294,
+  "blog/config/forms/comment.yaml": _a295,
+  "blog/config/forms/new-post.yaml": _a296,
+  "blog/config/forms/newsletter.yaml": _a297,
+  "blog/config/pages/_shell.yaml": _a298,
+  "blog/config/pages/_site-footer.yaml": _a299,
+  "blog/config/pages/_site-header.yaml": _a300,
+  "blog/config/pages/admin-ai-editor.yaml": _a301,
+  "blog/config/pages/admin-authors.yaml": _a302,
+  "blog/config/pages/admin-comments.yaml": _a303,
+  "blog/config/pages/admin-login.yaml": _a304,
+  "blog/config/pages/admin-post-edit.yaml": _a305,
+  "blog/config/pages/admin-posts.yaml": _a306,
+  "blog/config/pages/admin-tags.yaml": _a307,
+  "blog/config/pages/essay.yaml": _a308,
+  "blog/config/pages/index.yaml": _a309,
+  "blog/config/pages/not-found.yaml": _a310,
+  "blog/config/tables/authors.yaml": _a311,
+  "blog/config/tables/comments.yaml": _a312,
+  "blog/config/tables/posts.yaml": _a313,
+  "blog/config/tables/subscribers.yaml": _a314,
+  "blog/config/tables/tags.yaml": _a315,
+  "blog/library/block/newsletter-inline.yaml": _a316,
+  "blog/library/connection/brevo.yaml": _a317,
+  "blog/library/recipe/form-to-brevo.yaml": _a318,
+  "blog/public/.gitkeep": _a319,
+  "blog/public/favicon.svg": _a320,
+  "blog/seed/assets/avatar-aoife.png": _a321,
+  "blog/seed/assets/avatar-mireille.png": _a322,
+  "blog/seed/assets/avatar-tomas.png": _a323,
+  "blog/seed/assets/cover-backup.png": _a324,
+  "blog/seed/assets/cover-config-file.png": _a325,
+  "blog/seed/assets/cover-design-decisions.png": _a326,
+  "blog/seed/assets/cover-first-five-minutes.png": _a327,
+  "blog/seed/assets/cover-licence.png": _a328,
+  "blog/seed/assets/cover-migration.png": _a329,
+  "blog/seed/assets/cover-thirty-people.png": _a330,
+  "blog/seed/authors.yaml": _a331,
+  "blog/seed/comments.yaml": _a332,
+  "blog/seed/posts.yaml": _a333,
+  "blog/seed/tags.yaml": _a334,
+  "blog/seed/users.yaml": _a335,
+  "blog/template.yaml": _a336,
+  "catalog.json": _a337,
+  "company-os/app.yaml": _a338,
+  "company-os/config/agents/ops-assistant.yaml": _a339,
+  "company-os/config/auth.yaml": _a340,
+  "company-os/config/automations/approve-time-off.yaml": _a341,
+  "company-os/config/automations/nightly-reset.yaml": _a342,
+  "company-os/config/automations/notify-contact-on-resolved-ticket.yaml": _a343,
+  "company-os/config/automations/open-project-on-won-deal.yaml": _a344,
+  "company-os/config/design.yaml": _a345,
+  "company-os/config/forms/add-deal.yaml": _a346,
+  "company-os/config/forms/add-task.yaml": _a347,
+  "company-os/config/forms/new-ticket.yaml": _a348,
+  "company-os/config/forms/request-time-off.yaml": _a349,
+  "company-os/config/pages/_add-deal.yaml": _a350,
+  "company-os/config/pages/_shell.yaml": _a351,
+  "company-os/config/pages/assistant.yaml": _a352,
+  "company-os/config/pages/companies.yaml": _a353,
+  "company-os/config/pages/delivery.yaml": _a354,
+  "company-os/config/pages/home.yaml": _a355,
+  "company-os/config/pages/people.yaml": _a356,
+  "company-os/config/pages/sales.yaml": _a357,
+  "company-os/config/pages/sign-in.yaml": _a358,
+  "company-os/config/pages/support.yaml": _a359,
+  "company-os/config/tables/companies.yaml": _a360,
+  "company-os/config/tables/contacts.yaml": _a361,
+  "company-os/config/tables/customer_invoices.yaml": _a362,
+  "company-os/config/tables/deals.yaml": _a363,
+  "company-os/config/tables/employees.yaml": _a364,
+  "company-os/config/tables/project_tasks.yaml": _a365,
+  "company-os/config/tables/projects.yaml": _a366,
+  "company-os/config/tables/tickets.yaml": _a367,
+  "company-os/config/tables/time_off_requests.yaml": _a368,
+  "company-os/library/block/clients-toolbar.yaml": _a369,
+  "company-os/library/connection/pennylane.yaml": _a370,
+  "company-os/library/recipe/pennylane-invoices-to-table.yaml": _a371,
+  "company-os/public/.gitkeep": _a372,
+  "company-os/public/favicon.svg": _a373,
+  "company-os/seed/companies.yaml": _a374,
+  "company-os/seed/contacts.yaml": _a375,
+  "company-os/seed/deals.yaml": _a376,
+  "company-os/seed/employees.yaml": _a377,
+  "company-os/seed/project_tasks.yaml": _a378,
+  "company-os/seed/projects.yaml": _a379,
+  "company-os/seed/tickets.yaml": _a380,
+  "company-os/seed/time_off_requests.yaml": _a381,
+  "company-os/seed/users.yaml": _a382,
+  "company-os/template.yaml": _a383,
+  "content-calendar/app.yaml": _a384,
+  "content-calendar/config/auth.yaml": _a385,
+  "content-calendar/config/automations/approve-for-scheduling.yaml": _a386,
+  "content-calendar/config/automations/mint-tracked-link.yaml": _a387,
+  "content-calendar/config/automations/monday-digest.yaml": _a388,
+  "content-calendar/config/automations/nightly-reset.yaml": _a389,
+  "content-calendar/config/automations/own-new-piece.yaml": _a390,
+  "content-calendar/config/design.yaml": _a391,
+  "content-calendar/config/forms/new-piece.yaml": _a392,
+  "content-calendar/config/pages/_new-piece-dialog.yaml": _a393,
+  "content-calendar/config/pages/_piece-detail.yaml": _a394,
+  "content-calendar/config/pages/_shell.yaml": _a395,
+  "content-calendar/config/pages/calendar.yaml": _a396,
+  "content-calendar/config/pages/content.yaml": _a397,
+  "content-calendar/config/pages/pipeline.yaml": _a398,
+  "content-calendar/config/pages/sign-in.yaml": _a399,
+  "content-calendar/config/tables/campaigns.yaml": _a400,
+  "content-calendar/config/tables/content.yaml": _a401,
+  "content-calendar/library/connection/linkedin.yaml": _a402,
+  "content-calendar/library/recipe/record-to-linkedin-post.yaml": _a403,
+  "content-calendar/public/.gitkeep": _a404,
+  "content-calendar/public/favicon.svg": _a405,
+  "content-calendar/seed/assets/thumbnail-install.png": _a406,
+  "content-calendar/seed/campaigns.yaml": _a407,
+  "content-calendar/seed/content.yaml": _a408,
+  "content-calendar/seed/users.yaml": _a409,
+  "content-calendar/template.yaml": _a410,
+  "crm/app.yaml": _a411,
+  "crm/config/agents/records-assistant.yaml": _a412,
+  "crm/config/auth.yaml": _a413,
+  "crm/config/automations/deal-won-notification.yaml": _a414,
+  "crm/config/automations/nightly-reset.yaml": _a415,
+  "crm/config/design.yaml": _a416,
+  "crm/config/forms/add-contact.yaml": _a417,
+  "crm/config/forms/add-deal.yaml": _a418,
+  "crm/config/forms/add-task.yaml": _a419,
+  "crm/config/pages/_shell.yaml": _a420,
+  "crm/config/pages/assistant.yaml": _a421,
+  "crm/config/pages/companies.yaml": _a422,
+  "crm/config/pages/contacts.yaml": _a423,
+  "crm/config/pages/pipeline.yaml": _a424,
+  "crm/config/pages/sign-in.yaml": _a425,
+  "crm/config/pages/tasks.yaml": _a426,
+  "crm/config/tables/companies.yaml": _a427,
+  "crm/config/tables/contacts.yaml": _a428,
+  "crm/config/tables/deals.yaml": _a429,
+  "crm/config/tables/tasks.yaml": _a430,
+  "crm/library/block/companies-toolbar.yaml": _a431,
+  "crm/library/block/contacts-toolbar.yaml": _a432,
+  "crm/library/connection/hubspot.yaml": _a433,
+  "crm/library/connection/slack.yaml": _a434,
+  "crm/library/recipe/form-to-hubspot.yaml": _a435,
+  "crm/library/recipe/record-to-slack.yaml": _a436,
+  "crm/public/.gitkeep": _a437,
+  "crm/public/favicon.svg": _a438,
+  "crm/seed/companies.yaml": _a439,
+  "crm/seed/contacts.yaml": _a440,
+  "crm/seed/deals.yaml": _a441,
+  "crm/seed/tasks.yaml": _a442,
+  "crm/seed/users.yaml": _a443,
+  "crm/template.yaml": _a444,
+  "docs-site/app.yaml": _a445,
+  "docs-site/config/automations/nightly-reset.yaml": _a446,
+  "docs-site/config/design.yaml": _a447,
+  "docs-site/config/pages/_brand-bar.yaml": _a448,
+  "docs-site/config/pages/_docs-header.yaml": _a449,
+  "docs-site/config/pages/_section-cards.yaml": _a450,
+  "docs-site/config/pages/_site-footer.yaml": _a451,
+  "docs-site/config/pages/_site-header.yaml": _a452,
+  "docs-site/config/pages/docs.yaml": _a453,
+  "docs-site/config/pages/home.yaml": _a454,
+  "docs-site/config/pages/not-found.yaml": _a455,
+  "docs-site/content/docs/guides/configuration.md": _a456,
+  "docs-site/content/docs/guides/deployment.md": _a457,
+  "docs-site/content/docs/guides/theming.md": _a458,
+  "docs-site/content/docs/installation.md": _a459,
+  "docs-site/content/docs/introduction.md": _a460,
+  "docs-site/content/docs/quick-start.md": _a461,
+  "docs-site/public/.gitkeep": _a462,
+  "docs-site/public/docs/files-to-pages.avif": _a463,
+  "docs-site/public/favicon.svg": _a464,
+  "docs-site/template.yaml": _a465,
+  "events/app.yaml": _a466,
+  "events/config/auth.yaml": _a467,
+  "events/config/automations/announce-event.yaml": _a468,
+  "events/config/automations/confirm-registration.yaml": _a469,
+  "events/config/automations/nightly-reset.yaml": _a470,
+  "events/config/automations/recount-seats.yaml": _a471,
+  "events/config/automations/track-registration.yaml": _a472,
+  "events/config/design.yaml": _a473,
+  "events/config/forms/join-waitlist.yaml": _a474,
+  "events/config/forms/new-event.yaml": _a475,
+  "events/config/forms/register.yaml": _a476,
+  "events/config/pages/_shell.yaml": _a477,
+  "events/config/pages/_site-footer.yaml": _a478,
+  "events/config/pages/_site-header.yaml": _a479,
+  "events/config/pages/calendar.yaml": _a480,
+  "events/config/pages/home.yaml": _a481,
+  "events/config/pages/on-the-waitlist.yaml": _a482,
+  "events/config/pages/register.yaml": _a483,
+  "events/config/pages/registrations.yaml": _a484,
+  "events/config/pages/sign-in.yaml": _a485,
+  "events/config/pages/thanks-event.yaml": _a486,
+  "events/config/pages/thanks.yaml": _a487,
+  "events/config/pages/waitlist.yaml": _a488,
+  "events/config/tables/calendar_events.yaml": _a489,
+  "events/config/tables/events.yaml": _a490,
+  "events/config/tables/registrations.yaml": _a491,
+  "events/library/connection/discord.yaml": _a492,
+  "events/library/connection/google.yaml": _a493,
+  "events/library/recipe/google-calendar-events-to-table.yaml": _a494,
+  "events/public/.gitkeep": _a495,
+  "events/public/favicon.svg": _a496,
+  "events/seed/events.yaml": _a497,
+  "events/seed/registrations.yaml": _a498,
+  "events/seed/users.yaml": _a499,
+  "events/template.yaml": _a500,
+  "expenses/app.yaml": _a501,
+  "expenses/config/auth.yaml": _a502,
+  "expenses/config/automations/approve-expense.yaml": _a503,
+  "expenses/config/automations/mark-reimbursed.yaml": _a504,
+  "expenses/config/automations/nightly-reset.yaml": _a505,
+  "expenses/config/automations/reject-with-reason.yaml": _a506,
+  "expenses/config/design.yaml": _a507,
+  "expenses/config/forms/add-expense.yaml": _a508,
+  "expenses/config/pages/_shell.yaml": _a509,
+  "expenses/config/pages/home.yaml": _a510,
+  "expenses/config/pages/my-expenses.yaml": _a511,
+  "expenses/config/pages/reimburse.yaml": _a512,
+  "expenses/config/pages/review.yaml": _a513,
+  "expenses/config/pages/sign-in.yaml": _a514,
+  "expenses/config/tables/bank-transactions.yaml": _a515,
+  "expenses/config/tables/expenses.yaml": _a516,
+  "expenses/library/connection/qonto.yaml": _a517,
+  "expenses/library/recipe/qonto-transactions-to-table.yaml": _a518,
+  "expenses/public/.gitkeep": _a519,
+  "expenses/public/favicon.svg": _a520,
+  "expenses/seed/assets/breakfast.jpg": _a521,
+  "expenses/seed/assets/coffee.jpg": _a522,
+  "expenses/seed/assets/desk.jpg": _a523,
+  "expenses/seed/assets/dinner-lyon.jpg": _a524,
+  "expenses/seed/assets/flights-ber.pdf": _a525,
+  "expenses/seed/assets/headset.pdf": _a526,
+  "expenses/seed/assets/hotel-ber.pdf": _a527,
+  "expenses/seed/assets/invoice-seats.pdf": _a528,
+  "expenses/seed/assets/lunch.jpg": _a529,
+  "expenses/seed/assets/monitor.pdf": _a530,
+  "expenses/seed/assets/pm.pdf": _a531,
+  "expenses/seed/assets/rail.pdf": _a532,
+  "expenses/seed/assets/saas-annual.pdf": _a533,
+  "expenses/seed/assets/tablet.pdf": _a534,
+  "expenses/seed/assets/ticket.pdf": _a535,
+  "expenses/seed/assets/transfer.jpg": _a536,
+  "expenses/seed/assets/upgrade.pdf": _a537,
+  "expenses/seed/expenses.yaml": _a538,
+  "expenses/seed/users.yaml": _a539,
+  "expenses/template.yaml": _a540,
+  "hello-world/app.yaml": _a541,
+  "hello-world/public/.gitkeep": _a542,
+  "hello-world/public/favicon.svg": _a543,
+  "hello-world/template.yaml": _a544,
+  "helpdesk/app.yaml": _a545,
+  "helpdesk/config/auth.yaml": _a546,
+  "helpdesk/config/automations/collect-ticket-notes.yaml": _a547,
+  "helpdesk/config/automations/morning-notes-digest.yaml": _a548,
+  "helpdesk/config/automations/nightly-reset.yaml": _a549,
+  "helpdesk/config/automations/when-a-ticket-arrives.yaml": _a550,
+  "helpdesk/config/automations/when-resolved.yaml": _a551,
+  "helpdesk/config/design.yaml": _a552,
+  "helpdesk/config/forms/contact-support.yaml": _a553,
+  "helpdesk/config/forms/rate-answer.yaml": _a554,
+  "helpdesk/config/pages/_shell.yaml": _a555,
+  "helpdesk/config/pages/_site-footer.yaml": _a556,
+  "helpdesk/config/pages/_site-header.yaml": _a557,
+  "helpdesk/config/pages/home.yaml": _a558,
+  "helpdesk/config/pages/rate.yaml": _a559,
+  "helpdesk/config/pages/reports.yaml": _a560,
+  "helpdesk/config/pages/sign-in.yaml": _a561,
+  "helpdesk/config/pages/thanks.yaml": _a562,
+  "helpdesk/config/pages/ticket.yaml": _a563,
+  "helpdesk/config/pages/tickets.yaml": _a564,
+  "helpdesk/config/pages/triage.yaml": _a565,
+  "helpdesk/config/tables/ratings.yaml": _a566,
+  "helpdesk/config/tables/ticket_replies.yaml": _a567,
+  "helpdesk/config/tables/tickets.yaml": _a568,
+  "helpdesk/library/block/record-comments.yaml": _a569,
+  "helpdesk/library/connection/linear.yaml": _a570,
+  "helpdesk/library/recipe/record-to-linear-issue.yaml": _a571,
+  "helpdesk/public/.gitkeep": _a572,
+  "helpdesk/public/favicon.svg": _a573,
+  "helpdesk/seed/ratings.yaml": _a574,
+  "helpdesk/seed/ticket_replies.yaml": _a575,
+  "helpdesk/seed/tickets.yaml": _a576,
+  "helpdesk/seed/users.yaml": _a577,
+  "helpdesk/template.yaml": _a578,
+  "intranet/app.yaml": _a579,
+  "intranet/config/auth.yaml": _a580,
+  "intranet/config/automations/nightly-reset.yaml": _a581,
+  "intranet/config/automations/sign-new-announcement.yaml": _a582,
+  "intranet/config/design.yaml": _a583,
+  "intranet/config/forms/publish-announcement.yaml": _a584,
+  "intranet/config/pages/_post-card.yaml": _a585,
+  "intranet/config/pages/_post-drawer.yaml": _a586,
+  "intranet/config/pages/_shell.yaml": _a587,
+  "intranet/config/pages/_site-footer.yaml": _a588,
+  "intranet/config/pages/_site-header.yaml": _a589,
+  "intranet/config/pages/home.yaml": _a590,
+  "intranet/config/pages/news.yaml": _a591,
+  "intranet/config/pages/people.yaml": _a592,
+  "intranet/config/pages/portal.yaml": _a593,
+  "intranet/config/pages/publish.yaml": _a594,
+  "intranet/config/pages/resources.yaml": _a595,
+  "intranet/config/pages/sign-in-password.yaml": _a596,
+  "intranet/config/pages/sign-in.yaml": _a597,
+  "intranet/config/tables/acknowledgements.yaml": _a598,
+  "intranet/config/tables/company.yaml": _a599,
+  "intranet/config/tables/events.yaml": _a600,
+  "intranet/config/tables/members.yaml": _a601,
+  "intranet/config/tables/posts.yaml": _a602,
+  "intranet/config/tables/resources.yaml": _a603,
+  "intranet/library/connection/microsoft-365.yaml": _a604,
+  "intranet/library/recipe/record-to-teams-channel.yaml": _a605,
+  "intranet/public/.gitkeep": _a606,
+  "intranet/public/favicon.svg": _a607,
+  "intranet/seed/acknowledgements.yaml": _a608,
+  "intranet/seed/company.yaml": _a609,
+  "intranet/seed/events.yaml": _a610,
+  "intranet/seed/members.yaml": _a611,
+  "intranet/seed/posts.yaml": _a612,
+  "intranet/seed/resources.yaml": _a613,
+  "intranet/seed/users.yaml": _a614,
+  "intranet/template.yaml": _a615,
+  "inventory/app.yaml": _a616,
+  "inventory/config/agents/catalog-assistant.yaml": _a617,
+  "inventory/config/auth.yaml": _a618,
+  "inventory/config/automations/low-stock-digest.yaml": _a619,
+  "inventory/config/design.yaml": _a620,
+  "inventory/config/forms/add-order.yaml": _a621,
+  "inventory/config/forms/add-product.yaml": _a622,
+  "inventory/config/forms/record-movement.yaml": _a623,
+  "inventory/config/pages/_add-order.yaml": _a624,
+  "inventory/config/pages/_add-product.yaml": _a625,
+  "inventory/config/pages/_product-columns.yaml": _a626,
+  "inventory/config/pages/_record-movement.yaml": _a627,
+  "inventory/config/pages/_shell.yaml": _a628,
+  "inventory/config/pages/assistant.yaml": _a629,
+  "inventory/config/pages/orders.yaml": _a630,
+  "inventory/config/pages/products.yaml": _a631,
+  "inventory/config/pages/sign-in.yaml": _a632,
+  "inventory/config/pages/stock.yaml": _a633,
+  "inventory/config/pages/suppliers.yaml": _a634,
+  "inventory/config/tables/orders.yaml": _a635,
+  "inventory/config/tables/products.yaml": _a636,
+  "inventory/config/tables/purchase_orders.yaml": _a637,
+  "inventory/config/tables/stock_movements.yaml": _a638,
+  "inventory/config/tables/suppliers.yaml": _a639,
+  "inventory/config/tables/warehouses.yaml": _a640,
+  "inventory/library/connection/google.yaml": _a641,
+  "inventory/library/recipe/record-to-google-doc.yaml": _a642,
+  "inventory/public/.gitkeep": _a643,
+  "inventory/public/favicon.svg": _a644,
+  "inventory/seed/orders.yaml": _a645,
+  "inventory/seed/products.yaml": _a646,
+  "inventory/seed/purchase_orders.yaml": _a647,
+  "inventory/seed/stock_movements.yaml": _a648,
+  "inventory/seed/suppliers.yaml": _a649,
+  "inventory/seed/users.yaml": _a650,
+  "inventory/seed/warehouses.yaml": _a651,
+  "inventory/template.yaml": _a652,
+  "knowledge-base/app.yaml": _a653,
+  "knowledge-base/config/agents/handbook-assistant.yaml": _a654,
+  "knowledge-base/config/auth.yaml": _a655,
+  "knowledge-base/config/automations/nightly-reset.yaml": _a656,
+  "knowledge-base/config/design.yaml": _a657,
+  "knowledge-base/config/pages/_kb-header.yaml": _a658,
+  "knowledge-base/config/pages/_managers-nav.yaml": _a659,
+  "knowledge-base/config/pages/_reading-frame.yaml": _a660,
+  "knowledge-base/config/pages/_site-footer.yaml": _a661,
+  "knowledge-base/config/pages/_site-header.yaml": _a662,
+  "knowledge-base/config/pages/assistant.yaml": _a663,
+  "knowledge-base/config/pages/home.yaml": _a664,
+  "knowledge-base/config/pages/kb-managers.yaml": _a665,
+  "knowledge-base/config/pages/kb.yaml": _a666,
+  "knowledge-base/config/pages/not-found.yaml": _a667,
+  "knowledge-base/config/pages/sign-in.yaml": _a668,
+  "knowledge-base/content/kb/getting-started/first-week.md": _a669,
+  "knowledge-base/content/kb/getting-started/welcome.md": _a670,
+  "knowledge-base/content/kb/it/laptop.md": _a671,
+  "knowledge-base/content/kb/policies/expense-policy.md": _a672,
+  "knowledge-base/content/kb/policies/security-policy.md": _a673,
+  "knowledge-base/content/kb/start.md": _a674,
+  "knowledge-base/content/kb-managers/hiring.md": _a675,
+  "knowledge-base/content/kb-managers/pay-reviews.md": _a676,
+  "knowledge-base/library/block/not-found-with-links.yaml": _a677,
+  "knowledge-base/public/.gitkeep": _a678,
+  "knowledge-base/public/favicon.svg": _a679,
+  "knowledge-base/public/handbook/laptop-setup.avif": _a680,
+  "knowledge-base/seed/users.yaml": _a681,
+  "knowledge-base/template.yaml": _a682,
+  "landing-page/app.yaml": _a683,
+  "landing-page/config/auth.yaml": _a684,
+  "landing-page/config/automations/nightly-reset.yaml": _a685,
+  "landing-page/config/components/feature-card.yaml": _a686,
+  "landing-page/config/components/language-switcher.yaml": _a687,
+  "landing-page/config/components/step-card.yaml": _a688,
+  "landing-page/config/design.yaml": _a689,
+  "landing-page/config/forms/demo-request.yaml": _a690,
+  "landing-page/config/languages.yaml": _a691,
+  "landing-page/config/pages/_body.yaml": _a692,
+  "landing-page/config/pages/_demo.yaml": _a693,
+  "landing-page/config/pages/_hero.yaml": _a694,
+  "landing-page/config/pages/_site-footer.yaml": _a695,
+  "landing-page/config/pages/_site-header.yaml": _a696,
+  "landing-page/config/pages/home.yaml": _a697,
+  "landing-page/config/tables/demo-requests.yaml": _a698,
+  "landing-page/library/connection/pipedrive.yaml": _a699,
+  "landing-page/library/recipe/form-to-pipedrive-lead.yaml": _a700,
+  "landing-page/public/.gitkeep": _a701,
+  "landing-page/public/favicon.svg": _a702,
+  "landing-page/public/og-en.png": _a703,
+  "landing-page/public/og-fr.png": _a704,
+  "landing-page/template.yaml": _a705,
+  "marketing-site/app.yaml": _a706,
+  "marketing-site/config/auth.yaml": _a707,
+  "marketing-site/config/forms/contact.yaml": _a708,
+  "marketing-site/config/forms/newsletter.yaml": _a709,
+  "marketing-site/config/languages.yaml": _a710,
+  "marketing-site/config/pages/about.yaml": _a711,
+  "marketing-site/config/pages/article.yaml": _a712,
+  "marketing-site/config/pages/blog.yaml": _a713,
+  "marketing-site/config/pages/contact.yaml": _a714,
+  "marketing-site/config/pages/features.yaml": _a715,
+  "marketing-site/config/pages/guide.yaml": _a716,
+  "marketing-site/config/pages/home.yaml": _a717,
+  "marketing-site/config/pages/moved.yaml": _a718,
+  "marketing-site/config/pages/not-found.yaml": _a719,
+  "marketing-site/config/pages/pricing.yaml": _a720,
+  "marketing-site/config/pages/product.yaml": _a721,
+  "marketing-site/config/tables/messages.yaml": _a722,
+  "marketing-site/config/tables/orders.yaml": _a723,
+  "marketing-site/config/tables/posts.yaml": _a724,
+  "marketing-site/config/tables/subscribers.yaml": _a725,
+  "marketing-site/library/block/banner-top.yaml": _a726,
+  "marketing-site/library/block/bento-feature-stack.yaml": _a727,
+  "marketing-site/library/block/blog-cards.yaml": _a728,
+  "marketing-site/library/block/blog-list.yaml": _a729,
+  "marketing-site/library/block/contact-centered.yaml": _a730,
+  "marketing-site/library/block/contact-split.yaml": _a731,
+  "marketing-site/library/block/content-prose.yaml": _a732,
+  "marketing-site/library/block/content-with-toc.yaml": _a733,
+  "marketing-site/library/block/cta-banner.yaml": _a734,
+  "marketing-site/library/block/cta-split.yaml": _a735,
+  "marketing-site/library/block/faq-accordion.yaml": _a736,
+  "marketing-site/library/block/faq-two-column.yaml": _a737,
+  "marketing-site/library/block/feature-alternating.yaml": _a738,
+  "marketing-site/library/block/feature-grid.yaml": _a739,
+  "marketing-site/library/block/feature-list-icons.yaml": _a740,
+  "marketing-site/library/block/footer-columns.yaml": _a741,
+  "marketing-site/library/block/footer-simple.yaml": _a742,
+  "marketing-site/library/block/header-centered.yaml": _a743,
+  "marketing-site/library/block/header-with-links.yaml": _a744,
+  "marketing-site/library/block/hero-centered.yaml": _a745,
+  "marketing-site/library/block/hero-split-image.yaml": _a746,
+  "marketing-site/library/block/hero-with-screenshot.yaml": _a747,
+  "marketing-site/library/block/logos-grid.yaml": _a748,
+  "marketing-site/library/block/logos-marquee.yaml": _a749,
+  "marketing-site/library/block/navbar-flyout.yaml": _a750,
+  "marketing-site/library/block/navbar-simple.yaml": _a751,
+  "marketing-site/library/block/newsletter-centered.yaml": _a752,
+  "marketing-site/library/block/newsletter-inline.yaml": _a753,
+  "marketing-site/library/block/not-found-centered.yaml": _a754,
+  "marketing-site/library/block/not-found-with-links.yaml": _a755,
+  "marketing-site/library/block/pricing-comparison.yaml": _a756,
+  "marketing-site/library/block/pricing-three-tier.yaml": _a757,
+  "marketing-site/library/block/pricing-toggle.yaml": _a758,
+  "marketing-site/library/block/stats-from-table.yaml": _a759,
+  "marketing-site/library/block/stats-row.yaml": _a760,
+  "marketing-site/library/block/team-grid.yaml": _a761,
+  "marketing-site/library/block/team-list.yaml": _a762,
+  "marketing-site/library/block/testimonial-grid.yaml": _a763,
+  "marketing-site/library/block/testimonial-single.yaml": _a764,
+  "marketing-site/public/favicon.svg": _a765,
+  "marketing-site/seed/orders.yaml": _a766,
+  "marketing-site/seed/posts.yaml": _a767,
+  "marketing-site/template.yaml": _a768,
+  "mcp-server/app.yaml": _a769,
+  "mcp-server/config/auth.yaml": _a770,
+  "mcp-server/config/automations/import-runbook.yaml": _a771,
+  "mcp-server/config/decisions/adr-001-assistants-add-never-edit.yaml": _a772,
+  "mcp-server/config/decisions/adr-002-a-key-acts-as-its-owner.yaml": _a773,
+  "mcp-server/config/decisions/adr-003-sqlite-by-default.yaml": _a774,
+  "mcp-server/config/design.yaml": _a775,
+  "mcp-server/config/pages/home.yaml": _a776,
+  "mcp-server/config/tables/documents.yaml": _a777,
+  "mcp-server/config/tables/tags.yaml": _a778,
+  "mcp-server/library/connection/github.yaml": _a779,
+  "mcp-server/public/favicon.svg": _a780,
+  "mcp-server/seed/documents.yaml": _a781,
+  "mcp-server/seed/tags.yaml": _a782,
+  "mcp-server/seed/users.yaml": _a783,
+  "mcp-server/template.yaml": _a784,
+  "people/app.yaml": _a785,
+  "people/config/auth.yaml": _a786,
+  "people/config/automations/approve-time-off.yaml": _a787,
+  "people/config/automations/join-new-account-to-directory.yaml": _a788,
+  "people/config/automations/nightly-reset.yaml": _a789,
+  "people/config/design.yaml": _a790,
+  "people/config/forms/add-person.yaml": _a791,
+  "people/config/forms/request-time-off.yaml": _a792,
+  "people/config/pages/_shell.yaml": _a793,
+  "people/config/pages/directory.yaml": _a794,
+  "people/config/pages/overview.yaml": _a795,
+  "people/config/pages/requests.yaml": _a796,
+  "people/config/pages/sign-in.yaml": _a797,
+  "people/config/pages/time-off.yaml": _a798,
+  "people/config/tables/employees.yaml": _a799,
+  "people/config/tables/time_off_requests.yaml": _a800,
+  "people/library/connection/google.yaml": _a801,
+  "people/library/recipe/record-to-google-doc.yaml": _a802,
+  "people/public/.gitkeep": _a803,
+  "people/public/favicon.svg": _a804,
+  "people/seed/employees.yaml": _a805,
+  "people/seed/time_off_requests.yaml": _a806,
+  "people/seed/users.yaml": _a807,
+  "people/template.yaml": _a808,
+  "projects/app.yaml": _a809,
+  "projects/config/auth.yaml": _a810,
+  "projects/config/automations/chase-blocked-tasks.yaml": _a811,
+  "projects/config/automations/nightly-reset.yaml": _a812,
+  "projects/config/automations/notify-assignee-on-blocked.yaml": _a813,
+  "projects/config/design.yaml": _a814,
+  "projects/config/forms/add-task.yaml": _a815,
+  "projects/config/forms/new-project.yaml": _a816,
+  "projects/config/pages/_add-task.yaml": _a817,
+  "projects/config/pages/_shell.yaml": _a818,
+  "projects/config/pages/board.yaml": _a819,
+  "projects/config/pages/calendar.yaml": _a820,
+  "projects/config/pages/dashboard.yaml": _a821,
+  "projects/config/pages/sign-in.yaml": _a822,
+  "projects/config/pages/timeline.yaml": _a823,
+  "projects/config/tables/projects.yaml": _a824,
+  "projects/config/tables/tasks.yaml": _a825,
+  "projects/library/connection/microsoft-365.yaml": _a826,
+  "projects/library/recipe/record-to-teams-channel.yaml": _a827,
+  "projects/public/.gitkeep": _a828,
+  "projects/public/favicon.svg": _a829,
+  "projects/seed/projects.yaml": _a830,
+  "projects/seed/tasks.yaml": _a831,
+  "projects/seed/users.yaml": _a832,
+  "projects/template.yaml": _a833,
+  "README.md": _a834,
 }
 
 /** Design-system console sample-media basename → embedded path. */
 export const DESIGN_SYSTEM_SAMPLE_FILES = {
-  "sample-chime.mp3": _a977,
-  "sample-motion.webm": _a978,
-  "sample-still.avif": _a979,
+  "sample-chime.mp3": _a835,
+  "sample-motion.webm": _a836,
+  "sample-still.avif": _a837,
 }
 
 /** Brand-mark `<unit>/<file>` key → embedded path. */
 export const BRAND_MARK_FILES = {
-  "academy/mark-dark-outline.svg": _a980,
-  "academy/mark-light-outline.svg": _a981,
-  "cloud/mark-dark-outline.svg": _a982,
-  "cloud/mark-light-outline.svg": _a983,
-  "partner/mark-dark-outline.svg": _a984,
-  "partner/mark-light-outline.svg": _a985,
-  "sovrium/mark-dark-outline.svg": _a986,
-  "sovrium/mark-light-outline.svg": _a987,
+  "academy/mark-dark-outline.svg": _a838,
+  "academy/mark-light-outline.svg": _a839,
+  "cloud/mark-dark-outline.svg": _a840,
+  "cloud/mark-light-outline.svg": _a841,
+  "partner/mark-dark-outline.svg": _a842,
+  "partner/mark-light-outline.svg": _a843,
+  "sovrium/mark-dark-outline.svg": _a844,
+  "sovrium/mark-light-outline.svg": _a845,
 }

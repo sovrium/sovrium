@@ -329,11 +329,11 @@ interface RenderPageHtmlInput {
   /** The path the page was matched for, dynamic segments filled: what its alternates describe. */
   readonly renderedPath?: string
   /**
-   * `false` draws no demo notice whatever the environment says: a design-system
+   * `false` draws no dev-mode notice whatever the environment says: a design-system
    * frame pictures the operator's template, and a panel the hosting instance
    * pins over it would hide the very component a reader came to review.
    */
-  readonly demoNotice?: false | undefined
+  readonly devNotice?: false | undefined
 }
 
 export function renderPageHtml(input: RenderPageHtmlInput): string {
@@ -363,7 +363,7 @@ export function renderPageHtml(input: RenderPageHtmlInput): string {
           <DynamicPage
             page={stampAuthFormFacts(page, policyApp, app)}
             badgePlacement={resolveBadge(app.badge)}
-            demoNoticeEnabled={input.demoNotice !== false && !isOperatorConsoleApp(app)}
+            devNoticeEnabled={input.devNotice !== false && !isOperatorConsoleApp(app)}
             components={stampAuthFormFacts(appComponents, policyApp, app)}
             // One position, `app.design`, with no fallback to an alias: the no-FOUC
             // colour-scheme bootstrap reads its tokens from here, and without them

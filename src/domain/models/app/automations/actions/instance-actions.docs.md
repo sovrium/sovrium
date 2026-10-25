@@ -1,6 +1,6 @@
 # Instance Actions
 
-> Supervise other Sovrium apps running on the same machine — read their state, start and suspend them, apply a signed release, roll it back, probe them, read their logs, back them up, restore them, seed them, and install the engine each one runs on — from an ordinary automation.
+> Supervise other Sovrium apps running on the same machine — read their state and what they hold, start and suspend them, apply a signed release, roll it back, probe them, read their logs, back them up, restore them, seed them, and install the engine each one runs on — from an ordinary automation.
 
 Every other action family works inside its own app. The `instance` family reaches the machine: it drives the systemd units of **other** Sovrium apps, each running as `sovrium-app@<slug>.service`. That is what lets a fleet agent be a Sovrium app like any other — a cron trigger that reads the desired state, loops over the apps, compares revisions and applies what changed — rather than a separate daemon.
 
@@ -66,6 +66,7 @@ No instance action can be granted to an AI agent, whatever the switch says.
 | `backup`  | `systemctl start sovrium-backup@<slug>.service`, then stores the archive it leaves                                                                                              |
 | `restore` | `stop`, then `systemctl start sovrium-restore@<slug>.service`, then `start`                                                                                                     |
 | `seed`    | `systemctl start sovrium-seed@<slug>.service`, then returns the report it leaves                                                                                                |
+| `usage`   | `systemctl start sovrium-usage@<slug>.service`, then returns the report it leaves                                                                                               |
 
 `engineInstall` and `enginePrune` touch no unit: they write the engine store only.
 
@@ -190,4 +191,10 @@ A supervised app runs as its own system user, whose data the agent cannot read. 
 
 The step's output is kept in the run history, so an invitation the seed files issue appears with its email and without its link, which would let anyone reading the history accept it. A release with no `seed/` folder fails the step before anything is started. Whatever the seeder refuses — an `upsert` on a table with no merge key, a seed file for a table the config no longer has — fails the step with the seeder's own message. The step takes no backup: an agent that runs a `replace` runs `backup` first.
 
-Those three units are defined on the host beside `sovrium-app@.service`; the engine only starts them.
+## Usage
+
+`usage` answers how many bytes an app holds: its database and its stored files. Like a backup, it is measured as the app, which owns that data: the step deletes any `usage/report.json` an earlier run left in the app's folder, starts the one-shot unit `sovrium-usage@<slug>.service`, which runs `sovrium usage project/app.json --report …` as the app, returns the report that unit leaves and deletes it. Its only prop is `slug`. The output is `{ slug, database, databaseBytes, storage, filesBytes, measuredAt, unmeasured }`, the figures `sovrium usage` reports: SQLite counts the database file and its write-ahead log, PostgreSQL its `pg_database_size`; local files are summed on disk with no link followed, and files in S3 or in the database are summed from the sizes Sovrium recorded, with no request to the bucket. A figure that cannot be measured is `null` and listed in `unmeasured` with its reason. A refused unit fails the step with the unit's name and systemd's answer, and a unit that leaves no report fails it saying so: a report from an earlier run is never answered. The output carries numbers only — no path, URL or credential.
+
+`usage` is separate from `status` on purpose: `status` is one cheap read a reconcile loop can take on every tick, while `usage` runs a unit and reads a database, so schedule it on its own — hourly or daily.
+
+Those four units are defined on the host beside `sovrium-app@.service`; the engine only starts them.

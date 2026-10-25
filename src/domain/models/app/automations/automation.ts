@@ -9,6 +9,7 @@ import { Schema, SchemaGetter } from 'effect'
 import { AiAccessSchema } from '@/domain/models/app/auth/ai-access'
 import { PermissionValueSchema } from '@/domain/models/app/auth/permissions'
 import { type Action, ActionSchema } from './actions'
+import { findRecordFilterRefusals } from './condition-validation'
 import { findReservedStepNames } from './reserved-step-name-validation'
 import { RetryConfigSchema } from './retry'
 import { findTodoPlaceholders } from './todo-placeholder-validation'
@@ -289,7 +290,9 @@ export const AutomationInputSchema = Schema.Struct({
   Schema.check(Schema.makeFilter((automation) => validateTriggerList(automation))),
   // An automation switched on may not keep a `{{todo.*}}` placeholder the
   // import left: one issue per name per step, at its own path.
-  Schema.check(Schema.makeFilter((automation) => findTodoPlaceholders(automation)))
+  Schema.check(Schema.makeFilter((automation) => findTodoPlaceholders(automation))),
+  // `matches` cannot run in a record step's filter: one issue per condition.
+  Schema.check(Schema.makeFilter((automation) => findRecordFilterRefusals(automation.actions)))
 )
 
 /**

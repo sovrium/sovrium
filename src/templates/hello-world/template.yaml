@@ -1,0 +1,34 @@
+title: 'Sovrium Hello World'
+tagline: |
+  The one-page starter. Where every app begins.
+intro: |
+  Hello World — the first page after `sovrium init`. One page at `/` says the app runs, shows
+  the lines of `app.yaml` that make it, and links the documentation and the templates; a page
+  at `/404` answers any address that has no page yet, with the way back. No tables, no
+  sign-in.
+glance:
+  - '**Pages** (2): home (`/`), not-found (`/404`, served for any address that answers nothing)'
+  - '**Singletons**: design (inline: twelve colour roles per scheme, `colorScheme: system`)'
+  - '**Static assets**: `public/` (served at the site root)'
+glanceClose: |
+  Config is a single inline `app.yaml` — split it under `config/` with `$ref` as the app grows.
+assistant: |
+  Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+  run into `.claude/skills/`; start from `sovrium-app` for any change to the config. The usual
+  first change is to replace the page at `/` with your own. Keep the voice of the design block:
+  say what happened, name the file, no exclamation marks.
+whatsInside: |
+  One file, one page. The page says the app runs, shows the lines of
+  [`app.yaml`](./app.yaml) that make it, and links the documentation and the other
+  templates. Any address that answers nothing gets a 404 page with the way back. The page
+  follows the system's light or dark scheme.
+
+  Everything is declared in `app.yaml` — no application code, and no `config/` tree to
+  split it across.
+env:
+  - name: 'SOVRIUM_SELF_SEED'
+    section: 'Demo data'
+    description: |-
+      The nightly-reset automation resets a hosted demo at 04:07 each night, and
+      only when this is set — leave it unset on an app you keep data in.
+    example: 'reset'

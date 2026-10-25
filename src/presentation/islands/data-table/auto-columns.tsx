@@ -10,7 +10,7 @@ import { readDisplayLabel } from '../runtime/record-display-label'
 import { cellRendererOf } from './cell-renderer-registry'
 import { buildButtonCellRenderer } from './cells/button-cell'
 import { buildCellFieldOptions } from './cells/cell-field-options'
-import { typePlacementOf } from './cells/type-placement'
+import { presentedTypeOf, typePlacementOf } from './cells/type-placement'
 import { columnSortable } from './column-presentation'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type { DataTableCellContext, DataTableColumnDef } from './island/table-features'
@@ -38,7 +38,7 @@ function buildAutoCellRenderer(
   const buttonRenderer = buildButtonCellRenderer(field, options)
   if (buttonRenderer) return buttonRenderer
 
-  const fieldType = fieldMeta?.[field]?.type
+  const fieldType = presentedTypeOf(fieldMeta?.[field])
   if (!fieldType) return undefined
   const renderer = cellRendererOf(fieldType)
   if (!renderer) return undefined
@@ -85,7 +85,7 @@ function autoColumnMeta(
 ): DataTableColumnDef['meta'] {
   return {
     field,
-    ...typePlacementOf(undefined, meta?.type),
+    ...typePlacementOf(undefined, presentedTypeOf(meta)),
     ...(editable && meta?.readOnly !== true && { editable: true }),
   }
 }

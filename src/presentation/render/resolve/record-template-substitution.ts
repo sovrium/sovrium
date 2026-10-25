@@ -225,6 +225,30 @@ function substituteRecordInConfirm(confirm: unknown, raw: Record<string, unknown
   }
 }
 
+/** The four rungs of an avatar's fallback chain, each of which may name the record. */
+const AVATAR_RUNGS = ['src', 'label', 'alt', 'initials'] as const
+
+/**
+ * An avatar's rungs filled from the record, as a list row fills them, so an
+ * avatar placed directly on a page bound to one record reads that record. An
+ * attachment token was already turned into its address; an empty photo reads
+ * as an empty `src`, which the avatar draws as its initials.
+ */
+function avatarRungsOf(
+  component: Readonly<Record<string, unknown>>,
+  record: Record<string, unknown>
+): Readonly<Record<string, string>> {
+  if (component['type'] !== 'avatar') return {}
+  return Object.fromEntries(
+    AVATAR_RUNGS.flatMap((key) => {
+      const value = component[key]
+      return typeof value === 'string' && value.includes('$record.')
+        ? [[key, substituteRecordVars(value, record)]]
+        : []
+    })
+  )
+}
+
 /**
  * Build the spreadable `{ action?, fields?, confirmText? }` patch for a
  * collection-template component — substituting `$record.*` in an action's
@@ -279,6 +303,7 @@ export function buildRecordTemplatePatch(
     ...(items !== undefined && { items }),
     ...(panels !== undefined && { panels }),
     ...editSelectRecordPatch(component, record),
+    ...avatarRungsOf(component as Readonly<Record<string, unknown>>, record),
   }
 }
 

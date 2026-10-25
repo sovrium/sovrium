@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { resolveCardBadgeClasses } from '@/presentation/design/card-badge-class-resolution'
 import {
   GALLERY_CARD_BODY_CLASSES,
   GALLERY_CARD_SLOT_ATTRIBUTES,
@@ -41,7 +42,7 @@ function extractGalleryProps(
     ...(weekdays === undefined ? {} : { weekdays }),
     dataSource: elementProps.dataSource,
     gridColumns: elementProps.gridColumns,
-    galleryCard: elementProps.galleryCard,
+    galleryCard: resolveCardBadgeClasses(elementProps.galleryCard),
     emptyMessage: elementProps.emptyMessage,
     layout: elementProps.layout,
     featured: elementProps.featured,

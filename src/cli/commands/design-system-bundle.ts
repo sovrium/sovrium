@@ -35,6 +35,19 @@ import { lazyImportIndex } from './utils'
 import type { PageExportSelection } from '@/application/use-cases/admin/design-system-pages'
 import type { App } from '@/domain/models/app'
 
+/**
+ * A page the renderer could not draw, as a sentence naming the page, the
+ * address and the account it was drawn as; `undefined` for any other failure.
+ */
+const pageDrawSentenceOf = (error: unknown): string | undefined => {
+  const failure = error as
+    { readonly _tag?: unknown; readonly page?: unknown; readonly cause?: unknown } | undefined
+  const reason = (failure?.cause as { readonly reason?: unknown } | undefined)?.reason
+  return failure?._tag === 'DesignSystemPageDrawError' && typeof reason === 'string'
+    ? `The page ${String(failure.page)} could not be drawn: ${reason}.`
+    : undefined
+}
+
 /** Whether a path names a directory that exists and holds at least one entry. */
 const isOccupied = async (dir: string): Promise<boolean> =>
   readdir(dir)
@@ -84,7 +97,7 @@ export const writeDesignSystemBundle = async (
   const bundle = await buildDesignSystemBundle(app, source).catch((error: unknown) => {
     printStderr(
       `Error: The design system bundle could not be built.\n\n` +
-        `  ${formatRuntimeError(error)}\n\n` +
+        `  ${pageDrawSentenceOf(error) ?? formatRuntimeError(error)}\n\n` +
         `  Nothing was written to ${outputDir}.`
     )
     return process.exit(1)

@@ -14,7 +14,11 @@ import {
   resolveFigureInputsFor,
   type ChartCategoryOptionInput,
 } from './resolve-chart-field-context'
-import { resolveFieldDisplayMeta, resolveFieldEditMeta } from './resolve-field-cell-meta'
+import {
+  resolveFieldDisplayMeta,
+  resolveFieldEditMeta,
+  rollupResultMeta,
+} from './resolve-field-cell-meta'
 import {
   resolveFieldOptionColors,
   resolveKanbanColumnColors,
@@ -232,6 +236,7 @@ function resolveDataTableInputs(
             ...('required' in f && f.required ? { required: true } : {}),
             ...(display ? { display } : {}),
             ...(edit ? { edit } : {}),
+            ...rollupResultMeta(f, table, tables ?? []),
             ...resolveButtonFieldMeta(f),
           },
         ]

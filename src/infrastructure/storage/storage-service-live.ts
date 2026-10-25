@@ -6,7 +6,7 @@
  */
 
 import { Effect, Layer } from 'effect'
-import { StorageService, StorageError } from '@/application/ports/services/storage-service'
+import { StorageService } from '@/application/ports/services/storage-service'
 import {
   parseStorageEnvConfig,
   validateStorageSizeLimits,
@@ -17,42 +17,10 @@ import { findMissingS3EnvVar } from './s3-reachability'
 import { makeS3Storage } from './s3-storage'
 
 /**
- * The storage a process runs on when no provider resolves: every operation
- * fails naming how to enable storage, and the quota total reads zero.
- *
- * `parseStorageEnvConfig()` already applies the dialect-aware defaults:
- * PostgreSQL with no STORAGE_PROVIDER → bytea; SQLite (zero-config) with no
- * STORAGE_PROVIDER → local filesystem. It only returns `undefined` when storage
- * is genuinely disabled (no database and no STORAGE_PROVIDER). The matching
- * startup warning "Storage: Not configured (attachment fields will be
- * disabled)" is emitted by collectStoragePhases() in
- * src/infrastructure/server/startup-degradation-phases.ts (this layer is
- * constructed lazily per request, so it can't emit the warning itself).
+ * `parseStorageEnvConfig()` applies the dialect-aware defaults (PostgreSQL with
+ * no STORAGE_PROVIDER → bytea; SQLite → local filesystem) and refuses any
+ * other value, so file storage always resolves to a backend.
  */
-const notConfigured = (): StorageError =>
-  new StorageError({
-    cause:
-      'No storage provider configured. Set STORAGE_PROVIDER=s3|local or DATABASE_URL to enable file storage.',
-  })
-
-const notConfiguredStorage = (): StorageService['Service'] =>
-  StorageService.of({
-    upload: () => Effect.fail(notConfigured()),
-    downloadBounded: () => Effect.fail(notConfigured()),
-    delete: () => Effect.fail(notConfigured()),
-    deleteUncataloguedBytes: () => Effect.fail(notConfigured()),
-    getSignedUrl: () => Effect.fail(notConfigured()),
-    getMetadata: () => Effect.fail(notConfigured()),
-    findOtherSpelling: () => Effect.fail(notConfigured()),
-    statObject: () => Effect.fail(notConfigured()),
-    objectIdentity: () => Effect.fail(notConfigured()),
-    hashObject: () => Effect.fail(notConfigured()),
-    list: () => Effect.fail(notConfigured()),
-    listPage: () => Effect.fail(notConfigured()),
-    catalogBuckets: () => Effect.fail(notConfigured()),
-    getTotalBytes: Effect.succeed(0),
-  })
-
 export const StorageServiceLive = Layer.effect(
   StorageService,
   Effect.gen(function* () {
@@ -68,9 +36,8 @@ export const StorageServiceLive = Layer.effect(
       throw new Error(`Required env var ${missingS3Var} is missing`)
     }
     const config = parseStorageEnvConfig()
-    if (config?.provider === 's3') return yield* makeS3Storage(config)
-    if (config?.provider === 'local') return yield* makeLocalStorage(config.directory)
-    if (!config) return notConfiguredStorage()
+    if (config.provider === 's3') return yield* makeS3Storage(config)
+    if (config.provider === 'local') return yield* makeLocalStorage(config.directory)
     // Auto-fallback: bytea (DATABASE_URL is set).
     return yield* makeByteaStorage
   })

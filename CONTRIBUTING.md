@@ -91,7 +91,7 @@ Validate a configuration file against the schema:
 bun run src/cli/index.ts validate path/to/your/app.ts
 ```
 
-Starter configurations are available in the [`templates/`](templates/) directory.
+Starter configurations are available in the [`src/templates/`](src/templates/) directory.
 
 ## Coding standards
 

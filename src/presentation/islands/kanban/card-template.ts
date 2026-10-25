@@ -172,9 +172,24 @@ const RECORD_COMPONENTS: Readonly<Record<string, RecordComponentRenderer>> = {
   },
   badge: (child, record, key, classes) => {
     const text = childText(child, 'content', record)
-    return text === ''
-      ? undefined
-      : createElement('span', { key, [TYPE_STAMP]: 'badge', className: classes.badge }, text)
+    if (text === '') return undefined
+    // A badge naming a tone or a class arrives with its classes merged on the
+    // server (`resolveCardBadgeClasses`), tone first and the author's class
+    // over it, as the page badge merges them; one naming neither keeps the
+    // card's secondary chip.
+    const merged = child['badgeClassName']
+    const tone = child['badgeVariant']
+    return createElement(
+      'span',
+      {
+        key,
+        [TYPE_STAMP]: 'badge',
+        'data-slot': 'badge',
+        'data-variant': typeof tone === 'string' ? tone : 'secondary',
+        className: typeof merged === 'string' ? merged : classes.badge,
+      },
+      text
+    )
   },
 }
 

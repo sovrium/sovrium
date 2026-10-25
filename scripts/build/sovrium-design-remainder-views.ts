@@ -157,7 +157,7 @@ export const CANONICAL_COLOR_UTILITIES = [
  * Measured, not guessed: moving this prose deleted the utility from the
  * compiled stylesheet of `apps/website`, `apps/partner` and a bare app alike
  * (the admin console was unaffected — it takes the precompiled path). Nothing
- * in `src/`, `apps/`, `[internal ref]` or `templates/` uses `font-serif` as a class;
+ * in `src/` (the templates included), `apps/` or `[internal ref]` uses `font-serif` as a class;
  * every occurrence is prose saying the serif was deleted, and
  * `foundations.spec.ts` asserts the console shows no serif specimen at all.
  *

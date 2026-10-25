@@ -6,7 +6,7 @@
  */
 
 import { errorResponseSchema } from '@/domain/models/api/combinators/error'
-import { listRecordsQuerySchema, viewOnlyParamSchema } from '@/domain/models/api/tables/params'
+import { viewOnlyParamSchema, viewRecordsQuerySchema } from '@/domain/models/api/tables/params'
 import {
   getViewRecordsResponseSchema,
   getViewResponseSchema,
@@ -60,7 +60,7 @@ const routes: readonly RouteSpec[] = [
 
     parameters: [
       ...effectParameters(viewOnlyParamSchema, 'path'),
-      ...effectParameters(listRecordsQuerySchema, 'query'),
+      ...effectParameters(viewRecordsQuerySchema, 'query'),
     ],
     responses: {
       200: effectJsonResponse(getViewRecordsResponseSchema, 'Filtered records'),

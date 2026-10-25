@@ -12,7 +12,7 @@
 import { renderToString } from 'react-dom/server'
 import { findDeclaredDirection } from '@/domain/models/app/languages/language-detection'
 import { resolveBadge, type BadgePlacement } from '@/presentation/render/page/badge-placement'
-import { DemoNotice } from '@/presentation/render/page/demo-notice'
+import { DevNotice } from '@/presentation/render/page/dev-notice'
 import { SovriumBadge } from '@/presentation/render/page/sovrium-badge'
 import { getFormClosedLabels } from './form-closed-labels'
 import { resolveDocumentLang } from './form-document-lang'
@@ -149,7 +149,7 @@ function ClosedFormPage(props: {
             placement={badgePlacement}
           />
         )}
-        <DemoNotice lang={documentLang} />
+        <DevNotice lang={documentLang} />
       </body>
     </html>
   )

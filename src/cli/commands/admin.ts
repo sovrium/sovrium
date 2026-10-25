@@ -48,6 +48,30 @@ import type { AppEncoded } from '@/domain/models/app'
 export interface AdminCommandOptions {
   readonly configFile?: string
   readonly password?: string
+  /** `--name <name>` — the new account's display name, as typed (untrimmed). */
+  readonly name?: string
+}
+
+/**
+ * The display name a new admin gets: `--name` (trimmed) wins, then a
+ * non-blank `AUTH_ADMIN_NAME` (the first-start bootstrap's own rule), then
+ * `Administrator`. A `--name` holding nothing but whitespace is a mistake — an
+ * unset shell variable, say — so it is refused (exit 1) before anything runs,
+ * rather than silently read as "use the default".
+ */
+const resolveAdminName = (flagName: string | undefined): string => {
+  if (flagName !== undefined) {
+    const trimmed = flagName.trim()
+    if (trimmed.length > 0) return trimmed
+    printStderr(
+      'Error: --name is empty.\n\n' +
+        'Give the admin a display name, e.g. --name "Ines Moreau", or leave --name out\n' +
+        'to use AUTH_ADMIN_NAME (else "Administrator").'
+    )
+    process.exit(1)
+  }
+  const fromEnv = Bun.env.AUTH_ADMIN_NAME?.trim()
+  return fromEnv !== undefined && fromEnv.length > 0 ? fromEnv : 'Administrator'
 }
 
 /**
@@ -141,17 +165,18 @@ const handleAdminCreateCommand = async (
 ): Promise<void> => {
   if (!email) {
     printStderr(
-      'Error: No email specified.\n\nUsage:\n  sovrium admin create <email> [config] [--password <value>]'
+      'Error: No email specified.\n\nUsage:\n  sovrium admin create <email> [config] [--password <value>] [--name <name>]'
     )
     process.exit(1)
   }
 
+  const name = resolveAdminName(options.name)
   const password = await resolvePassword(options.password)
 
   const app = await loadAppSchemaOptional(options.configFile)
   const { createAdmin } = await import('@/index')
 
-  const result = await createAdmin(app, { email, password })
+  const result = await createAdmin(app, { email, password, name })
 
   if (!result.ok) {
     // A database that could not be REACHED (connection refused, unresolvable

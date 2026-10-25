@@ -1437,10 +1437,10 @@ export type Action =
         readonly today?: string
         readonly dryRun?: boolean | string
       }>)
-  // ── instance (14 operator variants) ──
+  // ── instance (15 operator variants) ──
   | (ActionBase & {
       readonly type: 'instance'
-      readonly operator: 'status' | 'start' | 'stop' | 'restart' | 'rollback'
+      readonly operator: 'status' | 'usage' | 'start' | 'stop' | 'restart' | 'rollback'
     } & Props<{ readonly slug: string }>)
   | (ActionBase & {
       readonly type: 'instance'

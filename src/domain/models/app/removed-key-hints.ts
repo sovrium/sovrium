@@ -7,6 +7,7 @@
 
 import { DesignComponentsSchema } from './design/components'
 import { migrationHintForRemovedKey } from './design/removed-keys'
+import { migrationHintForRemovedHostedFormKey } from './forms/removed-keys'
 import { migrationHintForRemovedFormKey } from './pages/components/component-types/data/form/removed-keys'
 import { migrationHintForRemovedTableKey } from './pages/components/component-types/data/table/removed-keys'
 import { migrationHintForRemovedModuleKey } from './pages/components/component-types/modules/removed-keys'
@@ -31,7 +32,8 @@ const RENAMED_DESIGN_COMPONENT_KEYS: ReadonlyMap<string, string> = new Map(
 /**
  * The migration sentence for a key the decoder refused as excess, asked of each
  * module that keeps a list of removed or refused keys, first answer wins:
- * `design` keys (renamed component types under `design.components` included), then the page `table`, the page `form`,
+ * `design` keys (renamed component types under `design.components` included), then the hosted form's fields,
+ * the page `table`, the page `form`,
  * the shared modules every data component spreads (its `search` box), a component's `dataSource`, the promoted
  * component types and the repurposed ones. `undefined` when none of them knows the key.
  *
@@ -46,6 +48,7 @@ export const migrationHintForExcessKey = (
 ): string | undefined =>
   migrationHintForRemovedKey(path, key) ??
   (path === 'design.components' ? RENAMED_DESIGN_COMPONENT_KEYS.get(key) : undefined) ??
+  migrationHintForRemovedHostedFormKey(path, key) ??
   migrationHintForRemovedTableKey(discriminant, key) ??
   migrationHintForRemovedFormKey(path, discriminant, key) ??
   migrationHintForRemovedModuleKey(discriminant, key) ??

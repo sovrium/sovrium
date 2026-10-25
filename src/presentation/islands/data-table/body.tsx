@@ -14,9 +14,24 @@ import { AddRow } from './add-row'
 import { DataRow, type DataRowContext } from './data-row'
 import { GroupedTableBodyRows } from './group-body'
 import { InlineExpansionRow } from './inline-expand/inline-expand-row'
+import { VISIBLE_WIDTH_VAR } from './island/scroll-edges'
 import { rowIdOf } from './row-identity'
 import { SkeletonRows } from './skeleton-rows'
 import type { TableBodyRowsProps } from './body-rows-props'
+
+/**
+ * An empty or no-match message spans every column, so on a narrow screen whose
+ * columns overflow it would centre itself across the whole scroll width and
+ * run under the clipped edge. Held at the region's start and to its visible
+ * width (minus the cell's own padding), it wraps where the reader can see it.
+ * Before the region has been measured the width reads unset, and the message
+ * spans the cell as it always did.
+ */
+const HELD_TO_VIEW = {
+  position: 'sticky',
+  insetInlineStart: 0,
+  maxWidth: `calc(var(${VISIBLE_WIDTH_VAR}) - 1rem)`,
+} as const
 
 /**
  * Renders the table body: loading skeletons, data rows, or empty state.
@@ -117,6 +132,7 @@ export function TableBodyRows({
               <div
                 role="status"
                 aria-live="polite"
+                style={HELD_TO_VIEW}
               >
                 {resolved}
               </div>
@@ -139,7 +155,7 @@ export function TableBodyRows({
             colSpan={allColumns.length}
             className={computeTableEmptyStateClasses()}
           >
-            {emptyMessage}
+            <div style={HELD_TO_VIEW}>{emptyMessage}</div>
           </td>
         </tr>
         {addRow && <AddRow config={addRow} />}

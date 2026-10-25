@@ -6,6 +6,7 @@
  */
 
 import type { RecordTextField } from './record-text-service'
+import type { RollupResultKind } from './rollup-currency-service'
 
 /**
  * How a field TYPE reads by default, wherever a value is shown without a format
@@ -81,3 +82,24 @@ export const defaultAlignOfFieldType = (fieldType: string | undefined): 'right' 
 /** Whether a field type's values are set in tabular figures. */
 export const readsInTabularFigures = (fieldType: string | undefined): boolean =>
   fieldType !== undefined && TABULAR_FIELD_TYPES.has(fieldType)
+
+/**
+ * The field type whose presentation a field borrows. A `rollup` is drawn as
+ * what it computes ({@link RollupResultKind}, resolved on the server where the
+ * source field is known): money as a `currency`, a number as a `number`, a list
+ * as an `array`, anything else as text. Every other type is its own.
+ */
+const TYPE_OF_ROLLUP_RESULT: Readonly<Record<RollupResultKind, string>> = {
+  currency: 'currency',
+  number: 'number',
+  list: 'array',
+  text: 'single-line-text',
+}
+
+export const presentedFieldType = (
+  fieldType: string | undefined,
+  rollupResult: RollupResultKind | undefined
+): string | undefined =>
+  fieldType === 'rollup' && rollupResult !== undefined
+    ? TYPE_OF_ROLLUP_RESULT[rollupResult]
+    : fieldType

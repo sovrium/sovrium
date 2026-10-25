@@ -107,7 +107,12 @@ export const forms = defineSection({
         SignatureFieldSchema,
         InlinePrefillSchema,
       ],
-      stories: ['US-FORMS-FIELDS', 'US-FORMS-INLINE-RELATIONSHIP-CREATE', 'US-FORMS-PREFILL'],
+      stories: [
+        'US-FORMS-FIELDS',
+        'US-FORMS-FIELDS-OPTION-SUBSET',
+        'US-FORMS-INLINE-RELATIONSHIP-CREATE',
+        'US-FORMS-PREFILL',
+      ],
     }),
   ],
 })
@@ -173,7 +178,7 @@ export const formLogic = defineSection({
       slug: 'form-conditional-logic',
       title: 'Form Conditional Logic',
       description:
-        "Show, require, or disable form fields based on other fields' values with simple and compound AND/OR conditions.",
+        "Show or require form fields based on other fields' values with simple and compound AND/OR conditions.",
       keywords: [
         'sovrium',
         'forms',

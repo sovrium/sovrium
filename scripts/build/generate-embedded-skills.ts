@@ -38,6 +38,18 @@
  * `evals/` is never embedded: evaluations are internal fixtures that describe
  * how the skill is tested, not what a user's agent should read.
  *
+ * ## The agent files ([internal ref] A2.9)
+ *
+ * One loose file per agent sits directly under `src/skills/`, named
+ * `<kebab>.agent.md`: a Claude Code subagent that projects the whole skill SET,
+ * written to `[internal ref]<kebab>.md`. It ships as a SECOND export,
+ * `EMBEDDED_AGENT_FILES`, and never as a key of `EMBEDDED_SKILLS` — every
+ * reader of that object (the MCP prompt list, the skills catalogue) treats a
+ * key as a skill. Its imports share the `_s` prefix so `build-binary.ts` counts
+ * and presence-checks them with the skills'. Any other loose file under
+ * `src/skills/` is refused: no host would load it, so shipping it is a mistake
+ * and skipping it would hide one.
+ *
  * ## Why the prose is not inlined
  *
  * The CSS-harvest reason, shared with the manual and written once in
@@ -79,26 +91,53 @@ const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const isShippedSkillFile = (path: string): boolean =>
   /^src\/skills\/[^/]+\/(?:SKILL\.md|references\/[^/]+\.md)$/.test(path)
 
+/** A loose agent file: `src/skills/<kebab>.agent.md`, directly under the tree. */
+const AGENT_FILE = /^src\/skills\/([a-z0-9]+(?:-[a-z0-9]+)*)\.agent\.md$/
+
+/** What the payload ships: every skill file and every agent file, repo-relative and sorted. */
+interface SkillsPayloadFiles {
+  readonly skills: readonly string[]
+  readonly agents: readonly string[]
+}
+
+/** The agent name a loose agent file publishes (its stem), or undefined. */
+const agentNameOf = (path: string): string | undefined => AGENT_FILE.exec(path)?.[1]
+
 /**
- * Every file the binary ships for every skill, repo-relative and sorted, after
- * checking the tree against the declared list in BOTH directions.
+ * Every file the binary ships for every skill and every agent, after checking
+ * the tree against the declared list in BOTH directions.
+ *
+ * Skill names come only from paths at least four segments deep
+ * (`src/skills/<name>/<file>`); a three-segment path is a loose file, which must
+ * be an agent file.
  *
  * @param root - The repository root to read `src/skills/` under.
  * @param declared - When given, the skill names the layout manifest publishes,
  *   and the tree must match it in both directions.
  * @throws {SkillsTreeError} on a missing tree, a non-kebab or `SKILL.md`-less
- *   skill directory, or a disagreement with `declared`.
+ *   skill directory, a loose file that is not `<kebab>.agent.md`, or a
+ *   disagreement with `declared`.
  */
 export const collectSkillFiles = (
   root: string,
   declared?: readonly string[]
-): readonly string[] => {
+): SkillsPayloadFiles => {
   const skillsRoot = join(root, 'src', 'skills')
   if (!existsSync(skillsRoot)) {
     throw new SkillsTreeError('src/skills/ does not exist, so the binary would ship no skills.')
   }
   const all = walkSync({ root: skillsRoot }).map((absolute) => posixRelative(root, absolute))
-  const onDisk = [...new Set(all.map((path) => path.split('/')[2] ?? ''))].toSorted()
+  const loose = all.filter((path) => path.split('/').length === 3)
+  const strays = loose.filter((path) => agentNameOf(path) === undefined)
+  if (strays.length > 0) {
+    throw new SkillsTreeError(
+      `Loose file(s) under src/skills/ that are not an agent file: ${strays.join(', ')}. ` +
+        'A file directly under the tree must be named `<kebab>.agent.md`; anything else ' +
+        'belongs inside a skill directory.'
+    )
+  }
+  const nested = all.filter((path) => path.split('/').length >= 4)
+  const onDisk = [...new Set(nested.map((path) => path.split('/')[2] ?? ''))].toSorted()
 
   const badNames = onDisk.filter((name) => !KEBAB.test(name))
   if (badNames.length > 0) {
@@ -122,13 +161,19 @@ export const collectSkillFiles = (
         'skill by that file, so a directory without it is not a skill.'
     )
   }
-  return all.filter(isShippedSkillFile).toSorted((a, b) => a.localeCompare(b))
+  return {
+    skills: nested.filter(isShippedSkillFile).toSorted((a, b) => a.localeCompare(b)),
+    agents: loose.toSorted((a, b) => a.localeCompare(b)),
+  }
 }
 
 /** The generated module, as text. */
-export const renderSkillsModule = (paths: readonly string[]): string => {
-  const { imports, identifierOf } = renderFileImports(paths, { prefix: '_s', relRoot: REL_ROOT })
-  const byName = Map.groupBy(paths, (path) => path.split('/')[2] ?? '')
+export const renderSkillsModule = ({ skills, agents }: SkillsPayloadFiles): string => {
+  const { imports, identifierOf } = renderFileImports([...skills, ...agents], {
+    prefix: '_s',
+    relRoot: REL_ROOT,
+  })
+  const byName = Map.groupBy(skills, (path) => path.split('/')[2] ?? '')
   const entries = [...byName.entries()]
     .map(([name, files]) => {
       const inner = files
@@ -140,15 +185,22 @@ export const renderSkillsModule = (paths: readonly string[]): string => {
       return `  ${JSON.stringify(name)}: {\n${inner}\n  },`
     })
     .join('\n')
+  const agentEntries = agents
+    .map((path) => `  ${JSON.stringify(agentNameOf(path) ?? '')}: ${identifierOf(path)},`)
+    .join('\n')
   return `${generatedModuleHeader(
     'scripts/build/generate-embedded-skills.ts',
-    "Each `with { type: 'file' }` import embeds one skill file into the compiled\n" +
-      '// binary and resolves to its on-disk path in dev/bundled mode.'
+    "Each `with { type: 'file' }` import embeds one skill or agent file into the\n" +
+      '// compiled binary and resolves to its on-disk path in dev/bundled mode.'
   )}
 ${imports}
 
 export const EMBEDDED_SKILLS = {
 ${entries}
+}
+
+export const EMBEDDED_AGENT_FILES = {
+${agentEntries}
 }
 `
 }
@@ -165,9 +217,11 @@ export const isSkillsModuleCurrent = (committed: string, rendered: string): bool
 if (import.meta.main) {
   const check = process.argv.includes('--check')
   const { manifest } = skillsPayloadPaths(REPO_ROOT)
-  const paths = collectSkillFiles(REPO_ROOT)
-  const rendered = renderSkillsModule(paths)
-  const skills = new Set(paths.map((path) => path.split('/')[2])).size
+  const payload = collectSkillFiles(REPO_ROOT)
+  const rendered = renderSkillsModule(payload)
+  const skills = new Set(payload.skills.map((path) => path.split('/')[2])).size
+  const files = payload.skills.length + payload.agents.length
+  const agents = payload.agents.length
   if (check) {
     const committed = existsSync(manifest) ? readFileSync(manifest, 'utf8') : ''
     if (!isSkillsModuleCurrent(committed, rendered)) {
@@ -177,10 +231,12 @@ if (import.meta.main) {
       process.exit(1)
     }
     console.log(
-      `embedded-skills.generated.ts is current — ${skills} skill(s), ${paths.length} file(s)`
+      `embedded-skills.generated.ts is current — ${skills} skill(s), ${agents} agent(s), ${files} file(s)`
     )
   } else {
     writeFileSync(manifest, rendered)
-    console.log(`embedded-skills.generated.ts — ${skills} skill(s), ${paths.length} file(s)`)
+    console.log(
+      `embedded-skills.generated.ts — ${skills} skill(s), ${agents} agent(s), ${files} file(s)`
+    )
   }
 }

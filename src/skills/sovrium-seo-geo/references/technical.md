@@ -104,6 +104,8 @@ The sitemap ping endpoint was retired in 2023; submit the sitemap in Search Cons
 
 Prefer field data (Chrome UX Report, PageSpeed Insights) over a single lab run. [S66]
 
+The server-side levers behind these numbers — the page cache, image transforms, data bindings and indexes, the `ECO_*` environment variables — are the `sovrium-performance` skill.
+
 ## Submitting to engines
 
 - Google: Search Console, sitemap submission, URL inspection. No IndexNow.

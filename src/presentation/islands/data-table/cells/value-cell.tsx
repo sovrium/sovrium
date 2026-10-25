@@ -23,6 +23,7 @@ import { withValueLabelOptions } from '../value-label-options'
 import { buildButtonCellRenderer, type ButtonCellOptions } from './button-cell'
 import { buildCellFieldOptions } from './cell-field-options'
 import { formatClassOf } from './format-classes'
+import { presentedTypeOf } from './type-placement'
 import type { FieldMetaMap } from '../../hooks/use-inline-editing'
 import type { CellFieldOptions } from '../cell-renderers'
 import type { DataTableCellContext } from '../island/table-features'
@@ -78,7 +79,8 @@ export function buildFieldCellRenderer(
 
   // Looked up ONCE: each re-read cost a branch against the complexity cap.
   const meta = fieldMeta?.[col.field]
-  const fieldTypeRenderer = fieldTypeRendererOf(col, meta?.type)
+  const presented = presentedTypeOf(meta)
+  const fieldTypeRenderer = fieldTypeRendererOf(col, presented)
   const baseOptions = buildCellFieldOptions(meta, locale, columnLabelOf(col, meta))
   // On an option column a `valueLabels` entry relabels the chip rather than
   // replacing it with plain text (`value-label-options.ts`).
@@ -86,7 +88,7 @@ export function buildFieldCellRenderer(
   const fieldOptions = chipLabels || baseOptions
   const currencyOptions = resolveCurrencyOptions(meta)
 
-  if (!fieldTypeRenderer && !shapesItsValue(col, meta?.type)) {
+  if (!fieldTypeRenderer && !shapesItsValue(col, presented)) {
     return listFields.has(col.field) ? renderListCell : renderPlainCell
   }
 
@@ -133,6 +135,18 @@ interface ValueCellChrome {
 }
 
 /**
+ * A value's `valueLabels` entry, as its cell draws it: the words alone, or — on
+ * a column drawn as a text chip — the chip, toned by the STORED value its
+ * `cellStyle` rules were written against.
+ */
+function labelledContent(value: unknown, label: string, chrome: ValueCellChrome): React.ReactNode {
+  const { col, fieldTypeRenderer, fieldOptions } = chrome
+  return fieldTypeRenderer || col.badgeForm === undefined
+    ? label
+    : textCellContent(value, col, fieldOptions, label)
+}
+
+/**
  * The value-rendering ladder — label substitution, then explicit format, then
  * field-type affordance, then plain text, each wrapped in the `cellStyle` class.
  *
@@ -146,7 +160,8 @@ function renderValueCell(value: unknown, chrome: ValueCellChrome, displayLabel?:
   // valueLabels — render-only, highest precedence: a per-value label overrides the
   // chrome below; unmapped values fall through. The record itself is never changed.
   const label = chrome.chipLabels ? undefined : col.valueLabels?.[String(value)]
-  if (label !== undefined) return wrapWithClass(label, conditionalClass)
+  if (label !== undefined)
+    return wrapWithClass(labelledContent(value, label, chrome), conditionalClass)
 
   // An absent value reads as the muted dash under any format: a format shapes a
   // value, and there is none to shape (a `datetime` of nothing printed blank).

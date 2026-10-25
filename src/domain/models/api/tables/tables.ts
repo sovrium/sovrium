@@ -689,6 +689,25 @@ export const getViewResponseSchema = Schema.Struct({
 })
 
 /**
+ * A ratio's answer — the two counts, both computed by the same read, and their
+ * quotient as a percentage.
+ *
+ * `percent` is `null` when nothing matches the denominator: a share of nothing
+ * is undefined, and answering `0` would read as "none of them" on a dashboard.
+ */
+export const aggregateRatioSchema = Schema.Struct({
+  numerator: Schema.Finite.annotate({
+    description: 'How many records match both filter and numerator',
+  }),
+  denominator: Schema.Finite.annotate({
+    description: 'How many records match both filter and denominator',
+  }),
+  percent: Schema.NullOr(Schema.Finite).annotate({
+    description: 'numerator ÷ denominator × 100; null when the denominator is 0',
+  }),
+}).annotate({ description: 'The two counts of a ratio and their quotient as a percentage' })
+
+/**
  * Get view records response schema
  */
 export const getViewRecordsResponseSchema = Schema.Struct({
@@ -701,6 +720,12 @@ export const getViewRecordsResponseSchema = Schema.Struct({
   ),
   // The view's own `groupBy`, applied by this route: one entry per group at every level.
   groups: listRecordsResponseSchema.fields.groups,
+  ratio: optionalField(
+    aggregateRatioSchema.annotate({
+      description:
+        'The two counts of a ratio over every row the view returns, when `numerator` and `denominator` were sent',
+    })
+  ),
 })
 
 // ============================================================================

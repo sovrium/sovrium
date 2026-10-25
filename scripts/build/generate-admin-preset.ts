@@ -23,9 +23,10 @@
  *    module, so the binary mounts one settled artifact rather than decoding a
  *    tree on first request.
  *
- * `SCAN_SOURCES` in `generate-css-assets.ts` is `['src', 'templates']` — read it
- * there rather than here, and note what that list does NOT need to say any
- * more. It carried an explicit `'apps/admin'` entry for as long as the console
+ * What reaches the binary's Tailwind candidate corpus is decided in
+ * `generate-css-assets.ts` — read it there rather than here, and note what it
+ * does NOT need to say any more. Its old source list (`SCAN_SOURCES`, since
+ * retired) carried an explicit `'apps/admin'` entry for as long as the console
  * lived outside `src`, and the entry retired with the move rather than being
  * dropped: the console's classes still reach the binary's candidate corpus,
  * now because `src` contains them. `apps/website` and `apps/partner` remain

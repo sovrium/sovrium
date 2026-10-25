@@ -370,9 +370,10 @@ export const bucketSplit = (
   app: App
 ): { readonly system: number; readonly s3: number; readonly local: number } => {
   const declared = (app.buckets ?? []).length
-  const provider = parseStorageEnvConfig()?.provider
+  const { provider } = parseStorageEnvConfig()
   return {
-    system: provider === undefined ? 0 : 1,
+    // The system bucket always exists: file storage always resolves to a backend.
+    system: 1,
     s3: provider === 's3' ? declared : 0,
     local: provider === 'local' ? declared : 0,
   }

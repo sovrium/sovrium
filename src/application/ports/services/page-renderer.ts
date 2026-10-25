@@ -84,16 +84,16 @@ export type ReadTableAsCaller = (
 ) => Promise<CallerTableView>
 
 /**
- * The display labels of one record its page is bound to, as the records API
- * answers the caller holding `session` (none: a visitor), keyed by field: a
- * person by name, a linked record by its display field; `undefined` if none.
+ * The display labels of records a page draws, read in ONE pass, as the records
+ * API answers the caller holding `session` (none: a visitor), keyed by field: a
+ * person by name, a linked record by its display field; per record, in order.
  */
 export type ReadRecordLabels = (
   app: App,
   tableName: string,
-  record: Readonly<Record<string, unknown>>,
+  records: readonly Readonly<Record<string, unknown>>[],
   session: SessionInfo | undefined
-) => Promise<Readonly<Record<string, string | readonly string[]>> | undefined>
+) => Promise<readonly (Readonly<Record<string, string | readonly string[]>> | undefined)[]>
 
 /**
  * The context `tableName`'s row-level rule judges `reader` by (none: a

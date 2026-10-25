@@ -34,7 +34,7 @@ import {
 } from '@/domain/models/app/auth/permission-evaluation'
 import { SPECIMEN_PERSON } from '@/domain/models/app/pages/specimen-sample-service'
 import { syntheticTitleOf } from '@/domain/models/app/pages/synthetic-seed-service'
-import { recordAddressesOf } from './design-system-page-records'
+import { recordAddressesOf, unaddressedPageNoticeOf } from './design-system-page-records'
 import { sampleRouteValuesOf } from './design-system-page-seed'
 import { appRolesOf, type PageStateRequest } from './design-system-page-states'
 import type { BoardBranches } from './design-system-page-branches'
@@ -50,6 +50,8 @@ export interface PageDrawOptions {
   readonly seed?: PageSeed | undefined
   /** The instant relative times are drawn against (`--now`). */
   readonly now?: Readonly<Date> | undefined
+  /** The seeded account every board is drawn as (`--as`), but a `role` state's. */
+  readonly as?: PageSeedAccount | undefined
   /** How many boards a routed record page gets (`--records`); 5 by default. */
   readonly records?: number | undefined
   /** One more board per state asked for (`--state`). */
@@ -142,6 +144,24 @@ const PAGE_ACCESS_POLICY = {
   adminOverride: 'no-admin-override',
 } as const
 
+/**
+ * Why a page drawn as a seeded account (`--as`) is skipped: its `access`
+ * admits no reader of that account's role, so the app answers that account
+ * nothing there; `undefined` when it is admitted, or without `--as`.
+ */
+export const closedPageNoticeOf = (
+  app: App,
+  page: Page,
+  options: PageDrawOptions
+): string | undefined => {
+  const account = options.as
+  if (account === undefined || admittedRolesOf(app, page).includes(account.role)) return undefined
+  return (
+    `Note: page ${page.name} is closed to the ${account.role} role of ${account.email}, ` +
+    'so drawn as that account it has nothing to draw and is skipped.'
+  )
+}
+
 /** The page's default board and one board per seeded record its route draws. */
 const recordPlansOf = (
   app: App,
@@ -149,7 +169,7 @@ const recordPlansOf = (
   options: PageDrawOptions,
   contentSlugs: readonly string[] | undefined
 ): readonly PageBoardPlan[] => {
-  const viewer = viewerFor(options.seed, DEFAULT_ROLE)
+  const viewer = options.as ?? viewerFor(options.seed, DEFAULT_ROLE)
   const role = viewer?.role ?? DEFAULT_ROLE
   const query = queryDefaultsOf(page)
   const base = {
@@ -160,7 +180,7 @@ const recordPlansOf = (
     branches: { query, role },
   }
   const roleTitle = hasRoleBranch(page) ? [role] : []
-  const addresses = recordAddressesOf(page, options, contentSlugs)
+  const addresses = recordAddressesOf(app, page, options, contentSlugs)
   const fields = (app.tables?.find((table) => table.name === addresses.table)?.fields ??
     []) as readonly SpecimenFieldShape[]
   if (addresses.records.length === 0) {
@@ -296,3 +316,34 @@ export const pageSectionOf = (app: App, name: string): PageSection => {
     ? { id: 'public', title: 'Public pages' }
     : { id: 'signed-in', title: 'Signed-in pages' }
 }
+
+/** The pages drawn with nothing: closed to the account, or with no address to be drawn at. */
+export const skippedPagesOf = (
+  app: App,
+  selected: readonly Page[],
+  options: PageDrawOptions,
+  contentSlugs: ReadonlyMap<string, readonly string[]>
+) =>
+  selected.flatMap((page) => {
+    const notice =
+      closedPageNoticeOf(app, page, options) ??
+      unaddressedPageNoticeOf(app, page, options, contentSlugs.get(page.name))
+    return notice === undefined ? [] : [{ page, notice }]
+  })
+
+/** The note of a page that answers the reader it is drawn for with a redirect: it is skipped. */
+export const redirectNoticeOf = (
+  outcome: { readonly page: string; readonly redirect: string },
+  options: PageDrawOptions
+): string =>
+  `Note: page ${outcome.page} answers ${options.as?.email ?? 'the sample administrator'} with ` +
+  `a redirect to ${outcome.redirect}, so it has nothing to draw and is skipped.`
+
+/**
+ * The note of a page whose Prototype record view the account it is drawn as
+ * (`--as`) is refused: the page's own board, drawn as that account, stands in.
+ */
+export const refusedViewNoticeOf = (page: Page, plan: PageBoardPlan): string =>
+  `Note: page ${page.name} is drawn as ${plan.viewer?.email ?? 'the sample administrator'}, ` +
+  "whose rules refuse its Prototype record view, so the Prototype board shows the page's own " +
+  'board there.'

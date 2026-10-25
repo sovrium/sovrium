@@ -85,6 +85,52 @@ const narrowToView = (table: Table, view: TableView): Table =>
     ? table
     : { ...table, fields: table.fields.filter((field) => view.fields!.includes(field.name)) }
 
+/**
+ * A ratio's two sides, parsed and field-checked as `filter` is, or `undefined`
+ * when none is asked; one side without the other is a `400`, as on the
+ * table's aggregate read.
+ */
+function readViewRatioSides(
+  c: Context,
+  access: {
+    readonly app: App
+    readonly tableName: string
+    readonly userRole: string
+    readonly userGroups: readonly string[]
+  }
+): NonNullable<ViewRecordsQuery['ratio']> | undefined | Response {
+  const { app, tableName, userRole, userGroups } = access
+  const invalid = (message: string): Response =>
+    c.json({ success: false, message, code: 'VALIDATION_ERROR' }, 400)
+  const sent = ['numerator', 'denominator'].filter((side) => Boolean(c.req.query(side)))
+  if (sent.length === 0) return undefined
+  if (sent.length === 1) return invalid('A ratio needs both numerator and denominator')
+  const numerator = parseFilter(c, app, tableName, { userRole, userGroups, param: 'numerator' })
+  if (numerator.error) return numerator.response ?? invalid('Invalid numerator')
+  const denominator = parseFilter(c, app, tableName, { userRole, userGroups, param: 'denominator' })
+  if (denominator.error) return denominator.response ?? invalid('Invalid denominator')
+  return { numerator: numerator.value, denominator: denominator.value }
+}
+
+/** The caller's `filter` and a ratio's two sides, each parsed and field-checked. */
+function parseViewConditions(
+  c: Context,
+  access: Parameters<typeof readViewRatioSides>[1]
+):
+  | { readonly filter: ViewRecordsQuery['filter']; readonly ratio: ViewRecordsQuery['ratio'] }
+  | Response {
+  const { app, tableName, userRole, userGroups } = access
+  const filter = parseFilter(c, app, tableName, { userRole, userGroups })
+  if (filter.error) {
+    return (
+      filter.response ??
+      c.json({ success: false, message: 'Invalid filter', code: 'VALIDATION_ERROR' }, 400)
+    )
+  }
+  const ratio = readViewRatioSides(c, access)
+  return ratio instanceof Response ? ratio : { filter: filter.value, ratio }
+}
+
 function prepareViewQuery(
   c: Context,
   input: { readonly app: App; readonly table: Table; readonly view: TableView }
@@ -97,13 +143,9 @@ function prepareViewQuery(
   const paginationError = validatePaginationParams(c)
   if (paginationError) return { ok: false, response: paginationError }
 
-  const filter = parseFilter(c, app, tableName, { userRole, userGroups })
-  if (filter.error) {
-    const response =
-      filter.response ??
-      c.json({ success: false, message: 'Invalid filter', code: 'VALIDATION_ERROR' }, 400)
-    return { ok: false, response }
-  }
+  const conditions = parseViewConditions(c, { app, tableName, userRole, userGroups })
+  if (conditions instanceof Response) return { ok: false, response: conditions }
+  const { filter, ratio } = conditions
 
   const params = parseListRecordsParams(c)
   const sortError = validateSortPermission({ sort: params.sort, ...access })
@@ -115,9 +157,11 @@ function prepareViewQuery(
   if (aggregateError) return { ok: false, response: aggregateError }
 
   const outside = fieldsOutsideView(view.fields, [
-    ...filterFieldNames(filter.value),
+    ...filterFieldNames(filter),
     ...sortFieldNames(params.sort),
     ...aggregateFieldNames(params.aggregate),
+    ...filterFieldNames(ratio?.numerator),
+    ...filterFieldNames(ratio?.denominator),
   ])
   if (outside !== undefined) return { ok: false, response: refuseOutsideView(c, outside) }
 
@@ -125,13 +169,14 @@ function prepareViewQuery(
   return {
     ok: true,
     query: {
-      filter: mergeFilters(filter.value, search),
+      filter: mergeFilters(filter, search),
       sort: params.sort,
       fields: params.fields,
       limit: params.limit,
       offset: params.offset,
       labels: params.labels,
       ...(params.aggregate !== undefined && { aggregate: params.aggregate }),
+      ...(ratio !== undefined && { ratio }),
     },
   }
 }
@@ -182,6 +227,20 @@ async function withRowLevelScope(
   return scoped === 'empty' || scoped === 'reject' ? 'empty' : { ...query, filter: scoped }
 }
 
+/** What a row rule admitting no row answers: no records, and a ratio of nothing when one was asked. */
+const emptyViewAnswer = (c: Context, prepared: PreparedViewQuery | undefined): Response =>
+  c.json(
+    {
+      records: [],
+      pagination: { total: 0, limit: 0, offset: 0 },
+      ...(prepared?.ok === true &&
+        prepared.query.ratio !== undefined && {
+          ratio: { numerator: 0, denominator: 0, percent: null },
+        }),
+    },
+    200
+  )
+
 export async function handleListViewRecords(c: Context, app: App) {
   const { session, tableId, userRole, userGroups } = getTableContext(c)
   const viewId = c.req.param('viewId') ?? ''
@@ -190,9 +249,7 @@ export async function handleListViewRecords(c: Context, app: App) {
   const prepared = prepareForAdmittedCaller(c, app, { viewId, accessRoles })
   if (prepared?.ok === false) return prepared.response
   const query = prepared?.ok === true ? await withRowLevelScope(c, app, prepared.query) : undefined
-  if (query === 'empty') {
-    return c.json({ records: [], pagination: { total: 0, limit: 0, offset: 0 } }, 200)
-  }
+  if (query === 'empty') return emptyViewAnswer(c, prepared)
 
   return runEffect(
     c,

@@ -6,9 +6,11 @@
  */
 
 import { join } from 'node:path'
+import { AGENT_LABEL } from '@/cli/commands/skills-agent-file'
 import {
   applyPlan,
   blockingFindings,
+  failingCheckFindings,
   findingRow,
   loadSkillsCatalogue,
   planTarget,
@@ -44,7 +46,11 @@ const successLines = (
   catalogue: SkillsCatalogue
 ): readonly CliLine[] =>
   plans.map((plan) => {
-    const changed = plan.writes.length + plan.removals.length
+    const changed =
+      plan.writes.length +
+      plan.removals.length +
+      plan.agentWrites.length +
+      plan.agentRemovals.length
     return {
       glyph: 'ok',
       text:
@@ -59,9 +65,40 @@ const keptRetiredLines = (plans: readonly TargetPlan[]): readonly CliLine[] =>
   plans.flatMap((plan) =>
     plan.keptRetired.map((path): CliLine => ({
       glyph: 'warn',
-      text: `${plan.label}/${path} is no longer shipped and you edited it — kept, and no longer tracked.`,
+      text: `${path} is no longer shipped and you edited it — kept, and no longer tracked.`,
     }))
   )
+
+/** One line per edited file a run kept, each naming `--force` as the way to take Sovrium's. */
+const keptEditedLines = (plans: readonly TargetPlan[]): readonly CliLine[] =>
+  plans.flatMap((plan) =>
+    plan.keptEdited.map((path): CliLine => ({
+      glyph: 'warn',
+      text: `${path} was edited — kept as you left it. Take Sovrium's version with: sovrium skills --force`,
+    }))
+  )
+
+/**
+ * One line per agent file the `claude` target holds, written or already
+ * current; an edited one the run kept is named by {@link keptEditedLines} instead.
+ */
+const agentFileLines = (
+  plans: readonly TargetPlan[],
+  catalogue: SkillsCatalogue
+): readonly CliLine[] =>
+  plans
+    .filter((plan) => plan.target === 'claude')
+    .flatMap((plan) =>
+      catalogue.agents
+        .filter((file) => !plan.keptEdited.includes(`${AGENT_LABEL}/${file.path}`))
+        .map((file): CliLine => {
+          const written = plan.agentWrites.includes(file)
+          return {
+            glyph: 'ok',
+            text: `Config editor agent ${written ? 'written to' : 'already current in'} ${join(plan.agentDir, file.path)}.`,
+          }
+        })
+    )
 
 const legacyAgentLines = async (projectDir: string): Promise<readonly CliLine[]> =>
   (await Bun.file(join(projectDir, ...LEGACY_AGENT_SEGMENTS)).exists())
@@ -78,9 +115,13 @@ const reportWritten = async (
   catalogue: SkillsCatalogue,
   projectDir: string
 ): Promise<void> => {
-  const notices = [...keptRetiredLines(plans), ...(await legacyAgentLines(projectDir))]
+  const notices = [
+    ...keptEditedLines(plans),
+    ...keptRetiredLines(plans),
+    ...(await legacyAgentLines(projectDir)),
+  ]
   printDocument([
-    successLines(plans, catalogue),
+    [...successLines(plans, catalogue), ...agentFileLines(plans, catalogue)],
     catalogue.skills.map(({ name, description }) => ({
       text: name,
       detail: [summaryOf(description)],
@@ -97,20 +138,15 @@ const refusalGuidance = (states: ReadonlySet<string>): string => {
       'Replace each symlink with a real file or directory (or remove it), then run\n' +
       'sovrium skills again. --force does not apply: Sovrium never writes through a link.'
     )
-  if (!states.has('edited'))
-    return (
-      'Rename or move your own skill directory, then run sovrium skills again.\n' +
-      '--force does not apply: it replaces only files Sovrium recorded writing.'
-    )
   return (
-    "Keep your version, or take Sovrium's with\n  sovrium skills --force\n" +
-    '(--force replaces only files Sovrium recorded writing; your own files stay).'
+    'Rename or move your own skill directory, then run sovrium skills again.\n' +
+    '--force does not apply: it replaces only files Sovrium recorded writing.'
   )
 }
 
-const refuse = (plans: readonly TargetPlan[], force: boolean): never => {
+const refuse = (plans: readonly TargetPlan[]): never => {
   const blocking = plans.flatMap((plan) =>
-    blockingFindings(plan, force).map((finding) => ({ plan, finding }))
+    blockingFindings(plan).map((finding) => ({ plan, finding }))
   )
   const rows = blocking.map(({ plan, finding }) => findingRow(plan, finding))
   printFailure({
@@ -118,7 +154,6 @@ const refuse = (plans: readonly TargetPlan[], force: boolean): never => {
     detail: [
       ...rows,
       '',
-      'edited:  Sovrium wrote this file and it has changed since.',
       'foreign: Sovrium never wrote it — no record in .sovrium-skills.json proves otherwise.',
       'symlink: a link, or a skills folder leading outside the project — never written through.',
     ],
@@ -127,18 +162,34 @@ const refuse = (plans: readonly TargetPlan[], force: boolean): never => {
   return process.exit(1)
 }
 
+/**
+ * `--check`: list every file that is not current, and fail only when one is
+ * missing, stale, retired, foreign or a link — an edited file alone is the
+ * state a refresh keeps on purpose, so it is named and the check passes.
+ */
 const reportCheck = (plans: readonly TargetPlan[], catalogue: SkillsCatalogue): void => {
   const rows = plans.flatMap((plan) => plan.findings.map((finding) => findingRow(plan, finding)))
-  if (rows.length === 0) {
-    printDocument([successLines(plans, catalogue)])
+  if (plans.every((plan) => failingCheckFindings(plan).length === 0)) {
+    const edited = rows.map((text): CliLine => ({ glyph: 'warn', text }))
+    printDocument([
+      successLines(plans, catalogue),
+      ...(edited.length > 0
+        ? [
+            [
+              ...edited,
+              { text: "Edited files are kept; 'sovrium skills --force' takes Sovrium's." },
+            ],
+          ]
+        : []),
+    ])
     return
   }
   printFailure({
     headline: `The agent skills are not current for Sovrium ${catalogue.version} — nothing was written.`,
     detail: rows,
     guidance:
-      "Run 'sovrium skills' to bring them up to date. Edited files need --force;\n" +
-      'a foreign directory has to be renamed first.',
+      "Run 'sovrium skills' to bring them up to date; it keeps an edited file unless\n" +
+      'you pass --force. A foreign directory has to be renamed first.',
   })
   process.exit(1)
 }
@@ -204,7 +255,7 @@ export const handleSkillsCommand = async (options: SkillsCommandOptions = {}): P
     reportCheck(plans, catalogue)
     return
   }
-  if (plans.some((plan) => blockingFindings(plan, force).length > 0)) return refuse(plans, force)
+  if (plans.some((plan) => blockingFindings(plan).length > 0)) return refuse(plans)
 
   await Promise.all(plans.map(applyPlan)).catch((error: unknown) => {
     printFailure({

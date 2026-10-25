@@ -452,7 +452,8 @@ const untextedEdits = (subject: MatchedSubject, text: string, scale: EditScale):
 const textEdits = (subject: MatchedSubject, scale: EditScale): NodeEdits => {
   const text = subject.drawn.content
   const unedited = subject.baseline.content ?? ''
-  if (text === undefined || text === subject.baseline.content) return NO_EDITS
+  // A literal's edge space is kept once edited, but a board re-indented around it is no edit.
+  if (text === undefined || text.trim() === subject.baseline.content?.trim()) return NO_EDITS
   const { kept, translation, binding } = textSourcesOf(subject)
   if (drawsSample({ sourced: (translation ?? binding) !== undefined, unedited, text }, scale)) {
     return NO_EDITS

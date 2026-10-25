@@ -99,7 +99,7 @@ export type VisibleWhenCondition =
 /**
  * Extended condition schema supporting compound OR / AND logic.
  *
- * Used in form field configs for `visibleWhen`, `requiredWhen`, and `disabledWhen`.
+ * Used in form field configs for `visibleWhen` and `requiredWhen`.
  * The compound variants are listed first so Effect Schema tries them before the
  * simple struct (union discrimination by presence of `or`/`and` key).
  */

@@ -10,6 +10,7 @@ import { getConnInfo } from 'hono/bun'
 import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { redactSecretPath } from '@/domain/kernel/url/secret-path-redaction'
 import { logDebug } from '@/infrastructure/logging/logger'
+import { noindexPosture } from '@/infrastructure/server/middleware/noindex-posture'
 import type { Context, MiddlewareHandler } from 'hono'
 
 /**
@@ -37,7 +38,7 @@ import type { Context, MiddlewareHandler } from 'hono'
  *   too; the headers are what tell its requests apart). It answers bare
  *   liveness, without the app block.
  * - Admitted responses carry `X-Robots-Tag: noindex`, pages the robots meta,
- *   and `/robots.txt` disallows everything.
+ *   and `/robots.txt` disallows everything (the shared noindex posture).
  *
  * Comparisons are constant-time over equal-length digests. The token is never
  * logged: an answer to a request carrying `?preview=` is written to the access
@@ -52,9 +53,6 @@ export const PREVIEW_QUERY_PARAMETER = 'preview'
 
 /** The start-up banner line of a token-gated preview. Never names the token. */
 export const PREVIEW_BANNER_LINE = 'Preview: only requests carrying the preview token are answered'
-
-/** What `/robots.txt` answers on an admitted preview: the whole site closed. */
-export const PREVIEW_ROBOTS_CONTENT = 'User-agent: *\nDisallow: /\n'
 
 /** The headers that say a request was relayed by a proxy. */
 const FORWARDING_HEADERS = ['Forwarded', 'X-Forwarded-For', 'X-Real-IP'] as const
@@ -120,29 +118,6 @@ const peerAddressOf = (c: Context): string | undefined => {
     // No Bun server on `c.env` (a static render): no peer, so no exemption.
     return undefined
   }
-}
-
-/** The robots meta every admitted page carries; any robots meta the page had is replaced. */
-const withNoindexMeta = (response: Response): Response =>
-  new HTMLRewriter()
-    .on('meta[name="robots"]', {
-      element: (element) => {
-        element.remove()
-      },
-    })
-    .on('head', {
-      element: (element) => {
-        element.prepend('<meta name="robots" content="noindex">', { html: true })
-      },
-    })
-    .transform(response)
-
-/** Mark an admitted response as never to be indexed. */
-const markNoindex = (c: Context): void => {
-  const isHtml = (c.res.headers.get('Content-Type') ?? '').includes('text/html')
-  const response = isHtml ? withNoindexMeta(c.res) : c.res
-  c.res = response
-  c.res.headers.set('X-Robots-Tag', 'noindex')
 }
 
 /** What the gate needs beyond the token. */
@@ -212,13 +187,6 @@ export const previewGate = (options: PreviewGateOptions): MiddlewareHandler => {
 
     if (!carriesAdmission(c, admittedCookie)) return refuse(c, options.notFound)
 
-    if (c.req.method === 'GET' && c.req.path === '/robots.txt') {
-      c.header('X-Robots-Tag', 'noindex')
-      return c.text(PREVIEW_ROBOTS_CONTENT, 200)
-    }
-
-    await next()
-    markNoindex(c)
-    return undefined
+    return noindexPosture(c, next)
   }
 }

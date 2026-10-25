@@ -35,17 +35,17 @@ export function DefaultHomePage({
   readonly builtInAnalyticsSessionTimeout?: number
 }): Readonly<ReactElement> {
   const pageConfig = createDefaultHomePageConfig(app)
-  // `demoNoticeEnabled` mirrors the operator-console carve-out that
+  // `devNoticeEnabled` mirrors the operator-console carve-out that
   // `renderPageHtml` applies. This fallback is reachable for a console surface
   // when a `/` page matched but then bailed (unresolvable collection / unknown
-  // content-dir slug), so without it the demo notice would render on `/_admin`.
+  // content-dir slug), so without it the dev-mode notice would render on `/_admin`.
   return (
     <DynamicPage
       page={pageConfig}
       builtInAnalyticsEnabled={builtInAnalyticsEnabled}
       builtInAnalyticsSessionTimeout={builtInAnalyticsSessionTimeout}
       badgePlacement={resolveBadge(app.badge)}
-      demoNoticeEnabled={!isOperatorConsoleApp(app)}
+      devNoticeEnabled={!isOperatorConsoleApp(app)}
     />
   )
 }

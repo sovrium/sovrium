@@ -58,7 +58,7 @@ const REMOVED_ON_FORM_FIELD: ReadonlyMap<string, string> = new Map([
   ],
   [
     'disabledWhen',
-    '`disabledWhen` has been removed from the page `form`’s fields: declare the form in `forms[]`, where `forms[].fields[].disabledWhen` takes the same condition, and place it on the page with `formRef`.',
+    '`disabledWhen` has been removed from the page `form`’s fields. To take a field out under a condition, declare the form in `forms[]`, where `forms[].fields[].visibleWhen` takes the same condition, and place it on the page with `formRef`.',
   ],
   [
     'accept',

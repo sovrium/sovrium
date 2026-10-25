@@ -30,7 +30,11 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # ── Core ──────────────────────────────────────────────────────────────
 # PORT=3000
 # SOVRIUM_BIND_HOST=localhost           # interface: localhost or an IP literal (0.0.0.0 in a container); replaces HOSTNAME
-# BASE_URL=http://localhost:3000
+# The public https address of the app: links in emails, sign-in callbacks and
+# the sitemap start with it. Leave it unset on your own machine; in production
+# set your real origin. A localhost BASE_URL on a server turns off the
+# cross-site request (CSRF) check and drops the Secure cookie flag.
+# BASE_URL=https://your-domain.example
 # DATABASE_URL=postgresql://user:password@localhost:5432/dbname   # omit → SQLite
 # SOVRIUM_TIMEZONE=UTC                   # IANA zone for schedules and displayed dates; TZ is ignored
 # SOVRIUM_DEV_CLOCK=                    # development only: ISO 8601 instant every "today" answers at

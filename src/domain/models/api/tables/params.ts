@@ -120,6 +120,20 @@ export const listRecordsQuerySchema = Schema.Struct({
   ),
 })
 
+/**
+ * Query parameters of a view's records read: the list's, and a ratio's two
+ * sides counted over every row the view returns.
+ */
+export const viewRecordsQuerySchema = Schema.Struct({
+  ...listRecordsQuerySchema.fields,
+  numerator: queryString(
+    'With denominator, asks for a ratio: a filter expression, in the grammar `filter` takes, that a row the view returns must also meet to be counted above the line. Sent without denominator, the read answers 400'
+  ),
+  denominator: queryString(
+    'With numerator, asks for a ratio: a filter expression, in the grammar `filter` takes, that a row the view returns must also meet to be counted below the line. Sent without numerator, the read answers 400'
+  ),
+})
+
 // ============================================================================
 // Request Body Schemas
 // ============================================================================

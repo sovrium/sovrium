@@ -23,7 +23,10 @@
  *   - fenced/inline code markers (keeps the code text),
  *   - heading hashes, blockquote markers, list bullets,
  *   - link/image syntax (keeps the visible label),
- *   - emphasis/strong/strike markers,
+ *   - emphasis/strong/strike markers; an underscore between two word
+ *     characters is part of an identifier and stays (`_italic_` and
+ *     `__bold__` are still unwrapped; a leading or trailing `_` cannot be told
+ *     from a delimiter and is dropped),
  *   - HTML tags,
  *   - collapses all whitespace (incl. newlines) to single spaces.
  *
@@ -40,8 +43,11 @@ export const stripMarkdownToPlainText = (markdown: string): string =>
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     // Inline code: `code` → code
     .replace(/`([^`]*)`/g, '$1')
-    // Bold/italic/strike markers (**, __, *, _, ~~) → drop the markers.
-    .replace(/(\*\*|__|~~|\*|_)/g, '')
+    // Bold/italic/strike markers (**, *, ~~) → drop the markers.
+    .replace(/(\*\*|~~|\*)/g, '')
+    // Underscore emphasis (_, __) → drop only at a word edge, so an identifier
+    // such as SOVRIUM_PREVIEW_TOKEN or site_name keeps its inner underscores.
+    .replace(/(?<!\w)_{1,2}(?=\S)|(?<=\S)_{1,2}(?!\w)/g, '')
     // HTML tags → drop.
     .replace(/<[^>]+>/g, ' ')
     // Heading hashes, blockquote markers, list bullets at line start.

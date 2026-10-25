@@ -59,10 +59,13 @@ const renderChips = (values: readonly OptionItem[]): ReactElement => (
  */
 export function ComboboxChipsField({
   inputId,
+  name,
   label,
   placeholder,
 }: {
   readonly inputId: string
+  /** The field the set answers, marked on the input as a Select trigger marks its own. */
+  readonly name: string | undefined
   readonly label: string | undefined
   readonly placeholder: string
 }): ReactElement {
@@ -75,6 +78,7 @@ export function ComboboxChipsField({
       <Combobox.Input
         id={inputId}
         aria-label={label}
+        data-name={name}
         placeholder={placeholder}
         className={computeComboboxChipInputClasses()}
         data-slot="combobox-chip-input"

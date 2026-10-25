@@ -1,0 +1,63 @@
+title: 'Tablée — a landing page'
+tagline: |
+  A bilingual product landing page with a demo request the owner reads in the admin.
+intro: |
+  Tablée — the landing page of a fictional booking product for independent restaurants, in
+  English and in French: one sentence, the product itself, three things it does, three steps,
+  and a demo request the owner reads in the admin. Visitors never sign in; nobody can open an
+  account.
+glance:
+  - |-
+    **Pages** (1): home (`/`, also `/en/` and `/fr/`) — its body is `_body.yaml`; the sharing
+    card is a `$t:` key, so each language shares with its own
+  - '**Tables** (1): demo_requests (written by the form only; read by an admin only)'
+  - '**Forms** (1): demo-request (public, honeypot; confirms with the address typed)'
+  - |-
+    **Automations** (1): form-to-pipedrive-lead — a library recipe (`library/recipe/`, with its
+    `library/connection/pipedrive.yaml`) turning each demo request into a Pipedrive lead once
+    `PIPEDRIVE_API_TOKEN` is set
+  - '**Components** (3): feature-card, step-card, language-switcher'
+  - '**Singletons**: design, languages (every sentence is a `$t:` key), auth (sign-up closed)'
+  - '**Static assets**: `public/` — `favicon.svg`, `og-en.png`, `og-fr.png`'
+glanceClose: |
+  Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
+assistant: |
+  Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+  run into `.claude/skills/`; start from `sovrium-app` for any change to the config. A change
+  to the words is a change to `config/languages.yaml`, in BOTH languages: write the French in
+  French (`tu`), not as a translation. Keep one call to action per section and no figure the
+  page cannot prove. The design system is in `config/design.yaml`: one accent, read its
+  comments before changing a colour. The sharing card is a `$t:` key (`meta.image`), one PNG
+  per language in `public/`.
+whatsInside: |
+  The landing page of Tablée, a fictional booking product for independent restaurants, at
+  `/en/` and `/fr/`: one sentence about what it does, the product itself (Friday's dinner as
+  it shows it), three things it does, three steps to start, and a demo request. The French
+  page is written in French, and the language switcher keeps the reader's place. The page
+  claims no figure it cannot prove.
+
+  A request lands in the `demo_requests` table, which only the owner reads, in the admin at
+  `/_admin`. Nobody can open an account; the owner comes from `AUTH_ADMIN_EMAIL` and
+  `AUTH_ADMIN_PASSWORD`. Each language shares with its own PNG card (`public/og-en.png`,
+  `public/og-fr.png`); the site follows the system's light or dark scheme.
+
+  Optional: each request also becomes a lead in your Pipedrive. It is the
+  `form-to-pipedrive-lead` recipe from the Sovrium library (`sovrium library add
+  recipe/form-to-pipedrive-lead`); set `PIPEDRIVE_API_TOKEN` to turn it on — without it the app
+  runs exactly the same.
+
+  Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no
+  application code. The words are in `config/languages.yaml`; rename the product there.
+env:
+  - name: 'PIPEDRIVE_API_TOKEN'
+    section: 'Pipedrive (optional)'
+    description: |-
+      The API token of your Pipedrive account turns each demo request into a
+      person and a lead there. Without it the app runs and every request is still
+      kept in the admin.
+  - name: 'SOVRIUM_SELF_SEED'
+    section: 'Demo data'
+    description: |-
+      The nightly-reset automation resets a hosted demo at 04:07 each night, and
+      only when this is set — leave it unset on an app you keep data in.
+    example: 'reset'

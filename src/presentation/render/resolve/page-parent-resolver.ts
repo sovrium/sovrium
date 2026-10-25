@@ -130,7 +130,7 @@ export async function resolvePageParentRecord(
     session: reader.session,
     db: reader.db,
     tableName: dataSource.table,
-    at: paramValue === undefined ? 'first-readable' : { field: paramName, value: paramValue },
+    at: paramValue === undefined ? 'first-readable' : { param: paramName, value: paramValue },
     binding,
   })
   if (record === undefined) return { kind: 'not-found' }

@@ -98,6 +98,40 @@ Each refusal exits `1` with `— nothing was restored.` and writes nothing. They
 
 When the archive holds a PostgreSQL dump, `DATABASE_URL` must name the empty PostgreSQL database to restore into and `psql` must be on `PATH`; the dump is replayed in one transaction.
 
+### A SQLite backup into PostgreSQL
+
+To move an install from SQLite to PostgreSQL, restore its SQLite backup with `DATABASE_URL` naming an **empty** PostgreSQL database. The summary reads `Database: SQLite backup → PostgreSQL`, and no SQLite database file is written: the rows now live in PostgreSQL.
+
+Restore first brings the backup's SQLite copy forward with this engine's migrations (an archive from an older Sovrium is accepted), builds the PostgreSQL schema the way `sovrium migrate` does, then copies every row in one transaction: ids are kept, values are converted to their PostgreSQL types (instants read as UTC), and new records continue numbering after the highest id ever issued. Encrypted credentials are copied byte for byte, so they decrypt with the restored key; sessions keep working only with the same `AUTH_SECRET`. Deleted records stay deleted.
+
+The database must hold no table, view or sequence (installed extensions such as `vector` are fine). Otherwise, even with `--force`, restore refuses before writing anything:
+
+```console
+Error: DATABASE_URL names a PostgreSQL database that is not empty (it holds 1 table, among them public.legacy_invoices) — nothing was restored.
+
+Create a new, empty database, point DATABASE_URL at it, and run 'sovrium restore' again. A SQLite backup restores only into an empty PostgreSQL database; --force does not change that.
+```
+
+Building the schema reads the backup's config, so **a config written as code (`.ts`, `.mts`, `.js`, `.mjs`) is refused on this route**, before anything is written or run: no code from an archive runs during a restore. Restore it into SQLite first (unset `DATABASE_URL`; that runs no code), review the config and write it as YAML or JSON, take a new backup, and restore that one.
+
+```console
+Error: The backup's config project/app.ts is code, and a SQLite backup is restored into PostgreSQL only from a YAML or JSON config — nothing was restored.
+```
+
+The schema build runs in a child process that receives only the database URL, its own scratch directories and the system basics (`PATH`, `HOME`, `TMPDIR`, `TZ`, `LANG`, `DATABASE_POOL_MAX`, `NODE_EXTRA_CA_CERTS`) — none of your storage, mail, AI, auth or encryption secrets.
+
+If anything fails once the PostgreSQL schema build has started — the build, a value that cannot be converted, or writing a file after the rows were copied — the restore names what stopped it and **empties the PostgreSQL database again**, so the advised retry is not refused. It removes only what it created: a schema the database already had (some hosts ship an `auth` schema of their own) is kept, and objects an extension owns are never touched. If the database cannot be emptied, for instance because another session holds a lock, the message says to recreate it before retrying.
+
+Pressing Ctrl-C, or sending `SIGTERM`, interrupts the restore cleanly: the schema build is stopped, the database is emptied again, the temporary copy of the data is removed, and the command exits with `130` (or `143`) saying the restore was interrupted and nothing was restored. A second signal while that cleanup runs is ignored.
+
+Uploaded files go where the restored server will look for them, read from the same storage variables it reads at boot:
+
+- **No `STORAGE_PROVIDER`** (or the database one): a server on PostgreSQL keeps files in the database, so the uploads are loaded into it inside the same transaction as the rows, and nothing is written under `storage/`. The summary reads `Storage: 3 files (PostgreSQL database)`. Every file must have its file record and every record its file, otherwise the restore stops naming the file.
+- **`STORAGE_PROVIDER=local`**: the files are written under `STORAGE_LOCAL_DIRECTORY` after the copy commits.
+- **`STORAGE_PROVIDER=s3`**: the files are written to the local folder, and a warning says they were not uploaded to the bucket.
+
+A PostgreSQL backup into SQLite is still refused.
+
 ### The key after a restore
 
 If the backup was taken with `SOVRIUM_ENCRYPTION_KEY`, restore says so: set that variable to the same value before `sovrium start`. If the environment sets a key that differs from the restored key file, restore warns that the stored credentials will not decrypt while it is set.

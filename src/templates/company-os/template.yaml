@@ -1,0 +1,98 @@
+title: 'Orrin OS'
+tagline: |
+  A small company's sales, delivery, support and team in one app, around one list of clients.
+intro: |
+  Orrin OS — a small company's sales, delivery, support and team in one app. Home shows one figure
+  from every module and what waits on you across all four; the pipeline holds deals by stage; a
+  client opens in a drawer with its deals, projects and tickets; projects carry their tasks;
+  tickets sit on a board by status; and the team page shows who is away and which time off waits
+  on a decision.
+glance:
+  - |-
+    **Tables** (9): companies, contacts, deals, projects, project_tasks, tickets, employees,
+    time_off_requests, customer_invoices (admin-only, filled by the Pennylane recipe)
+  - '**Pages** (8): home (`/`), sales, companies, delivery, support, people, assistant, sign-in'
+  - |-
+    **Automations** (4): open-project-on-won-deal (stops with a `flow` stop when the deal's
+    project is already open), notify-contact-on-resolved-ticket, approve-time-off, and
+    pennylane-invoices-to-table — a library recipe (`library/recipe/`, with its
+    `library/connection/pennylane.yaml`) filing each morning's new invoices once
+    `PENNYLANE_API_TOKEN` is set
+  - '**AI agents** (1): ops-assistant'
+  - '**Singletons**: auth, design'
+  - |-
+    **Seed data**: `seed/` — nine sign-in accounts, six clients, nine deals, six projects, eight
+    tasks, eight tickets and five time-off requests, dated relative to the day you seed
+  - '**Static assets**: `public/` (served at the site root)'
+glanceClose: |
+  Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
+assistant: |
+  Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+  run into `.claude/skills/`; start from `sovrium-app` for any change to the config. The
+  design system is in `config/design.yaml`: read its comments before changing a colour, keep
+  one accent for every module, and keep colour for outcomes (won, done, resolved, approved,
+  late, lost).
+whatsInside: |
+  Four modules sharing one database, grouped in the sidebar — and every one of them names a
+  client the same way, because there is only one list of clients:
+
+  - **Home** (`/`) — one figure per module (open pipeline, active projects, open tickets, time
+    off waiting on a decision), the open pipeline by stage and by client, and what waits on
+    you across all four: an urgent ticket, a late task, a passed close date, the requests to
+    decide.
+  - **Sales** — the **Pipeline**, open deals by stage with their client, value, close date and
+    owner; Won and Lost are folded columns. **Companies** lists every client with its account
+    manager, and opens one in a drawer with its deals, projects and tickets.
+  - **Delivery** — every **project** with its client, owner, dates and progress, and a board of
+    the tasks. Winning a deal opens its project here by itself.
+  - **Support** — **tickets** by status, each with the contact who raised it, the client and who
+    holds it. Resolving a ticket emails its contact.
+  - **People** — **team and time off**: who is away this month, by name, the requests waiting on
+    a decision, and the team. A new request asks the admins to approve it.
+  - **Assistant** — one AI assistant that reads every module, so "what is open with Northwind,
+    and who holds its tickets?" is one question.
+  - Optional: each morning, the invoices you issued in Pennylane filed into an admin-only
+    `customer_invoices` table. It is the `pennylane-invoices-to-table` recipe from the Sovrium
+    library (`sovrium library add recipe/pennylane-invoices-to-table`); set
+    `PENNYLANE_API_TOKEN` to turn it on — without it the app runs exactly the same.
+
+  Sign-up is closed: an admin adds each account. Everything is declared in
+  [`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no application code. Edit the
+  config, restart, done.
+whatToTry: |
+  Load the demo data first. It creates nine accounts — the team of Orrin & Co, a small agency —
+  six clients, nine deals, six projects, eight tasks, eight tickets and five time-off
+  requests, dated relative to today:
+
+  ```bash
+  SOVRIUM_SEED_PASSWORD=choose-a-password sovrium seed app.yaml
+  sovrium start app.yaml
+  ```
+
+  Sign in as **priya.raghunathan@orrin.example** (admin, runs operations) or
+  **hannah.okonkwo@orrin.example** (member, an account manager), with the password you chose.
+  Then:
+
+  1. On **Home**, read the four figures and what waits on you: Northwind's urgent ticket, a task
+     eleven days late, a deal past its close date, three time-off requests.
+  2. On the **Pipeline**, drag "Helios — clinical systems pilot" to Won.
+  3. Open **Projects**: the project that win opened is on top, for Helios Health Group.
+  4. Open **Companies** and click Northwind Logistics: its two deals, its planned project and
+     its two open tickets, in one drawer.
+  5. On **Tickets**, expand the folded Resolved column; on **Team & time off**, see who is away
+     this month.
+  6. Sign in as Hannah: a member works every module, but only an admin deletes a client.
+env:
+  - name: 'SOVRIUM_SEED_PASSWORD'
+    section: 'Demo data'
+    description: |-
+      `sovrium seed` creates the nine demo accounts of seed/users.yaml with this
+      password. Seeding refuses to run without it.
+      Every seeded account shares it, the admin included: pick a strong one, or
+      do not seed an app other people can reach.
+  - name: 'PENNYLANE_API_TOKEN'
+    section: 'Pennylane (optional)'
+    description: |-
+      The API token of your Pennylane company turns on the morning import of the
+      invoices you issued into the customer_invoices table. Without it the app
+      runs and only that automation is idle.

@@ -12,8 +12,8 @@
 
 /**
  * Prestyled-by-default class computers for the SSR forms cluster: the `form`
- * card chrome and an endpoint form's switch. The `input-group` moved onto
- * shadcn/ui's anatomy in `input-group-default-classes.ts`.
+ * card chrome, an endpoint form's switch and a hosted form's checkbox. The
+ * `input-group` moved onto shadcn/ui's anatomy in `input-group-default-classes.ts`.
  *
  * Schema authors who write a bare `{ type: 'form' }` get a
  * complete, opinionated chrome with zero theme-layer dependency. Layout /
@@ -93,6 +93,33 @@ export const computeFormSwitchClasses = (): string =>
     'before:bg-background dark:checked:before:bg-primary-foreground dark:before:bg-foreground',
     'before:transition-transform checked:before:translate-x-[calc(100%-2px)]',
     'focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+    'disabled:cursor-not-allowed disabled:opacity-50',
+  ].join(' ')
+
+// ──────────────────────────────────────────────────────────────────────────────
+// CHECKBOX — a hosted form's checkbox column
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The row a checkbox field sits in, shadcn/ui's horizontal `Field`: the box
+ * first, then a column holding the label and, under it, the help text, so a
+ * long label wraps beside the box and the help text aligns with the label.
+ */
+export const computeFormCheckboxFieldClasses = (): string =>
+  'flex w-full flex-row items-start gap-2.5'
+
+/** The column beside the box: the label, then the help text under it. */
+export const computeFormCheckboxTextClasses = (): string => 'flex min-w-0 flex-col gap-1'
+
+/**
+ * The box itself: a native checkbox at shadcn/ui's `Checkbox` size, so it works
+ * before any script runs, filled in the primary colour once checked. Its top
+ * margin centres the 16px box on the label's 19px first line.
+ */
+export const computeFormCheckboxClasses = (): string =>
+  [
+    'mt-[1.5px] size-4 shrink-0 cursor-pointer accent-primary',
+    'focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
     'disabled:cursor-not-allowed disabled:opacity-50',
   ].join(' ')
 

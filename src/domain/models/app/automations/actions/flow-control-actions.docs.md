@@ -16,7 +16,13 @@ condition:
     - { field: '{{trigger.data.record.amount}}', operator: greaterThan, value: 100 }
 ```
 
-The comparison operators are `equals`, `notEquals`, `contains`, `notContains`, `startsWith`, `endsWith`, `greaterThan`, `greaterThanOrEqual`, `lessThan`, `lessThanOrEqual`, `isEmpty`, `isNotEmpty`, `isNull`, `isNotNull` and `matches`.
+The comparison operators are `equals`, `notEquals`, `contains`, `notContains`, `startsWith`, `endsWith`, `greaterThan`, `greaterThanOrEqual`, `lessThan`, `lessThanOrEqual`, `isEmpty`, `isNotEmpty`, `isNull`, `isNotNull`, `matches`, `in` and `notIn`.
+
+`in` keeps a value that is one of a list, `notIn` one that is none of it. The list is written in the config, or comes from one whole template such as `'{{trigger.data.statuses}}'` that reads a list, and keeps its list type. A single value is read as a list of one, and every member must be a plain value: a list a run fills that holds an object or a nested list fails the step, naming the operator. A missing or null value is in no list and outside none, so neither operator keeps it. A list on any other operator is refused when the configuration is decoded, pointing at `in` and `notIn`.
+
+```yaml
+- { field: '{{trigger.data.status}}', operator: in, value: [active, past-due] }
+```
 
 `isEmpty` and `isNotEmpty` test for presence: a value is empty when it is missing, null, an empty text, an empty list or an empty object (`{}`); nothing else is — `0`, `false`, a blank space, `{"a": null}` and `[null]` are values. So a `record/list` step is tested on its list, `{{<step>.records}}`, which is empty exactly when nothing matched:
 
@@ -29,7 +35,7 @@ Do not test the whole step output (`{{<step>.result}}`): it is an object with ke
 Two limits shape how a predicate has to be written:
 
 - **Groups do not nest.** `conditions` holds comparisons only, never another group, so `(A and B) or C` is not expressible in one group. Express it with two branches instead.
-- **`value` is a scalar** — a string, number, boolean or null. Arrays and objects are refused, so there is no membership test against a list here.
+- **`value` is a scalar** — a string, number, boolean or null — except for `in` and `notIn`, which take a list of scalars. Objects are refused.
 
 ## Path — branching
 
@@ -40,6 +46,8 @@ Routes execution into named branches, each with its own condition and nested act
 `paths` requires **at least two** branches. A single-branch path fails when the configuration is decoded, because one conditional step is a filter rather than a branch. A branch with no `condition` always matches, which is how a fallback is written: put it last, under `first-match`.
 
 `mode` is `first-match`, which runs the first matching branch and is the default, or `all-matching`, which runs every match in order.
+
+A branch's `actions` may be empty: `actions: []` means "do nothing in this case". Under `first-match`, a matching empty branch is still the branch taken, so no branch after it runs; it appears in the step's `matched`, and its entry in `results` is empty.
 
 Inside a branch — its `condition` and its actions — templates resolve as they do at the top level: an earlier step reads as `{{<step>.<key>}}` or `{{<step>.result.<key>}}`, and helpers such as `{{now}}` work.
 

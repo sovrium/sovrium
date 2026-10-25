@@ -57,7 +57,11 @@ function buildSelectProps(
     // free-form input (typed values not in the option list are accepted).
     searchPlaceholder: pickFromComponent(c, rawProps, 'searchPlaceholder'),
     allowCustomValue: pickFromComponent(c, rawProps, 'allowCustomValue'),
-    defaultValue: pickFromComponent(c, rawProps, 'defaultValue'),
+    // With an `emptyOption` and no `defaultValue` the control rests on that row:
+    // its value is the empty string, as the platform control's first option is.
+    defaultValue:
+      pickFromComponent(c, rawProps, 'defaultValue') ??
+      (pickFromComponent(c, rawProps, 'emptyOption') === undefined ? undefined : ''),
     disabled: rawProps?.disabled,
     label: rawProps?.label ?? rawProps?.fieldLabel,
     // A `field` around the select names it by its label (`slot-children.ts`).

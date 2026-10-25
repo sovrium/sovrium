@@ -1,0 +1,131 @@
+title: 'Field Notes — a blog'
+tagline: |
+  A publication: essays with covers, moderated comments, an RSS feed, and a desk that
+  schedules posts.
+intro: |
+  Field Notes — a fictional publication a small studio owns: an index of essays with their
+  covers, one page per essay with its byline, its body and the comments the editor approved,
+  an RSS feed, and a desk behind `/admin` where the editor schedules posts, approves comments
+  and asks an assistant for drafts. Readers never sign in; nobody can open an account.
+glance:
+  - |-
+    **Tables** (5): authors, tags, posts (Draft → Scheduled → Published), comments (Held until
+    approved; a row-level rule shows readers the Approved ones only), subscribers (the
+    newsletter list, admin only)
+  - |-
+    **Pages** (10): essays (`/`), essay (`/blog/:slug`, one page per published post, feed at
+    `/feed.xml`), not-found (`/404`), and the desk — posts, post edit, comments, tags, authors,
+    assistant, sign-in
+  - |-
+    **Forms** (3): comment (public, honeypot; arrives Held), new-post (the desk's dialog),
+    newsletter (public; the library sign-up block on `/` posts to it)
+  - |-
+    **Automations** (5): schedule-on-date (a draft given a date is Scheduled),
+    publish-scheduled (every hour, a scheduled post whose date has come is Published),
+    stamp-new-comment (a new comment is dated when it arrives), triage-comment (a form trigger
+    and an `ai` classify step labelling each new comment for the desk), and form-to-brevo — a
+    library recipe (`library/recipe/`, with its `library/connection/brevo.yaml`) sending each
+    newsletter address to Brevo once `BREVO_API_KEY` is set
+  - "**AI agents** (1): blog-editor (every write waits for the editor's approval)"
+  - '**Library block**: `library/block/newsletter-inline.yaml`, the sign-up under the essays'
+  - '**Singletons**: design (roomy public pages, cozy desk), auth (sign-up closed), env'
+  - |-
+    **Seed**: `seed/` — seven posts with covers from `seed/assets/`, three authors, six tags,
+    two comments, and the editor's account
+glanceClose: |
+  Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
+assistant: |
+  Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+  run into `.claude/skills/`; start from `sovrium-app` for any change to the config. Only a
+  Published post is ever on the public pages: keep the `status` filter on the index and on the
+  essay page whenever you add a page that lists posts. The design system is in
+  `config/design.yaml`: one accent, and a colour on a post means its state — read its comments
+  before changing a colour. Covers and portraits are files in the public `images`
+  bucket; a file stored anywhere else needs a session to be read.
+whatsInside: |
+  Field Notes, a fictional publication a small studio owns. Readers get an index of essays
+  with their covers — the latest one large — one page per essay with its byline, its body and
+  the comments the editor approved, and an RSS feed at `/feed.xml`. A draft or a scheduled
+  post is never on the public pages: its address answers 404.
+
+  Behind `/admin` the editor has a desk: every post with its state, an edit page where giving
+  a draft a publish date schedules it, the comments waiting to be read, and an assistant that
+  proposes drafts — nothing it writes is saved before the editor approves it. Every hour, a
+  scheduled post whose date has come goes live on its own. A comment arrives Held and appears
+  under its essay once the editor sets it to Approved. Nobody can open an account; the editor
+  comes from `AUTH_ADMIN_EMAIL` and `AUTH_ADMIN_PASSWORD`.
+
+  When a comment arrives, a language model sorts it — a question, a correction, praise or
+  spam — and the desk shows that beside it; it labels only, the editor still decides. The
+  model is the one `AI_PROVIDER` names (a local Ollama by default): with no provider set the
+  comment keeps no label, and the run says why on the admin console's Runs page.
+
+  Under the essays, readers can subscribe to the newsletter; the addresses stay in your own
+  `subscribers` table. Optional: each address is also sent to Brevo as a contact, for the
+  sending. It is the `form-to-brevo` recipe from the Sovrium library (`sovrium library add
+  recipe/form-to-brevo`); set `BREVO_API_KEY` to turn it on — without it the app runs exactly
+  the same.
+
+  Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no
+  application code. Rename the publication in `config/pages/`, replace the essays in `seed/`.
+env:
+  - name: 'SOVRIUM_SEED_PASSWORD'
+    section: 'Demo data'
+    description: |-
+      `sovrium seed` creates the editor's account of seed/users.yaml with this
+      password. Seeding refuses to run without it.
+      Every seeded account shares it, the admin included: pick a strong one, or
+      do not seed an app other people can reach.
+  - name: 'AI_PROVIDER'
+    section: 'AI (the editorial assistant)'
+    description: |-
+      The assistant on /admin/ai-editor needs a provider. Without one the rest
+      of the site works and the assistant stays silent. Local and free: run
+      Ollama (https://ollama.com) and pull a model.
+    example: 'ollama'
+  - name: 'AI_BASE_URL'
+    section: 'AI (the editorial assistant)'
+    description: |-
+      The assistant on /admin/ai-editor needs a provider. Without one the rest
+      of the site works and the assistant stays silent. Local and free: run
+      Ollama (https://ollama.com) and pull a model.
+    example: 'http://localhost:11434'
+  - name: 'AI_MODEL'
+    section: 'AI (the editorial assistant)'
+    description: |-
+      The assistant on /admin/ai-editor needs a provider. Without one the rest
+      of the site works and the assistant stays silent. Local and free: run
+      Ollama (https://ollama.com) and pull a model.
+    example: 'llama3.1'
+  - name: 'ANTHROPIC_API_KEY'
+    section: 'AI (the editorial assistant)'
+    description: |-
+      Or a cloud provider instead: set AI_PROVIDER to anthropic, its key here
+      (AI_API_KEY works for any provider), and AI_MODEL to one of its models.
+  - name: 'SMTP_HOST'
+    section: 'Email (operator emails)'
+    description: |-
+      Without SMTP_HOST, no email leaves the app; comments still wait on the
+      desk and scheduled posts still go live.
+  - name: 'SMTP_PORT'
+    section: 'Email (operator emails)'
+    description: |-
+      Without SMTP_HOST, no email leaves the app; comments still wait on the
+      desk and scheduled posts still go live.
+    example: '587'
+  - name: 'SMTP_USER'
+    section: 'Email (operator emails)'
+    description: |-
+      Without SMTP_HOST, no email leaves the app; comments still wait on the
+      desk and scheduled posts still go live.
+  - name: 'SMTP_PASS'
+    section: 'Email (operator emails)'
+    description: |-
+      Without SMTP_HOST, no email leaves the app; comments still wait on the
+      desk and scheduled posts still go live.
+  - name: 'BREVO_API_KEY'
+    section: 'Brevo (optional)'
+    description: |-
+      An API key of your Brevo account sends each newsletter address to Brevo as a
+      contact, for the sending. Without it the addresses stay in the subscribers
+      table and only that automation is idle.

@@ -9,10 +9,10 @@
  * Codegen: the catalogue references the Agent Skills carry ([internal ref] A2).
  *
  * A skill's judgement is hand-written; its CATALOGUES are not. A list of field
- * types, component types, triggers, actions, CLI verbs or SEO options written by
- * hand drifts from the product the first release after it is written, and a
+ * types, component types, triggers, actions, CLI verbs, or SEO, design, access or
+ * agent options written by hand drifts from the product the first release after it is written, and a
  * skill that teaches an agent an option the binary no longer accepts is worse
- * than no skill. So these five files are rendered from the same sources the
+ * than no skill. So these files are rendered from the same sources the
  * binary itself reads — the schema annotations, the component catalogue, the
  * dispatch table and the help text — and `Generated Assets Drift` holds each
  * byte-equal to a fresh render.
@@ -23,7 +23,7 @@
  * than print a blank row.
  *
  * Regenerate after a schema, catalogue or CLI change:
- *   bun run build:skill-references            (writes the five files)
+ *   bun run build:skill-references            (writes every file)
  *   bun run build:skill-references --check    (exit 1 when any is stale)
  */
 
@@ -411,20 +411,35 @@ export const SEO_OPTION_ROOTS: readonly string[] = [
 ]
 
 /** How deep under each root the option walk goes. */
-const SEO_DEPTH = 8
+const OPTION_DEPTH = 8
 
-/** Every option under one config path, the path's own row first. */
+/** One option row of a catalogue. */
+interface OptionRow {
+  readonly path: string
+  readonly kind: string
+  readonly description?: string
+}
+
+/**
+ * Every option under one config path, the path's own row first. The walk goes
+ * {@link OPTION_DEPTH} deep and refuses a cut branch, unless the caller asks
+ * for a SHALLOW listing on purpose (one row per child, the children's own
+ * options left to `sovrium docs config`) — the shape a map too large to walk
+ * whole, such as `design.components`, is printed in.
+ */
 const optionsUnder = (
   root: SchemaNode,
-  path: string
-): readonly { readonly path: string; readonly kind: string; readonly description?: string }[] => {
+  path: string,
+  walk: { readonly depth?: number; readonly shallow?: boolean } = {}
+): readonly OptionRow[] => {
   const located = schemaOptionAt(root, path)
   if (located === undefined) throw new SkillReferenceError(`config path ${path} names no option`)
   const node = located.visited.at(-1)
+  const depth = walk.shallow === true ? 1 : (walk.depth ?? OPTION_DEPTH)
   const children =
-    node === undefined ? [] : schemaOptionTreeFor(node, { depth: SEO_DEPTH, rowCap: 100_000 }).items
+    node === undefined ? [] : schemaOptionTreeFor(node, { depth, rowCap: 100_000 }).items
   const truncated = children.filter((row) => row.truncated === true).map((row) => row.path)
-  if (truncated.length > 0) {
+  if (truncated.length > 0 && walk.shallow !== true) {
     throw new SkillReferenceError(
       `the option walk under ${path} was cut at: ${truncated.join(', ')}`
     )
@@ -449,32 +464,141 @@ const optionAddress = (root: SchemaNode, path: string): string => {
   return `\`${path}\``
 }
 
-const renderSeoOptions = (): string => {
+/** One `## ` section of an option catalogue: a config path and how to walk it. */
+interface OptionSection {
+  readonly path: string
+  readonly shallow?: boolean
+  /** Rows under these paths are left out (they get a section of their own). */
+  readonly exclude?: readonly string[]
+  /** A sentence printed under the heading, before the table. */
+  readonly note?: string
+}
+
+/** One option table per section, each row with the command that prints it. */
+const renderOptionSections = (sections: readonly OptionSection[]): string => {
   const root = astOf(AppSchema)
   if (root === undefined) throw new SkillReferenceError('AppSchema exposes no AST')
-  const sections = SEO_OPTION_ROOTS.map((prefix) => {
-    const rows = optionsUnder(root, prefix)
-    return [
-      `## \`${prefix}\``,
-      '',
-      '| Option | Kind | What it does |',
-      '| --- | --- | --- |',
-      ...rows.map(
+  return sections
+    .map((section) => {
+      const excluded = section.exclude ?? []
+      const rows = optionsUnder(root, section.path, { shallow: section.shallow }).filter(
         (row) =>
-          `| ${optionAddress(root, row.path)} | ${cell(row.kind, `the kind of ${row.path}`)} | ${cell(row.description, `option ${row.path}`)} |`
-      ),
-      '',
-    ].join('\n')
-  })
-  return renderReference({
+          !excluded.some((prefix) => row.path === prefix || row.path.startsWith(`${prefix}.`))
+      )
+      return [
+        `## \`${section.path}\``,
+        '',
+        ...(section.note === undefined ? [] : [section.note, '']),
+        '| Option | Kind | What it does |',
+        '| --- | --- | --- |',
+        ...rows.map(
+          (row) =>
+            `| ${optionAddress(root, row.path)} | ${cell(row.kind, `the kind of ${row.path}`)} | ${cell(row.description, `option ${row.path}`)} |`
+        ),
+        '',
+      ].join('\n')
+    })
+    .join('\n')
+}
+
+const renderSeoOptions = (): string =>
+  renderReference({
     title: 'Sovrium SEO and GEO options',
     lead:
       'Every option that decides how a Sovrium app is found — page metadata, sitemaps, feeds, ' +
       'content directories, `llms.txt`, languages and redirects — with the command that prints ' +
       'its full entry (kind, allowed values, default, guidance) from the binary you run.',
-    body: sections.join('\n'),
+    body: renderOptionSections(SEO_OPTION_ROOTS.map((path) => ({ path }))),
   })
-}
+
+// =============================================================================
+// 6. Design options
+// =============================================================================
+
+/**
+ * `design` walked whole would be mostly `design.components` — one entry per
+ * engine component type, each with the same per-part, per-variant shape — and
+ * past the walker's useful size. So the catalogue prints the rest of `design`
+ * in full, the components map one row per type, and ONE type in full as the
+ * worked shape every other type shares.
+ */
+const DESIGN_WORKED_COMPONENT = 'button'
+
+const renderDesignOptions = (): string =>
+  renderReference({
+    title: 'Sovrium design options',
+    lead:
+      'Every option of the `design` block — palette, ramps and roles, type, space, shape, ' +
+      'elevation, motion, breakpoints, density, the zone map and the charter — with the command ' +
+      'that prints its full entry from the binary you run. `design.components` is listed one ' +
+      `row per component type, and \`${DESIGN_WORKED_COMPONENT}\` in full as the shape the others share.`,
+    body: renderOptionSections([
+      { path: 'design', exclude: ['design.components'] },
+      {
+        path: 'design.components',
+        shallow: true,
+        note: `One row per component type. Every type takes the options listed for \`design.components.${DESIGN_WORKED_COMPONENT}\` below.`,
+      },
+      { path: `design.components.${DESIGN_WORKED_COMPONENT}` },
+    ]),
+  })
+
+// =============================================================================
+// 7. Access and authentication options
+// =============================================================================
+
+/**
+ * The config paths that decide who may reach what, in reading order. `env[]`
+ * is here for `secret`, which decides whether a default is redacted. There is
+ * no page-, form- or bucket-level key outside these.
+ */
+export const AUTH_OPTION_ROOTS: readonly string[] = [
+  'auth',
+  'pages[].access',
+  'forms[].access',
+  'forms[].antiSpam',
+  'forms[].availability',
+  'buckets[].permissions',
+  'tables[].aiAccess',
+  'agents[].permissions',
+  'env[]',
+]
+
+const renderAuthOptions = (): string =>
+  renderReference({
+    title: 'Sovrium access and authentication options',
+    lead:
+      'Every option that decides who can sign in and what each visitor, member, agent or ' +
+      'automation may reach — authentication, page and form access, anti-spam and opening ' +
+      'hours, bucket permissions, AI access to tables, agent permissions and secret ' +
+      'environment defaults — with the command that prints its full entry from the binary you run.',
+    body: renderOptionSections(AUTH_OPTION_ROOTS.map((path) => ({ path }))),
+  })
+
+// =============================================================================
+// 8. Agent options
+// =============================================================================
+
+/**
+ * The config paths of the app's own AI. Speech-to-text has no key of its own:
+ * its options sit on the `ai-chat` component and the transcribe action, and its
+ * infrastructure is environment only.
+ */
+export const AGENT_OPTION_ROOTS: readonly string[] = [
+  'agents[]',
+  'tables[].aiAccess',
+  'automations[].aiAccess',
+]
+
+const renderAgentOptions = (): string =>
+  renderReference({
+    title: 'Sovrium agent options',
+    lead:
+      "Every option of the app's own AI agents, and of the AI access a table or an automation " +
+      'grants, with the command that prints its full entry from the binary you run. Providers, ' +
+      `models and speech-to-text are environment variables: \`sovrium docs ${docsAddress('configuration/env-vars-ai')}\`.`,
+    body: renderOptionSections(AGENT_OPTION_ROOTS.map((path) => ({ path }))),
+  })
 
 // =============================================================================
 // Main
@@ -495,6 +619,9 @@ export const renderSkillReferences = async (root: string): Promise<ReadonlyMap<s
       renderTriggersAndActions(),
     ],
     ['src/skills/sovrium-seo-geo/references/seo-options.generated.md', renderSeoOptions()],
+    ['src/skills/sovrium-design/references/design-options.generated.md', renderDesignOptions()],
+    ['src/skills/sovrium-security/references/auth-options.generated.md', renderAuthOptions()],
+    ['src/skills/sovrium-agents/references/agent-options.generated.md', renderAgentOptions()],
   ])
   const declared = [...SKILL_REFERENCE_FILES].toSorted()
   const written = [...rendered.keys()].toSorted()

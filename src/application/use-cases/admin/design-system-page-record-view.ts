@@ -22,6 +22,10 @@ import {
   type PrototypeStore,
   type PrototypeView,
 } from '@/domain/models/app/design/adapters/pages/claude-design-canvas-app'
+import {
+  routeParamLookupOf,
+  type RouteParamTable,
+} from '@/domain/models/app/tables/route-param-lookup-service'
 import { queryDefaultsOf } from './design-system-page-boards'
 import { placedNodesOf } from './design-system-page-prototype'
 import { recordTextsOf, type ExportTextContext } from './design-system-page-record-text'
@@ -52,9 +56,9 @@ const fieldsOf = (app: App, table: string): readonly Field[] =>
 const placeholderRecordOf = (
   app: App,
   table: string,
-  key: string
+  names: { readonly key: string; readonly param: string; readonly at: string }
 ): Readonly<Record<string, unknown>> => ({
-  id: RECORD_VIEW_ID,
+  id: names.at,
   ...Object.fromEntries(
     fieldsOf(app, table).flatMap((field) =>
       field['writeOnly'] === true || UNPLACEHELD_TYPES.has(String(field['type']))
@@ -62,19 +66,57 @@ const placeholderRecordOf = (
         : [[String(field['name']), recordPlaceholderOf(String(field['name']))] as const]
     )
   ),
-  [key]: RECORD_VIEW_ID,
+  [names.key]: names.at,
+  [names.param]: names.at,
 })
+
+/**
+ * What a record view's route segment is drawn at: the view's own id where the
+ * page's route can name a record by it, else the first stand-in it can (a
+ * serial id, a calendar day), which the drawn body then names as the view's id.
+ * A segment no record could hold is answered not-found, as the server does.
+ */
+const RECORD_VIEW_STAND_INS = [RECORD_VIEW_ID, '2000000001', '2000-01-01'] as const
+
+const drawnRecordIdOf = (app: App, table: string, param: string): string => {
+  const declared = app.tables?.find((candidate) => candidate.name === table)
+  return (
+    RECORD_VIEW_STAND_INS.find(
+      (value) =>
+        declared === undefined ||
+        routeParamLookupOf(
+          declared as RouteParamTable,
+          { param, value },
+          // Only whether a stand-in value can address a record matters here,
+          // not the drawing account's read rights, so every column is admitted.
+          { scopeTables: app.auth?.scopeTables, readable: () => true }
+        ) !== undefined
+    ) ?? RECORD_VIEW_ID
+  )
+}
+
+/** A record view's drawn body, its stand-in id written back as the view's own id. */
+export const withRecordViewId = (body: string, at: string): string =>
+  at === RECORD_VIEW_ID
+    ? body
+    : body.replaceAll(new RegExp(`(?<![\\w-])${at}(?![\\w-])`, 'g'), RECORD_VIEW_ID)
 
 /** The seed a record page's view is drawn from: its table holding the placeholder record only. */
 export const placeholderSeedOf = (
   app: App,
   seed: PageSeed | undefined,
   table: string,
-  key: string
-): { readonly seed: PageSeed; readonly record: Readonly<Record<string, unknown>> } => {
-  const record = placeholderRecordOf(app, table, key)
+  route: { readonly key: string; readonly param: string }
+): {
+  readonly seed: PageSeed
+  readonly record: Readonly<Record<string, unknown>>
+  readonly at: string
+} => {
+  const at = drawnRecordIdOf(app, table, route.param)
+  const record = placeholderRecordOf(app, table, { ...route, at })
   return {
     record,
+    at,
     seed: {
       dir: seed?.dir ?? '',
       tables: { ...seed?.tables, [table]: [record] },

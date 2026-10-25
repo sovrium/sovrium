@@ -31,19 +31,7 @@
  * templates are never imported.
  */
 
-import { join } from 'node:path'
-import { parseJson } from '@/domain/models/app/design/adapters/import/canonical-tokens-service'
-import {
-  CANVAS_TOKENS_FILE,
-  paintTokensOf,
-} from '@/domain/models/app/design/adapters/pages/claude-design-canvas-tokens'
-import { DEFAULT_SCALE_VALUES } from '@/domain/models/app/design/default-design.generated'
-import { ENGINE_COMPONENT_TYPES } from '@/domain/models/app/pages/components/component-types/component-type-union'
 import { boardVerdictOf } from '@/domain/models/app/pages/page-import-verdict-service'
-import {
-  defaultSpacingStepsOf,
-  spacingScaleOf,
-} from '@/domain/models/app/pages/page-merge-layout-service'
 import { getFlagValue, getFlagValues } from '../runtime/flag-vocabulary'
 import { refuse } from './app-prelude'
 import { loadValidConfig, resolveConfig } from './design-system-import-config'
@@ -52,8 +40,15 @@ import {
   writeMergedPages,
   type MergedPage,
 } from './design-system-import-pages-apply'
+import {
+  baselinesOf,
+  KIT,
+  readDrawings,
+  spacingOf,
+  type Baselines,
+} from './design-system-import-pages-baselines'
 import { planTypeScriptLiterals, writeLiterals } from './design-system-import-pages-literals'
-import { PAGE_READERS } from './design-system-import-pages-readers'
+import { assembledConfig, withFiles, writePagesThroughRefs } from './design-system-import-pages-ref'
 import {
   mergeNewPages,
   referencesOf,
@@ -63,26 +58,19 @@ import {
   type ReadDrawings,
 } from './design-system-import-pages-select'
 import {
-  bundleFilesOf,
-  bundleView,
-  displayPath,
   locatePageSource,
   PAGE_FORMATS,
   type LocatedPageSource,
   type PageFormat,
 } from './design-system-import-pages-source'
 import { renderPagesReport, reshapedUnstampedBoardRefusal } from './design-system-import-pages-text'
-import { readCanvasTokens, type UneditedTokens } from './design-system-import-pages-tokens'
+import { readCanvasTokens } from './design-system-import-pages-tokens'
 import { rootFormatOf } from './library-add-config'
-import { lazyImportIndex } from './utils'
 import type { PageImportReport } from '@/domain/models/api/admin/design-system/page-import-report'
 import type { App } from '@/domain/models/app'
 import type { DrawnPage } from '@/domain/models/app/pages/page-drawing'
 import type { PageMergePlan } from '@/domain/models/app/pages/page-merge'
-import type { PaintTokens } from '@/domain/models/app/pages/page-merge-paint-service'
 import type { TranslationScope } from '@/domain/models/app/pages/page-merge-translation-service'
-
-const decoder = new TextDecoder()
 
 /** The request, as read from argv. */
 interface PagesRequest {
@@ -132,82 +120,6 @@ const readRequest = (argv: readonly string[], positional: readonly string[]): Pa
     tokens: argv.includes('--tokens'),
     newPages: argv.includes('--new-pages'),
     sidecar: argv.includes('--sidecar'),
-  }
-}
-
-/**
- * The kit a drawing may add nodes from: every component type the kit draws.
- * Text a new node draws goes to `content` on a text node and to a lone string
- * child on any other, as a page writes a button's label.
- */
-const KIT = {
-  types: new Set<string>(ENGINE_COMPONENT_TYPES),
-  contentTypes: new Set(['text']),
-}
-
-/** The default scale every app renders with when its config declares no `design.spacing`. */
-const DEFAULT_SPACING_STEPS = defaultSpacingStepsOf(DEFAULT_SCALE_VALUES)
-
-/**
- * The scale a drawing's lengths are read against: the app's declared
- * `design.spacing`, else the default scale every app renders with.
- */
-const spacingOf = (app: App): Readonly<Record<string, string>> =>
-  spacingScaleOf(
-    app.design?.spacing as Readonly<Record<string, string>> | undefined,
-    DEFAULT_SPACING_STEPS
-  )
-
-/** Read one tool's drawings through its parser, refusing what it cannot read at all. */
-const readDrawings = async (
-  located: Pick<LocatedPageSource, 'format' | 'view' | 'files' | 'path'>,
-  app: App
-): Promise<ReadDrawings> => {
-  const reader = PAGE_READERS[located.format]
-  if (reader === undefined) {
-    return refuse(`Error: This version cannot read ${located.format} page drawings yet.`)
-  }
-  const result = await reader(located.view, located.files, {
-    spacing: spacingOf(app),
-    kitTypes: KIT.types,
-  })
-  return 'error' in result
-    ? refuse(
-        `Error: "${displayPath(located.path)}" cannot be read as ${located.format}. ${result.error}`
-      )
-    : { pages: result.pages, skipped: result.skipped ?? [] }
-}
-
-/** What an unedited export of the config holds: each page's drawing, and its tokens. */
-interface Baselines {
-  readonly pages: ReadonlyMap<string, DrawnPage>
-  readonly paint: PaintTokens
-  /** The unedited export's canvas token file, which `--tokens` reads the canvas's against. */
-  readonly tokens: UneditedTokens
-}
-
-/** The same tool's drawings of an unedited export of the config, built in memory. */
-const baselinesOf = async (
-  app: App,
-  configPath: string,
-  format: PageFormat,
-  names: readonly string[]
-): Promise<Baselines> => {
-  const { buildDesignSystemBundle } = await lazyImportIndex()
-  const { assetProjectDir } = await import('@/infrastructure/assets/private-assets')
-  const bundle = await buildDesignSystemBundle(app, {
-    publicDir: join(assetProjectDir(configPath), 'public'),
-    pages: { names },
-  })
-  const view = bundleView(bundle.files)
-  const files = await bundleFilesOf(view, format)
-  const { pages } = await readDrawings({ format, view, files, path: 'the unedited export' }, app)
-  const tokens = bundle.files.find((file) => CANVAS_TOKENS_FILE.test(file.path))
-  const document = parseJson(tokens === undefined ? '' : decoder.decode(tokens.bytes))
-  return {
-    pages: new Map(pages.map((page) => [page.page, page] as const)),
-    paint: paintTokensOf(document),
-    tokens: { path: (tokens?.path ?? '').replace(/^.*?(ds\/)/, '$1'), document },
   }
 }
 
@@ -299,18 +211,44 @@ const writeOutcome = async (
     readonly source: string
     readonly loaded: Awaited<ReturnType<typeof loadValidConfig>>
   },
-  merged: readonly MergedPage[],
+  change: { readonly merged: readonly MergedPage[]; readonly judges: readonly MergedPage[] },
   plans: {
     readonly literal: Awaited<ReturnType<typeof planTypeScriptLiterals>> | undefined
     readonly tokens: Awaited<ReturnType<typeof readCanvasTokens>> | undefined
   }
-): Promise<NonNullable<PageImportReport['written']>> =>
-  plans.literal === undefined
-    ? writeMergedPages(target.configPath, target.source, target.loaded, {
-        merged,
-        ...(plans.tokens === undefined ? {} : { colours: plans.tokens.writes }),
-      })
-    : writeLiterals(target.configPath, target.loaded, plans.literal)
+): Promise<NonNullable<PageImportReport['written']>> => {
+  if (plans.literal !== undefined)
+    return writeLiterals(target.configPath, target.loaded, plans.literal)
+  const pages = {
+    merged: change.merged,
+    ...(plans.tokens === undefined ? {} : { colours: plans.tokens.writes }),
+  }
+  // A config assembled from includes is written through them; an inline one in place.
+  const through = await writePagesThroughRefs(
+    target.configPath,
+    target.loaded.parsed,
+    { ...pages, judges: change.judges },
+    false
+  )
+  return through ?? writeMergedPages(target.configPath, target.source, target.loaded, pages)
+}
+
+/**
+ * With `--page`, the drawings of the declared pages it leaves out, when the
+ * config is assembled from includes: a file several pages include is judged
+ * on every board that draws it.
+ */
+const leftOutDrawings = async (
+  read: ReadDrawings,
+  app: App,
+  target: { readonly configPath: string; readonly names: readonly string[] }
+): Promise<readonly DrawnPage[]> => {
+  if (target.names.length === 0 || (await assembledConfig(target.configPath)) === undefined) {
+    return []
+  }
+  const every = selectDrawings({ ...read, skipped: [] }, app, { names: [], newPages: false })
+  return every.pages.filter((drawing) => !target.names.includes(drawing.page))
+}
 
 /** The report `--json` prints, and the text report renders. */
 const reportOf = (
@@ -336,6 +274,66 @@ const reportOf = (
 })
 
 /**
+ * Read the drawings and merge those the request selects, with the boards
+ * `--page` left out merged beside them for judging shared files only.
+ */
+const mergeRequested = async (
+  request: PagesRequest,
+  located: LocatedPageSource,
+  target: { readonly configPath: string; readonly parsed: unknown; readonly app: App }
+) => {
+  const { configPath, app } = target
+  const read = await readDrawings(located, app)
+  const selected = selectDrawings(read, app, { names: request.pages, newPages: request.newPages })
+  const leftOut = await leftOutDrawings(read, app, { configPath, names: request.pages })
+  const baselines = await baselinesOf(
+    app,
+    configPath,
+    located,
+    [...selected.pages, ...leftOut].map((drawing) => drawing.page)
+  )
+  const scope = { parsed: target.parsed, configPath }
+  const created = { drawings: selected.pages, created: selected.created }
+  const mergedPages = await mergeAll(app, scope, created, baselines)
+  const judges = await mergeAll(app, scope, { drawings: leftOut, created: [] }, baselines)
+  return { selected, mergedPages, judges, baselines }
+}
+
+/**
+ * Write the merged pages, or on a dry run judge them as the write would,
+ * refusing in the same words; `undefined` when nothing was written.
+ */
+const writeOrJudge = async (
+  write: boolean,
+  target: Parameters<typeof writeOutcome>[0],
+  change: Parameters<typeof writeOutcome>[1],
+  plans: Parameters<typeof writeOutcome>[2]
+): Promise<PageImportReport['written']> => {
+  if (write) return writeOutcome(target, change, plans)
+  const { configPath, loaded } = target
+  if ((await writePagesThroughRefs(configPath, loaded.parsed, change, true)) === undefined) {
+    await judgeMergedPages(loaded, change.merged)
+  }
+  return undefined
+}
+
+/** Print the report: as a document with `--json`, as text otherwise. */
+const printReport = (
+  request: PagesRequest,
+  report: PageImportReport,
+  filed: Awaited<ReturnType<typeof withFiles>>
+): void => {
+  process.stdout.write(
+    request.json
+      ? `${JSON.stringify(report, undefined, 2)}\n`
+      : renderPagesReport(report, filed.merged, {
+          dryRun: !request.write,
+          pageFiles: filed.pageFiles,
+        })
+  )
+}
+
+/**
  * Handle `sovrium design-system import --pages`.
  *
  * @param argv - the raw arguments after the binary name.
@@ -350,23 +348,11 @@ export const handleDesignSystemPagesImportCommand = async (
   const configPath = await resolveConfig(request.config)
   const loaded = await loadValidConfig(configPath)
   const app = await decodedApp(loaded)
-  const selected = selectDrawings(await readDrawings(located, app), app, {
-    names: request.pages,
-    newPages: request.newPages,
-  })
-  const { pages: drawings } = selected
-  const baselines = await baselinesOf(
-    app,
+  const { selected, mergedPages, judges, baselines } = await mergeRequested(request, located, {
     configPath,
-    located.format,
-    drawings.map((drawing) => drawing.page)
-  )
-  const mergedPages = await mergeAll(
+    parsed: loaded.parsed,
     app,
-    { parsed: loaded.parsed, configPath },
-    { drawings, created: selected.created },
-    baselines
-  )
+  })
   // A TypeScript config is rewritten literal by literal, unless --sidecar asks for sidecars.
   const literal =
     rootFormatOf(configPath) === 'typescript' && !request.sidecar
@@ -376,17 +362,23 @@ export const handleDesignSystemPagesImportCommand = async (
   const tokens = request.tokens
     ? await readCanvasTokens(located, baselines.tokens, { configPath, write: request.write })
     : undefined
-  if (!request.write) await judgeMergedPages(loaded, merged)
-  const written = request.write
-    ? await writeOutcome({ configPath, source: located.path, loaded }, merged, {
-        literal,
-        tokens,
-      })
-    : undefined
-  const report = reportOf(located, { merged, skipped: selected.skipped }, { tokens, written })
-  process.stdout.write(
-    request.json
-      ? `${JSON.stringify(report, undefined, 2)}\n`
-      : renderPagesReport(report, merged, !request.write)
+  const written = await writeOrJudge(
+    request.write,
+    { configPath, source: located.path, loaded },
+    { merged, judges },
+    { literal, tokens }
+  )
+  const filed = await withFiles(configPath, loaded.parsed, { merged, tokens: tokens?.report })
+  printReport(
+    request,
+    reportOf(
+      located,
+      { merged: filed.merged, skipped: selected.skipped },
+      {
+        tokens: filed.tokens === undefined ? undefined : { report: filed.tokens },
+        written,
+      }
+    ),
+    filed
   )
 }

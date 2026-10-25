@@ -40,6 +40,24 @@ export const StandaloneInputTypeSchema = Schema.Literals([
 })
 
 /**
+ * One choice a field offers: the value it stores, and the text it shows. Shared
+ * by a standalone field's `options` and by a table field's `options`, which
+ * names a subset of its select column's values.
+ */
+export const FormFieldChoiceSchema = Schema.Struct({
+  value: Schema.String.annotate({
+    description: 'Value stored when this choice is selected.',
+  }),
+  label: Schema.optional(
+    Schema.String.annotate({
+      description: 'Text shown for this choice; the value itself is shown when omitted.',
+    })
+  ),
+}).annotate({
+  description: 'One choice: the value it stores, and the text it shows.',
+})
+
+/**
  * Standalone field — typed inline, not persisted as a column. Useful for
  * forms that route only to automations or the submission ledger.
  */
@@ -56,20 +74,7 @@ export const StandaloneFieldSchema = Schema.Struct({
   inputType: StandaloneInputTypeSchema,
   /** Choices for select / multi-select / radio fields. */
   options: Schema.optional(
-    Schema.Array(
-      Schema.Struct({
-        value: Schema.String.annotate({
-          description: 'Value stored when this choice is selected.',
-        }),
-        label: Schema.optional(
-          Schema.String.annotate({
-            description: 'Text shown for this choice; the value itself is shown when omitted.',
-          })
-        ),
-      }).annotate({
-        description: 'One choice: the value it stores, and the text it shows.',
-      })
-    ).annotate({
+    Schema.Array(FormFieldChoiceSchema).annotate({
       description: 'Choices offered by a select, multi-select or radio field.',
     })
   ),

@@ -26,7 +26,7 @@ import { findDeclaredDirection } from '@/domain/models/app/languages/language-de
 import * as literalTokens from '@/domain/models/app/pages/literal-token-service'
 import { getVersionedCssPath } from '@/infrastructure/css/versioned-css-path'
 import { resolveBadge } from '@/presentation/render/page/badge-placement'
-import { DemoNotice } from '@/presentation/render/page/demo-notice'
+import { DevNotice } from '@/presentation/render/page/dev-notice'
 import { IslandImportMap } from '@/presentation/render/page/island-entry-script'
 import { SovriumBadge } from '@/presentation/render/page/sovrium-badge'
 import { FormBody } from './form-body'
@@ -57,7 +57,7 @@ import type { FormOptionSets } from '@/domain/models/app/forms/form-option-sourc
 
 /**
  * Platform chrome of a STANDALONE form page: the "Built with Sovrium" badge and
- * the demo context notice. Standalone form pages are the badge's
+ * the dev-mode notice. Standalone form pages are the badge's
  * highest-distribution surface, and `placement: footer` matters most here — a
  * floating pill sits over a long form's submit button. The embed variant
  * renders none of it: a fixed pill or panel inside a small third-party iframe
@@ -79,7 +79,7 @@ function FormPageChrome({
           placement={badgePlacement}
         />
       )}
-      <DemoNotice lang={lang} />
+      <DevNotice lang={lang} />
     </>
   )
 }

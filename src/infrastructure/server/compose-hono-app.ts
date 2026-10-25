@@ -25,6 +25,7 @@ import { redactSecretPath } from '@/domain/kernel/url/secret-path-redaction'
 import { mountedInvitationPages } from '@/domain/models/app/pages/invitation-link-service'
 import { resolvesToDeclaredPage } from '@/domain/models/app/pages/page-path-resolvability'
 import { selfFramedPaths } from '@/domain/models/app/pages/self-framed-paths-service'
+import { isDevPublicEnabled, parseDevNoticeEnvConfig } from '@/domain/models/process-env/dev-notice'
 import { parseFrameAncestors } from '@/domain/models/process-env/preview'
 import { createEmailHandlers } from '@/infrastructure/auth/better-auth/email-handlers'
 import { createInvitationServices } from '@/infrastructure/auth/better-auth/invitation-services'
@@ -44,6 +45,7 @@ import { resolveAuthContext } from '@/infrastructure/server/hono-auth-context'
 import { catalogRequestCacheMiddleware } from '@/infrastructure/server/middleware/catalog-request-cache'
 import { dbQueryCountMiddleware } from '@/infrastructure/server/middleware/db-query-count-header'
 import { hostRedirect } from '@/infrastructure/server/middleware/host-redirect'
+import { noindexPosture } from '@/infrastructure/server/middleware/noindex-posture'
 import { previewGate } from '@/infrastructure/server/middleware/preview-gate'
 import { requestLogger } from '@/infrastructure/server/middleware/request-logger'
 import {
@@ -190,7 +192,9 @@ const framingOriginsOf = (
 }
 
 /**
- * The preview gate when `SOVRIUM_PREVIEW_TOKEN` is set, else a pass-through.
+ * The preview gate when `SOVRIUM_PREVIEW_TOKEN` is set; else the noindex
+ * posture when a dev-mode instance is public on purpose (`SOVRIUM_DEV_PUBLIC`);
+ * else a pass-through. The gate already wears the posture on what it admits.
  * Its refusal is the platform's ordinary not-found answer of the request's
  * family, drawn WITHOUT the app: the app's own `/404` page can carry its name,
  * navigation, data bindings and analytics beacon, all of which a hidden
@@ -200,7 +204,9 @@ const mountPreviewGate = (
   renderNotFoundPage: HonoAppConfig['renderNotFoundPage']
 ): MiddlewareHandler => {
   const token = process.env['SOVRIUM_PREVIEW_TOKEN']
-  if (token === undefined || token === '') return (_c, next) => next()
+  if (token === undefined || token === '') {
+    return isDevPublicEnabled(parseDevNoticeEnvConfig()) ? noindexPosture : (_c, next) => next()
+  }
   return previewGate({
     token,
     notFound: async (c) =>

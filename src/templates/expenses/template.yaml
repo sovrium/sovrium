@@ -1,0 +1,120 @@
+title: 'Halden Expenses'
+tagline: |
+  A small team's expense claims: receipts, a decision in the app, and one transfer.
+intro: |
+  Halden Expenses — a small team's expense claims. Each person files what they paid with its
+  receipt and sees only their own claims, on the server; finance reviews with the receipt beside
+  the claim and decides in the app; approved claims wait on Reimburse until they are marked
+  repaid.
+glance:
+  - '**Tables** (2): expenses, bank_transactions (filled by the Qonto recipe)'
+  - '**Forms** (1): add-expense (opened from the Add expense button)'
+  - |-
+    **Pages** (5): my-expenses (`/`), review (admin), reimburse (admin), home (the sign-in
+    landing), sign-in
+  - |-
+    **Automations** (4): approve-expense, reject-with-reason (a saved reason marks a waiting
+    claim Rejected), mark-reimbursed, and qonto-transactions-to-table — a
+    library recipe (`library/recipe/`, with `library/connection/qonto.yaml`) that pulls the
+    business account's transactions each morning once the Qonto keys are set
+  - '**Singletons**: auth, design'
+  - |-
+    **Seed data**: `seed/` — four sign-in accounts and seventeen claims with their receipts
+    (`seed/assets/`), dated relative to the day you seed
+  - '**Static assets**: `public/` (served at the site root)'
+glanceClose: |
+  Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
+assistant: |
+  Run `sovrium skills` in this directory to write the Agent Skills for the Sovrium version you
+  run into `.claude/skills/`; start from `sovrium-app` for any change to the config. The
+  design system is in `config/design.yaml`: read its comments before changing a colour, keep
+  one accent, keep colour for the decisions (approved, waiting, rejected), and give each
+  category its own `chart-N` hue. Who may read a
+  claim is the table's `rowLevelPermissions`, never a page filter alone.
+whatsInside: |
+  - **My expenses** (`/`) — your own claims and nobody else's: what waits on a decision, what
+    is approved and on its way, what was repaid and what was rejected, with the reason. The
+    table's row-level rule scopes every read to its owner on the server, for every page and
+    every API call. **Add expense** takes the receipt, a description and the amount; it never
+    asks who you are, because the server stamps whoever is signed in.
+  - **Review** (finance) — what waits on finance first, spend by category (rejected claims
+    left out) and by month, then every claim with the person who filed it, its receipt, and
+    Approve and Reject on each waiting row. Opening a claim shows the receipt beside the
+    amount, with Approve and Reject at the foot while it waits; a decided claim shows no
+    buttons, and a rejected one shows why. A claim filed in the app also starts an approval run that only an admin can
+    resolve — listed below the queue, where approving it resumes the run and marks the claim
+    Approved.
+  - **Reimburse** (finance) — the approved claims, oldest first. Mark each one repaid once the
+    money has gone out; the day is written on the claim.
+
+  Sign-up is closed: an admin adds each account. Everything is declared in
+  [`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no application code. Edit the
+  config, restart, done.
+
+  Optional: the business account's settled transactions, pulled from Qonto every morning into
+  a `bank_transactions` table only admins read, so finance can match a repayment to the
+  payment that settled it. It is the `qonto-transactions-to-table` recipe from the Sovrium
+  library (`sovrium library add recipe/qonto-transactions-to-table`); set `QONTO_LOGIN` and
+  `QONTO_SECRET_KEY`, and replace `your-bank-account-id` in
+  `library/recipe/qonto-transactions-to-table.yaml`. Without them the app runs the same.
+whatToTry: |
+  Load the demo data first. It creates four accounts — the people of Halden, a small studio —
+  and seventeen claims filed between July and September, each with a sample receipt, dated
+  relative to today:
+
+  ```bash
+  SOVRIUM_SEED_PASSWORD=choose-a-password sovrium seed app.yaml
+  sovrium start app.yaml
+  ```
+
+  Sign in as **camille.roux@halden.example** (admin, runs finance) or
+  **lea.morel@halden.example** (member), with the password you chose. Then:
+
+  1. As Camille, land on **Review**: five claims wait on you, and the spend chart leaves the
+     two rejected claims out.
+  2. As Léa, land on **My expenses**: seven claims, hers only. Click **Add expense** and file
+     one with a photo of a receipt.
+  3. As Camille, open **Review**: Léa's new claim waits in the approval runs below the queue.
+     Approve it, and it turns Approved on Léa's page. Only finance can resolve it: Léa, who
+     filed it, cannot.
+  4. Open the Lyon dinner on Review to see the receipt beside the amount, then approve or
+     reject it — a rejection takes a reason, which Léa reads on her claim. Each sheet decides
+     what it shows from the claim itself: a `visibleWhen` on a field or a footer button, such as
+     `{ field: status, eq: Pending }`, draws it only on a claim that matches.
+  5. On **Reimburse**, mark the approved claims repaid once the transfer has gone out.
+
+  "Spent this quarter" and "Repaid this quarter" add up every claim that was not rejected, and
+  every repaid one: on the demo data, which is all this quarter, that is the quarter.
+env:
+  - name: 'SOVRIUM_SEED_PASSWORD'
+    section: 'Demo data'
+    description: |-
+      `sovrium seed` creates the four demo accounts of seed/users.yaml with this
+      password. Seeding refuses to run without it.
+      Every seeded account shares it, the admin included: pick a strong one, or
+      do not seed an app other people can reach.
+  - name: 'SMTP_HOST'
+    section: 'Email (the approval emails and the operator emails)'
+    description: 'Without SMTP_HOST, finance decides from the Review page alone.'
+  - name: 'SMTP_PORT'
+    section: 'Email (the approval emails and the operator emails)'
+    description: 'Without SMTP_HOST, finance decides from the Review page alone.'
+    example: '587'
+  - name: 'SMTP_USER'
+    section: 'Email (the approval emails and the operator emails)'
+    description: 'Without SMTP_HOST, finance decides from the Review page alone.'
+  - name: 'SMTP_PASS'
+    section: 'Email (the approval emails and the operator emails)'
+    description: 'Without SMTP_HOST, finance decides from the Review page alone.'
+  - name: 'QONTO_LOGIN'
+    section: 'Qonto (optional)'
+    description: |-
+      Your Qonto organisation's API login and secret key turn on the morning pull
+      of the business account's transactions. Without them the app runs and only
+      that automation is idle.
+  - name: 'QONTO_SECRET_KEY'
+    section: 'Qonto (optional)'
+    description: |-
+      Your Qonto organisation's API login and secret key turn on the morning pull
+      of the business account's transactions. Without them the app runs and only
+      that automation is idle.

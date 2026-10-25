@@ -11,23 +11,31 @@
  */
 
 /**
- * Compose the wrapper `<div>`'s `className`: `embedded-form` and an optional
- * `embedded-form--<variant>` token. The host component's `props.className`
- * is NOT here: it belongs to the `<form>` the wrapper holds, where it is merged
- * over the form's layout classes (`applyNodeFormParts`), as a page form's is.
+ * Compose the wrapper `<div>`'s `className`: `embedded-form`, an optional
+ * `embedded-form--<variant>` token, then the host component's `props.className`.
+ *
+ * The wrapper is the element that names the component and holds the form's
+ * title, so the author's className lands here, once: a column width or padding
+ * frames the title and the form together, and an author selector reaches the
+ * title. The inner `<form>` is laid out through `classes.parts.body` instead.
  *
  * The base `embedded-form` class is always present so application stylesheets
  * can target the wrapper unconditionally; the per-variant suffix lets authors
  * style `props.variant: 'compact'` differently from `props.variant: 'wide'`.
  */
-function composeWrapperClass(variant: unknown): string {
-  const variantClass = typeof variant === 'string' ? `embedded-form--${variant}` : undefined
-  return variantClass === undefined ? 'embedded-form' : `embedded-form ${variantClass}`
+function composeWrapperClass(variant: unknown, className: unknown): string {
+  return [
+    'embedded-form',
+    typeof variant === 'string' ? `embedded-form--${variant}` : undefined,
+    typeof className === 'string' && className.trim() !== '' ? className.trim() : undefined,
+  ]
+    .filter((token) => token !== undefined)
+    .join(' ')
 }
 
 /**
  * Build the synthesized prop bag for the `customHTML` wrapper. Carries
- * pass-through cosmetic attributes (`id`, `data-testid`) and synthesised
+ * pass-through cosmetic attributes (`id`, `className`, `data-testid`) and synthesised
  * data hooks (`data-form-ref`, optional `data-variant`).
  *
  * Returned as `Record<string, unknown>` and cast at the call site because
@@ -43,7 +51,7 @@ export function buildWrapperProps(
   const testId = originalProps?.['data-testid']
   return {
     ...(typeof id === 'string' ? { id } : {}),
-    className: composeWrapperClass(variant),
+    className: composeWrapperClass(variant, originalProps?.['className']),
     'data-form-ref': formRef,
     ...(typeof variant === 'string' ? { 'data-variant': variant } : {}),
     ...(typeof testId === 'string' ? { 'data-testid': testId } : {}),

@@ -6,13 +6,13 @@
  */
 
 import { type ReactElement } from 'react'
-import { DemoNotice } from './demo-notice'
+import { DevNotice } from './dev-notice'
 import { SovriumBadge } from './sovrium-badge'
 import type { BadgePlacement } from './badge-placement'
 
 /**
  * Persistent platform chrome: the "Built with Sovrium" badge (bottom-right, or a
- * footer line) and the demo context notice (bottom-left). Extracted from
+ * footer line) and the dev-mode notice (bottom-left). Extracted from
  * `DynamicPageBody` so the two visibility gates live together — they are one
  * visual system and the pair has to stay clear of each other — and so the body
  * renderer stays under the complexity cap.
@@ -20,18 +20,18 @@ import type { BadgePlacement } from './badge-placement'
  * The two gates have OPPOSITE defaults, deliberately:
  * - `badgePlacement` is resolved from per-app config by the caller, so an absent
  *   value means "no app context" and renders nothing.
- * - `demoNoticeEnabled` is an override, not a source: whether the notice appears
- *   is decided by `SOVRIUM_DEMO_*` inside `DemoNotice`, so absent means "let the
+ * - `devNoticeEnabled` is an override, not a source: whether the notice appears
+ *   is decided by `SOVRIUM_DEV_*` inside `DevNotice`, so absent means "let the
  *   env decide" and only an explicit `false` suppresses it.
  */
 export function PlatformChrome({
   lang,
   badgePlacement,
-  demoNoticeEnabled,
+  devNoticeEnabled,
 }: {
   readonly lang: string
   readonly badgePlacement?: BadgePlacement
-  readonly demoNoticeEnabled?: boolean
+  readonly devNoticeEnabled?: boolean
 }): Readonly<ReactElement> {
   return (
     <>
@@ -41,7 +41,7 @@ export function PlatformChrome({
           placement={badgePlacement}
         />
       )}
-      {demoNoticeEnabled !== false && <DemoNotice lang={lang} />}
+      {devNoticeEnabled !== false && <DevNotice lang={lang} />}
     </>
   )
 }

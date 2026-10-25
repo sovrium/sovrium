@@ -1,0 +1,8 @@
+---
+type: llm
+weight: 3
+criteria: |
+  The answer separates three things: (1) the app's own MCP server, which serves live data to an outside client — turned on by the operator with MCP_ENABLED, needs an auth block, exposes only entities that declare aiAccess, authenticates with a user's API key on x-api-key or an OAuth token, and never shows more than that user's role may read; (2) the config MCP started with sovrium mcp, which reads and (with MCP_CONFIG_WRITE=1) writes the configuration files on the author's machine, serves no live records, and belongs to sovrium-app; (3) the /help assistant, an agent under agents reached through the ai-chat component, which runs a model on the server side through AI_PROVIDER, whereas server mode needs no provider. It recommends server mode with aiAccess on the tables Claude Desktop should see, and does not recommend MCP_CONFIG_WRITE for this goal.
+---
+
+The answer separates three things: (1) the app's own MCP server, which serves live data to an outside client — turned on by the operator with MCP_ENABLED, needs an auth block, exposes only entities that declare aiAccess, authenticates with a user's API key on x-api-key or an OAuth token, and never shows more than that user's role may read; (2) the config MCP started with sovrium mcp, which reads and (with MCP_CONFIG_WRITE=1) writes the configuration files on the author's machine, serves no live records, and belongs to sovrium-app; (3) the /help assistant, an agent under agents reached through the ai-chat component, which runs a model on the server side through AI_PROVIDER, whereas server mode needs no provider. It recommends server mode with aiAccess on the tables Claude Desktop should see, and does not recommend MCP_CONFIG_WRITE for this goal.

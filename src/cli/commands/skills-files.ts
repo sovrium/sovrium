@@ -5,9 +5,33 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { createHash } from 'node:crypto'
-import { lstat, mkdir, readFile, readdir, realpath, rm, rmdir, writeFile } from 'node:fs/promises'
-import { dirname, join, relative, resolve, sep } from 'node:path'
+import { mkdir, rm, rmdir, writeFile } from 'node:fs/promises'
+import { dirname, join, sep } from 'node:path'
+import {
+  AGENT_LABEL,
+  agentDirFor,
+  agentWritesForScaffold,
+  byPath,
+  classifyAll,
+  diskSha,
+  entryKind,
+  keptEdited,
+  loadAgentCatalogue,
+  MANIFEST_FILENAME,
+  parseManifest,
+  planAgentFiles,
+  planRetired,
+  readManifestText,
+  recordedKeeping,
+  recordedWith,
+  renderManifest,
+  sha256Of,
+  writableStates,
+  type CatalogueFile,
+  type Finding,
+  type Manifest,
+} from '@/cli/commands/skills-agent-file'
+import { rootEscapesProject, symlinkFindings } from '@/cli/commands/skills-symlinks'
 import { getCurrentVersion } from '@/cli/commands/update'
 import { listFilesBelow } from '@/infrastructure/filesystem/list-files-below'
 import { printStderr } from '@/infrastructure/logging/cli-output'
@@ -24,8 +48,10 @@ import { printStderr } from '@/infrastructure/logging/cli-output'
  * states a refresh has to tell apart: a file that is current (its bytes equal
  * the embedded bytes), a file that is Sovrium's and merely stale (its bytes
  * equal the recorded digest), and a file the person edited (neither). Only the
- * second may be replaced without asking; the third needs `--force`; and a file
- * the manifest never recorded is never Sovrium's to replace, whatever its name.
+ * second may be replaced without asking; the third is kept, and named, unless
+ * `--force` — the rest of the run goes ahead, and the manifest keeps Sovrium's
+ * previous digest for it so every later run names it again; and a file the
+ * manifest never recorded is never Sovrium's to replace, whatever its name.
  *
  * ## Never through a symlink
  *
@@ -38,6 +64,11 @@ import { printStderr } from '@/infrastructure/logging/cli-output'
  * `.agents/skills` is a legitimate layout — and only while it resolves inside
  * the project.
  *
+ * ## The agent file
+ *
+ * The `claude` target also writes `[internal ref]`,
+ * under the same rules and the same manifest (`skills-agent-file.ts`).
+ *
  * ## Read lazily
  *
  * The skills payload is reached through an `await import()` inside
@@ -45,8 +76,6 @@ import { printStderr } from '@/infrastructure/logging/cli-output'
  * module, and nothing on a boot path may pull the payload in
  * (`embedded-skills-boot.test.ts`).
  */
-
-const MANIFEST_FILENAME = '.sovrium-skills.json'
 
 /** A directory a host reads skills from. */
 export type SkillsTarget = 'claude' | 'agents'
@@ -57,39 +86,13 @@ const TARGET_SEGMENTS: Readonly<Record<SkillsTarget, readonly [string, string]>>
   agents: ['.agents', 'skills'],
 }
 
-/**
- * The only paths a manifest may name. A manifest is a file in the person's
- * project and may have been edited; a `../` entry must never become a deletion
- * outside the skills directory, so anything else is ignored rather than acted on.
- */
-const OWNED_PATH = /^[a-z0-9]+(?:-[a-z0-9]+)*\/(?:SKILL\.md|references\/[^/\\]+\.md)$/
-
-/** One file the binary ships, as the verb writes it. */
-interface CatalogueFile {
-  /** `<skill>/<path inside the skill>`, POSIX separators. */
-  readonly path: string
-  readonly content: string
-  readonly sha256: string
-}
-
 /** Everything one run writes, stamped with the running version. */
 export interface SkillsCatalogue {
   readonly version: string
   readonly files: readonly CatalogueFile[]
   readonly skills: readonly { readonly name: string; readonly description: string }[]
-}
-
-interface ManifestEntry {
-  readonly path: string
-  readonly sha256: string
-}
-
-type FileState = 'current' | 'missing' | 'stale' | 'edited' | 'foreign'
-
-/** One file whose state keeps a directory from being current. */
-export interface Finding {
-  readonly state: Exclude<FileState, 'current'> | 'retired' | 'manifest' | 'symlink'
-  readonly path: string
+  /** The agent files the `claude` target writes to `[internal ref]`. */
+  readonly agents: readonly CatalogueFile[]
 }
 
 /** What one run would do to one target directory. */
@@ -101,96 +104,25 @@ export interface TargetPlan {
   readonly label: string
   readonly writes: readonly CatalogueFile[]
   readonly removals: readonly string[]
+  /** Absolute `[internal ref]`, and the agent files written or removed there. */
+  readonly agentDir: string
+  readonly agentWrites: readonly CatalogueFile[]
+  readonly agentRemovals: readonly string[]
+  /** Project-relative paths of retired files kept because they were edited. */
   readonly keptRetired: readonly string[]
+  /**
+   * Project-relative paths of shipped files the person edited, kept as they
+   * are because the run is not forced; every other file is still refreshed.
+   */
+  readonly keptEdited: readonly string[]
   readonly findings: readonly Finding[]
   readonly manifestText: string
   readonly manifestCurrent: boolean
 }
 
-const sha256Of = (bytes: string | Uint8Array): string =>
-  createHash('sha256').update(bytes).digest('hex')
-
-const byPath = (a: { readonly path: string }, b: { readonly path: string }): number =>
-  a.path < b.path ? -1 : a.path > b.path ? 1 : 0
-
-/** The digest of a file on disk, or `undefined` when there is none. */
-const diskSha = async (path: string): Promise<string | undefined> =>
-  readFile(path).then(
-    (bytes) => sha256Of(bytes),
-    () => undefined
-  )
-
 /** Every file below `root`, as POSIX paths relative to it, never through a symlink. */
 const listFiles = async (root: string): Promise<readonly string[]> =>
   listFilesBelow(root).catch(() => [])
-
-type EntryKind = 'absent' | 'link' | 'directory' | 'file'
-
-/** What sits at `path`, WITHOUT following a link — a dangling link is a `link`. */
-const entryKind = async (path: string): Promise<EntryKind> =>
-  lstat(path).then(
-    (stats): EntryKind =>
-      stats.isSymbolicLink() ? 'link' : stats.isDirectory() ? 'directory' : 'file',
-    (): EntryKind => 'absent'
-  )
-
-/** Every symlink at or below `root` (POSIX, relative to `base`), never following one. */
-const linksBelow = async (root: string, base: string): Promise<readonly string[]> => {
-  const toRelative = (path: string): string => relative(base, path).split(sep).join('/')
-  const kind = await entryKind(root)
-  if (kind === 'link') return [`${toRelative(root)}/`]
-  if (kind !== 'directory') return []
-  const entries = await readdir(root, { withFileTypes: true }).catch(() => [])
-  const nested = await Promise.all(
-    entries.map(async (entry) => {
-      const path = join(root, entry.name)
-      if (entry.isSymbolicLink()) return [toRelative(path)]
-      return entry.isDirectory() ? linksBelow(path, base) : []
-    })
-  )
-  return nested.flat()
-}
-
-const isInside = (root: string, candidate: string): boolean =>
-  candidate === root || candidate.startsWith(`${root}${sep}`)
-
-/**
- * Whether the skills root — or, when it does not exist yet, its parent
- * (`.claude`) — resolves OUTSIDE the project. A dangling link there resolves
- * nowhere, which counts as outside: nothing can be written through it safely.
- */
-const rootEscapesProject = async (projectDir: string, dir: string): Promise<boolean> => {
-  const project = await realpath(projectDir).catch(() => resolve(projectDir))
-  const probe = async (candidates: readonly string[]): Promise<boolean> => {
-    const [candidate, ...rest] = candidates
-    if (candidate === undefined) return false
-    if ((await entryKind(candidate)) === 'absent') return probe(rest)
-    const real = await realpath(candidate).catch(() => undefined)
-    return real === undefined || !isInside(project, real)
-  }
-  return probe([dir, dirname(dir)])
-}
-
-/**
- * Every symlink a run would write or delete through: at or below each skill
- * directory the catalogue or the manifest names, and at the manifest path.
- * Sorted, so the first one named is the same on every run.
- */
-const symlinkFindings = async (
-  dir: string,
-  catalogue: SkillsCatalogue,
-  manifest: ReadonlyMap<string, string> | undefined
-): Promise<readonly Finding[]> => {
-  const names = new Set([
-    ...catalogue.skills.map(({ name }) => name),
-    ...[...(manifest?.keys() ?? [])].map((path) => path.split('/')[0] ?? ''),
-  ])
-  const below = await Promise.all([...names].map(async (name) => linksBelow(join(dir, name), dir)))
-  const manifestLink = (await entryKind(join(dir, MANIFEST_FILENAME))) === 'link'
-  return [...below.flat(), ...(manifestLink ? [MANIFEST_FILENAME] : [])]
-    .toSorted()
-    .map((path) => ({ state: 'symlink' as const, path }))
-}
 
 /**
  * The binary's skills, as this version writes them: every `SKILL.md` stamped
@@ -217,74 +149,8 @@ export const loadSkillsCatalogue = async (): Promise<SkillsCatalogue> => {
       description: (await loader.readEmbeddedSkillFrontmatter(name)).description,
     }))
   )
-  return { version, files: nested.flat().toSorted(byPath), skills }
-}
-
-/** The manifest's raw text in `dir`, or `undefined` when there is none. */
-const readManifestText = async (dir: string): Promise<string | undefined> =>
-  (await entryKind(join(dir, MANIFEST_FILENAME))) === 'file'
-    ? readFile(join(dir, MANIFEST_FILENAME), 'utf-8').catch(() => undefined)
-    : undefined
-
-/**
- * A manifest's text, as `path → sha256`. `undefined` when there is none; a
- * throw when there is one this version cannot read, because guessing at the
- * ownership of a person's files is worse than stopping.
- */
-const parseManifest = (
-  dir: string,
-  text: string | undefined
-): ReadonlyMap<string, string> | undefined => {
-  if (text === undefined) return undefined
-  const parsed = ((): unknown => {
-    try {
-      return JSON.parse(text)
-    } catch {
-      return undefined
-    }
-  })()
-  const record = typeof parsed === 'object' && parsed !== null ? parsed : {}
-  const files = 'files' in record && Array.isArray(record.files) ? record.files : undefined
-  if (!('format' in record) || record.format !== 'sovrium-skills' || files === undefined) {
-    throw new Error(`${join(dir, MANIFEST_FILENAME)} is not a Sovrium skills manifest.`)
-  }
-  const entries = (files as readonly unknown[]).flatMap((entry): readonly [string, string][] => {
-    const candidate = entry as Partial<ManifestEntry> | null
-    return typeof candidate?.path === 'string' &&
-      typeof candidate.sha256 === 'string' &&
-      OWNED_PATH.test(candidate.path)
-      ? [[candidate.path, candidate.sha256]]
-      : []
-  })
-  return new Map(entries)
-}
-
-const renderManifest = (
-  catalogue: SkillsCatalogue,
-  target: SkillsTarget,
-  files: readonly ManifestEntry[]
-): string =>
-  `${JSON.stringify(
-    {
-      format: 'sovrium-skills',
-      schemaVersion: 1,
-      engine: catalogue.version,
-      target,
-      files: files.toSorted(byPath).map(({ path, sha256 }) => ({ path, sha256 })),
-    },
-    undefined,
-    2
-  )}\n`
-
-const classify = (
-  file: CatalogueFile,
-  disk: string | undefined,
-  listed: string | undefined
-): FileState => {
-  if (disk === undefined) return 'missing'
-  if (disk === file.sha256) return 'current'
-  if (listed === undefined) return 'foreign'
-  return disk === listed ? 'stale' : 'edited'
+  const agents = await loadAgentCatalogue()
+  return { version, files: nested.flat().toSorted(byPath), skills, agents }
 }
 
 /**
@@ -295,10 +161,10 @@ const classify = (
 const foreignSkillDirs = async (
   dir: string,
   catalogue: SkillsCatalogue,
-  manifest: ReadonlyMap<string, string> | undefined
+  manifest: Manifest | undefined
 ): Promise<readonly Finding[]> => {
   const shipped = new Map(catalogue.files.map((file) => [file.path, file.sha256]))
-  const owned = [...(manifest?.keys() ?? [])]
+  const owned = [...(manifest?.files.keys() ?? [])]
   const results = await Promise.all(
     catalogue.skills.map(async ({ name }) => {
       if (owned.some((path) => path.startsWith(`${name}/`))) return []
@@ -311,65 +177,75 @@ const foreignSkillDirs = async (
   return results.flat()
 }
 
-/** Manifest entries for skill files this version no longer ships. */
-const planRetired = async (
-  dir: string,
-  catalogue: SkillsCatalogue,
-  manifest: ReadonlyMap<string, string> | undefined
-): Promise<{ readonly removals: readonly string[]; readonly kept: readonly string[] }> => {
-  const shipped = new Set(catalogue.files.map((file) => file.path))
-  const retired = [...(manifest?.entries() ?? [])].filter(([path]) => !shipped.has(path))
-  const states = await Promise.all(
-    retired.map(async ([path, sha]) => ({ path, sha, disk: await diskSha(join(dir, path)) }))
-  )
-  return {
-    removals: states.filter(({ sha, disk }) => disk === sha).map(({ path }) => path),
-    kept: states
-      .filter(({ sha, disk }) => disk !== undefined && disk !== sha)
-      .map(({ path }) => path),
-  }
-}
-
 interface PlanOptions {
   readonly projectDir: string
   readonly target: SkillsTarget
   readonly force: boolean
 }
 
+/**
+ * The manifest one run records: the shipped digests, except for each kept
+ * edited file, whose previous digest stays. `kept.agents` is `undefined` for a
+ * target that holds no agent file, and then no `agents` list is written.
+ */
+const renderPlannedManifest = (
+  catalogue: SkillsCatalogue,
+  target: SkillsTarget,
+  manifest: Manifest | undefined,
+  kept: { readonly files: readonly string[]; readonly agents: readonly string[] | undefined }
+): string =>
+  renderManifest(
+    catalogue.version,
+    target,
+    recordedKeeping(catalogue.files, kept.files, manifest?.files),
+    kept.agents === undefined
+      ? undefined
+      : recordedKeeping(catalogue.agents, kept.agents, manifest?.agents)
+  )
+
 export const planTarget = async (
   catalogue: SkillsCatalogue,
   { projectDir, target, force }: PlanOptions
 ): Promise<TargetPlan> => {
   const dir = join(projectDir, ...TARGET_SEGMENTS[target])
+  const label = TARGET_SEGMENTS[target].join('/')
+  const agentDir = agentDirFor(dir)
+  const agents = target === 'claude' ? catalogue.agents : undefined
   const escapes = await rootEscapesProject(projectDir, dir)
   const onDisk = escapes ? undefined : await readManifestText(dir)
   const manifest = parseManifest(dir, onDisk)
-  const states = await Promise.all(
-    catalogue.files.map(async (file) => ({
-      file,
-      state: classify(file, await diskSha(join(dir, file.path)), manifest?.get(file.path)),
-    }))
-  )
-  const retired = await planRetired(dir, catalogue, manifest)
-  const manifestText = renderManifest(catalogue, target, catalogue.files)
-  const writable = new Set<FileState>(force ? ['missing', 'stale', 'edited'] : ['missing', 'stale'])
+  const writable = writableStates(force)
+  const states = await classifyAll(catalogue.files, dir, manifest?.files)
+  const retired = await planRetired(dir, catalogue.files, manifest?.files)
+  const agent = await planAgentFiles(agentDir, agents, manifest, writable)
+  const edited = keptEdited(states, writable)
+  const kept = { files: edited, agents: agents && agent.edited }
+  const manifestText = renderPlannedManifest(catalogue, target, manifest, kept)
   const manifestCurrent = onDisk === manifestText
   return {
     target,
     dir,
-    label: TARGET_SEGMENTS[target].join('/'),
+    label,
     writes: states.filter(({ state }) => writable.has(state)).map(({ file }) => file),
     removals: retired.removals,
-    keptRetired: retired.kept,
+    agentDir,
+    agentWrites: agent.writes,
+    agentRemovals: agent.removals,
+    keptRetired: [...retired.kept.map((path) => `${label}/${path}`), ...agent.kept],
+    keptEdited: [
+      ...edited.map((path) => `${label}/${path}`),
+      ...agent.edited.map((path) => `${AGENT_LABEL}/${path}`),
+    ],
     findings: [
       ...(escapes
         ? [{ state: 'symlink' as const, path: '' }]
-        : await symlinkFindings(dir, catalogue, manifest)),
+        : await symlinkFindings(dir, catalogue.skills, manifest)),
       ...states.flatMap(({ file, state }) =>
         state === 'current' ? [] : [{ state, path: file.path }]
       ),
       ...(await foreignSkillDirs(dir, catalogue, manifest)),
       ...retired.removals.map((path) => ({ state: 'retired' as const, path })),
+      ...agent.findings,
       ...(manifestCurrent ? [] : [{ state: 'manifest' as const, path: MANIFEST_FILENAME }]),
     ],
     manifestText,
@@ -377,14 +253,22 @@ export const planTarget = async (
   }
 }
 
-/** Findings that stop a write: `edited` unless forced, `foreign` and `symlink` always. */
-export const blockingFindings = (plan: TargetPlan, force: boolean): readonly Finding[] =>
-  plan.findings.filter(
-    ({ state }) => state === 'foreign' || state === 'symlink' || (state === 'edited' && !force)
-  )
+/**
+ * Findings that stop a write: `foreign` and `symlink`, with `--force` or without.
+ * An `edited` file never does — the run keeps it and refreshes the rest.
+ */
+export const blockingFindings = (plan: TargetPlan): readonly Finding[] =>
+  plan.findings.filter(({ state }) => state === 'foreign' || state === 'symlink')
+
+/**
+ * Findings that make `--check` fail: every one but `edited`. A kept edit is the
+ * state a refresh leaves behind on purpose, so the check names it and passes.
+ */
+export const failingCheckFindings = (plan: TargetPlan): readonly Finding[] =>
+  plan.findings.filter(({ state }) => state !== 'edited')
 
 export const findingRow = (plan: TargetPlan, finding: Finding): string =>
-  `${finding.state.padEnd(8)} ${plan.label}/${finding.path}`
+  `${finding.state.padEnd(8)} ${finding.label ?? `${plan.label}/${finding.path}`}`
 
 /** Delete a retired file, then its directories once they are empty. */
 const removeRetired = async (dir: string, path: string): Promise<void> => {
@@ -395,20 +279,49 @@ const removeRetired = async (dir: string, path: string): Promise<void> => {
   }
 }
 
-export const applyPlan = async (plan: TargetPlan): Promise<void> => {
+const writeAll = async (dir: string, files: readonly CatalogueFile[]): Promise<void> => {
   await Promise.all(
-    plan.writes.map(async (file) => {
-      const destination = join(plan.dir, file.path)
+    files.map(async (file) => {
+      const destination = join(dir, file.path)
       await mkdir(dirname(destination), { recursive: true })
       await writeFile(destination, file.content, 'utf-8')
     })
   )
+}
+
+export const applyPlan = async (plan: TargetPlan): Promise<void> => {
+  await writeAll(plan.dir, plan.writes)
+  await writeAll(plan.agentDir, plan.agentWrites)
   for (const path of plan.removals) {
     await removeRetired(plan.dir, path)
+  }
+  for (const path of plan.agentRemovals) {
+    await removeRetired(plan.agentDir, path)
   }
   if (!plan.manifestCurrent) {
     await mkdir(plan.dir, { recursive: true })
     await writeFile(join(plan.dir, MANIFEST_FILENAME), plan.manifestText, 'utf-8')
+  }
+}
+
+/** The skill files `init` may add: every skill whose directory is absent, links reported. */
+const skillWritesForScaffold = async (
+  catalogue: SkillsCatalogue,
+  dir: string,
+  label: string
+): Promise<{ readonly writes: readonly CatalogueFile[]; readonly count: number }> => {
+  const kinds = await Promise.all(
+    catalogue.skills.map(async ({ name }) => ({ name, kind: await entryKind(join(dir, name)) }))
+  )
+  for (const { name } of kinds.filter(({ kind }) => kind === 'link')) {
+    printStderr(
+      `Skipped agent skill ${name}: ${label}/${name} is a symlink, and Sovrium never writes through one.`
+    )
+  }
+  const skipped = new Set(kinds.filter(({ kind }) => kind !== 'absent').map(({ name }) => name))
+  return {
+    writes: catalogue.files.filter((file) => !skipped.has(file.path.split('/')[0] ?? '')),
+    count: catalogue.skills.length - skipped.size,
   }
 }
 
@@ -421,13 +334,13 @@ export const applyPlan = async (plan: TargetPlan): Promise<void> => {
  * or not — is skipped and reported, never written through, and the whole write
  * is skipped when the skills root or the record leads outside the project.
  * Every other skill directory is created fresh, so nothing below it can
- * pre-exist.
+ * pre-exist. The agent file follows the same rule in `[internal ref]`.
  * The manifest then records exactly what this call wrote, merged into one that
  * was already present.
  *
- * @returns One summary entry naming the skills directory, or nothing when every
- *          skill was already present — the init banner lists entries, and thirty
- *          reference files would drown the ones a person needs to see.
+ * @returns One summary entry naming the skills directory, unless every skill
+ *          was already present — thirty reference files would drown the init
+ *          banner — then one per agent file written.
  */
 export const writeSkillsForScaffold = async (projectDir: string): Promise<readonly string[]> => {
   const catalogue = await loadSkillsCatalogue()
@@ -443,17 +356,10 @@ export const writeSkillsForScaffold = async (projectDir: string): Promise<readon
     )
     return []
   }
-  const kinds = await Promise.all(
-    catalogue.skills.map(async ({ name }) => ({ name, kind: await entryKind(join(dir, name)) }))
-  )
-  for (const { name } of kinds.filter(({ kind }) => kind === 'link')) {
-    printStderr(
-      `Skipped agent skill ${name}: ${label}/${name} is a symlink, and Sovrium never writes through one.`
-    )
-  }
-  const skipped = new Set(kinds.filter(({ kind }) => kind !== 'absent').map(({ name }) => name))
-  const writes = catalogue.files.filter((file) => !skipped.has(file.path.split('/')[0] ?? ''))
-  if (writes.length === 0) return []
+  const { writes, count } = await skillWritesForScaffold(catalogue, dir, label)
+  const agentDir = agentDirFor(dir)
+  const agentWrites = await agentWritesForScaffold(agentDir, catalogue.agents)
+  if (writes.length === 0 && agentWrites.length === 0) return []
 
   const existing = await readManifestText(dir)
     .then((text) => parseManifest(dir, text))
@@ -464,16 +370,22 @@ export const writeSkillsForScaffold = async (projectDir: string): Promise<readon
     label,
     writes,
     removals: [],
+    agentDir,
+    agentWrites,
+    agentRemovals: [],
     keptRetired: [],
+    keptEdited: [],
     findings: [],
-    manifestText: renderManifest(catalogue, 'claude', [
-      ...[...(existing ?? new Map<string, string>())]
-        .filter(([path]) => !writes.some((file) => file.path === path))
-        .map(([path, sha256]) => ({ path, sha256 })),
-      ...writes,
-    ]),
+    manifestText: renderManifest(
+      catalogue.version,
+      'claude',
+      recordedWith(existing?.files, writes),
+      recordedWith(existing?.agents, agentWrites)
+    ),
     manifestCurrent: false,
   })
-  const count = catalogue.skills.length - skipped.size
-  return [`${dir}${sep} (${count} agent skill${count === 1 ? '' : 's'})`]
+  return [
+    ...(writes.length > 0 ? [`${dir}${sep} (${count} agent skill${count === 1 ? '' : 's'})`] : []),
+    ...agentWrites.map((file) => join(agentDir, file.path)),
+  ]
 }

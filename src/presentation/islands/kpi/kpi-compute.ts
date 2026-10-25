@@ -38,6 +38,8 @@ export interface KpiAggregateConfig {
   readonly field?: string
   readonly numerator?: KpiRatioSide
   readonly denominator?: KpiRatioSide
+  /** A ratio's footer: a sentence with `{numerator}`/`{denominator}`, or `false` for none. */
+  readonly caption?: string | false
 }
 
 export type KpiFormatType = 'number' | 'currency' | 'percentage' | 'compact' | 'bytes' | 'duration'

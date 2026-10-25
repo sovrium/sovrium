@@ -141,19 +141,23 @@ export const validateStorageSizeLimits = (): void => {
  * Priority:
  * 1. `STORAGE_PROVIDER=s3` → S3 config (either database dialect)
  * 2. `STORAGE_PROVIDER=local` → Local config (requires `STORAGE_LOCAL_DIRECTORY`)
- * 3. `STORAGE_PROVIDER` unset + PostgreSQL dialect (`DATABASE_URL` set) → bytea
+ * 3. `STORAGE_PROVIDER=bytea` → bytea on PostgreSQL; refused on SQLite (bytea
+ *    keeps files in PostgreSQL)
+ * 3b. `STORAGE_PROVIDER` unset + PostgreSQL dialect (`DATABASE_URL` set) → bytea
  *    (zero-dependency auto-fallback — bytea needs a Postgres connection)
  * 4. `STORAGE_PROVIDER` unset + SQLite dialect (zero-config default) → local
  *    filesystem at `STORAGE_LOCAL_DIRECTORY ?? <dataDir>/uploads`. SQLite mode has no
  *    bytea fallback (bytea requires Postgres), so a working filesystem store is
  *    the frugal-by-default choice — mirrors how SQLite itself is the default
  *    database. See plan "Resolved Decisions" §1.
- * 5. Nothing matches → undefined (storage disabled)
+ * 5. Any other non-empty value → refused: a misspelt backend must stop the
+ *    boot. File storage therefore always resolves to a backend; it is never off
  *
- * @returns the resolved storage config, or `undefined` when storage is disabled
+ * @returns the resolved storage config
+ * @throws Error naming `STORAGE_PROVIDER` for bytea on SQLite or an unknown value
  * @public
  */
-export const parseStorageEnvConfig = (): StorageEnvConfig | undefined => {
+export const parseStorageEnvConfig = (): StorageEnvConfig => {
   const provider = process.env.STORAGE_PROVIDER
 
   if (provider === 's3') {
@@ -179,6 +183,14 @@ export const parseStorageEnvConfig = (): StorageEnvConfig | undefined => {
     })
   }
 
+  if (provider === 'bytea') {
+    if (parseDatabaseDialectConfig().dialect === 'postgres') return { provider: 'bytea' as const }
+    // eslint-disable-next-line functional/no-throw-statements -- boot-time refusal; error.message names the variable
+    throw new Error(
+      'STORAGE_PROVIDER=bytea keeps files in PostgreSQL; set DATABASE_URL to a PostgreSQL database, or use STORAGE_PROVIDER=local.'
+    )
+  }
+
   // No explicit STORAGE_PROVIDER — pick a default keyed off the database dialect.
   if (!provider) {
     const { dialect } = parseDatabaseDialectConfig()
@@ -195,5 +207,8 @@ export const parseStorageEnvConfig = (): StorageEnvConfig | undefined => {
     })
   }
 
-  return undefined
+  // eslint-disable-next-line functional/no-throw-statements -- boot-time refusal; error.message names the variable and value
+  throw new Error(
+    `STORAGE_PROVIDER=${provider} is not a storage backend; use s3, local or bytea, or leave it unset.`
+  )
 }

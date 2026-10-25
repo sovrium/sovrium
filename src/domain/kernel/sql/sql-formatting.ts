@@ -88,15 +88,18 @@ export const formatSqlValue = (value: unknown): string => {
 }
 
 /**
- * Generate SQL LIKE pattern with wildcards for pattern matching operators
- * Automatically escapes the value to prevent SQL injection
+ * A SQL LIKE pattern literal for a text operator, for DDL where nothing can be
+ * bound: `%`, `_` and `\` in the value are escaped as LIKE metacharacters
+ * ({@link escapeLikeMetacharacters}), then the quotes as SQL. The caller MUST
+ * follow the pattern with {@link LIKE_ESCAPE_CLAUSE} — the two ship together,
+ * as the bound path's pattern and `ESCAPE` clause do.
  */
 export const formatLikePattern = (
   value: unknown,
   pattern: 'contains' | 'startsWith' | 'endsWith'
 ): string => {
   const stringValue = typeof value === 'string' ? value : String(value)
-  const escaped = escapeSqlString(stringValue)
+  const escaped = escapeSqlString(escapeLikeMetacharacters(stringValue))
 
   switch (pattern) {
     case 'contains':
@@ -123,6 +126,9 @@ export const formatLikePattern = (
  * one being fixed, because it is invisible.
  */
 export const LIKE_ESCAPE_CHARACTER = '\\'
+
+/** The `ESCAPE` clause naming {@link LIKE_ESCAPE_CHARACTER}, for a pattern written into SQL text. */
+export const LIKE_ESCAPE_CLAUSE = `ESCAPE '${LIKE_ESCAPE_CHARACTER}'`
 
 /**
  * Neutralise the LIKE metacharacters in a caller's search text.

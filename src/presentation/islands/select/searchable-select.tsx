@@ -129,12 +129,17 @@ function useCustomValueWiring(enabled: boolean) {
 /** The field the reader types into: removable chips for a set, else the input group. */
 function ComboboxField({
   chips,
+  name,
   ...group
-}: ComboboxInputGroupProps & { readonly chips: boolean }): ReactElement {
+}: ComboboxInputGroupProps & {
+  readonly chips: boolean
+  readonly name: string | undefined
+}): ReactElement {
   if (chips)
     return (
       <ComboboxChipsField
         inputId={group.inputId}
+        name={name}
         label={group.label}
         placeholder={group.inputPlaceholder}
       />
@@ -186,6 +191,12 @@ function useStartingValue(
   )
 }
 
+/**
+ * The searchable Select: Base UI's combobox, holding one choice or a set. It
+ * takes the same publisher wiring as `PlainSelect`: a searchable filter is an
+ * ordinary authoring choice, and leaving `publishes` inert on this half would
+ * be a declaration that validates and silently does nothing.
+ */
 export function SearchableSelect({
   options,
   placeholder,
@@ -204,9 +215,6 @@ export function SearchableSelect({
   defaultValues,
   uiStrings,
 }: SelectIslandProps): ReactElement {
-  // Same publisher wiring as `PlainSelect`: a searchable filter is an ordinary
-  // authoring choice, and leaving `publishes` inert on this half would be a
-  // declaration that validates and silently does nothing.
   const publish = useSharedFilterPublisher(publishes)
   const items: readonly OptionItem[] = useMemo(() => options ?? [], [options])
   const starting = useStartingValue(items, { defaultValue, defaultValues, multiple })
@@ -233,6 +241,7 @@ export function SearchableSelect({
         />
         <ComboboxField
           chips={chips === true && multiple === true}
+          name={name}
           inputId={inputId}
           inputPlaceholder={prompts.inputPlaceholder}
           label={label}

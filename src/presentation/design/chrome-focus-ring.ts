@@ -7,7 +7,7 @@
 
 /**
  * The keyboard focus ring of the engine's own page chrome — the Sovrium badge,
- * the demo notice's pill, button and link (WCAG 2.4.7, RGAA 10.7).
+ * the dev-mode notice's pill, button and link (WCAG 2.4.7, RGAA 10.7).
  *
  * Written on each control rather than left to the base layer's
  * `a, button, [role="button"]` rule: the notice's pill is a `<summary>`, which

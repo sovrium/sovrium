@@ -8,8 +8,8 @@
 /**
  * The engine's template catalogue, inlined at build time.
  *
- * Produced by `vite-plugin-templates.ts` from `templates/catalog.json` at the
- * repository root — the engine's own description of what it ships embedded.
+ * Produced by `vite-plugin-templates.ts` from `src/templates/catalog.json` in the
+ * repository — the engine's own description of what it ships embedded.
  * Declared here because a virtual module has no file for TypeScript to read.
  */
 declare module 'virtual:sovrium-templates' {

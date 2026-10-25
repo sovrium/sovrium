@@ -105,7 +105,7 @@ const objectAt = (value: unknown, key: string): JsonObject => {
 }
 
 /** A config root with each colour set in its `design`. */
-const withColours = (root: JsonObject, writes: readonly ColourWrite[]): JsonObject => {
+export const withColours = (root: JsonObject, writes: readonly ColourWrite[]): JsonObject => {
   if (writes.length === 0) return root
   const design = writes.reduce<JsonObject>(
     (acc, write) => ({

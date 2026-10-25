@@ -32,6 +32,16 @@ sovrium stop && sovrium start app.yaml
 
 A refusal names the place in the config and, in most cases, what to write instead. Fix it, validate again, then restart. Environment variables are read when the server starts rather than by `validate`, so an invalid one surfaces at `start`, before the app serves traffic. Then read the breaking changes between your version and the new one — `sovrium changelog --since <the version you run>` gathers them in one list.
 
+## Upgrading from 0.43 to 0.44
+
+| Removed                         | Replace with                                                                                                                                                                                                                  |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `forms[].fields[].disabledWhen` | `forms[].fields[].visibleWhen`, which takes the same condition: a field it hides is neither validated nor sent. 0.43 warned that the key had no effect on a hosted form; `sovrium validate` and `sovrium start` now refuse it |
+
+Buttons, button fields and row actions keep their `disabledWhen`, which they apply. See [Form Conditional Logic](/en/docs/form-conditional-logic).
+
+- **The `SOVRIUM_DEMO_*` variables are no longer read.** 0.44 ignores `SOVRIUM_DEMO_NOTICE`, `SOVRIUM_DEMO_NAME`, `SOVRIUM_DEMO_URL`, `SOVRIUM_DEMO_EMAIL` and `SOVRIUM_DEMO_PASSWORD`, so an instance that set them starts with no notice panel. Rename each, keeping its value: `SOVRIUM_DEMO_NOTICE` → `SOVRIUM_DEV_MODE`, `SOVRIUM_DEMO_NAME` → `SOVRIUM_DEV_NAME`, `SOVRIUM_DEMO_URL` → `SOVRIUM_DEV_URL`, `SOVRIUM_DEMO_EMAIL` → `SOVRIUM_DEV_EMAIL`, `SOVRIUM_DEMO_PASSWORD` → `SOVRIUM_DEV_PASSWORD`. See [Environment Variables: Storage, Email and Observability](/en/docs/env-vars-services), section Development mode.
+
 ## Upgrading from 0.40 to 0.41
 
 | Removed                                               | Replace with                                                                                                                                                                                                                        |

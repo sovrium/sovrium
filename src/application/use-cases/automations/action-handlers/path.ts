@@ -7,6 +7,7 @@
 
 import { Data, Effect } from 'effect'
 import { evaluateGroup } from '@/domain/models/app/automations/condition-eval'
+import { groupListMemberRefusal } from '@/domain/models/app/automations/condition-validation'
 import { withStepMetadata } from '../run/step-metadata'
 import {
   EMPTY_SEQUENCE,
@@ -268,6 +269,15 @@ export const handlePathBranch: ActionHandler = (action, _app, _automation, runCo
     const props = authoredActionProps(runContext)
 
     const paths = declaredPaths(props)
+    // A condition list a run filled with an object or a nested list cannot be compared.
+    const refusal = paths
+      .map((path) =>
+        path.condition === undefined
+          ? undefined
+          : groupListMemberRefusal(resolveOwnProp(runContext, path.condition))
+      )
+      .find((reason) => reason !== undefined)
+    if (refusal !== undefined) return fail(`path.branch refused: ${refusal}`)
     const { selected, from } = selectionOf(paths, props, runContext)
     const names = runContext.resume?.frame.selected ?? selected.map((path) => path.name)
 
