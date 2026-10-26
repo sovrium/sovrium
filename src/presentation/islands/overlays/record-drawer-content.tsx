@@ -47,6 +47,7 @@ import {
 } from './record-drawer-entry'
 import { DrawerError, type DrawerFailedRequest } from './record-drawer-error'
 import { isStructured, readsAsValue } from './record-drawer-field'
+import { TranslatableFieldInput } from './record-drawer-translatable-input'
 import { useUploadsInFlight } from './record-drawer-uploads'
 import type { RecordDrawerField, Values, RawRecord } from './record-drawer-field'
 import type { DrawerBuiltInLabels } from './record-drawer-labels'
@@ -173,13 +174,20 @@ function EditableField({
   }
   return (
     <>
-      <FieldInput
-        field={field}
-        value={values[field.name] ?? ''}
-        disabled={loading}
-        onChange={onChange}
-        error={error}
-      />
+      {field.languages === undefined ? (
+        <FieldInput
+          field={field}
+          value={values[field.name] ?? ''}
+          disabled={loading}
+          onChange={onChange}
+          error={error}
+        />
+      ) : (
+        <TranslatableFieldInput
+          {...{ field, values, onChange, error }}
+          disabled={loading}
+        />
+      )}
       <RefinementStatus
         record={record}
         field={field}

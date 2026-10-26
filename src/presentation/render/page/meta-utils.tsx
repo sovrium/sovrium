@@ -28,8 +28,11 @@ export function renderMetaTags({
   return (
     <>
       {fields.map(
+        // An empty value names nothing: a record whose attachment is blank
+        // must leave its `og:image` out, so the network chooses its own preview.
         ({ key, value }) =>
-          value !== undefined && (
+          value !== undefined &&
+          value !== '' && (
             <meta
               key={key}
               {...{ [attributeType]: `${prefix}:${key}` }}

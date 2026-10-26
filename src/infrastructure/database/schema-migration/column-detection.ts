@@ -9,6 +9,7 @@ import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { isPhysicalColumnField, shouldCreateDatabaseColumn } from '../sql/sql-field-predicates'
 import { generateColumnDefinition, isFieldNotNull } from '../sql/sql-generators'
+import { withTranslatableToggle } from '../sql/sql-translatable-columns'
 import { resolvePrimaryKeyColumnType } from '../table-operations/column-generators'
 import {
   normalizeDataType,
@@ -171,10 +172,13 @@ export const findTypeChanges = (
     if (doesColumnTypeMatch(field, existing.dataType, tablePrimaryKeyTypes)) return []
     if (isGatedTimestamptzConversion(field, existing.dataType)) return []
 
-    // Type mismatch detected - generate ALTER COLUMN TYPE statement
-    return [
-      generateAlterColumnTypeStatement(table.name, field, existing.dataType, tablePrimaryKeyTypes),
-    ]
+    // Type mismatch detected - ALTER COLUMN TYPE, inside a translatable toggle's steps
+    return withTranslatableToggle(
+      table.name,
+      field,
+      existing.dataType,
+      generateAlterColumnTypeStatement(table.name, field, existing.dataType, tablePrimaryKeyTypes)
+    )
   })
 
 /**

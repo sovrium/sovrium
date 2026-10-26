@@ -36,6 +36,11 @@ import { optionalField } from '@/domain/models/api/combinators/optional-field'
  * decode fails at `["entries"][n]["path"]` ("Expected a string matching the
  * RegExp ^(?:project\/app\.json|(?:public|seed)\/[^\0\\]+)$"), and the host
  * reports `manifest.json is not a bundle manifest`.
+ *
+ * Format change in 0.44, `formatVersion` still 1: the optional
+ * `containsDemoData` field, and `project/CLAUDE.md` / `project/PROMPT.md`
+ * entries when the project holds them. Both fit the 0.38 entry pattern, and a
+ * reader ignores a field it does not know.
  */
 
 export const BUNDLE_FORMAT = 'sovrium-bundle'
@@ -137,6 +142,12 @@ export const bundleManifestSchema = Schema.Struct({
     ).annotate({
       description:
         'NAMES of the environment variables the config requires to boot — every env entry with no default whose required flag is not false — so a host can refuse a bundle it could not start before it applies it. Never a value. Absent from a bundle written before this field existed',
+    })
+  ),
+  containsDemoData: optionalField(
+    Schema.Boolean.annotate({
+      description:
+        'true when the archive carries seed/ files, the demo data a person may load when they open the bundle as a project. Absent when it carries none, and from a bundle written before this field existed',
     })
   ),
   signature: optionalField(bundleSignatureSchema),

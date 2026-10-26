@@ -28,8 +28,6 @@ import {
   type BackupStorageSource,
 } from '@/application/use-cases/server/backup-programs'
 import { defaultEncryptionKeyPath } from '@/domain/models/process-env/data-dir'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
-import { parseStorageEnvConfig } from '@/domain/models/process-env/storage/storage'
 import { BackupWorkspaceLive } from '@/infrastructure/filesystem/backup-workspace-live'
 import {
   formatBytes,
@@ -37,6 +35,7 @@ import {
   printFailure,
   printStderr,
 } from '@/infrastructure/logging/cli-output'
+import { readInstallSources } from '../runtime/install-sources'
 import { discoverConfigFile } from './app-prelude'
 import { getCurrentVersion } from './update'
 import type { BackupManifest } from '@/application/use-cases/server/backup-manifest'
@@ -59,29 +58,24 @@ type Sources =
 /**
  * Resolve where the database, the key and the uploads live — the same parsers
  * `sovrium start` uses, so a backup reads exactly the install a start would
- * boot. An empty variable counts as unset, as it does there.
+ * boot. The SQLite path is passed as configured: unlike `sovrium usage`, which
+ * makes it absolute, the backup copies the file through SQLite from this same
+ * working directory, so both name the same database.
  */
 const readSources = (): Sources => {
-  try {
-    const dialect = parseDatabaseDialectConfig()
-    const storage = parseStorageEnvConfig()
-    const database: BackupDatabaseSource =
-      dialect.dialect === 'postgres'
-        ? { dialect: 'postgres', url: dialect.databaseUrl }
-        : { dialect: 'sqlite', path: dialect.path }
-    const encryptionKey: BackupKeySource = process.env.SOVRIUM_ENCRYPTION_KEY
-      ? { source: 'environment' }
-      : { source: 'file', path: defaultEncryptionKeyPath() }
-    const storageSource: BackupStorageSource =
-      storage.provider === 's3'
-        ? { provider: 's3', bucket: storage.bucket }
-        : storage.provider === 'local'
-          ? { provider: 'local', directory: resolve(storage.directory) }
-          : { provider: 'database' }
-    return { database, encryptionKey, storage: storageSource }
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : String(error) }
-  }
+  const sources = readInstallSources()
+  if ('error' in sources) return sources
+  const { database, storage } = sources
+  const encryptionKey: BackupKeySource = process.env.SOVRIUM_ENCRYPTION_KEY
+    ? { source: 'environment' }
+    : { source: 'file', path: defaultEncryptionKeyPath() }
+  const storageSource: BackupStorageSource =
+    storage.provider === 's3'
+      ? { provider: 's3', bucket: storage.bucket }
+      : storage.provider === 'local'
+        ? { provider: 'local', directory: resolve(storage.directory) }
+        : { provider: 'database' }
+  return { database, encryptionKey, storage: storageSource }
 }
 
 const fail = (headline: string, guidance: string, detail?: readonly string[]): never => {

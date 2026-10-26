@@ -7,8 +7,10 @@
 
 import { sql, type SQL } from 'drizzle-orm'
 import { StaleWriteError } from '@/domain/errors'
+import { isLanguageMerge } from '@/domain/models/app/tables/translatable-write-service'
 import { DatabaseError, type DrizzleTransaction } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { languageMergeSql } from '@/infrastructure/database/sql/sql-translatable-writes'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { validateColumnName, tableIdentifier } from '../statement/validation'
 import { encodeColumnValue } from './column-value-encoding'
@@ -57,7 +59,11 @@ export function buildUpdateSetClauseCRUD(
 ): Readonly<ReturnType<typeof sql.join>> {
   const setClauses = entries.map(([key, value]) => {
     validateColumnName(key)
-    return sql`${sql.identifier(key)} = ${encodeColumnValue(value, arrayColumnTypes[key])}`
+    // A translatable field's write merges into its stored map, never replaces it.
+    const written = isLanguageMerge(value)
+      ? languageMergeSql(key, value)
+      : encodeColumnValue(value, arrayColumnTypes[key])
+    return sql`${sql.identifier(key)} = ${written}`
   })
   return sql.join(setClauses, sql.raw(', '))
 }

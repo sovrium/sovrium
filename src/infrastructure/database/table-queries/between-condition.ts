@@ -41,7 +41,7 @@ export const betweenSqlCondition = (
  * parameter; `undefined` for any other operator or a malformed value.
  */
 export const betweenFragment = (
-  column: Readonly<ReturnType<typeof sql.identifier>>,
+  column: Readonly<ReturnType<typeof sql.identifier>> | Readonly<SQL>,
   operator: string,
   value: unknown
 ): Readonly<SQL> | undefined => {

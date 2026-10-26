@@ -41,6 +41,7 @@ import {
 } from '@/domain/models/app/pages/graph-tables-source-service'
 import { callerReaderFromSession } from '@/domain/models/app/tables/caller-record-gate-service'
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
+import { deriveFieldLinkTableName } from '@/domain/models/app/tables/table-derived-name-validation'
 import {
   findViewByKey,
   viewFiltersForReader,
@@ -142,7 +143,12 @@ const fieldLinksOf = async (
 ): Promise<ReadonlyMap<string, readonly string[]>> => {
   const fetchLinks = ctx.db.fetchManyToManyLinks
   if (fetchLinks === undefined || !mayReadField(ctx, edge.table, edge.field)) return new Map()
-  const fields = [{ fieldName: edge.field, relatedTable: edge.relatedTable }]
+  const source = ctx.app.tables?.find((table) => table.name === edge.table)
+  const linkTable = deriveFieldLinkTableName(
+    { name: edge.table, fields: source?.fields ?? [] },
+    { name: edge.field, relatedTable: edge.relatedTable }
+  )
+  const fields = [{ fieldName: edge.field, relatedTable: edge.relatedTable, linkTable }]
   const ids = [...new Set(rows.map((row) => String(row['id'])))]
   return new Map(
     await Promise.all(

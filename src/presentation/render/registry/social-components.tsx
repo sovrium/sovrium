@@ -29,6 +29,7 @@
 import {
   resolveInterpreterString,
   resolveInterpreterStringOverrides,
+  resolveTranslationPattern,
 } from '@/domain/models/app/languages/translation-resolver'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import {
@@ -106,6 +107,27 @@ const COMMENT_FIELD_ROW = 'grid gap-1'
 
 const COMMENT_FIELD_LABEL = 'text-sm font-medium'
 
+/** The guest form's labels and submit, and the thread's accessible name, in the page language. */
+interface GuestFormLabels {
+  readonly name: string
+  readonly email: string
+  readonly comment: string
+  readonly submit: string
+  readonly section: string
+}
+
+/** The `comments.*` words the SSR thread draws itself, resolved for the page language. */
+const guestFormLabelsOf = (
+  currentLang: string | undefined,
+  languages: Parameters<typeof resolveInterpreterString>[2]
+): GuestFormLabels => ({
+  name: resolveInterpreterString('comments.guestName', currentLang, languages),
+  email: resolveInterpreterString('comments.guestEmail', currentLang, languages),
+  comment: resolveInterpreterString('comments.guestComment', currentLang, languages),
+  submit: resolveInterpreterString('comments.submit', currentLang, languages),
+  section: resolveInterpreterString('comments.sectionLabel', currentLang, languages),
+})
+
 /**
  * Render the guest comment form skeleton (PG-02 guest-comments). Shown in SSR
  * when the table's `comments.guestComments === true`. The form posts to the
@@ -126,12 +148,12 @@ const COMMENT_FIELD_LABEL = 'text-sm font-medium'
 // eslint-disable-next-line react-refresh/only-export-components -- server-side component-registry module, not a hot-reload candidate; helper components co-locate with the registry by convention
 function GuestCommentFormSkeleton({
   placeholder,
-  submitLabel,
+  labels,
   guestEmailRequired,
   honeypotEnabled,
 }: {
   readonly placeholder: string
-  readonly submitLabel: string
+  readonly labels: GuestFormLabels
   readonly guestEmailRequired: boolean
   readonly honeypotEnabled: boolean
 }): ReactElement {
@@ -144,7 +166,7 @@ function GuestCommentFormSkeleton({
       noValidate
     >
       <label className={COMMENT_FIELD_ROW}>
-        <span className={COMMENT_FIELD_LABEL}>Name</span>
+        <span className={COMMENT_FIELD_LABEL}>{labels.name}</span>
         <input
           type="text"
           name="guestName"
@@ -154,7 +176,7 @@ function GuestCommentFormSkeleton({
         />
       </label>
       <label className={COMMENT_FIELD_ROW}>
-        <span className={COMMENT_FIELD_LABEL}>Email</span>
+        <span className={COMMENT_FIELD_LABEL}>{labels.email}</span>
         <input
           type="email"
           name="guestEmail"
@@ -163,7 +185,7 @@ function GuestCommentFormSkeleton({
         />
       </label>
       <label className={COMMENT_FIELD_ROW}>
-        <span className={COMMENT_FIELD_LABEL}>Comment</span>
+        <span className={COMMENT_FIELD_LABEL}>{labels.comment}</span>
         <textarea
           name="content"
           required
@@ -178,7 +200,7 @@ function GuestCommentFormSkeleton({
         disabled
         className={`${computeButtonDefaultClasses()} justify-self-start`}
       >
-        {submitLabel}
+        {labels.submit}
       </button>
     </form>
   )
@@ -206,9 +228,9 @@ function renderCommentsSection(input: {
   readonly islandProps: string | undefined
   readonly sessionName: string | undefined
   readonly sessionEmail: string | undefined
-  readonly submitLabel: string
+  readonly labels: GuestFormLabels
 }): ReactElement {
-  const { f, cfg, elementProps, islandProps, sessionName, sessionEmail, submitLabel } = input
+  const { f, cfg, elementProps, islandProps, sessionName, sessionEmail } = input
   const showGuestForm = cfg.guestComments && cfg.commentPermissionAllowsAll
   const testId =
     typeof elementProps['data-testid'] === 'string' ? elementProps['data-testid'] : undefined
@@ -229,7 +251,7 @@ function renderCommentsSection(input: {
       data-island={islandProps ? 'comments' : undefined}
       data-island-props={islandProps}
       data-testid={testId}
-      aria-label="Comments"
+      aria-label={input.labels.section}
       // Settled, and truthfully so: nothing is in flight before the island
       // hydrates. The island keeps it in step afterwards, because a thread
       // that fetches its next page on scroll has no button left to announce
@@ -249,7 +271,7 @@ function renderCommentsSection(input: {
         <>
           <GuestCommentFormSkeleton
             placeholder={f.placeholder}
-            submitLabel={submitLabel}
+            labels={input.labels}
             guestEmailRequired={cfg.guestEmailRequired}
             honeypotEnabled={showGuestForm}
           />
@@ -280,12 +302,12 @@ export const commentsComponent: ComponentRenderer = (context) => {
     'thread'
   )
   if (display === 'count') return commentCountComponent(context)
-  const f = resolveCommentsFields(
-    component,
-    rawProps,
-    elementProps,
-    resolveInterpreterString('comments.placeholder', currentLang, languages)
-  )
+  const f = resolveCommentsFields(component, rawProps, elementProps, {
+    placeholder: resolveInterpreterString('comments.placeholder', currentLang, languages),
+    emptyText: resolveInterpreterString('comments.noComments', currentLang, languages),
+    translate: (text) =>
+      resolveTranslationPattern(text, currentLang ?? languages?.default ?? '', languages),
+  })
   const cfg = resolveTableCommentsConfig(f.table, tables)
   const islandProps =
     f.table && f.recordId
@@ -315,7 +337,7 @@ export const commentsComponent: ComponentRenderer = (context) => {
     islandProps,
     sessionName: session?.name,
     sessionEmail: session?.email,
-    submitLabel: resolveInterpreterString('comments.submit', currentLang, languages),
+    labels: guestFormLabelsOf(currentLang, languages),
   })
 }
 

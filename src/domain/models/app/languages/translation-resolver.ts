@@ -21,7 +21,7 @@ import type { Languages } from '@/domain/models/app/languages'
  * Tries exact match first, then falls back to base language code (e.g., 'fr-FR' → 'fr')
  *
  * @param lang - Language code (e.g., 'fr-FR', 'en-US', 'fr')
- * @param translations - Available translations object
+ * @param translations - Available translations object, or any map keyed by language code
  * @returns Matching translation key or original language code
  *
  * @example
@@ -33,7 +33,7 @@ import type { Languages } from '@/domain/models/app/languages'
  */
 export function normalizeLanguageCode(
   lang: string,
-  translations: Readonly<Record<string, Record<string, string>>>
+  translations: Readonly<Record<string, unknown>>
 ): string {
   // Try exact match first
   if (translations[lang]) {

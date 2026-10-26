@@ -18,8 +18,9 @@
  *
  * The accepted values of one pinned field are the union of:
  *
- *  - the form's own starting value — a literal is itself, `$user.<prop>` the
- *    submitter's own (nothing when nobody is signed in);
+ *  - the field's own `defaultValue`, and the form's own starting value — a
+ *    literal is itself, `$user.<prop>` the submitter's own (nothing when nobody
+ *    is signed in);
  *  - each page embedding the form with an `inlinePrefill` naming the field, when
  *    the page's `access` admits the submitter: a literal or `$user.<prop>` as
  *    above; `$parent.<col>` / `$record.<col>` any value that column holds on a
@@ -28,8 +29,12 @@
  *    not signed in, the rule as it reads for a visitor: one naming the
  *    signed-in person admits nothing), live rows only, the column readable by
  *    them, and the page's own `filter` (a `collection`'s, or a single-record
- *    binding's);
+ *    binding's); `$query.<name>` any value, since the visitor writes the URL;
  *  - an empty value, which files the record under nothing.
+ *
+ * The same machinery holds a hidden scalar field with a default
+ * (`submit-form-hidden-defaults.ts`), which stores its default for a value
+ * outside the set instead of refusing it.
  *
  * Which fields are pinned, and from which sources, is read off the
  * configuration (`pinnedFieldsOf`, `formEmbeddingPrefills`); a field whose form-level starting value
@@ -73,45 +78,51 @@ import { recordSourceOf, type PageRecordSource } from './submit-form-pin-sources
 import type { FormOptionVisitor } from './resolve-form-option-sources'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import type { QueryFilterNode } from '@/application/ports/repositories/tables/table-repository'
-import type { DatabaseError } from '@/domain/errors'
+import type {
+  TableReadError,
+  QueryFilterNode,
+} from '@/application/ports/repositories/tables/table-repository'
 import type { App, Table } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Form } from '@/domain/models/app/forms'
 import type { Page } from '@/domain/models/app/pages'
 
-type Requirements = AuthRepository | DataSourceRepository | TableRepository
+export type HiddenPinRequirements = AuthRepository | DataSourceRepository | TableRepository
+type Requirements = HiddenPinRequirements
 
 /** One pinned field, with every source that could have filled it. */
-interface HiddenPin {
+export interface HiddenPin {
+  /** The key the submission carries the field under. */
   readonly column: string
-  /** The form's own starting value. */
-  readonly formSource: PinSource
+  /** The form's own sources: its starting value, and the field's default. */
+  readonly formSources: readonly PinSource[]
   /** Each page that embeds the form with an `inlinePrefill` naming the field. */
   readonly embeddings: readonly { readonly page: Page; readonly source: PinSource }[]
 }
 
+/** The pages embedding `formName` whose `inlinePrefill` names `key`, each with its source. */
+export const embeddingsOf = (
+  app: App,
+  formName: string,
+  key: string,
+  classify: (value: unknown) => PinSource
+): HiddenPin['embeddings'] =>
+  (app.pages ?? []).flatMap((page) =>
+    formEmbeddingPrefills(app, page, formName)
+      .filter((prefill) => key in prefill)
+      .map((prefill) => ({ page, source: classify(prefill[key]) }))
+  )
+
 /** The pinned fields of `form`, each joined to the pages that fill it. */
-const hiddenPinsOf = (app: App, form: Form): readonly HiddenPin[] => {
-  const fields = pinnedFieldsOf(app, form)
-  if (fields.length === 0) return []
-  const pagePrefills = (app.pages ?? []).map((page) => ({
-    page,
-    prefills: formEmbeddingPrefills(app, page, form.name),
-  }))
-  return fields.map(({ column, formSource }) => ({
+const hiddenPinsOf = (app: App, form: Form): readonly HiddenPin[] =>
+  pinnedFieldsOf(app, form).map(({ column, formSource, defaultSource }) => ({
     column,
-    formSource,
-    embeddings: pagePrefills.flatMap(({ page, prefills }) =>
-      prefills
-        .filter((prefill) => column in prefill)
-        .map((prefill) => ({ page, source: classifyPinSource(prefill[column]) }))
-    ),
+    formSources: [formSource, defaultSource],
+    embeddings: embeddingsOf(app, form.name, column, classifyPinSource),
   }))
-}
 
 /** Who is submitting: their visitor facts, and — when signed in — their access session. */
-interface Submitter {
+export interface Submitter {
   readonly visitor: FormOptionVisitor | undefined
   readonly userId: string | undefined
   /** The session a page's `access` is judged against; absent for anyone not signed in. */
@@ -224,7 +235,7 @@ const recordHolds = (
   app: App,
   read: RecordRead,
   key: string
-): Effect.Effect<boolean, DatabaseError, TableRepository> =>
+): Effect.Effect<boolean, TableReadError, TableRepository> =>
   Effect.gen(function* () {
     const primaryKey = app.tables?.find((table) => table.name === read.tableName)?.primaryKey
     const rows = yield* (yield* TableRepository).listRecords({
@@ -249,20 +260,23 @@ const recordHolds = (
  * Whether every key submitted for `pin` is one the server could have rendered
  * there for this submitter. Stops at the first key no source holds.
  */
-const holdsOnlyRenderedValues = (input: {
+export const holdsOnlyRenderedValues = (input: {
   readonly app: App
   readonly pin: HiddenPin
   readonly keys: readonly string[]
   readonly submitter: Submitter
-}): Effect.Effect<boolean, DatabaseError, Requirements> =>
+}): Effect.Effect<boolean, TableReadError, Requirements> =>
   Effect.gen(function* () {
     const { app, pin, keys, submitter } = input
-    const direct = new Set([
-      ...directValues(pin.formSource, submitter),
+    const sources = [
+      ...pin.formSources,
       ...pin.embeddings
         .filter(({ page }) => pageAdmits(app, page, submitter))
-        .flatMap(({ source }) => directValues(source, submitter)),
-    ])
+        .map(({ source }) => source),
+    ]
+    // A query parameter is the visitor's to write: any value is one a page rendered.
+    if (sources.some((source) => source.kind === 'query')) return true
+    const direct = new Set(sources.flatMap((source) => directValues(source, submitter)))
     const pending = [...new Set(keys)].filter((key) => !direct.has(key))
     if (pending.length === 0) return true
     const reads = yield* readableRecordReads(app, pin, submitter)
@@ -271,20 +285,25 @@ const holdsOnlyRenderedValues = (input: {
       Effect.findFirst(reads, (read) => recordHolds(app, read, key)).pipe(Effect.map(Option.isNone))
     )
     return Option.isNone(unheld)
-  })
+  }).pipe(Effect.withSpan('forms.holds-only-rendered-values'))
 
 /**
  * The submitter as a page's `access` sees them — role, groups, `user_access`
- * roles — or `undefined` for anyone not signed in or no longer standing.
+ * roles — or `undefined` for anyone not signed in or no longer standing. A form
+ * bound to no table is judged under no table's row rules.
  */
 const loadSubmitterSession = (
   app: App,
   userId: string | undefined,
-  table: Table
+  table: Table | undefined
 ): Effect.Effect<SessionInfo | undefined, never, Requirements> =>
   Effect.gen(function* () {
     if (userId === undefined) return undefined
-    const identity = yield* loadCallerIdentity(app, userId, table)
+    const identity = yield* loadCallerIdentity(
+      app,
+      userId,
+      table ?? { id: 0, name: '', fields: [] }
+    )
     if (identity === undefined) return undefined
     return {
       userId,
@@ -294,6 +313,25 @@ const loadSubmitterSession = (
       isUnrestricted: identity.ctx.isUnrestricted,
     }
   })
+
+/**
+ * The submitter as the pins judge them. A session that no longer stands is
+ * judged as nobody: no `$user`, no page that needs a session.
+ */
+export const loadSubmitter = (input: {
+  readonly app: App
+  readonly table: Table | undefined
+  readonly visitor: FormOptionVisitor | undefined
+  readonly submitterUserId: string | undefined
+}): Effect.Effect<Submitter, never, Requirements> =>
+  Effect.map(
+    loadSubmitterSession(input.app, input.submitterUserId, input.table),
+    (session): Submitter => ({
+      visitor: session === undefined ? undefined : input.visitor,
+      userId: session === undefined ? undefined : input.submitterUserId,
+      session,
+    })
+  ).pipe(Effect.withSpan('forms.load-submitter'))
 
 /**
  * The first pinned field whose submitted value is not one the server would
@@ -307,7 +345,7 @@ export const findUnpinnedHiddenField = (input: {
   readonly mapped: Readonly<Record<string, unknown>>
   readonly visitor: FormOptionVisitor | undefined
   readonly submitterUserId: string | undefined
-}): Effect.Effect<string | undefined, DatabaseError, Requirements> =>
+}): Effect.Effect<string | undefined, TableReadError, Requirements> =>
   Effect.gen(function* () {
     const { app, form, mapped, visitor, submitterUserId } = input
     const table = app.tables?.find((candidate) => candidate.name === form.submitTo.table)
@@ -316,13 +354,7 @@ export const findUnpinnedHiddenField = (input: {
       .map((pin) => ({ pin, keys: submittedKeysOf(mapped[pin.column]) }))
       .filter((entry) => entry.keys.length > 0)
     if (named.length === 0) return undefined
-    const session = yield* loadSubmitterSession(app, submitterUserId, table)
-    // A session that no longer stands is judged as nobody: no `$user`, no page.
-    const submitter: Submitter = {
-      visitor: session === undefined ? undefined : visitor,
-      userId: session === undefined ? undefined : submitterUserId,
-      session,
-    }
+    const submitter = yield* loadSubmitter({ app, table, visitor, submitterUserId })
     const unpinned = yield* Effect.findFirst(named, ({ pin, keys }) =>
       holdsOnlyRenderedValues({ app, pin, keys, submitter }).pipe(Effect.map((held) => !held))
     )

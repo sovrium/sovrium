@@ -39,6 +39,8 @@ The numbers themselves are a practice rather than a search-engine rule: Google s
 
 **A canonical names one address per language.** A page whose path names no language (`/about`) is served at `/en/about` and `/fr/about`, and each must declare its own address, or search engines read the other languages as duplicates. Write the canonical as a `$t:` key followed by the rest of the address — `canonical: '$t:seo.base/about'`, with `seo.base` translated to `https://example.com/en` and `https://example.com/fr` — and each language renders its own. A key missing in one language follows the usual fallback (`fallback`, then `default`); the key itself is never printed. In an app with more than one language and `BASE_URL` set, such a page with no canonical at all names its own address in each language: `/fr/about` declares `https://example.com/fr/about`.
 
+`$app.origin` and the other `$app.*` references resolve in a canonical as they do in the title and description, so `canonical: '$app.origin/blog/$record.slug'` names the page on the host the request arrived on.
+
 Localized metadata is keyed by language, and each entry carries the same limits:
 
 ```yaml
@@ -68,9 +70,11 @@ Open Graph metadata for rich social previews, where `determiner` is the word pre
 
 `openGraph.image` also takes a `$t:` key, for a card per language, and a path starting with `/`; either is emitted as a full address on the host the request arrived on. `openGraph.url` takes a `$t:` key the same way as `canonical`, so each language shares its own address.
 
+A sharing image that resolves to an empty value — a record whose cover attachment is blank — emits no `og:image` or `twitter:image` tag, so the network chooses its own preview.
+
 **Descriptions agree.** `openGraph.description` resolves exactly as `meta.description` does, a `$record` value behind a `$t:` key included. When a page declares `openGraph` without a `description`, `og:description` takes the page's resolved `meta.description`; a page that declares no `openGraph` gains no tag.
 
-**Addresses from a record are checked.** A `canonical` or `openGraph.url` that resolves from a `$record` value is emitted only when it is an `http:` or `https:` address; anything else, such as a `javascript:` value an editor typed, leaves the tag out and the rest of the head unchanged.
+**Addresses from a record are checked.** A `canonical` or `openGraph.url` that resolves from a `$record` value is emitted only when it is an `http:` or `https:` address or a path on the site; anything else, such as a `javascript:` value an editor typed, leaves the tag out and the rest of the head unchanged.
 
 ## `twitter`
 

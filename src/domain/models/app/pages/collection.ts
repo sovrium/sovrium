@@ -9,6 +9,59 @@ import { Schema } from 'effect'
 import { DataFilterSchema, ViewerRowLookupSchema } from './components/data-source'
 
 /**
+ * One slug field per language, keyed by language code:
+ * `{ fr: slug_fr, en: slug_en }`.
+ *
+ * Each language's address reads its record by that language's field, and the
+ * page's `path` must then be a path per language whose dynamic segment, in
+ * each language, is named after that language's field
+ * (`{ fr: /cas/:slug_fr, en: /cases/:slug_en }`).
+ *
+ * The keys are plain strings on purpose, as for a path per language: an
+ * Effect `Schema.Record` whose key schema refuses a key DROPS that entry
+ * silently. Which codes are allowed, which fields exist and whether the
+ * page's `path` matches are judged with the app, where each refusal can name
+ * the page, the language and the field.
+ */
+export const LocalizedSlugFieldSchema = Schema.Record(
+  Schema.String,
+  Schema.String.check(Schema.isMinLength(1))
+).pipe(
+  Schema.annotate({
+    title: 'Slug field per language',
+    description:
+      "One slug field per language, keyed by language code. Each language's address finds its record by that language's field, and lists the same record's address in every other language as its hreflang alternate.",
+    examples: [{ fr: 'slug_fr', en: 'slug_en' }],
+  }),
+  Schema.check(
+    Schema.makeFilter((fields: Readonly<Record<string, string>>) =>
+      Object.keys(fields).length > 0
+        ? true
+        : 'A slug field per language must name at least one language'
+    )
+  )
+)
+
+/**
+ * `collection.slugField`: one field shared by every language, or one field
+ * per language.
+ *
+ * The plain string keeps its meaning unchanged. It is also the form a
+ * translatable field will take: a string naming a field that holds one value
+ * per language needs no map.
+ */
+export const PageCollectionSlugFieldSchema = Schema.Union([
+  Schema.String,
+  LocalizedSlugFieldSchema,
+]).annotate({
+  title: 'Slug field',
+  description:
+    'Field whose value becomes the URL parameter: one field for every language, or a map of one field per language code.',
+  howTo:
+    "Name one field when every language shares the slug. When each language has its own slug (`slug_fr`, `slug_en`), give a map `{ fr: slug_fr, en: slug_en }` and write `path` per language with each language's segment named after its field: `path: { fr: /cas/:slug_fr, en: /cases/:slug_en }`. Make each slug field `unique`. A record whose slug is empty in a language has no page in that language, and no alternate points there. To keep one translatable slug field instead of one field per language, name it once (`slugField: slug`) beside a path per language that each carry `:slug`: each language reads its own value, and a record with no value in a language has no page there.",
+})
+
+/**
  * `pages[].collection` — a template page that generates one route per record
  * of a table.
  *
@@ -35,10 +88,12 @@ export const PageCollectionSchema = Schema.Struct({
   table: Schema.String.annotate({
     description: 'Table name to generate collection pages from',
   }),
-  /** Field name whose value becomes the URL parameter */
-  slugField: Schema.String.annotate({
-    description: 'Field used as the URL slug parameter',
-  }),
+  /**
+   * The field whose value becomes the URL parameter: one field for every
+   * language, or a {@link LocalizedSlugFieldSchema} map of one field per
+   * language.
+   */
+  slugField: PageCollectionSlugFieldSchema,
   /** Optional filter to limit which records generate pages */
   filter: Schema.optional(
     Schema.Array(DataFilterSchema).annotate({

@@ -14,6 +14,7 @@ import {
   relationNameOf,
   type RelatedFilterScope,
 } from './lookup-view-helpers'
+import type { LinkSourceTable } from '@/domain/models/app/tables/table-derived-name-validation'
 import type { ViewFilterNode } from '@/domain/models/app/tables/views/filters'
 
 /**
@@ -35,6 +36,9 @@ export type LookupExpressionConfig = Pick<RelatedFilterScope, 'allTables'> & {
 export type ManyToManyLookupConfig = Pick<RelatedFilterScope, 'allTables'> & {
   readonly lookupName: string
   readonly relatedTable: string
+  /** The many-to-many field the lookup reads through, and its table's fields (its link table's name depends on them). */
+  readonly relationshipField: string
+  readonly allFields: LinkSourceTable['fields']
   /** The relation read for the related rows — the related table's base table when it is this table. */
   readonly relatedRelation?: string
   readonly relatedField: string
@@ -103,7 +107,12 @@ export const generateReverseLookupExpression = (config: LookupExpressionConfig):
 export const generateManyToManyLookupExpression = (config: ManyToManyLookupConfig): string => {
   const { lookupName, relatedTable, relatedField, filters, tableAlias, actualTableName } = config
   const alias = relatedAliasOf(relatedTable, lookupName)
-  const junctionTable = relationNameOf(generateJunctionTableName(actualTableName, relatedTable))
+  const junctionTable = relationNameOf(
+    generateJunctionTableName(
+      { name: actualTableName, fields: config.allFields },
+      { name: config.relationshipField, relatedTable }
+    )
+  )
   const junctionAlias = `junction_${lookupName}`
   const [foreignKeyInJunction, relatedForeignKeyInJunction] = junctionKeyColumns(
     actualTableName,

@@ -40,11 +40,15 @@ import {
 } from '@/application/use-cases/tables/write-record-programs'
 import { db } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import { generateJunctionTableName } from '@/infrastructure/database/sql/sql-junction-tables'
 import { tableIdentifier } from '@/infrastructure/database/table-queries/statement/validation'
 import { runTableProgram } from '@/infrastructure/layers/table-layer'
 import { alignSeededAutonumbers } from './seed-autonumber'
-import { replaceSeededLinks, splitSeedLinks, upsertReportLine } from './seed-links'
+import {
+  linkTablesTouching,
+  replaceSeededLinks,
+  splitSeedLinks,
+  upsertReportLine,
+} from './seed-links'
 import { dryRunLines } from './seed-report'
 import { emptyKeyIndex, idOfKey, resolveSeedFields, withKey } from './seed-resolve'
 import { indexUpsertedKeys, partitionReplay, storeChangedAssets } from './seed-upsert'
@@ -88,22 +92,19 @@ export const deleteAllRows = (tableName: string): Promise<void> => {
 }
 
 /**
- * Clear the junction rows a table owns before its own rows are deleted.
+ * Clear the junction rows that point at a table's rows before they are deleted.
  *
- * A junction carries a foreign key to both ends, so deleting the owning rows
- * first fails the constraint. Both directions are cleared because a reciprocal
- * many-to-many declaration mirrors every link into `<related>_<source>` too.
- * A junction that does not exist is not an error — the pair may be declared
- * from one side only.
+ * A junction carries a foreign key to both ends, so deleting the rows first
+ * fails the constraint. Every link table with the table at either end is
+ * cleared: its own fields' and every other table's many-to-many field to it,
+ * a reciprocal declaration mirroring each link into the related table's own.
+ * A junction that does not exist is not an error.
  */
-export const clearJunctions = (tableName: string, config?: SeedTableConfig): Promise<void> => {
-  const related = (config?.fields ?? [])
-    .filter((field) => field.type === 'relationship' && field.relationType === 'many-to-many')
-    .flatMap((field) => (field.relatedTable === undefined ? [] : [field.relatedTable]))
-  const junctions = related.flatMap((other) => [
-    generateJunctionTableName(tableName, other),
-    generateJunctionTableName(other, tableName),
-  ])
+export const clearJunctions = (
+  tableName: string,
+  tables: readonly SeedTableConfig[]
+): Promise<void> => {
+  const junctions = linkTablesTouching(tableName, tables)
   return Promise.all(
     junctions.map((junction) => deleteAllRows(junction).catch(() => undefined))
   ).then(() => undefined)
@@ -341,14 +342,7 @@ const runReplaceDeletes = (input: ExecuteSeedPlanInput): Promise<void> =>
     .toReversed()
     .reduce<Promise<void>>(
       (previous, name) =>
-        previous
-          .then(() =>
-            clearJunctions(
-              name,
-              input.tables.find((table) => table.name === name)
-            )
-          )
-          .then(() => deleteAllRows(name)),
+        previous.then(() => clearJunctions(name, input.tables)).then(() => deleteAllRows(name)),
       Promise.resolve()
     )
     .catch((error: unknown) => {

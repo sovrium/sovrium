@@ -473,14 +473,14 @@ class DrainingStdioTransport implements Transport {
  * `Server` also answers `initialize`, `ping` and `server/discover` itself, and
  * answers anything else with `-32601` — a refusal rather than a dropped pipe.
  */
-const buildStdioServer = (provider: ConfigToolsProvider, version: string): Server => {
+const buildStdioServer = (provider: ConfigToolsProvider, version: string, dir: string): Server => {
   const server = new Server(
     { name: 'sovrium', version },
-    // `prompts` are the binary's agent skills, fixed by the binary rather than
-    // live, and served here only — the HTTP mount declares none.
+    // `prompts`: the binary's agent skills and the project's brief, re-read per
+    // request (so no change notification), served here only — HTTP declares none.
     { capabilities: { tools: { listChanged: false }, prompts: { listChanged: false } } }
   )
-  registerSkillPrompts(server)
+  registerSkillPrompts(server, dir)
   // ONE gate, read once: the provider carries the write operations only where
   // A8 authorised them, so compiling from the same fact is what keeps
   // `tools/list` and the dispatcher below from disagreeing about which tools
@@ -596,7 +596,7 @@ export const handleMcpCommand = async (options: McpCommandOptions = {}): Promise
   })
 
   const transport = new DrainingStdioTransport()
-  const handle = serveStdio(() => buildStdioServer(provider, version), {
+  const handle = serveStdio(() => buildStdioServer(provider, version, projectDir), {
     legacy: 'serve',
     transport,
     onerror: (error) => printStderr(`[mcp] ${error.message}`),

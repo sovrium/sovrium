@@ -8,6 +8,8 @@
 /**
  * Common SQL/formula keywords and functions organized by category.
  * These should be excluded from field references when parsing formulas.
+ * Every function named here runs on at least one engine; a name that runs on
+ * neither is in {@link REFUSED_FORMULA_FUNCTIONS} instead.
  *
  * Defined as constants to avoid recreating Sets on every function call.
  * Exported from a separate module to reduce main table index file size.
@@ -94,6 +96,7 @@ export const STRING_FUNCTIONS: ReadonlySet<string> = new Set([
   'overlay',
   'repeat',
   'strpos',
+  'lpad',
   'string_to_array',
   'array_to_string',
   'chr',
@@ -133,8 +136,6 @@ export const AGGREGATE_FUNCTIONS: ReadonlySet<string> = new Set([
   'max',
   'min',
   'count',
-  'counta',
-  'countall',
 ])
 
 /**
@@ -147,8 +148,6 @@ export const DATE_FUNCTIONS: ReadonlySet<string> = new Set([
   'now',
   'extract',
   'date_add',
-  'date_sub',
-  'date_diff',
   'date_trunc',
   'to_char',
   'to_date',
@@ -218,7 +217,6 @@ export const ARRAY_FUNCTIONS: ReadonlySet<string> = new Set([
   'cardinality',
   'arrayunique',
   'unnest',
-  'flatten',
 ])
 
 /**
@@ -230,6 +228,30 @@ export const REGEX_FUNCTIONS: ReadonlySet<string> = new Set(['regexp_match', 're
  * Binary and encoding functions
  */
 export const BINARY_FUNCTIONS: ReadonlySet<string> = new Set(['convert_from'])
+
+// ============================================================================
+// Refused Functions
+// ============================================================================
+
+/**
+ * Formula function names that run on neither SQLite nor PostgreSQL, each with
+ * what to write instead. Formula validation refuses a call to any of them, so
+ * `sovrium validate` and every boot name the function rather than reading it
+ * as an unknown field.
+ */
+export const REFUSED_FORMULA_FUNCTIONS: ReadonlyMap<string, string> = new Map([
+  ['date_diff', 'use days_between(a, b) for a number of days'],
+  ['date_sub', 'use add_days(d, -n) to move a date back'],
+  [
+    'counta',
+    'it is a rollup aggregation, not a formula function: declare a rollup field with that aggregation',
+  ],
+  [
+    'countall',
+    'it is a rollup aggregation, not a formula function: declare a rollup field with that aggregation',
+  ],
+  ['flatten', 'a record holds no nested list, so there is nothing to flatten'],
+])
 
 // ============================================================================
 // Combined Export

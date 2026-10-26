@@ -9,13 +9,10 @@ import { SQL } from 'bun'
 import { Effect, type Context } from 'effect'
 import { readSovriumDevClock } from '@/domain/models/process-env/dev-clock'
 import { DEV_CLOCK_MARKER } from '@/infrastructure/database/formula/formula-dev-clock'
-import {
-  getPhysicalTableName,
-  shouldUseView,
-} from '@/infrastructure/database/lookup/lookup-view-generators'
+import { shouldUseView } from '@/infrastructure/database/lookup/lookup-view-generators'
 import { postgresClientOptions } from '@/infrastructure/database/sql/postgres-client-options'
 import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
-import { logDebug, logWarning } from '@/infrastructure/logging/logger'
+import { logDebug } from '@/infrastructure/logging/logger'
 import { BetterAuthUsersTableRequired } from '../auth/auth-validation'
 import {
   openSqliteDdlDatabase,
@@ -23,11 +20,9 @@ import {
   sqliteTransactionLike,
 } from '../sql/dialect-ddl'
 import { postgresTransactionLike } from '../sql/sql-execution'
-import { storedConstraintsCurrent } from '../table-operations/live-unique-shape'
-import { sqliteLegacyDateValuesQuery } from '../table-operations/sqlite-date-normalisation'
-import { columnTypesCurrent } from './column-type-drift'
 import { storedFormulaEngineCurrent, type StoredChecksumRow } from './formula-engine-recompute'
 import { logRollbackOperation } from './migration-audit-trail'
+import { storedDataCurrent } from './stored-data-probes'
 import { findStaleViewDefinition } from './view-definition-drift'
 import type { SQLExecutionError, TransactionLike } from '../sql/sql-execution'
 import type { App } from '@/domain/models/app'
@@ -468,92 +463,6 @@ const resolveSkip = async (
   }
 
   return storedDataCurrent(quick, tables)
-}
-
-/**
- * Whether the stored objects and values are the ones THIS binary writes: the
- * checksum hashes the config alone, so a repair shipped in a binary — a view's
- * SQL, a formula column's type, a SQLite date's stored form — would otherwise
- * never reach a deployment whose config did not move.
- */
-const storedDataCurrent = async (
-  quick: Readonly<QuickConnection>,
-  tables: readonly Table[]
-): Promise<boolean> => {
-  const current =
-    (await viewDefinitionsCurrent(quick, tables)) &&
-    (await columnTypesCurrent(quick.liveColumnTypes, tables)) &&
-    (await sqliteDateValuesStored(quick, tables)) &&
-    (await storedConstraintsCurrent(quick.tx, quick.isSqlite, tables))
-  if (current) {
-    logDebug('[schema] checksum matches and tables verified — skipping migration (fast path)')
-  }
-  return current
-}
-
-/**
- * Whether no SQLite table still holds a datetime or time written before the
- * write path stored them in one form. The rewrite runs in the full migration
- * (`normaliseSqliteDateValues`); without this check a deployment that upgrades
- * without editing its config would take the fast path and keep its old text.
- * Each query stops at the first legacy row; a clean column is one scan.
- */
-const sqliteDateValuesStored = async (
-  quick: Readonly<QuickConnection>,
-  tables: readonly Table[]
-): Promise<boolean> => {
-  if (!quick.isSqlite) return true
-  const probes = tables.flatMap((table) => {
-    const query = sqliteLegacyDateValuesQuery(getPhysicalTableName(table), table)
-    return query === undefined ? [] : [{ table: table.name, query }]
-  })
-  const legacy = await probes.reduce<Promise<string | undefined>>(async (found, probe) => {
-    const earlier = await found
-    if (earlier !== undefined) return earlier
-    const rows = (await quick.tx.unsafe(probe.query)) as readonly { exists: number | boolean }[]
-    return rows[0]?.exists ? probe.table : undefined
-  }, Promise.resolve(undefined))
-  if (legacy === undefined) return true
-  logDebug(
-    '[schema] checksum matches but a table holds a datetime or time in its pre-upgrade form — full migration',
-    { table: legacy }
-  )
-  return false
-}
-
-/**
- * Whether every installed view is the one THIS binary generates: the checksum
- * hashes the config alone, so an upgrade that changes a view's SQL would
- * otherwise never reach a deployment whose config stayed put.
- */
-const viewDefinitionsCurrent = async (
-  quick: Readonly<QuickConnection>,
-  tables: readonly Table[]
-): Promise<boolean> => {
-  const outcome = await quick.staleViewDefinition(tables).then(
-    (view) => ({ compared: true as const, view }),
-    (error: unknown) => ({ compared: false as const, error })
-  )
-  if (!outcome.compared) {
-    // The PostgreSQL comparison needs a TEMPORARY view, which a role without
-    // the `TEMP` privilege on the database cannot create. Not being able to
-    // compare must not stop the boot: it declines the fast path (the full
-    // migration is idempotent and rebuilds every view), and says why, because
-    // it costs every boot until the privilege is granted.
-    logWarning(
-      '[schema] could not compare the installed views with this version (does the database role have the TEMP privilege?) — full migration',
-      { reason: outcome.error instanceof Error ? outcome.error.message : String(outcome.error) }
-    )
-    return false
-  }
-  if (outcome.view !== undefined) {
-    logDebug(
-      '[schema] checksum matches but a view is not the one this version writes — full migration',
-      { view: outcome.view }
-    )
-    return false
-  }
-  return true
 }
 
 /**

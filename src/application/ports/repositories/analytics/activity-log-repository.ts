@@ -8,6 +8,7 @@
 import { Context, Data } from 'effect'
 import type { UserMetadata } from '@/application/ports/contracts/user-metadata'
 import type { QueryFilterNode } from '@/application/ports/repositories/tables/table-repository'
+import type { UncompilableFilterOperatorError } from '@/domain/errors/uncompilable-filter-operator-error'
 import type { Effect } from 'effect'
 
 /**
@@ -109,11 +110,14 @@ export class ActivityLogRepository extends Context.Service<
     /** One page of the activity of the last year, admitted and filtered in the database. */
     readonly listPage: (
       query: ActivityLogPageQuery
-    ) => Effect.Effect<ActivityLogPage, ActivityLogDatabaseError>
+    ) => Effect.Effect<ActivityLogPage, ActivityLogDatabaseError | UncompilableFilterOperatorError>
     /** The raw live rows a gate judges, in one statement. */
     readonly liveRecords: (
       query: LiveRecordsQuery
-    ) => Effect.Effect<readonly Readonly<Record<string, unknown>>[], ActivityLogDatabaseError>
+    ) => Effect.Effect<
+      readonly Readonly<Record<string, unknown>>[],
+      ActivityLogDatabaseError | UncompilableFilterOperatorError
+    >
     readonly create: (log: {
       readonly userId: string
       readonly action: 'create' | 'update' | 'delete' | 'restore' | 'permanent_delete'

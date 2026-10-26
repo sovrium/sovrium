@@ -36,6 +36,7 @@ import { transformRecord } from './record-transformer'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import type { TableReadError } from '@/application/ports/repositories/tables/table-repository'
 import type { DatabaseError } from '@/domain/errors'
 import type { RestoreRecordResponse } from '@/domain/models/api/tables/tables'
 import type { App } from '@/domain/models/app'
@@ -110,7 +111,7 @@ export function restoreRecordProgram(
   }
 ): Effect.Effect<
   RestoreRecordResponse,
-  DatabaseError | NotFoundError | ValidationError | UniqueConstraintViolationError,
+  TableReadError | NotFoundError | ValidationError | UniqueConstraintViolationError,
   TableRepository | DataSourceRepository | AuthRepository
 > {
   return Effect.gen(function* () {

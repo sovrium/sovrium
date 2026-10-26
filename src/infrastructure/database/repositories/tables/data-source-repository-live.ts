@@ -17,6 +17,7 @@ import { INTRINSIC_DELETED_AT_COLUMN } from '@/domain/models/app/tables/system-f
 import { db } from '@/infrastructure/database/drizzle/db-bun'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { languageValueSql } from '@/infrastructure/database/sql/translatable-value-sql'
 import {
   isMissingUserAccessTable,
   toRecordIdList,
@@ -242,8 +243,15 @@ export const DataSourceRepositoryLive = Layer.succeed(DataSourceRepository, {
         options?.liveOnly === true
           ? sql` AND ${sql.identifier(INTRINSIC_DELETED_AT_COLUMN)} IS NULL`
           : sql``
+      // A translatable field is compared in one language, through the same
+      // expression its per-language index is built over.
+      const field = sanitizeTableName(paramField)
+      const target =
+        options?.paramLanguage === undefined
+          ? sql.identifier(field)
+          : languageValueSql(field, options.paramLanguage)
       const rows = await executeSqlQuery<Record<string, unknown>[]>(
-        sql`SELECT ${columns} FROM ${sql.identifier(sanitizeTableName(tableName))} WHERE ${sql.identifier(sanitizeTableName(paramField))} = ${paramValue}${live} LIMIT 1`
+        sql`SELECT ${columns} FROM ${sql.identifier(sanitizeTableName(tableName))} WHERE ${target} = ${paramValue}${live} LIMIT 1`
       )
       return rows[0]
     }),

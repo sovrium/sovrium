@@ -20,20 +20,18 @@ import {
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { Database } from 'bun:sqlite'
 import { Effect, Layer } from 'effect'
 import { BackupIoError, BackupWorkspace } from '@/application/ports/services/backup-workspace'
 import {
   dropRestoredObjects,
   inspectPostgresTarget,
+  withAppObjectsReplaced,
 } from '@/infrastructure/database/postgres-restore-target'
 import { listFilesBelow } from '@/infrastructure/filesystem/list-files-below'
 import { scanContentDirFiles } from '@/infrastructure/markdown/content-dir-enumerator'
 import { isProcessRunning, lockFilePathIn } from '@/infrastructure/server/lock-file'
 import { buildSchemaInChild, copyRows } from './backup-workspace-cross-dialect'
-
-const isMissing = (cause: unknown): boolean =>
-  (cause as { readonly code?: string } | null)?.code === 'ENOENT'
+import { isMissing, withReadOnlySqlite, withShortLivedPostgres } from './install-store-clients'
 
 /** Run a promise thunk, mapping any rejection to a {@link BackupIoError} naming `action`. */
 const attempt = <A>(action: string, run: () => Promise<A>) =>
@@ -81,13 +79,10 @@ const snapshot = async (databasePath: string): Promise<Uint8Array> => {
   const scratch = await mkdtemp(join(tmpdir(), 'sovrium-backup-'))
   const target = join(scratch, 'database.db')
   try {
-    const database = new Database(databasePath, { readonly: true })
-    try {
+    withReadOnlySqlite(databasePath, (database) => {
       database.run('PRAGMA busy_timeout = 5000')
       database.run('VACUUM INTO ?', [target])
-    } finally {
-      database.close()
-    }
+    })
     return new Uint8Array(await readFile(target))
   } finally {
     await rm(scratch, { recursive: true, force: true })
@@ -115,28 +110,20 @@ const runClientTool = async (
   return new Uint8Array(output)
 }
 
-const countSqliteCatalogue = (path: string): number => {
-  const database = new Database(path, { readonly: true })
-  try {
+const countSqliteCatalogue = (path: string): number =>
+  withReadOnlySqlite(path, (database) => {
     const row = database
       .query<{ readonly n: number }, []>('SELECT count(*) AS n FROM system_file_storage_metadata')
       .get()
     return row?.n ?? 0
-  } finally {
-    database.close()
-  }
-}
+  })
 
-const countPostgresCatalogue = async (url: string): Promise<number> => {
-  const sql = new Bun.SQL(url)
-  try {
+const countPostgresCatalogue = (url: string): Promise<number> =>
+  withShortLivedPostgres(url, async (sql) => {
     const rows: readonly { readonly n: number }[] =
       await sql`SELECT count(*)::int AS n FROM system.file_storage_metadata`
     return rows[0]?.n ?? 0
-  } finally {
-    await sql.close()
-  }
-}
+  })
 
 /**
  * The archive's permission bits: readable and writable by its owner only. It
@@ -262,7 +249,7 @@ export const BackupWorkspaceLive = Layer.succeed(BackupWorkspace, {
         undefined
       )
     ),
-  restorePostgres: (databaseUrl: string, dump: Uint8Array) =>
+  restorePostgres: (databaseUrl: string, dump: Uint8Array, replace: boolean) =>
     attempt('replay the PostgreSQL dump with psql', () =>
       runClientTool(
         [
@@ -272,7 +259,7 @@ export const BackupWorkspaceLive = Layer.succeed(BackupWorkspace, {
           '--set=ON_ERROR_STOP=1',
           `--dbname=${databaseUrl}`,
         ],
-        dump
+        replace ? withAppObjectsReplaced(dump) : dump
       ).then(() => undefined)
     ),
   countCatalogueFiles: (database) =>
@@ -301,9 +288,13 @@ export const BackupWorkspaceLive = Layer.succeed(BackupWorkspace, {
     Effect.promise(() => inspectPostgresTarget(databaseUrl)),
   buildSchema: buildSchemaInChild,
   copySqliteToPostgres: copyRows,
-  dropCreatedObjects: (databaseUrl: string, preExistingSchemas: readonly string[]) =>
+  dropCreatedObjects: (
+    databaseUrl: string,
+    preExistingSchemas: readonly string[],
+    preExistingRoutines: readonly string[]
+  ) =>
     attempt('empty the PostgreSQL database again', () =>
-      dropRestoredObjects(databaseUrl, preExistingSchemas)
+      dropRestoredObjects(databaseUrl, preExistingSchemas, preExistingRoutines)
     ),
   isServerRunning: (lockDirectory: string) =>
     attempt(`read the lock in ${lockDirectory}`, () => lockedByLiveServer(lockDirectory)),

@@ -152,9 +152,7 @@ const toClientDetails = (
   })
 }
 
-/**
- * Extract actual error from Effect FiberFailure wrapper
- */
+/** Extract actual error from Effect FiberFailure wrapper */
 function extractActualError(error: unknown): ErrorObject {
   const errorObj = error as ErrorObject
 
@@ -177,9 +175,7 @@ function extractActualError(error: unknown): ErrorObject {
   return errorObj
 }
 
-/**
- * Map tagged error to sanitized response
- */
+/** Map tagged error to sanitized response */
 function mapTaggedError(errorTag: string, actualError: ErrorObject): SanitizedError | undefined {
   switch (errorTag) {
     case 'ForbiddenError':
@@ -193,6 +189,8 @@ function mapTaggedError(errorTag: string, actualError: ErrorObject): SanitizedEr
         code: 'NOT_FOUND',
         message: 'Resource not found',
       }
+    // A filter operator no compiler knows: the caller's mistake, named in its message.
+    case 'UncompilableFilterOperatorError':
     case 'ValidationError':
       return {
         error: 'Validation Error',

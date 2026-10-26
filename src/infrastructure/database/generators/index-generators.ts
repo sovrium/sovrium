@@ -7,6 +7,8 @@
 
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
+import { declaresTranslatable } from '@/domain/models/app/tables/translatable-field-service'
+import { isUniqueInEachLanguage } from '@/domain/models/app/tables/translatable-unique-service'
 import { wordSearchFields } from '@/domain/models/app/tables/word-search-service'
 import {
   pgWordSearchIndexName,
@@ -21,6 +23,11 @@ import {
   liveUniqueIndexName,
   relationshipFieldCreatesForeignKey,
 } from '../sql/sql-generators'
+import { generateLanguageUniqueIndexes } from '../sql/sql-language-unique-indexes'
+import {
+  translatableIndexDrops,
+  translatableIndexStatements,
+} from '../sql/sql-translatable-columns'
 import type { Table } from '@/domain/models/app/tables'
 import type { Fields } from '@/domain/models/app/tables/fields'
 
@@ -84,6 +91,11 @@ const generateStandardIndexes = (table: Table): readonly string[] => {
       // SQLite has no GIN/GiST — skip those indexes (the column still works).
       if (sqlite && (needsGin || needsGist)) return []
       const indexName = standardIndexName(table.name, field)
+      // A unique translatable field's per-language unique indexes serve the lookups.
+      if (isUniqueInEachLanguage(field)) return translatableIndexDrops(table.name, field, indexName)
+      // A translatable field is indexed per language, on each language's value.
+      if (declaresTranslatable(field))
+        return translatableIndexStatements(table.name, field, indexName)
       if (sqlite) {
         return [
           `CREATE INDEX IF NOT EXISTS ${indexName} ON ${sanitized} (${quoteSqlIdentifier(field.name)})`,
@@ -265,6 +277,7 @@ export const generateIndexStatements = (table: Table): readonly string[] => [
   ...generateStandardIndexes(table),
   ...generateAutonumberIndexes(table),
   ...generateLiveUniqueIndexes(table),
+  ...generateLanguageUniqueIndexes(table),
   ...generateGeolocationConstraints(table),
   ...generateFullTextSearchIndexes(table),
   ...generateWordSearchIndexes(table),

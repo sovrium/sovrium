@@ -39,6 +39,7 @@ import { hasReadPermissionForCaller } from '@/domain/models/app/auth/permission-
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { rowPassesRule } from '@/domain/models/app/tables/row-level-write-decision-service'
 import { readStoredValues } from '@/domain/models/app/tables/stored-value-service'
+import { languageUniqueBaseField } from '@/domain/models/app/tables/translatable-unique-service'
 import { FormFieldConstraintError, uniqueRefusalForField } from './submit-form-constraint-errors'
 import type { UniqueConstraintViolationError } from '@/domain/errors'
 import type { App, Table } from '@/domain/models/app'
@@ -61,9 +62,11 @@ const authoredTakenRefusal = (
   form: Readonly<Form>,
   unique: Readonly<UniqueConstraintViolationError>
 ): Readonly<FormFieldConstraintError> | undefined => {
-  const message = takenMessageOf(form, unique.fieldName)
-  return message !== undefined && unique.fieldName !== undefined
-    ? new FormFieldConstraintError({ fieldName: unique.fieldName, message })
+  const column =
+    unique.fieldName === undefined ? undefined : languageUniqueBaseField(unique.fieldName)
+  const message = takenMessageOf(form, column)
+  return message !== undefined && column !== undefined
+    ? new FormFieldConstraintError({ fieldName: column, message })
     : undefined
 }
 

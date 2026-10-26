@@ -35,7 +35,7 @@ export const notContainsSqlCondition = (
 
 /** The bound fragment of a `notContains` condition on `column`; `undefined` for any other operator. */
 export const notContainsFragment = (
-  column: Readonly<ReturnType<typeof sql.identifier>>,
+  column: Readonly<ReturnType<typeof sql.identifier>> | Readonly<SQL>,
   operator: string,
   value: unknown
 ): Readonly<SQL> | undefined => {

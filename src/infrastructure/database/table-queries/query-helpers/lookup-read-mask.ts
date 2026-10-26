@@ -43,15 +43,14 @@
 import { sql, type SQL } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { DatabaseError } from '@/infrastructure/database'
+import { passingFilterRefusal } from '@/infrastructure/database/sql/db-effect'
 import { stringAggExpression } from '@/infrastructure/database/sql/dialect-ddl'
 import { listTableColumns } from '@/infrastructure/database/sql/dialect-introspection'
-import {
-  generateJunctionTableName,
-  junctionKeyColumns,
-} from '@/infrastructure/database/sql/sql-generators'
+import { junctionKeyColumns } from '@/infrastructure/database/sql/sql-generators'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { validateColumnName, tableIdentifier, databaseTableName } from '../statement/validation'
 import { buildUserFilterConditions, type FilterNode } from './aggregation-helpers'
+import type { UncompilableFilterOperatorError } from '@/domain/errors/uncompilable-filter-operator-error'
 import type { RawSqlRunner } from '@/infrastructure/database/sql/dialect-execute'
 
 /** A lookup to mask — the structural twin of the port's `LookupReadMask`. */
@@ -62,7 +61,7 @@ export interface LookupReadMaskSpec {
   readonly readable: FilterNode | undefined
   readonly link:
     | { readonly kind: 'column'; readonly column: string }
-    | { readonly kind: 'junction'; readonly filters?: FilterNode }
+    | { readonly kind: 'junction'; readonly linkTable: string; readonly filters?: FilterNode }
     | { readonly kind: 'reverse'; readonly column: string; readonly filters?: FilterNode }
     | {
         readonly kind: 'chain'
@@ -76,15 +75,16 @@ export interface LookupReadMaskSpec {
 }
 
 /** The list a chain copies at its end — the structural twin of the port's `LookupReadList`. */
-interface ListSpec {
-  readonly kind: 'junction' | 'reverse'
+type ListSpec = {
   readonly sourceTable: string
   readonly relatedTable: string
   readonly relatedField: string
-  readonly column?: string
   readonly readable: FilterNode | undefined
   readonly filters?: FilterNode
-}
+} & (
+  | { readonly kind: 'junction'; readonly linkTable: string }
+  | { readonly kind: 'reverse'; readonly column: string }
+)
 
 type ChainHop = Extract<LookupReadMaskSpec['link'], { readonly kind: 'chain' }>['hops'][number]
 
@@ -195,12 +195,13 @@ const recomputedColumn = (
   link: Exclude<LookupReadMaskSpec['link'], { readonly kind: 'column' | 'chain' }>
 ): Readonly<SQL> => {
   const list: ListSpec = {
-    kind: link.kind,
     sourceTable: tableName,
     relatedTable: mask.relatedTable,
     relatedField: mask.relatedField,
     readable,
-    ...(link.kind === 'reverse' ? { column: link.column } : {}),
+    ...(link.kind === 'reverse'
+      ? { kind: 'reverse', column: link.column }
+      : { kind: 'junction', linkTable: link.linkTable }),
     ...(link.filters === undefined ? {} : { filters: link.filters }),
   }
   const sourceId = sql`${sql.identifier(SOURCE)}.${sql.identifier('id')}`
@@ -257,7 +258,7 @@ const listAggregate = (list: ListSpec, sourceId: Readonly<SQL>): Readonly<SQL> =
   // sql-literal: identifier -- `relatedField` passed validateColumnName above
   const live = sql`"sovrium_mask_related"."deleted_at" IS NULL AND ${sql.raw(nonEmpty(value))}`
   if (list.kind === 'reverse') {
-    const column = list.column ?? ''
+    const { column } = list
     validateColumnName(column)
     // The related rows are the only relation in scope, so the rule's
     // unqualified names resolve to them, as the `column` shape's EXISTS relies
@@ -269,7 +270,7 @@ const listAggregate = (list: ListSpec, sourceId: Readonly<SQL>): Readonly<SQL> =
   // Joined to the junction, an unqualified name could be ambiguous, so the
   // rule is judged in a self-subquery. (Moving the junction into a nested
   // subquery to judge it inline measured no faster.)
-  const junction = sql.identifier(generateJunctionTableName(list.sourceTable, list.relatedTable))
+  const junction = sql.identifier(list.linkTable)
   const [sourceColumn, relatedColumn] = junctionKeyColumns(list.sourceTable, list.relatedTable)
   const sourceKey = sql.identifier(sourceColumn)
   const relatedKey = sql.identifier(relatedColumn)
@@ -286,7 +287,7 @@ export const maskedRelation = (
   tableName: string,
   masks: readonly LookupReadMaskSpec[] | undefined,
   alias?: string
-): Effect.Effect<Readonly<SQL>, DatabaseError> => {
+): Effect.Effect<Readonly<SQL>, DatabaseError | UncompilableFilterOperatorError> => {
   // With an `alias`, the relation is named by it in both shapes; without, the
   // derived relation takes the table's own name and the bare table stands.
   const bare =
@@ -310,6 +311,8 @@ export const maskedRelation = (
       )
       return sql`(SELECT ${list} FROM ${tableIdentifier(tableName)} AS ${sql.identifier(SOURCE)}) AS ${sql.identifier(alias ?? databaseTableName(tableName))}`
     },
-    catch: (error) => new DatabaseError(`Failed to mask the lookups of ${tableName}`, error),
+    catch: passingFilterRefusal(
+      (error) => new DatabaseError(`Failed to mask the lookups of ${tableName}`, error)
+    ),
   })
 }

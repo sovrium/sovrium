@@ -8,12 +8,16 @@
 import { Effect } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import { getManyToManyFieldSpecs } from '@/application/use-cases/tables/many-to-many-fields'
 import { storedRowOf } from '@/application/use-cases/tables/record-stored-row'
 import { transformRecord } from '@/application/use-cases/tables/record-transformer'
+import { readManyToManyLinks } from '@/application/use-cases/tables/to-many-link-reads'
 import { logError } from '@/infrastructure/logging/logger'
 import { buildSyntheticSession } from './build-guest-session'
 import { singleUserFieldNames, withHydratedId } from './hydrated-field-reference'
 import { reverseCollectionFields, singleRelationshipFields } from './record-trigger-relations'
+import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -261,6 +265,48 @@ const hydrateRelationshipFields = (input: {
   })
 
 /**
+ * The record with each many-to-many field set to its list of linked ids, as
+ * strings — what `GET /records/:recordId` answers for it. The links live in the
+ * field's link table, never on the row the write hands over, so they are read
+ * here, after the write: an update that left the field out still sees the
+ * current links, and one that set them sees the new ones. The trigger is the
+ * system, not a caller, so every link is read (the admin-only ones are removed
+ * later, with the other admin-only fields). A table with no many-to-many field
+ * reads nothing; a read that fails leaves the row as it was.
+ */
+const withManyToManyLinks = (input: {
+  readonly app: App
+  readonly tableName: string
+  readonly record: Record<string, unknown>
+}): Effect.Effect<
+  Record<string, unknown>,
+  never,
+  TableRepository | DataSourceRepository | AuthRepository
+> =>
+  Effect.gen(function* () {
+    const { app, tableName, record } = input
+    const fieldNames = getManyToManyFieldSpecs(app.tables, tableName).map((spec) => spec.fieldName)
+    const { id } = record
+    if (fieldNames.length === 0 || (typeof id !== 'string' && typeof id !== 'number')) {
+      return record
+    }
+    // effect-swallow: fail-soft — links that cannot be read leave the row as the write handed it over; the cause is logged on the way.
+    const linksResult = yield* Effect.result(
+      readManyToManyLinks(app, tableName, [id], { fields: fieldNames.join(',') }).pipe(
+        logHydrationFailure('many-to-many links', { 'sovrium.table.name': tableName })
+      )
+    )
+    if (linksResult._tag === 'Failure') return record
+    const links = linksResult.success[String(id)] ?? {}
+    return {
+      ...record,
+      ...Object.fromEntries(
+        fieldNames.map((name) => [name, (links[name] ?? []).map((key) => String(key))] as const)
+      ),
+    }
+  })
+
+/**
  * The pre-update row with its user and relationship fields shaped as the
  * record's are, so `{{trigger.data.previousRecord.<rel>.<column>}}` reads the
  * same way as `{{trigger.data.record.<rel>.<column>}}`. A field the update left
@@ -291,7 +337,7 @@ const hydratePreviousRecord = (input: {
   })
 
 /**
- * The row after the event and, on an update, the row before it, both with
+ * The row after the event, with its many-to-many links, and, on an update, the row before it, both with
  * their user and relationship fields hydrated — every field still in place.
  * What the trigger `condition` reads; the runs receive it without the
  * admin-only fields (`withoutAdminOnlyTriggerFields`).
@@ -308,16 +354,18 @@ export const buildRecordTriggerData = (input: {
     readonly previousRecord?: Record<string, unknown>
   },
   never,
-  CommentRepository | DataSourceRepository
+  CommentRepository | DataSourceRepository | TableRepository | AuthRepository
 > =>
   Effect.gen(function* () {
-    const { app, tableName, record, previousRecord, userId } = input
+    const { app, tableName, previousRecord, userId } = input
+    // The many-to-many links, read after the write: the row carries none.
+    const record = yield* withManyToManyLinks({ app, tableName, record: { ...input.record } })
     // [internal ref]: hydrate single-user `user`-typed fields so action templates can
     // read `{{trigger.data.record.<userField>.email}}` / `.name` / `.id`.
     const userHydratedRecord = yield* hydrateUserFields({
       app,
       tableName,
-      record: { ...record },
+      record,
       userId,
     })
 

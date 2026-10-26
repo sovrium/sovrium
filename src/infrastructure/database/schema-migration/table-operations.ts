@@ -22,6 +22,7 @@ import {
 import { PROTECTED_SYSTEM_TABLES } from './constants'
 import { planLinkTableRenames } from './link-table-renames'
 import { detectAmbiguousTableRenames, detectTableRenames } from './rename-detection'
+import { runViewTopologyStep } from './renamed-relation-triggers'
 import { retireRenamedTableCompanions } from './renamed-table-companions'
 import {
   classifyPhysicalTables,
@@ -346,8 +347,8 @@ export interface ViewTopologyStep {
  * Three transitions, each by RENAME — never by copy, because a rename keeps the
  * rows, the `id` sequence (`pg_get_serial_sequence` resolves by column
  * ownership) and every foreign key pointing at the table (Postgres follows the
- * OID; SQLite rewrites the referencing DDL with `legacy_alter_table=OFF`, its
- * default):
+ * OID; SQLite rewrites a `REFERENCES` clause naming the table while foreign
+ * keys are enforced):
  *
  *  - **plain → view-backed** (a first `lookup`/`rollup`/`count` field):
  *    `<name>` is a TABLE and `<name>_base` does not exist → rename it to
@@ -362,9 +363,9 @@ export interface ViewTopologyStep {
  *    table has changed (Steps 9-11 recreate it on every full migration, and the
  *    checksum fast path already treats a missing view as "migrate").
  *
- * Triggers and indexes created under the old relation's prefix survive a rename
- * and sit beside the ones the next create step derives from the new name. They
- * are idempotent duplicates, not a defect worth a catalog walk to chase.
+ * Indexes under the old relation's prefix survive a rename as idempotent
+ * duplicates. Engine triggers do NOT: Bun's SQLite (`legacy_alter_table`) keeps
+ * their old bodies, so {@link runViewTopologyStep} drops them after a rename.
  */
 export const planViewTopology = (
   tables: readonly Table[],
@@ -413,7 +414,7 @@ export const planViewTopologyStatements = (
 /**
  * Step 5.5 — reconcile which relation holds each table's rows, and clear the
  * lookup views that must be rebuilt around a changed base table. See
- * {@link planViewTopologyStatements}.
+ * {@link planViewTopologyStatements} and {@link runViewTopologyStep}.
  */
 export const reconcileViewTopology = (
   tx: TransactionLike,
@@ -422,8 +423,6 @@ export const reconcileViewTopology = (
   Effect.gen(function* () {
     const existingTables = new Set(yield* getExistingTableNames(tx))
     const existingViews = new Set(yield* getExistingViews(tx))
-    yield* executeSQLStatements(
-      tx,
-      planViewTopologyStatements(tables, { tables: existingTables, views: existingViews })
-    )
+    const steps = planViewTopology(tables, { tables: existingTables, views: existingViews })
+    yield* Effect.forEach(steps, (step) => runViewTopologyStep(tx, step), { discard: true })
   })

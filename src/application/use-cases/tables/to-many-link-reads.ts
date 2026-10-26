@@ -21,11 +21,13 @@ import { toManyLinksRefusedTo } from '@/domain/models/app/tables/related-field-r
 import { filterReadableLinks, relatedReaderOf, type LinkReader } from './linked-row-visibility'
 import {
   getManyToManyFieldSpecs,
+  linkReadOf,
   getOneToManyFieldSpecs,
   type ManyToManyFieldSpec,
   type OneToManyFieldSpec,
 } from './many-to-many-fields'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
+import type { TableReadError } from '@/application/ports/repositories/tables/table-repository'
 import type { App } from '@/domain/models/app'
 
 /** The link map `recordId -> fieldName -> relatedIds` (records with no links absent). */
@@ -129,7 +131,7 @@ export const readManyToManyLinks = (
   options: { readonly fields?: string; readonly reader?: LinkReader } = {}
 ): Effect.Effect<
   ManyToManyLinkMap,
-  DatabaseError,
+  TableReadError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   Effect.gen(function* () {
@@ -143,7 +145,7 @@ export const readManyToManyLinks = (
         : yield* repo.readManyToMany({
             sourceTable: tableName,
             sourceIds: ids,
-            fields: specs.map((s) => ({ fieldName: s.fieldName, relatedTable: s.relatedTable })),
+            fields: specs.map(linkReadOf),
           })
     const reverseLinks =
       reverse.length === 0
@@ -180,7 +182,7 @@ export const readWrittenLinkLists = (
   }
 ): Effect.Effect<
   ManyToManyLinkMap,
-  DatabaseError,
+  TableReadError,
   TableRepository | DataSourceRepository | AuthRepository
 > => {
   const named = getManyToManyFieldSpecs(app?.tables, tableName)

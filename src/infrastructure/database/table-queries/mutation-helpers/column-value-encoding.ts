@@ -6,9 +6,11 @@
  */
 
 import { sql, type SQL } from 'drizzle-orm'
+import { isLanguageMerge } from '@/domain/models/app/tables/translatable-write-service'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import { type DrizzleTransaction } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { languageMergeInsertSql } from '@/infrastructure/database/sql/sql-translatable-writes'
 import { jsonbLiteral, pgTextArrayLiteral } from '@/infrastructure/database/sql/sql-utils'
 import { validateColumnName, databaseTableName } from '../statement/validation'
 
@@ -57,6 +59,9 @@ export const encodeColumnValue = (
   value: unknown,
   columnType: string | undefined
 ): Readonly<SQL> => {
+  // A write to a translatable field inserts the languages it sets; an UPDATE
+  // merges them instead (`buildUpdateSetClauseCRUD`).
+  if (isLanguageMerge(value)) return languageMergeInsertSql(value)
   if (Array.isArray(value)) {
     // A native array literal can only carry scalars, so an array of objects
     // stays JSON even on a genuine array column.

@@ -69,6 +69,15 @@ whatsInside: |
   Everything is declared in [`app.yaml`](./app.yaml) and the [`config/`](./config) tree — no
   application code. Rename the publication in `config/pages/`, replace the essays in `seed/`.
 env:
+  - name: 'BASE_URL'
+    section: 'Core'
+    description: |-
+      The public address of the site; the RSS feed links to it.
+      The public https address of the app: links in emails, sign-in callbacks and
+      the sitemap start with it. Leave it unset on your own machine; in production
+      set your real origin. A localhost BASE_URL on a server turns off the
+      cross-site request (CSRF) check and drops the Secure cookie flag.
+    example: 'https://your-domain.example'
   - name: 'SOVRIUM_SEED_PASSWORD'
     section: 'Demo data'
     description: |-
@@ -85,17 +94,11 @@ env:
     example: 'ollama'
   - name: 'AI_BASE_URL'
     section: 'AI (the editorial assistant)'
-    description: |-
-      The assistant on /admin/ai-editor needs a provider. Without one the rest
-      of the site works and the assistant stays silent. Local and free: run
-      Ollama (https://ollama.com) and pull a model.
+    description: ''
     example: 'http://localhost:11434'
   - name: 'AI_MODEL'
     section: 'AI (the editorial assistant)'
-    description: |-
-      The assistant on /admin/ai-editor needs a provider. Without one the rest
-      of the site works and the assistant stays silent. Local and free: run
-      Ollama (https://ollama.com) and pull a model.
+    description: ''
     example: 'llama3.1'
   - name: 'ANTHROPIC_API_KEY'
     section: 'AI (the editorial assistant)'

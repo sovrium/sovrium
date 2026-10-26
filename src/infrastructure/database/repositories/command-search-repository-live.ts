@@ -25,10 +25,14 @@ import {
   toPgTsQuery,
   toSqliteFtsMatch,
 } from '@/infrastructure/database/schema/command-search-fts-ddl'
-import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import { makeDbWrap, passingFilterRefusal } from '@/infrastructure/database/sql/db-effect'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
 import { columnExists } from '@/infrastructure/database/sql/dialect-introspection'
 import { containsInsensitive } from '@/infrastructure/database/sql/dialect-sql-helpers'
+import {
+  allLanguagesTextSql,
+  languageValueSql,
+} from '@/infrastructure/database/sql/translatable-value-sql'
 import { buildUserFilterConditions } from '@/infrastructure/database/table-queries/query-helpers/aggregation-helpers'
 
 const userFavorites = resolveDialectSchema(userFavoritesPg, userFavoritesSqlite)
@@ -56,13 +60,38 @@ const wrap = makeDbWrap((error) => new CommandSearchDatabaseError({ cause: error
  * table has no searchable columns, so `searchTable` is never asked to build a
  * label out of nothing.
  */
-const labelExpression = (columns: readonly string[]): Readonly<SQL> => {
+const labelExpression = (
+  columns: readonly string[],
+  languages: Readonly<Record<string, string>>
+): Readonly<SQL> => {
+  // A translatable column is labelled by its default-language value.
+  const text = (column: string): Readonly<SQL> => {
+    const language = languages[column]
+    return language === undefined
+      ? sql`${sql.identifier(column)}`
+      : languageValueSql(column, language)
+  }
   const [onlyColumn] = columns
-  if (columns.length === 1 && onlyColumn !== undefined) return sql`${sql.identifier(onlyColumn)}`
-  return sql`COALESCE(${sql.join(
-    columns.map((column) => sql.identifier(column)),
-    sql`, `
-  )})`
+  if (columns.length === 1 && onlyColumn !== undefined) return text(onlyColumn)
+  return sql`COALESCE(${sql.join(columns.map(text), sql`, `)})`
+}
+
+/**
+ * The OR of case-insensitive `LIKE` predicates across the searched columns; a
+ * translatable column (`languages`) is matched on the text of every language
+ * it holds, never on its language codes.
+ */
+const likePredicateOf = (
+  columns: readonly string[],
+  query: string,
+  languages: Readonly<Record<string, string>>
+): SQL => {
+  const searched = (column: string): SQL =>
+    languages[column] === undefined ? sql`${sql.identifier(column)}` : allLanguagesTextSql(column)
+  return sql.join(
+    columns.map((column) => containsInsensitive(searched(column), query)),
+    sql` OR `
+  )
 }
 
 /**
@@ -81,7 +110,8 @@ const labelExpression = (columns: readonly string[]): Readonly<SQL> => {
 const ftsCandidatePredicate = (
   physicalTable: string,
   columns: readonly string[],
-  query: string
+  query: string,
+  mapColumns: readonly string[]
 ): Readonly<SQL> | undefined => {
   const tokens = toFtsTokens(query)
   if (tokens.length === 0) return undefined
@@ -109,7 +139,7 @@ const ftsCandidatePredicate = (
   // is the exact cost this predicate exists to remove. Both come from
   // `pgSearchVectorExpression`; do not inline it here.
   // sql-literal: ddl -- must stay byte-identical to the GIN index expression; columns are the table's declared text fields
-  return sql`${sql.raw(pgSearchVectorExpression(columns))} @@ to_tsquery('simple', ${toPgTsQuery(tokens)})`
+  return sql`${sql.raw(pgSearchVectorExpression(columns, mapColumns))} @@ to_tsquery('simple', ${toPgTsQuery(tokens)})`
 }
 
 /**
@@ -139,7 +169,7 @@ export const CommandSearchRepositoryLive = Layer.succeed(CommandSearchRepository
       return new Set(rows.map((row) => row.entityId))
     }),
 
-  searchTable: ({ physicalTable, columns, query, excludeDeleted, rowFilter }) =>
+  searchTable: ({ physicalTable, columns, query, excludeDeleted, rowFilter, ...input }) =>
     // Never fails, and now actually so. This was an `Effect.promise`, whose
     // rejection is a DEFECT rather than a typed error — `orElseSucceed` only
     // handles the error channel, so the "any DB failure resolves to []" comment
@@ -162,10 +192,8 @@ export const CommandSearchRepositoryLive = Layer.succeed(CommandSearchRepository
         // candidate set only narrows what this predicate is asked to verify, so
         // the literal-metacharacter contract is inherited rather than
         // re-derived.
-        const likePredicate = sql.join(
-          columns.map((column) => containsInsensitive(sql.identifier(column), query)),
-          sql` OR `
-        )
+        const languages = input.languageColumns ?? {}
+        const likePredicate = likePredicateOf(columns, query, languages)
 
         // Soft-deleted rows are not search results. `deleted_at` is an
         // INTRINSIC column every `CREATE TABLE` emits, but the probe mirrors
@@ -197,13 +225,18 @@ export const CommandSearchRepositoryLive = Layer.succeed(CommandSearchRepository
         ): Promise<ReadonlyArray<Record<string, unknown>>> =>
           executeRaw(
             db,
-            sql`SELECT id, ${labelExpression(columns)} AS __label
+            sql`SELECT id, ${labelExpression(columns, languages)} AS __label
                 FROM ${sql.identifier(physicalTable)}
                 WHERE ${conjoin(livePredicate, rulePredicate, candidate, sql`(${likePredicate})`)}
                 LIMIT 25`
           )
 
-        const candidate = ftsCandidatePredicate(physicalTable, columns, query)
+        const candidate = ftsCandidatePredicate(
+          physicalTable,
+          columns,
+          query,
+          columns.filter((column) => languages[column] !== undefined)
+        )
         // The index is an ACCELERATOR, so its absence is not a failure: a table
         // created before this feature shipped, one whose reconciliation was
         // skipped, and a view-backed relation the index cannot serve all land in
@@ -223,9 +256,11 @@ export const CommandSearchRepositoryLive = Layer.succeed(CommandSearchRepository
           label: typeof row['__label'] === 'string' ? row['__label'] : String(row['id']),
         }))
       },
-      catch: (error) => new CommandSearchDatabaseError({ cause: error }),
+      catch: passingFilterRefusal((error) => new CommandSearchDatabaseError({ cause: error })),
     }).pipe(
-      // effect-swallow: one table out of many, in a command palette that merges every source it can read. No matches from an unreadable table is the same answer a reader with no access to it gets, and it must not blank the whole palette.
-      Effect.orElseSucceed((): readonly TableSearchMatch[] => [])
+      // effect-swallow: one table out of many, in a command palette that merges every source it can read. No matches from an unreadable table is the same answer a reader with no access to it gets, and it must not blank the whole palette. A filter operator no compiler knows is not swallowed: it travels up as itself.
+      Effect.catchTag('CommandSearchDatabaseError', () =>
+        Effect.succeed<readonly TableSearchMatch[]>([])
+      )
     ),
 })

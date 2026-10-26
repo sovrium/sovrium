@@ -32,6 +32,19 @@ import type { Page } from '@/domain/models/app/pages'
  */
 export const PageLanguageAlternatesContext = createContext<ReadonlyArray<PageAddress>>([])
 
+/** What a document's alternates are read from: its address, and its record's when it has one. */
+export interface PageAlternatesRequest {
+  /** The path the page was matched for, dynamic segments filled: what its alternates describe. */
+  readonly renderedPath?: string
+  /**
+   * The record's address in each language it has a slug in, for a collection
+   * page naming a slug field per language (`recordLanguageAddresses`). When
+   * given, these ARE the alternates — the sitemap pairs the same ones — even
+   * when only one language has a slug: the page then names itself alone.
+   */
+  readonly languageAddresses?: ReadonlyArray<PageAddress> | undefined
+}
+
 /**
  * The alternates of `page` rendered at `renderedPath`, computed by the domain's
  * one reading of page paths so the HTML pairs exactly what the sitemap pairs.
@@ -39,10 +52,11 @@ export const PageLanguageAlternatesContext = createContext<ReadonlyArray<PageAdd
 export const pageLanguageAlternatesFor = (
   app: App,
   page: Page,
-  renderedPath: string | undefined
+  { renderedPath, languageAddresses }: PageAlternatesRequest
 ): ReadonlyArray<PageAddress> => {
   const languages = app.languages?.supported.map((language) => language.code) ?? []
   if (renderedPath === undefined || languages.length < 2) return []
+  if (languageAddresses !== undefined) return languageAddresses
   return languageAlternates({
     path: page.path,
     address: renderedPath,

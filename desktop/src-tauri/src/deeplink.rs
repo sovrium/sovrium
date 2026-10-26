@@ -3,7 +3,8 @@
 // This source code is licensed under the Business Source License 1.1
 // found in the LICENSE.md file in the root directory of this source tree.
 
-//! `sovrium://` deep links, and the rule that a link never runs anything.
+//! `sovrium://` deep links, and the rule that a link never writes a project or
+//! runs code without consent.
 //!
 //! # The threat, stated plainly
 //!
@@ -20,19 +21,37 @@
 //!   refused rather than ignored, so a future verb cannot be reached by a link
 //!   written before it existed.
 //! * **Shape before meaning.** A template slug must match
-//!   [`TEMPLATE_PATTERN`]; a URL must be `https`. Both are checked before the
-//!   value is shown to anyone, so a hostile string cannot reach the confirmation
-//!   dialog and spoof it with newlines or a fake prompt.
-//! * **Always a dialog, never an auto-run.** Parsing produces an
-//!   [`Intent`] — a value. Acting on it is a separate step that goes through the
-//!   user. A link that scaffolds a project without being confirmed is a remote
-//!   write primitive, and the confirmation is what it is not.
+//!   [`TEMPLATE_PATTERN`]; a URL — a config address (`url=`) or a bundle
+//!   address (`bundle=`) alike — must be `https` and may not carry a user name
+//!   or password. All of it is checked before the value is
+//!   shown to anyone, so a hostile string cannot reach the confirmation dialog
+//!   and spoof it with newlines or a fake prompt.
+//! * **Always a dialog before a write.** Parsing produces an [`Intent`] — a
+//!   value. Acting on it is a separate step that goes through the user. A link
+//!   that scaffolds a project without being confirmed is a remote write
+//!   primitive, and the confirmation is what it is not.
 //!
-//! The shell also never **fetches** the `url=` target. `sovrium init --from-url`
-//! owns that, behind the engine's SSRF-guarded loader with its timeout, its size
-//! cap, its decode-before-write and its refusal of remote `.ts` (ADR-036 D7).
-//! Two fetchers would mean two threat models, and the shell's would be the one
-//! nobody audited.
+//! The shell also never **fetches** a target. `sovrium init --from-url` owns the
+//! `url=` fetch, behind the engine's SSRF-guarded loader with its timeout, its
+//! size cap, its decode-before-write and its refusal of remote `.ts` (ADR-036
+//! D7), and `sovrium init --from-bundle` owns the `bundle=` one. Two fetchers
+//! would mean two threat models, and the shell's would be the one nobody
+//! audited.
+//!
+//! # The one narrowing: `bundle=` (ADR-036 A1)
+//!
+//! For `template=` and `url=` a link alone still causes nothing: a native
+//! dialog asks about the link, then the window asks for a folder, and only then
+//! does the engine run. For `bundle=` the order is different, by founder ruling
+//! (A1, "The deep-link flow"): the consent dialog has to show whether the
+//! publisher is verified, and only the engine can know that. So once the shape
+//! checks pass, the engine downloads and inspects the bundle **into its own
+//! temporary space** (`init --from-bundle <url> --inspect`) before the user is
+//! asked anything. That is one outbound request and a bounded download of at
+//! most 25 MiB, never unpacked into a project. Nothing is written to any
+//! project, and nothing from the bundle runs, until the user confirms the ONE
+//! dialog — host, verdict, name, size, demo data and folder together — and a
+//! declined bundle's download is deleted. The flow lives in `bundle_import.rs`.
 
 use tauri::{AppHandle, Emitter, Runtime, Url};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
@@ -65,8 +84,16 @@ pub enum Intent {
     /// Scaffold a new project from a remote config.
     ///
     /// Carried as a parsed [`Url`]'s string so the caller cannot accidentally
-    /// hand a non-https value onward: only this module constructs it.
+    /// hand a non-https value, or one carrying credentials, onward: only this
+    /// module constructs it.
     NewFromUrl { url: String, host: String },
+    /// Open a bundle written by `sovrium bundle` as a new project.
+    ///
+    /// The same `https`-only, length-bounded, credential-free shape as
+    /// [`Intent::NewFromUrl`], through the same gate. Only this module
+    /// constructs it. What happens next is not a native dialog but the engine's
+    /// inspection, then the window's one consent dialog (`bundle_import.rs`).
+    NewFromBundle { url: String, host: String },
 }
 
 /// Why a link was refused. Every variant is a sentence a dialog can show.
@@ -79,6 +106,7 @@ pub enum Refusal {
     BothTargets,
     BadTemplate(String),
     NotHttps(String),
+    CredentialsInUrl,
     Unparseable,
 }
 
@@ -94,10 +122,10 @@ impl Refusal {
                 truncate(a, 40)
             ),
             Self::MissingTarget => {
-                "That link does not say which template or address to start from.".into()
+                "That link does not say which template, address or bundle to start from.".into()
             }
             Self::BothTargets => {
-                "That link names both a template and an address. It can only name one.".into()
+                "That link names more than one thing to start from. It can only name one.".into()
             }
             Self::BadTemplate(t) => format!(
                 "“{}” is not a template name Sovrium recognises.",
@@ -107,6 +135,10 @@ impl Refusal {
                 "Sovrium only opens configurations over https. That link uses “{}”.",
                 truncate(s, 16)
             ),
+            Self::CredentialsInUrl => {
+                "That address carries a user name or password, so Sovrium will not open it."
+                    .into()
+            }
             Self::Unparseable => "That link could not be read.".into(),
         }
     }
@@ -189,10 +221,12 @@ pub fn parse(raw: &str) -> Result<Intent, Refusal> {
 
     let mut template: Option<String> = None;
     let mut target_url: Option<String> = None;
+    let mut bundle: Option<String> = None;
     for (key, value) in url.query_pairs() {
         match key.as_ref() {
             "template" => template = Some(value.into_owned()),
             "url" => target_url = Some(value.into_owned()),
+            "bundle" => bundle = Some(value.into_owned()),
             // Unknown parameters are ignored rather than refused: an OS or a
             // link shortener may append tracking keys the user did not write,
             // and refusing the whole link over one would break a good link.
@@ -200,20 +234,24 @@ pub fn parse(raw: &str) -> Result<Intent, Refusal> {
         }
     }
 
-    match (template, target_url) {
-        (Some(_), Some(_)) => Err(Refusal::BothTargets),
-        (None, None) => Err(Refusal::MissingTarget),
-        (Some(t), None) => {
+    match (template, target_url, bundle) {
+        (None, None, None) => Err(Refusal::MissingTarget),
+        (Some(t), None, None) => {
             if is_valid_template(&t) {
                 Ok(Intent::NewFromTemplate { template: t })
             } else {
                 Err(Refusal::BadTemplate(t))
             }
         }
-        (None, Some(u)) => {
+        (None, Some(u), None) => {
             let (url, host) = parse_config_url(&u)?;
             Ok(Intent::NewFromUrl { url, host })
         }
+        (None, None, Some(b)) => {
+            let (url, host) = parse_config_url(&b)?;
+            Ok(Intent::NewFromBundle { url, host })
+        }
+        _ => Err(Refusal::BothTargets),
     }
 }
 
@@ -224,6 +262,13 @@ pub fn parse(raw: &str) -> Result<Intent, Refusal> {
 /// that a URL typed into the window and a URL arriving from a web page pass the
 /// **same** gate. Two gates would mean two answers to "is https required?", and
 /// the weaker one would be the one nobody re-read.
+///
+/// It refuses a user name or password in the address, for a config and a
+/// bundle alike. A credential in a link is either a secret someone is about to
+/// leak into the engine's logs, or the `https://trusted.example@evil.test/`
+/// spelling meant to make a reader see the wrong host — and the native prompt
+/// for a `url=` link names the host as the thing being trusted. Neither is an
+/// address a stranger publishes.
 ///
 /// This is the shell's whole share of the checking. Everything else that makes
 /// a remote config safe to fetch — the SSRF guard, the timeout, the size cap,
@@ -239,26 +284,34 @@ pub fn parse_config_url(raw: &str) -> Result<(String, String), Refusal> {
     if parsed.scheme() != "https" {
         return Err(Refusal::NotHttps(parsed.scheme().to_string()));
     }
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err(Refusal::CredentialsInUrl);
+    }
     let host = parsed.host_str().ok_or(Refusal::Unparseable)?.to_string();
     Ok((parsed.to_string(), host))
 }
 
-/// The confirmation a user must read before anything happens.
+/// The native confirmation a user must read before anything happens, for the
+/// intents that have one.
 ///
 /// The **host** is named first for a URL intent, because the host is the only
 /// part of a link that says who is being trusted, and it is the part a long
 /// path is designed to push off the end of a dialog.
-pub fn confirmation_prompt(intent: &Intent) -> String {
+///
+/// `None` for a bundle: its one consent dialog is the window's, shown after the
+/// engine has inspected it, because only then is there a verdict to show.
+pub fn confirmation_prompt(intent: &Intent) -> Option<String> {
     match intent {
-        Intent::NewFromTemplate { template } => format!(
+        Intent::NewFromTemplate { template } => Some(format!(
             "A link is asking Sovrium to create a new project from the “{template}” template.\n\n\
              Nothing is created until you choose a folder."
-        ),
-        Intent::NewFromUrl { host, url } => format!(
+        )),
+        Intent::NewFromUrl { host, url } => Some(format!(
             "A link is asking Sovrium to create a new project from a configuration hosted at {host}.\n\n\
              Full address:\n{url}\n\n\
              Only continue if you trust {host}. Nothing is downloaded or created until you choose a folder."
-        ),
+        )),
+        Intent::NewFromBundle { .. } => None,
     }
 }
 
@@ -301,9 +354,18 @@ pub fn handle<R: Runtime>(app: &AppHandle<R>, raw: String) {
         };
 
         crate::windows::show_main(&app);
+        if let Intent::NewFromBundle { url, host } = intent {
+            // No native dialog: the engine inspects first, then the window
+            // shows the one consent dialog with the verdict in it (A1).
+            crate::bundle_import::begin(&app, url, host);
+            return;
+        }
+        let Some(prompt) = confirmation_prompt(&intent) else {
+            return;
+        };
         let confirmed = app
             .dialog()
-            .message(confirmation_prompt(&intent))
+            .message(prompt)
             .title("Open this link in Sovrium?")
             .kind(MessageDialogKind::Info)
             .buttons(MessageDialogButtons::OkCancelCustom(
@@ -330,6 +392,8 @@ pub fn handle<R: Runtime>(app: &AppHandle<R>, raw: String) {
                 template: None,
                 url: Some(url),
             },
+            // Handed to `bundle_import::begin` above, before the dialog.
+            Intent::NewFromBundle { .. } => return,
         };
         let _ = app.emit(INTENT_EVENT, confirmed_intent);
     });
@@ -504,6 +568,90 @@ mod tests {
             parse("sovrium://new?template=crm&url=https%3A%2F%2Fx.test%2Fa.yaml"),
             Err(Refusal::BothTargets)
         );
+        for two in [
+            "sovrium://new?template=crm&bundle=https%3A%2F%2Fx.test%2Fa.tar.gz",
+            "sovrium://new?url=https%3A%2F%2Fx.test%2Fa.yaml&bundle=https%3A%2F%2Fx.test%2Fa.tar.gz",
+        ] {
+            assert_eq!(parse(two), Err(Refusal::BothTargets), "{two}");
+        }
+    }
+
+    #[test]
+    fn accepts_an_https_bundle_and_names_its_host() {
+        assert_eq!(
+            parse("sovrium://new?bundle=https%3A%2F%2Fstarters.example.com%2Fcrm.tar.gz"),
+            Ok(Intent::NewFromBundle {
+                url: "https://starters.example.com/crm.tar.gz".into(),
+                host: "starters.example.com".into()
+            })
+        );
+        // A short link with no extension is fine: the engine decides what it
+        // is, after the redirects, and the shell never fetches it.
+        assert!(matches!(
+            parse("sovrium:new?bundle=https%3A%2F%2Fexample.com%2Fs%2Fcrm"),
+            Ok(Intent::NewFromBundle { .. })
+        ));
+    }
+
+    #[test]
+    fn a_bundle_takes_the_same_shape_rules_as_an_address() {
+        for (link, scheme) in [
+            ("sovrium://new?bundle=http%3A%2F%2Fexample.com%2Fa.tar.gz", "http"),
+            ("sovrium://new?bundle=file%3A%2F%2F%2Ftmp%2Fa.tar.gz", "file"),
+            ("sovrium://new?bundle=ftp%3A%2F%2Fx.test%2Fa.tar.gz", "ftp"),
+        ] {
+            assert_eq!(parse(link), Err(Refusal::NotHttps(scheme.into())), "{link}");
+        }
+        // A local path is a CLI convenience, never a link target.
+        assert!(parse("sovrium://new?bundle=%2Ftmp%2Fa.tar.gz").is_err());
+        let huge = format!(
+            "sovrium://new?bundle=https%3A%2F%2Fx.test%2F{}",
+            "a".repeat(MAX_LINK_BYTES)
+        );
+        assert_eq!(parse(&huge), Err(Refusal::TooLong));
+    }
+
+    #[test]
+    fn a_bundle_address_carrying_credentials_is_refused() {
+        for hostile in [
+            "sovrium://new?bundle=https%3A%2F%2Fuser%3Asecret%40example.com%2Fa.tar.gz",
+            "sovrium://new?bundle=https%3A%2F%2Ftoken%40example.com%2Fa.tar.gz",
+            // The spoofing spelling: a reader sees the first host, the request
+            // goes to the second.
+            "sovrium://new?bundle=https%3A%2F%2Ftrusted.example%40evil.test%2Fa.tar.gz",
+        ] {
+            assert_eq!(parse(hostile), Err(Refusal::CredentialsInUrl), "{hostile}");
+        }
+        assert!(!Refusal::CredentialsInUrl.message().contains("secret"));
+    }
+
+    #[test]
+    fn a_config_address_carrying_credentials_is_refused() {
+        for hostile in [
+            "sovrium://new?url=https%3A%2F%2Fuser%3Asecret%40example.com%2Fapp.yaml",
+            "sovrium://new?url=https%3A%2F%2Ftoken%40example.com%2Fapp.yaml",
+            "sovrium://new?url=https%3A%2F%2F%3Asecret%40example.com%2Fapp.yaml",
+            // The spoofing spelling: the native prompt would name the host a
+            // reader trusts, while the request goes to the second one.
+            "sovrium://new?url=https%3A%2F%2Ftrusted.example%40evil.test%2Fapp.yaml",
+        ] {
+            assert_eq!(parse(hostile), Err(Refusal::CredentialsInUrl), "{hostile}");
+        }
+        // The typed form shares the gate, so it refuses the same address.
+        assert_eq!(
+            parse_config_url("https://trusted.example@evil.test/app.yaml"),
+            Err(Refusal::CredentialsInUrl)
+        );
+    }
+
+    #[test]
+    fn a_bundle_link_has_no_native_prompt() {
+        // Its one consent dialog is the window's, after the inspection: a
+        // native "continue?" first would be the two-dialog flow A1 replaced.
+        let intent = parse("sovrium://new?bundle=https%3A%2F%2Fexample.com%2Fa.tar.gz").unwrap();
+        assert_eq!(confirmation_prompt(&intent), None);
+        let template = parse("sovrium://new?template=crm").unwrap();
+        assert!(confirmation_prompt(&template).is_some());
     }
 
     #[test]
@@ -536,7 +684,7 @@ mod tests {
             "sovrium://new?url=https%3A%2F%2Fevil.test%2Fa%2Fvery%2Flong%2Fpath%2Fapp.yaml",
         )
         .unwrap();
-        let prompt = confirmation_prompt(&intent);
+        let prompt = confirmation_prompt(&intent).expect("a URL link has a native prompt");
         let host_at = prompt.find("evil.test").expect("host is shown");
         let path_at = prompt.find("/a/very/long").expect("path is shown");
         assert!(

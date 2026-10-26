@@ -18,13 +18,19 @@
  *    `$query.plan` names nothing until the form is opened, and is held to the
  *    list at submit; a column-level `default` outside it stays the operator's
  *    choice, and is not refused);
+ *  - a literal prefill outside the list, in the form's own `prefill` or in the
+ *    `inlinePrefill` of a page component embedding the form with `formRef`,
+ *    whatever its depth on the page: the field would start on a value no
+ *    submission of it could keep (a reference is not checked, as above);
  *  - a `submitTo.mapping` entry writing a narrowed column from another field,
  *    or carrying the narrowing field to another column: the list was checked
  *    against its own column, so that column has one writer only.
  */
 
+import { walk } from './form-create-path-validation'
 import { isReferenceDefaultValue } from './form-field-helpers'
 import { NARROWABLE_COLUMN_TYPES, type FormChoiceShape } from './form-option-subset-service'
+import { classifyScalarSource } from './hidden-default-pin-service'
 
 interface SubsetFieldShape {
   readonly kind: string
@@ -35,6 +41,7 @@ interface SubsetFieldShape {
 
 interface SubsetFormShape {
   readonly name: string
+  readonly prefill?: Readonly<Record<string, unknown>>
   readonly submitTo?: {
     readonly table?: string
     readonly mapping?: Readonly<Record<string, string>>
@@ -73,6 +80,24 @@ const defaultValues = (value: unknown, columnType: string | undefined): readonly
         .map((entry) => entry.trim())
         .filter((entry) => entry !== '')
     : [text]
+}
+
+/** A page, as far as the prefill check reads it: its name and the trees it draws. */
+interface SubsetPageShape {
+  readonly name: string
+  readonly components?: unknown
+  readonly layout?: unknown
+}
+
+/**
+ * The values a literal prefill names: each entry of a list, or of a
+ * multi-select's comma list. A reference (`$query.…`, `$user.…`, `$parent.…`,
+ * `$record.…`, `$now`) names none until a page is opened, so it yields nothing.
+ */
+const prefillValues = (value: unknown, columnType: string | undefined): readonly string[] => {
+  const source = classifyScalarSource(value)
+  if (source.kind !== 'literal') return []
+  return source.values.flatMap((text) => defaultValues(text, columnType))
 }
 
 /** The first value of `values` already listed before it. */
@@ -126,6 +151,88 @@ const refuseFormOptions = (form: SubsetFormShape, table: SubsetTableShape): stri
     )
   }, undefined)
 
+/** A narrowed field of `form`: its column, the values it offers, and the column's type. */
+interface NarrowedField {
+  readonly column: string
+  readonly offered: ReadonlySet<string>
+  readonly columnType: string | undefined
+}
+
+/** The table fields of `form` that narrow their column with `options`. */
+const narrowedFieldsOf = (
+  form: SubsetFormShape,
+  table: SubsetTableShape
+): readonly NarrowedField[] =>
+  (form.fields ?? []).flatMap((field) => {
+    if (field.kind !== 'table-field' || field.column === undefined) return []
+    if (field.options === undefined) return []
+    const column = table.fields?.find((candidate) => candidate.name === field.column)
+    if (column === undefined) return []
+    return [
+      {
+        column: field.column,
+        offered: new Set(field.options.map((choice) => choice.value)),
+        columnType: column.type,
+      },
+    ]
+  })
+
+/** The first narrowed field `prefill` fills with a literal it does not offer, with that value. */
+const strayPrefill = (
+  narrowed: readonly NarrowedField[],
+  prefill: Readonly<Record<string, unknown>> | undefined
+): { readonly column: string; readonly value: string } | undefined =>
+  narrowed.reduce<{ readonly column: string; readonly value: string } | undefined>(
+    (found, field) => {
+      if (found !== undefined || prefill === undefined || !(field.column in prefill)) return found
+      const value = prefillValues(prefill[field.column], field.columnType).find(
+        (candidate) => !field.offered.has(candidate)
+      )
+      return value === undefined ? undefined : { column: field.column, value }
+    },
+    undefined
+  )
+
+/** The `inlinePrefill.prefill` map of a node embedding `formName`, when it carries one. */
+const embeddingPrefillOf = (
+  node: Readonly<Record<string, unknown>>,
+  formName: string
+): Readonly<Record<string, unknown>> | undefined => {
+  if (node['formRef'] !== formName) return undefined
+  const inline = node['inlinePrefill'] as { readonly prefill?: unknown } | null | undefined
+  const prefill = inline?.prefill
+  return prefill !== null && typeof prefill === 'object'
+    ? (prefill as Readonly<Record<string, unknown>>)
+    : undefined
+}
+
+/**
+ * The first literal prefill outside a narrowed field's `options` — the form's
+ * own `prefill`, then each page embedding the form — as its refusal.
+ */
+const refuseStrayPrefill = (
+  form: SubsetFormShape,
+  table: SubsetTableShape,
+  pages: ReadonlyArray<SubsetPageShape>
+): string | undefined => {
+  const narrowed = narrowedFieldsOf(form, table)
+  if (narrowed.length === 0) return undefined
+  const fix = 'Add it to options, or prefill a value options lists.'
+  const own = strayPrefill(narrowed, form.prefill)
+  if (own !== undefined) {
+    return `form '${form.name}' field '${own.column}': prefill '${own.value}' is not one of the values options offers. ${fix}`
+  }
+  return pages.reduce<string | undefined>((found, page) => {
+    if (found !== undefined) return found
+    const stray = [...walk(page.components), ...walk(page.layout)].reduce<
+      { readonly column: string; readonly value: string } | undefined
+    >((hit, node) => hit ?? strayPrefill(narrowed, embeddingPrefillOf(node, form.name)), undefined)
+    return stray === undefined
+      ? undefined
+      : `page '${page.name}' form '${form.name}' field '${stray.column}': inlinePrefill '${stray.value}' is not one of the values options offers. ${fix}`
+  }, undefined)
+}
+
 /** The columns of `table` a field of `form` narrows with `options`. */
 const narrowedColumns = (form: SubsetFormShape, table: SubsetTableShape): ReadonlySet<string> =>
   new Set(
@@ -159,14 +266,22 @@ const refuseNarrowedMapping = (
     : `form '${form.name}' field '${source}': submitTo.mapping carries it to column '${target}', but its options were checked against column '${source}'. A field that narrows its column with options is written to that column only: remove this mapping entry.`
 }
 
-/** The first table field whose `options` list, or a mapping around it, is refused, as its refusal. */
+/**
+ * The first table field whose `options` list, a prefill outside it, or a
+ * mapping around it, is refused, as its refusal.
+ */
 export const validateFormOptionSubsets = (
   forms: ReadonlyArray<SubsetFormShape>,
-  tables: ReadonlyArray<SubsetTableShape>
+  tables: ReadonlyArray<SubsetTableShape>,
+  pages: ReadonlyArray<SubsetPageShape> = []
 ): string | undefined =>
   forms.reduce<string | undefined>((acc, form) => {
     if (acc !== undefined) return acc
     const table = tables.find((candidate) => candidate.name === form.submitTo?.table)
     if (table === undefined) return undefined
-    return refuseFormOptions(form, table) ?? refuseNarrowedMapping(form, table)
+    return (
+      refuseFormOptions(form, table) ??
+      refuseStrayPrefill(form, table, pages) ??
+      refuseNarrowedMapping(form, table)
+    )
   }, undefined)

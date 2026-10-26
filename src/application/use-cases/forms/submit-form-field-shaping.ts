@@ -133,10 +133,25 @@ const resolveDefaultValue = (
 }
 
 /**
+ * How a hidden field's default meets a submitted value: `always` replaces it
+ * (an edit, which re-derives no prefill), `when-absent` only fills a value that
+ * is missing or empty — a new submission, whose hidden values were already
+ * held to what the server rendered (`submit-form-hidden-defaults.ts`).
+ */
+export type HiddenDefaultOverlay = 'always' | 'when-absent'
+
+/** Whether a submitted value stands against the field's default. */
+const keepsSubmittedValue = (
+  isHidden: boolean,
+  submitterSupplied: boolean,
+  hiddenOverlay: HiddenDefaultOverlay
+): boolean => submitterSupplied && (!isHidden || hiddenOverlay === 'when-absent')
+
+/**
  * Compute the default-value overlay applied to the submission payload.
- * Hidden fields with a `defaultValue` are always overlaid (the submitter
- * cannot supply them via the rendered form). Visible fields with a default
- * are only overlaid when the submitter omitted the value entirely.
+ * Hidden fields with a `defaultValue` are overlaid as `hiddenOverlay` says.
+ * Visible fields with a default are only overlaid when the submitter omitted
+ * the value entirely.
  *
  * Fields that are hidden by `visibleWhen` (evaluated against
  * the incoming body, NOT against accumulated defaults) are skipped entirely
@@ -147,7 +162,8 @@ const resolveDefaultValue = (
 export const applyFieldDefaults = (
   data: Readonly<Record<string, unknown>>,
   form: Readonly<Form>,
-  query: Readonly<Record<string, string>>
+  query: Readonly<Record<string, string>>,
+  hiddenOverlay: HiddenDefaultOverlay = 'always'
 ): Readonly<Record<string, unknown>> => {
   const visibilityValues = buildConditionValueMap(form, data)
   return form.fields.reduce<Record<string, unknown>>(
@@ -159,7 +175,7 @@ export const applyFieldDefaults = (
       if (!isFieldVisible(field, visibilityValues)) return acc
       const isHidden = (field as { readonly hidden?: boolean }).hidden === true
       const submitterSupplied = Object.hasOwn(acc, identifier) && acc[identifier] !== ''
-      if (!isHidden && submitterSupplied) return acc
+      if (keepsSubmittedValue(isHidden, submitterSupplied, hiddenOverlay)) return acc
       // A hidden field's lookup is resolved before this overlay
       // (`submit-form-lookup-defaults.ts`); a visible field's starts the form
       // on its row, and what the submitter sends is what is kept.

@@ -245,10 +245,9 @@ async function renderDeclaredPage(
   })
   if (preRenderRedirect !== undefined) return preRenderRedirect
 
-  // Collection-page resolution is fused
-  // with the standard component-filter pipeline so this entry function
-  // stays under the project cyclomatic-complexity cap.
-  const resolvedPage = await resolveCollectionAndFilter({
+  // Collection-page resolution is fused with the standard component-filter
+  // pipeline so this entry function stays under its complexity cap.
+  const resolved = await resolveCollectionAndFilter({
     matchedPage,
     app,
     routeParams,
@@ -287,8 +286,8 @@ async function renderDeclaredPage(
       requestPath: requestPathOf(path, options),
     }),
   })
-  if (resolvedPage === undefined) return undefined
-  if ('unauthorized' in resolvedPage) return { unauthorized: true }
+  if (resolved === undefined) return undefined
+  if ('unauthorized' in resolved) return { unauthorized: true }
   // P5, G2 then G3 all need the REQUEST path, which the component dispatcher never
   // sees: a `derive: 'path'` breadcrumb becomes a trail, and the renderer stays free
   // of a prop that would be inert for every other component.
@@ -303,7 +302,7 @@ async function renderDeclaredPage(
   const page: Page = rootRelativeFavicons(
     resolveSidebarCurrentEntries(
       resolveSidebarScopedEntries(
-        resolveDerivedBreadcrumbs(gatePresenceChoices(resolvedPage, app, session), path, basePath),
+        resolveDerivedBreadcrumbs(gatePresenceChoices(resolved.page, app, session), path, basePath),
         path,
         basePath,
         { session, app, granted: callerCapabilities }
@@ -365,6 +364,7 @@ async function renderDeclaredPage(
     markdownPayload,
     session,
     devNotice: options?.devNotice,
+    languageAddresses: resolved.languageAddresses,
     ...documentRequestFacts(app, routeParams, path, options),
   })
   // Shiki splices its markup into each standalone `code` placeholder (a no-op without one), after

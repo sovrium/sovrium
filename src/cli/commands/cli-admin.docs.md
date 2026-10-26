@@ -1,6 +1,6 @@
 # Admin & Maintenance
 
-> Commands you run against a deployment rather than against a config: create the account that can sign in, produce and settle the secrets the environment needs, and upgrade the binary in place.
+> Commands you run against a deployment rather than against a config: create the account that can sign in and reset its password, produce and settle the secrets the environment needs, and upgrade the binary in place.
 
 ## `sovrium admin create`
 
@@ -27,6 +27,26 @@ Two things to know before scripting it:
 - **It is idempotent.** If the email already has an account, nothing is changed, its name included.
 
 If the resolved config has no `auth` block, the command refuses and tells you to add one.
+
+## `sovrium admin reset-password`
+
+```text
+Usage: sovrium admin reset-password <email> [config]
+```
+
+Give an existing account a new password when the old one is lost. It runs against the same database as `admin create`, resolves the config the same way, and needs no running server.
+
+```bash
+sovrium admin reset-password admin@localhost.sovrium app.yaml
+```
+
+```json
+{ "email": "admin@localhost.sovrium", "password": "q3V…" }
+```
+
+The new password is random, at least 24 characters (longer when the app's password policy asks for more), and printed **once**, as one line of JSON on stdout, so a script or the desktop app can read it. Only its hash is stored: keep the printed value, because nothing can show it again. Every session of that account is signed out, so a browser still signed in with the lost password has to sign in again. An account with no password, one that signs in through another provider only, gets one.
+
+An address with no account exits `1`, names the address, prints no password and creates nothing: a reset never makes an account. Use `admin create` for that.
 
 ## `sovrium secret generate`
 

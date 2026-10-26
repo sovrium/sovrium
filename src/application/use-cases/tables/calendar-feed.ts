@@ -47,8 +47,10 @@ import { buildReadListFilter } from './permissions/row-level-read-filter'
 import type { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
-import type { DatabaseError } from '@/domain/errors'
+import type {
+  TableReadError,
+  TableRepository,
+} from '@/application/ports/repositories/tables/table-repository'
 import type { App, Table } from '@/domain/models/app'
 
 /** A fresh 256-bit (64 hex char) cryptographically random token. */
@@ -181,7 +183,7 @@ const readFeedRows = (
   reader: { readonly userId: string; readonly identity: CallerIdentity }
 ): Effect.Effect<
   readonly CalendarFeedRow[] | undefined,
-  DatabaseError,
+  TableReadError,
   ReaderRequirements | AiComputeStatusRepository
 > =>
   Effect.gen(function* () {
@@ -242,7 +244,7 @@ export const readCalendarFeed = (input: {
   readonly host: string
 }): Effect.Effect<
   string | undefined,
-  CalendarFeedTokenDatabaseError | DatabaseError,
+  CalendarFeedTokenDatabaseError | TableReadError,
   CalendarFeedTokenRepository | ReaderRequirements | AiComputeStatusRepository
 > =>
   Effect.gen(function* () {

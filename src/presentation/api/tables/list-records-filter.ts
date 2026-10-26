@@ -20,6 +20,7 @@ import {
 } from '@/domain/models/app/tables/closed-vocabulary'
 import { withLinkedRecordsConditions } from '@/domain/models/app/tables/linked-records-filter-service'
 import { withRelatedTextConditions } from '@/domain/models/app/tables/related-text-filter-service'
+import { withDefaultLanguageConditions } from '@/domain/models/app/tables/translatable-query-service'
 import { withListMembershipConditions } from '@/domain/models/app/tables/user-list-field-service'
 import { serverNow } from '@/domain/models/process-env/dev-clock'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
@@ -78,7 +79,11 @@ export function parseFilter(
     value: withListMembershipConditions(
       // A condition on a many-to-many field is read through its link table.
       withRelatedTextConditions(
-        withLinkedRecordsConditions(parsed.value, { app, tableName, reader }),
+        withLinkedRecordsConditions(
+          // A translatable field is compared by its default-language value.
+          withDefaultLanguageConditions(parsed.value, { app, tableName }),
+          { app, tableName, reader }
+        ),
         { app, tableName, reader }
       ),
       fields

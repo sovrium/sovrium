@@ -13,7 +13,15 @@
 import { Effect } from 'effect'
 import { buildSignedOutReader } from '@/application/use-cases/automations/build-guest-session'
 import { lookupReadMasks } from '@/application/use-cases/tables/lookup-read-masks'
-import { pageRoutePatterns, primaryPagePath } from '@/domain/kernel/matching/localized-path'
+import {
+  pageRoutePatterns,
+  primaryPagePath,
+  type PageAddress,
+} from '@/domain/kernel/matching/localized-path'
+import {
+  isTranslatableSlugField,
+  recordLanguageAddresses,
+} from '@/domain/models/app/pages/collection-slug-field-service'
 import {
   SITEMAP_MAX_URLS,
   buildCollectionRecordPath,
@@ -38,6 +46,11 @@ import type { RowLevelWhen } from '@/domain/models/app/tables/permissions'
 export interface RecordPath {
   readonly path: string
   readonly lastmod: string | undefined
+  /**
+   * The record's address in each language it has a slug in, for a slug field
+   * per language: the entry's `hreflang` pairs, the same the page's HTML names.
+   */
+  readonly alternates?: ReadonlyArray<PageAddress>
 }
 
 /**
@@ -103,7 +116,9 @@ const readRecordPages = async (
 ): Promise<readonly Readonly<Record<string, unknown>>[]> => {
   const fields = [
     ...new Set([
-      source.slugField,
+      ...(typeof source.slugField === 'string'
+        ? [source.slugField]
+        : Object.values(source.slugField)),
       ...(source.updatedAtField ? [source.updatedAtField] : []),
       ...source.ruleFields,
     ]),
@@ -155,8 +170,22 @@ export const expandCollectionRecords = async (
   if (rule === undefined) return []
   const source = { ...found, filter: [...own, ...granted], lookupMasks, ruleFields: rule.fields }
   const rows = rule.admitted(await readRecordPages(records, source, 1))
+  if (hasSlugPerLanguage(records.app, source)) {
+    return perLanguageRecordPaths(page, records.app, source, rows)
+  }
+  return sharedSlugRecordPaths(page, source, rows)
+}
+
+/** One entry per record per language its page is served in, at its one shared slug. */
+const sharedSlugRecordPaths = (
+  page: Page,
+  source: SitemapCollectionSource,
+  rows: readonly Row[]
+): readonly RecordPath[] => {
+  const { slugField } = source
+  if (typeof slugField !== 'string') return []
   return rows.flatMap((row) => {
-    const slug = row[source.slugField]
+    const slug = row[slugField]
     if (typeof slug !== 'string' && typeof slug !== 'number') return []
     const updatedAt = source.updatedAtField ? row[source.updatedAtField] : undefined
     const lastmod = toSitemapLastmod(toDateInput(updatedAt))
@@ -165,6 +194,44 @@ export const expandCollectionRecords = async (
       const path = buildCollectionRecordPath(pattern, String(slug))
       return path === undefined ? [] : [{ path, lastmod }]
     })
+  })
+}
+
+/**
+ * Whether a collection reads a slug per language — a field per language, or
+ * ONE translatable field: it lists each record once per language it has a
+ * slug in.
+ */
+const hasSlugPerLanguage = (app: App, source: SitemapCollectionSource): boolean =>
+  typeof source.slugField !== 'string' ||
+  isTranslatableSlugField(app.tables, source.table, source.slugField)
+
+/**
+ * One entry per record per language it has a slug in, each language's address
+ * built from that language's field (or that language's value of one
+ * translatable field, as stored) and paired with the record's others — the
+ * pairs its page's HTML names (`recordLanguageAddresses`). A language whose
+ * slug is empty lists no address.
+ */
+const perLanguageRecordPaths = (
+  page: Page,
+  app: App,
+  source: SitemapCollectionSource,
+  rows: readonly Row[]
+): readonly RecordPath[] => {
+  const languages = app.languages?.supported.map((language) => language.code) ?? []
+  return rows.flatMap((row) => {
+    const updatedAt = source.updatedAtField ? row[source.updatedAtField] : undefined
+    const lastmod = toSitemapLastmod(toDateInput(updatedAt))
+    const alternates =
+      recordLanguageAddresses({
+        path: page.path,
+        slugField: source.slugField,
+        record: row,
+        languages,
+        translatable: isTranslatableSlugField(app.tables, source.table, source.slugField),
+      }) ?? []
+    return alternates.map(({ path }) => ({ path, lastmod, alternates }))
   })
 }
 

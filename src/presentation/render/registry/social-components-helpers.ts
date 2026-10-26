@@ -67,21 +67,37 @@ export interface CommentsFields {
   readonly refreshMode: string
 }
 
+/**
+ * The page-language defaults of a thread's composer and empty state, and the
+ * translator its authored `placeholder` / `emptyText` go through (a `$t:` key
+ * resolves there, like any other component field's).
+ */
+export interface CommentsTextDefaults {
+  readonly placeholder?: string
+  readonly emptyText?: string
+  readonly translate?: (text: string) => string
+}
+
 export function resolveCommentsFields(
   component: Component | undefined,
   rawProps: Record<string, unknown> | undefined,
   elementProps: Record<string, unknown>,
-  defaultPlaceholder = 'Write a comment...'
+  defaults: CommentsTextDefaults = {}
 ): CommentsFields {
   const c = (component ?? {}) as Record<string, unknown>
   const props = (rawProps ?? {}) as Record<string, unknown>
+  const translate = defaults.translate ?? ((text: string) => text)
   return {
     id: typeof elementProps.id === 'string' ? elementProps.id : undefined,
     limit: pickNumber(c, props, 'limit', 20),
     sort: pickString(c, props, 'sort', 'newest'),
     paginationStyle: pickString(c, props, 'paginationStyle', 'loadMore'),
-    emptyText: pickString(c, props, 'emptyText', 'No comments yet'),
-    placeholder: pickString(c, props, 'placeholder', defaultPlaceholder),
+    emptyText: translate(
+      pickString(c, props, 'emptyText', defaults.emptyText ?? 'No comments yet')
+    ),
+    placeholder: translate(
+      pickString(c, props, 'placeholder', defaults.placeholder ?? 'Write a comment...')
+    ),
     table: pickString(c, props, 'table', undefined),
     recordId: pickString(c, props, 'recordId', undefined),
     refreshMode: pickString(c, props, 'refreshMode', 'none'),

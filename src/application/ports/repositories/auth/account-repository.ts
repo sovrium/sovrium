@@ -7,6 +7,7 @@
 
 import { Context, Data } from 'effect'
 import type { EmailSuppressionEntry } from '@/application/ports/repositories/automations/email-deliverability-repository'
+import type { Languages } from '@/domain/models/app/languages/language'
 import type { Effect } from 'effect'
 
 /**
@@ -239,6 +240,8 @@ export interface AuthoredTableCandidate {
   readonly writeOnly?: readonly string[]
   /** The fields the caller's read rules withhold from her: left out of her export. */
   readonly withheld?: readonly string[]
+  /** The translatable fields: each exported as its map of the app's declared languages. */
+  readonly translatable?: { readonly fields: readonly string[]; readonly languages: Languages }
 }
 
 /** One app table and the authorship column it actually carries. */

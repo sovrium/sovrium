@@ -14,6 +14,7 @@ import { conditionalRead } from '@/presentation/api/runtime/conditional-read'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { effectValidator } from '@/presentation/api/runtime/effect-validator'
 import { refuseTableWithNoReaderRow } from './readable-table-gate'
+import { servesRecordLanguage } from './record-read-language'
 import { resolveTableReadCaller } from './table-read-caller'
 import { handleListViewRecords } from './view-records-handler'
 import type { App } from '@/domain/models/app'
@@ -74,6 +75,8 @@ export function chainViewRoutesMethods<T extends Hono>(honoApp: T, resolveApp: (
         refuseTableWithNoReaderRow(resolveApp),
         conditionalRead(),
         effectValidator('query', listRecordsQuerySchema),
+        // Translatable fields are served in the reader's language, as on the records list.
+        servesRecordLanguage(resolveApp),
         (c) => handleListViewRecords(c, resolveApp())
       )
   )

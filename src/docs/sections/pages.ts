@@ -43,11 +43,10 @@ import { defineArticle, defineSection } from './define'
  * Pages — the section manifest.
  *
  * Ten articles over ONE property directory, `src/domain/models/app/pages/`,
- * plus one that documents a sibling property. The fragments are sub-fragments
- * named after the article rather than after the directory, for the same reason
- * `design`'s are: `pages` is a single key of `AppSchema` whose members split
- * several ways a reader cares about — routing, data binding, layout,
- * metadata — and the tree has nowhere to put that split.
+ * plus one that documents a sibling property. Its fragments are named after
+ * the article, not the directory, as `design`'s are: `pages` is one key of
+ * `AppSchema` whose members split several ways a reader cares about —
+ * routing, data binding, layout, metadata — and the tree cannot show that.
  *
  * ─── THE ONE FRAGMENT THAT IS NOT UNDER `pages/` ───────────────────────────
  *
@@ -272,6 +271,7 @@ export const section = defineSection({
       documents: [MarkdownSchema, ContentDirSchema],
       stories: [
         'US-PAGES-COLLECTION-PAGES',
+        'US-I18N-RECORD-CONTENT-012',
         'US-PAGES-LAYOUT-MARKDOWN-PAGES-001',
         'US-PAGES-LAYOUT-MARKDOWN-PAGES-002',
         'US-PAGES-LAYOUT-MARKDOWN-PAGES-003',

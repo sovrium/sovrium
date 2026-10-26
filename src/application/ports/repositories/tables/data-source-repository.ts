@@ -6,6 +6,7 @@
  */
 
 import { Context, Data } from 'effect'
+import type { ManyToManyFieldRead } from './record-links'
 import type { LookupReadMask } from './table-repository'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { Effect } from 'effect'
@@ -78,8 +79,12 @@ export class DataSourceRepository extends Context.Service<
       paramField: string,
       paramValue: string,
       fields?: readonly string[],
-      /** `liveOnly`: a soft-deleted row reads as absent (`deleted_at IS NULL`). */
-      options?: { readonly liveOnly?: boolean }
+      /**
+       * `liveOnly`: a soft-deleted row reads as absent (`deleted_at IS NULL`).
+       * `paramLanguage`: `paramField` is translatable, and `paramValue` is
+       * compared with its STORED value in that language code — never a fallback.
+       */
+      options?: { readonly liveOnly?: boolean; readonly paramLanguage?: string }
       // eslint-disable-next-line max-params -- positional signature kept for its existing callers; `options` is an optional fifth argument
     ) => Effect.Effect<Record<string, unknown> | undefined, DataSourceDatabaseError>
 
@@ -94,7 +99,7 @@ export class DataSourceRepository extends Context.Service<
     readonly fetchManyToManyLinks: (
       tableName: string,
       recordId: string,
-      fields: readonly { readonly fieldName: string; readonly relatedTable: string }[]
+      fields: readonly ManyToManyFieldRead[]
     ) => Effect.Effect<
       Readonly<Record<string, readonly (string | number)[]>>,
       DataSourceDatabaseError
@@ -162,6 +167,7 @@ export class DataSourceRepository extends Context.Service<
     readonly fetchManyToManyHolders: (input: {
       readonly table: string
       readonly relatedTable: string
+      readonly linkTable: string
       readonly relatedIds: readonly string[]
     }) => Effect.Effect<readonly unknown[], DataSourceDatabaseError>
 

@@ -3,6 +3,193 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.45.0",
+      "date": "2026-10-26",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.44.0...v0.45.0",
+      "sections": [
+        {
+          "kind": "features",
+          "heading": "Features",
+          "entries": [
+            {
+              "scope": "pages",
+              "text": "read a collection page's slug from one translatable field, per language"
+            },
+            {
+              "scope": "tables",
+              "text": "let a translatable text field be unique within each language"
+            },
+            {
+              "scope": "tables",
+              "text": "map CSV columns onto each language of a translatable field in the import wizard"
+            },
+            {
+              "scope": "tables",
+              "text": "carry every language of translatable text in exports, webhooks and automations"
+            },
+            {
+              "scope": "tables",
+              "text": "read translatable text in the page language in views, boards, galleries and lists"
+            },
+            {
+              "scope": "tables",
+              "text": "filter, sort and search translatable text"
+            },
+            {
+              "scope": "tables",
+              "text": "write translatable fields one language at a time, and edit every language in the console"
+            },
+            {
+              "scope": "desktop",
+              "text": "open a starter app from a sovrium://new?bundle= link, with its demo data"
+            },
+            {
+              "scope": "cli",
+              "text": "reset a local admin's password from the command line"
+            },
+            {
+              "scope": "cli",
+              "text": "load a bundle's demo data and print a sign-in when it is imported"
+            },
+            {
+              "scope": "cli",
+              "text": "carry the project's PROMPT.md and CLAUDE.md in a bundle"
+            },
+            {
+              "scope": "pages",
+              "text": "give a collection page one slug field per language, paired as hreflang alternates"
+            },
+            {
+              "scope": "tables",
+              "text": "serve translatable fields in the reader's language"
+            },
+            {
+              "scope": "cli",
+              "text": "open a Sovrium bundle as a new editable project"
+            },
+            {
+              "scope": "tables",
+              "text": "store translatable text fields as one value per language"
+            },
+            {
+              "scope": "mcp",
+              "text": "offer the project's own PROMPT.md and CLAUDE.md to the assistant as a prompt"
+            },
+            {
+              "scope": "desktop",
+              "text": "connect Claude Desktop in one click, with a backup and without touching other servers"
+            },
+            {
+              "scope": "desktop",
+              "text": "add a per-project \"Let my AI edit\" switch to Connect your AI"
+            }
+          ]
+        },
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "cli",
+              "text": "list the bundle and URL flags in init's help, and give admin reset-password its own help"
+            },
+            {
+              "scope": "migrations",
+              "text": "keep SQLite triggers valid when a table gains its first lookup"
+            },
+            {
+              "scope": "cli",
+              "text": "restore --force replaces a populated PostgreSQL database in one transaction"
+            },
+            {
+              "scope": "pages",
+              "text": "read a json column as its structure on a record-bound page on SQLite"
+            },
+            {
+              "scope": "pages",
+              "text": "leave og:image and twitter:image out when the sharing image is empty"
+            },
+            {
+              "scope": "i18n",
+              "text": "translate a comments thread's placeholder, guest form and empty state"
+            },
+            {
+              "scope": "i18n",
+              "text": "say a refused sign-in in the page language"
+            },
+            {
+              "scope": "i18n",
+              "text": "draw a description list's checkbox as Yes or No in the page language"
+            },
+            {
+              "scope": "pages",
+              "text": "resolve $app references in a page's canonical address"
+            },
+            {
+              "scope": "i18n",
+              "text": "name the data grid's phone View menu in the page language"
+            },
+            {
+              "scope": "automations",
+              "text": "hand a record trigger's run the record's many-to-many links"
+            },
+            {
+              "scope": "tables",
+              "text": "make the documented formula functions work on both engines or refuse them at boot"
+            },
+            {
+              "scope": "templates",
+              "text": "print the AI assistant note once in a scaffolded .env.example"
+            },
+            {
+              "scope": "templates",
+              "text": "restore the blog's RSS note on BASE_URL in its scaffolded .env.example"
+            },
+            {
+              "scope": "forms",
+              "text": "refuse a prefill outside a field's options and name a server-filled value the form refuses"
+            },
+            {
+              "scope": "tables",
+              "text": "compute IF formulas on PostgreSQL as on SQLite"
+            },
+            {
+              "scope": "skills",
+              "text": "mark skills written by a non-release build with a dev version"
+            },
+            {
+              "scope": "forms",
+              "text": "fill an embedded form's hidden field from the page's query string"
+            },
+            {
+              "scope": "forms",
+              "text": "keep the value a page rendered into a hidden field instead of its default"
+            },
+            {
+              "scope": "tables",
+              "text": "keep the links of two many-to-many fields to the same table separate"
+            },
+            {
+              "scope": "cli",
+              "text": "never write a signed link's signature into the project or the terminal"
+            },
+            {
+              "scope": "cli",
+              "text": "read a remote config's format from its path or Content-Type, not its query string"
+            },
+            {
+              "scope": "formulas",
+              "text": "run CHR() on SQLite instead of refusing the app at boot"
+            },
+            {
+              "scope": "desktop",
+              "text": "open a project on the config file its folder actually holds"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.44.0",
       "date": "2026-10-25",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.43.1...v0.44.0",

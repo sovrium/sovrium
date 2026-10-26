@@ -12,9 +12,11 @@ import { formatSqlValue, formatLikePattern, escapeSqlString } from '../sql/sql-u
 import { betweenFragment, betweenSqlCondition } from './between-condition'
 import { notContainsFragment, notContainsSqlCondition } from './not-contains-condition'
 import { serverOperatorDdlCondition, serverOperatorFragment } from './server-operator-fragment'
+import { translatedTextFragment } from './translated-text-fragment'
+import { unknownOperator } from './unknown-operator'
 
-/** Return type of `sql.identifier()` — a safely-escaped SQL identifier chunk. */
-type SqlIdentifier = Readonly<ReturnType<typeof sql.identifier>>
+/** A column a condition reads: a `sql.identifier()` chunk, or an expression over one. */
+type SqlIdentifier = Readonly<ReturnType<typeof sql.identifier>> | Readonly<SQL>
 
 /** Maps domain filter operators to SQL comparison operators. */
 export const SQL_OPERATOR_MAP: Readonly<Record<string, string>> = {
@@ -134,14 +136,6 @@ const handleInOperator = (field: string, operator: string, value: unknown): stri
   return formattedValues.length === 0
     ? `${field} IS NOT NULL`
     : `(${field} IS NOT NULL AND ${field} NOT IN (${formattedValues.join(', ')}))`
-}
-
-/**
- * An operator neither compiler knows fails closed: compiling it as `=` (the
- * old fallback) selected the very rows a misspelt negation meant to leave out.
- */
-const unknownOperator = (operator: string): never => {
-  throw new Error(`filter operator "${operator}" cannot be compiled into SQL`)
 }
 
 /** Format value based on options */
@@ -357,20 +351,21 @@ const buildInFragment = (
  * This is the parameter-binding sibling of `generateSqlCondition`. It returns a
  * Drizzle `SQL` object with bound placeholders for all user-supplied values.
  *
- * Use this for the runtime record-filter SELECT path. DDL callers must keep
- * using the string-based `generateSqlCondition`.
+ * Runtime record-filter SELECT path only; DDL callers keep the string-based `generateSqlCondition`.
  *
  * @param field - Column name (must already be validated via validateColumnName)
  * @param operator - Filter operator (equals, greaterThan, contains, in, etc.)
  * @param value - Filter value (bound as a query parameter)
- * @returns Drizzle SQL fragment with bound parameters
+ * @param column - What the condition reads: the field's column, or an expression over it
  */
 export const generateSqlConditionFragment = (
   field: string,
   operator: string,
-  value: unknown
+  value: unknown,
+  column: SqlIdentifier = sql.identifier(field)
 ): Readonly<SQL> => {
-  const column = sql.identifier(field)
+  const translated = translatedTextFragment(field, operator, value, generateSqlConditionFragment)
+  if (translated) return translated
   const serverFragment = serverOperatorFragment(field, operator, value)
   if (serverFragment) return serverFragment
 

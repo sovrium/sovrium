@@ -25,6 +25,7 @@ import { decodeSafe } from '@/domain/models/api/combinators/decode'
 import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
 import { relatedValuesRefusedTo } from '@/domain/models/app/tables/lookup-link-service'
 import { toManyLinksRefusedTo } from '@/domain/models/app/tables/related-field-read-service'
+import { translatableFieldNamesOf } from '@/domain/models/app/tables/translatable-query-service'
 import { writeOnlyFieldNames } from '@/domain/models/app/tables/write-only-field-service'
 import { resolvePurgeTableAuthorship } from '@/infrastructure/database/account-purge-authorship'
 import { purgeDueAccounts } from '@/infrastructure/database/account-purge-sweep'
@@ -152,6 +153,14 @@ async function handleExport(c: Context, app: App): Promise<Response> {
               columns: resolved.createdByColumns,
               writeOnly: writeOnlyFieldNames(app, t.name),
               withheld: withheldFieldNames(app, t.name, { role, groups }),
+              ...(app.languages === undefined
+                ? {}
+                : {
+                    translatable: {
+                      fields: [...translatableFieldNamesOf(app, t.name)],
+                      languages: app.languages,
+                    },
+                  }),
             }
           }),
           social

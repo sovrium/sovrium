@@ -7,7 +7,7 @@
 
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
-import { UnknownFilterFieldError } from '@/domain/errors'
+import { UncompilableFilterOperatorError, UnknownFilterFieldError } from '@/domain/errors'
 import { isResolvableColumnName } from '@/domain/models/app/tables/system-fields'
 import { buildGuestSession } from '../build-guest-session'
 import {
@@ -38,6 +38,13 @@ import type { DatabaseError } from '@/domain/errors'
  *
  * Pure move — no behaviour change.
  */
+
+/**
+ * Why a compiled filter is refused before any SQL is built: a field that
+ * resolves to no column, or an operator no filter compiles. Both travel
+ * through the lenient lookup untouched and fail the step with their message.
+ */
+export type FilterRefusal = UnknownFilterFieldError | UncompilableFilterOperatorError
 
 /** Every field name a compiled filter tree would turn into a SQL identifier. */
 const filterFieldRefs = (node: QueryFilterNode): readonly string[] => {
@@ -96,12 +103,16 @@ export const filterFieldRefusal = (
   tableName: string,
   queryFilter: QueryFilter,
   declaredFields: ReadonlySet<string> | undefined
-): Readonly<UnknownFilterFieldError> | undefined => {
+): Readonly<FilterRefusal> | undefined => {
   // An operator no record filter compiles is refused first, whether or not the
   // table's fields are known: compiling it would test something else.
   const uncompilable = uncompilableFilterOperator(queryFilter)
   if (uncompilable !== undefined) {
-    return new UnknownFilterFieldError(uncompilable.message, uncompilable.field)
+    return new UncompilableFilterOperatorError(
+      uncompilable.message,
+      uncompilable.operator,
+      uncompilable.field
+    )
   }
   if (declaredFields === undefined) return undefined
   const unresolvable = unresolvableFilterField(queryFilter, declaredFields)
@@ -225,7 +236,7 @@ export const resolveIdsByFilter = (
   tableName: string,
   filter: unknown,
   declared: DeclaredFilterFields
-): Effect.Effect<readonly string[], DatabaseError | UnknownFilterFieldError, TableRepository> =>
+): Effect.Effect<readonly string[], DatabaseError | FilterRefusal, TableRepository> =>
   Effect.gen(function* () {
     const declaredFields = declared.fields
     const queryFilter = toQueryFilter(filter, declared.table)
@@ -289,7 +300,7 @@ export const resolveIdsByFilterLenient = (
   tableName: string,
   filter: unknown,
   declared: DeclaredFilterFields
-): Effect.Effect<readonly string[], UnknownFilterFieldError, TableRepository> =>
+): Effect.Effect<readonly string[], FilterRefusal, TableRepository> =>
   resolveIdsByFilter(tableName, filter, declared).pipe(
     Effect.catchTag('DatabaseError', () => Effect.succeed([] as const)),
     Effect.withSpan('automations.resolve-ids-by-filter-lenient')

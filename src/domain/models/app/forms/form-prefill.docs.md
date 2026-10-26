@@ -50,7 +50,7 @@ fields:
   - { kind: table-field, column: campaign, hidden: true }
 ```
 
-A request carrying `?ref=partner-x` now stores `partner-x` in the record's campaign column.
+A request carrying `?ref=partner-x` now stores `partner-x` in the record's campaign column. A `defaultValue` on the same field is what it stores when the parameter is absent.
 
 ## `$user` needs a session
 
@@ -114,13 +114,29 @@ A form embedded with `formRef` keeps its own starting values — its fields' `de
 
 A form field declared `hidden: true` on the form and bound to a `relationship` or `user` column accepts only a value the server itself would have rendered into it for the person submitting, worked out again when the form is submitted:
 
-- the form's own starting value — a literal is itself, and `$user.<prop>` is the submitter's own (nothing when nobody is signed in); a field with no prefill uses its `defaultValue` under the same rules;
+- the form's own starting value — a literal is itself, and `$user.<prop>` is the submitter's own (nothing when nobody is signed in); its `defaultValue` is always accepted;
 - the `inlinePrefill` of each page that embeds the form and names the field, when that page's `access` admits the submitter — `$parent.id` / `$record.id` any record that page reads for them, through the same read rules the page applies (the table's read grant, their groups and assigned roles, its row-level rule, records not deleted) and, on a `collection` page, only a record the collection's `filter` admits — a draft the collection leaves out is not a record its page shows, even on a table open to everyone; `$parent.<field>` / `$record.<field>` a value that field holds on such a record, when they may read the field;
 - an empty value, which stores the record with no link.
 
 Anything else is answered exactly as a record or an account that does not exist — the same error on the same field — and nothing is stored. The check runs at submission, so a page left open after the submitter lost access to its record no longer files under it.
 
-Two cases stay open on purpose. A field the form fills from the query string (`$query.<name>`) is not held: the visitor writes the URL, so the value is theirs to choose, and the link is only held to the rows the form offers. And a field the form shows is not held, even where a page locks it, because the same form is served on its own page with that field visible. A value that must not be the visitor's choice belongs in a hidden field filled from a record page, a literal or the session.
+Two cases stay open on purpose. A field the form fills from the query string (`$query.<name>`) is not held, nor is one a page that admits the submitter fills that way: the visitor writes the URL, so the value is theirs to choose, and the link is only held to the rows the form offers. And a field the form shows is not held, even where a page locks it, because the same form is served on its own page with that field visible. A value that must not be the visitor's choice belongs in a hidden field filled from a record page, a literal or the session.
+
+## A hidden field keeps only what the server rendered into it
+
+A field declared `hidden: true` with a `defaultValue` stores the value its page rendered into it — the form's `prefill`, or the `inlinePrefill` of the page that embeds the form — and falls back to its `defaultValue` for anything else. What it accepts is worked out again when the form is submitted, for the person submitting:
+
+- the field's `defaultValue`;
+- the form's own `prefill` for the field — a literal is itself, `$user.<prop>` the submitter's own, `$query.<name>` any value;
+- the `inlinePrefill` of each page that embeds the form and names the field, when that page's `access` admits the submitter — the same rules, and `$parent.<field>` / `$record.<field>` a value that field holds on a record that page reads for them.
+
+Any other value, an empty one, or none stores the `defaultValue`, and the submission still goes through. A request edited by hand cannot file a lead under a campaign no page offered it.
+
+A query parameter is the visitor's to write, so a field fed by `$query.<name>` keeps whatever is submitted: the form posts to its own address, and the server never sees the URL it was opened on. Fill a field from a literal, the session or a record page when its value must not be the visitor's choice. A hidden `relationship` or `user` field is held more strictly, as above: a value outside the set is refused, not replaced.
+
+## A field that lists its `options`
+
+A field over a select column that lists the values it offers in `options` holds its prefill to that list. A literal the list does not offer, in the form's `prefill` or in a page's `inlinePrefill` for the form, is refused when the configuration is read, naming the form (and the page), the field, the value and where it was written: the field would start on a value no submission of it could keep. A reference — `$query.…`, `$user.…`, `$parent.…`, `$record.…` — names nothing until a page is opened, so it is checked only at submit. There, a hidden field with a `defaultValue` none of whose sources is a `$query` link carries only what the server filled in, so a value the list refuses is answered with the field and the value named (the page showed her that value; she chose neither); the record is not filed under the default instead. A field the visitor can write — a visible one, or one fed by `$query` — is refused exactly as a value the column does not hold.
 
 ## Start on a related record
 

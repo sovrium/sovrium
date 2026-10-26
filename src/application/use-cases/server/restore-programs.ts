@@ -7,7 +7,7 @@
 
 import { join } from 'node:path'
 import { Effect } from 'effect'
-import { BackupWorkspace } from '@/application/ports/services/backup-workspace'
+import { BackupIoError, BackupWorkspace } from '@/application/ports/services/backup-workspace'
 import { compareVersions } from '@/domain/kernel/markdown/release-notes-selection'
 import {
   KEY_ENTRY,
@@ -21,15 +21,13 @@ import {
   type BackupManifest,
 } from './backup-manifest'
 import {
-  checkPostgresTargetIsEmpty,
   emptyAgainOnInterrupt,
   emptyAgainThenRefuse,
-  refuseCodeConfig,
   restoreSqliteIntoPostgres,
   type PostgresTarget,
 } from './restore-cross-dialect'
+import { checkDatabaseTarget } from './restore-database-target'
 import { restoreRefusal, type RestoreRefusal } from './restore-refusal'
-import type { BackupIoError } from '@/application/ports/services/backup-workspace'
 
 // Local on purpose: an exported Effect-returning helper must open a span (Effect Span Census).
 const refuse = (reason: string, guidance: string, detail?: readonly string[]) =>
@@ -162,35 +160,6 @@ const verifyChecksums = (entries: ReadonlyMap<string, Uint8Array>, manifest: Bac
     return verdicts.length
   })
 
-/**
- * The database the archive holds must have somewhere to go on this machine.
- * Resolves with the PostgreSQL target of a cross-dialect restore (with the
- * engine schemas it already had), `undefined` otherwise.
- */
-const checkDatabaseTarget = (request: RestoreRequest, manifest: BackupManifest) =>
-  Effect.gen(function* () {
-    const workspace = yield* BackupWorkspace
-    if (manifest.database.path === SQLITE_ENTRY) {
-      if (request.postgresUrl === undefined) return undefined
-      yield* refuseCodeConfig(manifest)
-      const preExistingSchemas = yield* checkPostgresTargetIsEmpty(request.postgresUrl)
-      return { databaseUrl: request.postgresUrl, preExistingSchemas }
-    }
-    if (request.postgresUrl === undefined) {
-      return yield* refuse(
-        'The backup holds a PostgreSQL dump and DATABASE_URL names no PostgreSQL database',
-        'Set DATABASE_URL to the empty PostgreSQL database to restore into.'
-      )
-    }
-    if (!(yield* workspace.hasExecutable('psql'))) {
-      return yield* refuse(
-        'The PostgreSQL client tool psql is not on PATH, so the dump cannot be replayed',
-        "Install the PostgreSQL client tools (pg_dump and psql), then run 'sovrium restore' again."
-      )
-    }
-    return undefined
-  })
-
 /** The operator's two key hazards: no key in the archive, or an environment key that overrides it. */
 const keyWarnings = (
   request: RestoreRequest,
@@ -210,10 +179,11 @@ const keyWarnings = (
     : []
 }
 
-/** Which way the restore went: across dialects, and with the uploads in the database. */
+/** Which way the restore went: across dialects, with the uploads in the database, replacing. */
 interface RestoreRoute {
   readonly crossDialect: boolean
   readonly uploadsInDatabase: boolean
+  readonly replacePostgres: boolean
 }
 
 /** The warning for uploads an S3-configured server will not find in the local folder. */
@@ -272,7 +242,7 @@ const writeEntries = (
   request: RestoreRequest,
   manifest: BackupManifest,
   entries: ReadonlyMap<string, Uint8Array>,
-  { crossDialect, uploadsInDatabase }: RestoreRoute
+  { crossDialect, uploadsInDatabase, replacePostgres }: RestoreRoute
 ) =>
   Effect.gen(function* () {
     const workspace = yield* BackupWorkspace
@@ -288,7 +258,17 @@ const writeEntries = (
     yield* Effect.forEach(manifest.files, (file) => {
       const bytes = entries.get(file.path) ?? new Uint8Array()
       if (file.path === POSTGRES_ENTRY) {
-        return workspace.restorePostgres(request.postgresUrl ?? '', bytes)
+        return workspace.restorePostgres(request.postgresUrl ?? '', bytes, replacePostgres).pipe(
+          Effect.mapError(
+            (failure) =>
+              new BackupIoError({
+                action: failure.action,
+                cause: failure.cause,
+                aftermath:
+                  'The PostgreSQL database was left as it was: the replay runs in one transaction.',
+              })
+          )
+        )
       }
       // The rows of a SQLite backup restored into PostgreSQL already live there.
       if (crossDialect && file.path === SQLITE_ENTRY) return Effect.void
@@ -315,12 +295,20 @@ const writeAfterCommit = (
     uploadsInDatabase,
   }: { readonly target: PostgresTarget; readonly uploadsInDatabase: boolean }
 ) =>
-  writeEntries(request, manifest, entries, { crossDialect: true, uploadsInDatabase }).pipe(
+  writeEntries(request, manifest, entries, {
+    crossDialect: true,
+    uploadsInDatabase,
+    replacePostgres: false,
+  }).pipe(
     Effect.catchTag('BackupIoError', (failure) =>
       emptyAgainThenRefuse(
         target,
         `Sovrium could not ${failure.action}, and the restore stopped there`,
-        "Fix the cause above, then run 'sovrium restore' again with --force.",
+        // The retry needs --force again (the files may be half-written): never
+        // phrased as a flag the operator forgot when it was given.
+        request.force
+          ? 'Fix the cause above, then run the same command again, --force included.'
+          : "Fix the cause above, then run 'sovrium restore' again with --force.",
         [failure.cause instanceof Error ? failure.cause.message : String(failure.cause)]
       )
     ),
@@ -341,10 +329,10 @@ export const restoreBackup = (
     const { entries, manifest } = yield* readManifest(request)
     yield* checkTarget(request, manifest)
     const verified = yield* verifyChecksums(entries, manifest)
-    const target = yield* checkDatabaseTarget(request, manifest)
+    const { crossDialect: target, replacePostgres } = yield* checkDatabaseTarget(request, manifest)
     const crossDialect = target !== undefined
     const uploadsInDatabase = crossDialect && request.storageDestination === 'database'
-    const route = { crossDialect, uploadsInDatabase }
+    const route = { crossDialect, uploadsInDatabase, replacePostgres }
     if (target === undefined) {
       yield* writeEntries(request, manifest, entries, route)
     } else {
@@ -356,5 +344,5 @@ export const restoreBackup = (
       )
       yield* writeAfterCommit(request, manifest, entries, { target, uploadsInDatabase })
     }
-    return summarise(request, manifest, entries, { verified, crossDialect, uploadsInDatabase })
+    return summarise(request, manifest, entries, { ...route, verified })
   }).pipe(Effect.withSpan('server.restore-backup'))

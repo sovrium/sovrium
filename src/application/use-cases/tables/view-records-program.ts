@@ -56,10 +56,11 @@ import type { AiComputeStatusRepository } from '@/application/ports/repositories
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type {
+  TableReadError,
   QueryFilter,
   TableRepository,
 } from '@/application/ports/repositories/tables/table-repository'
-import type { DatabaseError, ValidationError } from '@/domain/errors'
+import type { ValidationError } from '@/domain/errors'
 import type { ListRecordsResponse } from '@/domain/models/api/tables/tables'
 import type { App } from '@/domain/models/app'
 
@@ -81,6 +82,8 @@ export interface ViewRecordsQuery {
    * every row the view returns (its filters, the caller's and the row rule).
    */
   readonly ratio?: { readonly numerator?: QueryFilter; readonly denominator?: QueryFilter }
+  /** The language translatable fields are served in: a declared code, or `*`. */
+  readonly language?: string | undefined
 }
 
 interface ViewRecordsConfig {
@@ -129,7 +132,7 @@ const readViewRatio = (
   input: { readonly tableName: string; readonly filter: QueryFilter | undefined }
 ): Effect.Effect<
   { readonly ratio?: AggregateRatio },
-  DatabaseError | ValidationError | TableNotFoundError,
+  TableReadError | ValidationError | TableNotFoundError,
   TableRepository | AuthRepository | DataSourceRepository
 > => {
   const sides = config.query?.ratio
@@ -158,15 +161,13 @@ export function getViewRecordsProgram(config: ViewRecordsConfig): Effect.Effect<
   Pick<ListRecordsResponse, 'records' | 'pagination' | 'aggregations' | 'groups'> & {
     readonly ratio?: AggregateRatio
   },
-  TableNotFoundError | ForbiddenError | DatabaseError | ValidationError,
+  TableNotFoundError | ForbiddenError | TableReadError | ValidationError,
   TableRepository | AuthRepository | DataSourceRepository | AiComputeStatusRepository
 > {
   return Effect.gen(function* () {
     const { tableId, viewId, app, userRole, session } = config
     const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
-    if (!table) {
-      return yield* Effect.fail(new TableNotFoundError('Table not found'))
-    }
+    if (!table) return yield* Effect.fail(new TableNotFoundError('Table not found'))
 
     const view = findViewByKey(table.views, viewId)
     if (!view) {
@@ -201,6 +202,7 @@ export function getViewRecordsProgram(config: ViewRecordsConfig): Effect.Effect<
       ...(query.aggregate !== undefined && { aggregate: query.aggregate }),
       ...(groupBy !== undefined && { groupBy }),
       origin: config.origin,
+      language: query.language,
     }).pipe(
       // A reader who may read no row of the table is answered as if it did not exist.
       Effect.catchTag('NotFoundError', () => Effect.fail(new TableNotFoundError('Table not found')))

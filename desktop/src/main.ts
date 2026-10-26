@@ -31,9 +31,13 @@
  */
 
 import {
+  bundlePending,
+  onBundle,
   onDeepLink,
   onStateChange,
   shellSnapshot,
+  type BundleImported,
+  type BundleView,
   type ProjectRef,
   type Settings,
   type StatePayload,
@@ -61,6 +65,14 @@ interface UiState {
   pendingUrl: string | null
   draftName: string
   notice: string | null
+  /** The bundle dialog Rust holds for a `bundle=` link, if one is waiting. */
+  bundle: BundleView | null
+  /**
+   * A finished bundle import, while its password is on screen. Held in this
+   * page's memory only, and dropped once the app is opened: it is never
+   * written anywhere.
+   */
+  imported: BundleImported | null
 }
 
 const FALLBACK: StatePayload = {
@@ -111,6 +123,8 @@ const boot = async (): Promise<void> => {
     pendingUrl: null,
     draftName: '',
     notice: null,
+    bundle: null,
+    imported: null,
   }
 
   const draw = (): void => {
@@ -156,6 +170,12 @@ const boot = async (): Promise<void> => {
         notice: ui.notice,
         setNotice: (message) => {
           ui.notice = message
+          draw()
+        },
+        bundle: ui.bundle,
+        imported: ui.imported,
+        setImported: (imported) => {
+          ui.imported = imported
           draw()
         },
       },
@@ -223,6 +243,21 @@ const boot = async (): Promise<void> => {
       ui.notice = null
       draw()
     })
+
+    // A `bundle=` link: no native dialog, the one consent dialog is drawn here
+    // once the engine has inspected the bundle. Rust holds its state, so it is
+    // read on boot too — showing it may have reloaded this page.
+    const showBundle = (view: BundleView | null): void => {
+      if (view !== null && ui.bundle === null) ui.notice = null
+      // Pre-fill the folder name once, when the dialog first becomes
+      // importable — not on every redraw, which would overwrite what was typed.
+      if (view?.kind === 'ready' && ui.bundle?.kind !== 'ready')
+        ui.draftName = view.folderSuggestion
+      ui.bundle = view
+      draw()
+    }
+    await onBundle(showBundle)
+    showBundle(await bundlePending().catch(() => null))
   }
 }
 

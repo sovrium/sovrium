@@ -54,7 +54,7 @@ const isRecord = (value: unknown): value is Node =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
 /** Every object node reachable from `value`, depth first. */
-const walk = (value: unknown): readonly Node[] => {
+export const walk = (value: unknown): readonly Node[] => {
   if (Array.isArray(value)) return value.flatMap(walk)
   if (!isRecord(value)) return []
   return [value, ...Object.values(value).flatMap(walk)]

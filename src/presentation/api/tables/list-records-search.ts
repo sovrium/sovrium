@@ -7,6 +7,11 @@
 
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
 import {
+  EVERY_LANGUAGE,
+  translatableFieldNamesOf,
+  translatedCondition,
+} from '@/domain/models/app/tables/translatable-query-service'
+import {
   WORD_SEARCH_OPERATOR,
   wordSearchFields,
   wordSearchValue,
@@ -141,7 +146,11 @@ export const buildSearchFilter = (input: SearchFilterInput): FilterStructure => 
     }
   }
   const columns = resolveSearchableColumns(app, tableName, caller, table)
-  return {
-    and: [{ or: columns.map((field) => ({ field, operator: 'contains', value: term })) }],
-  }
+  // A translatable field is searched in every language it holds.
+  const translatable = translatableFieldNamesOf(app, tableName)
+  const condition = (field: string) =>
+    translatable.has(field)
+      ? translatedCondition(field, { operator: 'contains', value: term }, EVERY_LANGUAGE)
+      : { field, operator: 'contains', value: term }
+  return { and: [{ or: columns.map(condition) }] }
 }

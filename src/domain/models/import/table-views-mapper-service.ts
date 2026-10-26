@@ -15,7 +15,10 @@
 
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { RESERVED_TABLE_NAMES } from '@/domain/models/app/tables/reserved-table-names'
-import { deriveLinkTableName } from '@/domain/models/app/tables/table-derived-name-validation'
+import {
+  deriveFieldLinkTableName,
+  type LinkField,
+} from '@/domain/models/app/tables/table-derived-name-validation'
 import { fitName, toSnakeName, uniqueNames } from './import-names-service'
 import type { CanonicalField, CanonicalTable } from './canonical-base'
 import type { ImportReport } from './import-report'
@@ -35,8 +38,8 @@ const gridIdsOf = (table: CanonicalTable, tableName: string): readonly string[] 
 export interface ViewNamingTable {
   readonly table: CanonicalTable
   readonly name: string
-  /** The Sovrium names of the tables its many-to-many links point at. */
-  readonly manyToMany: readonly string[]
+  /** Its many-to-many fields: each one's name and the Sovrium name of the table it points at. */
+  readonly manyToMany: readonly LinkField[]
 }
 
 /** A view stored under another name than its own, because its own was taken. */
@@ -62,7 +65,19 @@ const relationNamesOf = (tables: readonly ViewNamingTable[]): ReadonlySet<string
     ...RESERVED_TABLE_NAMES,
     ...tables.map((one) => sanitizeTableName(one.name)),
     ...tables.flatMap((one) =>
-      one.manyToMany.map((target) => deriveLinkTableName(one.name, target))
+      one.manyToMany.map((field) =>
+        deriveFieldLinkTableName(
+          {
+            name: one.name,
+            fields: one.manyToMany.map((link) => ({
+              type: 'relationship',
+              relationType: 'many-to-many',
+              relatedTable: link.relatedTable,
+            })),
+          },
+          field
+        )
+      )
     ),
   ])
 

@@ -25,14 +25,14 @@
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type { UserSession } from '@/application/ports/contracts/user-session'
-import type { DatabaseError } from '@/domain/errors'
+import type { TableReadError } from '@/application/ports/repositories/tables/table-repository'
 
 export function rawListRecordsProgram(
   session: Readonly<UserSession>,
   tableName: string,
   filter: Parameters<TableRepository['Service']['listRecords']>[0]['filter'],
   includeDeleted?: boolean
-): Effect.Effect<readonly Record<string, unknown>[], DatabaseError, TableRepository> {
+): Effect.Effect<readonly Record<string, unknown>[], TableReadError, TableRepository> {
   return Effect.gen(function* () {
     const repo = yield* TableRepository
     return yield* repo.listRecords({ session, tableName, filter, includeDeleted })

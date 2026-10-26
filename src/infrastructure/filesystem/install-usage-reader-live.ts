@@ -7,16 +7,13 @@
 
 import { lstat, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
-import { Database } from 'bun:sqlite'
 import { Effect, Layer } from 'effect'
 import {
   InstallUsageReader,
   UsageReadError,
   type CatalogueStore,
 } from '@/application/ports/services/install-usage-reader'
-
-const isMissing = (cause: unknown): boolean =>
-  (cause as { readonly code?: string } | null)?.code === 'ENOENT'
+import { isMissing, withReadOnlySqlite, withShortLivedPostgres } from './install-store-clients'
 
 /** The error code a failure carries, never its message: a driver's message may quote the URL. */
 const codeOf = (cause: unknown): string => {
@@ -68,60 +65,48 @@ const CATALOGUE_PROVIDER: Readonly<Record<CatalogueStore, string>> = {
   database: 'bytea',
 }
 
-const sqliteCatalogueBytes = async (path: string, provider: string): Promise<number> => {
-  const database = new Database(path, { readonly: true })
-  try {
+const sqliteCatalogueBytes = (path: string, provider: string): number =>
+  withReadOnlySqlite(path, (database) => {
     const row = database
       .query<{ readonly n: number | null }, [string]>(
         'SELECT sum(size) AS n FROM system_file_storage_metadata WHERE storage_provider = ?'
       )
       .get(provider)
     return Number(row?.n ?? 0)
-  } finally {
-    database.close()
-  }
-}
+  })
 
 /**
- * A PostgreSQL client that gives up connecting after a few seconds, and is
- * closed at once when the caller's bound runs out — a server that accepts the
- * connection and never answers must not keep the process alive.
+ * The usage measure gives up connecting after a few seconds and is closed at
+ * once when the caller's bound runs out: a hosting machine's usage unit must
+ * finish even when the database never answers.
  */
-const withPostgres = async <A>(
-  url: string,
-  signal: AbortSignal,
-  run: (sql: Bun.SQL) => Promise<A>
-): Promise<A> => {
-  const sql = new Bun.SQL(url, { connectionTimeout: 10, max: 1 })
-  const abandon = (): void => {
-    void sql.close({ timeout: 0 })
-  }
-  signal.addEventListener('abort', abandon, { once: true })
-  try {
-    return await run(sql)
-  } finally {
-    signal.removeEventListener('abort', abandon)
-    await sql.close({ timeout: 0 })
-  }
-}
+const postgresOptions = (signal: AbortSignal) => ({ connectionTimeout: 10, signal })
 
 const postgresCatalogueBytes = (
   url: string,
   provider: string,
   signal: AbortSignal
 ): Promise<number> =>
-  withPostgres(url, signal, async (sql) => {
-    const rows: readonly { readonly n: string | number | null }[] =
-      await sql`SELECT sum(size)::bigint AS n FROM system.file_storage_metadata WHERE storage_provider = ${provider}`
-    return Number(rows[0]?.n ?? 0)
-  })
+  withShortLivedPostgres(
+    url,
+    async (sql) => {
+      const rows: readonly { readonly n: string | number | null }[] =
+        await sql`SELECT sum(size)::bigint AS n FROM system.file_storage_metadata WHERE storage_provider = ${provider}`
+      return Number(rows[0]?.n ?? 0)
+    },
+    postgresOptions(signal)
+  )
 
 const postgresDatabaseSize = (url: string, signal: AbortSignal): Promise<number> =>
-  withPostgres(url, signal, async (sql) => {
-    const rows: readonly { readonly n: string | number }[] =
-      await sql`SELECT pg_database_size(current_database())::bigint AS n`
-    return Number(rows[0]?.n ?? 0)
-  })
+  withShortLivedPostgres(
+    url,
+    async (sql) => {
+      const rows: readonly { readonly n: string | number }[] =
+        await sql`SELECT pg_database_size(current_database())::bigint AS n`
+      return Number(rows[0]?.n ?? 0)
+    },
+    postgresOptions(signal)
+  )
 
 /** `InstallUsageReader` over the filesystem, `bun:sqlite` and `Bun.SQL`. Reads only. */
 export const InstallUsageReaderLive = Layer.succeed(

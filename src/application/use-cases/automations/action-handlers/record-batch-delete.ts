@@ -26,8 +26,9 @@ import { declaredFilterFields, extractIdFromFilter } from './record-filter-shape
 import { errorMessageOf, resolveIdsByFilter } from './record-filters'
 import { starterTargetIds, type StarterTargets } from './record-starter-targets'
 import { actionAttributes, numberProp, stringProp } from './shared'
+import type { FilterRefusal } from './record-filters'
 import type { ActionHandler, ActionRunContext, AutomationContext } from './shared'
-import type { DatabaseError, UnknownFilterFieldError } from '@/domain/errors'
+import type { DatabaseError } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
 
 // ---------------------------------------------------------------------------
@@ -53,7 +54,7 @@ const resolveTargetIds = (input: {
   readonly automation: AutomationContext
   readonly tableName: string
   readonly filter: unknown
-}): Effect.Effect<StarterTargets, DatabaseError | UnknownFilterFieldError, GateRequirements> =>
+}): Effect.Effect<StarterTargets, DatabaseError | FilterRefusal, GateRequirements> =>
   Effect.gen(function* () {
     const { app, automation, tableName, filter } = input
     const fastPath = extractIdFromFilter(filter)

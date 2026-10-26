@@ -23,14 +23,14 @@ import {
   measureInstallUsage,
   type UsageStorageSource,
 } from '@/application/use-cases/server/usage-programs'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
-import { parseStorageEnvConfig } from '@/domain/models/process-env/storage/storage'
 import { InstallUsageReaderLive } from '@/infrastructure/filesystem/install-usage-reader-live'
 import { formatBytes, printFailure } from '@/infrastructure/logging/cli-output'
 import { getFlagPathValue } from '../runtime/flag-vocabulary'
+import { readInstallSources } from '../runtime/install-sources'
 import { discoverConfigFile } from './app-prelude'
 import type { CatalogueDatabase } from '@/application/ports/services/install-usage-reader'
 import type { UsageReport } from '@/domain/models/app/automations/actions/instance/usage'
+import type { StorageEnvConfig } from '@/domain/models/process-env/storage/storage'
 
 const fail = (headline: string, guidance: string, detail?: readonly string[]): never => {
   printFailure({ headline, guidance, ...(detail === undefined ? {} : { detail }) })
@@ -38,28 +38,32 @@ const fail = (headline: string, guidance: string, detail?: readonly string[]): n
   return undefined as never
 }
 
-/** Where uploads live, read by the parser `sovrium start` uses, with its defaults and refusals. */
-const readStorage = (): UsageStorageSource => {
-  const storage = parseStorageEnvConfig()
+/** Where uploads live, as the usage measure needs it: the local folder absolute. */
+const toStorageSource = (storage: StorageEnvConfig): UsageStorageSource => {
   if (storage.provider === 's3') return { provider: 's3' }
   if (storage.provider === 'local')
     return { provider: 'local', directory: resolve(storage.directory) }
   return { provider: 'database' }
 }
 
-/** The database and storage `sovrium start` would use, or the message saying why not. */
+/**
+ * The database and storage `sovrium start` would use, or the message saying
+ * why not. The SQLite path is made absolute here because the measure stats the
+ * database file and its WAL siblings by path; `sovrium backup` passes it as
+ * configured, which names the same file from the same working directory.
+ */
 const readSources = ():
   | { readonly database: CatalogueDatabase; readonly storage: UsageStorageSource }
   | { readonly error: string } => {
-  try {
-    const dialect = parseDatabaseDialectConfig()
-    const database: CatalogueDatabase =
-      dialect.dialect === 'postgres'
-        ? { dialect: 'postgres', url: dialect.databaseUrl }
-        : { dialect: 'sqlite', path: resolve(dialect.path) }
-    return { database, storage: readStorage() }
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : String(error) }
+  const sources = readInstallSources()
+  if ('error' in sources) return sources
+  const { database, storage } = sources
+  return {
+    database:
+      database.dialect === 'sqlite'
+        ? { dialect: 'sqlite', path: resolve(database.path) }
+        : database,
+    storage: toStorageSource(storage),
   }
 }
 

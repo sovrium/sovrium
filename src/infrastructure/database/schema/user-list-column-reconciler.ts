@@ -52,6 +52,7 @@ import { getBaseTableName, shouldUseView } from '../lookup/lookup-view-generator
 import { openSqliteDdlDatabase, runSqliteSchemaTransaction } from '../sql/dialect-ddl'
 import { executeRaw } from '../sql/dialect-execute'
 import { executeSQL, getExistingColumns } from '../sql/sql-execution'
+import { tablesWithRecordLanguages } from '../sql/sql-translatable-columns'
 import { recreateTableWithDataEffect } from '../table-operations/migration-utils'
 import { buildGeneratorMaps } from './user-foreign-key-reconciler'
 import type { TransactionLike } from '../sql/sql-execution'
@@ -74,7 +75,8 @@ const asSchemaError = (operation: string) => (cause: unknown) =>
 
 /** Every `user` field holding several people, with its physical relation. */
 const collectListColumns = (app: Readonly<App>): readonly ListColumn[] =>
-  (app.tables ?? []).flatMap((table) => {
+  // Stamped with the app's languages, so a rebuild keeps a translatable field's map default.
+  tablesWithRecordLanguages(app).flatMap((table) => {
     const sanitized = sanitizeTableName(table.name)
     const relation = shouldUseView(table) ? getBaseTableName(sanitized) : sanitized
     return table.fields

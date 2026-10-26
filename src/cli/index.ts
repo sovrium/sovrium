@@ -229,16 +229,22 @@ const exitCommands: Readonly<Record<string, () => Promise<void>>> = {
     (await import('@/cli/commands/restart')).handleRestartCommand(parsed.configFile),
   reload: async () => (await import('@/cli/commands/reload')).handleReloadCommand(),
   init: async () =>
-    (await import('@/cli/commands/init')).handleInitCommand({
-      templateName: parsed.templateName,
-      outputDir: parsed.outputPath,
-      positionalDir: parsed.configFile,
-      forceFlag: parsed.forceFlag,
-      appName: parsed.appName,
-      typescript: parsed.typescript ?? false,
-      gitInit: parsed.gitInit ?? false,
-      fromUrl: parsed.fromUrl,
-    }),
+    parsed.fromBundle !== undefined
+      ? (await import('@/cli/commands/init-from-bundle')).handleInitFromBundle({
+          ...parsed,
+          source: parsed.fromBundle,
+          targetDir: parsed.configFile ?? parsed.outputPath,
+        })
+      : (await import('@/cli/commands/init')).handleInitCommand({
+          templateName: parsed.templateName,
+          outputDir: parsed.outputPath,
+          positionalDir: parsed.configFile,
+          forceFlag: parsed.forceFlag,
+          appName: parsed.appName,
+          typescript: parsed.typescript ?? false,
+          gitInit: parsed.gitInit ?? false,
+          fromUrl: parsed.fromUrl,
+        }),
   admin: async () =>
     (await import('@/cli/commands/admin')).handleAdminCommand(
       parsed.subcommand,
@@ -441,7 +447,8 @@ const parsed = parseArgs(rawArgs)
  * @returns `true` when help was printed and the process is exiting.
  */
 const showCommandHelpIfRequested = (): boolean => {
-  const commandHelp = parsed.helpRequested === true ? getCommandHelp(parsed.command) : undefined
+  const commandHelp =
+    parsed.helpRequested === true ? getCommandHelp(parsed.command, parsed.subcommand) : undefined
   if (commandHelp === undefined) return false
   Effect.runSync(Console.log(commandHelp))
   process.exit(0)

@@ -44,6 +44,14 @@ export interface ParsedArgs {
    * without owning one.
    */
   readonly fromUrl?: string
+  /** `--from-bundle <source>` — open a bundle as a new project (`init`); see `init-from-bundle.ts`. */
+  readonly fromBundle?: string
+  /** `--expect-sha256 <hex>` — refuse a bundle whose archive has another sha256 (`init --from-bundle`). */
+  readonly expectSha256?: string
+  /** `--inspect` — judge a bundle, print it as JSON and write no project (`init --from-bundle`). */
+  readonly inspect?: boolean
+  /** `--with-demo-data` — create the admin and load `seed/` once the bundle is opened (`init --from-bundle`). */
+  readonly withDemoData?: boolean
   readonly forceFlag: boolean
   /**
    * Static-asset directory for `start` / `build`.

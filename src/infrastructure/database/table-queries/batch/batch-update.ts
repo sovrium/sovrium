@@ -11,12 +11,14 @@ import {
   reportCommittedRows,
   type CommittedRowChange,
 } from '@/application/ports/services/record-change-feed'
+import { isLanguageMerge } from '@/domain/models/app/tables/translatable-write-service'
 import {
   type ValidationError,
   type DrizzleTransaction,
   type DatabaseError,
 } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
+import { languageMergeSql } from '@/infrastructure/database/sql/sql-translatable-writes'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { withOutboxTransaction } from '@/infrastructure/webhooks/webhook-outbox-queries'
 import { confirmBatchAccounts } from '../mutation-helpers/account-confirmation'
@@ -101,8 +103,16 @@ const readColumnTypes = async (
   )
 }
 
-/** One value as it is written to its column: encoded, then cast to the column's type where known. */
-const typedValue = (value: unknown, columnType: string | undefined): Readonly<SQL> => {
+/**
+ * One value as it is written to its column: encoded, then cast to the column's
+ * type where known. A translatable field's write merges into its stored map.
+ */
+const typedValue = (
+  column: string,
+  value: unknown,
+  columnType: string | undefined
+): Readonly<SQL> => {
+  if (isLanguageMerge(value)) return languageMergeSql(column, value)
   const encoded = encodeColumnValue(value, columnType?.endsWith('[]') ? 'ARRAY' : undefined)
   // sql-literal: keyword -- a type name PostgreSQL's own format_type() returned
   return columnType === undefined ? encoded : sql`CAST(${encoded} AS ${sql.raw(columnType)})`
@@ -121,7 +131,7 @@ const buildSetClause = (
         .filter((update) => Object.hasOwn(update.fields, column))
         .map(
           (update) =>
-            sql`WHEN ${update.id} THEN ${typedValue(update.fields[column], columnTypes[column])}`
+            sql`WHEN ${update.id} THEN ${typedValue(column, update.fields[column], columnTypes[column])}`
         )
       const target = sql.identifier(column)
       return sql`${target} = CASE ${sql.identifier('id')} ${sql.join(whens, sql.raw(' '))} ELSE ${target} END`

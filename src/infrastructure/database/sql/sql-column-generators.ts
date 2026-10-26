@@ -19,6 +19,7 @@ import {
 import { resolvePrimaryKeyColumnType } from '../table-operations/column-generators'
 import { SQLITE_ISO_NOW } from './dialect-ddl'
 import { isAutoTimestampField, isFieldNotNull, shouldUseSerial } from './sql-field-predicates'
+import { translatableDefaultClause } from './sql-translatable-columns'
 import { mapFieldTypeToDialect, mapFormulaResultTypeToDialect } from './sql-type-mappings'
 import { escapeSqlString } from './sql-utils'
 import type { Fields } from '@/domain/models/app/tables/fields'
@@ -164,7 +165,8 @@ const typeImpliedDefaultClause = (field: Fields[number]): string | undefined => 
 }
 
 const generateDefaultClause = (field: Fields[number]): string => {
-  const implied = typeImpliedDefaultClause(field)
+  // A translatable field's default is a map, a string default the default language's value.
+  const implied = translatableDefaultClause(field) ?? typeImpliedDefaultClause(field)
   if (implied !== undefined) return implied
 
   // Explicit default values

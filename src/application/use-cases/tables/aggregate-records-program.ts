@@ -33,10 +33,11 @@ import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type {
+  TableReadError,
   GroupInterval,
   QueryFilter,
 } from '@/application/ports/repositories/tables/table-repository'
-import type { DatabaseError, NotFoundError } from '@/domain/errors'
+import type { NotFoundError } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
 
 export interface AggregateRecordsConfig {
@@ -149,7 +150,7 @@ export function createAggregateRecordsProgram(
   input: AggregateRecordsConfig
 ): Effect.Effect<
   AggregateRecordsAnswer,
-  DatabaseError | ValidationError | NotFoundError,
+  TableReadError | ValidationError | NotFoundError,
   TableRepository | AuthRepository | DataSourceRepository
 > {
   return Effect.gen(function* () {

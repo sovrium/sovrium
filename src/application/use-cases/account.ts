@@ -50,6 +50,7 @@ import {
   shapeEntityLists,
   shapeAuthoredRecord,
   shapeChatAttachment,
+  withLanguageMaps,
   type AuthoredRecord,
 } from '@/application/use-cases/auth/account-export-shaping'
 import {
@@ -199,8 +200,9 @@ const readableFieldsOf = (tables: readonly AuthoredTableCandidate[]) => {
     tables.map((t) => [t.tableName, new Set([...(t.writeOnly ?? []), ...(t.withheld ?? [])])])
   )
   return (tableName: string, row: Readonly<Record<string, unknown>>) =>
-    Object.fromEntries(
-      Object.entries(row).filter(([key]) => left.get(tableName)?.has(key) !== true)
+    withLanguageMaps(
+      Object.fromEntries(Object.entries(row).filter(([key]) => !left.get(tableName)?.has(key))),
+      tables.find((t) => t.tableName === tableName)?.translatable
     )
 }
 

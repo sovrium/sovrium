@@ -95,6 +95,55 @@ jobs:
             --verify-tag \
             --draft
 
+  # ── Submit the dependency graph from the lockfiles ──────────
+  # GitHub's static dependency graph does not read bun.lock, and on this
+  # repository it stopped re-parsing pushed manifests altogether: from v0.40.0
+  # to v0.44.0 the graph kept serving v0.39.1's `package.json` and
+  # `desktop/package.json`, so Dependabot alerts opened against vite 8.3.2 stayed
+  # open after the tree pinned 8.3.5. A submitted snapshot outranks static
+  # analysis for the same manifest path, so this job replaces those entries on
+  # every release with exact versions resolved from the lockfiles (transitive
+  # dependencies included). Same correlator every time: each submission
+  # replaces the previous one. It must keep running on every release, because
+  # a stale submission outranks static analysis too.
+  #
+  # Nothing waits on it: a failure turns the run red and leaves the graph as it
+  # was; it never holds the release back. Diagnosis, and the three reads that
+  # tell a stale graph from a stale alert:
+  # docs/infrastructure/release/dependency-graph.md.
+  submit-dependency-snapshot:
+    name: Submit dependency snapshot
+    permissions:
+      contents: write # POST /repos/{owner}/{repo}/dependency-graph/snapshots
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+
+      # The tag and `main` are pushed atomically to the same commit, so the
+      # tag's sha IS main's head. The snapshot is filed against `main` so it
+      # lands in the default branch's graph, the one Dependabot alerts read.
+      - name: Build the snapshot from bun.lock and Cargo.lock
+        run: |
+          bun run scripts/build/build-dependency-snapshot.ts \
+            --sha "${GITHUB_SHA}" \
+            --ref refs/heads/main \
+            --job-id "${GITHUB_RUN_ID}" \
+            --out "${RUNNER_TEMP}/dependency-snapshot.json"
+
+      - name: Submit the snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/dependency-graph/snapshots" \
+            --input "${RUNNER_TEMP}/dependency-snapshot.json" \
+            --jq '"Snapshot \(.id): \(.result) (\(.message))"'
+
   # ── npm publish: RETIRED, and it is not coming back ─────────
   # Nothing is published to npm. TypeScript config types ship INSIDE the binary and
   # are written out by `sovrium types` (scripts/build/generate-embedded-config-types.ts).

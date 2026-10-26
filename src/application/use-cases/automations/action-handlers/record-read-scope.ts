@@ -37,8 +37,10 @@ import type { RunReadScope } from './run-read-admission'
 import type { ActionOutcome, AutomationContext } from './shared'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import type { QueryFilter } from '@/application/ports/repositories/tables/table-repository'
-import type { DatabaseError } from '@/domain/errors'
+import type {
+  TableReadError,
+  QueryFilter,
+} from '@/application/ports/repositories/tables/table-repository'
 import type { App } from '@/domain/models/app'
 
 /** The failure a read the run's caller may not make reports — the records API's own answer. */
@@ -124,7 +126,7 @@ export const listForRun = (input: {
   readonly fields?: readonly string[] | undefined
 }): Effect.Effect<
   readonly Readonly<Record<string, unknown>>[],
-  DatabaseError,
+  TableReadError,
   AuthRepository | TableRepository | DataSourceRepository
 > =>
   Effect.gen(function* () {
@@ -179,7 +181,7 @@ export const readableRows = (input: {
   readonly automation: AutomationContext
 }): Effect.Effect<
   readonly Readonly<Record<string, unknown>>[],
-  DatabaseError,
+  TableReadError,
   AuthRepository | TableRepository | DataSourceRepository
 > => {
   const { app, tableName, rows, access, automation } = input

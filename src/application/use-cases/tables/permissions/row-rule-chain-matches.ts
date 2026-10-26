@@ -40,6 +40,7 @@ import {
 } from '@/domain/models/app/tables/row-rule-chain-service'
 import { isUserListField } from '@/domain/models/app/tables/user-list-field-service'
 import { logError } from '@/infrastructure/logging'
+import { fieldLinkTable } from '../many-to-many-fields'
 import type { DataFilter } from '@/domain/models/app/pages/components/data-source'
 import type { RowLevelPermissions, RowLevelPredicate } from '@/domain/models/app/tables/permissions'
 
@@ -108,6 +109,10 @@ const membershipIds = (
     return yield* repo.fetchManyToManyHolders({
       table: holder.table,
       relatedTable: field.relatedTable,
+      linkTable: fieldLinkTable([scope.table, ...scope.tables], holder.table, {
+        name: holder.column,
+        relatedTable: field.relatedTable,
+      }),
       relatedIds: values.map(String),
     })
   })

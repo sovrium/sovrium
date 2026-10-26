@@ -27,10 +27,17 @@
  *   engines; the index sync builds the declared shape again.
  * - `missing` — a declared uniqueness the catalog does not enforce yet, which the
  *   duplicate pre-flight probes before anything is changed.
+ *
+ * A translatable unique field is held by one expression index per language
+ * (`sql-language-unique-indexes.ts`), which the catalog lists with no column:
+ * one the catalog lacks is `missingLanguages`, and one for a language or a field
+ * no longer declared so is `stray`. The name says which field and language.
  */
 
 import { Effect } from 'effect'
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
+import { TRANSLATABLE_FIELD_TYPES } from '@/domain/models/app/tables/translatable-field-service'
+import { languageUniqueTargetOf } from '@/domain/models/app/tables/translatable-unique-service'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { logDebug } from '@/infrastructure/logging/logger'
 import { getPhysicalTableName } from '../lookup/lookup-view-generators'
@@ -42,6 +49,10 @@ import {
   liveUniqueIndexName,
   tableConstraintPrefix,
 } from '../sql/sql-key-constraints'
+import {
+  declaredLanguageIndexes,
+  type DeclaredLanguageIndex,
+} from '../sql/sql-language-unique-indexes'
 import { sqliteCheckClausesCurrent } from './sqlite-check-drift'
 import type { Table } from '@/domain/models/app/tables'
 
@@ -81,6 +92,8 @@ export interface UniqueShapeDrift {
   readonly missing: readonly string[]
   /** Declared unique primary-key columns the catalog does not hold unique. */
   readonly missingKeyed: readonly string[]
+  /** Declared per-language unique indexes the catalog lacks. */
+  readonly missingLanguages: readonly DeclaredLanguageIndex[]
 }
 
 /** A catalog row in the terms the comparison reads. */
@@ -155,14 +168,47 @@ export const uniqueShapeDrift = (
     index.name.endsWith('_key') &&
     index.name !== liveUniqueIndexName(relation, String(index.col)) &&
     !declaredIndexNames(table).has(index.name)
+  const languages = languageIndexDrift(table, relation, indexes)
   return {
     legacy: named(singles.filter((i) => i.origin === 'u' && !keyed.has(String(i.col)))),
     stray: [
       ...named(singles.filter((i) => (isLiveIndex(i) && !live.has(String(i.col))) || renamed(i))),
       ...named(indexes.filter((i) => i.origin === 'c' && !i.partial && partial.has(i.name))),
+      ...languages.stray,
     ],
     missing: [...live].filter((col) => !enforced(col)),
     missingKeyed: [...keyed].filter((col) => !enforced(col)),
+    missingLanguages: languages.missing,
+  }
+}
+
+/**
+ * The per-language unique indexes of `table` the catalog lacks, and the ones it
+ * holds for a language or a field no longer declared unique in each language.
+ * An expression index is listed with no column, and is recognised by its name.
+ */
+const languageIndexDrift = (
+  table: Table,
+  relation: string,
+  indexes: readonly CatalogIndex[]
+): { readonly missing: readonly DeclaredLanguageIndex[]; readonly stray: readonly string[] } => {
+  const declared = declaredLanguageIndexes(table, relation)
+  const expressions = indexes.filter((index) => index.origin === 'c' && index.col === undefined)
+  const held = new Set(expressions.map((index) => index.name))
+  const textFields = table.fields
+    .filter((field) => TRANSLATABLE_FIELD_TYPES.has(field.type))
+    .map((field) => field.name)
+  const wanted = new Set(declared.map((index) => index.name))
+  return {
+    missing: declared.filter((index) => !held.has(index.name)),
+    stray: named(
+      expressions.filter(
+        (index) =>
+          !wanted.has(index.name) &&
+          !declaredIndexNames(table).has(index.name) &&
+          languageUniqueTargetOf(index.name, relation, textFields) !== undefined
+      )
+    ),
   }
 }
 
@@ -171,7 +217,8 @@ const isQuiet = (drift: UniqueShapeDrift): boolean =>
   drift.legacy.length === 0 &&
   drift.stray.length === 0 &&
   drift.missing.length === 0 &&
-  drift.missingKeyed.length === 0
+  drift.missingKeyed.length === 0 &&
+  drift.missingLanguages.length === 0
 
 /** Read one table's unique indexes and compare them with its definition. */
 export const readUniqueShapeDrift = (

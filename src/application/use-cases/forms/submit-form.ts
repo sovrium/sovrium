@@ -11,6 +11,7 @@ import { emitFormSubmissionAnalyticsEvent } from '@/application/use-cases/forms/
 import { applySubmissionAccessLinks } from '@/application/use-cases/forms/submit-form-access-links'
 import { constraintRefusalForField } from '@/application/use-cases/forms/submit-form-constraint-errors'
 import { FormFieldFormatError } from '@/application/use-cases/forms/submit-form-format-validation'
+import { withoutUnrenderedHiddenValues } from '@/application/use-cases/forms/submit-form-hidden-defaults'
 import { findUnpinnedHiddenField } from '@/application/use-cases/forms/submit-form-hidden-pins'
 import { checkHoneypot } from '@/application/use-cases/forms/submit-form-honeypot'
 import { withHiddenLookupDefaults } from '@/application/use-cases/forms/submit-form-lookup-defaults'
@@ -18,6 +19,7 @@ import { findUnofferedLinkField } from '@/application/use-cases/forms/submit-for
 import { checkRateLimit } from '@/application/use-cases/forms/submit-form-rate-limit'
 import { takenValueRefusal } from '@/application/use-cases/forms/submit-form-taken-value'
 import { splitSubmissionSurface } from '@/domain/models/app/forms/submission-ledger-service'
+import { requestedRecordLanguage } from '@/domain/models/app/languages/localized-value-service'
 import {
   buildLinkedRecord,
   buildSubmitterMeta,
@@ -138,7 +140,20 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
     const { surface, query: formQuery } = splitSubmissionSurface(query ?? {})
     // A hidden field's lookup default is the row it finds now, for this submitter.
     const filled = yield* withHiddenLookupDefaults(app, form, config.visitor)
-    const mapped = yield* processSubmissionBody(app, filled, body, formQuery)
+    // A hidden field keeps only what the server could have rendered into it; a
+    // value it could not falls back to the field's default.
+    const { visitor } = config
+    const rendered = yield* withoutUnrenderedHiddenValues({
+      app,
+      form: filled,
+      body,
+      visitor,
+      submitterUserId,
+    })
+    const mapped = yield* processSubmissionBody(app, filled, rendered, {
+      query: formQuery,
+      hiddenOverlay: 'when-absent',
+    })
 
     // A link must name a row the form offers, and a hidden link or account only
     // what the server would have put in it for this submitter — both answered
@@ -161,6 +176,8 @@ export const submitFormProgram = (config: Readonly<SubmitFormConfig>) =>
       submitterUserId,
       // The bound row fires the table's record automations and webhooks as it is written.
       processEnv: processEnv ?? {},
+      // A translatable field's answer is filed under the language the form was answered in.
+      language: requestedRecordLanguage(app.languages, query?.['lang'], undefined),
     }).pipe(
       Effect.catchTags({
         ForeignKeyViolationError: (fk) => Effect.fail(missingRowError(fk.fieldName)),

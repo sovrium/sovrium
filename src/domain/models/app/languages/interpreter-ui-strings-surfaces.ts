@@ -147,6 +147,12 @@ export const SURFACE_UI_STRINGS: Readonly<Record<string, Readonly<Record<string,
   'comments.oneReply': { en: '1 reply', fr: '1 réponse' },
   'comments.replies': { en: '{count} replies', fr: '{count} réponses' },
   'comments.anonymous': { en: 'Anonymous', fr: 'Anonyme' },
+  /** The guest form's labels, the empty thread with no `emptyText` and the thread's accessible name. */
+  'comments.guestName': { en: 'Name', fr: 'Nom' },
+  'comments.guestEmail': { en: 'Email', fr: 'E-mail' },
+  'comments.guestComment': { en: 'Comment', fr: 'Commentaire' },
+  'comments.noComments': { en: 'No comments yet', fr: 'Aucun commentaire pour le moment' },
+  'comments.sectionLabel': { en: 'Comments', fr: 'Commentaires' },
   'presence.label': { en: 'Users viewing this page', fr: 'Personnes consultant cette page' },
 
   // ---- The rich-text toolbar, its link prompt and its slash menu ----

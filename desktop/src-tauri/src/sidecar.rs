@@ -36,6 +36,7 @@
 //! and means the shell does not need a second release to start honouring them.
 
 use std::collections::VecDeque;
+use std::ffi::OsString;
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
@@ -795,6 +796,27 @@ fn show_app<R: Runtime>(app: &AppHandle<R>, origin: &str) {
     }
 }
 
+/// Send the main window back to the app the engine is serving, if it is
+/// serving one — after the shell borrowed the window for a dialog of its own
+/// (a bundle link's consent dialog) that the user then declined.
+///
+/// Does nothing when "open in browser" is on: the app is already in the
+/// browser, and opening a second tab for a declined link would be a surprise.
+pub fn return_to_app<R: Runtime>(app: &AppHandle<R>) {
+    let ShellState::Serving { origin, .. } = snapshot(app).state else {
+        return;
+    };
+    if settings::load(app).open_in_browser {
+        return;
+    }
+    if let (Some(window), Ok(parsed)) = (
+        app.get_webview_window("main"),
+        tauri::Url::parse(&format!("{origin}/")),
+    ) {
+        let _ = window.navigate(parsed);
+    }
+}
+
 /// Point the main window back at the shell's own chrome.
 pub fn show_shell<R: Runtime>(app: &AppHandle<R>) {
     let Some(window) = app.get_webview_window("main") else {
@@ -835,6 +857,41 @@ pub async fn run_engine_once<R: Runtime>(
     if let Some(dir) = cwd {
         command = command.current_dir(dir);
     }
+    collect(command).await
+}
+
+/// [`run_engine_once`], with the child's WHOLE environment given rather than
+/// inherited: the inherited one is cleared first and `env` is all the child
+/// sees. The bundle flow builds it with `bundle_import::import_env` — the
+/// shell's environment minus what would redirect the project's storage, plus
+/// its own `SOVRIUM_DATA_DIR`. `tauri-plugin-shell` has no `env_remove`, so a
+/// variable can only be withheld by clearing and re-adding the rest.
+///
+/// The output is returned, never logged: one caller's stdout carries a
+/// password printed once (`init --from-bundle --with-demo-data`).
+pub async fn run_engine_once_with_env<R: Runtime>(
+    app: &AppHandle<R>,
+    args: Vec<String>,
+    cwd: Option<PathBuf>,
+    env: Vec<(OsString, OsString)>,
+) -> Result<(bool, String, String), String> {
+    let mut command = app
+        .shell()
+        .sidecar("sovrium")
+        .map_err(|e| format!("The Sovrium engine could not be located: {e}"))?
+        .args(&args)
+        .env_clear()
+        .envs(env);
+    if let Some(dir) = cwd {
+        command = command.current_dir(dir);
+    }
+    collect(command).await
+}
+
+/// Run a prepared one-shot command and collect its exit and trimmed output.
+async fn collect(
+    command: tauri_plugin_shell::process::Command,
+) -> Result<(bool, String, String), String> {
     let output = command
         .output()
         .await

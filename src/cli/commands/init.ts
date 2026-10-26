@@ -9,12 +9,13 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import { Effect } from 'effect'
 import { ENV_EXAMPLE_CONTENT } from '@/cli/commands/env-example-template'
+import { assertNotABundleUrl } from '@/cli/commands/init-from-bundle-source'
 import {
   assertForkableUrl,
   fetchForkedConfig,
-  writeForkedConfig,
   type ForkedConfig,
 } from '@/cli/commands/init-from-url'
+import { writeForkedConfig } from '@/cli/commands/init-from-url-provenance'
 import { initGitRepository } from '@/cli/commands/init-git'
 import {
   isRemoteTemplateRef,
@@ -30,6 +31,7 @@ import { isHeadlessEntry, readEmbeddedTemplateCatalog } from '@/cli/commands/tem
 import { writeConfigTypesFiles } from '@/cli/commands/types'
 import { embeddedTemplateDir } from '@/infrastructure/assets/embedded-static-assets'
 import { printDocument, printFailure, printStderr } from '@/infrastructure/logging/cli-output'
+import type { ForkTarget } from '@/cli/commands/init-from-url-format'
 import type { TemplateCatalog } from '@/cli/commands/templates-catalog'
 
 /**
@@ -393,6 +395,10 @@ const assertNoConflict = async (targetPath: string, forceFlag: boolean): Promise
   process.exit(1)
 }
 
+/** The config filename known before any fetch; a fork whose path names no format has none yet. */
+const knownConfigName = (forkTarget: ForkTarget | undefined, typescript: boolean) =>
+  forkTarget ? forkTarget.filename : configFilenameFor(typescript)
+
 /**
  * Run the one scaffold strategy the invocation selected, and report what it
  * created so the caller can render a single document.
@@ -519,26 +525,26 @@ export const handleInitCommand = async (options: InitCommandOptions = {}): Promi
   assertFlagsCompatible(templateName, typescript)
   assertFromUrlAlone(options.fromUrl, templateName, typescript)
 
-  // Pure refusals first (scheme, extension), so a URL this command will not
-  // fork is rejected before a request is made — and therefore before anything
-  // could have been written.
-  const forkTarget = options.fromUrl ? assertForkableUrl(options.fromUrl) : undefined
+  // Pure refusals (scheme, a remote `.ts`, a bundle's address) before any request or write.
+  const forkTarget = options.fromUrl
+    ? assertForkableUrl(assertNotABundleUrl(options.fromUrl))
+    : undefined
 
   // The conflict check follows the config file this invocation will actually
   // write — otherwise `init --typescript` in a directory holding an `app.ts`
   // would check `app.yaml`, find nothing, and overwrite the author's config.
-  await assertNoConflict(
-    join(targetDir, forkTarget?.filename ?? configFilenameFor(typescript)),
-    forceFlag
-  )
+  // A fork whose path names no format learns its filename from the response.
+  const knownName = knownConfigName(forkTarget, typescript)
+  if (knownName) await assertNoConflict(join(targetDir, knownName), forceFlag)
 
   // Fetched, size-checked and DECODED before the first write. A rejected fork
   // leaves nothing behind by construction rather than through a cleanup path
   // that has to be right.
   const forked =
     options.fromUrl && forkTarget
-      ? await fetchForkedConfig(options.fromUrl, forkTarget.filename)
+      ? await fetchForkedConfig(options.fromUrl, forkTarget.format)
       : undefined
+  if (forked) await assertNoConflict(join(targetDir, forked.filename), forceFlag)
 
   await mkdir(targetDir, { recursive: true })
 
@@ -601,7 +607,7 @@ const printInitSummary = (
  * headless templates (`api-only`, `mcp-server`) don't grow an inert public/.
  * All three writers are additive — a pre-existing file is preserved verbatim.
  */
-const scaffoldSupportFiles = async (
+export const scaffoldSupportFiles = async (
   targetDir: string,
   isWebFacing: boolean
 ): Promise<readonly string[]> => {

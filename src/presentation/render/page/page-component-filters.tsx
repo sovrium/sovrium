@@ -60,6 +60,7 @@ import {
   applyCrudUpdatePermissions,
   withholdUnofferedFormRefs,
 } from './page-crud-gating'
+import { withGridRecordLanguage } from './page-grid-record-language'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Page } from '@/domain/models/app/pages'
@@ -264,24 +265,30 @@ export function applyPageComponentFilters(input: PageComponentFilterInput): Page
   // Likewise its fields: what the reader may read and write needs the whole
   // `app`, which the drawer's renderer does not hold.
   const hostApp = input.hostApp ?? app
-  const withDrawerDispatches = withSearchTableLabels(
-    markDrawerFieldAccess(
-      markRelatedGuestCaller(
-        resolveOpenDrawerDispatches(withToc ?? []),
-        app.auth === undefined ? 'open' : session === undefined ? 'guest' : undefined
+  const mounted = input.hostApp !== undefined && input.hostApp !== app
+  const withDrawerDispatches = withGridRecordLanguage(
+    withSearchTableLabels(
+      markDrawerFieldAccess(
+        markRelatedGuestCaller(
+          resolveOpenDrawerDispatches(withToc ?? []),
+          app.auth === undefined ? 'open' : session === undefined ? 'guest' : undefined
+        ),
+        app,
+        session,
+        { capabilities: input.callerCapabilities, hostApp, fieldReader: input.callerFieldReader }
       ),
-      app,
-      session,
-      { capabilities: input.callerCapabilities, hostApp, fieldReader: input.callerFieldReader }
+      {
+        hostApp,
+        session,
+        mounted,
+        fieldReader: input.callerFieldReader,
+        lang: activeLang,
+        pagesApp: app,
+      }
     ),
-    {
-      hostApp,
-      session,
-      mounted: input.hostApp !== undefined && input.hostApp !== app,
-      fieldReader: input.callerFieldReader,
-      lang: activeLang,
-      pagesApp: app,
-    }
+    // A grid of translatable content reads it in the console's default language,
+    // or the page's own (`page-grid-record-language.ts`).
+    { hostApp, mounted, lang: activeLang }
   ) as ReturnType<typeof markDrawerFieldAccess>
   // The platform Cmd+K command palette is appended to every page by default.
   // An app may opt out via `palette: { enabled: false }` — e.g. when it

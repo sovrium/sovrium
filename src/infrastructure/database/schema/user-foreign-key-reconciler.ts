@@ -91,6 +91,7 @@ import { executeRaw } from '../sql/dialect-execute'
 import { getExistingColumns } from '../sql/sql-execution'
 import { isSingleUser } from '../sql/sql-field-predicates'
 import { generateForeignKeyConstraints } from '../sql/sql-key-constraints'
+import { tablesWithRecordLanguages } from '../sql/sql-translatable-columns'
 import { buildTablePrimaryKeyTypesMap } from '../table-operations/column-generators'
 import { recreateTableWithDataEffect } from '../table-operations/migration-utils'
 import { applySchemaDefaults } from './apply-schema-defaults'
@@ -130,7 +131,7 @@ const collectTableCandidates = (table: Readonly<Table>): readonly UserForeignKey
 export const collectUserForeignKeyCandidates = (
   app: Readonly<App>
 ): readonly UserForeignKeyCandidate[] =>
-  (app.tables ?? []).flatMap((table) => collectTableCandidates(table))
+  tablesWithRecordLanguages(app).flatMap((table) => collectTableCandidates(table))
 
 /**
  * The maps the DDL generators need, in the shape they expect.

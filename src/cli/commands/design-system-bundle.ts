@@ -29,6 +29,10 @@
 
 import { mkdir, readdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+import {
+  isDesignSystemPageDrawError,
+  pageDrawReasonOf,
+} from '@/application/use-cases/admin/design-system-page-draw-error'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { formatRuntimeError } from '@/infrastructure/logging/format-runtime-error'
 import { lazyImportIndex } from './utils'
@@ -39,13 +43,10 @@ import type { App } from '@/domain/models/app'
  * A page the renderer could not draw, as a sentence naming the page, the
  * address and the account it was drawn as; `undefined` for any other failure.
  */
-const pageDrawSentenceOf = (error: unknown): string | undefined => {
-  const failure = error as
-    { readonly _tag?: unknown; readonly page?: unknown; readonly cause?: unknown } | undefined
-  const reason = (failure?.cause as { readonly reason?: unknown } | undefined)?.reason
-  return failure?._tag === 'DesignSystemPageDrawError' && typeof reason === 'string'
-    ? `The page ${String(failure.page)} could not be drawn: ${reason}.`
-    : undefined
+export const pageDrawSentenceOf = (error: unknown): string | undefined => {
+  if (!isDesignSystemPageDrawError(error)) return undefined
+  const reason = pageDrawReasonOf(error)
+  return reason === undefined ? undefined : `The page ${error.page} could not be drawn: ${reason}.`
 }
 
 /** Whether a path names a directory that exists and holds at least one entry. */

@@ -65,6 +65,7 @@ import { validateReadStateCountNames } from './tables/read-state-validation'
 import { validateRowRuleGrantRoles } from './tables/row-rule-grant-role-validation'
 import { isResolvableColumnName } from './tables/system-fields'
 import { validateAllTablePermissionGroups } from './tables/table-permission-groups-validation'
+import { validateTranslatableContent } from './tables/translatable-validation'
 import { VersionSchema } from './version'
 
 /**
@@ -257,18 +258,18 @@ const validateSelectDeclarations = (
 }
 
 /**
- * The declaration checks closing the final filter, as one branch: table
- * permission groups, the groups and roles the `auth` operators name literally, the
- * table and fields a `calendar/importIcs` step writes, then every `$env.NAME` anywhere in the configuration against the variables
- * `app.env` declares. Grouped for the same complexity-budget reason as
- * {@link validateSelectDeclarations}.
+ * The declaration checks closing the final filter, as one branch: table permission groups, the
+ * groups and roles `auth` operators name, the table a `calendar/importIcs` step writes, notification
+ * kinds, read-state counts, translatable fields against `languages`, then every `$env.NAME`.
+ * Grouped for the complexity-budget reason of {@link validateSelectDeclarations}.
  */
 const validateDeclaredReferences = (
   app: Parameters<typeof validateAllTablePermissionGroups>[0] &
     Parameters<typeof validateAllAuthActionReferences>[0] &
     Parameters<typeof validateAllEnvReferences>[0] &
     Parameters<typeof validateAllCalendarImports>[0] &
-    Parameters<typeof validateNotificationKinds>[0]
+    Parameters<typeof validateNotificationKinds>[0] &
+    Parameters<typeof validateTranslatableContent>[0]
 ): true | string => {
   const permissionGroupError = validateAllTablePermissionGroups(app)
   if (permissionGroupError !== true) return permissionGroupError
@@ -277,7 +278,11 @@ const validateDeclaredReferences = (
   // The table a `calendar/importIcs` step writes into, and the fields it maps.
   const calendarImportError = validateAllCalendarImports(app)
   if (calendarImportError !== true) return calendarImportError
-  const socialError = [validateNotificationKinds(app), validateReadStateCountNames(app)]
+  const socialError = [
+    validateNotificationKinds(app),
+    validateReadStateCountNames(app),
+    validateTranslatableContent(app),
+  ]
   return socialError.find((verdict) => verdict !== true) ?? validateAllEnvReferences(app)
 }
 
@@ -1072,18 +1077,12 @@ export const AppSchema = Schema.Struct({
       // `value`, which no field-level rule can state. Bundled here for the reason above.
       const qrCodeError = validateAllQrCodePayloads(app)
       if (qrCodeError !== true) return qrCodeError
-      // Design-console cross-validation: a plotted easing token must name a
-      // curve the app can resolve — one of the inherited four, a key of
-      // `design.motion.easings`, or a `cubic-bezier(...)` written out. A name
-      // that resolves to nothing draws an empty box, which a reader reads as
-      // "this one is linear". Bundled here (not a new `Schema.filter`) for the
-      // deep-instantiation reason documented above.
-      //
-      // Component-template placement: a bare `$ref` names a template in
-      // `app.components`, and a name no template carries is refused here rather
-      // than drawn as a request-time "not found" box. Grouped with the design
-      // console check in `validateComponentPlacements` because this filter is
-      // at its complexity budget.
+      // Design-console cross-validation: a plotted easing token must name a curve the app can
+      // resolve (one of the inherited four, a `design.motion.easings` key, or a written-out
+      // `cubic-bezier(...)`); a name resolving to nothing draws an empty box read as "linear".
+      // Component-template placement: a bare `$ref` names a template in `app.components`, refused
+      // here rather than drawn as a request-time "not found" box. Grouped in
+      // `validateComponentPlacements` for the complexity budget and deep-instantiation reasons.
       const componentError = validateComponentPlacements(app)
       if (componentError !== true) return componentError
       // Declarations (permission groups, `$env`, notification kinds, read-state counts): one

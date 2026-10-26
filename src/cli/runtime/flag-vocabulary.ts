@@ -76,6 +76,10 @@ export const FLAG_VALUE_OPTIONS = [
   // its value in the positional stream, so `sovrium init --from-url <url> ./dir`
   // would treat the URL as the target directory.
   '--from-url',
+  // `sovrium init --from-bundle <source> --expect-sha256 <hex>`. Both lists, same
+  // reason: absent here, the source would be read as the target directory.
+  '--from-bundle',
+  '--expect-sha256',
   '--publicDir',
   '--name',
   '--password',
@@ -195,6 +199,10 @@ const KNOWN_BOOLEAN_FLAGS: ReadonlySet<string> = new Set([
   // `sovrium init --git`. Absent from this set, `findUnknownFlag` rejects it
   // outright — a refusal that reads like operator error rather than a gap.
   '--git',
+  // `sovrium init --from-bundle <source> --inspect`: judge the bundle and write no project.
+  '--inspect',
+  // `sovrium init --from-bundle <source> --with-demo-data`: the admin and seed/, once.
+  '--with-demo-data',
   // `sovrium seed --dry-run`, `sovrium migrate --dry-run`
   '--dry-run',
   // `sovrium migrate --check`. Absent from this set, `findUnknownFlag` rejects
@@ -271,6 +279,9 @@ const KNOWN_VALUE_FLAGS: ReadonlySet<string> = new Set([
   // `sovrium init --from-url <https://…>`. A published config document forked
   // into the project, as opposed to `--template`'s whole repository.
   '--from-url',
+  // `sovrium init --from-bundle <source> [--expect-sha256 <hex>]`: open a bundle as a project.
+  '--from-bundle',
+  '--expect-sha256',
   '--publicDir',
   '--name',
   '--password',

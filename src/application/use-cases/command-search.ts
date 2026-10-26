@@ -27,11 +27,13 @@ import {
   type TableLike,
 } from '@/domain/models/app/tables/read-access-plan-service'
 import { searchableTextColumns } from '@/domain/models/app/tables/searchable-text-columns'
+import { defaultLanguageColumnsOf } from '@/domain/models/app/tables/translatable-query-service'
 import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { QueryFilterNode } from '@/application/ports/repositories/tables/table-repository'
 import type { ContentDirReader } from '@/application/ports/services/content-dir-reader'
+import type { UncompilableFilterOperatorError } from '@/domain/errors/uncompilable-filter-operator-error'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { CurrentUserContext } from '@/domain/models/app/tables/row-level-evaluator-service'
@@ -341,7 +343,7 @@ export const SearchCommandPalette = (
   caller: CommandSearchCaller
 ): Effect.Effect<
   readonly CommandSearchResult[],
-  CommandSearchDatabaseError,
+  CommandSearchDatabaseError | UncompilableFilterOperatorError,
   CommandSearchRepository | DataSourceRepository | AuthRepository | ContentDirReader
 > =>
   Effect.gen(function* () {
@@ -356,21 +358,19 @@ export const SearchCommandPalette = (
       tables,
       (table) =>
         Effect.gen(function* () {
-          // PERMISSION SCOPING. The scan's `label` is a raw value from
-          // whichever column matched, so walking EVERY table and EVERY text
-          // column ungated would make a `read: ['admin']` table's contents
-          // searchable, and a field-restricted column a perfectly good needle. The plan supplies the four answers the records
-          // API composes: may this caller read the table, which columns, which
-          // rows her row-level rule admits, and are soft-deleted rows in scope.
+          // PERMISSION SCOPING. The scan's `label` is a raw value from the matched column, so an
+          // ungated walk would make an admin-only table's contents searchable and a restricted
+          // column a needle. The plan answers what the records API composes: may she read the
+          // table, which columns, which rows her row-level rule admits, are deleted rows in scope.
           const scan = yield* tableScanFor(app, table, scope)
           if (scan === undefined) return [] as readonly CommandSearchResult[]
           const matches = yield* repo.searchTable({
             physicalTable: sanitizeTableName(table.name),
             columns: scan.columns,
+            // A translatable column is searched in every language, labelled in the default.
+            languageColumns: defaultLanguageColumnsOf(app, table.name),
             query,
-            // A soft-deleted record is deleted. It stayed searchable — and its
-            // values readable through `label` — because no query this use case
-            // issued carried the filter every other read path applies.
+            // A soft-deleted record is deleted: no query here carried the filter every read applies.
             excludeDeleted: true,
             // A row her rule hides answered with its label and id while the
             // records API refused it — the one read control this scan skipped.

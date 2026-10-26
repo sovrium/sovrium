@@ -13,11 +13,11 @@ import { withTransaction } from '@/infrastructure/database/transaction'
 import { traceDbQuery } from '@/infrastructure/telemetry/db-query-trace'
 import {
   buildAggregationSelects,
-  buildWhereClause,
   checkDeletedAtColumn,
   parseAggregationResult,
   type FilterNode,
 } from '../query-helpers/aggregation-helpers'
+import { whereClauseOf } from '../query-helpers/filter-clause-effect'
 import { maskedRelation, type LookupReadMaskSpec } from '../query-helpers/lookup-read-mask'
 import {
   buildOrderByClause,
@@ -32,10 +32,12 @@ import {
 import { wrapDatabaseError } from '../statement/error-handling'
 import { typedExecute } from '../statement/typed-execute'
 import { validateColumnName } from '../statement/validation'
+import type { TableReadError } from '@/application/ports/repositories/tables/table-repository'
 import type {
   PercentileFields,
   PercentileFigures,
 } from '@/domain/models/app/tables/aggregate-percentile-service'
+import type { CaseFoldedSortField } from '@/domain/models/app/tables/text-sort-service'
 import type { DatabaseError, DrizzleTransaction } from '@/infrastructure/database'
 
 /**
@@ -83,7 +85,7 @@ export type GroupOrder =
       readonly sort?: string
       readonly app?: OrderByAppView
       readonly primaryKey?: OrderByPrimaryKey
-      readonly caseFoldedSortFields?: readonly string[]
+      readonly caseFoldedSortFields?: readonly CaseFoldedSortField[]
     }
   | { readonly kind: 'by-value' }
 
@@ -241,10 +243,15 @@ const runGroupsInTx = (
   tx: Readonly<DrizzleTransaction>,
   config: GroupedAggregationConfig,
   onFailure: (error: unknown) => DatabaseError
-): Effect.Effect<readonly (readonly GroupedAggregationRow[])[], DatabaseError> =>
+): Effect.Effect<readonly (readonly GroupedAggregationRow[])[], TableReadError> =>
   Effect.gen(function* () {
     const hasDeletedAt = yield* checkDeletedAtColumn(tx, config.tableName)
-    const whereClause = buildWhereClause(hasDeletedAt, config.includeDeleted, config.filter)
+    const whereClause = yield* whereClauseOf(
+      config.tableName,
+      hasDeletedAt,
+      config.includeDeleted,
+      config.filter
+    )
     const relation = yield* maskedRelation(tx, config.tableName, config.lookupMasks)
     const source = groupSource(relation, whereClause, config)
     return yield* Effect.forEach(
@@ -268,7 +275,7 @@ const runGroupsInTx = (
  */
 export function computeGroupedAggregations(
   config: GroupedAggregationConfig
-): Effect.Effect<readonly (readonly GroupedAggregationRow[])[], DatabaseError> {
+): Effect.Effect<readonly (readonly GroupedAggregationRow[])[], TableReadError> {
   const onFailure = wrapDatabaseError(`Failed to group records of ${config.tableName}`)
   return traceDbQuery(
     'select',

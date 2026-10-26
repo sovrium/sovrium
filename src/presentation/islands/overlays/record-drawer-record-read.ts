@@ -21,7 +21,12 @@ import {
   type Dispatch,
   type SetStateAction,
 } from 'react'
-import { toEntryFormValues, type ValueEntry, type Values } from './record-drawer-values'
+import {
+  toDisplayRecord,
+  toEntryFormValues,
+  type ValueEntry,
+  type Values,
+} from './record-drawer-values'
 
 export type { Values } from './record-drawer-values'
 export type RawRecord = Record<string, unknown>
@@ -44,13 +49,23 @@ type RecordRead = { readonly record: RawRecord; readonly notFound: boolean }
  * THROWS, so the read is retried and then reported, never seeded as an empty
  * record whose blank fields a Save would write over the stored one.
  */
-async function fetchRecord(table: string, recordId: string): Promise<RecordRead> {
-  const res = await fetch(`/api/tables/${table}/records/${recordId}`)
+async function fetchRecord(
+  table: string,
+  recordId: string,
+  everyLanguage: boolean
+): Promise<RecordRead> {
+  // A translatable field is edited in every language: its whole map is read.
+  const query = everyLanguage ? '?lang=*' : ''
+  const res = await fetch(`/api/tables/${table}/records/${recordId}${query}`)
   if (res.status === 404) return { record: {}, notFound: true }
   if (!res.ok) throw new Error(`Record read failed (${res.status})`)
   const body = (await res.json()) as { readonly record?: RawRecord }
   return { record: body.record ?? (body as RawRecord), notFound: false }
 }
+
+/** Whether the sheet edits a translatable field, whose every language it reads. */
+const readsEveryLanguage = (entries: ReadonlyArray<ValueEntry>): boolean =>
+  entries.some((entry) => entry.languages !== undefined)
 
 /** The record cannot be shown: the drawer offers nothing to edit or save. */
 const answeredNotFound = (
@@ -102,7 +117,7 @@ export function useTableRecordRead(read: {
   const enabled = open && Boolean(table) && Boolean(recordId)
   const recordQuery = useQuery({
     queryKey: ['record-drawer', 'table-record', table, recordId],
-    queryFn: () => fetchRecord(table ?? '', recordId ?? ''),
+    queryFn: () => fetchRecord(table ?? '', recordId ?? '', readsEveryLanguage(entries)),
     enabled,
     // One automatic retry: a single dropped read opens on the record; a read
     // that fails twice is reported, with Retry, rather than retried forever.
@@ -114,6 +129,10 @@ export function useTableRecordRead(read: {
   const retry = useCallback(() => void refetch(), [refetch])
 
   const data = recordQuery.data?.record
+  const shown = useMemo(
+    () => (data === undefined ? undefined : toDisplayRecord(data, entries)),
+    [data, entries]
+  )
   const baseline = useMemo(
     () => (data === undefined ? undefined : toEntryFormValues(data, entries)),
     [data, entries]
@@ -127,7 +146,7 @@ export function useTableRecordRead(read: {
   }, [data, setValues])
 
   return {
-    record: data ?? EMPTY_RECORD,
+    record: shown ?? EMPTY_RECORD,
     baseline,
     notFound: answeredNotFound(enabled, recordQuery),
     // The read and its retry both failed: nothing was loaded, so nothing may be

@@ -64,6 +64,19 @@ export const refuseCodeConfig = Effect.fn('server.restore-refuse-code-config')(f
   )
 })
 
+/** The refusal headline for a PostgreSQL database that holds relations, tables first. */
+export const notEmptyReason = (relations: readonly string[]): string => {
+  const count = relations.length
+  return `DATABASE_URL names a PostgreSQL database that is not empty (it holds ${count} ${count === 1 ? 'table' : 'tables'}, among them ${relations[0] ?? ''})`
+}
+
+/** The refusal for a PostgreSQL database that cannot be reached. */
+export const UNREACHABLE_POSTGRES = {
+  reason: 'Sovrium could not connect to the PostgreSQL database DATABASE_URL names',
+  guidance:
+    "Check DATABASE_URL and that the database server accepts connections, then run 'sovrium restore' again.",
+} as const
+
 /**
  * Refuse unless the PostgreSQL database is reachable and empty. Read-only, and
  * after the five refusals every restore runs. Resolves with the engine schemas
@@ -74,16 +87,16 @@ export const checkPostgresTargetIsEmpty = Effect.fn('server.restore-check-postgr
     const workspace = yield* BackupWorkspace
     const state = yield* workspace.inspectPostgresTarget(databaseUrl)
     if (!state.reachable) {
-      return yield* refuse(
-        'Sovrium could not connect to the PostgreSQL database DATABASE_URL names',
-        "Check DATABASE_URL and that the database server accepts connections, then run 'sovrium restore' again."
-      )
+      return yield* refuse(UNREACHABLE_POSTGRES.reason, UNREACHABLE_POSTGRES.guidance)
     }
-    const [first] = state.relations
-    if (first === undefined) return state.preExistingSchemas
-    const count = state.relations.length
+    if (state.relations.length === 0) {
+      return {
+        preExistingSchemas: state.preExistingSchemas,
+        preExistingRoutines: state.preExistingRoutines,
+      }
+    }
     return yield* refuse(
-      `DATABASE_URL names a PostgreSQL database that is not empty (it holds ${count} ${count === 1 ? 'table' : 'tables'}, among them ${first})`,
+      notEmptyReason(state.relations),
       `${CREATE_EMPTY_DATABASE} A SQLite backup restores only into an empty PostgreSQL database; --force does not change that.`
     )
   }
@@ -113,10 +126,15 @@ const copyStoppedReason = (failure: Readonly<CrossDialectCopyFailure>): string =
     `: ${failure.problem}`,
   ].join('')
 
-/** What a cleanup needs: the database, and the engine schemas that existed before the restore. */
+/**
+ * What a cleanup needs: the database, and what it already held before the
+ * restore — the engine schemas and the routines — so only the restore's own
+ * objects are removed.
+ */
 export interface PostgresTarget {
   readonly databaseUrl: string
   readonly preExistingSchemas: readonly string[]
+  readonly preExistingRoutines: readonly string[]
 }
 
 const RECREATE =
@@ -126,14 +144,16 @@ const RECREATE =
 const emptyAgain = (target: Readonly<PostgresTarget>) =>
   Effect.gen(function* () {
     const workspace = yield* BackupWorkspace
-    return yield* workspace.dropCreatedObjects(target.databaseUrl, target.preExistingSchemas).pipe(
-      Effect.as(true),
-      Effect.tapCause((cause) =>
-        Effect.logWarning('restore: the PostgreSQL database could not be emptied again', cause)
-      ),
-      // Swallowed on purpose: the operator is told to recreate the database instead.
-      Effect.orElseSucceed(() => false)
-    )
+    return yield* workspace
+      .dropCreatedObjects(target.databaseUrl, target.preExistingSchemas, target.preExistingRoutines)
+      .pipe(
+        Effect.as(true),
+        Effect.tapCause((cause) =>
+          Effect.logWarning('restore: the PostgreSQL database could not be emptied again', cause)
+        ),
+        // Swallowed on purpose: the operator is told to recreate the database instead.
+        Effect.orElseSucceed(() => false)
+      )
   })
 
 /**

@@ -54,7 +54,10 @@ type AuthInstance = ReturnType<typeof createAuthInstance>
 /**
  * The engine's own account writes, below its HTTP API: a user with no
  * credential and the one account binding it to an external identity — what the
- * platform seed of a hosted app's first admin needs, and nothing more.
+ * platform seed of a hosted app's first admin needs — and the credential reset
+ * `sovrium admin reset-password` runs: find a user by address, hash a password
+ * with the engine's own hasher, replace or add the credential, and sign every
+ * session of that user out.
  */
 export interface AuthAccountWriter {
   readonly createUser: (
@@ -70,8 +73,21 @@ export interface AuthAccountWriter {
     readonly userId: string
     readonly providerId: string
     readonly accountId: string
+    readonly password?: string
   }) => Promise<unknown>
   readonly deleteUser: (userId: string) => Promise<unknown>
+  readonly findUserByEmail: (
+    email: string,
+    options: { readonly includeAccounts: boolean }
+  ) => Promise<{
+    readonly user: { readonly id: string }
+    readonly accounts: readonly { readonly providerId: string }[]
+  } | null>
+  /** Replace the password hash of the user's `credential` account. */
+  readonly updatePassword: (userId: string, passwordHash: string) => Promise<unknown>
+  readonly deleteUserSessions: (userId: string) => Promise<unknown>
+  /** The engine's own password hasher, so a stored hash verifies at sign-in. */
+  readonly hashPassword: (password: string) => Promise<string>
 }
 
 export class Auth extends Context.Service<

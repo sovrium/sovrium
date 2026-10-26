@@ -177,6 +177,7 @@ function prepareViewQuery(
       labels: params.labels,
       ...(params.aggregate !== undefined && { aggregate: params.aggregate }),
       ...(ratio !== undefined && { ratio }),
+      language: params.language,
     },
   }
 }

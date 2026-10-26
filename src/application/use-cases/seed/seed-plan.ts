@@ -25,6 +25,7 @@
  * operator about link splitting would send them to fix the wrong thing.
  */
 
+import { recordLanguageOrder } from '@/domain/models/app/tables/translatable-field-service'
 import { collectSeedTableEdges, resolveSeedTableOrder, type SeedMode } from '@/domain/models/seed'
 import {
   checkDuplicateKeys,
@@ -35,6 +36,7 @@ import {
   resolveMergeOn,
 } from './seed-checks'
 import { findSeedTable, manyToManyFieldNames, seedTablesOf } from './seed-config'
+import { checkTranslatableValues, withLanguageMaps } from './seed-translatable'
 import { planSeedValue } from './seed-values'
 import type { LoadedSeedFile, PlannedSeedRecord, PlannedSeedTable } from './seed-checks'
 import type { SeedTableConfig } from './seed-config'
@@ -124,6 +126,7 @@ const structuralErrors = (input: BuildSeedPlanInput, tables: readonly SeedTableC
   ...checkRequestedTables(input.requestedTables, input.files),
   ...checkDuplicateKeys(input.files),
   ...checkUndeclaredFields(input.files, tables),
+  ...checkTranslatableValues(input.files, tables, recordLanguageOrder(input.app.languages)),
 ]
 
 /** Merge keys for the in-scope tables, or the refusals that block `upsert`. */
@@ -282,7 +285,14 @@ export const buildSeedPlan = (input: BuildSeedPlanInput): SeedPlanResult => {
       {
         ...entry,
         records: withCreationDate(
-          withCreatedAtFields(entry.records, findSeedTable(tables, entry.file.table)),
+          withCreatedAtFields(
+            withLanguageMaps(
+              entry.records,
+              findSeedTable(tables, entry.file.table),
+              input.app.languages?.default
+            ),
+            findSeedTable(tables, entry.file.table)
+          ),
           input.createdAt
         ),
       },

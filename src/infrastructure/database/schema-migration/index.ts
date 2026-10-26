@@ -40,6 +40,9 @@ export {
   type ViewTopologyStep,
 } from './table-operations'
 
+// Each many-to-many field's own link table
+export { splitSharedLinkTables } from './link-table-splits'
+
 // Type utilities
 export {
   normalizeDataType,

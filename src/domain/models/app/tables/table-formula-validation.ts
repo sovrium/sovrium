@@ -6,7 +6,7 @@
  */
 
 import { detectCycles } from '../../../kernel/matching/cycle-detection'
-import { FORMULA_KEYWORDS } from './formula-keywords'
+import { FORMULA_KEYWORDS, REFUSED_FORMULA_FUNCTIONS } from './formula-keywords'
 
 /**
  * Special field references that are always available in formulas.
@@ -79,7 +79,24 @@ export const extractFieldReferences = (formula: string): ReadonlyArray<string> =
 
   return matches
     .map((match) => match.toLowerCase())
-    .filter((identifier) => !FORMULA_KEYWORDS.has(identifier))
+    .filter(
+      (identifier) =>
+        !FORMULA_KEYWORDS.has(identifier) && !REFUSED_FORMULA_FUNCTIONS.has(identifier)
+    )
+}
+
+/** A call token (`name(`, any case) not the tail of a longer or qualified name. */
+const CALL_TOKEN_PATTERN = /(?<![\w.])([a-z_][a-z0-9_]*)\s*\(/gi
+
+/**
+ * The first function a formula calls that runs on neither engine, outside
+ * string literals and quoted names — a field named `flatten` is not a call.
+ */
+const findRefusedFunction = (formula: string): string | undefined => {
+  const withoutLiterals = formula.replace(/'[^']*'|"[^"]*"/g, "''")
+  return [...withoutLiterals.matchAll(CALL_TOKEN_PATTERN)]
+    .map((match) => (match[1] ?? '').toLowerCase())
+    .find((name) => REFUSED_FORMULA_FUNCTIONS.has(name))
 }
 
 /**
@@ -133,6 +150,19 @@ export const validateFormulaFields = (
   if (syntaxError?.error) {
     return {
       message: syntaxError.error,
+      path: ['fields'],
+    }
+  }
+
+  // A function neither engine runs is refused by name, before it could read as a field
+  const refusedCall = formulaFields
+    .map((formulaField) => ({ formulaField, name: findRefusedFunction(formulaField.formula) }))
+    .find((result) => result.name !== undefined)
+
+  if (refusedCall?.name !== undefined) {
+    const { formulaField, name } = refusedCall
+    return {
+      message: `Formula field '${formulaField.name}' calls ${name}(), which runs on neither SQLite nor PostgreSQL: ${REFUSED_FORMULA_FUNCTIONS.get(name) ?? ''}`,
       path: ['fields'],
     }
   }

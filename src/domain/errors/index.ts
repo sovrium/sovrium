@@ -46,6 +46,7 @@ export { ForbiddenError } from './forbidden-error'
 export { UniqueConstraintViolationError } from './unique-constraint-violation-error'
 export { ForeignKeyViolationError } from './foreign-key-violation-error'
 export { ValidationError } from './validation-error'
+export { UncompilableFilterOperatorError } from './uncompilable-filter-operator-error'
 export { UnknownFilterFieldError } from './unknown-filter-field-error'
 export {
   OPERATOR_FIXES,

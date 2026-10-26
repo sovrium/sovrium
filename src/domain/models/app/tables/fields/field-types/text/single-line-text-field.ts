@@ -34,6 +34,60 @@ export const WriteOnlyOptionSchema = Schema.optional(
 )
 
 /**
+ * `translatable` — one value per declared language, held in the field's own
+ * column as a map from language code to text (`{ "fr": "…", "en": "…" }`).
+ *
+ * Shared by `single-line-text` and `long-text`, the two prose types a record's
+ * content is written in (a product name, an article body, an FAQ answer). Any
+ * other field type refuses the key: an email, a URL, a number or a choice is
+ * not prose and must not differ by language.
+ *
+ * A reader gets ONE string, resolved through the active language, then
+ * `languages.fallback`, then `languages.default`; `?lang=*` and every machine
+ * output (webhooks, realtime, automations, the MCP tools, exports) get the
+ * whole map. `required` means the default-language value is present.
+ */
+export const TranslatableOptionSchema = Schema.optional(
+  Schema.Boolean.pipe(
+    Schema.annotate({
+      title: 'Translatable',
+      description:
+        "Store one value per language the app declares, in the field's own column, as a map from language code to text. A reader receives one string, chosen by the active language (the request's `lang` parameter, then its `Accept-Language` header, on a page the page's own language), then `languages.fallback`, then `languages.default`; a records request with `lang=*` receives the whole map instead. Webhooks, realtime events, the MCP record tools, the JSON export and the GDPR export always carry the whole map, and the CSV export gives it one column per declared language (`name.en`, `name.fr`); an automation template prints the default-language value, `{{trigger.data.record.name.fr}}` one language. A filter or a sort compares the default-language value; a search reads every language. A write of a plain string sets the active language and keeps the others; a write of an object merges by language, and a language set to `null` is removed. `required` asks for the default-language value only. It needs at least two declared languages. It cannot be combined with `writeOnly` or `fullTextSearch`. On a `single-line-text`, `unique` holds within each language: two live records cannot share a value in the same language, while the same value in two languages is allowed, and a record with no value in a language never collides. A `long-text` cannot be `unique`, and a table-level `unique` entry cannot name a translatable field; a formula, rollup or condition cannot read it.",
+      howTo:
+        'Declare `languages` with two or more entries, then set `translatable: true` on the text field whose content differs by language — a product name, an article body. Leave codes that are the same in every language (a SKU) untranslatable; a slug that differs by language can be one translatable `unique` field. Seed a value as a string for the default language, or as a map: `{ en: Linen shirt, fr: Chemise en lin }`. Adding a language later needs no migration; turning the option off keeps only the default-language value and asks for `allowDestructive`.',
+      defaultNote: 'false — the field holds one value, the same in every language',
+    })
+  )
+)
+
+/**
+ * The `default` of a field that may be translatable: a string, or a map from
+ * language code to text.
+ *
+ * A string is the default-language value. A map gives a value per language and
+ * is only meaningful on a `translatable` field; its keys must be declared
+ * language codes.
+ */
+export const TranslatableDefaultSchema = Schema.optional(
+  Schema.Union([
+    Schema.String,
+    Schema.Record(Schema.String, Schema.String).pipe(
+      Schema.annotate({
+        title: 'Per-language default',
+        description:
+          'A default value per language, keyed by declared language code — `{ en: Untitled, fr: Sans titre }`. Only a `translatable` field takes a map.',
+      })
+    ),
+  ]).pipe(
+    Schema.annotate({
+      identifier: 'TextFieldDefault',
+      description:
+        'Default value for this field when creating new records. On a `translatable` field, a string is the default-language value and a map gives one value per declared language.',
+    })
+  )
+)
+
+/**
  * Single Line Text Field
  *
  * Short text input limited to a single line. Ideal for names, titles, labels,
@@ -67,14 +121,9 @@ export const SingleLineTextFieldSchema = BaseFieldSchema.pipe(
           "Constant value 'single-line-text' for type discrimination in discriminated unions",
       })
     ),
-    default: Schema.optional(
-      Schema.String.pipe(
-        Schema.annotate({
-          description: 'Default value for this field when creating new records',
-        })
-      )
-    ),
+    default: TranslatableDefaultSchema,
     writeOnly: WriteOnlyOptionSchema,
+    translatable: TranslatableOptionSchema,
   }),
   Schema.annotate({
     title: 'Single Line Text Field',

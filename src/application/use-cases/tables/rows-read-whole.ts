@@ -26,8 +26,10 @@ import { omitHiddenLookups } from './hidden-lookup-omission'
 import { readableKeys, type LinkReader } from './linked-row-visibility'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
-import type { DatabaseError } from '@/domain/errors'
+import type {
+  TableReadError,
+  TableRepository,
+} from '@/application/ports/repositories/tables/table-repository'
 import type { App, Table } from '@/domain/models/app'
 
 type Row = Readonly<Record<string, unknown>>
@@ -38,7 +40,11 @@ const allReadable = (
   table: Table,
   keys: readonly string[],
   reader: LinkReader
-): Effect.Effect<boolean, DatabaseError, TableRepository | DataSourceRepository | AuthRepository> =>
+): Effect.Effect<
+  boolean,
+  TableReadError,
+  TableRepository | DataSourceRepository | AuthRepository
+> =>
   readableKeys(app, table, keys, reader).pipe(
     Effect.map((readable) => readable === undefined || keys.every((key) => readable.has(key)))
   )
@@ -78,7 +84,11 @@ export const rowsReadWholeBy = (
   tableName: string,
   rows: readonly Row[],
   reader: LinkReader
-): Effect.Effect<boolean, DatabaseError, TableRepository | DataSourceRepository | AuthRepository> =>
+): Effect.Effect<
+  boolean,
+  TableReadError,
+  TableRepository | DataSourceRepository | AuthRepository
+> =>
   Effect.gen(function* () {
     const table = app.tables?.find((candidate) => candidate.name === tableName)
     if (table === undefined) return false

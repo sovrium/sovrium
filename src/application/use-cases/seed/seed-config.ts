@@ -37,6 +37,8 @@ export interface SeedField {
   readonly min?: number | undefined
   readonly max?: number | undefined
   readonly options?: readonly (string | { readonly value?: string })[] | undefined
+  /** A text field holding one value per language: seeded with a string or a map. */
+  readonly translatable?: boolean | undefined
 }
 
 /** A table as the seeder sees it. */

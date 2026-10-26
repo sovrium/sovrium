@@ -85,6 +85,8 @@ export interface RecordsDataSource extends SharedFilterBindingConfig, LiveRefres
    */
   readonly system?: SystemSource
   readonly view?: string
+  /** The language translatable fields read in, stamped by the server (`?lang=`). */
+  readonly lang?: string
   readonly filter?: readonly DataFilter[]
   readonly sort?: readonly DataSort[]
   /**
@@ -159,7 +161,9 @@ const buildPageRequest = (
   view: dataSource?.view,
   sortParam: buildSortParam(dataSource?.sort),
   filterParam: shared.filterParam,
-  extraParams: shared.extraParams,
+  extraParams: dataSource?.lang
+    ? { ...shared.extraParams, lang: dataSource.lang }
+    : shared.extraParams,
   pageSize,
 })
 

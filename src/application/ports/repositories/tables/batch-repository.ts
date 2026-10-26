@@ -39,7 +39,8 @@ export interface BatchValidationError extends Error {
 export interface BatchCreateLink {
   readonly relatedTable: string
   readonly relatedIds: readonly (string | number)[]
-  readonly hasReciprocal: boolean
+  readonly linkTable: string
+  readonly mirrorLinkTable?: string | undefined
 }
 
 /**

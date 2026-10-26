@@ -5,7 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { ProtocolError, type Server } from '@modelcontextprotocol/server'
+import {
+  PROJECT_BRIEF_FILES,
+  composeProjectBrief,
+  describeSkippedBriefFile,
+  type ProjectBrief,
+} from '@/cli/commands/mcp-project-brief'
+import { printStderr } from '@/infrastructure/logging/cli-output'
 
 /**
  * The binary's agent skills, served as MCP `prompts` over stdio.
@@ -23,6 +32,12 @@ import { ProtocolError, type Server } from '@modelcontextprotocol/server'
  * `references/` are not served: a prompt is one message, and the body is
  * written to stand on its own.
  *
+ * Beside the skills, the project's OWN brief: a root `PROMPT.md` and/or
+ * `CLAUDE.md` (what a starter ships for the AI that builds it) is offered as
+ * the `project-brief` prompt. It is read from disk on every `prompts/list` and
+ * `prompts/get`, so an edit shows without a restart and `listChanged` can stay
+ * false; with neither file it is absent, exactly like an unknown name.
+ *
  * The skills payload is reached by `await import()` inside each handler,
  * never at the top of this module: `mcp.ts` imports this file, and a session
  * that never asks for a prompt must not pay for the payload
@@ -34,7 +49,29 @@ const INVALID_PARAMS = -32_602
 
 const loadSkills = async () => import('@/infrastructure/assets/embedded-skills')
 
-export const registerSkillPrompts = (server: Server): void => {
+/** The prompt name the project's own brief is served under. */
+const PROJECT_BRIEF_PROMPT = 'project-brief'
+
+const readBriefFile = async (projectDir: string, name: string) => {
+  try {
+    return { name, bytes: new Uint8Array(await readFile(join(projectDir, name))) }
+  } catch {
+    // Absent, a directory, unreadable: not a brief file, and not a fault.
+    return undefined
+  }
+}
+
+/** Read the brief afresh; each skipped file earns one stderr line, never stdout. */
+const readProjectBrief = async (projectDir: string): Promise<ProjectBrief | undefined> => {
+  const files = await Promise.all(
+    PROJECT_BRIEF_FILES.map(async (name) => readBriefFile(projectDir, name))
+  )
+  const { brief, skipped } = composeProjectBrief(files.filter((file) => file !== undefined))
+  skipped.forEach((skip) => printStderr(describeSkippedBriefFile(skip)))
+  return brief
+}
+
+export const registerSkillPrompts = (server: Server, projectDir: string): void => {
   server.setRequestHandler('prompts/list', async () => {
     const skills = await loadSkills()
     const prompts = await Promise.all(
@@ -43,12 +80,23 @@ export const registerSkillPrompts = (server: Server): void => {
         description: (await skills.readEmbeddedSkillFrontmatter(name)).description,
       }))
     )
-    return { prompts } as never
+    const brief = await readProjectBrief(projectDir)
+    const listed = brief
+      ? [...prompts, { name: PROJECT_BRIEF_PROMPT, description: brief.description }]
+      : prompts
+    return { prompts: listed } as never
   })
 
   server.setRequestHandler('prompts/get', async (request) => {
     const { params } = request as { readonly params?: { readonly name?: unknown } }
     const name = typeof params?.name === 'string' ? params.name : ''
+    const brief = name === PROJECT_BRIEF_PROMPT ? await readProjectBrief(projectDir) : undefined
+    if (brief) {
+      return {
+        description: brief.description,
+        messages: [{ role: 'user', content: { type: 'text', text: brief.text } }],
+      } as never
+    }
     const skills = await loadSkills()
     const known = skills.embeddedSkillNames()
     if (!known.includes(name)) {

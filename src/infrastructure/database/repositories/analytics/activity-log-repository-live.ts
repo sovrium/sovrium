@@ -22,7 +22,7 @@ import {
 } from '@/infrastructure/database/drizzle/dialect-schema'
 import { activityLogs as activityLogsPg } from '@/infrastructure/database/drizzle/schema/activity-log'
 import { activityLogs as activityLogsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/activity-log'
-import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import { makeDbWrap, passingFilterRefusal } from '@/infrastructure/database/sql/db-effect'
 import { executeRawTyped } from '@/infrastructure/database/sql/dialect-execute'
 import { listTableColumns } from '@/infrastructure/database/sql/dialect-introspection'
 import { dateIntervalAgo } from '@/infrastructure/database/sql/dialect-sql-helpers'
@@ -42,6 +42,11 @@ const activityLogs = resolveDialectSchema(activityLogsPg, activityLogsSqlite)
 
 /** Wrap a DB promise, adapting failures to ActivityLogDatabaseError. */
 const wrap = makeDbWrap((error) => new ActivityLogDatabaseError({ cause: error }))
+
+/** {@link wrap}, passing a filter compiler's refusal of an unknown operator through as itself. */
+const wrapPassingRefusal = makeDbWrap(
+  passingFilterRefusal((error) => new ActivityLogDatabaseError({ cause: error }))
+)
 
 /** A user table's `id` as the activity log names it: text. */
 const idAsText = sql`CAST(${sql.identifier('id')} AS TEXT)`
@@ -183,13 +188,13 @@ export const ActivityLogRepositoryLive = Layer.succeed(ActivityLogRepository, {
    * the filters and the reader's admission match — both judged here, so a
    * reader's page costs two statements however many records it names.
    */
-  listPage: (query) => wrap(async () => listActivityPage(query)),
+  listPage: (query) => wrapPassingRefusal(async () => listActivityPage(query)),
 
   /**
    * The live rows of one table an activity gate judges, in one statement.
    */
   liveRecords: (query) =>
-    wrap(async () => {
+    wrapPassingRefusal(async () => {
       const columns = await tableColumns(query.tableName)
       const recordIds =
         query.recordIds === 'logged'

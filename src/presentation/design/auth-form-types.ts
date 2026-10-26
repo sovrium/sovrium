@@ -153,11 +153,12 @@ export const isAccountLinkMethod = (method: string | undefined): boolean =>
  * The engine strings (catalogue keys, by prefix) each auth form speaks in the
  * page language: the enrolment and recovery-codes screens, the banner a
  * password sign-in shows while a two-step code is owed, the « check your
- * email » a mailed link answers with, the second step's « trust this device »
+ * email » a mailed link answers with, a sign-in's refusal of a wrong address
+ * or password, the second step's « trust this device »
  * and a new API key's reveal.
  */
 const ENGINE_STRING_PREFIXES: Readonly<Record<string, readonly string[]>> = {
-  login: ['twoFactor.pendingSignIn', 'auth.magicLinkSent'],
+  login: ['twoFactor.pendingSignIn', 'auth.magicLinkSent', 'auth.invalidCredentials'],
   resetPassword: ['auth.resetSent'],
   verifyTwoFactor: ['auth.trustDevice'],
   enableTwoFactor: ['twoFactor.'],

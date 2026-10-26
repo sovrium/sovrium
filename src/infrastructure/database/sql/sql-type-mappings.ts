@@ -6,6 +6,7 @@
  */
 
 import { resolveArrayItemSqlType } from '@/domain/models/app/tables/fields/field-types/advanced/array-item-type'
+import { declaresTranslatable } from '@/domain/models/app/tables/translatable-field-service'
 import { isUserListField } from '@/domain/models/app/tables/user-list-field-service'
 import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
 import type { Fields } from '@/domain/models/app/tables/fields'
@@ -268,6 +269,8 @@ export const mapFieldTypeToPostgres = (field: Fields[number]): string => {
   // A `user` field holding several people stores a list of account ids, like
   // a multi-select: `text[]` here, JSON text on SQLite.
   if (isUserListField(field)) return 'TEXT[]'
+  // A translatable text field holds a map from language code to text.
+  if (declaresTranslatable(field)) return 'JSONB'
   const special = specialCasePostgresType(field)
   if (special !== undefined) return special
   const postgresType = fieldTypeToPostgresMap[field.type]

@@ -10,6 +10,7 @@ import {
   AccountCreationError,
   AccountProvisioner,
   type NewBoundAccount,
+  type PasswordReset,
 } from '@/application/ports/services/account-provisioner'
 import { logError } from '@/infrastructure/logging/logger'
 import { Auth } from './auth-service'
@@ -50,6 +51,36 @@ const createBoundUserWith = async (
     throw cause
   }
   return { userId: user.id }
+}
+
+/**
+ * A new password for the account `email` names, hashed by the engine's own
+ * hasher so sign-in verifies it: the `credential` account's hash replaced, or
+ * a `credential` account added for a user who had none (one bound to an
+ * external identity only). Then every session of that user is deleted, so a
+ * laptop signed in with the lost password is signed out.
+ */
+const resetPasswordWith = async (
+  auth: Context.Service.Shape<typeof Auth>,
+  reset: Readonly<PasswordReset>
+): Promise<{ readonly found: boolean }> => {
+  const writer = await auth.accountWriter()
+  const found = await writer.findUserByEmail(reset.email, { includeAccounts: true })
+  if (found === null) return { found: false }
+  const userId = found.user.id
+  const passwordHash = await writer.hashPassword(reset.password)
+  if (found.accounts.some((account) => account.providerId === 'credential')) {
+    await writer.updatePassword(userId, passwordHash)
+  } else {
+    await writer.createAccount({
+      userId,
+      providerId: 'credential',
+      accountId: userId,
+      password: passwordHash,
+    })
+  }
+  await writer.deleteUserSessions(userId)
+  return { found: true }
 }
 
 /**
@@ -94,6 +125,11 @@ export const AccountProvisionerLive: Layer.Layer<AccountProvisioner, never, Auth
           try: () => createBoundUserWith(auth, account),
           catch: (cause) => new AccountCreationError({ cause }),
         }).pipe(Effect.withSpan('auth.create-bound-user')),
+      resetPassword: (reset) =>
+        Effect.tryPromise({
+          try: () => resetPasswordWith(auth, reset),
+          catch: (cause) => new AccountCreationError({ cause }),
+        }).pipe(Effect.withSpan('auth.reset-password')),
     })
   })
 )

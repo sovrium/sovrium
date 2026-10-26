@@ -103,6 +103,10 @@ interface ParsedFlags {
   readonly typescript: boolean
   readonly gitInit: boolean
   readonly fromUrl: string | undefined
+  readonly fromBundle: string | undefined
+  readonly expectSha256: string | undefined
+  readonly inspect: boolean
+  readonly withDemoData: boolean
   readonly password: string | undefined
   readonly seedDir: string | undefined
   readonly mode: string | undefined
@@ -182,6 +186,10 @@ const parseAllFlags = (argv: readonly string[]): ParsedFlags => ({
   typescript: argv.includes('--typescript'),
   gitInit: argv.includes('--git'),
   fromUrl: getFlagValue(argv, '--from-url'),
+  fromBundle: getFlagValue(argv, '--from-bundle'),
+  expectSha256: getFlagValue(argv, '--expect-sha256'),
+  inspect: argv.includes('--inspect'),
+  withDemoData: argv.includes('--with-demo-data'),
   password: getFlagValue(argv, '--password'),
   ...parseSeedFlags(argv),
   dryRun: argv.includes('--dry-run'),
@@ -243,6 +251,17 @@ const changelogArgsOf = (
   changelogSince: getFlagPathValue(argv, '--since'),
 })
 
+/** The `sovrium init --from-url` / `--from-bundle` flags, carried into the result as parsed. */
+const initSourceArgsOf = (
+  flags: ParsedFlags
+): Pick<ParsedArgs, 'fromUrl' | 'fromBundle' | 'expectSha256' | 'inspect' | 'withDemoData'> => ({
+  fromUrl: flags.fromUrl,
+  fromBundle: flags.fromBundle,
+  expectSha256: flags.expectSha256,
+  inspect: flags.inspect,
+  withDemoData: flags.withDemoData,
+})
+
 /** The `sovrium seed` flags, carried into the result as parsed. */
 const seedArgsOf = (
   flags: ParsedFlags
@@ -285,7 +304,7 @@ const buildStandardResult = (
     appName: flags.appName,
     typescript: flags.typescript,
     gitInit: flags.gitInit,
-    fromUrl: flags.fromUrl,
+    ...initSourceArgsOf(flags),
     forceFlag: flags.forceFlag,
     publicDir: flags.publicDir,
     positionalArg,

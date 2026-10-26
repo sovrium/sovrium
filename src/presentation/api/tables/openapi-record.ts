@@ -21,6 +21,7 @@ import {
 import {
   commentBodySchema,
   commentOnlyParamSchema,
+  getRecordQuerySchema,
   listRecordsQuerySchema,
   recordOnlyParamSchema,
 } from '@/domain/models/api/tables/params'
@@ -105,7 +106,10 @@ const routes: readonly RouteSpec[] = [
     summary: 'Get a record',
     description: 'Returns a single record by ID with all field values.',
     operationIdBase: 'getRecord',
-    parameters: effectParameters(recordOnlyParamSchema, 'path'),
+    parameters: [
+      ...effectParameters(recordOnlyParamSchema, 'path'),
+      ...effectParameters(getRecordQuerySchema, 'query'),
+    ],
     responses: {
       200: effectJsonResponse(getRecordResponseSchema, 'Record details'),
       401: errorResponse('Unauthorized'),

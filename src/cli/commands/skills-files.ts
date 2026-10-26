@@ -32,9 +32,9 @@ import {
   type Manifest,
 } from '@/cli/commands/skills-agent-file'
 import { rootEscapesProject, symlinkFindings } from '@/cli/commands/skills-symlinks'
-import { getCurrentVersion } from '@/cli/commands/update'
 import { listFilesBelow } from '@/infrastructure/filesystem/list-files-below'
 import { printStderr } from '@/infrastructure/logging/cli-output'
+import { devStampNotice, getBuildStamp, isDevStamp } from '@/infrastructure/process/build-stamp'
 
 /**
  * The file half of `sovrium skills`: what the binary ships, what a project
@@ -127,10 +127,12 @@ const listFiles = async (root: string): Promise<readonly string[]> =>
 /**
  * The binary's skills, as this version writes them: every `SKILL.md` stamped
  * with `metadata.product-version`, every reference verbatim, sorted by path.
+ * The stamp is the build's (`getBuildStamp`): the version for a tagged
+ * release, `<version>-dev+<sha>` for a source run or any other build.
  */
 export const loadSkillsCatalogue = async (): Promise<SkillsCatalogue> => {
   const loader = await import('@/infrastructure/assets/embedded-skills')
-  const version = await getCurrentVersion()
+  const version = getBuildStamp()
   const names = loader.embeddedSkillNames()
   const nested = await Promise.all(
     names.map(async (name) =>
@@ -360,6 +362,7 @@ export const writeSkillsForScaffold = async (projectDir: string): Promise<readon
   const agentDir = agentDirFor(dir)
   const agentWrites = await agentWritesForScaffold(agentDir, catalogue.agents)
   if (writes.length === 0 && agentWrites.length === 0) return []
+  if (isDevStamp(catalogue.version)) printStderr(devStampNotice(catalogue.version))
 
   const existing = await readManifestText(dir)
     .then((text) => parseManifest(dir, text))

@@ -23,6 +23,13 @@ import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
+import { recordLanguageOrder } from '@/domain/models/app/tables/translatable-field-service'
+import { translatedCondition } from '@/domain/models/app/tables/translatable-query-service'
+import {
+  isUniqueInEachLanguage,
+  languageUniqueView,
+  type LanguageUniqueView,
+} from '@/domain/models/app/tables/translatable-unique-service'
 import {
   collidingFieldsOf,
   decideUniqueCollisionAnswer,
@@ -37,8 +44,10 @@ import {
 } from '@/domain/models/app/tables/unique-collision-visibility-service'
 import { logError } from '@/infrastructure/logging/logger'
 import type { UserSession } from '@/application/ports/contracts/user-session'
-import type { QueryFilterNode } from '@/application/ports/repositories/tables/table-repository'
-import type { DatabaseError } from '@/domain/errors'
+import type {
+  TableReadError,
+  QueryFilterNode,
+} from '@/application/ports/repositories/tables/table-repository'
 import type { App, Table } from '@/domain/models/app'
 
 /** What a refused write wrote, as far as uniqueness goes. */
@@ -75,34 +84,49 @@ export interface UniqueConflictReader {
   readonly rowReadable: ((row: Readonly<Record<string, unknown>>) => boolean) | undefined
 }
 
-/** One probed rule as a filter: a stored record holding every field of one tuple. */
-const probeFilterOf = (probe: UniqueProbe): QueryFilterNode => {
-  const [only] = probe.fields
-  if (probe.fields.length === 1 && only !== undefined) {
-    return { field: only, operator: 'in', value: probe.tuples.map((tuple) => tuple[0]) }
-  }
-  return {
-    or: probe.tuples.map((tuple) => ({
-      and: probe.fields.map((field, index) => ({
-        field,
-        operator: 'equals',
-        value: tuple[index],
+/**
+ * One probed rule as a filter: a stored record holding every field of one
+ * tuple. A translatable unique field's rule is one language's (`slug (fr)`),
+ * compared against that language's value of the stored map.
+ */
+const probeFilterOf =
+  (view: LanguageUniqueView) =>
+  (probe: UniqueProbe): QueryFilterNode => {
+    const [only] = probe.fields
+    const language = only === undefined ? undefined : view.targets.get(only)
+    const values = probe.tuples.map((tuple) => tuple[0])
+    if (probe.fields.length === 1 && language !== undefined) {
+      return translatedCondition(language.field, { operator: 'in', value: values }, language.code)
+    }
+    if (probe.fields.length === 1 && only !== undefined) {
+      return { field: only, operator: 'in', value: values }
+    }
+    return {
+      or: probe.tuples.map((tuple) => ({
+        and: probe.fields.map((field, index) => ({
+          field,
+          operator: 'equals',
+          value: tuple[index],
+        })),
       })),
-    })),
+    }
   }
-}
 
 /** The live records holding one of the probed tuples, less the ones the write addresses. */
 const holdersOf = (
   session: Readonly<UserSession>,
   tableName: string,
-  lookup: { readonly probes: readonly UniqueProbe[]; readonly excludeIds: readonly string[] }
-): Effect.Effect<readonly Record<string, unknown>[], DatabaseError, TableRepository> =>
+  lookup: {
+    readonly probes: readonly UniqueProbe[]
+    readonly excludeIds: readonly string[]
+    readonly view: LanguageUniqueView
+  }
+): Effect.Effect<readonly Record<string, unknown>[], TableReadError, TableRepository> =>
   Effect.gen(function* () {
     const { probes, excludeIds } = lookup
     if (probes.length === 0) return []
     const repo = yield* TableRepository
-    const held: QueryFilterNode = { or: probes.map(probeFilterOf) }
+    const held: QueryFilterNode = { or: probes.map(probeFilterOf(lookup.view)) }
     const others: readonly QueryFilterNode[] =
       excludeIds.length === 0 ? [] : [{ field: 'id', operator: 'notIn', value: excludeIds }]
     return yield* repo.listRecords({ session, tableName, filter: { and: [held, ...others] } })
@@ -119,7 +143,7 @@ const liveRecordsById = (
   session: Readonly<UserSession>,
   tableName: string,
   ids: readonly string[]
-): Effect.Effect<ReadonlyMap<string, Record<string, unknown>>, DatabaseError, TableRepository> =>
+): Effect.Effect<ReadonlyMap<string, Record<string, unknown>>, TableReadError, TableRepository> =>
   Effect.gen(function* () {
     if (ids.length === 0) return new Map()
     const repo = yield* TableRepository
@@ -139,7 +163,7 @@ const upsertMatchOf = (
     readonly written: Readonly<Record<string, unknown>>
     readonly match: UniqueWrite['match']
   }
-): Effect.Effect<Record<string, unknown> | undefined, DatabaseError, TableRepository> =>
+): Effect.Effect<Record<string, unknown> | undefined, TableReadError, TableRepository> =>
   Effect.gen(function* () {
     const { written, match } = input
     if (match === undefined || match.fields.length === 0) return undefined
@@ -169,7 +193,7 @@ const addressedWritesOf = (
   session: Readonly<UserSession>,
   tableName: string,
   write: UniqueWrite
-): Effect.Effect<readonly AddressedWrite[], DatabaseError, TableRepository> =>
+): Effect.Effect<readonly AddressedWrite[], TableReadError, TableRepository> =>
   Effect.gen(function* () {
     const ids = write.excludeIds ?? []
     const aligned = ids.length === write.written.length
@@ -191,26 +215,52 @@ const holdersWhenNeeded = (
     readonly table: Table
     readonly write: UniqueWrite
   },
-  sets: readonly (readonly string[])[]
+  view: LanguageUniqueView
 ): Effect.Effect<
   { readonly probes: readonly UniqueProbe[]; readonly rows: readonly Record<string, unknown>[] },
-  DatabaseError,
+  TableReadError,
   TableRepository
 > =>
   Effect.gen(function* () {
     const { session, table, write } = input
     const addressed = yield* addressedWritesOf(session, table.name, write)
+    const { sets, expand } = view
     const probes = uniqueProbesOf(
       sets,
-      addressed.map((entry) => writtenOverStored(sets, entry.written, entry.stored))
+      addressed.map((entry) =>
+        writtenOverStored(
+          sets,
+          expand(entry.written),
+          entry.stored === undefined ? undefined : expand(entry.stored)
+        )
+      )
     )
     const matched = addressed.flatMap((entry) =>
       entry.stored === undefined ? [] : [String(entry.stored['id'])]
     )
     const excludeIds = [...new Set([...(write.excludeIds ?? []), ...matched])]
-    const rows = yield* holdersOf(session, table.name, { probes, excludeIds })
+    const rows = yield* holdersOf(session, table.name, { probes, excludeIds, view })
     return { probes, rows }
   })
+
+/** The table's uniqueness rules, a translatable unique field judged per language (`slug (fr)`). */
+const languageViewOf = (app: App, table: Table): LanguageUniqueView =>
+  languageUniqueView(
+    distinctUniqueFieldSetsOf(table),
+    table.fields.filter(isUniqueInEachLanguage).map((field) => field.name),
+    recordLanguageOrder(app.languages)
+  )
+
+/** Whether `reader` reads a field — a `slug (fr)` label reading as its field. */
+const fieldReadableBy =
+  (app: App, table: Table, reader: UniqueConflictReader, view: LanguageUniqueView) =>
+  (field: string): boolean =>
+    isFieldReadableByCaller(
+      app,
+      table.name,
+      { role: reader.role, groups: reader.groups },
+      view.targets.get(field)?.field ?? field
+    )
 
 /** The answer `reader` gets for a write to `table` refused over a taken unique value. */
 export const uniqueConflictAnswerProgram = (input: {
@@ -222,9 +272,10 @@ export const uniqueConflictAnswerProgram = (input: {
 }): Effect.Effect<UniqueCollisionAnswer, never, TableRepository> =>
   Effect.gen(function* () {
     const { app, table, write, reader } = input
-    const fieldReadable = (field: string) =>
-      isFieldReadableByCaller(app, table.name, { role: reader.role, groups: reader.groups }, field)
-    const sets = distinctUniqueFieldSetsOf(table)
+    const view = languageViewOf(app, table)
+    const fieldReadable = fieldReadableBy(app, table, reader, view)
+    const { sets, expand } = view
+    const written = write.written.map(expand)
     const needed = uniqueCollisionNeedsHolders({
       rowScoped: reader.rowReadable !== undefined,
       involvedFields: uniqueInvolvedFieldsOf(table).filter((field) =>
@@ -233,7 +284,7 @@ export const uniqueConflictAnswerProgram = (input: {
       fieldReadable,
     })
     const looked = needed
-      ? yield* holdersWhenNeeded(input, sets).pipe(
+      ? yield* holdersWhenNeeded(input, view).pipe(
           Effect.tapCause((cause) =>
             Effect.sync(() =>
               logError(
@@ -247,7 +298,7 @@ export const uniqueConflictAnswerProgram = (input: {
         )
       : undefined
     const rowReadable = reader.rowReadable ?? (() => true)
-    const probes = looked?.probes ?? uniqueProbesOf(sets, write.written)
+    const probes = looked?.probes ?? uniqueProbesOf(sets, written)
     return decideUniqueCollisionAnswer({
       callerReadsEverything: isAdminEquivalent(reader.role, app),
       tableReadable: reader.readsTable,
@@ -255,9 +306,9 @@ export const uniqueConflictAnswerProgram = (input: {
       fieldReadable,
       holders: looked?.rows.map((row) => ({
         rowReadable: rowReadable(row),
-        fields: collidingFieldsOf(row, probes),
+        fields: collidingFieldsOf(expand(row), probes),
       })),
-      requestRepeats: requestRepeatsUniqueValue(sets, write.written),
+      requestRepeats: requestRepeatsUniqueValue(sets, written),
     })
   }).pipe(Effect.withSpan('tables.unique-conflict-answer-program'))
 
@@ -266,7 +317,7 @@ export const recordsByIdProgram = (input: {
   readonly session: Readonly<UserSession>
   readonly tableName: string
   readonly ids: readonly string[]
-}): Effect.Effect<readonly Record<string, unknown>[], DatabaseError, TableRepository> =>
+}): Effect.Effect<readonly Record<string, unknown>[], TableReadError, TableRepository> =>
   Effect.gen(function* () {
     const { session, tableName, ids } = input
     if (ids.length === 0) return []

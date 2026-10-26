@@ -177,7 +177,7 @@ const filterLeaves = (
  */
 export const uncompilableFilterOperator = (
   queryFilter: QueryFilter
-): { readonly field: string; readonly message: string } | undefined => {
+): { readonly field: string; readonly operator: string; readonly message: string } | undefined => {
   const refused = (queryFilter.and ?? [])
     .flatMap(filterLeaves)
     .find(
@@ -187,6 +187,7 @@ export const uncompilableFilterOperator = (
     ? undefined
     : {
         field: refused.field,
+        operator: refused.operator,
         message: `filter on field '${refused.field}': ${uncompilableOperatorMessage(refused.operator)}`,
       }
 }

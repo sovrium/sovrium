@@ -131,6 +131,7 @@ function detailOf(item: DescriptionItem, context: DetailContext): ReactNode {
     tableName: item._recordTable,
     tables: context.tables,
     lang: context.lang,
+    languages: context.languages,
   })
 }
 

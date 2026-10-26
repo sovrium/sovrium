@@ -81,19 +81,20 @@ const answeredValues = (answer: unknown): readonly string[] => {
 
 /**
  * The first table field whose answer carries a value its `options` leave out,
- * by its column (the key the body is keyed by), or `undefined` when every
- * answer is offered. One withheld value in a multi-choice answer is enough.
+ * with the first such value, or `undefined` when every answer is offered.
  *
  * @param fields - The form's fields.
  * @param body - The submitted answers, keyed by each field's submit identifier.
  */
-export const findWithheldChoiceField = (
+export const findWithheldChoice = (
   fields: ReadonlyArray<SubmittedFieldShape>,
   body: Readonly<Record<string, unknown>>
-): string | undefined =>
-  fields.find((field) => {
-    if (field.kind !== 'table-field' || field.column === undefined) return false
-    if (field.options === undefined) return false
+): { readonly column: string; readonly value: string } | undefined =>
+  fields.reduce<{ readonly column: string; readonly value: string } | undefined>((found, field) => {
+    if (found !== undefined) return found
+    if (field.kind !== 'table-field' || field.column === undefined) return undefined
+    if (field.options === undefined) return undefined
     const offered = new Set(field.options.map((choice) => choice.value))
-    return answeredValues(body[field.column]).some((value) => !offered.has(value))
-  })?.column
+    const value = answeredValues(body[field.column]).find((answer) => !offered.has(answer))
+    return value === undefined ? undefined : { column: field.column, value }
+  }, undefined)

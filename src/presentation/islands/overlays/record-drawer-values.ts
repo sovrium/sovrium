@@ -17,7 +17,10 @@
  *  - a duration holds `h:mm`, the way a person reads one, and sends seconds;
  *  - a JSON value holds its text, indented, and sends the parsed value — after
  *    {@link invalidJsonFields} has refused text that does not parse;
- *  - a cleared single link sends `null`, never an empty key.
+ *  - a cleared single link sends `null`, never an empty key;
+ *  - a translatable field holds one string per language: the default
+ *    language's under its name, every other under `<name>.<code>`, and sends
+ *    them as one object of languages, an emptied one as `''`, which removes it.
  */
 
 import {
@@ -37,6 +40,59 @@ export interface ValueEntry {
   readonly relatedTable?: string
   readonly allowMultiple?: boolean
   readonly displayFormat?: string
+  /** A translatable field's languages, the default first. */
+  readonly languages?: ReadonlyArray<{ readonly code: string }>
+}
+
+/**
+ * The key a translatable field's value in `code` is held under: its name for
+ * the default language — so a `required` check reads it as it reads any
+ * field — and `<name>.<code>` for every other.
+ */
+export const languageValueKey = (entry: ValueEntry, code: string): string =>
+  code === entry.languages?.[0]?.code ? entry.name : `${entry.name}.${code}`
+
+/** A translatable cell's map: a string read before the field was translatable is the default's. */
+const languageMapOf = (entry: ValueEntry, value: unknown): Readonly<Record<string, unknown>> => {
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    return value as Readonly<Record<string, unknown>>
+  }
+  const code = entry.languages?.[0]?.code
+  return typeof value === 'string' && code !== undefined ? { [code]: value } : {}
+}
+
+/** What a translatable field's controls hold: one string per language. */
+const languageFormValues = (entry: ValueEntry, value: unknown): Values => {
+  const map = languageMapOf(entry, value)
+  return Object.fromEntries(
+    (entry.languages ?? []).map(({ code }) => [
+      languageValueKey(entry, code),
+      toFormValue(map[code]),
+    ])
+  )
+}
+
+/**
+ * A record as the drawer draws it: each translatable field in the default
+ * language, else its first language holding a value — the read serves the
+ * whole map (`?lang=*`) for the controls, and a title or a read-only value
+ * prints one string.
+ */
+export function toDisplayRecord(
+  record: Readonly<Record<string, unknown>>,
+  entries: ReadonlyArray<ValueEntry>
+): Readonly<Record<string, unknown>> {
+  const translatable = entries.filter((entry) => entry.languages !== undefined)
+  if (translatable.length === 0) return record
+  const shown = (entry: ValueEntry): unknown => {
+    const map = languageMapOf(entry, record[entry.name])
+    const codes = [entry.languages?.[0]?.code, ...Object.keys(map)]
+    return codes.map((code) => (code === undefined ? undefined : map[code])).find(Boolean) ?? null
+  }
+  return {
+    ...record,
+    ...Object.fromEntries(translatable.map((entry) => [entry.name, shown(entry)])),
+  }
 }
 
 /**
@@ -92,7 +148,12 @@ export function toEntryFormValues(
 ): Values {
   const byName = new Map(entries.map((entry) => [entry.name, entry]))
   return Object.fromEntries(
-    Object.entries(record).map(([key, value]) => [key, toEntryFormValue(byName.get(key), value)])
+    Object.entries(record).flatMap(([key, value]) => {
+      const entry = byName.get(key)
+      return entry?.languages === undefined
+        ? [[key, toEntryFormValue(entry, value)]]
+        : Object.entries(languageFormValues(entry, value))
+    })
   )
 }
 
@@ -147,6 +208,12 @@ function typedWireValue(entry: ValueEntry, held: string): { readonly value: unkn
 
 /** The value an entry sends — the inverse of {@link toEntryFormValue}. */
 export function toEntryWireValue(entry: ValueEntry, values: Values): unknown {
+  // Every language the drawer loaded, so a save in one tab keeps the others.
+  if (entry.languages !== undefined) {
+    return Object.fromEntries(
+      entry.languages.map(({ code }) => [code, values[languageValueKey(entry, code)] ?? ''])
+    )
+  }
   const held = values[entry.name] ?? ''
   if (fieldWidgetOf(entry.type) === 'file-multiple' || holdsList(entry)) {
     return readLinkedIds(held, true)

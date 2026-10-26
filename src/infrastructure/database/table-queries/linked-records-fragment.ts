@@ -8,7 +8,7 @@
 import { sql, type SQL } from 'drizzle-orm'
 import { likePatternOf } from '@/domain/kernel/sql/like-pattern'
 import { LIKE_ESCAPE_CHARACTER } from '@/domain/kernel/sql/sql-formatting'
-import { generateJunctionTableName, junctionKeyColumns } from '../sql/sql-junction-tables'
+import { junctionKeyColumns } from '../sql/sql-junction-tables'
 import { tableIdentifier, validateColumnName } from './statement/validation'
 import type { LinkedRecordsValue } from '@/domain/models/app/tables/linked-records-filter-service'
 
@@ -17,7 +17,7 @@ const linkTableOf = (value: LinkedRecordsValue) => {
   const [sourceColumn, relatedColumn] = junctionKeyColumns(value.sourceTable, value.relatedTable)
   const link = sql.identifier('link')
   return {
-    from: sql`${sql.identifier(generateJunctionTableName(value.sourceTable, value.relatedTable))} AS ${link}`,
+    from: sql`${sql.identifier(value.linkTable)} AS ${link}`,
     source: sql`${link}.${sql.identifier(sourceColumn)}`,
     relatedEnd: sql`${link}.${sql.identifier(relatedColumn)}`,
   }

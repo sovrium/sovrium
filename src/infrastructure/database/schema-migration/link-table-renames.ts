@@ -26,15 +26,24 @@ import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite
 import { shouldUseView } from '../lookup/lookup-view-generators'
 import { isManyToManyRelationship } from '../sql/sql-field-predicates'
 import {
+  generateJunctionConstraintRenameSQL,
   generateJunctionTableDDL,
   generateJunctionTableName,
+  isLiveRelation,
   junctionKeyColumns,
 } from '../sql/sql-junction-tables'
 import { buildTablePrimaryKeyTypesMap } from '../table-operations/column-generators'
 import type { Table } from '@/domain/models/app/tables'
+import type {
+  LinkField,
+  LinkSourceTable,
+} from '@/domain/models/app/tables/table-derived-name-validation'
 
-/** A link table's two ends, as CONFIG names, source first. */
-type LinkEnds = readonly [source: string, related: string]
+/**
+ * A link table's two ends, as CONFIG names: the table declaring the field (with
+ * its fields, which its link table's name depends on) and the field.
+ */
+type LinkEnds = { readonly source: LinkSourceTable; readonly field: LinkField }
 
 /** One key column of a link table: its name today and the one it becomes. */
 type KeyColumn = readonly [before: string, after: string]
@@ -57,16 +66,16 @@ interface LinkMove {
 }
 
 /**
- * Every link table the config's many-to-many fields account for, in BOTH
- * directions: the engine creates `<source>_<related>`, and the reciprocal side
- * of the same relationship may be the one the config declares (the same reading
- * `expectedPhysicalTableNames` makes).
+ * Every link table the config's many-to-many fields account for: each field's
+ * own, and the one named after the two tables the other way round — the
+ * reciprocal side of the same relationship may be the one the config declares
+ * (the same reading `expectedPhysicalTableNames` makes).
  */
 const linkEndsOf = (tables: readonly Table[]): readonly LinkEnds[] =>
   tables.flatMap((table) =>
     table.fields.filter(isManyToManyRelationship).flatMap((field): readonly LinkEnds[] => [
-      [table.name, field.relatedTable],
-      [field.relatedTable, table.name],
+      { source: table, field },
+      { source: { name: field.relatedTable }, field: { name: '', relatedTable: table.name } },
     ])
   )
 
@@ -85,12 +94,28 @@ const renameInPlace = ({ from, to, columns }: LinkMove): readonly string[] => [
       ([before, after]) =>
         `ALTER TABLE ${quoted(to)} RENAME COLUMN ${quoted(before)} TO ${quoted(after)}`
     ),
-  `ALTER TABLE ${quoted(to)} RENAME CONSTRAINT ${quoted(`${from}_pkey`)} TO ${quoted(`${to}_pkey`)}`,
-  ...columns.map(
-    ([before, after]) =>
-      `ALTER TABLE ${quoted(to)} RENAME CONSTRAINT ${quoted(`${from}_${before}_fkey`)} TO ${quoted(`${to}_${after}_fkey`)}`
-  ),
+  ...(constraintNamesFit({ from, to, columns })
+    ? [
+        `ALTER TABLE ${quoted(to)} RENAME CONSTRAINT ${quoted(`${from}_pkey`)} TO ${quoted(`${to}_pkey`)}`,
+        ...columns.map(
+          ([before, after]) =>
+            `ALTER TABLE ${quoted(to)} RENAME CONSTRAINT ${quoted(`${from}_${before}_fkey`)} TO ${quoted(`${to}_${after}_fkey`)}`
+        ),
+      ]
+    : generateJunctionConstraintRenameSQL(from, to, columns)),
 ]
+
+/**
+ * Whether every constraint name of the move fits PostgreSQL's 63 characters,
+ * before and after: then each is the name a fresh boot gave it. A longer one
+ * was cut, or fitted, so the catalog is asked for it instead.
+ */
+const constraintNamesFit = ({ from, to, columns }: Pick<LinkMove, 'from' | 'to' | 'columns'>) =>
+  [
+    `${from}_pkey`,
+    `${to}_pkey`,
+    ...columns.flatMap(([before, after]) => [`${from}_${before}_fkey`, `${to}_${after}_fkey`]),
+  ].every((name) => name.length <= 63)
 
 /**
  * SQLite: build the link table a fresh boot would build, copy the links, drop
@@ -110,7 +135,7 @@ const rebuild = ({
   tableUsesView,
   tablePrimaryKeyTypes,
 }: LinkMove): readonly string[] => [
-  generateJunctionTableDDL(ends[0], ends[1], tableUsesView, tablePrimaryKeyTypes),
+  generateJunctionTableDDL(ends.source, ends.field, tableUsesView, tablePrimaryKeyTypes),
   `INSERT INTO ${quoted(to)} (${columns.map(([, after]) => quoted(after)).join(', ')}) ` +
     `SELECT ${columns.map(([before]) => quoted(before)).join(', ')} FROM ${quoted(from)}`,
   `DROP TABLE ${quoted(from)}`,
@@ -123,15 +148,28 @@ const planOne = (
   existing: ReadonlySet<string>,
   views: Pick<LinkMove, 'tableUsesView' | 'tablePrimaryKeyTypes'>
 ): readonly LinkTableRename[] => {
-  const [source, related] = ends
-  const before: LinkEnds = [previousName(source), previousName(related)]
-  const from = generateJunctionTableName(before[0], before[1])
-  const to = generateJunctionTableName(source, related)
+  const { source, field } = ends
+  const before: LinkEnds = {
+    source: {
+      name: previousName(source.name),
+      fields: (source.fields ?? []).map((other) =>
+        other.relatedTable === undefined
+          ? other
+          : { ...other, relatedTable: previousName(other.relatedTable) }
+      ),
+    },
+    field: { name: field.name, relatedTable: previousName(field.relatedTable) },
+  }
+  const from = generateJunctionTableName(before.source, before.field)
+  const to = generateJunctionTableName(source, field)
   // Nothing to carry, or somewhere it cannot go: an existing target is left
   // alone, and the old table then meets the populated-drop refusal.
-  if (from === to || !existing.has(from) || existing.has(to)) return []
-  const [sourceBefore, relatedBefore] = junctionKeyColumns(before[0], before[1])
-  const [sourceAfter, relatedAfter] = junctionKeyColumns(source, related)
+  if (from === to || !isLiveRelation(existing, from) || isLiveRelation(existing, to)) return []
+  const [sourceBefore, relatedBefore] = junctionKeyColumns(
+    before.source.name,
+    before.field.relatedTable
+  )
+  const [sourceAfter, relatedAfter] = junctionKeyColumns(source.name, field.relatedTable)
   const move: LinkMove = {
     from,
     to,
@@ -164,7 +202,7 @@ export const planLinkTableRenames = (
     tablePrimaryKeyTypes: buildTablePrimaryKeyTypesMap(tables),
   }
   const planned = linkEndsOf(tables).flatMap((ends) => planOne(ends, previousName, existing, views))
-  // Two fields between the same pair of tables share one link table.
+  // A link table named after the two tables is reached from both of them.
   return planned.filter(
     (link, index) => planned.findIndex((other) => other.from === link.from) === index
   )

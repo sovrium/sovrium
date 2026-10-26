@@ -40,6 +40,10 @@ import {
   withLanguagePrefix,
 } from '@/domain/kernel/matching/localized-path'
 import { validateAllRedirectRules } from '../redirects/redirects-validation'
+import {
+  validateCollectionSlugFields,
+  type AppForSlugFieldValidation,
+} from './collection-slug-field-validation'
 
 /** Minimal app shape this validation reads. */
 interface AppForLocalizedPathValidation {
@@ -163,15 +167,19 @@ export const validateLocalizedPagePaths = (app: AppForLocalizedPathValidation): 
 
 /** The app shape {@link validatePageAddresses} reads: pages, languages and redirects. */
 type AppForPageAddressValidation = AppForLocalizedPathValidation &
+  AppForSlugFieldValidation &
   Omit<Parameters<typeof validateAllRedirectRules>[0], 'pages' | 'languages'>
 
 /**
  * Page-address cross-validation, grouped for the complexity budget of the
- * final `AppSchema` filter: per-language page paths first, then the redirects
- * that would shadow a page.
+ * final `AppSchema` filter: per-language page paths first, then a collection's
+ * slug field per language, which reads those paths, then the redirects that
+ * would shadow a page.
  */
 export const validatePageAddresses = (app: AppForPageAddressValidation): true | string => {
   const localizedPathError = validateLocalizedPagePaths(app)
   if (localizedPathError !== true) return localizedPathError
+  const slugFieldError = validateCollectionSlugFields(app)
+  if (slugFieldError !== true) return slugFieldError
   return validateAllRedirectRules(app)
 }

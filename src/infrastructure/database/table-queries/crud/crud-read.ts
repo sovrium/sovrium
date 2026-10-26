@@ -9,17 +9,18 @@ import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { db } from '@/infrastructure/database'
 import { retryOnceOnStaleColumns } from '@/infrastructure/database/sql/catalog-request-cache'
+import { passingFilterRefusal } from '@/infrastructure/database/sql/db-effect'
 import { traceDbQuery } from '@/infrastructure/telemetry/db-query-trace'
 import {
   buildAggregationSelects,
   parseAggregationResult,
   buildPageClause,
   buildSelectListClause,
-  buildWhereClause,
   checkDeletedAtColumn as checkDeletedAtColumnHelper,
   checkAuthorshipColumns,
   type FilterNode,
 } from '../query-helpers/aggregation-helpers'
+import { whereClauseOf } from '../query-helpers/filter-clause-effect'
 import { maskedRelation, type LookupReadMaskSpec } from '../query-helpers/lookup-read-mask'
 import {
   buildOrderByClause,
@@ -42,10 +43,12 @@ import {
   buildAuthorshipSelectFields,
   transformRowWithAuthorship,
 } from './crud-authorship'
+import type { TableReadError } from '@/application/ports/repositories/tables/table-repository'
 import type {
   PercentileFields,
   PercentileFigures,
 } from '@/domain/models/app/tables/aggregate-percentile-service'
+import type { CaseFoldedSortField } from '@/domain/models/app/tables/text-sort-service'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { DatabaseError } from '@/infrastructure/database'
 import type { SQL } from 'drizzle-orm'
@@ -54,10 +57,7 @@ import type { SQL } from 'drizzle-orm'
  * A one-statement read, traced as a `select`, retried once when the database
  * refuses a column a cached catalog answer named ({@link retryOnceOnStaleColumns}).
  */
-const tracedRead = <A>(
-  tableName: string,
-  read: Effect.Effect<A, DatabaseError>
-): Effect.Effect<A, DatabaseError> =>
+const tracedRead = <A, E>(tableName: string, read: Effect.Effect<A, E>): Effect.Effect<A, E> =>
   traceDbQuery('select', tableName, retryOnceOnStaleColumns(read))
 
 /**
@@ -87,7 +87,7 @@ const listOrdering = (config: {
   readonly sort?: string
   readonly app?: OrderByAppView
   readonly primaryKey?: OrderByPrimaryKey
-  readonly caseFoldedSortFields?: readonly string[]
+  readonly caseFoldedSortFields?: readonly CaseFoldedSortField[]
 }): { readonly prefix: Readonly<SQL>; readonly orderBy: Readonly<SQL> } => {
   const { sort, primaryKey } = config
   const relevance =
@@ -126,8 +126,8 @@ export function listRecords(config: {
    */
   readonly primaryKey?: OrderByPrimaryKey
   /** The text columns a sort compares ignoring case. */
-  readonly caseFoldedSortFields?: readonly string[]
-}): Effect.Effect<readonly Record<string, unknown>[], DatabaseError> {
+  readonly caseFoldedSortFields?: readonly CaseFoldedSortField[]
+}): Effect.Effect<readonly Record<string, unknown>[], TableReadError> {
   const { tableName, filter, includeDeleted, limit, offset, columns } = config
   const { lookupMasks } = config
   const onFailure = wrapDatabaseError(`Failed to list records from ${tableName}`)
@@ -139,7 +139,7 @@ export function listRecords(config: {
       // loop between BEGIN and COMMIT. The catalog answers below come from
       // the per-process column cache after the first read of the table.
       const hasDeletedAt = yield* checkDeletedAtColumnHelper(db, tableName)
-      const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
+      const whereClause = yield* whereClauseOf(tableName, hasDeletedAt, includeDeleted, filter)
       const ordering = listOrdering(config)
       // Empty when the caller passes neither `limit` nor `offset`, which is
       // every pre-pagination call site — the statement below is unchanged
@@ -198,11 +198,11 @@ const runAggregations = (
     readonly lookupMasks?: readonly LookupReadMaskSpec[]
   },
   onFailure: (error: unknown) => DatabaseError
-): Effect.Effect<AggregationResult, DatabaseError> =>
+): Effect.Effect<AggregationResult, TableReadError> =>
   Effect.gen(function* () {
     const { tableName, filter, includeDeleted, aggregate, lookupMasks } = params
     const hasDeletedAt = yield* checkDeletedAtColumnHelper(db, tableName)
-    const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
+    const whereClause = yield* whereClauseOf(tableName, hasDeletedAt, includeDeleted, filter)
     const aggregationSelects = buildAggregationSelects(aggregate)
     const percentileSelects = buildPercentileSelects(aggregate)
     if (aggregationSelects.length + percentileSelects.length === 0) return {}
@@ -251,7 +251,7 @@ export function computeAggregations(config: {
   readonly includeDeleted?: boolean
   readonly aggregate: AggregationSpec
   readonly lookupMasks?: readonly LookupReadMaskSpec[]
-}): Effect.Effect<AggregationResult, DatabaseError> {
+}): Effect.Effect<AggregationResult, TableReadError> {
   const { tableName, filter, includeDeleted, aggregate, lookupMasks } = config
   const onFailure = wrapDatabaseError(`Failed to compute aggregations from ${tableName}`)
   return tracedRead(
@@ -278,7 +278,7 @@ export function listTrash(config: {
   }
   readonly lookupMasks?: readonly LookupReadMaskSpec[]
   readonly sort?: string
-}): Effect.Effect<readonly Record<string, unknown>[], DatabaseError> {
+}): Effect.Effect<readonly Record<string, unknown>[], TableReadError> {
   const { tableName, filter, sort, lookupMasks } = config
   const onFailure = wrapDatabaseError(`Failed to list trash from ${tableName}`)
   return tracedRead(
@@ -302,7 +302,10 @@ export function listTrash(config: {
 
       const queryWithJoins = buildAuthorshipJoins(initialQuery, authorshipColumns)
       const queryWithWhere = sql`${queryWithJoins} WHERE t.deleted_at IS NOT NULL`
-      const queryWithFilters = buildTrashFilters(queryWithWhere, filter?.and)
+      const queryWithFilters = yield* Effect.try({
+        try: () => buildTrashFilters(queryWithWhere, filter?.and),
+        catch: passingFilterRefusal(onFailure),
+      })
       const query = addTrashSorting(queryWithFilters, sort)
 
       const rows = yield* Effect.tryPromise({

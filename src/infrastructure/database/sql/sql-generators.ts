@@ -36,6 +36,7 @@ import {
   generatePrimaryKeyConstraint,
   generateUniqueConstraints,
 } from './sql-key-constraints'
+import { generateTranslatableConstraints } from './sql-translatable-columns'
 import type { Table } from '@/domain/models/app/tables'
 
 // Re-export from sql-type-mappings
@@ -90,6 +91,7 @@ export const generateTableConstraints = (
   ...generateRichTextConstraints(table.fields),
   ...generateBarcodeConstraints(table.fields),
   ...generateColorConstraints(table.fields),
+  ...generateTranslatableConstraints(table.fields),
   ...generateCustomCheckConstraints(table.constraints),
   ...generatePrimaryKeyConstraint(table),
   ...generateUniqueConstraints(table),

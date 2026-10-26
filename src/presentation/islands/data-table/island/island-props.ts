@@ -40,6 +40,8 @@ export interface DataTableIslandProps {
      */
     readonly table?: string
     readonly view?: string
+    /** The language its translatable fields read in, stamped by the server (`grid-record-language.ts`). */
+    readonly lang?: string
     readonly filter?: readonly DataFilter[]
     readonly sort?: readonly DataSort[]
     /** How many rows the grid shows in all: its page size and pager total stay under it. */

@@ -21,6 +21,10 @@
 import { pageRoutePatterns } from '@/domain/kernel/matching/localized-path'
 import { type PermissionCaller } from '@/domain/models/app/auth/permission-evaluation'
 import { readOpensToEveryone } from '@/domain/models/app/auth/permission-evaluator-service'
+import {
+  isSlugFieldPerLanguage,
+  type CollectionSlugField,
+} from '@/domain/models/app/pages/collection-slug-field-service'
 import { isPublicPage } from '@/domain/models/app/pages/is-public'
 import { filterWithFieldLiterals } from '@/domain/models/app/tables/checkbox-literal-service'
 import { isFieldReadableByCaller } from '@/domain/models/app/tables/field-read-filter-service'
@@ -123,7 +127,11 @@ export const SITEMAP_MAX_URLS = 5000
 /** Where a collection page's records come from, when they may be listed. */
 export interface SitemapCollectionSource {
   readonly table: string
-  readonly slugField: string
+  /**
+   * The field each address is built from: one for every language, or a field
+   * per language, keeping only the languages whose field a crawler may read.
+   */
+  readonly slugField: CollectionSlugField
   /** The table's `updated-at` field, whose value becomes each entry's `lastmod`. */
   readonly updatedAtField: string | undefined
   readonly filter: readonly DataFilter[] | undefined
@@ -142,6 +150,25 @@ const isAnonymouslyAddressable = (
 ): boolean =>
   readOpensToEveryone(table, app.tables) &&
   isFieldReadableByCaller(app, table.name, ANONYMOUS_CRAWLER, slugField)
+
+/**
+ * The slug field an anonymous crawler may build addresses from: the shared
+ * field when she may read it, or the languages of a per-language map whose
+ * field she may read — `undefined` when none is left.
+ */
+const addressableSlugField = (
+  app: App,
+  table: NonNullable<App['tables']>[number],
+  slugField: CollectionSlugField
+): CollectionSlugField | undefined => {
+  if (!isSlugFieldPerLanguage(slugField)) {
+    return isAnonymouslyAddressable(app, table, slugField) ? slugField : undefined
+  }
+  const readable = Object.entries(slugField).filter(([, field]) =>
+    isAnonymouslyAddressable(app, table, field)
+  )
+  return readable.length === 0 ? undefined : Object.fromEntries(readable)
+}
 
 /**
  * The caller a crawler reads as: no session and no role, the empty role the
@@ -172,11 +199,12 @@ export function resolveSitemapCollectionSource(
   if (collection === undefined || !isPageInSitemap(page)) return undefined
   const table = app.tables?.find((candidate) => candidate.name === collection.table)
   if (table === undefined) return undefined
-  if (!isAnonymouslyAddressable(app, table, collection.slugField)) return undefined
+  const slugField = addressableSlugField(app, table, collection.slugField)
+  if (slugField === undefined) return undefined
   const updatedAt = table.fields.find((field) => field.type === 'updated-at')
   return {
     table: collection.table,
-    slugField: collection.slugField,
+    slugField,
     updatedAtField: updatedAt?.name,
     // A literal compared with a checkbox binds a boolean, as on the page itself.
     filter:

@@ -7,7 +7,11 @@
 
 import { Schema } from 'effect'
 import { BaseFieldSchema } from '../base-field'
-import { WriteOnlyOptionSchema } from './single-line-text-field'
+import {
+  TranslatableDefaultSchema,
+  TranslatableOptionSchema,
+  WriteOnlyOptionSchema,
+} from './single-line-text-field'
 
 /**
  * Long Text Field
@@ -46,13 +50,7 @@ export const LongTextFieldSchema = BaseFieldSchema.pipe(
         description: "Constant value 'long-text' for type discrimination in discriminated unions",
       })
     ),
-    default: Schema.optional(
-      Schema.String.pipe(
-        Schema.annotate({
-          description: 'Default value for this field when creating new records',
-        })
-      )
-    ),
+    default: TranslatableDefaultSchema,
     fullTextSearch: Schema.optional(
       Schema.Boolean.pipe(
         Schema.annotate({
@@ -63,6 +61,7 @@ export const LongTextFieldSchema = BaseFieldSchema.pipe(
       )
     ),
     writeOnly: WriteOnlyOptionSchema,
+    translatable: TranslatableOptionSchema,
   }),
   Schema.annotate({
     title: 'Long Text Field',

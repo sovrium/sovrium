@@ -33,6 +33,34 @@ pages:
 
 The generated record is exposed as `$record.*` to the whole tree, including `meta` — so per-record SEO comes for free. A URL matching no record returns `404`, and so does the URL of a deleted record. The record follows the visitor's own read permissions: a field they may not read resolves to nothing, in the components and in `meta` alike, so its value never reaches the page. A visitor the table's `read` refuses gets `404` for every record, as does a visitor who is not signed in when the table's row-level `read` rule names the signed-in person; a rule naming no one, such as `status = published`, applies to them as to anyone else. A record the row-level `read` rule hides from its visitor — signed in or not — answers exactly as a record that does not exist: the same `404` and the same page, so the answer never tells her the record is there. The `$collection.previous.*` and `$collection.next.*` neighbours follow the same permissions: their unreadable fields resolve to nothing, and a record the visitor may not see is skipped for the nearest one they may.
 
+## A slug per language
+
+When each language has its own slug, give `slugField` one field per language and write `path` per language, each language's segment named after its field:
+
+```yaml
+pages:
+  - name: case-study
+    path: { fr: /cas/:slug_fr, en: /cases/:slug_en }
+    collection:
+      table: cases
+      slugField: { fr: slug_fr, en: slug_en }
+```
+
+`/fr/cas/<slug_fr>` reads the record by `slug_fr`, `/en/cases/<slug_en>` by `slug_en`. Both addresses of one record list each other as `hreflang` alternates, the language switcher moves between them, and the sitemap pairs them. A record whose slug is empty in a language has no page in that language: nothing links there, and its other pages list only themselves. Make each slug field `unique`; `sovrium validate` warns when one is not, and refuses a map naming an undeclared language, a missing or non-text field, a plain `path`, or a path whose segment does not name its language's field. A plain string `slugField` keeps one slug for every language.
+
+A translatable `single-line-text` field already holds one slug per language, so name it once, beside a path per language that each carry its segment:
+
+```yaml
+pages:
+  - name: case-study
+    path: { fr: /cas/:slug, en: /cases/:slug }
+    collection:
+      table: cases
+      slugField: slug
+```
+
+`/fr/cas/<slug>` reads the record by its French value and `/en/cases/<slug>` by its English one, and the alternates, the language switcher and the sitemap pair the two addresses as they do for a field per language. The read fallback that shows a missing translation in another language never applies to a slug: a record with no value in a language has no page there. Make the field `unique`, which holds it unique within each language; `sovrium validate` warns when it is not, and refuses a per-language map naming a translatable field.
+
 ## `markdown`
 
 <!-- sovrium:options MarkdownSchema depth=2 -->

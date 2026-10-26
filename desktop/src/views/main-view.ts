@@ -28,6 +28,8 @@ import { open } from '@tauri-apps/plugin-dialog'
 import { templates, type TemplateEntry } from 'virtual:sovrium-templates'
 
 import {
+  bundleDiscard,
+  bundleImport,
   createProject,
   createProjectFromUrl,
   errorText,
@@ -37,17 +39,20 @@ import {
   restartEngine,
   revealProject,
   settingsRead,
+  type BundleImported,
+  type BundleView,
   type ProjectRef,
   type StatePayload,
 } from '../bridge'
 import {
+  bundle as bundleCopy,
   common,
   createForm as createCopy,
   fromUrl as urlCopy,
   gallery as galleryCopy,
   status as statusCopy,
 } from '../copy'
-import { h, render } from '../dom'
+import { copyText, h, render } from '../dom'
 import { engineIsDown, engineVerdict } from './engine-verdict'
 
 /** Everything the view needs that is not in the state payload. */
@@ -73,6 +78,11 @@ interface ViewContext {
   readonly setDraftName: (name: string) => void
   readonly notice: string | null
   readonly setNotice: (message: string | null) => void
+  /** The bundle dialog for a `bundle=` link, held in Rust; `null` when none. */
+  readonly bundle: BundleView | null
+  /** A finished bundle import whose password is on screen. Memory only. */
+  readonly imported: BundleImported | null
+  readonly setImported: (imported: BundleImported | null) => void
 }
 
 /**
@@ -339,6 +349,288 @@ const createFromUrl = (context: ViewContext): HTMLElement => {
   )
 }
 
+// ---------------------------------------------------------------------------
+// A bundle link ([internal ref] A1): one dialog, after the engine's inspection
+// ---------------------------------------------------------------------------
+
+/** A byte count as a person reads it. */
+const formatSize = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+const bundleRow = (label: string, value: string, detail?: string | null): HTMLElement =>
+  h(
+    'div',
+    { class: 'bundle__row' },
+    h('dt', { class: 'bundle__label' }, label),
+    h(
+      'dd',
+      { class: 'bundle__value' },
+      value,
+      detail === undefined || detail === null
+        ? null
+        : h('span', { class: 'bundle__detail' }, ` ${detail}`)
+    )
+  )
+
+const discardBundle = (context: ViewContext): void => {
+  context.setNotice(null)
+  void bundleDiscard().catch((error: unknown) => context.setNotice(errorText(error)))
+}
+
+/**
+ * The ONE consent dialog a bundle link gets. Everything the decision is made on
+ * is above the button: who it came from, whether the publisher is verified,
+ * what it is, how big, and whether it brings demo data — then where it goes.
+ */
+const bundleDialog = (context: ViewContext, view: BundleView): HTMLElement => {
+  if (view.kind === 'fetching') {
+    return h(
+      'div',
+      { class: 'view view--status', 'data-state': 'bundle-fetching' },
+      h(
+        'section',
+        { class: 'panel panel--centred', role: 'status' },
+        h('h1', { class: 'panel__title' }, bundleCopy.fetchingTitle),
+        h('p', { class: 'panel__lead' }, bundleCopy.fetchingLead(view.host)),
+        h(
+          'div',
+          { class: 'form__actions form__actions--centred' },
+          h(
+            'button',
+            {
+              class: 'button button--quiet',
+              type: 'button',
+              onClick: () => discardBundle(context),
+            },
+            bundleCopy.cancel
+          )
+        )
+      )
+    )
+  }
+
+  if (view.kind === 'refused') {
+    return h(
+      'div',
+      { class: 'view view--status', 'data-state': 'bundle-refused' },
+      h(
+        'section',
+        { class: 'panel panel--error' },
+        h('h1', { class: 'panel__title' }, bundleCopy.refusedTitle),
+        h('p', { class: 'panel__lead' }, bundleCopy.refusedLead(view.host)),
+        h('p', { class: 'panel__meta' }, view.reason),
+        h(
+          'div',
+          { class: 'form__actions' },
+          h(
+            'button',
+            { class: 'button', type: 'button', onClick: () => discardBundle(context) },
+            bundleCopy.close
+          )
+        )
+      )
+    )
+  }
+
+  const nameInput = nameField(context, view.folderSuggestion)
+  const create = h(
+    'button',
+    { class: 'button button--primary', type: 'button', disabled: true },
+    bundleCopy.importAction
+  )
+  const { choose, location, parent } = destination(create)
+  const verified = view.verdict === 'verified'
+
+  create.addEventListener('click', () => {
+    const parentDir = parent()
+    if (parentDir === null) return
+    create.setAttribute('disabled', '')
+    create.textContent = bundleCopy.importing
+    void (async () => {
+      try {
+        const imported = await bundleImport(parentDir, nameInput.value.trim())
+        context.setDraftName('')
+        context.setNotice(null)
+        if (imported.credentials === null && imported.warning === null) {
+          await openProject(imported.project.dir)
+          return
+        }
+        // Opening navigates this window to the app, which would take the
+        // password off the screen before it was read. Show it first.
+        context.setImported(imported)
+      } catch (error) {
+        context.setNotice(errorText(error))
+      }
+    })()
+  })
+
+  // The verdict leads the card: a Badge naming it (icon and words, never colour
+  // alone), then what it means. Unverified gets shadcn's destructive Alert —
+  // the stronger warning — and verified a plain note, because a signature is
+  // a fact about the publisher, not a reason to celebrate.
+  const verdict = verified
+    ? h(
+        'div',
+        { class: 'bundle__publisher' },
+        h(
+          'p',
+          { class: 'bundle__badge bundle__badge--verified', 'data-state': view.verdict },
+          bundleCopy.verifiedBadge
+        ),
+        h('p', { class: 'panel__note' }, bundleCopy.verifiedNote)
+      )
+    : h(
+        'div',
+        { class: 'bundle__publisher' },
+        h(
+          'p',
+          { class: 'bundle__badge bundle__badge--unverified', 'data-state': view.verdict },
+          bundleCopy.unverifiedBadge
+        ),
+        h(
+          'div',
+          { class: 'bundle__alert', role: 'alert' },
+          h('p', { class: 'bundle__alert-text' }, bundleCopy.unverifiedWarning)
+        )
+      )
+
+  return h(
+    'div',
+    { class: 'view view--form', 'data-state': 'bundle-ready' },
+    noticeBar(context),
+    h(
+      'div',
+      { class: 'form__header' },
+      h('h1', { class: 'view__title view__title--form' }, bundleCopy.title)
+    ),
+    h(
+      'section',
+      { class: 'panel bundle', 'aria-label': bundleCopy.title },
+      verdict,
+      h(
+        'dl',
+        { class: 'bundle__facts' },
+        bundleRow(
+          bundleCopy.hostLabel,
+          view.host,
+          view.linkHost === null ? null : bundleCopy.viaLabel(view.linkHost)
+        ),
+        bundleRow(bundleCopy.nameLabel, view.name),
+        bundleRow(bundleCopy.sizeLabel, formatSize(view.size))
+      ),
+      view.containsDemoData ? h('p', { class: 'panel__note' }, bundleCopy.demoData) : null,
+      h(
+        'div',
+        { class: 'field' },
+        h('label', { class: 'field__label', for: 'folder-name' }, bundleCopy.folderLabel),
+        nameInput
+      ),
+      h(
+        'div',
+        { class: 'form__actions' },
+        choose,
+        create,
+        h(
+          'button',
+          { class: 'button button--quiet', type: 'button', onClick: () => discardBundle(context) },
+          bundleCopy.cancel
+        )
+      ),
+      location
+    )
+  )
+}
+
+/**
+ * The new admin's password, shown once. It lives in this page's memory until
+ * the app is opened, which navigates the window away and drops it; nothing
+ * writes it anywhere.
+ */
+const importedView = (context: ViewContext, imported: BundleImported): HTMLElement => {
+  const { credentials, warning } = imported
+  const copyButton =
+    credentials === null
+      ? null
+      : h(
+          'button',
+          {
+            class: 'button',
+            type: 'button',
+            onClick: (event) => {
+              const button = event.currentTarget as HTMLButtonElement
+              void copyText(credentials.password).then((ok) => {
+                if (ok) button.textContent = bundleCopy.copied
+              })
+            },
+          },
+          bundleCopy.copyPassword
+        )
+  return h(
+    'div',
+    { class: 'view view--status', 'data-state': 'bundle-imported' },
+    noticeBar(context),
+    h(
+      'section',
+      { class: 'panel bundle' },
+      h('h1', { class: 'panel__title' }, bundleCopy.credentialsTitle),
+      credentials === null
+        ? null
+        : h(
+            'div',
+            { class: 'bundle__credentials' },
+            h('p', { class: 'panel__lead' }, bundleCopy.credentialsLead),
+            h(
+              'dl',
+              { class: 'bundle__facts bundle__facts--secret' },
+              bundleRow(bundleCopy.emailLabel, credentials.email),
+              bundleRow(bundleCopy.passwordLabel, credentials.password)
+            ),
+            h(
+              'p',
+              { class: 'panel__note' },
+              bundleCopy.resetHint,
+              ' ',
+              h(
+                'code',
+                { class: 'bundle__command' },
+                `sovrium admin reset-password ${credentials.email}`
+              )
+            )
+          ),
+      warning === null
+        ? null
+        : h(
+            'div',
+            { class: 'bundle__alert', role: 'alert' },
+            h('p', { class: 'bundle__alert-text' }, bundleCopy.demoDataFailed),
+            h('p', { class: 'panel__meta' }, warning)
+          ),
+      h('p', { class: 'panel__meta' }, imported.project.dir),
+      h(
+        'div',
+        { class: 'form__actions' },
+        copyButton,
+        h(
+          'button',
+          {
+            class: 'button button--primary',
+            type: 'button',
+            onClick: () => {
+              const dir = imported.project.dir
+              context.setImported(null)
+              void openProject(dir).catch((error: unknown) => context.setNotice(errorText(error)))
+            },
+          },
+          bundleCopy.credentialsDone
+        )
+      )
+    )
+  )
+}
+
 const templateTile = (context: ViewContext, slug: string, entry: TemplateEntry): HTMLElement =>
   h(
     'button',
@@ -543,6 +835,16 @@ const statusView = (
 // ---------------------------------------------------------------------------
 
 export const renderMainView = (context: ViewContext, payload: StatePayload): void => {
+  // A bundle link outranks everything: it is a decision the user is being asked
+  // to make, and the password after it is shown once.
+  if (context.imported !== null) {
+    render(context.root, importedView(context, context.imported))
+    return
+  }
+  if (context.bundle !== null) {
+    render(context.root, bundleDialog(context, context.bundle))
+    return
+  }
   // A create form outranks the engine's state: the user is mid-task, and
   // replacing their half-filled form with a splash because a background start
   // finished would lose what they typed.

@@ -23,6 +23,12 @@ import {
   type ExportRecord,
 } from './export-cells'
 import { readerExportColumns } from './export-columns'
+import {
+  csvColumnsOf,
+  languageCellValue,
+  languageColumnsOf,
+  type CsvColumn,
+} from './export-language-columns'
 import { validateFilterParam } from './field-permission-validation'
 import { passesTableRoleGate, resolveGuardForTable } from './row-level-guard'
 import { buildListFilter, type FilterStructure } from './row-level-read-helpers'
@@ -108,6 +114,7 @@ function buildCsvResponse(
     readonly numbers: ReadonlySet<string>
     readonly visibleFields?: readonly string[]
     readonly withheld: ReadonlySet<string>
+    readonly languages: ReadonlyMap<string, readonly string[]>
   }
 ): Response {
   const { numbers, visibleFields, withheld } = opts
@@ -129,10 +136,16 @@ function buildCsvResponse(
       : present
   const orderedFields = orderExportColumns(allOrderedFields, tableFieldNames, visibleFields)
 
-  const header = orderedFields.map((f) => escapeCsvCell(f)).join(',')
+  // A translatable field is one column per declared language.
+  const columns = csvColumnsOf(orderedFields, opts.languages)
+  const header = columns.map((column) => escapeCsvCell(column.header)).join(',')
+  const cell = (record: ExportRecord, column: CsvColumn): unknown => {
+    const value = csvCellValue(record, column.field, opts)
+    return column.language === undefined ? value : languageCellValue(value, column.language)
+  }
   const rows = records.map((record) =>
-    orderedFields
-      .map((f) => escapeCsvCell(csvCellValue(record, f, opts), { numeric: numbers.has(f) }))
+    columns
+      .map((column) => escapeCsvCell(cell(record, column), { numeric: numbers.has(column.field) }))
       .join(',')
   )
   const csvContent = [header, ...rows].join('\n') + '\n'
@@ -154,8 +167,14 @@ function buildCsvResponse(
  * row is still emitted so downstream tools that auto-detect column shape
  * don't break.
  */
-function buildEmptyCsvResponse(tableFieldNames: readonly string[], tableName: string): Response {
-  const header = tableFieldNames.map((f) => escapeCsvCell(f)).join(',')
+function buildEmptyCsvResponse(
+  tableFieldNames: readonly string[],
+  tableName: string,
+  languages: ReadonlyMap<string, readonly string[]>
+): Response {
+  const header = csvColumnsOf(tableFieldNames, languages)
+    .map((column) => escapeCsvCell(column.header))
+    .join(',')
   const date = new Date().toISOString().slice(0, 10)
   const filename = `${tableName}-${date}.csv`
   return new Response(header + '\n', {
@@ -278,11 +297,16 @@ function parseExportQuery(c: Context): {
 }
 
 /** Build the empty-set response in the requested format. */
-function buildEmptyExportResponse(format: string, tableName: string, tableFieldNames: string[]) {
+function buildEmptyExportResponse(
+  format: string,
+  tableName: string,
+  tableFieldNames: string[],
+  languages: ReadonlyMap<string, readonly string[]>
+) {
   if (format === 'json') {
     return buildJsonResponse([], tableName, { attachments: new Set(), withheld: new Set() })
   }
-  return buildEmptyCsvResponse(tableFieldNames, tableName)
+  return buildEmptyCsvResponse(tableFieldNames, tableName, languages)
 }
 
 export async function handleExportTableCsv(c: Context, app: App) {
@@ -308,6 +332,7 @@ export async function handleExportTableCsv(c: Context, app: App) {
   // its header, and the populated one takes its column ORDER from it.
   const reader = { session, role: userRole, groups: userGroups }
   const { withheld, tableFieldNames } = await readerExportColumns(c, app, table, reader)
+  const languages = languageColumnsOf(app, tableName)
 
   // Z-3 read predicate: AND-merge the row-level read clause onto the
   // request-supplied filter. Sentinels short-circuit to an empty response
@@ -319,7 +344,7 @@ export async function handleExportTableCsv(c: Context, app: App) {
     filter as FilterStructure
   )
   if (finalFilter === 'empty' || finalFilter === 'reject') {
-    return buildEmptyExportResponse(format, tableName, tableFieldNames)
+    return buildEmptyExportResponse(format, tableName, tableFieldNames, languages)
   }
 
   const program = createListRecordsProgram({
@@ -341,5 +366,6 @@ export async function handleExportTableCsv(c: Context, app: App) {
     ...shape,
     links: relationshipFieldNames(table),
     numbers: numberFieldNames(table),
+    languages,
   })
 }

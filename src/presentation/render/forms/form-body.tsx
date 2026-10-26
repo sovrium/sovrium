@@ -114,7 +114,7 @@ function buildFormBodyShared({
   const lockPrefill = prefillContext?.lockPrefill === true
   const prefillMap = prefillContext?.prefill ?? {}
   const lang = resolveDocumentLang(languages, activeLang)
-  const { action, offer } = bodyLinkOverrides(form, { embed, embedded, link, lang, languages })
+  const overrides = bodyLinkOverrides(form, { embed, embedded, link, lang, languages })
   return {
     title: resolveText(form.title, languages, form.name, activeLang),
     descriptionHtml: renderInlineMarkdown(resolveText(form.description, languages, '', activeLang)),
@@ -142,8 +142,8 @@ function buildFormBodyShared({
     titleAs: titleAs ?? 'h1',
     requiredLegend: resolveInterpreterString('form.requiredLegend', lang, languages),
     reviewAnswersLabel: resolveInterpreterString('form.reviewAnswers', lang, languages),
-    formAttributes: buildFormAttributes(form, { embed, embedded, lockPrefill, action }),
-    ...offer,
+    formAttributes: buildFormAttributes(form, { embed, embedded, lockPrefill, ...overrides.post }),
+    ...overrides.offer,
     ...(form.fieldGroups ? { fieldGroups: form.fieldGroups } : {}),
     layoutKeys: formLayoutKeys(form, lang, languages),
     // Defaults are `honeypot: true` when antiSpam is absent.

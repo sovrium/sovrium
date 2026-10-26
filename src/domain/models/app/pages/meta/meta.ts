@@ -89,7 +89,7 @@ export const MetaSchema = Schema.Struct({
   canonical: Schema.optional(
     Schema.String.annotate({
       description:
-        'Canonical URL to prevent duplicate content issues. A `$t:` key followed by the rest of the address (`$t:seo.base/about`) gives each language its own canonical. In a multi-language app with `BASE_URL` set, a page whose path names no language and that declares no canonical gets its own address in each language.',
+        'Canonical URL to prevent duplicate content issues. A `$t:` key followed by the rest of the address (`$t:seo.base/about`) gives each language its own canonical. In a multi-language app with `BASE_URL` set, a page whose path names no language and that declares no canonical gets its own address in each language. `$app.origin` and the other `$app.*` references resolve as they do in the title, so `$app.origin/blog/$record.slug` names the page on the host the request arrived on.',
       format: 'uri',
     })
   ),

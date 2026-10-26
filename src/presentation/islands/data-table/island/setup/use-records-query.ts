@@ -219,6 +219,10 @@ function sessionViewOf(
   return session === undefined ? configured : session.id
 }
 
+/** The language a table grid's translatable fields read in, stamped by the server. */
+const langParamOf = (dataSource: SetupContext['params']['dataSource']) =>
+  dataSource.lang === undefined || dataSource.system ? {} : { langParam: dataSource.lang }
+
 /**
  * The request parameters that follow from the grid's declarations alone: the
  * summary footer's whole-view aggregates, the grouping levels, the labels its
@@ -247,6 +251,7 @@ function requestParams(
     ...(aggregateParam !== undefined && { aggregateParam }),
     ...(groupByParam !== undefined && { groupByParam }),
     ...(labelsParam !== undefined && !dataSource.system && { labelsParam }),
+    ...langParamOf(dataSource),
     ...(loadMoreFeed && { loadMore: true }),
   }
 }

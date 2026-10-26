@@ -8,6 +8,8 @@
 /**
  * Sovrium CLI - Admin user management commands
  *
+ * `sovrium admin reset-password <email>` (below) recovers a lost password.
+ *
  * `sovrium admin create <email>` provisions an admin account against the
  * configured database. Schema-optional by design: the operator does NOT need
  * to carry an `app.yaml` around just to create an admin. Resolution order:
@@ -42,7 +44,7 @@ import { createInterface } from 'node:readline'
 import { Writable } from 'node:stream'
 import { Effect, Console } from 'effect'
 import { printStderr } from '@/infrastructure/logging/cli-output'
-import type { AppEncoded } from '@/domain/models/app'
+import type { App, AppEncoded } from '@/domain/models/app'
 
 /** Options forwarded from the CLI dispatcher. */
 export interface AdminCommandOptions {
@@ -105,6 +107,15 @@ const loadAppSchemaOptional = async (configFile: string | undefined): Promise<Ap
   }
   const { parseAppSchema } = await import('@/cli/runtime/schema-loader')
   return parseAppSchema('admin create', configFile)
+}
+
+/** The config decoded as the engine reads it, or exit 1 with the validation report. */
+const decodedApp = async (encoded: AppEncoded): Promise<App> => {
+  const { decodeAppConfigObject } = await import('@/application/use-cases/config/decode-app-config')
+  const decoded = decodeAppConfigObject(encoded)
+  if (decoded.valid) return decoded.app
+  printStderr(`Error: Validation failed.\n\n${decoded.report.join('\n')}`)
+  return process.exit(1)
 }
 
 /**
@@ -225,17 +236,53 @@ const formatAdminCreateFailure = (rawMessage: string, unreachable: boolean): str
     : `Error: ${rawMessage}`
 
 /**
- * Handle the 'admin' command - dispatch to the 'create' verb.
+ * Handle `admin reset-password <email> [config]`: a new random password for an
+ * existing account, printed ONCE on stdout as `{"email","password"}` JSON and
+ * stored nowhere but as its hash, and every session of the account signed out.
+ * An address with no account exits 1 and creates nothing.
+ */
+const handleAdminResetPasswordCommand = async (
+  email: string | undefined,
+  options: AdminCommandOptions
+): Promise<void> => {
+  if (!email) {
+    printStderr(
+      'Error: No email specified.\n\nUsage:\n  sovrium admin reset-password <email> [config]'
+    )
+    process.exit(1)
+  }
+  const app = await decodedApp(await loadAppSchemaOptional(options.configFile))
+  const { resolvePasswordPolicy } = await import('@/domain/models/app/auth/password-policy')
+  const { randomAccountPassword } = await import('@/cli/runtime/project-data')
+  const password = randomAccountPassword(resolvePasswordPolicy(app.auth).minLength)
+  const { resetPasswords } = await import('@/index')
+  const [result] = await resetPasswords(app, [{ email, password }])
+  if (result?.ok !== true) {
+    printStderr(
+      result !== undefined && 'unknownAccount' in result && result.unknownAccount === true
+        ? `Error: ${result.message} Nothing was changed, and no account was created.\n\n` +
+            `Create one with: sovrium admin create ${email}`
+        : `Error: ${result?.message ?? 'The password was not reset.'}`
+    )
+    process.exit(1)
+  }
+  process.stdout.write(`${JSON.stringify({ email, password })}\n`)
+}
+
+/**
+ * Handle the 'admin' command - dispatch to the 'create' or 'reset-password' verb.
  */
 export const handleAdminCommand = async (
   subcommand: string | undefined,
   email: string | undefined,
   options: AdminCommandOptions = {}
 ): Promise<void> => {
+  if (subcommand === 'reset-password') return handleAdminResetPasswordCommand(email, options)
   if (subcommand !== 'create') {
     printStderr(
       `Error: Unknown admin subcommand "${subcommand ?? ''}".\n\n` +
-        'Usage:\n  sovrium admin create <email> [config]   Create an admin user'
+        'Usage:\n  sovrium admin create <email> [config]           Create an admin user\n' +
+        '  sovrium admin reset-password <email> [config]   Set a new password, sign every session out'
     )
     process.exit(1)
   }

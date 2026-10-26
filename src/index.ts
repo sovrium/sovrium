@@ -25,7 +25,7 @@
  * binary; nothing is published to npm. See src/cli/index.ts for the CLI entry point.
  */
 
-import { Cause, Effect, Exit, Result } from 'effect'
+import { Cause, Effect, Exit, Result, type Layer } from 'effect'
 import { ServerFactory } from '@/application/ports/services/server-factory'
 import { buildDesignSystemBundle as buildDesignSystemBundleUseCase } from '@/application/use-cases/admin/design-system-bundle'
 import {
@@ -35,10 +35,18 @@ import {
 import {
   createAdminAccount,
   describeBootstrapDatabaseError,
+  type BootstrapDatabaseError,
+  type InvalidEmailError,
+  type WeakPasswordError,
 } from '@/application/use-cases/auth/bootstrap-admin'
+import { resetAccountPasswords } from '@/application/use-cases/auth/reset-account-password'
 import {
   createSeedUnclaimedAccounts,
   issueSeedInvitations,
+  type SeedInvitationOutcome,
+  type SeedInvitee,
+  type SeedUnclaimedAccount,
+  type SeedUnclaimedOutcome,
 } from '@/application/use-cases/auth/seed-invitations'
 import { decodeAppConfigObject } from '@/application/use-cases/config/decode-app-config'
 import {
@@ -71,20 +79,9 @@ import { formatRuntimeError, logDebug } from '@/infrastructure/logging'
 import { armIdleExit } from '@/infrastructure/server/idle-exit'
 import { installShutdownHandlers, requestGracefulStop } from '@/infrastructure/server/lifecycle'
 import type { AuthDatabaseError } from '@/application/ports/repositories/auth/auth-repository'
-import type { InvitationIssuer } from '@/application/ports/services/invitation-issuer'
+import type { PasswordReset } from '@/application/ports/services/account-provisioner'
 import type { ServerInstance } from '@/application/ports/services/server-instance'
 import type { DesignSystemBundle } from '@/application/use-cases/admin/design-system-bundle'
-import type {
-  BootstrapDatabaseError,
-  InvalidEmailError,
-  WeakPasswordError,
-} from '@/application/use-cases/auth/bootstrap-admin'
-import type {
-  SeedInvitationOutcome,
-  SeedInvitee,
-  SeedUnclaimedAccount,
-  SeedUnclaimedOutcome,
-} from '@/application/use-cases/auth/seed-invitations'
 import type {
   DecodeAppConfigOptions,
   DecodeAppConfigResult,
@@ -554,7 +551,7 @@ type SeedAccountFailure = { readonly ok: false; readonly email: string; readonly
 const runSeedAccounts = async <O>(
   app: Readonly<App>,
   emails: readonly { readonly email: string }[],
-  program: Effect.Effect<readonly O[], never, InvitationIssuer>
+  program: Effect.Effect<readonly O[], never, Layer.Success<ReturnType<typeof createAppLayer>>>
 ): Promise<readonly (O | SeedAccountFailure)[]> => {
   const failAll = (message: string) =>
     emails.map(({ email }): SeedAccountFailure => ({ ok: false, email, message }))
@@ -591,6 +588,14 @@ export const createUnclaimedAccounts = (
   accounts: readonly SeedUnclaimedAccount[]
 ): Promise<readonly SeedUnclaimedOutcome[]> =>
   runSeedAccounts(app, accounts, createSeedUnclaimedAccounts({ accounts }))
+
+/**
+ * Give existing accounts a new password each and sign their sessions out: the
+ * path `sovrium admin reset-password` takes. An address with no account is
+ * refused (`unknownAccount`) and nothing is created. Failures are returned.
+ */
+export const resetPasswords = (app: Readonly<App>, resets: readonly PasswordReset[]) =>
+  runSeedAccounts(app, resets, resetAccountPasswords(resets))
 
 // ============================================================================
 // Type Exports (consumed by scripts/build/build-types.ts → the shipped sovrium.d.ts)

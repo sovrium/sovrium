@@ -36,8 +36,10 @@ import { listableFields, listForRun, READ_REFUSAL, scopedListFilter } from './re
 import type { AutomationContext } from './shared'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
-import type { DatabaseError } from '@/domain/errors'
+import type {
+  TableReadError,
+  TableRepository,
+} from '@/application/ports/repositories/tables/table-repository'
 import type { App } from '@/domain/models/app'
 
 type StarterRequirements = AuthRepository | DataSourceRepository | TableRepository
@@ -64,7 +66,7 @@ export const starterTargetIds = (input: {
   readonly tableName: string
   readonly filter: unknown
   readonly access: ScopedAccess
-}): Effect.Effect<StarterTargets, DatabaseError, StarterRequirements> =>
+}): Effect.Effect<StarterTargets, TableReadError, StarterRequirements> =>
   Effect.gen(function* () {
     const { app, automation, tableName, access } = input
     const queryFilter = toQueryFilter(input.filter, declaredFilterFields(app, tableName).table)
@@ -118,9 +120,20 @@ export const resolveRunTargetIds = (input: {
       ),
       // effect-swallow: the lenient policy of `resolveIdsByFilterLenient` — a
       // lookup that failed reads as "matched nothing", after its cause is logged.
-      Effect.catchTag('DatabaseError', () => Effect.succeed(NO_TARGET))
+      Effect.catchTag('DatabaseError', () => Effect.succeed(NO_TARGET)),
+      Effect.result
     )
-    return targets.refused
+    // A filter operator no compiler knows is refused, never read as "matched nothing".
+    if (targets._tag === 'Failure') {
+      return {
+        resolved: false,
+        outcome: {
+          status: 'failure',
+          error: `${input.operator} could not resolve its filter: ${targets.failure.message}`,
+        },
+      } as const
+    }
+    return targets.success.refused
       ? ({ resolved: false, outcome: READ_REFUSAL } as const)
-      : ({ resolved: true, ids: targets.ids } as const)
+      : ({ resolved: true, ids: targets.success.ids } as const)
   }).pipe(Effect.withSpan('automations.resolve-run-target-ids'))

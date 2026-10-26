@@ -199,9 +199,8 @@ function resolveFormLevelPrefill(
 }
 
 /**
- * Resolve the host's inline prefill for an embedded form, and describe how it
- * applies over the form's own starting values: it wins on the keys it names,
- * and — when locked — only those keys ride in hidden inputs.
+ * Resolve the host's inline prefill (against this request) and how it applies over the form's own
+ * starting values: it wins on the keys it names, and when locked only those ride in hidden inputs.
  */
 function resolveEmbedPrefill(
   app: App,
@@ -211,6 +210,7 @@ function resolveEmbedPrefill(
 ): EmbeddedFormPrefillContext {
   const inline = resolveRecordPrefillMap(inlinePrefill, ctx.parentRecord, {
     session: ctx.session,
+    query: ctx.query,
     columns: prefillColumnsOf(app.tables, form.submitTo.table),
   })
   return {

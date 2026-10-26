@@ -5,11 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  ALL_LANGUAGES,
+  localizeStoredValue,
+} from '@/domain/models/app/languages/localized-value-service'
 import type {
   AccountAiFootprint,
   AccountAuditEntryRow,
   AccountChatAttachmentRow,
   AccountEntityLists,
+  AuthoredTableCandidate,
 } from '@/application/ports/repositories/auth/account-repository'
 import type { EmailSuppressionEntry } from '@/application/ports/repositories/automations/email-deliverability-repository'
 
@@ -31,6 +36,27 @@ export interface AuthoredRecord {
   readonly fields: Record<string, unknown>
   readonly createdAt: string
   readonly updatedAt: string
+}
+
+/**
+ * A row with each translatable field as its map of the declared languages
+ * ([internal ref] D4): the whole value, whatever language its owner reads in, and
+ * never a language the app no longer declares. A row of a table with no
+ * translatable field is returned as it came.
+ */
+export function withLanguageMaps(
+  row: Readonly<Record<string, unknown>>,
+  translatable: AuthoredTableCandidate['translatable']
+): Readonly<Record<string, unknown>> {
+  if (translatable === undefined || translatable.fields.length === 0) return row
+  const { fields, languages } = translatable
+  return Object.fromEntries(
+    Object.entries(row).map(([key, value]) =>
+      fields.includes(key)
+        ? [key, localizeStoredValue(value, ALL_LANGUAGES, languages) ?? null]
+        : [key, value]
+    )
+  )
 }
 
 /**

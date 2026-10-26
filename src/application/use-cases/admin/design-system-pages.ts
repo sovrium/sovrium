@@ -67,11 +67,7 @@ import { seedAsAccountOf } from './design-system-page-account-seed'
 import { prototypeStoreOf, unsimulatedNoticesOf } from './design-system-page-app'
 import { pageSectionOf, type PageDrawOptions } from './design-system-page-boards'
 import { canvasEntriesOf, drawnWithOf } from './design-system-page-canvas'
-import {
-  drawPagesOf,
-  type DesignSystemPageDrawError,
-  type PageDrawing,
-} from './design-system-page-draw'
+import { drawPagesOf, type PageDrawing } from './design-system-page-draw'
 import { figmaPageDocumentsOf } from './design-system-page-figma'
 import {
   collectPageImages,
@@ -83,6 +79,7 @@ import {
 import { penpotEntryOf } from './design-system-page-penpot'
 import { seedRowCapNoticesOf } from './design-system-page-seed'
 import { appRolesOf } from './design-system-page-states'
+import type { DesignSystemPageDrawError } from './design-system-page-draw-error'
 import type { ProjectedPage } from './design-system-page-projection'
 import type { DesignKitAssets } from '@/application/ports/services/design-kit-assets'
 import type { PageRenderer } from '@/application/ports/services/page-renderer'
@@ -99,7 +96,8 @@ export interface PageExportSelection {
   readonly draw?: PageDrawOptions | undefined
 }
 
-export { DesignSystemPageDrawError, pageDrawRefusal, redirectOf } from './design-system-page-draw'
+export { pageDrawRefusal, redirectOf } from './design-system-page-draw'
+export { DesignSystemPageDrawError } from './design-system-page-draw-error'
 
 /** Every failure building the bundle with its pages can surface. */
 export type DesignSystemPagesFailure = DesignSystemBundleFailure | DesignSystemPageDrawError

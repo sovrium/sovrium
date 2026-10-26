@@ -40,8 +40,10 @@ import type { LinkReader } from './linked-row-visibility'
 import type { KeyedFields } from './many-to-many-lookup-narrowing'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import type { QueryFilterNode } from '@/application/ports/repositories/tables/table-repository'
-import type { DatabaseError } from '@/domain/errors'
+import type {
+  TableReadError,
+  QueryFilterNode,
+} from '@/application/ports/repositories/tables/table-repository'
 import type { App } from '@/domain/models/app'
 
 type Requirements = TableRepository | DataSourceRepository | AuthRepository
@@ -62,7 +64,7 @@ const passingCountFilters = (
   link: LookupLink,
   keys: readonly string[],
   reader: LinkReader
-): Effect.Effect<ReadonlySet<string>, DatabaseError, TableRepository> =>
+): Effect.Effect<ReadonlySet<string>, TableReadError, TableRepository> =>
   Effect.gen(function* () {
     if (link.filters === undefined || keys.length === 0) return new Set(keys)
     const repo = yield* TableRepository
@@ -84,7 +86,7 @@ const recounted = (
   scope: CountScope,
   link: LookupLink,
   carriers: readonly { readonly index: number; readonly id: string }[]
-): Effect.Effect<Patch, DatabaseError, Requirements> =>
+): Effect.Effect<Patch, TableReadError, Requirements> =>
   Effect.gen(function* () {
     const { app, tableName, reader } = scope
     const ids = carriers.map((carrier) => carrier.id)
@@ -119,7 +121,7 @@ const isRecounted = (admission: RowReadAdmission, link: LookupLink): boolean =>
 const patchOf = (
   scope: CountScope,
   link: LookupLink
-): Effect.Effect<Patch, DatabaseError, Requirements> =>
+): Effect.Effect<Patch, TableReadError, Requirements> =>
   Effect.gen(function* () {
     const { app, tableName, entries, reader } = scope
     const judged = withFormulasOver(app, tableName, new Set([link.lookup]))
@@ -194,7 +196,7 @@ export const narrowLinkCounts = (input: {
   readonly tableName: string
   readonly entries: readonly KeyedFields[]
   readonly reader: LinkReader | undefined
-}): Effect.Effect<readonly Readonly<Record<string, unknown>>[], DatabaseError, Requirements> =>
+}): Effect.Effect<readonly Readonly<Record<string, unknown>>[], TableReadError, Requirements> =>
   Effect.gen(function* () {
     const { app, tableName, entries, reader } = input
     const fields = entries.map((entry) => entry.fields)

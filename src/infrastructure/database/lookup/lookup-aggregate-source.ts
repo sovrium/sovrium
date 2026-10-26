@@ -48,7 +48,8 @@ export interface AggregateSourceInput {
  * declare:
  *
  * - `many-to-many` keeps no column on either table: its links are rows of the
- *   link table `<parent>_<related>`, the same one a lookup reads. A link
+ *   field's link table (`<parent>_<related>`, or `<parent>_<related>_<field>`
+ *   beside another many-to-many to the same table), the same one a lookup reads. A link
  *   written from either side lands there (a reciprocal write mirrors it into
  *   both link tables), and its composite key holds each pair once, so no
  *   linked record is counted twice.
@@ -69,8 +70,13 @@ export const aggregateSourceOf = (input: AggregateSourceInput): AggregateSource 
     const related = sanitizeTableName(input.relatedTable)
     const junctionAlias = quoteSqlIdentifier(`junction_${input.computedFieldName}`)
     const [parentKey, relatedKey] = junctionKeyColumns(parent, related)
+    const parentTable = input.allTables.find((table) => table.name === input.parentTableName)
+    const linkTable = generateJunctionTableName(
+      { name: parent, fields: parentTable?.fields ?? [] },
+      { name: input.relationshipFieldName, relatedTable: related }
+    )
     return {
-      from: `${relationNameOf(generateJunctionTableName(parent, related))} AS ${junctionAlias}
+      from: `${relationNameOf(linkTable)} AS ${junctionAlias}
      INNER JOIN ${relatedRelation} AS ${alias} ON ${alias}.id = ${junctionAlias}.${quoteSqlIdentifier(relatedKey)}`,
       where: [`${junctionAlias}.${quoteSqlIdentifier(parentKey)} = ${tableAlias}.id`],
     }

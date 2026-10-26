@@ -35,6 +35,7 @@ import {
   toManyLinksRefusedTo,
   type RelatedReader,
 } from './related-field-read-service'
+import { deriveFieldLinkTableName } from './table-derived-name-validation'
 import type { App } from '@/domain/models/app'
 
 /** The operator a rewritten condition carries; its `field` is the relationship. */
@@ -47,9 +48,10 @@ const TEXT_OPERATORS = ['contains', 'startsWith', 'endsWith'] as const
 export type LinkedRecordsValue =
   | {
       readonly operator: (typeof ID_OPERATORS)[number]
-      /** The table holding the field, and the table it links to. */
+      /** The table holding the field, the table it links to, and the field's link table. */
       readonly sourceTable: string
       readonly relatedTable: string
+      readonly linkTable: string
       /** The linked-record ids compared, as text. */
       readonly ids: readonly string[]
     }
@@ -57,6 +59,7 @@ export type LinkedRecordsValue =
       readonly operator: (typeof TEXT_OPERATORS)[number]
       readonly sourceTable: string
       readonly relatedTable: string
+      readonly linkTable: string
       readonly text: string
       /** The related field a reader sees a linked record by. */
       readonly displayField: string
@@ -73,6 +76,7 @@ export const isLinkedRecordsValue = (value: unknown): value is LinkedRecordsValu
   const candidate = value as Readonly<Record<string, unknown>>
   if (typeof candidate['sourceTable'] !== 'string') return false
   if (typeof candidate['relatedTable'] !== 'string') return false
+  if (typeof candidate['linkTable'] !== 'string') return false
   if (isOneOf(ID_OPERATORS, candidate['operator'])) return Array.isArray(candidate['ids'])
   return (
     isOneOf(TEXT_OPERATORS, candidate['operator']) &&
@@ -95,6 +99,13 @@ const manyToManyTargetOf = (app: App, field: Field | undefined): Table | undefin
   if (relationType !== 'many-to-many') return undefined
   return app.tables?.find((table) => table.name === relatedTable)
 }
+
+/** The two tables a many-to-many `field` of `table` joins, and its link table. */
+const endsOf = (table: Table, field: string, related: Table) => ({
+  sourceTable: table.name,
+  relatedTable: related.name,
+  linkTable: deriveFieldLinkTableName(table, { name: field, relatedTable: related.name }),
+})
 
 /** A condition's value as linked-record ids: a list, or one id. */
 const idsOf = (value: unknown): readonly string[] | undefined => {
@@ -121,7 +132,7 @@ const textLeaf = (
   if (displayField === undefined) return undefined
   const rowsOpen = isAdminEquivalent(reader.role, app) || related.rowLevelPermissions === undefined
   const readable = rowsOpen && mayReadRelatedField(app, reader, related.name, displayField)
-  const ends = { sourceTable: table.name, relatedTable: related.name }
+  const ends = endsOf(table, String(leaf.field), related)
   const rewritten = {
     operator: leaf.operator,
     ...ends,
@@ -148,7 +159,7 @@ const rewriteLeaf = (
   if (!isOneOf(ID_OPERATORS, operator)) return undefined
   const ids = idsOf(value)
   if (ids === undefined) return undefined
-  const ends = { sourceTable: context.table.name, relatedTable: related.name }
+  const ends = endsOf(context.table, String(field), related)
   const withheld = toManyLinksRefusedTo(context.app, context.table.name, context.reader).has(
     String(field)
   )

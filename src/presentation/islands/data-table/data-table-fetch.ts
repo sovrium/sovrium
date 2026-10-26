@@ -133,6 +133,7 @@ interface FetchQuery {
   readonly groupByParam?: string
   /** Relationship labels the columns name (`?labels=`). */
   readonly labelsParam?: string
+  readonly langParam?: string
   /** Report whether a further page exists, as a `nextCursor` (load-more grids). */
   readonly loadMore?: boolean
   /** The first row of the page, for a load-more grid's continuation (`?offset=`). */
@@ -166,11 +167,15 @@ function buildRecordsQuery(q: FetchQuery): Record<string, string> {
     // Whole-view per-group counts for the group headers, over the same filtered
     // table — so a header's count describes the view, not the loaded page.
     ...(q.groupByParam && { groupBy: q.groupByParam }),
-    // Labels a column names for its relationship field, resolved server-side
-    // under the reader's permissions and returned under `_display`.
-    ...(q.labelsParam && { labels: q.labelsParam }),
+    ...readerParams(q),
   }
 }
+
+/** Relationship labels (returned under `_display`) and the language translatable fields read in. */
+const readerParams = (q: FetchQuery): Record<string, string> => ({
+  ...(q.labelsParam && { labels: q.labelsParam }),
+  ...(q.langParam && { lang: q.langParam }),
+})
 
 /**
  * The next page a load-more grid may ask for, or `undefined` once every row is
@@ -266,6 +271,7 @@ export interface ResolvedQuery {
   readonly summary?: readonly DataTableSummaryItem[]
   readonly groupByParam?: string
   readonly labelsParam?: string
+  readonly langParam?: string
   readonly loadMore?: boolean
   /** The first row of a load-more grid's next page (`?offset=`). */
   readonly offset?: number
@@ -386,6 +392,7 @@ export function runDataTableFetch(q: ResolvedQuery): Promise<DataTableFetchResul
         aggregateParam: q.aggregateParam,
         groupByParam: q.groupByParam,
         labelsParam: q.labelsParam,
+        langParam: q.langParam,
         loadMore: q.loadMore,
         ...(q.offset !== undefined && { offset: q.offset }),
         sharedFilterParams: q.sharedFilterParams,

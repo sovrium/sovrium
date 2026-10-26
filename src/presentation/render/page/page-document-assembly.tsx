@@ -39,6 +39,7 @@ import {
   PageLanguageAlternatesContext,
   pageLanguageAlternatesFor,
   resolveFeedTitle,
+  type PageAlternatesRequest,
 } from '@/presentation/render/page/page-alternates'
 import {
   CORE_RUNTIME_FEATURES,
@@ -294,7 +295,7 @@ async function resolveIslandBundle(
  * limits — the post-login landing resolver added enough state to push
  * it over otherwise.
  */
-interface RenderPageHtmlInput {
+interface RenderPageHtmlInput extends PageAlternatesRequest {
   readonly app: App
   readonly page: Page
   readonly routeParams: Readonly<Record<string, string>>
@@ -326,8 +327,6 @@ interface RenderPageHtmlInput {
   readonly hostApp?: App
   /** This request's `$app.*` / `$param.*` substitution for the head (`head-references.ts`). */
   readonly headReferences?: HeadReferences
-  /** The path the page was matched for, dynamic segments filled: what its alternates describe. */
-  readonly renderedPath?: string
   /**
    * `false` draws no dev-mode notice whatever the environment says: a design-system
    * frame pictures the operator's template, and a panel the hosting instance
@@ -355,7 +354,7 @@ export function renderPageHtml(input: RenderPageHtmlInput): string {
   const injectAnalytics = shouldInjectAnalytics(app.analytics, primaryPagePath(page.path))
   const sessionTimeout = extractSessionTimeout(app.analytics)
   const head = input.headReferences ?? ((text: string) => text)
-  const alternates = pageLanguageAlternatesFor(app, page, input.renderedPath)
+  const alternates = pageLanguageAlternatesFor(app, page, input)
   const html = renderToString(
     <ClientScriptPathsContext.Provider value={clientScriptPaths}>
       <HeadReferencesContext.Provider value={head}>

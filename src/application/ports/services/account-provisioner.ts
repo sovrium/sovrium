@@ -47,6 +47,12 @@ export interface NewBoundAccount {
   readonly accountId: string
 }
 
+/** The new password for an existing account, set by `sovrium admin reset-password`. */
+export interface PasswordReset {
+  readonly email: string
+  readonly password: string
+}
+
 export class AccountProvisioner extends Context.Service<
   AccountProvisioner,
   {
@@ -65,6 +71,15 @@ export class AccountProvisioner extends Context.Service<
     readonly createBoundUser: (
       account: Readonly<NewBoundAccount>
     ) => Effect.Effect<{ readonly userId: string }, AccountCreationError>
+    /**
+     * Give the account `email` names a new password — its credential replaced,
+     * or added when it has none — and sign every one of its sessions out.
+     * Answers `found: false`, having changed nothing, when no account has that
+     * address. A refused write fails with {@link AccountCreationError}.
+     */
+    readonly resetPassword: (
+      reset: Readonly<PasswordReset>
+    ) => Effect.Effect<{ readonly found: boolean }, AccountCreationError>
   }
 >()('AccountProvisioner') {}
 

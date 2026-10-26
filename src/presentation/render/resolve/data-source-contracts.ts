@@ -87,7 +87,8 @@ export interface DataSourceDb {
     paramField: string,
     paramValue: string,
     fields?: readonly string[],
-    options?: { readonly liveOnly?: boolean }
+    /** As the repository port's: `liveOnly`, and `paramLanguage` for a translatable `paramField`. */
+    options?: { readonly liveOnly?: boolean; readonly paramLanguage?: string }
     // eslint-disable-next-line max-params -- positional signature kept for its existing callers; `options` is an optional fifth argument
   ) => Promise<Record<string, unknown> | undefined>
 
@@ -99,7 +100,11 @@ export interface DataSourceDb {
   readonly fetchManyToManyLinks?: (
     tableName: string,
     recordId: string,
-    fields: readonly { readonly fieldName: string; readonly relatedTable: string }[]
+    fields: readonly {
+      readonly fieldName: string
+      readonly relatedTable: string
+      readonly linkTable: string
+    }[]
   ) => Promise<Readonly<Record<string, readonly (string | number)[]>>>
 
   /**

@@ -14,7 +14,7 @@
  * answer that is not a document fails the export, naming the page.
  */
 
-import { Data, Effect, Option } from 'effect'
+import { Effect, Option } from 'effect'
 import { ContentDirReader } from '@/application/ports/services/content-dir-reader'
 import { PageRenderer } from '@/application/ports/services/page-renderer'
 import { pageRoutePatterns, primaryPagePath } from '@/domain/kernel/matching/localized-path'
@@ -30,6 +30,7 @@ import {
   type PageBoardPlan,
   type PageDrawOptions,
 } from './design-system-page-boards'
+import { DesignSystemPageDrawError } from './design-system-page-draw-error'
 import { withRefusedForm } from './design-system-page-form-refusal'
 import {
   drawnIdsOf,
@@ -49,12 +50,6 @@ import type { SeedContext } from './design-system-page-seed'
 import type { App } from '@/domain/models/app'
 import type { BoardPrototype } from '@/domain/models/app/design/adapters/pages/claude-design-canvas-prototype'
 import type { Page } from '@/domain/models/app/pages'
-
-/** A page the renderer could not draw offline; nothing is handed over. */
-export class DesignSystemPageDrawError extends Data.TaggedError('DesignSystemPageDrawError')<{
-  readonly page: string
-  readonly cause: unknown
-}> {}
 
 /** The address a renderer's answer redirects to, or `undefined` for any other answer. */
 export const redirectOf = (answer: unknown): string | undefined => {

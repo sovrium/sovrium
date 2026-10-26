@@ -31,6 +31,7 @@
  */
 
 import { Effect } from 'effect'
+import { UncompilableFilterOperatorError } from '@/domain/errors/uncompilable-filter-operator-error'
 
 /**
  * Width of a repository fan-out that runs on the SHARED connection pool.
@@ -98,3 +99,15 @@ export const makeDbWrap =
   <E>(toError: (cause: unknown) => E) =>
   <A>(run: () => Promise<A>): Effect.Effect<A, E> =>
     dbEffect(toError, run)
+
+/**
+ * An error adapter that passes a filter compiler's refusal through as itself
+ * and adapts every other cause through `toError`. A repository that compiles a
+ * caller's filter inside its database wrapper uses it, so an operator no
+ * compiler knows reaches the caller as {@link UncompilableFilterOperatorError}
+ * — a 400 at the API, a failed step in a run — never as a database error.
+ */
+export const passingFilterRefusal =
+  <E>(toError: (cause: unknown) => E) =>
+  (cause: unknown): E | UncompilableFilterOperatorError =>
+    cause instanceof UncompilableFilterOperatorError ? cause : toError(cause)

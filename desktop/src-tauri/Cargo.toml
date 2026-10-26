@@ -1,6 +1,6 @@
 [package]
 name = "sovrium-desktop"
-version = "0.44.0"
+version = "0.45.0"
 description = "The Sovrium desktop shell — a native window and tray supervising the Sovrium binary as a sidecar."
 authors = ["ESSENTIAL SERVICES"]
 edition = "2021"
@@ -32,7 +32,11 @@ tauri-build = { version = "2.7.4", features = [] }
 # dropping the feature is a compile error rather than a silent fallback.
 tauri = { version = "2.12.5", features = ["tray-icon", "image-png"] }
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.154"
+# `preserve_order` because the shell rewrites a file it does not own: Claude
+# Desktop's MCP configuration (`claude_desktop.rs`, ADR-036 A2). Without it a
+# parsed object is a BTreeMap, and writing one key back would re-sort every other
+# key in the user's file.
+serde_json = { version = "1.0.154", features = ["preserve_order"] }
 # The facade `tauri-plugin-log` installs a sink for. Declared directly because
 # this crate CALLS `log::warn!`; relying on the plugin to pull it in transitively
 # would make the shell's own logging break on a plugin bump it has no other

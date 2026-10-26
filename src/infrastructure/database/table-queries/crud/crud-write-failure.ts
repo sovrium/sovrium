@@ -5,7 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { findConstraintFieldName } from '@/domain/errors/driver-failure'
+import { findConstraintFieldName, findViolatedIndexName } from '@/domain/errors/driver-failure'
+import {
+  languageUniqueLabel,
+  languageUniqueTargetOf,
+} from '@/domain/models/app/tables/translatable-unique-service'
 import {
   ForeignKeyViolationError,
   DatabaseError,
@@ -48,7 +52,9 @@ export function wrapCreateRecordFailure(
   if (error instanceof UniqueConstraintViolationError) return error
   if (error instanceof ForeignKeyViolationError) return error
 
-  const fieldName = findConstraintFieldName(error, submittedFields)
+  const fieldName =
+    findConstraintFieldName(error, submittedFields) ??
+    languageUniqueFieldOf(error, tableName, submittedFields)
 
   if (isForeignKeyViolation(error)) {
     const message = fieldName
@@ -65,3 +71,38 @@ export function wrapCreateRecordFailure(
   // reads `fieldName` off this error to name the offending column.
   return new DatabaseError(`Failed to create record in ${tableName}`, error, fieldName)
 }
+
+/**
+ * `slug (fr)` when `error` is a refusal by the per-language unique index of a
+ * translatable field the caller submitted ([internal ref] A1). Neither engine names
+ * the column of an expression index, so the field and the language are read
+ * back from the index NAME, against the submitted fields only (S4).
+ */
+export function languageUniqueFieldOf(
+  error: unknown,
+  tableName: string,
+  submittedFields: readonly string[]
+): string | undefined {
+  if (!isUniqueConstraintViolation(error)) return undefined
+  const index = findViolatedIndexName(error)
+  const target =
+    index === undefined ? undefined : languageUniqueTargetOf(index, tableName, submittedFields)
+  return target === undefined ? undefined : languageUniqueLabel(target.field, target.code)
+}
+
+/**
+ * The catch of an UPDATE: a `DatabaseError` as before, naming `slug (fr)` when
+ * the per-language unique index of a submitted translatable field refused it —
+ * also when the statement's own catch has wrapped the driver error already.
+ */
+export const wrapUpdateRecordFailure =
+  (tableName: string, submittedFields: readonly string[]) =>
+  (error: unknown): DatabaseError => {
+    const fieldName = languageUniqueFieldOf(error, tableName, submittedFields)
+    if (!(error instanceof DatabaseError)) {
+      return new DatabaseError(`Failed to update record in ${tableName}`, error, fieldName)
+    }
+    return fieldName === undefined || error.fieldName !== undefined
+      ? error
+      : new DatabaseError(error.message, error.cause, fieldName)
+  }

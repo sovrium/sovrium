@@ -29,6 +29,7 @@
 
 import { Effect } from 'effect'
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
+import { isUniqueInEachLanguage } from '@/domain/models/app/tables/translatable-unique-service'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { getPhysicalTableName } from '../lookup/lookup-view-generators'
 import { executeSQL, SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
@@ -37,6 +38,8 @@ import {
   LIVE_ROWS_PREDICATE,
   liveUniqueIndexName,
 } from '../sql/sql-key-constraints'
+import { type DeclaredLanguageIndex } from '../sql/sql-language-unique-indexes'
+import { languageUniqueRefusals, liveMapColumns } from './language-unique-preflight'
 import { readUniqueShapeDrift } from './live-unique-shape'
 import { sqliteCheckClausesStale } from './sqlite-check-drift'
 import { sqliteForeignKeyTargetsStale } from './sqlite-foreign-key-target-drift'
@@ -175,6 +178,8 @@ const probeSharedDefaults = (
 export interface UniquePlan {
   /** The physical columns becoming unique, in declaration order. */
   readonly columns: readonly string[]
+  /** The per-language unique indexes a translatable unique field gains. */
+  readonly languageIndexes: readonly DeclaredLanguageIndex[]
   readonly refusals: readonly string[]
 }
 
@@ -192,15 +197,28 @@ export const planUniqueChanges = (params: {
 }): Effect.Effect<UniquePlan, SQLExecutionError> =>
   Effect.gen(function* () {
     const { tx, table, source, existingColumns } = params
-    if (!table.fields.some(isBtreeUniqueField)) return { columns: [], refusals: [] }
+    if (!table.fields.some((field) => isBtreeUniqueField(field) || isUniqueInEachLanguage(field)))
+      return { columns: [], languageIndexes: [], refusals: [] }
     const drift = yield* readUniqueShapeDrift(tx, table, source)
     const missing = new Set([...drift.missing, ...drift.missingKeyed])
     const becoming = table.fields.filter((field) => missing.has(field.name))
     const query = (sql: string) => executeSQL(tx, sql)
-    const existing = becoming.filter((field) => existingColumns.has(field.name))
+    // A column holding maps today is probed per language, or on its collapse.
+    const mapColumns = yield* liveMapColumns(tx, source, existingColumns)
+    const existing = becoming.filter(
+      (field) => existingColumns.has(field.name) && !mapColumns.has(field.name)
+    )
     const duplicates = yield* Effect.forEach(existing, (field) =>
       probeDuplicates(query, table.name, source, field.name)
     )
+    const languages = yield* languageUniqueRefusals({
+      tx,
+      table,
+      relation: source,
+      mapColumns,
+      missing: drift.missingLanguages,
+      collapsing: becoming.map((field) => field.name),
+    })
     const added = becoming.flatMap((field) => {
       const value = existingColumns.has(field.name) ? undefined : sharedDefaultOf(field)
       return value === undefined ? [] : [{ column: field.name, value }]
@@ -208,7 +226,8 @@ export const planUniqueChanges = (params: {
     const shared = yield* probeSharedDefaults(query, table.name, source, added)
     return {
       columns: becoming.map((field) => field.name),
-      refusals: [...duplicates.flat(), ...shared],
+      languageIndexes: drift.missingLanguages,
+      refusals: [...duplicates.flat(), ...languages, ...shared],
     }
   })
 

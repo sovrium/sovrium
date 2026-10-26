@@ -10,22 +10,18 @@
  * in the package that answers a QUESTION ABOUT A SET rather than about a row.
  *
  * That is the seam. Every other program here addresses one record by id; this
- * one is a query, and the whole of its difficulty is that four things must
- * agree about which rows they are describing — the page, the total, the
- * aggregations and the groups. The helpers below exist to keep them agreeing,
- * each in its own statement over the same filter and none reading a row it
- * does not return:
+ * one is a query, whose whole difficulty is that four things must agree about
+ * which rows they describe — page, total, aggregations, groups. The helpers
+ * below keep them agreeing, each a statement over the same filter:
  *
  *   - {@link readListRows} pushes the page window into SQL, and reports it as
  *     `preSliced` so nothing downstream slices a window twice.
  *   - {@link listGroups} answers `groups` with one `GROUP BY` per level.
  *   - {@link countMatchingRecords} takes the total from the SAME filter the
- *     page used, rather than from `records.length`, which stops answering the
- *     moment the engine returns one window.
+ *     page used, never from `records.length` (one window under pushdown).
  *   - {@link buildRecordPage} runs the enrichment ladder in the ONE order that
- *     works, and does it after pagination so each enricher covers one page.
- *
- * Its many-to-many and related-label enrichers live in `record-link-enrichment.ts`.
+ *     works, after pagination so each enricher covers one page (its many-to-many
+ *     and related-label enrichers live in `record-link-enrichment.ts`).
  */
 
 import { Effect } from 'effect'
@@ -46,7 +42,7 @@ import {
   withLookupKeyColumns,
 } from './hidden-lookup-omission'
 import { processRecords, buildPaginationMeta, DEFAULT_PAGE_SIZE } from './list-helpers'
-import { lookupReadMasks, withRuledRelatedText } from './lookup-read-masks'
+import { lookupReadMasks, translatedFilter, withRuledRelatedText } from './lookup-read-masks'
 import { orderedAnswerFor, readRecordGroups } from './record-groups'
 import {
   enrichRecordsWithManyToMany,
@@ -60,10 +56,11 @@ import type { AiComputeStatusRepository } from '@/application/ports/repositories
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type {
+  TableReadError,
   LookupReadMask,
   QueryFilter,
 } from '@/application/ports/repositories/tables/table-repository'
-import type { DatabaseError, NotFoundError } from '@/domain/errors'
+import type { NotFoundError } from '@/domain/errors'
 import type { ListRecordsResponse } from '@/domain/models/api/tables/tables'
 import type { App } from '@/domain/models/app'
 import type { RowGrants } from '@/domain/models/app/tables/row-read-admission-service'
@@ -85,6 +82,8 @@ interface ListRecordsConfig {
   readonly includeDeleted?: boolean
   readonly format?: 'display'
   readonly timezone?: string
+  /** The language translatable fields are served in: a declared code, or `*`. */
+  readonly language?: string | undefined
   readonly sort?: string
   /**
    * Order a single-select by its DECLARED option order rather than by value.
@@ -212,6 +211,7 @@ const labelAudience = (config: ListRecordsConfig) => ({
   },
   requested: config.labels ?? [],
   linkReader: linkReadOptions(config).reader,
+  language: config.language,
 })
 
 /**
@@ -237,6 +237,7 @@ const buildRecordPage = (
       userGroups: config.userGroups ?? [],
       format: config.format,
       timezone: config.timezone,
+      language: config.language,
       fields: config.fields,
       ...(config.grants === undefined ? {} : { grants: config.grants }),
     })
@@ -302,7 +303,7 @@ const countMatchingRecords = (
     readonly lookupMasks: readonly LookupReadMask[]
   },
   fallback: number
-): Effect.Effect<number, DatabaseError> =>
+): Effect.Effect<number, TableReadError> =>
   Effect.gen(function* () {
     const result = yield* repo.computeAggregations({ ...params, aggregate: { count: true } })
     const total = Number(result.count)
@@ -325,9 +326,8 @@ const countMatchingRecords = (
 const readListRows = (config: ListRecordsConfig, repo: TableRepository['Service']) =>
   Effect.gen(function* () {
     const { session, tableName, filter, includeDeleted, groupBy } = config
-    // A lookup the query steers on is evaluated as empty where its linked
-    // record is hidden from this reader — in the page, the count, the
-    // aggregates and the group names.
+    // A lookup the query steers on reads as empty where its linked record is
+    // hidden from this reader: in the page, the count, aggregates, group names.
     const lookupMasks = yield* lookupReadMasks(
       config.app,
       tableName,
@@ -374,7 +374,7 @@ export function createListRecordsProgram(
   input: ListRecordsConfig
 ): Effect.Effect<
   ListRecordsResponse,
-  DatabaseError | NotFoundError,
+  TableReadError | NotFoundError,
   TableRepository | AuthRepository | DataSourceRepository | AiComputeStatusRepository
 > {
   return Effect.gen(function* () {
@@ -382,7 +382,7 @@ export function createListRecordsProgram(
     const { reader } = linkReadOptions(input)
     // Only the rows the reader may read: refused whole when she may read none.
     const { admission, grants } = yield* readerRowsOf(input.app, input.tableName, reader)
-    const ruled = yield* withRuledRelatedText(input, reader)
+    const ruled = yield* withRuledRelatedText(translatedFilter(input), reader)
     const config = { ...input, grants, filter: yield* filterToReaderRows(ruled, admission) }
     const { session, tableName, filter, includeDeleted, aggregate, groupBy } = config
 

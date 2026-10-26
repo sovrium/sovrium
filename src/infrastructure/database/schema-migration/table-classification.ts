@@ -21,10 +21,11 @@
  */
 
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
+import { deriveLinkTableName } from '@/domain/models/app/tables/table-derived-name-validation'
 import { getBaseTableName, shouldUseView } from '../lookup/lookup-view-generators'
 import { SQLITE_FTS_PREFIX } from '../schema/command-search-fts-ddl'
 import { isManyToManyRelationship } from '../sql/sql-field-predicates'
-import { generateJunctionTableName } from '../sql/sql-junction-tables'
+import { generateJunctionTableName, postgresStoredName } from '../sql/sql-junction-tables'
 import type { Table } from '@/domain/models/app/tables'
 
 /** The suffix a view-backed table's physical relation carries. */
@@ -32,28 +33,36 @@ const BASE_SUFFIX = getBaseTableName('')
 
 /**
  * Every physical table name the config accounts for: each config table, the
- * `<name>_base` of each view-backed one, and each many-to-many junction table in
- * BOTH directions — the engine creates `<source>_<related>`, and the reciprocal
- * side of the same relationship may be the one the config declares.
+ * `<name>_base` of each view-backed one, and each many-to-many field's link
+ * table, plus the table named after the two tables in BOTH directions — the
+ * name a field keeps while it is the only many-to-many between them, the one a
+ * shared table an earlier version left carries until it is split
+ * (`link-table-splits.ts`), and the reciprocal side of the same relationship
+ * may be the one the config declares.
  */
 export const expectedPhysicalTableNames = (tables: readonly Table[]): ReadonlySet<string> =>
   new Set(
     tables.flatMap((table) => {
       const sanitized = sanitizeTableName(table.name)
       const junctions = table.fields.filter(isManyToManyRelationship).flatMap((field) => [
-        generateJunctionTableName(table.name, field.relatedTable),
-        generateJunctionTableName(field.relatedTable, table.name),
+        generateJunctionTableName(table, field),
+        deriveLinkTableName(table.name, field.relatedTable),
+        deriveLinkTableName(field.relatedTable, table.name),
         // The spelling an older engine created from the CONFIG names. SQLite
         // keeps a name's case (`Projects_tags`), and matches it
         // case-insensitively, so such a junction is still this one.
         `${table.name}_${field.relatedTable}`,
         `${field.relatedTable}_${table.name}`,
       ])
+      // PostgreSQL keeps the first 63 characters of a longer name, and its
+      // catalog lists that: the link table is still this one.
+      const stored = junctions.map(postgresStoredName)
       return [
         table.name,
         sanitized,
         ...(shouldUseView(table) ? [getBaseTableName(sanitized)] : []),
         ...junctions,
+        ...stored,
       ]
     })
   )
@@ -165,6 +174,14 @@ export interface StoredLinkTable {
  */
 export type StoredTableIdentity = number | string | StoredLinkTable
 
+/** A stored field, as the snapshot recorded it. */
+type StoredField = {
+  readonly name?: string
+  readonly type: string
+  readonly relationType?: string
+  readonly relatedTable?: string
+}
+
 /** The relationship `physicalTable` held the links of, per the stored schema. */
 const storedLinkTableFor = (
   physicalTable: string,
@@ -174,14 +191,18 @@ const storedLinkTableFor = (
     .flatMap((table: object): readonly StoredLinkTable[] => {
       if (!('name' in table) || typeof table.name !== 'string') return []
       if (!('fields' in table) || !Array.isArray(table.fields)) return []
-      const source = table.name
-      return (table.fields as readonly unknown[]).flatMap((field): readonly StoredLinkTable[] => {
-        const link = field as { readonly relationType?: unknown; readonly relatedTable?: unknown }
+      const source = { name: table.name, fields: table.fields as readonly StoredField[] }
+      return source.fields.flatMap((link): readonly StoredLinkTable[] => {
         if (link.relationType !== 'many-to-many' || typeof link.relatedTable !== 'string') return []
         const related = link.relatedTable
-        return generateJunctionTableName(source, related) === physicalTable ||
-          generateJunctionTableName(related, source) === physicalTable
-          ? [{ linkOf: [source, related] }]
+        const field = {
+          name: typeof link.name === 'string' ? link.name : '',
+          relatedTable: related,
+        }
+        return generateJunctionTableName(source, field) === physicalTable ||
+          deriveLinkTableName(source.name, related) === physicalTable ||
+          deriveLinkTableName(related, source.name) === physicalTable
+          ? [{ linkOf: [source.name, related] }]
           : []
       })
     })

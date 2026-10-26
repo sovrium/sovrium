@@ -11,7 +11,9 @@
 //! ADR-036 D4 enumerates the settings surface rather than describing it, and the
 //! reason is that a described scope drifts toward the next plausible field. What
 //! is held here is: the project to open, the port, whether to open in the
-//! browser instead of the window, and whether the shell checks for updates.
+//! browser instead of the window, and whether the shell checks for updates —
+//! and, per project, the "Let my AI edit" switch and the name of the entry the
+//! shell wrote into Claude Desktop's configuration (ADR-036 A2).
 //!
 //! What is NOT held here is anything belonging to the app the sidecar serves —
 //! no table, no page, no field, no automation, no theme, no env value of the
@@ -68,8 +70,56 @@ const STORE_KEY: &str = "settings";
 /// that editing a document does not.
 pub const DEFAULT_CONFIG_FILE: &str = "app.yaml";
 
+/// The config files a project folder may hold, in the order the shell looks for
+/// them. The first one present wins.
+///
+/// The three document formats come first, YAML before JSON, and `app.ts` last:
+/// a folder holding both a document and a program is opened on the document,
+/// because the document is the one the shell can let an AI edit (ADR-036 D6).
+///
+/// `app.json` is here although the engine's own implicit lookup skips it
+/// (`DEFAULT_CONFIG_FILENAMES` in
+/// `src/domain/kernel/config-parsing/default-config-files.ts`), because
+/// `sovrium init --from-url` writes `app.json` for a `.json` address and the
+/// shell must be able to open what the engine just scaffolded. The asymmetry is
+/// safe here and not there: the shell always NAMES the file it found — as
+/// `SOVRIUM_CONFIG_FILE` and as the positional argument to `start` — so the
+/// engine never has to guess, and the folder is one a person picked or the shell
+/// itself created.
+pub const CONFIG_FILE_CANDIDATES: [&str; 4] = ["app.yaml", "app.yml", "app.json", "app.ts"];
+
+/// The config file present in `dir`, in [`CONFIG_FILE_CANDIDATES`] order, or
+/// `None` when the folder holds none of them.
+///
+/// A directory or a dangling symlink carrying a candidate's name does not
+/// count: only a file the engine could actually read does.
+pub fn detect_config_file(dir: &Path) -> Option<&'static str> {
+    CONFIG_FILE_CANDIDATES
+        .into_iter()
+        .find(|name| dir.join(name).is_file())
+}
+
+/// Whether the shell may let an AI write this config file.
+///
+/// ADR-036 D6 admits the document formats only — `.yaml`, `.yml` and `.json` —
+/// and the engine's write tools refuse anything else on their own
+/// (`mcp-config-write-guards.ts`). A `.ts` config is a program, and editing a
+/// program has a failure mode editing a document does not, so a `.ts` project
+/// opens and runs normally but its AI-writing switch can never be turned on.
+pub fn ai_writes_supported(config_file: &str) -> bool {
+    Path::new(config_file)
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| matches!(e.to_ascii_lowercase().as_str(), "yaml" | "yml" | "json"))
+}
+
 /// A project the shell knows about.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// `Serialize` is written by hand (below) so the wire form can carry
+/// `aiWritesSupported`, which is DERIVED from `config_file` on every
+/// serialisation rather than stored: a stored copy could disagree with the file
+/// it describes, and the UI would then offer a switch the engine refuses.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectRef {
     /// Absolute path of the project folder. This is the identity of a project;
@@ -85,6 +135,25 @@ pub struct ProjectRef {
     /// Carried so "Reset to template" knows what to reset TO.
     #[serde(default)]
     pub template: Option<String>,
+    /// "Let my AI edit": whether the "Connect your AI" snippet switches on the
+    /// engine's config-write tools for this project (`MCP_CONFIG_WRITE=1`).
+    ///
+    /// Off by default, per project, and never honoured for a config format an
+    /// AI may not write — read it through [`ProjectRef::ai_writes_enabled`].
+    /// It passes the module's test: the value becomes an environment variable
+    /// in a client's MCP entry, never a key in the config file. A config that
+    /// could authorise its own editing would be authorising itself.
+    #[serde(default)]
+    pub ai_writes: bool,
+    /// The name this project's entry has in Claude Desktop's MCP configuration
+    /// (`sovrium-<slug>`, with a numeric suffix if another project had it),
+    /// recorded at the first write so later writes update the same entry
+    /// (ADR-036 A2 rule 6). `None` until the shell has written one.
+    ///
+    /// It passes the module's test too: it names a key in the AI client's own
+    /// file, and never reaches the project's config file.
+    #[serde(default)]
+    pub mcp_entry_name: Option<String>,
 }
 
 fn default_config_file() -> String {
@@ -99,11 +168,52 @@ impl ProjectRef {
             .and_then(|n| n.to_str())
             .unwrap_or("Sovrium project")
             .to_string();
+        let config_file = detect_config_file(&dir)
+            .unwrap_or(DEFAULT_CONFIG_FILE)
+            .to_string();
         Self {
             dir,
-            config_file: DEFAULT_CONFIG_FILE.to_string(),
+            config_file,
             name,
             template,
+            ai_writes: false,
+            mcp_entry_name: None,
+        }
+    }
+
+    /// The switch as the engine will see it: on only when the user turned it on
+    /// AND the config is a format an AI may write. A record that says "on" for
+    /// an `app.ts` project — its file was swapped after the switch was set —
+    /// reads as off.
+    pub fn ai_writes_enabled(&self) -> bool {
+        self.ai_writes && self.ai_writes_supported()
+    }
+
+    /// Whether this project's config is a format an AI may write — see
+    /// [`ai_writes_supported`].
+    pub fn ai_writes_supported(&self) -> bool {
+        ai_writes_supported(&self.config_file)
+    }
+
+    /// Re-point a remembered project at the config file its folder holds NOW,
+    /// when the recorded one is gone.
+    ///
+    /// Repairs records written before the shell detected the file — a project
+    /// forked from a `.json` address was recorded as `app.yaml` and then could
+    /// not be reopened — and a project whose file the user renamed. A record
+    /// whose file still exists is never touched, and neither is one whose folder
+    /// holds no candidate at all: the "no config here" refusal is still the
+    /// right answer for that folder, and it should name what was recorded.
+    pub fn refresh_config_file(&mut self) -> bool {
+        if self.config_path().is_file() {
+            return false;
+        }
+        match detect_config_file(&self.dir) {
+            Some(found) if found != self.config_file => {
+                self.config_file = found.to_string();
+                true
+            }
+            _ => false,
         }
     }
 
@@ -133,6 +243,36 @@ impl ProjectRef {
     /// Absolute path of the config file.
     pub fn config_path(&self) -> PathBuf {
         self.dir.join(&self.config_file)
+    }
+}
+
+/// The wire and storage form of a [`ProjectRef`]: its fields, plus the derived
+/// `aiWritesSupported`. Storing the derived value is harmless — it is ignored
+/// on the way back in, since serde skips unknown fields.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProjectRefWire<'a> {
+    dir: &'a Path,
+    config_file: &'a str,
+    name: &'a str,
+    template: &'a Option<String>,
+    ai_writes: bool,
+    ai_writes_supported: bool,
+    mcp_entry_name: &'a Option<String>,
+}
+
+impl Serialize for ProjectRef {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        ProjectRefWire {
+            dir: &self.dir,
+            config_file: &self.config_file,
+            name: &self.name,
+            template: &self.template,
+            ai_writes: self.ai_writes,
+            ai_writes_supported: self.ai_writes_supported(),
+            mcp_entry_name: &self.mcp_entry_name,
+        }
+        .serialize(serializer)
     }
 }
 
@@ -189,11 +329,96 @@ const MAX_RECENTS: usize = 10;
 impl Settings {
     /// Record a project as opened: it becomes active and moves to the front of
     /// recents, de-duplicated by folder path.
-    pub fn open_project(&mut self, project: ProjectRef) {
+    ///
+    /// The "Let my AI edit" switch and the Claude Desktop entry name survive a
+    /// reopen: a freshly built [`ProjectRef`] carries neither, so the
+    /// remembered values for the same folder are carried over rather than
+    /// silently reset.
+    pub fn open_project(&mut self, mut project: ProjectRef) {
+        if let Some(known) = self.project(&project.dir) {
+            project.ai_writes = known.ai_writes;
+            project.mcp_entry_name = known.mcp_entry_name.clone();
+        }
         self.recents.retain(|r| r.dir != project.dir);
         self.recents.insert(0, project.clone());
         self.recents.truncate(MAX_RECENTS);
         self.active_project = Some(project);
+    }
+
+    /// The remembered record for a project folder: the active project first,
+    /// then recents.
+    pub fn project(&self, dir: &Path) -> Option<&ProjectRef> {
+        self.active_project
+            .iter()
+            .chain(self.recents.iter())
+            .find(|p| p.dir.as_path() == dir)
+    }
+
+    /// Turn "Let my AI edit" on or off for one project folder.
+    ///
+    /// Turning it on is refused for a config an AI may not write (`app.ts`),
+    /// and for a folder the shell does not remember. Turning it off is always
+    /// allowed. Both the active record and the recents entry are updated, so
+    /// the value cannot depend on which list a later read consults.
+    pub fn set_ai_writes(&mut self, dir: &Path, enabled: bool) -> Result<(), String> {
+        let Some(known) = self.project(dir) else {
+            return Err("That project is not open.".into());
+        };
+        if enabled && !known.ai_writes_supported() {
+            return Err(format!(
+                "Your AI cannot edit {}: only .yaml, .yml and .json configurations can be edited this way.",
+                known.config_file
+            ));
+        }
+        for project in self
+            .recents
+            .iter_mut()
+            .chain(self.active_project.iter_mut())
+            .filter(|p| p.dir.as_path() == dir)
+        {
+            project.ai_writes = enabled;
+        }
+        Ok(())
+    }
+
+    /// Record (or, with `None`, clear) the name of a project's Claude Desktop
+    /// entry, on the active record and the recents entry alike.
+    pub fn set_mcp_entry_name(&mut self, dir: &Path, name: Option<String>) {
+        for project in self
+            .recents
+            .iter_mut()
+            .chain(self.active_project.iter_mut())
+            .filter(|p| p.dir.as_path() == dir)
+        {
+            project.mcp_entry_name = name.clone();
+        }
+    }
+
+    /// The Claude Desktop entry names recorded by every project except `dir`.
+    pub fn mcp_entry_names_except(&self, dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = self
+            .active_project
+            .iter()
+            .chain(self.recents.iter())
+            .filter(|p| p.dir.as_path() != dir)
+            .filter_map(|p| p.mcp_entry_name.clone())
+            .collect();
+        names.sort();
+        names.dedup();
+        names
+    }
+
+    /// Re-detect the config file of every remembered project whose recorded
+    /// file has gone — see [`ProjectRef::refresh_config_file`]. In memory only;
+    /// the next save persists it.
+    pub fn refresh_config_files(&mut self) {
+        for project in self
+            .recents
+            .iter_mut()
+            .chain(self.active_project.iter_mut())
+        {
+            project.refresh_config_file();
+        }
     }
 
     /// Drop a project from recents (and from active, if it was active).
@@ -219,10 +444,12 @@ pub fn load<R: Runtime>(app: &AppHandle<R>) -> Settings {
     let Ok(store) = app.store(STORE_FILE) else {
         return Settings::default();
     };
-    store
+    let mut settings: Settings = store
         .get(STORE_KEY)
         .and_then(|value| serde_json::from_value(value).ok())
-        .unwrap_or_default()
+        .unwrap_or_default();
+    settings.refresh_config_files();
+    settings
 }
 
 /// Write the settings, flushing to disk immediately.
@@ -332,9 +559,222 @@ mod tests {
         assert_eq!(s, Settings::default());
     }
 
+    /// A fresh, empty folder under the system temp dir, unique per test.
+    fn scratch(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("sov-settings-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn detects_each_config_format_on_its_own() {
+        for name in CONFIG_FILE_CANDIDATES {
+            let dir = scratch(&format!("one-{name}"));
+            std::fs::write(dir.join(name), "name: x").unwrap();
+            assert_eq!(detect_config_file(&dir), Some(name), "{name}");
+            assert_eq!(ProjectRef::new(dir.clone(), None).config_file, name);
+            std::fs::remove_dir_all(&dir).ok();
+        }
+    }
+
+    #[test]
+    fn detection_prefers_yaml_then_yml_then_json_then_ts() {
+        let dir = scratch("order");
+        for name in ["app.ts", "app.json", "app.yml", "app.yaml"] {
+            std::fs::write(dir.join(name), "x").unwrap();
+        }
+        assert_eq!(detect_config_file(&dir), Some("app.yaml"));
+        std::fs::remove_file(dir.join("app.yaml")).unwrap();
+        assert_eq!(detect_config_file(&dir), Some("app.yml"));
+        std::fs::remove_file(dir.join("app.yml")).unwrap();
+        assert_eq!(detect_config_file(&dir), Some("app.json"));
+        std::fs::remove_file(dir.join("app.json")).unwrap();
+        assert_eq!(detect_config_file(&dir), Some("app.ts"));
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_folder_with_no_config_detects_nothing_and_a_directory_does_not_count() {
+        let dir = scratch("none");
+        assert_eq!(detect_config_file(&dir), None);
+        // A directory named like a config is not a config the engine can read.
+        std::fs::create_dir_all(dir.join("app.yaml")).unwrap();
+        assert_eq!(detect_config_file(&dir), None);
+        // Nothing found: the record still names the default, so the refusal
+        // can say what was looked for.
+        assert_eq!(
+            ProjectRef::new(dir.clone(), None).config_file,
+            DEFAULT_CONFIG_FILE
+        );
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_project_forked_from_a_json_address_opens_on_app_json() {
+        // The bug this detection fixes: `init --from-url …/x.json` writes
+        // `app.json`, and a shell that recorded `app.yaml` then refused to open
+        // the folder it had just created.
+        let dir = scratch("from-url-json");
+        std::fs::write(dir.join("app.json"), "{}").unwrap();
+        let p = ProjectRef::new(dir.clone(), None);
+        assert_eq!(p.config_file, "app.json");
+        assert!(p.config_path().is_file());
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn only_document_formats_admit_ai_writes() {
+        assert!(ai_writes_supported("app.yaml"));
+        assert!(ai_writes_supported("app.yml"));
+        assert!(ai_writes_supported("app.json"));
+        assert!(ai_writes_supported("APP.YAML"));
+        assert!(!ai_writes_supported("app.ts"));
+        assert!(!ai_writes_supported("app"));
+        assert!(!ai_writes_supported(""));
+    }
+
+    #[test]
+    fn the_wire_form_carries_whether_ai_writes_are_possible() {
+        let dir = scratch("wire");
+        std::fs::write(dir.join("app.ts"), "export default {}").unwrap();
+        let ts = ProjectRef::new(dir.clone(), None);
+        let value = serde_json::to_value(&ts).unwrap();
+        assert_eq!(value["configFile"], "app.ts");
+        assert_eq!(value["aiWritesSupported"], false);
+
+        let yaml = project("/tmp/nowhere");
+        assert_eq!(
+            serde_json::to_value(&yaml).unwrap()["aiWritesSupported"],
+            true
+        );
+
+        // Derived on the way out, ignored on the way in: a stale stored value
+        // can never outvote the file name.
+        let back: ProjectRef = serde_json::from_str(
+            r#"{"dir":"/tmp/x","configFile":"app.ts","aiWritesSupported":true}"#,
+        )
+        .unwrap();
+        assert!(!back.ai_writes_supported());
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_stale_record_is_repointed_at_the_file_the_folder_holds_now() {
+        let dir = scratch("refresh");
+        std::fs::write(dir.join("app.json"), "{}").unwrap();
+        // What an older shell recorded for a `.json` fork.
+        let mut s: Settings = serde_json::from_value(serde_json::json!({
+            "activeProject": { "dir": dir, "configFile": "app.yaml" },
+            "recents": [{ "dir": dir, "configFile": "app.yaml" }],
+        }))
+        .unwrap();
+        s.refresh_config_files();
+        assert_eq!(s.active_project.as_ref().unwrap().config_file, "app.json");
+        assert_eq!(s.recents[0].config_file, "app.json");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_record_whose_file_exists_or_whose_folder_is_empty_is_left_alone() {
+        let dir = scratch("refresh-keep");
+        std::fs::write(dir.join("app.yml"), "name: x").unwrap();
+        std::fs::write(dir.join("app.yaml"), "name: x").unwrap();
+        let mut kept: ProjectRef =
+            serde_json::from_value(serde_json::json!({ "dir": dir, "configFile": "app.yml" }))
+                .unwrap();
+        assert!(!kept.refresh_config_file(), "the recorded file exists");
+        assert_eq!(kept.config_file, "app.yml");
+
+        let empty = scratch("refresh-empty");
+        let mut gone: ProjectRef =
+            serde_json::from_value(serde_json::json!({ "dir": empty, "configFile": "app.yaml" }))
+                .unwrap();
+        assert!(!gone.refresh_config_file());
+        assert_eq!(gone.config_file, "app.yaml");
+        std::fs::remove_dir_all(&dir).ok();
+        std::fs::remove_dir_all(&empty).ok();
+    }
+
+    #[test]
+    fn let_my_ai_edit_is_off_by_default_and_for_old_records() {
+        assert!(!project("/tmp/a").ai_writes);
+        let old: ProjectRef = serde_json::from_str(r#"{"dir":"/tmp/x"}"#).unwrap();
+        assert!(!old.ai_writes);
+        assert!(!old.ai_writes_enabled());
+    }
+
+    #[test]
+    fn let_my_ai_edit_is_set_per_project_and_survives_a_reopen() {
+        let mut s = Settings::default();
+        s.open_project(project("/a"));
+        s.open_project(project("/b"));
+        s.set_ai_writes(Path::new("/b"), true).unwrap();
+        assert!(s.active_project.as_ref().unwrap().ai_writes_enabled());
+        assert!(s.project(Path::new("/b")).unwrap().ai_writes);
+        assert!(
+            !s.project(Path::new("/a")).unwrap().ai_writes,
+            "per project"
+        );
+
+        // Reopening builds a fresh record, which must not reset the switch.
+        s.open_project(project("/a"));
+        s.open_project(project("/b"));
+        assert!(s.active_project.as_ref().unwrap().ai_writes);
+        assert!(s.recents[0].ai_writes);
+
+        s.set_ai_writes(Path::new("/b"), false).unwrap();
+        assert!(!s.active_project.as_ref().unwrap().ai_writes);
+        assert!(!s.recents[0].ai_writes);
+    }
+
+    #[test]
+    fn let_my_ai_edit_cannot_be_turned_on_for_a_typescript_config() {
+        let dir = scratch("ts-switch");
+        std::fs::write(dir.join("app.ts"), "export default {}").unwrap();
+        let mut s = Settings::default();
+        s.open_project(ProjectRef::new(dir.clone(), None));
+        assert!(s.set_ai_writes(&dir, true).is_err());
+        assert!(!s.active_project.as_ref().unwrap().ai_writes);
+        // Off is always allowed.
+        assert!(s.set_ai_writes(&dir, false).is_ok());
+
+        // A stale "on" for a project whose file became `.ts` reads as off.
+        let mut swapped = s.active_project.clone().unwrap();
+        swapped.ai_writes = true;
+        assert!(!swapped.ai_writes_enabled());
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn let_my_ai_edit_refuses_a_folder_the_shell_does_not_know() {
+        let mut s = Settings::default();
+        assert!(s.set_ai_writes(Path::new("/nowhere"), true).is_err());
+    }
+
     #[test]
     fn a_project_record_without_a_config_file_defaults_to_yaml() {
         let p: ProjectRef = serde_json::from_str(r#"{"dir":"/tmp/x"}"#).expect("decodes");
         assert_eq!(p.config_file, DEFAULT_CONFIG_FILE);
+    }
+
+    #[test]
+    fn the_claude_desktop_entry_name_is_recorded_per_project_and_survives_a_reopen() {
+        let mut s = Settings::default();
+        s.open_project(project("/tmp/crm"));
+        s.open_project(project("/tmp/blog"));
+        assert_eq!(s.project(Path::new("/tmp/crm")).unwrap().mcp_entry_name, None);
+
+        s.set_mcp_entry_name(Path::new("/tmp/crm"), Some("sovrium-crm".into()));
+        s.open_project(project("/tmp/crm"));
+        assert_eq!(
+            s.active_project.as_ref().unwrap().mcp_entry_name.as_deref(),
+            Some("sovrium-crm")
+        );
+        assert_eq!(s.mcp_entry_names_except(Path::new("/tmp/blog")), ["sovrium-crm"]);
+        assert!(s.mcp_entry_names_except(Path::new("/tmp/crm")).is_empty());
+
+        s.set_mcp_entry_name(Path::new("/tmp/crm"), None);
+        assert_eq!(s.project(Path::new("/tmp/crm")).unwrap().mcp_entry_name, None);
     }
 }

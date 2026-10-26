@@ -15,7 +15,7 @@ Your assistant runs the Sovrium binary on your machine and talks to it over a pi
 - **Look up what a setting accepts**, so it writes something valid the first time.
 - **See whether your app is running**, and whether the last save was applied.
 
-It also gets Sovrium's agent skills as prompts: pick `sovrium-app` from the client's prompt menu and the assistant starts from the loop Sovrium expects — edit, validate, run, look, stop — instead of guessing. In a client that can run commands, `sovrium skills` writes the same skills into the project, with their reference files; **Agent Skills** explains both.
+It also gets Sovrium's agent skills as prompts: pick `sovrium-app` from the client's prompt menu and the assistant starts from the loop Sovrium expects — edit, validate, run, look, stop — instead of guessing. In a client that can run commands, `sovrium skills` writes the same skills into the project, with their reference files; **Agent Skills** explains both. When the project carries its own `PROMPT.md` or `CLAUDE.md`, as a starter does, in Claude Desktop, pick `project-brief` to load the starter's own instructions.
 
 Those four are reads, and they are all you get until you decide otherwise. The assistant can still change your app by editing the configuration file in the folder the way it edits any other file — Sovrium notices the save and reloads on its own. What the next step adds is letting it do that **through the connection**, where Sovrium gets to check the edit first.
 
@@ -44,7 +44,35 @@ The `--` is required: everything after it is the server command, passed through 
 
 Restart the client afterwards. Always name the directory: with none, the process reads the working directory, and when a client spawned it that is the client's choice rather than yours.
 
-**Using the Sovrium app?** Its **Connect your AI** screen shows the same snippet with your project's real path filled in, and a button that copies it. It is the same command — the screen exists so nobody has to type a path by hand.
+**Using the Sovrium app?** Its **Connect your AI** screen shows the same snippet with your project's real path filled in, and a button that copies it. It is the same command — the screen exists so nobody has to type a path by hand. There the server is named after the project, `sovrium-crm` for a folder called `crm`, so two projects can be connected to the same client side by side; a second project whose name is already taken gets a number, `sovrium-crm-2`. Its **Let my AI edit** switch adds the variable described in the next section to that snippet. It is off until you turn it on, and remembered per project; after changing it, copy the snippet again and restart the client. The switch cannot be turned on for a project whose configuration is `app.ts`, because only `.yaml`, `.yml` and `.json` files can be written this way. For a project on `app.json` the snippet also sets `SOVRIUM_CONFIG_FILE`, since the server does not look for that name on its own.
+
+### Claude Desktop in one click
+
+For Claude Desktop the app can add the entry for you. **Connect Claude Desktop**, on the same screen, writes this project's server into Claude Desktop's own configuration file:
+
+| Platform | File                                                              |
+| -------- | ----------------------------------------------------------------- |
+| macOS    | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Windows  | `%APPDATA%\Claude\claude_desktop_config.json`                     |
+| Linux    | `~/.config/Claude/claude_desktop_config.json`                     |
+
+Claude Desktop has no official Linux build, so on Linux the button appears only when `~/.config/Claude/` already exists. Anywhere else it is missing, the snippet is still there to copy.
+
+Nothing is written until you confirm. Each time — the first connection, an update, and every change of **Let my AI edit** on a project you connected this way — the app first shows the file it will change, the exact entry it will add or replace, whether that entry lets your assistant edit, and where it will keep a backup. There is no "don't ask again".
+
+- **Only one entry changes.** Every other server in the file, and every other setting, is kept with its value and in its place. The file's indentation may change.
+- **A backup comes first.** Before writing, the app copies the file beside itself as `claude_desktop_config.json.sovrium-backup-<time>`, with the same permissions. If the backup cannot be written, nothing is. The five most recent backups are kept, and older ones of that file are deleted.
+- **A file it cannot read is left alone.** If the file is not valid JSON — a comment, a trailing comma, a syntax error — the app says so, changes nothing, and shows the block to add by hand instead. It never tries to repair it. A missing file is created holding only this entry.
+- **It changed while you looked?** The app reads the file again just before writing. If it is no longer the file you were shown, nothing is written and you are shown the new version to confirm.
+- **Nothing else leaves the file.** That file often holds other servers' keys. The app reads them only to keep them, and never shows, records or sends them anywhere.
+
+Restart Claude Desktop afterwards: it reads the file when it starts.
+
+## Which clients can do this
+
+This path needs a client that starts a program on your computer and talks to it over a pipe. Claude Desktop, Claude Code and Cursor all work that way, and so does any client whose MCP settings take a `command` to run.
+
+A client that can only reach an MCP server at a web address — ChatGPT's connectors, for example — cannot start `sovrium mcp`, so it cannot edit a project on your machine. That is by design: Sovrium never accepts configuration changes over HTTP. Editing a project hosted for you, from the browser, is what Sovrium Cloud offers.
 
 ## Turn writing on
 
@@ -60,6 +88,12 @@ Optional, and off until you do it. Add one environment variable to the block you
     }
   }
 }
+```
+
+In Claude Code, pass it as an option before the `--`:
+
+```bash
+claude mcp add sovrium --env MCP_CONFIG_WRITE=1 -- sovrium mcp --project ~/apps/crm
 ```
 
 Restart the client. The assistant can now list the files your config is made of, read one, replace one, and undo its last change — and it has to name the folder explicitly, which the block above already does; a session that fell back to the working directory gets the reads only.
@@ -84,7 +118,7 @@ The handshake comes back on stdout; the line naming the config file it found is 
 ## If it does not connect
 
 - **No tools in the client.** The tools are named for your app, so a config whose `name` is `crm` gets `crm_config_read` and three siblings. An empty list means the client never started the process — check the command is on the client's PATH.
-- **A missing-config finding instead of your config.** The process is running and pointed at a folder with no `app.yaml`, `app.yml` or `app.ts` in it. The finding names the flag to fix it.
+- **A missing-config finding instead of your config.** The process is running and pointed at a folder with no `app.yaml`, `app.yml` or `app.ts` in it. An `app.json` is found only when `SOVRIUM_CONFIG_FILE` names it. The finding names the flag to fix it.
 - **The client reports a protocol failure.** The server answers both protocol revisions and decides from the opening message, so this is not something to configure. An older engine that does not answer the command at all is the likelier cause.
 
 ## Next

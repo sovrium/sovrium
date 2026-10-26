@@ -710,7 +710,7 @@ export const validateAllFormsReferences = (app: AppForFormsValidation): string |
     // Choices read from a table: structure first, then what a form may publish.
     () => validateFormOptionSources(app),
     // A field's `options` narrows its select column: each listed value the column's, once.
-    () => validateFormOptionSubsets(forms, tables),
+    () => validateFormOptionSubsets(forms, tables, pages),
     // A `$t:` address a form sends its visitor to, checked in every language.
     () => validateTranslatedFormAddresses(app),
     () => validateFormAutocompleteHints(app),

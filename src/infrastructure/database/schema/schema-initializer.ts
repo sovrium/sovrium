@@ -33,19 +33,13 @@ import {
   dropObsoleteTables,
   reconcileViewTopology,
   renameTablesIfNeeded,
+  splitSharedLinkTables,
   syncForeignKeyConstraints,
 } from '../schema-migration'
 import { openSqliteDdlDatabase, runSqliteSchemaTransaction } from '../sql/dialect-ddl'
 import { withFreshTableColumns } from '../sql/dialect-introspection'
-import {
-  tableExists,
-  executeSQLStatements,
-  SQLExecutionError,
-  type TransactionLike,
-} from '../sql/sql-execution'
-import { isManyToManyRelationship } from '../sql/sql-field-predicates'
-import { generateJunctionTableDDL, generateJunctionTableName } from '../sql/sql-generators'
-import { generateJunctionForeignKeyRestoreSQL } from '../sql/sql-junction-tables'
+import { tableExists, SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
+import { tablesWithRecordLanguages } from '../sql/sql-translatable-columns'
 import {
   createOrMigrateTableEffect,
   createLookupViewsEffect,
@@ -58,6 +52,7 @@ import { reconcileCommandSearchIndexes } from './command-search-fts'
 import { dropCommandSearchFtsObjects } from './command-search-fts-clear'
 import { ensureCommentReadStateTable } from './comment-read-state-table'
 import { recomputeFormulasForOlderEngine } from './formula-engine-recompute'
+import { collectJunctionTableSpecs, createJunctionTables } from './junction-tables-step'
 import {
   getPreviousSchema,
   recordMigration,
@@ -245,52 +240,6 @@ const addCircularFKConstraints = (
     }
   })
 
-/** A link table to ensure: its DDL, then (PostgreSQL) the keys a rebuild may have dropped. */
-interface JunctionTableSpec {
-  readonly name: string
-  readonly ddl: string
-  readonly restoreKeys: readonly string[]
-}
-
-/** Collect junction table specs for many-to-many relationships (functional construction with deduplication) */
-const collectJunctionTableSpecs = (
-  sortedTables: readonly Table[],
-  tableUsesView: ReadonlyMap<string, boolean>
-): ReadonlyMap<string, JunctionTableSpec> => {
-  const keyTypes = buildTablePrimaryKeyTypesMap(sortedTables) // key columns typed as their keys
-  const junctionSpecs = sortedTables.flatMap((table) => {
-    const manyToManyFields = table.fields.filter(isManyToManyRelationship)
-    return manyToManyFields.map((field) => {
-      const junctionTableName = generateJunctionTableName(table.name, field.relatedTable)
-      const ddl = generateJunctionTableDDL(table.name, field.relatedTable, tableUsesView, keyTypes)
-      // PostgreSQL: a rebuild of either end dropped the link table's keys (CASCADE).
-      const restoreKeys = isSqliteRuntime()
-        ? []
-        : generateJunctionForeignKeyRestoreSQL(table.name, field.relatedTable, tableUsesView)
-      return [junctionTableName, { name: junctionTableName, ddl, restoreKeys }] as const
-    })
-  })
-  return new Map(junctionSpecs) // deduplicated by link table name, first kept
-}
-
-/** Create junction tables for many-to-many relationships */
-const createJunctionTables = (
-  tx: TransactionLike,
-  junctionTableSpecs: ReadonlyMap<string, JunctionTableSpec>
-): Effect.Effect<void, SQLExecutionError, never> =>
-  Effect.gen(function* () {
-    if (junctionTableSpecs.size === 0) return
-    logDebug('[schema] creating junction tables', {
-      tables: Array.from(junctionTableSpecs.keys()).join(', '),
-    })
-    // eslint-disable-next-line sovrium/no-unbounded-promise-fanout -- all statements execute on the single reserved transaction connection: width cannot exceed one pooled connection regardless of fan-out.
-    yield* Effect.forEach(
-      Array.from(junctionTableSpecs.values()),
-      (spec) => executeSQLStatements(tx, [spec.ddl, ...spec.restoreKeys]),
-      { concurrency: 'unbounded' }
-    )
-  })
-
 /** Drop obsolete views and create all views (lookup + user-defined) */
 const createAllViews = (
   tx: TransactionLike,
@@ -358,7 +307,8 @@ const ensureConditionalSystemTables = (
  * Bring the SET of relations in line with the config, before any table is
  * created or altered (Steps 3.5, 4 and 5.5, in that order):
  *
- *  - 3.5 rename tables whose name changed under an id the author wrote;
+ *  - 3.5 rename tables whose name changed under an id the author wrote, then
+ *    give each many-to-many field its own link table (`link-table-splits.ts`);
  *  - 4 drop the tables the config no longer owns — the `_base` table behind a
  *    view-backed table and every many-to-many junction table ARE owned, and a
  *    table that still holds rows is refused unless the one-shot
@@ -377,6 +327,7 @@ const reconcileRelationSet = (
     yield* viewGenerators.dropEveryView(tx)
     const authoredTableIds = options.authoredTableIds ?? NO_AUTHORED_TABLE_IDS
     yield* renameTablesIfNeeded(tx, tables, previousSchema, authoredTableIds)
+    yield* splitSharedLinkTables(tx, tables, previousSchema)
     yield* dropObsoleteTables(tx, tables, options, previousSchema)
     yield* reconcileViewTopology(tx, tables)
   })
@@ -574,7 +525,12 @@ const initializeSchemaInternal = (
     const shouldSkipMigration = yield* checkShouldSkipMigration(
       dialectConfig,
       currentChecksum,
-      withScopeTableKeys(tables, app),
+      // Stamped with the app's languages, as the migration reads them: a
+      // translatable unique field's per-language indexes are named by language.
+      tablesWithRecordLanguages({
+        tables: withScopeTableKeys(tables, app),
+        languages: app.languages,
+      }),
       sanitizeTableName
     )
 

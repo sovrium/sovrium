@@ -12,6 +12,7 @@ import { detectFormat } from '@/domain/kernel/config-parsing/format-detection'
 import { formatMessageReport } from '@/domain/models/app/app-config-report-service'
 import { messageAsConfigFinding } from '@/domain/models/app/app-excess-property-report'
 import { sessionWebhookCacheWarnings } from '@/domain/models/app/automations/trigger/webhook-session-validation'
+import { slugFieldUniquenessWarnings } from '@/domain/models/app/pages/collection-slug-field-validation'
 import { emptyLookupReadNotices } from '@/domain/models/app/tables/lookup-empty-read-service'
 import { printStderr } from '@/infrastructure/logging/cli-output'
 import { lazyImportSchema } from './utils'
@@ -22,6 +23,7 @@ import {
 } from './validate-config-source'
 import { missingMarkdownFileWarnings } from './validate-markdown-files'
 import { coveredFiles, discoverValidationConfig, printJsonReport } from './validate-report'
+import { seedLanguageIssues } from './validate-seed-languages'
 import type { ConfigFinding } from '@/domain/models/app/app-excess-property-report'
 
 /**
@@ -307,6 +309,7 @@ export const validateParsedConfig = async (
     ...(await runPostDecodeChecks(decoded, refSources)),
     ...(assets.ok ? assetTemplateIssues(decoded.app, assets.store) : assets.issues),
     ...(await agentSkillIssues(decoded.app.agents, configFile)),
+    ...(await seedLanguageIssues(decoded.app, projectDir)),
   ]
   return {
     valid: postDecodeErrors.length === 0,
@@ -324,6 +327,7 @@ export const validateParsedConfig = async (
     warnings: [
       ...(await missingMarkdownFileWarnings(decoded.app.pages, projectDir)),
       ...sessionWebhookCacheWarnings(parsed),
+      ...slugFieldUniquenessWarnings(decoded.app),
     ],
   }
 }

@@ -370,7 +370,7 @@ export function applyCallerCapabilityGate(
         gateDeclaredActions(
           stampOpenImportFields(
             gateCommandRows(gateColumns(node, ctx), (row) => isCallerGateMet(row, ctx)),
-            app
+            ctx
           ),
           ctx.hostApp
         ),

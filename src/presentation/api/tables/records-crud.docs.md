@@ -54,6 +54,8 @@ Fields the caller may not read are omitted, so the same row answers with a diffe
 
 On this endpoint `format` accepts **only `display`**. `?format=raw` answers `400`, and omitting the parameter is how raw values are requested — a difference from the list endpoint, which accepts `raw` as a no-op.
 
+`?lang=` picks the language of translatable fields, as on the list: a declared code returns each as one string in that language, with the fallback and default behind it, and `*` returns each as its map. Without it, `Accept-Language` decides, then the default language. The answer names the language it served in `Content-Language`.
+
 ### Revalidating a read
 
 A record read, like a records list, carries an `ETag` and `Cache-Control: private, no-cache`. Send the tag back in `If-None-Match` and an unchanged answer is `304 Not Modified` with no body; any change to what you would receive — the record, or the fields you may read — produces a new tag and a full `200`. Browsers do this on their own, so a page that re-reads the same records on every visit pays for the body only when it has changed.
@@ -85,6 +87,8 @@ A computed field — `formula`, `rollup`, `count`, `lookup` or `autonumber` — 
 A relationship value is judged as on create: a row you may not read answers as a row that does not exist, `400` with nothing written. A many-to-one value equal to the key the record already holds is not a new link and is accepted, so a record filed under a row you cannot see can still be saved with its other changes. A many-to-many value is refused whole if it names any row you may not read, even one already linked; leave the field out and the links you cannot see stay as they are.
 
 A many-to-many value in an update **adds** links: `["2"]` on a record linked to `["1", "3"]` leaves it linked to all three. Only an empty list or `null` removes links, and it removes every link you may read.
+
+A translatable field is written one language at a time, on create, update, batch and upsert alike. A plain string fills the writer's language — `?lang=`, else `Accept-Language`, else the default language — and an object such as `{ "fr": "Chemise", "de": null }` sets or removes each language it names; every other language the record holds is kept. An undeclared language or a value that is not text is `400`, naming the field. The answer reads in the writer's language, or as maps under `?lang=*`. See the text field's "Writing translatable text".
 
 ### Replacing a record's links
 

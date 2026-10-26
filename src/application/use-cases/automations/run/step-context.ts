@@ -12,6 +12,7 @@
  */
 
 import { triggerEntryName } from '@/domain/models/app/automations/trigger-list-validation'
+import { withTriggerLanguageText } from '@/domain/models/app/tables/translatable-template-service'
 import { createParkedStepCell } from '../action-handlers/parked-step-files'
 import { createRunWrittenFiles } from '../action-handlers/run-written-files'
 import { buildEnvLookup } from '../resolve-env-vars'
@@ -128,7 +129,14 @@ export const buildStepContext = (input: BuildStepContextInput): StepContext => {
     envLookup: buildEnvLookup(app.env, processEnv),
     processEnv,
     handlers,
-    templateContext: buildAutomationContext(triggerData),
+    // A translatable field prints as its default language; `.fr` names one language.
+    templateContext: buildAutomationContext(
+      withTriggerLanguageText(
+        app,
+        trigger.type === 'record' ? trigger.table : undefined,
+        triggerData as Readonly<Record<string, unknown>>
+      ) as TriggerData
+    ),
     templates: input.templates,
     automation: automationContext,
     triggerType: trigger.type,

@@ -56,6 +56,7 @@
  * timeout — bounded, and the reason the cap is small.
  */
 
+import { stripSigningFromUrl } from '@/domain/kernel/url/signed-url-stripping'
 import {
   isPrivateOutboundHost,
   validateOutboundUrl,
@@ -114,6 +115,13 @@ export const REDIRECT_STATUSES: ReadonlySet<number> = new Set([301, 302, 303, 30
 const allowsPlainHttpHop = (hostname: string): boolean =>
   isPrivateOutboundOptIn() && isPrivateOutboundHost(hostname)
 
+/**
+ * A URL as a refusal may print it. Any hop can be a signed link — a bucket
+ * answering a `302` to a presigned address is the ordinary case — and a refusal
+ * lands in a terminal or a CI log, so it names the address, never its signature.
+ */
+const shown = (url: string): string => stripSigningFromUrl(url).url
+
 /** Refuse a hop whose scheme the operator never agreed to. */
 const schemeRefusal = (from: string, to: URL): RedirectFollowResult | undefined => {
   if (to.protocol === 'https:') return undefined
@@ -122,7 +130,7 @@ const schemeRefusal = (from: string, to: URL): RedirectFollowResult | undefined 
     ok: false,
     reason: 'insecure-scheme',
     message:
-      `${from} redirected to ${to.href}, which is not https, so nothing was fetched.\n` +
+      `${shown(from)} redirected to ${shown(to.href)}, which is not https, so nothing was fetched.\n` +
       `A redirect hop is chosen by the publisher rather than by you, and a cleartext hop hands\n` +
       `the document to whoever is on the path. Ask them for an https address.`,
   }
@@ -136,7 +144,7 @@ const guardRefusal = (from: string, to: string): RedirectFollowResult | undefine
     ok: false,
     reason: 'blocked-host',
     message:
-      `${from} redirected to ${to}, which is blocked: ${validation.issue.reason} targets are not\n` +
+      `${shown(from)} redirected to ${shown(to)}, which is blocked: ${validation.issue.reason} targets are not\n` +
       `allowed (SSRF guard). Every redirect hop is checked, not only the address you gave.\n` +
       `Set SOVRIUM_ALLOW_PRIVATE_OUTBOUND=1 to permit private/loopback targets.`,
   }
@@ -177,7 +185,7 @@ const requestHop = async (
       ok: false,
       reason: 'missing-location',
       message:
-        `${url.href} answered HTTP ${response.status} with no Location header, so there is\n` +
+        `${shown(url.href)} answered HTTP ${response.status} with no Location header, so there is\n` +
         `nowhere to follow and nothing was fetched.`,
     }
   }
@@ -187,7 +195,7 @@ const requestHop = async (
       ok: false,
       reason: 'too-many-hops',
       message:
-        `${origin} redirected more than ${MAX_REDIRECT_HOPS} times, so nothing was fetched.\n` +
+        `${shown(origin)} redirected more than ${MAX_REDIRECT_HOPS} times, so nothing was fetched.\n` +
         `A published document is served directly or behind a redirect or two; a longer chain is\n` +
         `a loop or a redirector, and following it lets whoever controls the last hop choose the\n` +
         `document you get.`,
@@ -201,7 +209,7 @@ const requestHop = async (
     return {
       ok: false,
       reason: 'missing-location',
-      message: `${url.href} redirected to "${location}", which is not a URL, so nothing was fetched.`,
+      message: `${shown(url.href)} redirected to "${shown(location)}", which is not a URL, so nothing was fetched.`,
     }
   }
 

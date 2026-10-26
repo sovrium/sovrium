@@ -7,6 +7,7 @@
 
 import { Context, Data } from 'effect'
 import type { QueryFilterNode } from '@/application/ports/repositories/tables/table-repository'
+import type { UncompilableFilterOperatorError } from '@/domain/errors/uncompilable-filter-operator-error'
 import type { Effect } from 'effect'
 
 /**
@@ -33,6 +34,11 @@ import type { Effect } from 'effect'
 export interface TableSearchInput {
   readonly physicalTable: string
   readonly columns: readonly string[]
+  /**
+   * The translatable columns, each with its default language: searched in every
+   * language they hold, and labelled in the default one. Absent: none.
+   */
+  readonly languageColumns?: Readonly<Record<string, string>>
   readonly query: string
   /**
    * Exclude soft-deleted rows (`deleted_at IS NULL`).
@@ -89,12 +95,13 @@ export class CommandSearchRepository extends Context.Service<
     ) => Effect.Effect<ReadonlySet<string>, CommandSearchDatabaseError>
 
     /**
-     * Search a single table's text columns for the query. Never fails: a
-     * failing/unreadable table search resolves to an empty list rather than
-     * throwing (a broken table is skipped, the rest of the search proceeds).
+     * Search a single table's text columns for the query. A failing/unreadable
+     * table search resolves to an empty list rather than throwing (a broken
+     * table is skipped, the rest of the search proceeds); only a row filter
+     * naming an operator no compiler knows fails, as that refusal.
      */
     readonly searchTable: (
       input: TableSearchInput
-    ) => Effect.Effect<readonly TableSearchMatch[], never>
+    ) => Effect.Effect<readonly TableSearchMatch[], UncompilableFilterOperatorError>
   }
 >()('CommandSearchRepository') {}

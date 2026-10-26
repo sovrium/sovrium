@@ -99,3 +99,75 @@ export const extractGlobalHelpLines = (source: string): readonly string[] => {
   }
   return lines
 }
+
+/**
+ * The commands whose second word is a CLOSED verb set, and the handler module
+ * each one dispatches that word in. Only the location is written here; the
+ * verbs themselves are read out of each module by {@link extractSubverbs}, so
+ * a verb added to or removed from a handler moves the vocabulary with it.
+ *
+ * A command whose second word is open — a file (`design-system app.ts`,
+ * `import <source>`), a manual address (`docs config`) — does not belong here:
+ * any word is legal there, so there is nothing to check.
+ */
+export const SUBVERB_HANDLERS: Readonly<Record<string, string>> = {
+  admin: 'src/cli/commands/admin.ts',
+  secret: 'src/cli/commands/secret.ts',
+  library: 'src/cli/commands/library.ts',
+  env: 'src/cli/commands/env.ts',
+}
+
+/** The identifiers a handler compares its verb against: `subcommand === 'create'`. */
+const VERB_IDENTIFIERS: ReadonlySet<string> = new Set(['subcommand', 'verb'])
+
+/** The constants a handler tabulates its verbs in: an array, or a dispatch map. */
+const VERB_ARRAY = 'SUBCOMMANDS'
+const VERB_MAP = 'VERBS'
+
+/**
+ * The verbs one handler module dispatches, from its source text. Three shapes,
+ * all the CLI uses today: a string compared to an identifier named `subcommand`
+ * or `verb` (`=== 'adopt'`, `!== 'create'`), the members of a
+ * `const SUBCOMMANDS = [...]`, and the keys of a `const VERBS = { ... }`. An
+ * empty result means the handler changed shape, and the caller fails on it. Pure.
+ */
+export const extractSubverbs = (fileName: string, source: string): readonly string[] => {
+  const sourceFile = parseModule(fileName, source)
+  const verbs = new Set<string>()
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isBinaryExpression(node) &&
+      (node.operatorToken.kind === ts.SyntaxKind.EqualsEqualsEqualsToken ||
+        node.operatorToken.kind === ts.SyntaxKind.ExclamationEqualsEqualsToken)
+    ) {
+      const sides = [unwrapExpression(node.left), unwrapExpression(node.right)]
+      const named = sides.some((side) => ts.isIdentifier(side) && VERB_IDENTIFIERS.has(side.text))
+      if (named) {
+        for (const side of sides) if (ts.isStringLiteralLike(side)) verbs.add(side.text)
+      }
+    }
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer !== undefined
+    ) {
+      const initializer = unwrapExpression(node.initializer)
+      if (node.name.text === VERB_ARRAY && ts.isArrayLiteralExpression(initializer)) {
+        for (const element of initializer.elements) {
+          if (ts.isStringLiteralLike(element)) verbs.add(element.text)
+        }
+      }
+      if (node.name.text === VERB_MAP && ts.isObjectLiteralExpression(initializer)) {
+        for (const property of initializer.properties) {
+          const key = property.name
+          if (key !== undefined && (ts.isIdentifier(key) || ts.isStringLiteralLike(key))) {
+            verbs.add(key.text)
+          }
+        }
+      }
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(sourceFile)
+  return [...verbs].sort()
+}

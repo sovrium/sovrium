@@ -6,8 +6,8 @@
  */
 
 /**
- * The many-to-many family — the write split, the junction read, and
- * the related-label enrichment every record-bearing response shares.
+ * The many-to-many family — the write split, the junction read, and the
+ * related-label enrichment every record-bearing response shares.
  *
  * A `many-to-many` relationship field has NO base column. That one fact is why
  * this module exists and why every program in the package needs a piece of it:
@@ -15,8 +15,7 @@
  * phantom column and 500) and put its ids in the junction table instead; a read
  * must put them BACK, because `SELECT *` never returned them.
  *
- * The three consumers take three different slices, which is what makes this a
- * module rather than a section of one:
+ * Three consumers take three slices, which makes this a module, not a section:
  *
  *   - `write-record-programs.ts`  — {@link splitManyToManyFields} + {@link writeManyToManyLinks}
  *   - `read-record-programs.ts`   — {@link mergeManyToManyFields}, over `to-many-link-reads.ts`
@@ -30,14 +29,12 @@
  * two modules have to remember.
  *
  * ## The four spans are new, and they are the point
- * Each Effect-returning export here opens one. They were private to a
- * 1,043-line file before the split, so `Effect Span Census` could not see them
- * and the list program's single span covered all three of their repository
- * calls as one opaque block — which is precisely the "a trace shows the shape
- * of a request and nothing about where its time went" the gate exists to end.
- * These are the grid's per-page fan-out reads: a junction SELECT, a
- * related-label SELECT, and a junction INSERT. They are the queries a slow list
- * response is most likely to be waiting on, and they are now visible as such.
+ * Each Effect-returning export opens one. Private to a 1,043-line file before
+ * the split, they were invisible to `Effect Span Census`, and the list span
+ * covered their three repository calls as one opaque block — precisely the "a
+ * trace shows nothing about where its time went" the gate exists to end.
+ * These are the grid's per-page fan-out reads (a junction SELECT, a related-
+ * label SELECT, a junction INSERT): what a slow list most likely waits on.
  */
 
 import { Effect } from 'effect'
@@ -45,7 +42,7 @@ import { AuthRepository } from '@/application/ports/repositories/auth/auth-repos
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import { DatabaseError } from '@/domain/errors'
 import { filterReadableLinks, readableKeys, type LinkReader } from './linked-row-visibility'
-import { type ManyToManyFieldSpec } from './many-to-many-fields'
+import { linkReadOf, linkTablesOf, type ManyToManyFieldSpec } from './many-to-many-fields'
 import {
   buildRecordDisplayLabels,
   buildUserDisplayLabels,
@@ -56,17 +53,16 @@ import {
   type LabelReader,
   type RecordDisplayLabels,
   type RequestedLabel,
+  withLabelLanguage,
 } from './relationship-display-fields'
 import { readManyToManyLinks, type ManyToManyLinkMap } from './to-many-link-reads'
 import type { TransformedRecord } from './record-transformer'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import type { RecordLinkWrite } from '@/application/ports/repositories/tables/record-links'
+import type { TableReadError } from '@/application/ports/repositories/tables/table-repository'
 import type { App } from '@/domain/models/app'
 
-type ManyToManyWriteLink = {
-  readonly relatedTable: string
-  readonly relatedIds: readonly (string | number)[]
-  readonly hasReciprocal: boolean
-}
+type ManyToManyWriteLink = RecordLinkWrite
 
 /**
  * Split a create payload into base-column fields and many-to-many write links.
@@ -91,7 +87,7 @@ export const splitManyToManyFields = (
           : Array.isArray(raw)
             ? (raw as (string | number)[])
             : [raw as string | number]
-      return { relatedTable: spec.relatedTable, relatedIds, hasReciprocal: spec.hasReciprocal }
+      return { relatedTable: spec.relatedTable, relatedIds, ...linkTablesOf(spec) }
     })
     .filter((link) => link.relatedIds.length > 0)
   return { baseFields, links }
@@ -165,7 +161,7 @@ const linksToClear = (input: {
   readonly reader: LinkReader | undefined
 }): Effect.Effect<
   readonly ManyToManyWriteLink[],
-  DatabaseError,
+  TableReadError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   Effect.gen(function* () {
@@ -175,14 +171,14 @@ const linksToClear = (input: {
     const stored = yield* repo.readManyToMany({
       sourceTable: tableName,
       sourceIds: [recordId],
-      fields: cleared.map((s) => ({ fieldName: s.fieldName, relatedTable: s.relatedTable })),
+      fields: cleared.map(linkReadOf),
     })
     const readable = yield* filterReadableLinks(app, cleared, stored, reader)
     const lists = readable[String(recordId)] ?? {}
     return cleared.map((spec) => ({
       relatedTable: spec.relatedTable,
       relatedIds: lists[spec.fieldName] ?? [],
-      hasReciprocal: spec.hasReciprocal,
+      ...linkTablesOf(spec),
     }))
   }).pipe(Effect.withSpan('tables.links-to-clear'))
 
@@ -237,7 +233,7 @@ export const enrichRecordsWithManyToMany = (
   options: { readonly fields?: string; readonly reader?: LinkReader } = {}
 ): Effect.Effect<
   readonly TransformedRecord[],
-  DatabaseError,
+  TableReadError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   Effect.gen(function* () {
@@ -266,6 +262,8 @@ interface LabelAudience {
    * is never looked up. Absent, only the table and field grants narrow.
    */
   readonly linkReader?: LinkReader
+  /** The reader's language, a label over translatable content is read in. */
+  readonly language?: string | undefined
 }
 
 type LabelRequest = ReturnType<typeof collectReferencedKeys>[number]
@@ -277,7 +275,7 @@ const readableLabelRequests = (
   linkReader: LinkReader | undefined
 ): Effect.Effect<
   readonly LabelRequest[],
-  DatabaseError,
+  TableReadError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   Effect.forEach(requests, (request) => {
@@ -305,7 +303,7 @@ const readRelationshipLabels = (
   audience: LabelAudience
 ): Effect.Effect<
   ReadonlyMap<string, RecordDisplayLabels>,
-  DatabaseError,
+  TableReadError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   Effect.gen(function* () {
@@ -314,7 +312,7 @@ const readRelationshipLabels = (
     const requests = yield* readableLabelRequests(app, collected, audience.linkReader)
     if (requests.length === 0) return new Map<string, RecordDisplayLabels>()
     const repo = yield* TableRepository
-    const labels = yield* repo.readRelatedLabels(requests)
+    const labels = yield* repo.readRelatedLabels(withLabelLanguage(app, requests, audience))
     return new Map(
       records.flatMap((record) => {
         const display = buildRecordDisplayLabels(specs, record.fields, labels)
@@ -377,7 +375,7 @@ export const enrichRecordsWithRelatedLabels = (
   audience: LabelAudience
 ): Effect.Effect<
   readonly TransformedRecord[],
-  DatabaseError,
+  TableReadError,
   TableRepository | AuthRepository | DataSourceRepository
 > =>
   Effect.gen(function* () {

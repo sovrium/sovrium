@@ -42,6 +42,7 @@ import {
   searchableTextColumns,
   tableHasIdColumn,
 } from '@/domain/models/app/tables/searchable-text-columns'
+import { declaresTranslatable } from '@/domain/models/app/tables/translatable-field-service'
 import { postgresClientOptions } from '@/infrastructure/database/sql/postgres-client-options'
 import { logDebug, logWarning } from '@/infrastructure/logging/logger'
 import { getBaseTableName, shouldUseView } from '../lookup/lookup-view-generators'
@@ -72,6 +73,8 @@ export interface FtsTarget {
    */
   readonly physicalTable: string
   readonly columns: readonly string[]
+  /** The translatable columns among `columns`: maps, indexed by the text of every language. */
+  readonly mapColumns?: readonly string[]
 }
 
 /**
@@ -91,7 +94,17 @@ export const resolveTargets = (tables: readonly Table[]): readonly FtsTarget[] =
     const physicalTable = shouldUseView(table) ? getBaseTableName(sanitized) : sanitized
     if (!isSafeIdentifier(sanitized) || !isSafeIdentifier(physicalTable)) return []
     if (!columns.every(isSafeIdentifier)) return []
-    return [{ queriedRelation: sanitized, physicalTable, columns }]
+    const mapColumns = table.fields
+      .filter((field) => columns.includes(field.name) && declaresTranslatable(field))
+      .map((field) => field.name)
+    return [
+      {
+        queriedRelation: sanitized,
+        physicalTable,
+        columns,
+        ...(mapColumns.length > 0 && { mapColumns }),
+      },
+    ]
   })
 
 /** Run one statement, discarding its rows. */
@@ -194,7 +207,7 @@ const pgObsoleteIndexNames = async (
   target: FtsTarget
 ): Promise<readonly string[]> => {
   const prefix = escapeLikeMetacharacters(pgFtsIndexPrefixFor(target.queriedRelation))
-  const keep = pgFtsIndexName(target.queriedRelation, target.columns)
+  const keep = pgFtsIndexName(target.queriedRelation, target.columns, target.mapColumns)
   const rows = (await tx.unsafe(
     `SELECT indexname FROM pg_indexes
      WHERE tablename = $1

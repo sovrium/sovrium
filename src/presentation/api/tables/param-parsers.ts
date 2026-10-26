@@ -17,6 +17,7 @@ import {
   type AggregatePercentile,
   type PercentileFields,
 } from '@/domain/models/app/tables/aggregate-percentile-service'
+import { recordReadLanguageOf } from './record-read-language'
 import type { Context } from 'hono'
 
 type AggregateParams = PercentileFields & {
@@ -186,6 +187,8 @@ export function parseListRecordsParams(c: Context): {
   readonly aggregate: AggregateParams | undefined
   readonly groupBy: string | undefined
   readonly labels: readonly RequestedLabel[]
+  /** The language translatable fields are served in (`servesRecordLanguage`). */
+  readonly language: string | undefined
 } {
   const includeDeleted = c.req.query('includeDeleted') === 'true'
   const format = c.req.query('format') === 'display' ? ('display' as const) : undefined
@@ -213,5 +216,6 @@ export function parseListRecordsParams(c: Context): {
     aggregate,
     groupBy,
     labels,
+    language: recordReadLanguageOf(c),
   }
 }

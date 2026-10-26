@@ -32,7 +32,7 @@ import { readerRowsOf } from './row-read-admission'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import type { DatabaseError } from '@/domain/errors'
+import type { TableReadError } from '@/application/ports/repositories/tables/table-repository'
 import type { App, Table } from '@/domain/models/app'
 import type { RelatedReader } from '@/domain/models/app/tables/related-field-read-service'
 
@@ -84,7 +84,7 @@ export const readableRows = (
   reader: LinkReader
 ): Effect.Effect<
   ReadonlyMap<string, Readonly<Record<string, unknown>>> | undefined,
-  DatabaseError,
+  TableReadError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   Effect.gen(function* () {
@@ -126,7 +126,7 @@ export const readableKeys = (
   reader: LinkReader
 ): Effect.Effect<
   ReadonlySet<string> | undefined,
-  DatabaseError,
+  TableReadError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   Effect.gen(function* () {
@@ -146,7 +146,11 @@ export const filterReadableLinks = (
   specs: readonly { readonly fieldName: string; readonly relatedTable: string }[],
   linkMap: LinkMap,
   reader: LinkReader | undefined
-): Effect.Effect<LinkMap, DatabaseError, TableRepository | DataSourceRepository | AuthRepository> =>
+): Effect.Effect<
+  LinkMap,
+  TableReadError,
+  TableRepository | DataSourceRepository | AuthRepository
+> =>
   Effect.gen(function* () {
     if (app === undefined || reader === undefined) return linkMap
     const relatedTables = [...new Set(specs.map((spec) => spec.relatedTable))]

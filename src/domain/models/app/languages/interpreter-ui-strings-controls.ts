@@ -153,6 +153,18 @@ export const CONTROL_UI_STRINGS: Readonly<Record<string, Readonly<Record<string,
     en: '{label} must be a valid email address',
     fr: 'Saisissez une adresse e-mail valide dans le champ {label}',
   },
+  /** The sign-in form's refusal of a wrong address or password (the server's `INVALID_EMAIL_OR_PASSWORD`). */
+  'auth.invalidCredentials': {
+    en: 'Invalid email or password',
+    fr: 'Adresse e-mail ou mot de passe incorrect',
+  },
+
+  // ---- The grid's phone View menu, folding Group by, Hide fields and Row height ----
+  'datatable.viewOptions': { en: 'View', fr: 'Affichage' },
+
+  // ---- A checkbox drawn as words (a description list's entry) ----
+  'checkbox.yes': { en: 'Yes', fr: 'Oui' },
+  'checkbox.no': { en: 'No', fr: 'Non' },
 
   // ---- The ⌘K palette: its name, its search fields, its groups and its own actions ----
   'commandPalette.title': { en: 'Command palette', fr: 'Palette de commandes' },

@@ -59,7 +59,10 @@ import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import type { QueryFilter } from '@/application/ports/repositories/tables/table-repository'
+import type {
+  TableReadError,
+  QueryFilter,
+} from '@/application/ports/repositories/tables/table-repository'
 import type { DatabaseError } from '@/domain/errors'
 import type { ListRecordsResponse, GetRecordResponse } from '@/domain/models/api/tables/tables'
 import type { App } from '@/domain/models/app'
@@ -77,11 +80,7 @@ interface ListTrashConfig {
   readonly offset?: number
 }
 
-/**
- * Extract deletedBy user ID from a raw trash record.
- * The listTrash query joins auth.user and returns deleted_by_user object.
- * We extract only the user ID string to match the flat authorship format.
- */
+/** The deleting user's id from a raw trash record's joined `deleted_by_user`, as a flat string. */
 function extractDeletedByUserId(rawRecord: Readonly<Record<string, unknown>>): string | undefined {
   const deletedByUser = rawRecord['deleted_by_user']
   if (!deletedByUser || typeof deletedByUser !== 'object') return undefined
@@ -94,7 +93,7 @@ export function createListTrashProgram(
   config: ListTrashConfig
 ): Effect.Effect<
   ListRecordsResponse,
-  DatabaseError | NotFoundError,
+  TableReadError | NotFoundError,
   TableRepository | DataSourceRepository | AuthRepository
 > {
   return Effect.gen(function* () {
@@ -152,8 +151,9 @@ interface GetRecordConfig {
   readonly userRole: string
   readonly includeDeleted?: boolean
   readonly format?: 'display'
-  /** See `ListRecordsConfig.timezone` in `list-records-program.ts`. */
+  /** See `ListRecordsConfig.timezone` (and `.language`) in `list-records-program.ts`. */
   readonly timezone?: string
+  readonly language?: string | undefined
   /** See `ListRecordsConfig.origin` in `list-records-program.ts`. */
   readonly origin?: string
   /** The caller's groups, which decide which fields and relationship labels they may read. */
@@ -186,14 +186,12 @@ type RecordReaderConfig = Omit<GetRecordConfig, 'recordId' | 'includeDeleted' | 
  * hard `no such column` surfaced as 500; PostgreSQL SQLSTATE 42703, sanitized
  * into a 400 that blames the caller for a column the server chose).
  *
- * Raised from the declared config BEFORE any statement is built, which is what
- * makes the answer identical on both engines: they agree by never reaching the
- * database, rather than by two sanitizers phrasing a driver error alike.
+ * Raised from the declared config BEFORE any statement is built, so both
+ * engines answer alike by never reaching the database.
  *
- * A caller that supplies no `app` — every automation-driven write — gets no
- * refusal and behaves exactly as before. The rule itself lives in the domain
- * and delegates its decision to `tableHasIdColumn`, the mirror of the DDL
- * layer's `needsAutomaticIdColumn`, so it is not a fresh copy of the rule.
+ * A caller that supplies no `app` (an automation write) gets no refusal. The
+ * rule lives in the domain and delegates to `tableHasIdColumn`, the mirror of
+ * the DDL layer's `needsAutomaticIdColumn`, so it is not a fresh copy.
  */
 export const refuseWhenNoSingleIdAddress = (
   app: App | undefined,
@@ -242,6 +240,7 @@ const transformForReader = (
     tableName,
     format: config.format,
     timezone: config.timezone,
+    language: config.language,
   })
   // B-01: same attachment-URL enrichment as the list path.
   const transformed = enrichRecordWithAttachmentUrls(transformedRaw, {
@@ -307,7 +306,7 @@ export const shapeRecordsForReader = (
   records: readonly Readonly<Record<string, unknown>>[]
 ): Effect.Effect<
   readonly GetRecordResponse[],
-  DatabaseError,
+  TableReadError,
   TableRepository | AuthRepository | DataSourceRepository | AiComputeStatusRepository
 > =>
   Effect.gen(function* () {
@@ -342,7 +341,7 @@ export const shapeRecordsForReader = (
         createdAt: '',
         updatedAt: '',
       })),
-      { reader: relatedReaderOf(reader), linkReader: reader }
+      { reader: relatedReaderOf(reader), linkReader: reader, language: config.language }
     )
 
     return shaped.map(({ transformed, id, writeOnly }, index) =>
@@ -361,7 +360,7 @@ export function createGetRecordProgram(
   config: GetRecordConfig
 ): Effect.Effect<
   GetRecordResponse,
-  DatabaseError | NotFoundError | ValidationError,
+  TableReadError | NotFoundError | ValidationError,
   TableRepository | AuthRepository | DataSourceRepository | AiComputeStatusRepository
 > {
   return Effect.gen(function* () {

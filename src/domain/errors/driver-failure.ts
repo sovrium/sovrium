@@ -468,6 +468,25 @@ export function findConstraintFieldName(
     .find((column) => sources.some((source) => sourceNamesColumn(source, column)))
 }
 
+/** SQLite's wording for a unique EXPRESSION index, which names the index and no column. */
+const SQLITE_UNIQUE_INDEX = /UNIQUE constraint failed: index '([^']+)'/
+
+/**
+ * The name of the unique index a refused write violated, as the driver hands it
+ * over: on `constraint` under PostgreSQL, inside the message under SQLite (for
+ * an expression index, the only case that names no column). A name the ENGINE
+ * gave, never shown to a client: callers read it back to a field of their own
+ * config (a reverse lookup), and name only a field the caller submitted.
+ */
+export function findViolatedIndexName(error: unknown): string | undefined {
+  return collectCauseChain(error)
+    .flatMap((node) => [
+      typeof node.constraint === 'string' ? node.constraint : undefined,
+      typeof node.message === 'string' ? SQLITE_UNIQUE_INDEX.exec(node.message)?.[1] : undefined,
+    ])
+    .find((name): name is string => name !== undefined)
+}
+
 /**
  * The constraint class `error` denotes, or `undefined` when it denotes none.
  * Convenience over {@link classifyDriverFailure} for the two call sites that

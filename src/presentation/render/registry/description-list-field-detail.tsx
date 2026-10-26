@@ -11,7 +11,8 @@
  *
  * A select or status reads as its option's label, on the option's own chip
  * colour (record data the author declared — never a platform hue); a date in
- * the page language (`3 Nov 2026`); a checkbox as Yes or No; an amount (a
+ * the page language (`3 Nov 2026`); a checkbox as Yes or No in the page
+ * language (`checkbox.yes` / `checkbox.no`, renamed under `sovrium.`); an amount (a
  * currency field, a formula declaring `format: currency`) as the grid prints
  * it; a file as a link to it, one per file; and an empty value as a muted em dash, the way a `record-field` draws
  * one, so the row keeps its place in any page language rather than collapsing
@@ -22,6 +23,7 @@
  */
 
 import { isEmptyCell } from '@/domain/kernel/matching/empty-value'
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { checkboxLiteralOf } from '@/domain/models/app/tables/checkbox-literal-service'
 import { listValuesOf } from '@/domain/models/app/tables/record-text-service'
 import { optionColor, optionLabel, optionValue } from '@/domain/models/app/tables/select-option'
@@ -29,6 +31,7 @@ import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { resolveOptionChipPaint } from '@/presentation/design/option-chip-paint'
 import { formatRecordValue } from '@/presentation/render/props/record-value-format'
 import { ATTACHMENT_FIELD_TYPES, renderAttachmentLinks } from './record-attachment-links'
+import type { Languages } from '@/domain/models/app/languages'
 import type { Tables } from '@/domain/models/app/tables'
 import type { SelectOptionLike } from '@/domain/models/app/tables/select-option'
 import type { ReactElement, ReactNode } from 'react'
@@ -87,12 +90,19 @@ function optionChip(value: string, options: readonly SelectOptionLike[] | undefi
   )
 }
 
-const TEXT_BY_TYPE: Readonly<Record<string, (value: unknown, lang: string) => string>> = {
+type TextOf = (value: unknown, lang: string, languages: Languages | undefined) => string
+
+const TEXT_BY_TYPE: Readonly<Record<string, TextOf>> = {
   date: (value, lang) => formatDate(value, lang, false),
   datetime: (value, lang) => formatDate(value, lang, true),
   'created-at': (value, lang) => formatDate(value, lang, true),
   'updated-at': (value, lang) => formatDate(value, lang, true),
-  checkbox: (value) => (checkboxLiteralOf(value) === true ? 'Yes' : 'No'),
+  checkbox: (value, lang, languages) =>
+    resolveInterpreterString(
+      checkboxLiteralOf(value) === true ? 'checkbox.yes' : 'checkbox.no',
+      lang,
+      languages
+    ),
 }
 
 /** A select or status as its chip, a multi-select as one chip per choice. */
@@ -135,6 +145,7 @@ interface FieldDetailInput {
   readonly tableName: string | undefined
   readonly tables: Tables | undefined
   readonly lang: string
+  readonly languages?: Languages
 }
 
 /**
@@ -147,6 +158,7 @@ export function renderFieldDetail({
   tableName,
   tables,
   lang,
+  languages,
 }: FieldDetailInput): ReactNode {
   // An empty list is empty in either stored shape: `[]`, or its JSON text on SQLite.
   if (isEmptyCell(value)) return undefined
@@ -158,5 +170,5 @@ export function renderFieldDetail({
   const toText = TEXT_BY_TYPE[type]
   return toText === undefined
     ? formattedText({ fieldName, value, tableName, tables, lang })
-    : toText(value, lang)
+    : toText(value, lang, languages)
 }

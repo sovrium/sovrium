@@ -25,6 +25,7 @@
 
 import { Context, Data } from 'effect'
 import type { LookupReadMask, QueryFilterNode } from './table-repository'
+import type { UncompilableFilterOperatorError } from '@/domain/errors/uncompilable-filter-operator-error'
 import type { Effect } from 'effect'
 
 /**
@@ -131,14 +132,16 @@ export class DynamicRecordRepository extends Context.Service<
   DynamicRecordRepository,
   {
     /** Run `SELECT COUNT(*)::int AS count`, optionally filtered. */
-    readonly count: (input: DynamicRecordCountInput) => Effect.Effect<number, DynamicRecordError>
+    readonly count: (
+      input: DynamicRecordCountInput
+    ) => Effect.Effect<number, DynamicRecordError | UncompilableFilterOperatorError>
     /**
      * Run `SELECT AVG|SUM(col)::float AS value`, optionally filtered. Resolves
      * `undefined` when the aggregate yields SQL `NULL` (no matching rows).
      */
     readonly aggregate: (
       input: DynamicRecordAggregateInput
-    ) => Effect.Effect<number | undefined, DynamicRecordError>
+    ) => Effect.Effect<number | undefined, DynamicRecordError | UncompilableFilterOperatorError>
     /**
      * Run a row-listing `SELECT` with an optional column projection
      * (`columns`), an optional single-column equality `filter`, an optional
@@ -148,6 +151,9 @@ export class DynamicRecordRepository extends Context.Service<
      */
     readonly list: (
       input: DynamicRecordListInput
-    ) => Effect.Effect<ReadonlyArray<Record<string, unknown>>, DynamicRecordError>
+    ) => Effect.Effect<
+      ReadonlyArray<Record<string, unknown>>,
+      DynamicRecordError | UncompilableFilterOperatorError
+    >
   }
 >()('DynamicRecordRepository') {}

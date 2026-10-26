@@ -11,6 +11,7 @@ import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { getPhysicalTableName } from '../lookup/lookup-view-generators'
 import { executeSQL, SQLExecutionError, type TransactionLike } from '../sql/sql-execution'
+import { sqliteTranslatableCopyExpressions } from '../sql/sql-translatable-columns'
 import { generateCreateTableSQL, type TableDdlInputs } from './create-table-sql'
 import {
   planHandMadeReplay,
@@ -56,6 +57,8 @@ interface CopyDataParams {
   readonly physicalTableName: string
   readonly commonColumns: readonly string[]
   readonly newColumnInfo: ReadonlyMap<string, NewColumnInfo>
+  /** Columns copied through an expression of their own: a translatable field turned on or off. */
+  readonly conversions?: ReadonlyMap<string, string>
 }
 
 /** What the copy needs to know about one column of the table being built. */
@@ -94,7 +97,10 @@ export const copyDataAndResetSequences = (
 
     const columnList = commonColumns.map((column) => quoteSqlIdentifier(column)).join(', ')
     const selectList = commonColumns
-      .map((column) => copyExpression(column, newColumnInfo.get(column)))
+      .map(
+        (column) =>
+          params.conversions?.get(column) ?? copyExpression(column, newColumnInfo.get(column))
+      )
       .join(', ')
     yield* executeSQL(
       tx,
@@ -350,6 +356,9 @@ export const recreateTableWithDataEffect = (
     const handMade = isSqliteRuntime()
       ? yield* readHandMadeObjects(tx, table, physicalTableName)
       : []
+    const conversions = isSqliteRuntime()
+      ? yield* sqliteTranslatableCopyExpressions(tx, table, physicalTableName)
+      : undefined
 
     // Create temporary table with new schema
     const { ddl: createTableSQL, scopedConstraints } = yield* Effect.try({
@@ -372,6 +381,7 @@ export const recreateTableWithDataEffect = (
       physicalTableName,
       commonColumns,
       newColumnInfo,
+      ...(conversions === undefined ? {} : { conversions }),
     })
 
     // Finalize by dropping old table and renaming temp table

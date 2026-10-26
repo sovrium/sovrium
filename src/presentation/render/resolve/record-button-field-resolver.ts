@@ -31,7 +31,7 @@ import {
   callerTableGate,
 } from '@/domain/models/app/tables/caller-record-gate-service'
 import { satisfiesFieldCondition } from '@/domain/models/app/tables/condition-operators'
-import { resolveButtonFieldMeta } from '@/presentation/render/props/resolve-type-specific-inputs'
+import { resolveButtonFieldMeta } from '@/presentation/render/props/data-table-field-inputs'
 import { readRecordForCaller } from './record-read-gate'
 import type { DataSourceDb } from './data-source-contracts'
 import type { App } from '@/domain/models/app'

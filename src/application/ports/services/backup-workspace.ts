@@ -12,6 +12,8 @@ export class BackupIoError extends Data.TaggedError('BackupIoError')<{
   /** What was being done, as an operator reads it: `read /srv/app/.sovrium/database.db`. */
   readonly action: string
   readonly cause: unknown
+  /** What the failure left behind, as an operator reads it, when that is known. */
+  readonly aftermath?: string
 }> {}
 
 /**
@@ -47,6 +49,13 @@ export type PostgresTargetState =
        * exist, so a cleanup removes only the ones the restore created.
        */
       readonly preExistingSchemas: readonly string[]
+      /**
+       * Every routine (function, procedure, aggregate) that already exists in
+       * `public` and in those engine schemas, as its drop signature
+       * (`"schema"."name"(identity argument types)`), so a cleanup removes only
+       * the routines the restore created.
+       */
+      readonly preExistingRoutines: readonly string[]
     }
 
 /** One schema build: the database, the config it builds, and a private scratch directory. */
@@ -116,10 +125,15 @@ export class BackupWorkspace extends Context.Service<
     readonly hasExecutable: (name: string) => Effect.Effect<boolean>
     /** A plain-SQL logical dump of a PostgreSQL database, made by `pg_dump`. */
     readonly dumpPostgres: (databaseUrl: string) => Effect.Effect<Uint8Array, BackupIoError>
-    /** Replay a plain-SQL dump into a PostgreSQL database with `psql`, in one transaction. */
+    /**
+     * Replay a plain-SQL dump into a PostgreSQL database with `psql`, in one
+     * transaction. With `replace`, the app's own objects are dropped first in
+     * that same transaction, so a failed replay leaves the database as it was.
+     */
     readonly restorePostgres: (
       databaseUrl: string,
-      dump: Uint8Array
+      dump: Uint8Array,
+      replace: boolean
     ) => Effect.Effect<void, BackupIoError>
     /** How many stored files the database's file catalogue lists. */
     readonly countCatalogueFiles: (
@@ -183,13 +197,15 @@ export class BackupWorkspace extends Context.Service<
     ) => Effect.Effect<number, CrossDialectCopyFailure>
     /**
      * Return a PostgreSQL database a failed restore built into to empty: drop
-     * only the schemas and relations the restore created (`preExistingSchemas`
-     * from {@link inspectPostgresTarget} are kept), never an extension's
-     * objects, under a short lock timeout. Fails when it cannot.
+     * only the schemas, relations and routines the restore created (the
+     * `preExistingSchemas` and `preExistingRoutines` from
+     * {@link inspectPostgresTarget} are kept), never an extension's objects,
+     * under a short lock timeout. Fails when it cannot.
      */
     readonly dropCreatedObjects: (
       databaseUrl: string,
-      preExistingSchemas: readonly string[]
+      preExistingSchemas: readonly string[],
+      preExistingRoutines: readonly string[]
     ) => Effect.Effect<void, BackupIoError>
     /**
      * Whether a live server holds the lock in `lockDirectory` — the lock

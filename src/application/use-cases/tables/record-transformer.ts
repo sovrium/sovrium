@@ -5,8 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  ALL_LANGUAGES,
+  localizeStoredValue,
+} from '@/domain/models/app/languages/localized-value-service'
 import { serializeDriverValue } from '@/domain/models/app/tables/driver-value-service'
 import { toStringRelationshipValue } from '@/domain/models/app/tables/record-id-service'
+import { translatableReadFieldsOf } from '@/domain/models/app/tables/translatable-read-service'
 import { isUserListField } from '@/domain/models/app/tables/user-list-field-service'
 import { formatFieldForDisplay, type FormatResult } from './display-formatter'
 import type { App } from '@/domain/models/app'
@@ -473,6 +478,45 @@ const buildFieldsObject = (
   }
 }
 
+/** How a record is transformed for its reader. */
+export interface TransformOptions {
+  readonly format?: 'display'
+  readonly app?: App
+  readonly tableName?: string
+  readonly timezone?: string
+  /**
+   * The language translatable fields are served in: a declared code resolves
+   * each to one string, `*` keeps each map of the declared languages. Absent,
+   * the same map — for machine consumers, which receive every declared
+   * language.
+   */
+  readonly language?: string | undefined
+}
+
+/** A translatable cell (or a lookup's list of them) as its reader receives it. */
+const localizeCell = (value: unknown, app: App, language: string | undefined): RecordFieldValue => {
+  if (Array.isArray(value)) return value.map((item) => localizeCell(item, app, language))
+  // No language is every DECLARED language: a removed one stays in storage, never served.
+  return localizeStoredValue(value, language ?? ALL_LANGUAGES, app.languages) ?? null
+}
+
+/** The fields of the record's table holding translatable content (none without a schema). */
+const translatableFieldsOf = (options: TransformOptions | undefined): ReadonlySet<string> =>
+  options?.app && options.tableName
+    ? translatableReadFieldsOf(options.app, options.tableName)
+    : new Set<string>()
+
+/** One field of a record as its reader receives it: localized, or processed as before. */
+const transformFieldValue = (
+  key: string,
+  value: unknown,
+  options: TransformOptions | undefined,
+  translatable: ReadonlySet<string>
+): RecordFieldValue | FormattedFieldValue =>
+  translatable.has(key) && options?.app
+    ? localizeCell(value, options.app, options.language)
+    : (processFieldValue(key, value, options) as RecordFieldValue | FormattedFieldValue)
+
 /**
  * Transform a raw database record into the API response format (Airtable-style)
  *
@@ -490,12 +534,7 @@ const buildFieldsObject = (
  */
 export const transformRecord = (
   record: Readonly<Record<string, unknown>>,
-  options?: {
-    readonly format?: 'display'
-    readonly app?: App
-    readonly tableName?: string
-    readonly timezone?: string
-  }
+  options?: TransformOptions
 ): TransformedRecord => {
   // Extract system fields including authorship metadata
   const {
@@ -521,13 +560,16 @@ export const transformRecord = (
   // Build user fields, potentially including created_at/updated_at if they're table fields
   const fieldsToTransform = buildFieldsObject(userFields, createdAt, updatedAt, options)
 
+  // Translatable fields (and lookups of them) are served in the reader's language.
+  const translatable = translatableFieldsOf(options)
+
   // Convert Date objects to ISO strings in user fields and optionally format for display
   const transformedFields = Object.entries(fieldsToTransform).reduce<
     Record<string, RecordFieldValue | FormattedFieldValue>
   >(
     (acc, [key, value]) => ({
       ...acc,
-      [key]: processFieldValue(key, value, options) as RecordFieldValue | FormattedFieldValue,
+      [key]: transformFieldValue(key, value, options, translatable),
     }),
     {}
   )
@@ -552,10 +594,5 @@ export const transformRecord = (
  */
 export const transformRecords = (
   records: readonly Record<string, unknown>[],
-  options?: {
-    readonly format?: 'display'
-    readonly app?: App
-    readonly tableName?: string
-    readonly timezone?: string
-  }
+  options?: TransformOptions
 ): readonly TransformedRecord[] => records.map((record) => transformRecord(record, options))

@@ -252,6 +252,10 @@ export const dryRunBlocks = (
 
   const tables = changes.flatMap(changeLine)
   const schema: CliBlock = tables.length === 0 ? [{ text: 'no config table changes' }] : tables
+  // A warning changes nothing in the plan, so it is printed whatever the change's kind.
+  const warnings: CliBlock = changes.flatMap((change) =>
+    (change.warnings ?? []).map((warning) => ({ glyph: 'warn' as const, text: warning }))
+  )
 
   // A plan that would be REFUSED is not a plan, so the closing line must not
   // invite the operator to apply it.
@@ -266,6 +270,7 @@ export const dryRunBlocks = (
     contextBlock(state),
     migrations,
     schema,
+    ...(warnings.length === 0 ? [] : [warnings]),
     closing,
   ]
 }

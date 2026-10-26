@@ -121,6 +121,8 @@ export async function fetchCollectionAdjacency(
   readers: {
     readonly readRows?: CollectionRowsReader | undefined
     readonly readViewerRows?: CollectionViewerRowsReader | undefined
+    /** The field the record was found by: the slug field of the language it is read in. */
+    readonly slugField?: string | undefined
   } = {}
 ): Promise<CollectionAdjacency> {
   const readRows = readers.readRows ?? ((query) => db.fetchRecords(collection.table, query))
@@ -136,7 +138,8 @@ export async function fetchCollectionAdjacency(
 
   // The `id` is a system column no field grant strips, where the slug may be
   // a field the visitor may not read.
-  const key = resolvedRecord['id'] !== undefined ? 'id' : collection.slugField
+  const key = resolvedRecord['id'] !== undefined ? 'id' : readers.slugField
+  if (key === undefined) return { previous: undefined, next: undefined, resume }
   const index = records.findIndex((r) => r[key] === resolvedRecord[key])
   if (index < 0) return { previous: undefined, next: undefined, resume }
 

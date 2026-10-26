@@ -6,11 +6,13 @@
  */
 
 import { withEffectivePrimaryKey } from '@/domain/models/app/tables/record-id-service'
+import { recordLanguageOrder } from '@/domain/models/app/tables/translatable-field-service'
 import {
   LIVE_ROWS_PREDICATE,
   REFERENCED_KEY_COLUMNS,
   type TableWithReferencedKeys,
 } from '../sql/sql-key-constraints'
+import { stampRecordLanguages } from '../sql/sql-translatable-columns'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/tables'
 
@@ -207,5 +209,10 @@ export const applySchemaDefaults = (
 ): readonly Table[] => {
   const withScopePk = withScopeTableKeys(sortedTables, app)
   const withFormAttachments = upgradeFormReferencedAttachments(withScopePk, app)
-  return applyUniqueDefaults(withFormAttachments)
+  // The app's languages, on each text field, for the translatable-column DDL.
+  const withLanguages = stampRecordLanguages(
+    withFormAttachments,
+    recordLanguageOrder(app.languages)
+  )
+  return applyUniqueDefaults(withLanguages)
 }

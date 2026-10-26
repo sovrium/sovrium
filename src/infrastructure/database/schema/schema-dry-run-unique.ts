@@ -16,6 +16,7 @@
  */
 
 import { Effect } from 'effect'
+import { languageUniqueIndexStatement } from '../sql/sql-language-unique-indexes'
 import { planUniqueChanges, uniquePlanLines } from '../table-operations/unique-constraint-drift'
 import type { TableChange } from './schema-dry-run'
 import type { TransactionLike } from '../sql/sql-execution'
@@ -36,11 +37,12 @@ export const withUniquePlan = (params: {
   const { tx, table, source, existingColumns, change } = params
   return planUniqueChanges({ tx, table, source, existingColumns }).pipe(
     Effect.map((plan): TableChange => {
-      if (plan.columns.length === 0) return change
-      const lines = uniquePlanLines({
-        physicalTableName: change.relation ?? table.name,
-        columns: plan.columns,
-      })
+      if (plan.columns.length === 0 && plan.languageIndexes.length === 0) return change
+      const relation = change.relation ?? table.name
+      const lines = [
+        ...uniquePlanLines({ physicalTableName: relation, columns: plan.columns }),
+        ...plan.languageIndexes.map((index) => languageUniqueIndexStatement(relation, index)),
+      ]
       return {
         ...change,
         kind: change.kind === 'unchanged' ? 'alter' : change.kind,

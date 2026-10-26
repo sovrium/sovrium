@@ -29,7 +29,7 @@ Part of each `references/` folder is generated from the binary's own option desc
 
 `sovrium skills` writes every skill into `.claude/skills/<name>/` under the current directory — the `SKILL.md` and its `references/` — and a `.sovrium-skills.json` beside them. It also writes one agent file, `.claude/agents/sovrium-config-editor.md`, described below. `--output <dir>` writes under another project root instead.
 
-The JSON file records, for every file it wrote, a SHA-256 of its bytes and the Sovrium version that wrote it. Commit it with the skills: it is how the next run knows which files are Sovrium's and which ones you changed. Each `SKILL.md` also names its version in its frontmatter, as `metadata.product-version`.
+The JSON file records, for every file it wrote, a SHA-256 of its bytes and the Sovrium version that wrote it. Commit it with the skills: it is how the next run knows which files are Sovrium's and which ones you changed. Each `SKILL.md` also names its version in its frontmatter, as `metadata.product-version`. A release build writes the release version there and in the JSON file. A build from source or from an unreleased commit writes `<version>-dev+<commit>` instead (`<version>-dev` when the commit cannot be read), so you can tell the skills came from an unreleased engine; the command says so in one line when it writes them.
 
 `sovrium init` writes the same skills and the same agent file when it scaffolds a project, whether from the default starter, a `--template`, a template repository or `--from-url`. It never overwrites a skill directory or an agent file that is already there, and skips a `.claude/agents` folder that is a link, saying so.
 

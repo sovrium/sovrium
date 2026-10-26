@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { rewriteDatePartsToPortable } from './formula-date-parts'
 import { formulaHasUntypedPortableDateArgument } from './formula-portable-dates'
 
 const DATE_LIKE_FIELD_TYPES: ReadonlySet<string> = new Set(['date', 'datetime', 'time'])
@@ -156,6 +157,6 @@ export const formulaNeedsUtcSession = (
     formulaReadsDateAsText(formula, stored) ||
     formulaConvertsDatetime(formula, stored) ||
     formulaReadsClock(formula) ||
-    formulaHasUntypedPortableDateArgument(formula, allFields)
+    formulaHasUntypedPortableDateArgument(rewriteDatePartsToPortable(formula), allFields)
   )
 }

@@ -36,14 +36,20 @@ export function buildFormAttributes(
     readonly lockPrefill: boolean
     /** Where a private link's page posts instead: a resumed draft, an edit. */
     readonly action?: string | undefined
+    /** The page's language, in an app that declares languages: a translatable answer is filed under it. */
+    readonly lang?: string | undefined
   }
 ): Readonly<Record<string, string>> {
   const { embed, embedded, lockPrefill } = flags
   // An embed names its surface: it decides the ledger write (`storesSubmission`).
-  const surface = embedded ? `?${SUBMISSION_SURFACE_PARAM}=embed` : ''
+  const params = new URLSearchParams([
+    ...(embedded ? [[SUBMISSION_SURFACE_PARAM, 'embed']] : []),
+    ...(flags.lang === undefined ? [] : [['lang', flags.lang]]),
+  ])
+  const query = params.size === 0 ? '' : `?${params.toString()}`
   return {
     method: 'POST',
-    action: flags.action ?? `/api/forms/${form.name}/submissions${surface}`,
+    action: flags.action ?? `/api/forms/${form.name}/submissions${query}`,
     'data-form-name': form.name,
     ...(embed ? { 'data-embed': 'true' } : {}),
     ...(lockPrefill ? { 'data-inline-prefill': 'locked' } : {}),

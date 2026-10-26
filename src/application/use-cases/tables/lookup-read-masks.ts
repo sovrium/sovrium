@@ -46,6 +46,8 @@ import {
 } from '@/domain/models/app/tables/related-text-filter-service'
 import { projectWhenToFilter } from '@/domain/models/app/tables/row-level-evaluator-service'
 import { countsNarrowedFor } from '@/domain/models/app/tables/row-read-admission-service'
+import { deriveFieldLinkTableName } from '@/domain/models/app/tables/table-derived-name-validation'
+import { withDefaultLanguageConditions } from '@/domain/models/app/tables/translatable-query-service'
 import { relatedReaderOf, type LinkReader } from './linked-row-visibility'
 import { loadCurrentUserContext, rowRuleScopeOf } from './permissions/row-level-enforcement'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
@@ -90,10 +92,18 @@ const namedFields = (query: NamedByQuery): ReadonlySet<string> =>
     ),
   ])
 
+/** The link table `link`, a many-to-many field of `sourceTable`, stores its links in. */
+const linkTableOf = (app: App, sourceTable: string, link: LookupLink): string =>
+  deriveFieldLinkTableName(
+    { name: sourceTable, fields: app.tables?.find((t) => t.name === sourceTable)?.fields ?? [] },
+    { name: link.relationship, relatedTable: link.relatedTable.name }
+  )
+
 /** Where a mask finds a row's linked records: its key column, a junction, or a back link. */
-const maskLinkOf = (link: LookupLink): LookupReadMask['link'] => {
+const maskLinkOf = (app: App, tableName: string, link: LookupLink): LookupReadMask['link'] => {
   const filters = link.filters === undefined ? {} : { filters: link.filters as QueryFilterNode }
-  if (link.manyToMany) return { kind: 'junction', ...filters }
+  if (link.manyToMany)
+    return { kind: 'junction', linkTable: linkTableOf(app, tableName, link), ...filters }
   if (link.road === 'reverse') return { kind: 'reverse', column: link.relationship, ...filters }
   return { kind: 'column', column: link.relationship }
 }
@@ -156,6 +166,7 @@ export const projectedRuleOf = (
 /** A lookup's mask with its related table's read rule projected for `reader`. */
 const ruledMaskOf = (
   app: App,
+  tableName: string,
   link: LookupLink,
   reader: LinkReader
 ): Effect.Effect<LookupReadMask, never, DataSourceRepository | AuthRepository> =>
@@ -165,7 +176,7 @@ const ruledMaskOf = (
       relatedTable: link.relatedTable.name,
       relatedField: link.relatedField,
       readable,
-      link: maskLinkOf(link),
+      link: maskLinkOf(app, tableName, link),
     })),
     Effect.withSpan('tables.ruled-lookup-mask')
   )
@@ -182,12 +193,13 @@ const listOf = (
 ): Effect.Effect<LookupReadList, never, DataSourceRepository | AuthRepository> =>
   projectedRuleOf(app, list.relatedTable, reader).pipe(
     Effect.map((readable): LookupReadList => ({
-      kind: list.road === 'reverse' ? 'reverse' : 'junction',
       sourceTable,
       relatedTable: list.relatedTable.name,
       relatedField: list.relatedField,
       readable,
-      ...(list.road === 'reverse' ? { column: list.relationship } : {}),
+      ...(list.road === 'reverse'
+        ? { kind: 'reverse', column: list.relationship }
+        : { kind: 'junction', linkTable: linkTableOf(app, sourceTable, list) }),
       ...(list.filters === undefined ? {} : { filters: list.filters as QueryFilterNode }),
     }))
   )
@@ -308,7 +320,9 @@ export const lookupReadMasks = (
       )
       .map(refusedMask)
     const links = ruledLinks.filter((link) => named.has(link.lookup))
-    const ruledMasks = yield* Effect.forEach(links, (link) => ruledMaskOf(app, link, reader))
+    const ruledMasks = yield* Effect.forEach(links, (link) =>
+      ruledMaskOf(app, tableName, link, reader)
+    )
     const chainedMasks = yield* Effect.forEach(chains, ([, chain]) =>
       chainMaskOf(app, chain, reader)
     )
@@ -341,3 +355,17 @@ export const withRuledRelatedText = (
     )
     return withRelatedTextRules(filter, new Map(rules))
   }).pipe(Effect.withSpan('tables.ruled-related-text'))
+
+/**
+ * `query` with each condition on a translatable field compared against the
+ * field's default-language value — the caller's, a saved view's and every
+ * other condition merged into the list (`translatable-query-service.ts`).
+ */
+export const translatedFilter = <
+  Q extends { readonly app: App; readonly tableName: string; readonly filter?: QueryFilter },
+>(
+  query: Q
+): Q =>
+  query.filter === undefined
+    ? query
+    : { ...query, filter: withDefaultLanguageConditions(query.filter, query) }

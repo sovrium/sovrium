@@ -37,22 +37,38 @@ export const getFileExtension = (filePath: string): string => {
   return match?.[1] ?? ''
 }
 
-/**
- * Detect format from Content-Type header
- */
-export const detectFormatFromContentType = (contentType: string): SchemaFormat | undefined => {
-  if (contentType.includes('application/json')) return 'json'
-  if (contentType.includes('application/x-yaml') || contentType.includes('text/yaml')) return 'yaml'
-  return undefined
+/** The media types that name a config format. Anything else names none. */
+const MEDIA_TYPE_FORMATS: Readonly<Record<string, SchemaFormat>> = {
+  'application/json': 'json',
+  'application/yaml': 'yaml',
+  'application/x-yaml': 'yaml',
+  'text/yaml': 'yaml',
 }
 
 /**
- * Detect format from URL file extension
+ * Detect format from a Content-Type header.
+ *
+ * Reads the media type only (parameters such as `charset` are dropped) and
+ * compares it case-insensitively. A generic type (`text/plain`,
+ * `binary/octet-stream`) names no format and returns `undefined`.
+ */
+export const detectFormatFromContentType = (contentType: string): SchemaFormat | undefined => {
+  const mediaType = (contentType.split(';')[0] ?? '').trim().toLowerCase()
+  return Object.hasOwn(MEDIA_TYPE_FORMATS, mediaType) ? MEDIA_TYPE_FORMATS[mediaType] : undefined
+}
+
+/**
+ * Detect format from the extension of a URL's PATH.
+ *
+ * The query string and the fragment never decide: a signature, a download name
+ * or a cache buster says nothing about the bytes. A string that does not parse
+ * as a URL returns `undefined`.
  */
 export const detectFormatFromUrl = (url: string): SchemaFormat | undefined => {
-  const urlLower = url.toLowerCase()
-  if (urlLower.endsWith('.json')) return 'json'
-  if (urlLower.endsWith('.yaml') || urlLower.endsWith('.yml')) return 'yaml'
+  const pathname = URL.parse(url)?.pathname.toLowerCase()
+  if (pathname === undefined) return undefined
+  if (pathname.endsWith('.json')) return 'json'
+  if (pathname.endsWith('.yaml') || pathname.endsWith('.yml')) return 'yaml'
   return undefined
 }
 

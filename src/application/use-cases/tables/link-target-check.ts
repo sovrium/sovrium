@@ -52,13 +52,17 @@ import { buildEffectiveRoles } from './user-groups'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { AccountReference } from '@/application/ports/repositories/tables/record-write-accounts'
+import type { TableReadError } from '@/application/ports/repositories/tables/table-repository'
 import type { App, Table } from '@/domain/models/app'
 
 /** One record a write proposes, and the row it changes when it is an update. */
 export interface LinkTargetWrite {
   readonly fields: Readonly<Record<string, unknown>>
   /** The row as it stands, read only when a many-to-one value would be refused. */
-  readonly held?: Effect.Effect<Readonly<Record<string, unknown>> | null | undefined, DatabaseError>
+  readonly held?: Effect.Effect<
+    Readonly<Record<string, unknown>> | null | undefined,
+    TableReadError
+  >
 }
 
 /** A relationship field that names rows by key on a write. */
@@ -114,7 +118,7 @@ const existingKeys = (
   related: Table,
   keys: readonly string[],
   session: Readonly<UserSession>
-): Effect.Effect<ReadonlySet<string>, DatabaseError, TableRepository> =>
+): Effect.Effect<ReadonlySet<string>, TableReadError, TableRepository> =>
   Effect.gen(function* () {
     const repo = yield* TableRepository
     const rows = yield* repo.listRecords({
@@ -140,7 +144,7 @@ const admittedKeys = (
   }
 ): Effect.Effect<
   Admitted,
-  DatabaseError,
+  TableReadError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   Effect.gen(function* () {
@@ -184,7 +188,7 @@ const refusedField = (
   write: LinkTargetWrite,
   fields: readonly LinkField[],
   admitted: ReadonlyMap<string, Admitted>
-): Effect.Effect<LinkField | undefined, DatabaseError> =>
+): Effect.Effect<LinkField | undefined, TableReadError> =>
   Effect.gen(function* () {
     const refusedKeys = (field: LinkField): readonly string[] => {
       const verdict = admitted.get(field.relatedTable) ?? 'all'
@@ -291,7 +295,7 @@ export const refuseUnreadableLinkTargets = (input: {
   readonly reader: LinkReader | undefined
 }): Effect.Effect<
   void,
-  ForeignKeyViolationError | DatabaseError,
+  ForeignKeyViolationError | TableReadError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   Effect.gen(function* () {

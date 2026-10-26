@@ -6,6 +6,7 @@
  */
 
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
+import { translatableCollapseRefusal } from '@/domain/models/app/tables/translatable-field-service'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { isPhysicalColumnField } from '../sql/sql-field-predicates'
 import { generateColumnDefinition } from '../sql/sql-generators'
@@ -39,13 +40,9 @@ type MissingSpecialFields = {
 }
 
 /**
- * SQLite arm of {@link generateSpecialFieldStatements}.
- *
- * Reuses the dialect-correct column-definition generators the fresh-CREATE path
- * uses (`TEXT NOT NULL DEFAULT (strftime(...))`), because SQLite has no `NOW()`
- * function and no `TIMESTAMPTZ` semantics — emitting the Postgres form would
- * crash schema-init on a pre-existing older-schema database that predates an
- * intrinsic timestamp column (e.g. `deleted_at` from soft-delete-by-default).
+ * SQLite arm of {@link generateSpecialFieldStatements}: the fresh-CREATE generators
+ * (`TEXT NOT NULL DEFAULT (strftime(...))`), since SQLite has no `NOW()` or `TIMESTAMPTZ` —
+ * the Postgres form crashed schema-init on a database predating an intrinsic timestamp column.
  */
 const sqliteSpecialFieldStatements = (
   table: Table,
@@ -62,11 +59,8 @@ const sqliteSpecialFieldStatements = (
 }
 
 /**
- * Generate statements for automatic timestamp fields (created_at, updated_at, deleted_at)
- * when they are missing from an existing table.
- *
- * Dialect-aware: the Postgres arm is unchanged (byte-for-byte) —
- * `TIMESTAMPTZ NOT NULL DEFAULT NOW()`. The SQLite arm is delegated to
+ * Statements adding the automatic timestamp columns (created_at, updated_at, deleted_at) an
+ * existing table lacks: `TIMESTAMPTZ NOT NULL DEFAULT NOW()` on Postgres, else
  * {@link sqliteSpecialFieldStatements}.
  */
 const generateSpecialFieldStatements = (
@@ -126,8 +120,14 @@ const validateFieldRenameAmbiguity = (
   }
 }
 
-/** Validate destructive operations require explicit confirmation */
-const validateDestructiveOps = (table: Table, columnsToDrop: readonly string[]): void => {
+/** Validate destructive operations (a column drop, a translatable collapse) require confirmation */
+const validateDestructiveOps = (
+  table: Table,
+  columnsToDrop: readonly string[],
+  previousSchema?: { readonly tables: readonly object[] }
+): void => {
+  const collapse = translatableCollapseRefusal(table, findPreviousTable(table.name, previousSchema))
+  if (collapse !== undefined) throw new Error(collapse)
   if (columnsToDrop.length > 0 && !table.allowDestructive) {
     const droppedColumns = columnsToDrop.join(', ')
     throw new Error(
@@ -561,7 +561,7 @@ export const generateAlterTableStatements = (options: {
     physicalTableName,
     previousSchema,
   })
-  validateDestructiveOps(table, columnsToDrop)
+  validateDestructiveOps(table, columnsToDrop, previousSchema)
   const { drops, dropStatements, addStatements } = buildColumnStatements({
     tableName: physicalTableName,
     columnsToDrop,

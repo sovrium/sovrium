@@ -184,10 +184,7 @@ const hasRelatedTable = (
 ): field is Fields[number] & { relatedTable: string } =>
   'relatedTable' in field && typeof field.relatedTable === 'string'
 
-/**
- * Find the table containing a relationship field that points back to the current table.
- * Used for reverse lookups where the FK is in another table.
- */
+/** The table holding a relationship field that points back at this one (a reverse lookup's key). */
 const findReverseLookupTable = (
   relationshipField: string,
   currentTableName: string,
@@ -236,6 +233,7 @@ const generateLookupExpression = (
     return generateManyToManyLookupExpression({
       lookupName,
       relatedTable: relationshipFieldDef.relatedTable,
+      relationshipField,
       relatedRelation: relationFor(relationshipFieldDef.relatedTable, actualTableName),
       relatedField,
       filters,

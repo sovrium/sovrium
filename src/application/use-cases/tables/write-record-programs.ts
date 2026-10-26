@@ -17,10 +17,9 @@
  * land in only one of them — which is how a `POST` and a `PATCH` against the
  * same table come to disagree about what they echo.
  *
- * The junction half lives in `record-link-enrichment.ts`, shared with the
- * reads; the single-record address refusal comes from `read-record-programs.ts`,
- * where its docstring explains why every verb under `/records/:recordId` has to
- * raise it identically.
+ * The junction half lives in `record-link-enrichment.ts`, shared with the reads;
+ * the single-record address refusal comes from `read-record-programs.ts`, whose
+ * docstring explains why every verb under `/records/:recordId` raises it identically.
  */
 
 import { Effect } from 'effect'
@@ -32,6 +31,7 @@ import {
   buildUpdateAuthorshipOverrides,
 } from '@/domain/models/app/tables/authorship-fields'
 import { filterReadableFields } from '@/domain/models/app/tables/field-read-filter-service'
+import { languageMergesIn } from '@/domain/models/app/tables/translatable-write-service'
 import { storedValuesIn } from '@/domain/models/app/tables/user-list-field-service'
 import { enrichRecordWithAttachmentUrls } from './attachment-url-enricher'
 import { omitFromWriteEcho, writeEchoReaderOf } from './hidden-lookup-omission'
@@ -54,12 +54,8 @@ import type { TransformedRecord } from './record-transformer'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import type {
-  DatabaseError,
-  ForeignKeyViolationError,
-  StaleWriteError,
-  ValidationError,
-} from '@/domain/errors'
+import type { TableReadError } from '@/application/ports/repositories/tables/table-repository'
+import type { ForeignKeyViolationError, StaleWriteError, ValidationError } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
 
 interface CreateRecordConfig {
@@ -161,7 +157,8 @@ const readableEchoFields = (
 
 export function createRecordProgram(config: CreateRecordConfig) {
   const { session, tableName, app, userRole, origin } = config
-  const fields = storedValuesIn(app?.tables, tableName, config.fields)
+  const stored = storedValuesIn(app?.tables, tableName, config.fields)
+  const fields = languageMergesIn(app, tableName, stored)
   return Effect.gen(function* () {
     const repo = yield* TableRepository
 
@@ -260,7 +257,7 @@ const resolveUpdatedBaseRecord = (
   }
 ): Effect.Effect<
   Record<string, unknown>,
-  DatabaseError | ForeignKeyViolationError | StaleWriteError | ValidationError,
+  TableReadError | ForeignKeyViolationError | StaleWriteError | ValidationError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   Effect.gen(function* () {
@@ -345,7 +342,11 @@ export function updateRecordProgram(
     // junction write. Extracted so this generator stays under the complexity cap.
     const written = yield* resolveUpdatedBaseRecord(session, tableName, recordId, {
       ...params,
-      fields: storedValuesIn(params.app?.tables, tableName, params.fields),
+      fields: languageMergesIn(
+        params.app,
+        tableName,
+        storedValuesIn(params.app?.tables, tableName, params.fields)
+      ),
     })
 
     // Pure m2m PATCH against a missing row: surface empty so the route 404s.

@@ -9,6 +9,7 @@ import { Effect } from 'effect'
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { resolveCurrentUserOperand } from '@/domain/models/app/pages/current-user-ref'
+import { declaresTranslatable } from '@/domain/models/app/tables/translatable-field-service'
 import { shouldUseView } from '@/infrastructure/database/lookup/lookup-view-generators'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import {
@@ -19,6 +20,8 @@ import {
   type SQLExecutionError,
   type TransactionLike,
 } from '../sql/sql-execution'
+import { recordLanguagesOf } from '../sql/sql-translatable-columns'
+import { languageValueDdl } from '../sql/translatable-value-sql'
 import { generateSqlCondition } from '../table-queries/filter-operators'
 import { compileFilterTree, isCompleteCondition } from '../table-queries/filter-tree'
 import type { Table } from '@/domain/models/app/tables'
@@ -44,6 +47,20 @@ const dropViewStatement = (viewName: string): string => {
   return isSqliteRuntime()
     ? `DROP VIEW IF EXISTS ${quoted}`
     : `DROP VIEW IF EXISTS ${quoted} CASCADE`
+}
+
+/**
+ * What a view's SQL reads for the field `name`: its quoted column, or, for a
+ * translatable field, the default language's value out of its map ([internal ref]
+ * D8) — a saved view filters, sorts and groups as a query does. The languages
+ * come stamped on the field by the schema initializer, default first.
+ */
+const columnExpression = (fields: Table['fields'], name: string): string => {
+  const quoted = quoteSqlIdentifier(name)
+  const field = fields.find((candidate) => candidate.name === name)
+  const language =
+    field !== undefined && declaresTranslatable(field) ? recordLanguagesOf(field)[0] : undefined
+  return language === undefined ? quoted : languageValueDdl(quoted, language)
 }
 
 /** A condition no row satisfies. */
@@ -76,7 +93,7 @@ const generateWhereClause = (filters: View['filters'], fields: Table['fields']):
     (c) => {
       if (!isCompleteCondition(c)) return undefined
       if (resolveCurrentUserOperand(c.value, undefined).kind !== 'literal') return NO_ROW_CONDITION
-      return generateSqlCondition(quoteSqlIdentifier(c.field), c.operator, c.value)
+      return generateSqlCondition(columnExpression(fields, c.field), c.operator, c.value)
     },
     { fields }
   )
@@ -88,15 +105,21 @@ const generateWhereClause = (filters: View['filters'], fields: Table['fields']):
  * GroupBy takes precedence - when present, it's used for ordering
  * If both groupBy and sorts are present, groupBy is applied first
  */
-const generateOrderByClause = (sorts: View['sorts'], groupBy: View['groupBy']): string => {
+const generateOrderByClause = (
+  sorts: View['sorts'],
+  groupBy: View['groupBy'],
+  fields: Table['fields']
+): string => {
   // Build order items immutably
   const groupByItems = groupBy
-    ? [`${quoteSqlIdentifier(groupBy.field)} ${(groupBy.direction || 'asc').toUpperCase()}`]
+    ? [`${columnExpression(fields, groupBy.field)} ${(groupBy.direction || 'asc').toUpperCase()}`]
     : []
 
   const sortItems =
     sorts && sorts.length > 0 && !groupBy
-      ? sorts.map((sort) => `${quoteSqlIdentifier(sort.field)} ${sort.direction.toUpperCase()}`)
+      ? sorts.map(
+          (sort) => `${columnExpression(fields, sort.field)} ${sort.direction.toUpperCase()}`
+        )
       : []
 
   const orderItems = [...groupByItems, ...sortItems]
@@ -151,7 +174,7 @@ export const generateViewSQL = (table: Table, view: View): string => {
   const fields =
     view.fields && view.fields.length > 0 ? view.fields.map(quoteSqlIdentifier).join(', ') : '*'
   const whereClause = generateWhereClause(view.filters, table.fields)
-  const orderByClause = generateOrderByClause(view.sorts, view.groupBy)
+  const orderByClause = generateOrderByClause(view.sorts, view.groupBy, table.fields)
 
   // The DATABASE name, quoted: the config name (`report-requests`) is not an
   // identifier. A view-backed table reads its lookup VIEW, which carries this

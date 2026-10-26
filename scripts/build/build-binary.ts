@@ -28,6 +28,7 @@ import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import { printStderr } from '@/infrastructure/logging/cli-output'
+import { computeBuildStamp, devStampNotice, isDevStamp } from '@/infrastructure/process/build-stamp'
 import { CommandServiceLive, spawn } from '../lib/effect/command-service'
 import { writeBinaryBuildStamp } from './binary-build-stamp'
 import {
@@ -303,7 +304,8 @@ export const windowsResourceFlags = (
 
 const compileBinary = (
   target: Target,
-  version: string
+  version: string,
+  stamp: string
 ): Effect.Effect<void, BuildBinaryError, CommandService> =>
   Effect.gen(function* () {
     const outPath = join(PROJECT_ROOT, target.outfile)
@@ -331,6 +333,9 @@ const compileBinary = (
       '--bytecode',
       '--format=esm',
       `--define=__SOVRIUM_VERSION__=${JSON.stringify(version)}`,
+      // The version a non-release build stamps on what it writes (the skills
+      // payload): `<version>-dev+<sha>` unless HEAD is the `v<version>` tag.
+      `--define=__SOVRIUM_BUILD_STAMP__=${JSON.stringify(stamp)}`,
       ...windowsResourceFlags(target, version),
     ]
 
@@ -599,8 +604,11 @@ const main: Effect.Effect<void, BuildBinaryError, CommandService> = Effect.gen(f
 
   const { targets } = yield* parseCliArgs()
   const version = getVersion()
+  const stamp = computeBuildStamp(version, PROJECT_ROOT, process.env)
 
   console.log(`Version: ${version}`)
+  console.log(`Build stamp: ${stamp}${isDevStamp(stamp) ? ' (not a release build)' : ''}`)
+  if (stamp.endsWith('-dev')) printStderr(devStampNotice(stamp))
   console.log(`Targets: ${targets.map((t) => t.name).join(', ')}`)
 
   // Freeze `src/admin/app.ts` into the embedded console preset. FIRST, and
@@ -757,7 +765,7 @@ const main: Effect.Effect<void, BuildBinaryError, CommandService> = Effect.gen(f
 
   // Compile each target
   for (const target of targets) {
-    yield* compileBinary(target, version)
+    yield* compileBinary(target, version, stamp)
   }
 
   // Record the input fingerprint the DEFAULT (current-platform `./sovrium`) build

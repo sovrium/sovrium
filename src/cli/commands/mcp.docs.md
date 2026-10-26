@@ -60,6 +60,8 @@ The file form is the same block by hand:
 
 **Claude Desktop** takes that same `mcpServers` entry in `claude_desktop_config.json`; restart the app afterwards. **Cursor** takes it in `.cursor/mcp.json` for one project, or `~/.cursor/mcp.json` for every project.
 
+**Only clients that can launch a local command can use it.** Claude Desktop, Claude Code and Cursor start `sovrium mcp` themselves and talk to it over stdio. A client that can only reach a remote MCP server over HTTP — ChatGPT's connectors, for example — has no way to start it, so it cannot edit a local project: Sovrium accepts no configuration change over HTTP. Hosted editing is Sovrium Cloud's.
+
 **The server speaks both protocol revisions, and you do not configure which.** The opening message decides: a client that opens with `initialize` gets the older era for the life of the process, and one that opens with a `2026-07-28` envelope gets that. This matters because Claude Code connects stdio servers on the older runtime by default — a server that spoke only the newer revision would fail against a default install.
 
 ## Which config it reads
@@ -116,6 +118,8 @@ These four are read-only, and they are all a session offers until you say otherw
 The same session offers Sovrium's agent skills as MCP **prompts**, one per skill: `sovrium-app`, `sovrium-data-model`, `sovrium-pages`, `sovrium-design`, `sovrium-automations`, `sovrium-security`, `sovrium-performance`, `sovrium-agents`, `sovrium-seo-geo` and `sovrium-report-issue`. A client lists them in its prompt menu; picking one adds that skill's `SKILL.md` text to the conversation, without its frontmatter.
 
 This is the path for a client with no shell and no project skill folder, which is Claude Desktop. A client that can run commands gets the fuller version by running `sovrium skills` in the project, which also writes each skill's `references/` — a prompt carries the `SKILL.md` alone. See **Agent Skills**.
+
+When the project folder holds a `PROMPT.md`, a `CLAUDE.md` or both at its root — the instructions a starter ships for the assistant that builds it — the session also offers them as one prompt, `project-brief`, whose description names the file or files it carries. One file is passed on exactly as written; with both, each sits under a heading naming it, `PROMPT.md` first. The files are read again on every request, so an edit shows the next time the prompt is listed or picked, without restarting anything. Each file is read up to 256 KiB and must be valid UTF-8: a file over that size, or saved in another encoding, is left out whole and named in one line on stderr. With neither file, the prompt is not offered.
 
 The config editor agent file that `sovrium skills` writes for Claude Code, `.claude/agents/sovrium-config-editor.md`, is not a skill and is not offered as a prompt.
 

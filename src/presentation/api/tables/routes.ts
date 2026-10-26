@@ -15,6 +15,7 @@ import {
 import { chainBatchRoutesMethods } from './batch-routes'
 import { chainCalendarFeedReadRoute, chainCalendarFeedTokenRoutes } from './calendar-feed-routes'
 import { chainRecordRoutesMethods } from './record-routes'
+import { writesRecordLanguage } from './record-write-language'
 import { handleListSpecimenTableRecords } from './specimen-handlers'
 import { gateUnreadableTable } from './table-read-gate'
 import { chainTableRoutesMethods } from './table-routes'
@@ -195,6 +196,10 @@ export function chainTableRoutes<T extends Hono<any, any, any>>(
     // in with `acceptsFormBody`. After the read gate, so an unreadable table
     // still answers as one that does not exist.
     .use('/api/tables/:tableId/*', refuseNonJsonBody())
+    // Each translatable value is filed under its language before a write route
+    // reads it, and read back in the active language (`record-write-language.ts`).
+    .use('/api/tables/:tableId/records', writesRecordLanguage(resolveApp))
+    .use('/api/tables/:tableId/records/*', writesRecordLanguage(resolveApp))
   return chainViewRoutesMethods(
     chainRecordRoutesMethods(
       chainBatchRoutesMethods(

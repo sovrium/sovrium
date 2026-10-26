@@ -304,7 +304,7 @@ const viewNaming = (one: Decided) => ({
   manyToMany: one.rows.flatMap((row) =>
     row.decision.settings['relationType'] === 'many-to-many' &&
     row.decision.relatedTable !== undefined
-      ? [row.decision.relatedTable]
+      ? [{ name: row.name, relatedTable: row.decision.relatedTable }]
       : []
   ),
 })

@@ -7,7 +7,12 @@
 
 import { sql } from 'drizzle-orm'
 import { INTRINSIC_ID_COLUMN } from '@/domain/models/app/tables/system-fields'
+import { languageValueSql } from '../../sql/translatable-value-sql'
 import { isValidColumnName, validateColumnName } from '../statement/validation'
+import type {
+  CaseFoldedSortField,
+  TranslatedSortKey,
+} from '@/domain/models/app/tables/text-sort-service'
 import type { SQL } from 'drizzle-orm'
 
 /**
@@ -91,7 +96,7 @@ function buildSingleSelectCaseExpression(
 interface SortContext {
   readonly app?: OrderByAppView
   readonly tableName?: string
-  readonly caseFolded?: readonly string[]
+  readonly caseFolded?: readonly CaseFoldedSortField[]
 }
 
 /** The declared option order of `field` when it is a single-select with options. */
@@ -117,6 +122,14 @@ function buildSortClause(
   const options = singleSelectOptions(field, context)
   if (options !== undefined) return buildSingleSelectCaseExpression(field, options, dir)
 
+  // A translatable field sorts by one language's value, folded the same way.
+  const translated = context.caseFolded?.find(
+    (entry): entry is TranslatedSortKey => typeof entry !== 'string' && entry.field === field
+  )
+  if (translated !== undefined) {
+    // sql-literal: keyword -- `dir` is ASC or DESC
+    return sql`lower(${languageValueSql(field, translated.language)}) ${sql.raw(dir)} NULLS LAST`
+  }
   // A text field sorts by the alphabet whatever the capitals. Folded with
   // `lower()` explicitly, so the order never rests on how either engine — or
   // a given PostgreSQL install — collates text by default.
@@ -243,7 +256,7 @@ export function buildOrderByClause(
   tableName?: string,
   keys: {
     readonly primaryKey?: OrderByPrimaryKey
-    readonly caseFolded?: readonly string[]
+    readonly caseFolded?: readonly CaseFoldedSortField[]
   } = {}
 ): Readonly<ReturnType<typeof sql.raw>> {
   const { primaryKey, caseFolded } = keys

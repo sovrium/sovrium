@@ -7,7 +7,7 @@
 
 /**
  * Shared `$record.<field>` / `$parent.<field>` prefill-token resolver (plus
- * the request-side `$now` / `$user.<prop>` tokens a record page's prefill map
+ * the request-side `$now` / `$user.<prop>` / `$query.<name>` tokens a record page's prefill map
  * also accepts).
  *
  * Both the embedded-form `inlinePrefill` flow (Y-5, `form-ref-resolver.ts`)
@@ -70,6 +70,8 @@ export interface PrefillRequestTokens {
   readonly session?: SessionInfo | undefined
   readonly now?: Date
   readonly columns?: Readonly<Record<string, NowTokenColumn>>
+  /** The host request's query string, read by `$query.<name>` (this request's only). */
+  readonly query?: Readonly<Record<string, string>> | undefined
 }
 
 /** The signed-in viewer as `$user.<prop>` reads it: `id`, `email`, `name`. */
@@ -106,7 +108,7 @@ export function prefillColumnsOf(
 }
 
 /**
- * A value that is not a record token: `$now`, `$user.<prop>` or a literal,
+ * A value that is not a record token: `$now`, `$user.<prop>`, `$query.<name>` or a literal,
  * resolved exactly as a form's own `prefill` map resolves it.
  */
 function resolveRequestToken(
@@ -116,7 +118,7 @@ function resolveRequestToken(
 ): PrefillValue | undefined {
   const user = prefillUserOf(tokens.session)
   return resolvePrefillEntry(key, value, {
-    query: {},
+    query: tokens.query ?? {},
     ...(user === undefined ? {} : { user }),
     ...(tokens.now === undefined ? {} : { now: tokens.now }),
     ...(tokens.columns === undefined ? {} : { columns: tokens.columns }),

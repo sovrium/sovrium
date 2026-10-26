@@ -7,7 +7,7 @@
 
 import { aggregateRecordsQuerySchema } from '@/domain/models/api/tables/aggregate'
 import { updateCommentRequestSchema } from '@/domain/models/api/tables/comments'
-import { listRecordsQuerySchema } from '@/domain/models/api/tables/params'
+import { getRecordQuerySchema, listRecordsQuerySchema } from '@/domain/models/api/tables/params'
 import {
   createRecordRequestSchema,
   updateRecordRequestSchema,
@@ -42,6 +42,7 @@ import {
   handleFormDeleteRecord,
   handleRestoreRecord,
 } from './record-handlers'
+import { servesRecordLanguage } from './record-read-language'
 import { handleSubscribe } from './subscribe-handlers'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -59,6 +60,7 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, resolveApp:
         refuseUnreadableTable(resolveApp),
         effectValidator('query', listRecordsQuerySchema),
         conditionalRead(),
+        servesRecordLanguage(resolveApp),
         (c) => handleListRecords(c, resolveApp())
       )
       .get(
@@ -88,8 +90,12 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, resolveApp:
       )
       .get('/api/tables/:tableId/subscribe/sse', (c) => handleSubscribe(c, resolveApp()))
       .get('/api/tables/:tableId/subscribe', (c) => handleSubscribe(c, resolveApp()))
-      .get('/api/tables/:tableId/records/:recordId', conditionalRead(), (c) =>
-        handleGetRecord(c, resolveApp())
+      .get(
+        '/api/tables/:tableId/records/:recordId',
+        effectValidator('query', getRecordQuerySchema),
+        conditionalRead(),
+        servesRecordLanguage(resolveApp),
+        (c) => handleGetRecord(c, resolveApp())
       )
       .patch(
         '/api/tables/:tableId/records/:recordId',

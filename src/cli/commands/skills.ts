@@ -18,7 +18,13 @@ import {
   type SkillsTarget,
   type TargetPlan,
 } from '@/cli/commands/skills-files'
-import { printDocument, printFailure, type CliLine } from '@/infrastructure/logging/cli-output'
+import {
+  printDocument,
+  printFailure,
+  printStderr,
+  type CliLine,
+} from '@/infrastructure/logging/cli-output'
+import { devStampNotice, isDevStamp } from '@/infrastructure/process/build-stamp'
 
 /**
  * `sovrium skills` — write the binary's agent skills into a project.
@@ -249,6 +255,7 @@ export const handleSkillsCommand = async (options: SkillsCommandOptions = {}): P
   const projectDir = options.outputDir ?? process.cwd()
   const force = options.force === true
   const catalogue = await loadSkillsCatalogue()
+  if (isDevStamp(catalogue.version)) printStderr(devStampNotice(catalogue.version))
   const plans = await planAll(catalogue, targets, projectDir, force)
 
   if (options.check === true) {

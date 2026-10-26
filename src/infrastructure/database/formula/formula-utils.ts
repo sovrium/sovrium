@@ -8,7 +8,7 @@
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { castDivisionOperands } from './formula-numeric-cast'
-import { translatePortableDates } from './formula-portable-dates'
+import { translatePortableFunctions } from './formula-portable-functions'
 import { formulaIsStableOnPostgres } from './formula-postgres-stability'
 
 /**
@@ -556,20 +556,19 @@ export const escapeReservedFieldNames = (
 
 /**
  * Translate formula from user-friendly syntax to PostgreSQL syntax: the portable date
- * functions (`formula-portable-dates.ts`), SUBSTR → SUBSTRING … FROM … FOR, date::TEXT → TO_CHAR
- * Casts ROUND arguments to NUMERIC; escapes reserved field names (order_num → "order_num")
+ * functions, IF → CASE (`formula-portable-functions.ts`), SUBSTR → SUBSTRING … FROM … FOR, date::TEXT →
+ * TO_CHAR; casts ROUND arguments to NUMERIC; escapes reserved field names (order_num → "order_num")
  *
- * NOTE: PostgreSQL natively supports nested function calls like ROUND(SQRT(ABS(value)), 2)
- * and all standard mathematical functions (ABS, SQRT, ROUND, POWER, etc.), but ROUND only
- * accepts NUMERIC as first argument, not double precision. Functions like SQRT, POWER, EXP, LN
- * return double precision, so we cast them to NUMERIC before passing to ROUND.
+ * NOTE: PostgreSQL's ROUND only accepts NUMERIC as first argument, not double precision.
+ * Functions like SQRT, POWER, EXP, LN return double precision, so they are cast to NUMERIC
+ * before being passed to ROUND; nested calls like ROUND(SQRT(ABS(value)), 2) run natively.
  */
 export const translateFormulaToPostgres = (
   formula: string,
   allFields?: readonly { name: string; type: string }[]
 ): string => {
-  const withPortableDates = translatePortableDates(formula, allFields ?? [], 'postgres')
-  const withDateToText = translateDateCastsToText(withPortableDates, allFields)
+  const withPortableFunctions = translatePortableFunctions(formula, allFields ?? [], 'postgres')
+  const withDateToText = translateDateCastsToText(withPortableFunctions, allFields)
   const withSubstring = translateSubstrToSubstring(withDateToText)
   const withRoundCast = addNumericCastsToRound(withSubstring)
   return escapeReservedFieldNames(withRoundCast, allFields)

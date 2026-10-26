@@ -36,6 +36,7 @@ import {
   routeParamLookupOf,
   type RouteParamLookup,
 } from '@/domain/models/app/tables/route-param-lookup-service'
+import { decodeStoredJsonColumns } from '@/domain/models/app/tables/stored-json-service'
 import { readRecordForCaller, readRowsForCaller } from './record-read-gate'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 
@@ -61,6 +62,16 @@ export async function readBoundRecordForCaller(
     readonly at: BoundRowAt
     readonly binding: SingleBindingQuery | undefined
   }
+): Promise<RecordRow | undefined> {
+  const record = await readBoundRow(input)
+  // A `json` column reaches the page as its structure on SQLite too, as on PostgreSQL.
+  const table = input.app.tables?.find((candidate) => candidate.name === input.tableName)
+  return record === undefined ? undefined : decodeStoredJsonColumns(table, record)
+}
+
+/** The bound row as the driver hands it back (see {@link readBoundRecordForCaller}). */
+async function readBoundRow(
+  input: Parameters<typeof readBoundRecordForCaller>[0]
 ): Promise<RecordRow | undefined> {
   const { binding, at: bound, fields, ...reader } = input
   const at = bound === 'first-readable' ? bound : lookupOf(reader, bound)

@@ -96,7 +96,17 @@ Each refusal exits `1` with `— nothing was restored.` and writes nothing. They
 
 `--force` replaces the database, the key, the archived config files and the whole local storage directory, and removes a stale write-ahead log beside the replaced database.
 
-When the archive holds a PostgreSQL dump, `DATABASE_URL` must name the empty PostgreSQL database to restore into and `psql` must be on `PATH`; the dump is replayed in one transaction.
+### A PostgreSQL backup into PostgreSQL
+
+When the archive holds a PostgreSQL dump, `DATABASE_URL` names the database to restore into and `psql` must be on `PATH`. The dump is replayed in one transaction: if `psql` stops on an error, the database is left as it was.
+
+An empty database (one where only extensions are installed) restores without `--force`. A database that already holds tables is refused before `psql` runs:
+
+```console
+Error: DATABASE_URL names a PostgreSQL database that is not empty (it holds 6 tables, among them auth.user) — nothing was restored.
+```
+
+**`--force` replaces the app's data.** In the same transaction as the replay, it first drops the app's own objects: the `auth`, `drizzle` and `system` schemas, and every table, view, sequence, type and function in `public`. Objects an installed extension owns, such as `vector`, are kept, and so is every other schema. Use it to roll an app back to a backup, for instance after a failed upgrade: stop the server, put the previous release back, then run `sovrium restore <file> --force`.
 
 ### A SQLite backup into PostgreSQL
 

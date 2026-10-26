@@ -12,6 +12,7 @@ import {
   createdByFieldNames,
 } from '@/domain/models/app/tables/authorship-fields'
 import { insertOnlyColumnsOf } from '@/domain/models/app/tables/insert-only-field-service'
+import { languageMergesIn } from '@/domain/models/app/tables/translatable-write-service'
 import { storedValuesIn } from '@/domain/models/app/tables/user-list-field-service'
 import type { App } from '@/domain/models/app'
 
@@ -65,7 +66,9 @@ export const stampUpsertRows = (
   const overrides = isGuestSession(userId)
     ? {}
     : buildCreateAuthorshipOverrides(tables, tableName, userId)
-  const rows = recordsData.map((fields) => storedValuesIn(tables, tableName, fields))
+  const rows = recordsData.map((fields) =>
+    languageMergesIn(app, tableName, storedValuesIn(tables, tableName, fields))
+  )
   const defaults = upsertCurrentUserDefaults(userId, tables, tableName, rows)
   return {
     recordsData: rows.map((fields) => ({ ...fields, ...overrides, ...defaults })),

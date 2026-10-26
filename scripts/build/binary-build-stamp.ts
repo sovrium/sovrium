@@ -53,6 +53,7 @@
  * answers "was the artifact next to me produced from this exact input tree".
  */
 
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -166,6 +167,25 @@ export function computeBinaryInputFingerprint(): string {
   return hash.digest('hex')
 }
 
+/**
+ * The short commit the tree is at, or `undefined` outside a checkout. Read with
+ * `node:child_process` rather than `Bun.spawnSync` because this module also runs
+ * under Node. The arguments match `readGitSignals` in
+ * `src/infrastructure/process/build-stamp.ts`, so the two agree on the spelling.
+ */
+export function headCommit(): string | undefined {
+  try {
+    const sha = execFileSync('git', ['-C', PROJECT_ROOT, 'rev-parse', '--short=7', 'HEAD'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 5000,
+    }).trim()
+    return /^[0-9a-f]{7,40}$/.test(sha) ? sha : undefined
+  } catch {
+    return undefined
+  }
+}
+
 export interface BinaryBuildStamp {
   /** {@link computeBinaryInputFingerprint} at the moment the compile finished. */
   readonly fingerprint: string
@@ -175,6 +195,12 @@ export interface BinaryBuildStamp {
   readonly version: string
   /** `${process.platform}-${process.arch}` — a binary from another host is not ours. */
   readonly platform: string
+  /**
+   * The commit the binary was built at. A non-release binary embeds it in the
+   * build stamp it writes on the skills payload (`<version>-dev+<sha>`), so the
+   * same content at a new commit is a different binary.
+   */
+  readonly commit?: string | undefined
 }
 
 /**
@@ -195,6 +221,7 @@ export function writeBinaryBuildStamp(): BinaryBuildStamp {
     builtAt: new Date().toISOString(),
     version: pkg.version,
     platform: `${process.platform}-${process.arch}`,
+    commit: headCommit(),
   }
   writeFileSync(STAMP_PATH, `${JSON.stringify(stamp, null, 2)}\n`)
   return stamp
@@ -250,6 +277,14 @@ export function checkBinaryFreshness(): BinaryFreshness {
     return {
       current: false,
       reason: `build inputs changed since ${stamp.builtAt} (${stamp.fingerprint.slice(0, 12)} → ${fingerprint.slice(0, 12)})`,
+    }
+  }
+
+  const commit = headCommit()
+  if (stamp.commit !== commit) {
+    return {
+      current: false,
+      reason: `built at commit ${stamp.commit ?? 'unknown'}, HEAD is ${commit ?? 'unknown'} — the binary stamps its commit on what it writes`,
     }
   }
 

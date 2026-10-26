@@ -30,6 +30,7 @@
  * - **A remote `.ts` config** — a TypeScript config is a PROGRAM. Fetching one
  *   from a URL and running it is a different product with a different threat
  *   model, so the refusal says that rather than complaining about a format.
+ * - **A format neither the path nor the `Content-Type` names** — `init-from-url-format.ts`.
  * - **Anything over 1 MB** — a config document is a few KB. An unbounded read
  *   at scaffold time is a memory exhaustion whose size the publisher picks.
  * - **A remote `$ref`** — following it makes the fork partial, the project
@@ -41,8 +42,13 @@
  */
 
 import { createHash } from 'node:crypto'
-import { writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import {
+  forkFilenameFor,
+  settleForkFormat,
+  type ForkFormat,
+  type ForkTarget,
+} from '@/cli/commands/init-from-url-format'
+import { printableUrl } from '@/cli/commands/init-from-url-provenance'
 import { detectFormatFromUrl } from '@/domain/kernel/config-parsing/format-detection'
 import { isFileRefValue } from '@/domain/kernel/config-parsing/ref-value-kind'
 import { parseSchemaContent } from '@/domain/models/app/app-content-parsing'
@@ -69,9 +75,6 @@ const FETCH_TIMEOUT_MS = 15_000
  */
 const MAX_CONFIG_BYTES = 1024 * 1024
 
-/** The provenance sidecar written beside a forked config. */
-export const PROVENANCE_FILENAME = '.sovrium-template.json'
-
 const fail = (message: string): never => {
   printStderr(`Error: ${message}`)
   process.exit(1)
@@ -93,7 +96,7 @@ const allowsPlainHttp = (hostname: string): boolean =>
 
 /** A published document resolved into the bytes and name it will be written as. */
 export interface ForkedConfig {
-  /** The URL it came from, recorded verbatim in the provenance sidecar. */
+  /** The URL as given; `init-from-url-provenance.ts` decides what of it is recorded. */
   readonly source: string
   /** `app.yaml` or `app.json` — the project's config filename. */
   readonly filename: string
@@ -104,23 +107,25 @@ export interface ForkedConfig {
 }
 
 /**
- * Refuse a URL this command will not fork, and name the file it would write.
+ * Refuse a URL this command will not fork, and name the file its path gives, if any.
  *
  * PURE and network-free, so the two refusals it owns happen before a request
  * is made and therefore before anything can be written.
  *
  * @public
  */
-export const assertForkableUrl = (rawUrl: string): { readonly filename: string } => {
+export const assertForkableUrl = (rawUrl: string): ForkTarget => {
   const parsed = URL.parse(rawUrl)
   if (!parsed) {
-    return fail(`--from-url expects a URL, and "${rawUrl}" is not one. Use an https:// address.`)
+    return fail(
+      `--from-url expects a URL, and "${printableUrl(rawUrl)}" is not one. Use an https:// address.`
+    )
   }
 
   const plainHttpOk = parsed.protocol === 'http:' && allowsPlainHttp(parsed.hostname)
   if (parsed.protocol !== 'https:' && !plainHttpOk) {
     return fail(
-      `--from-url requires an https:// address, and "${rawUrl}" is not one.\n` +
+      `--from-url requires an https:// address, and "${printableUrl(rawUrl)}" is not one.\n` +
         `This document becomes your whole application, so it is fetched over TLS or not at all.`
     )
   }
@@ -130,7 +135,7 @@ export const assertForkableUrl = (rawUrl: string): { readonly filename: string }
   // server would have claimed the content type was.
   if (/\.(ts|mts)$/i.test(parsed.pathname)) {
     return fail(
-      `--from-url will not fetch a .ts config from "${rawUrl}".\n` +
+      `--from-url will not fetch a .ts config from "${printableUrl(rawUrl)}".\n` +
         `A TypeScript config is a program, and downloading a program from a URL to execute it\n` +
         `is a different thing from copying a document. Fork a .yaml or .json config instead, or\n` +
         `download the .ts file yourself, read it, and place it in the project by hand.`
@@ -138,14 +143,7 @@ export const assertForkableUrl = (rawUrl: string): { readonly filename: string }
   }
 
   const format = detectFormatFromUrl(rawUrl)
-  if (format !== 'json' && format !== 'yaml') {
-    return fail(
-      `--from-url expects the URL to end in .yaml, .yml or .json, and "${rawUrl}" does not.\n` +
-        `The extension is what decides whether the fork lands as app.yaml or app.json.`
-    )
-  }
-
-  return { filename: format === 'json' ? 'app.json' : 'app.yaml' }
+  return format === 'json' || format === 'yaml' ? { format, filename: forkFilenameFor(format) } : {}
 }
 
 /** The text pulled so far, and whether the limit was crossed. @public */
@@ -214,7 +212,7 @@ const readCappedText = async (response: Response, rawUrl: string): Promise<strin
   const read = await readCappedStream(body)
   if (read.overflowed) {
     return fail(
-      `The document at ${rawUrl} is over the 1 MB limit for a config fetched with --from-url,\n` +
+      `The document at ${printableUrl(rawUrl)} is over the 1 MB limit for a config fetched with --from-url,\n` +
         `so the read was abandoned. A config document is a few kilobytes; this is not one.`
     )
   }
@@ -239,7 +237,7 @@ const assertNoRemoteRefs = (parsed: unknown, rawUrl: string): void => {
   const remote = collectRefValues(parsed).filter((ref) => /^https?:\/\//i.test(ref))
   if (remote.length === 0) return
   return fail(
-    `The config at ${rawUrl} carries a remote $ref: ${remote[0]}\n` +
+    `The config at ${printableUrl(rawUrl)} carries a remote $ref: ${printableUrl(remote[0] ?? '')}\n` +
       `--from-url copies one document into your project. Following that $ref would leave the\n` +
       `fork incomplete and every later boot dependent on a host you did not choose, so it is\n` +
       `refused. Ask the publisher for a single self-contained document.`
@@ -278,8 +276,19 @@ const assertDecodes = async (parsed: unknown, rawUrl: string): Promise<void> => 
   const result = decodeAppConfigObject(parsed)
   if (result.valid) return
   return fail(
-    `The config at ${rawUrl} is not valid, so nothing was created.\n\n` +
+    `The config at ${printableUrl(rawUrl)} is not valid, so nothing was created.\n\n` +
       result.findings.map(findingLine).join('\n')
+  )
+}
+
+/**
+ * Refuse a fetch that failed in transport (DNS, TLS, the deadline). The runtime's
+ * own message may quote the URL, so it gets the same signature-free form.
+ */
+const failTransport = (rawUrl: string, error: unknown): never => {
+  const detail = error instanceof Error ? error.message : String(error)
+  return fail(
+    `Could not fetch ${printableUrl(rawUrl)}: ${detail.replaceAll(rawUrl, printableUrl(rawUrl))}`
   )
 }
 
@@ -294,7 +303,7 @@ const assertDecodes = async (parsed: unknown, rawUrl: string): Promise<void> => 
  */
 export const fetchForkedConfig = async (
   rawUrl: string,
-  filename: string
+  pathFormat: ForkFormat | undefined
 ): Promise<ForkedConfig> => {
   // The same refusal the server boot gives: `SOVRIUM_ALLOW_PRIVATE_OUTBOUND=0`
   // reads as "off" to an operator, and is not silently taken either way.
@@ -310,7 +319,7 @@ export const fetchForkedConfig = async (
   const validation = validateOutboundUrl(rawUrl)
   if (!validation.ok) {
     return fail(
-      `Blocked outbound config URL ${rawUrl}: ${validation.issue.reason} targets are not allowed ` +
+      `Blocked outbound config URL ${printableUrl(rawUrl)}: ${validation.issue.reason} targets are not allowed ` +
         `(SSRF guard).\nSet SOVRIUM_ALLOW_PRIVATE_OUTBOUND=1 to permit private/loopback targets.`
     )
   }
@@ -321,25 +330,25 @@ export const fetchForkedConfig = async (
   // the document that becomes the whole project is chosen by whoever controls the
   // last hop. See `follow-redirects.ts`.
   const fetched = await fetchFollowingRedirects(validation.url, FETCH_TIMEOUT_MS).catch(
-    (error: unknown) =>
-      fail(`Could not fetch ${rawUrl}: ${error instanceof Error ? error.message : String(error)}`)
+    (error: unknown) => failTransport(rawUrl, error)
   )
   if (!fetched.ok) {
     return fail(fetched.message)
   }
   const { response } = fetched
   if (!response.ok) {
-    return fail(`Could not fetch ${rawUrl}: HTTP ${response.status}`)
+    return fail(`Could not fetch ${printableUrl(rawUrl)}: HTTP ${response.status}`)
   }
 
+  const format = settleForkFormat(pathFormat, response, rawUrl)
   const content = await readCappedText(response, rawUrl)
 
   const parsed = ((): unknown => {
     try {
-      return parseSchemaContent(content, filename.endsWith('.json') ? 'json' : 'yaml')
+      return parseSchemaContent(content, format)
     } catch (error) {
       return fail(
-        `Could not parse the config at ${rawUrl}: ` +
+        `Could not parse the config at ${printableUrl(rawUrl)}: ` +
           (error instanceof Error ? error.message : String(error))
       )
     }
@@ -352,48 +361,8 @@ export const fetchForkedConfig = async (
 
   return {
     source: rawUrl,
-    filename,
+    filename: forkFilenameFor(format),
     content,
     sha256: createHash('sha256').update(Buffer.from(content, 'utf-8')).digest('hex'),
   }
-}
-
-/**
- * Write the forked config verbatim, plus the provenance sidecar.
- *
- * BYTE-FOR-BYTE, never re-serialised through a YAML writer. An AI is about to
- * edit this file, and the comments explaining it are most of what makes that
- * possible — a round-trip through a serialiser strips every one of them and
- * reorders the keys for good measure.
- *
- * Provenance goes in a sidecar rather than a header comment: a comment does not
- * survive the first rewrite, and a JSON config cannot carry one at all. The
- * file is meant to be committed — it is also what lets a shell offer "reset to
- * the template I started from".
- *
- * @public
- */
-export const writeForkedConfig = async (
-  forked: ForkedConfig,
-  targetDir: string
-): Promise<readonly string[]> => {
-  const configPath = join(targetDir, forked.filename)
-  await writeFile(configPath, forked.content)
-
-  const provenancePath = join(targetDir, PROVENANCE_FILENAME)
-  await writeFile(
-    provenancePath,
-    `${JSON.stringify(
-      {
-        source: forked.source,
-        sha256: forked.sha256,
-        file: forked.filename,
-        fetchedAt: new Date().toISOString(),
-      },
-      undefined,
-      2
-    )}\n`
-  )
-
-  return [configPath, provenancePath]
 }

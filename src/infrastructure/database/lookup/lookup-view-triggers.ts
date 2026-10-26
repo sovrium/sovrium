@@ -188,10 +188,12 @@ export const INSERTED_ID_SETTING = 'sovrium.inserted_id'
  * PostgreSQL's `INSTEAD OF` trigger fires a function reference, not an
  * inline statement body.
  *
- * The view's `RETURNING` row is the trigger's `NEW`, whose id is never the one
- * the base table generated, so the function records that id in a
+ * The view's `RETURNING` row is the trigger's `NEW`, so the function writes the
+ * id the base table generated into `NEW.id`, and also records it in a
  * transaction-local setting ({@link INSERTED_ID_SETTING}). `lastval()` served a
  * serial key only: a text or uuid key — a scope table's — advances no sequence.
+ * A view-backed insert's RETURNING carries the id on PostgreSQL and nothing on
+ * SQLite, so engine code creates rows through `insertAndResolveRow`.
  */
 export const generateInsertTrigger = (
   viewName: string,
@@ -209,13 +211,11 @@ export const generateInsertTrigger = (
   return [
     `CREATE OR REPLACE FUNCTION ${insertTriggerFunction}()
 RETURNS TRIGGER AS $$
-DECLARE
-  inserted_id text;
 BEGIN
   INSERT INTO ${baseTableName} (${insertFieldsList})
   VALUES (${insertValuesList})
-  RETURNING id::text INTO inserted_id;
-  PERFORM set_config('${INSERTED_ID_SETTING}', inserted_id, true);
+  RETURNING id INTO NEW.id;
+  PERFORM set_config('${INSERTED_ID_SETTING}', NEW.id::text, true);
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql`,

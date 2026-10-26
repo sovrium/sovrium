@@ -35,6 +35,11 @@ import {
 import { toManyLinksRefusedTo } from '@/domain/models/app/tables/related-field-read-service'
 import { reverseRelationsOf } from '@/domain/models/app/tables/reverse-relations-service'
 import { writeOnlyFieldNames } from '@/domain/models/app/tables/write-only-field-service'
+import {
+  drawerLanguagesFor,
+  withDrawerLanguages,
+  type DrawerLanguages,
+} from './drawer-field-languages'
 import { WRITE_ONLY_PRESENCE_LABELS } from './write-only-presence-labels'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -54,6 +59,8 @@ export interface DrawerFieldAccess {
   readonly unreadable: readonly string[]
   readonly unwritable: readonly string[]
   readonly writeOnly?: readonly string[]
+  /** The translatable fields, edited one declared language at a time. */
+  readonly languages?: DrawerLanguages
 }
 
 /** The caller the read rights are decided for: the session's, or an anonymous one with no role. */
@@ -296,7 +303,10 @@ export function markDrawerFieldAccess(
       : record
     const tableName = drawerTable(record)
     if (tableName === undefined) return withChildren as Component
-    const access = fieldAccessFor(fieldAccessReaderOf(app, session, caller), tableName)
+    const access = withDrawerLanguages(
+      fieldAccessFor(fieldAccessReaderOf(app, session, caller), tableName),
+      drawerLanguagesFor(caller.hostApp ?? app, tableName)
+    )
     const host = isGenericSheet(record) ? hostFactsFor(app, tableName, session, caller) : undefined
     if (access === undefined && host === undefined) return withChildren as Component
     const props = (record['props'] as Readonly<Record<string, unknown>> | undefined) ?? {}
@@ -326,9 +336,14 @@ export const readDrawerFieldAccess = (
 ): DrawerFieldAccess | undefined => {
   const stamped = rawProps?.[DRAWER_FIELD_ACCESS_KEY]
   if (typeof stamped !== 'object' || stamped === null) return undefined
-  const { unreadable, unwritable, writeOnly } = stamped as Partial<DrawerFieldAccess>
+  const { unreadable, unwritable, writeOnly, languages } = stamped as Partial<DrawerFieldAccess>
   if (!Array.isArray(unreadable) || !Array.isArray(unwritable)) return undefined
-  return { unreadable, unwritable, ...(Array.isArray(writeOnly) ? { writeOnly } : {}) }
+  return {
+    unreadable,
+    unwritable,
+    ...(Array.isArray(writeOnly) ? { writeOnly } : {}),
+    ...(languages === undefined ? {} : { languages }),
+  }
 }
 
 /**
@@ -348,7 +363,13 @@ export function applyDrawerFieldAccess(
       ? (entry as Readonly<Record<string, unknown>>)['name']
       : undefined
   const writeOnly = new Set(access.writeOnly ?? [])
+  const translatable = new Set(access.languages?.fields ?? [])
+  const withLanguages = (entry: unknown): unknown =>
+    access.languages !== undefined && translatable.has(String(nameOf(entry)))
+      ? { ...(entry as Readonly<Record<string, unknown>>), languages: access.languages.supported }
+      : entry
   return entries
+    .map(withLanguages)
     .filter(
       (entry) =>
         writeOnly.has(String(nameOf(entry))) || !access.unreadable.includes(String(nameOf(entry)))

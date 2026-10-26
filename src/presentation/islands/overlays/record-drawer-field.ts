@@ -118,6 +118,14 @@ export interface RecordDrawerField {
   readonly defaultValue?: string
   /** Drawn only on a record meeting it (`record-drawer-visibility.ts`). */
   readonly visibleWhen?: FieldCondition
+  /** A translatable field's languages, the default first: one tab each (`record-drawer-translatable-input.tsx`). */
+  readonly languages?: ReadonlyArray<DrawerLanguage>
+}
+
+/** One language a translatable field is edited in. */
+export interface DrawerLanguage {
+  readonly code: string
+  readonly label: string
 }
 
 export type Values = Record<string, string>

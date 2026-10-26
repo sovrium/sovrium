@@ -169,6 +169,8 @@ export function processRecords(config: {
   readonly fields?: string
   /** The rows a scope grant names, read under each role it gives as well. */
   readonly grants?: RowGrants
+  /** The language translatable fields are served in (see `transformRecord`). */
+  readonly language?: string | undefined
 }): readonly TransformedRecord[] {
   const { records, app, tableName, userRole, userGroups, format, timezone, fields } = config
 
@@ -189,6 +191,7 @@ export function processRecords(config: {
     app,
     tableName,
     timezone,
+    ...(config.language === undefined ? {} : { language: config.language }),
   }).map((record, index) => ({
     ...record,
     ...writeOnlyBlock({ app, tableName, userRole, userGroups, record: records[index] ?? {} }),

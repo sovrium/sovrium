@@ -15,6 +15,7 @@ import {
   coerceDatetimeAnswers,
 } from '@/application/use-cases/forms/coerce-datetime-columns'
 import {
+  formFilledChoiceRefusal,
   withheldChoiceRefusal,
   type FormFieldConstraintError,
 } from '@/application/use-cases/forms/submit-form-constraint-errors'
@@ -22,6 +23,7 @@ import {
   FormFieldFormatError,
   validateFieldFormats,
 } from '@/application/use-cases/forms/submit-form-format-validation'
+import { isFilledByTheFormOnly } from '@/application/use-cases/forms/submit-form-hidden-defaults'
 import { evaluateAvailabilityWindow } from '@/domain/models/app/forms/form-availability-flow'
 import { recomputeSubmittedCalculations } from '@/domain/models/app/forms/form-calculation-service'
 import {
@@ -31,7 +33,7 @@ import {
   isFieldRequired,
   isFieldVisible,
 } from '@/domain/models/app/forms/form-field-helpers'
-import { findWithheldChoiceField } from '@/domain/models/app/forms/form-option-subset-service'
+import { findWithheldChoice } from '@/domain/models/app/forms/form-option-subset-service'
 import { FormClosedError, FormFieldRequiredError, FormNotYetOpenError } from './submit-form-errors'
 import {
   applyFieldDefaults,
@@ -42,6 +44,7 @@ import {
   stripHiddenGroupFields,
   stripSkippedStepFields,
 } from './submit-form-field-shaping'
+import type { HiddenDefaultOverlay } from './submit-form-field-shaping'
 import type { FormSubmitterMeta } from '@/application/use-cases/automations/trigger-form-submission'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
@@ -252,7 +255,12 @@ export const processSubmissionBody = (
   app: Readonly<App>,
   form: Readonly<Form>,
   body: Readonly<Record<string, unknown>>,
-  query: Readonly<Record<string, string>>
+  shaping: {
+    /** The submission's own query string, for `$query` defaults. */
+    readonly query: Readonly<Record<string, string>>
+    /** How a hidden field's default meets a submitted value; `always` when absent. */
+    readonly hiddenOverlay?: HiddenDefaultOverlay
+  }
 ): Effect.Effect<
   Record<string, unknown>,
   FormFieldRequiredError | FormFieldFormatError | FormFieldConstraintError,
@@ -262,7 +270,7 @@ export const processSubmissionBody = (
     // Overlay defaults (literals + `$query.X` / `$now`) BEFORE the
     // declared-fields filter so hidden-only identifiers survive. Mapping is
     // applied last so form-field name → table-column rename still works.
-    const withDefaults = applyFieldDefaults(body, form, query)
+    const withDefaults = applyFieldDefaults(body, form, shaping.query, shaping.hiddenOverlay)
     // Every bound checkbox holds `true` or `false` from here on — a box the
     // browser left out of the post is unticked, never an empty value.
     const checkboxColumns = boundCheckboxColumns(app, form)
@@ -279,9 +287,14 @@ export const processSubmissionBody = (
     const visibilityFiltered = stripHiddenGroupFields(stepFiltered, hiddenGroupFields)
     // Enforce form-level required fields before any write so a missing field surfaces a focused 400.
     yield* checkFormRequiredFields(form, visibilityFiltered, hiddenGroupFields, checkboxColumns)
-    // A value a field's `options` withhold is refused as one the column does not hold.
-    const withheld = findWithheldChoiceField(form.fields, visibilityFiltered)
-    if (withheld !== undefined) return yield* withheldChoiceRefusal(withheld)
+    // A value a field's `options` withhold is refused as one the column does
+    // not hold — unless the form filled it itself, which is refused by name.
+    const withheld = findWithheldChoice(form.fields, visibilityFiltered)
+    if (withheld !== undefined) {
+      return yield* isFilledByTheFormOnly(app, form, withheld.column)
+        ? formFilledChoiceRefusal(withheld.column, withheld.value)
+        : withheldChoiceRefusal(withheld.column)
+    }
     // Server-side format validation (email, etc.) before any DB write so garbage never lands in the bound table.
     yield* validateFieldFormats(app, form, visibilityFiltered)
     // Calculations are recomputed from the inputs in dependency order: an

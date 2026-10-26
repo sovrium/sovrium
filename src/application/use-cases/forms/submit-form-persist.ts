@@ -17,6 +17,7 @@ import { storedRowOf } from '@/application/use-cases/tables/record-stored-row'
 import { createRecordWithSideEffects } from '@/application/use-cases/tables/record-write-roads'
 import { SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
 import { buildCreateAuthorshipOverrides } from '@/domain/models/app/tables/authorship-fields'
+import { inWriteLanguage } from '@/domain/models/app/tables/translatable-write-service'
 import { coerceLinkedRecordId } from './submit-form-body'
 import { filterTableBoundFields } from './submit-form-field-shaping'
 import type { App } from '@/domain/models/app'
@@ -75,6 +76,8 @@ const writeBoundTableRecord = (input: {
   readonly mapped: Readonly<Record<string, unknown>>
   readonly submitterUserId: string | undefined
   readonly processEnv: Readonly<Record<string, string | undefined>>
+  /** The language the visitor answered in: a translatable field's answer is filed under it. */
+  readonly language: string | undefined
 }) =>
   Effect.gen(function* () {
     const { app, form, mapped, submitterUserId } = input
@@ -104,10 +107,15 @@ const writeBoundTableRecord = (input: {
         // below sees an absent value and passes it through rather than
         // wrapping it into `['']` — which the option CHECK constraint would
         // reject just as surely as the bare `''`.
-        ...coerceScalarsForArrayColumns(
-          coerceEmptySelectToNull(filterTableBoundFields(mapped, form), app, tableName),
+        ...inWriteLanguage(
           app,
-          tableName
+          tableName,
+          coerceScalarsForArrayColumns(
+            coerceEmptySelectToNull(filterTableBoundFields(mapped, form), app, tableName),
+            app,
+            tableName
+          ),
+          input.language
         ),
         ...buildCreateAuthorshipOverrides(app.tables, tableName, submitterUserId ?? SYSTEM_USER_ID),
       },
@@ -123,6 +131,8 @@ export const persistSubmission = (input: {
   readonly userAgent: string | undefined
   readonly submitterUserId: string | undefined
   readonly processEnv: Readonly<Record<string, string | undefined>>
+  /** The language the visitor answered in, `?lang=` on the submission. */
+  readonly language: string | undefined
 }) =>
   Effect.gen(function* () {
     const { app, form, mapped, submitterIpHash, userAgent, submitterUserId } = input
@@ -146,6 +156,7 @@ export const persistSubmission = (input: {
     const linkedRecord = yield* writeBoundTableRecord({
       ...{ app, form, mapped, submitterUserId },
       processEnv: input.processEnv,
+      language: input.language,
     })
     const linkedRecordId = coerceLinkedRecordId(linkedRecord)
 

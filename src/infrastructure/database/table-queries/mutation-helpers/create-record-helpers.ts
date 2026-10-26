@@ -150,8 +150,45 @@ async function resolveViewBackedInsertRow(
 }
 
 /**
- * Run the `INSERT ... RETURNING *` and, for view-backed tables (nullish id),
- * resolve the real row (the view-backed-table write rule(b) via {@link resolveViewBackedInsertRow}).
+ * PostgreSQL: the transaction setting the view trigger leaves, returned beside the row.
+ *
+ * The alias holds a dot, which no stored column name can (a column name is
+ * `[a-z0-9_]` only), so it never shadows a field of the table.
+ */
+const INSERTED_ID_COLUMN = INSERTED_ID_SETTING
+
+/**
+ * PostgreSQL: the row a view-backed insert created, read back from the view.
+ *
+ * The view's `INSTEAD OF INSERT` trigger writes the base row's id into its
+ * `NEW` row, so `RETURNING *` carries that id — but every other column as `NEW`
+ * held it (a lookup, a rollup, a default: blank). The trigger also left that id
+ * in {@link INSERTED_ID_SETTING}, which the INSERT returns as
+ * {@link INSERTED_ID_COLUMN}; when it matches the row's id, the row is
+ * re-selected by id. A plain table therefore pays no extra query, and one whose
+ * id equals a setting an earlier insert of the same transaction left re-selects
+ * its own row, which reads the same. No match: `undefined`.
+ */
+async function rereadViewTriggerRow(
+  tx: Readonly<DrizzleTransaction>,
+  tableName: string,
+  id: unknown,
+  insertedId: unknown
+): Promise<Record<string, unknown> | undefined> {
+  if (id === null || id === undefined || typeof insertedId !== 'string') return undefined
+  if (insertedId !== String(id)) return undefined
+  const rows = await executeRaw(
+    tx,
+    sql`SELECT * FROM ${tableIdentifier(tableName)} WHERE id = ${id} LIMIT 1`
+  )
+  return rows[0]
+}
+
+/**
+ * Run the `INSERT ... RETURNING *` and, for view-backed tables, resolve the
+ * real row (the view-backed-table write rule(b)): a nullish id through
+ * {@link resolveViewBackedInsertRow}, the id the PostgreSQL trigger wrote
+ * through {@link rereadViewTriggerRow}.
  */
 export async function insertAndResolveRow(
   tx: Readonly<DrizzleTransaction>,
@@ -165,11 +202,17 @@ export async function insertAndResolveRow(
     columnsClause === undefined
       ? sql`DEFAULT VALUES`
       : sql`(${columnsClause}) VALUES (${valuesClause})`
+  const isPostgres = parseDatabaseDialectConfig().dialect === 'postgres'
+  // Evaluated per row after the view's trigger ran, so it reads the id that
+  // trigger recorded — or a stale or empty value on a plain table.
+  const returning = isPostgres
+    ? sql`*, current_setting(${INSERTED_ID_SETTING}, true) AS ${sql.identifier(INSERTED_ID_COLUMN)}`
+    : sql`*`
   const insertResult = await executeRaw(
     tx,
-    sql`INSERT INTO ${tableIdentifier(tableName)} ${insertBody} RETURNING *`
+    sql`INSERT INTO ${tableIdentifier(tableName)} ${insertBody} RETURNING ${returning}`
   )
-  const raw = insertResult[0] ?? {}
+  const { [INSERTED_ID_COLUMN]: insertedId, ...raw } = insertResult[0] ?? {}
   // A view-backed insert returns the `id` COLUMN as an explicit null (the view
   // over `<table>_base` selects `id`, the trigger's NEW row leaves it unset) —
   // so the key is PRESENT with a null value. A composite-primary-key table has
@@ -180,6 +223,10 @@ export async function insertAndResolveRow(
   if ('id' in raw && raw.id === null) {
     const resolved = await resolveViewBackedInsertRow(tx, tableName)
     if (resolved) return resolved
+  }
+  if (isPostgres && 'id' in raw) {
+    const reread = await rereadViewTriggerRow(tx, tableName, raw.id, insertedId)
+    if (reread) return reread
   }
   return rowAfterTriggers(tx, tableName, raw)
 }

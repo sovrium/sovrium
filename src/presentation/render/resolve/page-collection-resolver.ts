@@ -35,6 +35,11 @@
  * `filter: [{ field: 'category', value: '$record.name' }]`).
  */
 
+import {
+  recordLanguageAddresses,
+  routeSlugLanguage,
+  slugFieldFor,
+} from '@/domain/models/app/pages/collection-slug-field-service'
 import { withRecordText } from '@/domain/models/app/pages/substitute-record-vars'
 import { pageRecordOf } from '@/presentation/render/props/record-value-format'
 import { filledFromRecord } from '@/presentation/render/resolve/avatar-members-binding'
@@ -49,6 +54,11 @@ import {
   type CollectionRowsReader,
   type CollectionViewerRowsReader,
 } from '@/presentation/render/resolve/page-collection-prevnext'
+import {
+  addressableRecord,
+  slugLookupLanguage,
+} from '@/presentation/render/resolve/translatable-slug-lookup'
+import type { PageAddress } from '@/domain/kernel/matching/localized-path'
 import type { Page } from '@/domain/models/app/pages'
 import type { Component } from '@/domain/models/app/pages/components'
 import type { DataSourceDb } from '@/presentation/render/resolve/data-source-contracts'
@@ -69,6 +79,12 @@ export type PageCollectionResolution =
       readonly kind: 'match'
       readonly page: Page
       readonly record: Readonly<Record<string, unknown>>
+      /**
+       * The record's address in each language it has a slug in, when the page
+       * names a slug field per language: its `hreflang` alternates and its
+       * language switcher's targets. Absent, the route's own addresses are.
+       */
+      readonly languageAddresses?: ReadonlyArray<PageAddress> | undefined
     }
   | { readonly kind: 'not-found' }
   | { readonly kind: 'none' }
@@ -286,23 +302,29 @@ async function resolveCollectionRecord(
   db: DataSourceDb,
   options?: ResolveCollectionOptions
 ): Promise<
-  | { readonly kind: 'continue'; readonly record: Readonly<Record<string, unknown>> }
+  | {
+      readonly kind: 'continue'
+      readonly record: Readonly<Record<string, unknown>>
+      readonly slugField: string
+    }
   | Extract<PageCollectionResolution, { kind: 'not-found' | 'permission-blocked' }>
 > {
-  const slugValue = routeParams[collection.slugField]
+  // A slug field per language: the route's segment names the language it was
+  // matched in, and that language's field alone finds the record.
+  const { slugField: declared } = collection
+  const slugField = slugFieldFor(declared, routeSlugLanguage(declared, routeParams))
+  if (slugField === undefined) return { kind: 'not-found' }
+  const slugValue = routeParams[slugField]
   if (slugValue === undefined) return { kind: 'not-found' }
   // The visitor may not read this table's rows at all: the page names nothing
   // for them, exactly as an unknown slug does (S1).
   if (options?.refuseRecord === true) return { kind: 'not-found' }
 
   // A soft-deleted record is gone from its page, the way an unknown slug is.
-  const record = await db.fetchSingleRecord(
-    collection.table,
-    collection.slugField,
-    slugValue,
-    undefined,
-    { liveOnly: true }
-  )
+  const record = await db.fetchSingleRecord(collection.table, slugField, slugValue, undefined, {
+    liveOnly: true,
+    ...slugLookupLanguage(collection, db),
+  })
   if (record === undefined) return { kind: 'not-found' }
 
   const passes = recordMatchesCollectionFilter(record, collection, db.recordText)
@@ -316,7 +338,7 @@ async function resolveCollectionRecord(
   // (status/draft/etc. exclusions take precedence over per-user perms).
   if (!(await passesRowLevelRead(record, options))) return { kind: 'permission-blocked' }
 
-  return { kind: 'continue', record }
+  return { kind: 'continue', record, slugField }
 }
 
 /** The row-level read predicate, when the caller supplied one; admits every row otherwise. */
@@ -411,7 +433,10 @@ export async function resolveCollectionPage(
   // The `$collection.previous` / `.next` / `.resume` records: a side with none
   // drops the component naming it, so no empty anchor is drawn. The neighbours
   // are located from the WHOLE record: its ordering column is a navigation key.
-  const adjacency = await fetchCollectionAdjacency(collection, resolved.record, db, options)
+  const adjacency = await fetchCollectionAdjacency(collection, resolved.record, db, {
+    ...options,
+    slugField: resolved.slugField,
+  })
   const adjMeta = substituteCollectionInMeta(substitutedMeta, adjacency)
   const adjComponents = substituteCollectionInPageComponents(autoBoundComponents, adjacency)
 
@@ -421,5 +446,44 @@ export async function resolveCollectionPage(
     components: adjComponents,
   }
 
-  return { kind: 'match', page: substitutedPage, record }
+  const languageAddresses = recordAddressesOf(page, record, resolved.record, db)
+  return { kind: 'match', page: substitutedPage, record, languageAddresses }
+}
+
+/**
+ * The record's own address in every language it has a slug in, for a page
+ * naming a slug field per language: read off the record as the visitor may
+ * read it, so no column hidden from her names an address. The languages are
+ * the app's, which the record text context carries.
+ */
+const recordAddressesOf = (
+  page: Page,
+  record: Readonly<Record<string, unknown>>,
+  stored: Readonly<Record<string, unknown>>,
+  db: DataSourceDb
+): ReadonlyArray<PageAddress> | undefined => {
+  if (page.collection === undefined) return undefined
+  const languages = db.recordText?.languages?.supported.map((language) => language.code) ?? []
+  const { slugField } = page.collection
+  const addressed = addressableRecord(page.collection, record, stored, db)
+  return recordLanguageAddresses({ path: page.path, slugField, languages, ...addressed })
+}
+
+/** The page a request is about, and its record's address in each language it has a slug in. */
+export interface RequestPage {
+  readonly page: Page
+  readonly languageAddresses?: ReadonlyArray<PageAddress> | undefined
+}
+
+/**
+ * A filtered page given the language addresses its collection record resolved
+ * to; a refusal (`undefined`, `unauthorized`) passes through as it is.
+ */
+export const withRecordLanguageAddresses = (
+  filtered: Page | { readonly unauthorized: true } | undefined,
+  resolution: PageCollectionResolution
+): RequestPage | { readonly unauthorized: true } | undefined => {
+  if (filtered === undefined || 'unauthorized' in filtered) return filtered
+  const languageAddresses = resolution.kind === 'match' ? resolution.languageAddresses : undefined
+  return { page: filtered, languageAddresses }
 }

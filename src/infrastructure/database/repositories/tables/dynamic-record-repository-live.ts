@@ -8,15 +8,15 @@
 /**
  * Dynamic-Record Repository Implementation.
  *
- * Runs the AI chat read-query and record-mutation SQL — relocated **verbatim**
- * from `chat-query.ts` / `chat-mutation.ts`. The SQL here is a literal
- * extraction of the chat routes' prior `db.execute(sql`…`)` statements:
+ * Runs the AI chat's read SQL, first extracted from the chat routes' prior
+ * `db.execute(sql`…`)` statements. It writes nothing: a chat create, update or
+ * delete goes through the records API's write road (`chat-write-gate.ts`).
+ * The statements:
  *
  *  - `SELECT COUNT(*)::int AS count` (optionally `WHERE col = value`);
  *  - `SELECT AVG|SUM(col)::float AS value` (optionally `WHERE col = value`);
- *  - `SELECT * … [ORDER BY col DESC] LIMIT n`;
- *  - `INSERT INTO t (cols) VALUES (vals) RETURNING id` / `DEFAULT VALUES`;
- *  - `UPDATE t SET … WHERE id IN (…) [AND scope] RETURNING id`.
+ *  - `SELECT * … [ORDER BY col DESC] LIMIT n`, the last; there is no `INSERT`
+ *    or `UPDATE` here.
  *
  * Column names bind via `sql.identifier()`; every value is a bound parameter.
  * `WHERE col = value` fragments come from `generateSqlConditionFragment` with
@@ -25,8 +25,7 @@
  *
  * This implementation deliberately does NOT call `table-queries/crud/`: no
  * activity-logging, no `created_by`/`updated_by` stamping, no cascade. The rows
- * a statement reaches are the caller's to name — a read scope on every read,
- * the admitted ids on an update.
+ * a statement reaches are the caller's to name — a read scope on every read.
  *
  * DIALECT NOTE: every statement runs through `executeRawTyped`, NOT
  * `db.execute()`. `.execute()` is a method of the PostgreSQL client only — the
@@ -40,9 +39,8 @@
  * to swallow it.)
  *
  * The SQL itself was already portable — `countAsIntSelectClause()` /
- * `castToFloat()` emit per-dialect casts, `DEFAULT VALUES` is valid in both
- * engines, and `RETURNING` works on SQLite >= 3.35 (which Bun ships) — so the
- * driver call was the only dialect-bound part.
+ * `castToFloat()` emit per-dialect casts — so the driver call was the only
+ * dialect-bound part.
  */
 
 import { sql, type SQL } from 'drizzle-orm'
@@ -56,7 +54,7 @@ import {
 } from '@/application/ports/repositories/tables/dynamic-record-repository'
 import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { db } from '@/infrastructure/database'
-import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import { makeDbWrap, passingFilterRefusal } from '@/infrastructure/database/sql/db-effect'
 import { executeRawTyped } from '@/infrastructure/database/sql/dialect-execute'
 import { generateSqlConditionFragment } from '@/infrastructure/database/table-queries/filter-operators'
 import {
@@ -67,9 +65,13 @@ import {
 import { maskedRelation } from '@/infrastructure/database/table-queries/query-helpers/lookup-read-mask'
 import { tableIdentifier } from '@/infrastructure/database/table-queries/statement/validation'
 import type { LookupReadMask } from '@/application/ports/repositories/tables/table-repository'
+import type { UncompilableFilterOperatorError } from '@/domain/errors/uncompilable-filter-operator-error'
 
-/** Wrap a DB promise, adapting failures to DynamicRecordError. */
-const wrap = makeDbWrap((cause) => new DynamicRecordError({ cause }))
+/**
+ * Wrap a DB promise, adapting failures to DynamicRecordError — except a filter
+ * operator no compiler knows, which reaches the caller as its own refusal.
+ */
+const wrap = makeDbWrap(passingFilterRefusal((cause) => new DynamicRecordError({ cause })))
 
 /**
  * Build a ` WHERE <cond> AND <cond> …` fragment from a multi-condition list
@@ -126,11 +128,11 @@ const selectClause = (columns: ReadonlyArray<string> | undefined) =>
 const relationOf = (
   table: string,
   masks: readonly LookupReadMask[] | undefined
-): Effect.Effect<Readonly<SQL>, DynamicRecordError> =>
+): Effect.Effect<Readonly<SQL>, DynamicRecordError | UncompilableFilterOperatorError> =>
   masks === undefined || masks.length === 0
     ? Effect.succeed(sql`${tableIdentifier(table)}`)
     : maskedRelation(db, table, masks).pipe(
-        Effect.mapError((cause) => new DynamicRecordError({ cause }))
+        Effect.mapError(passingFilterRefusal((cause) => new DynamicRecordError({ cause })))
       )
 
 /**

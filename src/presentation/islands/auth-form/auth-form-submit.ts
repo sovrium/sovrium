@@ -59,6 +59,19 @@ function pickCredentials(
 const TWO_FACTOR_PENDING_MESSAGE =
   'Two-step verification is on — enter your code to finish signing in'
 
+/**
+ * A refused password sign-in, in the page language: a wrong address or
+ * password reads `auth.invalidCredentials` (handed over by the server where it
+ * differs from English); any other refusal keeps the server's own sentence.
+ * The API body itself stays English.
+ */
+const refusalOf = (
+  error: { readonly code?: string; readonly message?: string },
+  words: Readonly<Record<string, string>> | undefined
+): string =>
+  (error.code === 'INVALID_EMAIL_OR_PASSWORD' && words?.['auth.invalidCredentials']) ||
+  (error.message ?? 'Authentication failed')
+
 /** What an auth method resolved to: a refusal, a banner, or a page to open now. */
 interface AuthOutcome {
   readonly error?: string
@@ -90,7 +103,7 @@ async function handleLogin(
       ...(callbackURL !== undefined && { callbackURL }),
     })
   )
-  if (result.error) return { error: result.error.message ?? 'Authentication failed' }
+  if (result.error) return { error: refusalOf(result.error, input.words) }
   const pending = (result.data as { readonly twoFactorRedirect?: unknown } | null)
     ?.twoFactorRedirect
   if (pending !== true) return {}

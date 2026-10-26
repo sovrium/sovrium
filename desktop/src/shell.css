@@ -478,6 +478,12 @@ input[type='checkbox']:focus-visible {
   outline-offset: 0;
 }
 
+/* shadcn's Checkbox: `disabled:cursor-not-allowed disabled:opacity-50`. */
+input[type='checkbox']:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .form__actions {
   display: flex;
   flex-wrap: wrap;
@@ -544,6 +550,76 @@ input[type='checkbox']:focus-visible {
 
 .row__label {
   color: var(--muted-foreground);
+}
+
+/* A label bound to its checkbox is part of the hit target, so it says so. */
+label.row__label {
+  cursor: pointer;
+}
+
+/* shadcn's Label: `peer-disabled:opacity-50`, the label dims with its control. */
+.row:has(input:disabled) .row__label {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/*
+ * One setting — a row and the note under it — standing ahead of other content
+ * in a slot. The rule beneath closes it off the way the next row's divider
+ * would in a list of settings.
+ */
+.setting {
+  border-bottom: 1px solid var(--border);
+}
+
+/* The Claude Desktop confirmation and its refusal: one bordered card under the
+   button, the shadcn Card anatomy, so the consequences read as one decision. */
+.consent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  color: var(--card-foreground);
+}
+
+/* A question, not a section label: sentence case at body weight. */
+.consent .panel__subtitle {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--foreground);
+}
+
+.consent__facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  margin: 0;
+}
+
+.consent__fact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+.consent__fact dt {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  font-weight: var(--font-weight-medium);
+  color: var(--foreground);
+}
+
+.consent__fact dd {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  margin: 0;
 }
 
 .row__controls {
@@ -746,4 +822,143 @@ input[type='checkbox']:focus-visible {
 .notice__text {
   margin: 0;
   color: var(--card-foreground);
+}
+
+/* ----------------------------------------------------------------- bundle */
+/*
+ * A `bundle=` link's one consent dialog and the screen after it (ADR-036 A1).
+ * The card is shadcn's Card, laid out like the Claude Desktop consent card: the
+ * verdict first, then the facts the decision is made on, then the choice.
+ */
+
+.bundle {
+  gap: var(--spacing-4);
+}
+
+.bundle__publisher {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-2);
+}
+
+/*
+ * shadcn's Badge, outline variant: `rounded-md border px-2 py-0.5 text-xs
+ * font-medium` with an icon at `size-3`. The verdict is carried three ways —
+ * the words, the icon's shape (a shield with a tick, a triangle with a bang)
+ * and the ink — so it never rests on colour alone. Both inks sit on the card
+ * at body-text contrast in light and dark: foreground for verified,
+ * shadcn's destructive for unverified.
+ */
+.bundle__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  margin: 0;
+  padding: calc(var(--spacing-1) / 2) var(--spacing-2);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  color: var(--foreground);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.bundle__badge::before {
+  content: '';
+  flex: none;
+  width: 0.75rem;
+  height: 0.75rem;
+  background: currentColor;
+  -webkit-mask: var(--bundle-icon) center / contain no-repeat;
+  mask: var(--bundle-icon) center / contain no-repeat;
+}
+
+/* lucide `shield-check`. */
+.bundle__badge--verified {
+  --bundle-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z'/%3E%3Cpath d='m9 12 2 2 4-4'/%3E%3C/svg%3E");
+}
+
+/* lucide `triangle-alert`. */
+.bundle__badge--unverified {
+  --bundle-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3'/%3E%3Cpath d='M12 9v4'/%3E%3Cpath d='M12 17h.01'/%3E%3C/svg%3E");
+  color: var(--destructive);
+  border-color: color-mix(in oklab, var(--destructive) 40%, var(--border));
+}
+
+/*
+ * shadcn's destructive Alert: the card stays a card (`bg-card`), the border
+ * and the words carry it (`text-destructive`, description at `/90`). The
+ * stronger warning an unverified publisher gets (founder decision D1), and
+ * the demo data that did not load.
+ */
+.bundle__alert {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3) var(--spacing-4);
+  color: var(--destructive);
+  background: var(--card);
+  border: 1px solid color-mix(in oklab, var(--destructive) 40%, var(--border));
+  border-radius: var(--radius-lg);
+}
+
+.bundle__alert-text {
+  margin: 0;
+  color: color-mix(in oklab, var(--destructive) 90%, transparent);
+}
+
+/* The facts: a description list, label column then value, as a bordered
+   inset so it reads as the thing being agreed to. */
+.bundle__facts {
+  display: grid;
+  gap: var(--spacing-2);
+  margin: 0;
+  padding: var(--spacing-3) var(--spacing-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.bundle__row {
+  display: grid;
+  grid-template-columns: 5rem 1fr;
+  gap: var(--spacing-3);
+}
+
+.bundle__label {
+  color: var(--muted-foreground);
+}
+
+.bundle__value {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-weight: var(--font-weight-medium);
+  color: var(--foreground);
+}
+
+.bundle__detail {
+  font-weight: var(--font-weight-regular);
+  color: var(--muted-foreground);
+}
+
+/* The account shown once: mono, so a password's l, 1 and I stay apart, and
+   selectable, so it can be copied by hand as well as by the button. */
+.bundle__credentials {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+}
+
+.bundle__facts--secret .bundle__value {
+  font-family: var(--font-mono);
+  user-select: all;
+}
+
+.bundle__command {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--foreground);
 }

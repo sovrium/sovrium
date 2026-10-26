@@ -6,7 +6,8 @@
  */
 
 import { UnsupportedInSqliteError } from '@/infrastructure/database/unsupported-in-sqlite'
-import { translatePortableDates } from './formula-portable-dates'
+import { findCallToken, readArguments } from './formula-call-token'
+import { translatePortableFunctions } from './formula-portable-functions'
 import { escapeReservedFieldNames } from './formula-utils'
 
 /**
@@ -65,20 +66,23 @@ const SQLITE_SCALAR_EQUIVALENTS: Readonly<Record<string, string>> = {
  * which looks primitive, does not exist.
  *
  * `greatest`/`least`/`strpos` are deliberately absent — they are translated
- * above rather than rejected.
+ * above rather than rejected — and so is `chr`, rewritten by {@link chrToSqliteChar}.
+ * `ascii` stays listed although SQLite has `unicode`: PostgreSQL's `ascii('')` is
+ * 0 where SQLite's `unicode('')` is blank, so it is not a rename.
+ *
+ * `year`..`second` are absent too: they are rewritten into `date_part_utc`
+ * before any SQLite SQL is emitted (`formula-date-parts.ts`).
  *
  * NOT EXHAUSTIVE, on purpose. This is the measured set, and the formula
- * whitelist contains further entries that were never measured (`string_to_array`,
- * `array_to_string`, `date_add`, `date_sub`, `minute`, `second`, `array_remove`,
- * `flatten`, …). Those still fall through untranslated. Listing them on a hunch
- * would refuse boots on a guess; the honest boundary is "everything we have
- * measured as absent is named here", and the set grows as more are measured.
+ * whitelist contains further entries that were never measured (`array_remove`,
+ * …). Those still fall through untranslated. Listing them on a hunch would
+ * refuse boots on a guess; the honest boundary is "everything we have measured
+ * as absent is named here", and the set grows as more are measured.
  */
 const SQLITE_UNSUPPORTED_FUNCTIONS: ReadonlySet<string> = new Set([
   // string
   'overlay',
   'repeat',
-  'chr',
   'ascii',
   'encode',
   'decode',
@@ -90,14 +94,12 @@ const SQLITE_UNSUPPORTED_FUNCTIONS: ReadonlySet<string> = new Set([
   'to_date',
   'to_timestamp',
   'age',
-  'year',
-  'month',
-  'day',
-  'hour',
-  'date_diff',
+  'date_add',
   'now',
   // array
   'array_length',
+  'string_to_array',
+  'array_to_string',
   'cardinality',
   'unnest',
   // regex
@@ -106,6 +108,11 @@ const SQLITE_UNSUPPORTED_FUNCTIONS: ReadonlySet<string> = new Set([
   // binary
   'convert_from',
 ])
+
+/** The portable function to write instead, for a refused function that has one. */
+const SQLITE_PORTABLE_HINTS: Readonly<Record<string, string>> = {
+  date_add: 'Use add_days(d, n), which moves a date the same way on both engines.',
+}
 
 /** Every `name(` token in a formula, lower-cased. */
 const FUNCTION_CALL_PATTERN = /\b([a-z_][a-z0-9_]*)\s*\(/gi
@@ -137,13 +144,18 @@ const rejectUnsupportedSqliteFunctions = (formula: string): void => {
   const unsupported = findUnsupportedFunctions(formula)
   if (unsupported.length === 0) return
   const names = unsupported.join(', ')
+  const hints = unsupported.flatMap((name) => {
+    const hint = SQLITE_PORTABLE_HINTS[name]
+    return hint === undefined ? [] : [` ${hint}`]
+  })
   throw new UnsupportedInSqliteError({
     feature: `formula-function:${unsupported.join('+')}`,
     message:
       `Formula "${formula}" calls ${names}, which the SQLite runtime does not provide. ` +
       `SQLite resolves function names at statement time, so emitting this formula would ` +
       `create a view that then rejects every read and write. Rewrite the formula using ` +
-      `functions available on both engines, or run this app on PostgreSQL by setting DATABASE_URL.`,
+      `functions available on both engines, or run this app on PostgreSQL by setting DATABASE_URL.` +
+      hints.join(''),
   })
 }
 
@@ -164,6 +176,48 @@ const applyScalarEquivalents = (formula: string): string =>
       acc.replace(new RegExp(`\\b${postgresName}\\s*\\(`, 'gi'), `${sqliteName}(`),
     formula
   )
+
+/** A `chr(` call token, not the tail of a longer name or a qualified one. */
+const CHR_CALL = /(?<![\w.])chr\s*\(/i
+
+/**
+ * `chr(<code>)` as `nullif(char(<code>), char(0))`. SQLite's `char` turns a code
+ * point into its character exactly as PostgreSQL's `chr` does, accented and
+ * non-Latin ones included, but `char(NULL)` answers a NUL character instead of
+ * NULL — so a bare rename would turn a blank code into an invisible character.
+ * `nullif` restores the blank. Nested calls are rewritten from the outside in.
+ */
+const chrToSqliteChar = (sql: string): string => {
+  const match = CHR_CALL.exec(sql)
+  if (match === null) return sql
+  const open = match.index + match[0].length - 1
+  const { end } = readArguments(sql, open)
+  const argument = chrToSqliteChar(sql.slice(open + 1, end - 1))
+  const rest = chrToSqliteChar(sql.slice(end))
+  return `${sql.slice(0, match.index)}nullif(char(${argument}), char(0))${rest}`
+}
+
+const LPAD_CALL = /^(lpad)\s*\(/i
+
+/**
+ * `lpad(text, length[, fill])` as PostgreSQL computes it, in SQLite's own
+ * functions — SQLite has no `lpad`. A text at least `length` characters long is
+ * cut to its first `length` characters; a shorter one is preceded by `fill`
+ * (a space when none is given) repeated up to `length` characters, the repeats
+ * built by replacing each `00` of `hex(zeroblob(length))`. Characters, not
+ * bytes; an empty fill leaves the text as it is; a negative length gives empty
+ * text; a blank argument gives blank. Nested calls are rewritten too.
+ */
+const lpadToSqlite = (sql: string): string => {
+  const call = findCallToken(sql, LPAD_CALL)
+  if (call === undefined) return sql
+  const [text = 'NULL', length = 'NULL', fill = "' '"] = call.args.map(lpadToSqlite)
+  const [s, n, f] = [`(${text})`, `(${length})`, `(${fill})`]
+  const padded =
+    `CASE WHEN length(${s}) >= ${n} THEN substr(${s}, 1, ${n}) ` +
+    `ELSE substr(replace(hex(zeroblob(${n})), '00', ${f}), 1, ${n} - length(${s})) || ${s} END`
+  return sql.slice(0, call.start) + padded + lpadToSqlite(sql.slice(call.end))
+}
 
 /**
  * Translate a formula from the user-facing (Postgres-flavoured) syntax into
@@ -191,9 +245,9 @@ export const translateFormulaToSqlite = (
   // Checked against the formula AS WRITTEN so the error names the function the
   // author typed, not one an intermediate pass introduced.
   rejectUnsupportedSqliteFunctions(formula)
-  const withPortableDates = translatePortableDates(formula, allFields ?? [], 'sqlite')
+  const withPortableDates = translatePortableFunctions(formula, allFields ?? [], 'sqlite')
   return escapeReservedFieldNames(
-    castAsDateToDateCall(applyScalarEquivalents(withPortableDates)),
+    castAsDateToDateCall(lpadToSqlite(chrToSqliteChar(applyScalarEquivalents(withPortableDates)))),
     allFields
   )
 }

@@ -10,6 +10,7 @@ import bundleBody from '@/cli/commands/bundle.docs.md' with { type: 'file' }
 import cliAdminBody from '@/cli/commands/cli-admin.docs.md' with { type: 'file' }
 import deployBody from '@/cli/commands/deploy.docs.md' with { type: 'file' }
 import envBody from '@/cli/commands/env.docs.md' with { type: 'file' }
+import initFromBundleBody from '@/cli/commands/init-from-bundle.docs.md' with { type: 'file' }
 import loginBody from '@/cli/commands/login.docs.md' with { type: 'file' }
 import previewBody from '@/cli/commands/preview.docs.md' with { type: 'file' }
 import usageBody from '@/cli/commands/usage.docs.md' with { type: 'file' }
@@ -19,9 +20,9 @@ import type { DocArticle } from './define'
 /**
  * The operating commands, as articles of the CLI section.
  *
- * Administering a deployment, backing it up, bundling it and shipping it to a
- * cloud live in their own module rather than in `cli-api.ts` because that file
- * reached its line ceiling. They stay part of the CLI section, in their
+ * Administering a deployment, backing it up, bundling it (and opening a bundle
+ * back as a project) and shipping it to a cloud live in their own module
+ * rather than in `cli-api.ts` because that file reached its line ceiling. They stay part of the CLI section, in their
  * published order, and the section assembles them by spread — the same split
  * `fields-derived.ts` makes for the Fields section.
  */
@@ -30,9 +31,10 @@ export const operateCliArticles: readonly DocArticle[] = [
     slug: 'cli-admin',
     title: 'Admin & Maintenance',
     description:
-      'Operate a deployment from the CLI — provision the first admin account, generate cryptographic secrets, adopt an existing encryption key, and keep the binary current.',
+      'Operate a deployment from the CLI — provision the first admin account and reset its password, generate cryptographic secrets, adopt an existing encryption key, and keep the binary current.',
     keywords: [
       'sovrium admin create',
+      'sovrium admin reset-password',
       'sovrium secret generate',
       'sovrium secret adopt',
       'sovrium update',
@@ -107,6 +109,27 @@ export const operateCliArticles: readonly DocArticle[] = [
     body: bundleBody,
     documents: [],
     stories: ['US-CLI-COMMANDS-BUNDLE'],
+  }),
+  defineArticle({
+    slug: 'cli-init-from-bundle',
+    title: 'Opening a Bundle',
+    description:
+      'Turn an archive written by sovrium bundle back into a project you edit, from a link, a file: URL or a path on disk, checked from end to end before a single file is written.',
+    keywords: [
+      'sovrium init --from-bundle',
+      'bundle',
+      'starter',
+      'import a project',
+      'verified publisher',
+      '--inspect',
+      '--expect-sha256',
+      '--with-demo-data',
+    ],
+    order: 1421,
+    sidebarLabel: 'Opening a Bundle',
+    body: initFromBundleBody,
+    documents: [],
+    stories: [],
   }),
   defineArticle({
     slug: 'login',

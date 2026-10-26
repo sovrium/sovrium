@@ -39,6 +39,8 @@ export interface IslandSetupParams {
     /** Bound DB table name — ABSENT for a system-source binding. */
     readonly table?: string
     readonly view?: string
+    /** The language its translatable fields read in, stamped by the server. */
+    readonly lang?: string
     readonly filter?: readonly DataFilter[]
     readonly sort?: readonly DataSort[]
     /** How many rows the grid shows in all: its page size and pager total stay under it. */

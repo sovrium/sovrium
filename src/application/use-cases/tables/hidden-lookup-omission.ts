@@ -59,7 +59,7 @@ import {
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import type { DatabaseError } from '@/domain/errors'
+import type { TableReadError } from '@/application/ports/repositories/tables/table-repository'
 import type { App } from '@/domain/models/app'
 import type { RelatedReader } from '@/domain/models/app/tables/related-field-read-service'
 
@@ -131,7 +131,7 @@ const chainedVerdicts = <Row extends Readonly<Record<string, unknown>>>(
   scope: { readonly road: LookupRoad | undefined; readonly depth: number }
 ): Effect.Effect<
   readonly (readonly [LookupLink, RowVerdict<Row>])[],
-  DatabaseError,
+  TableReadError,
   TableRepository | DataSourceRepository | AuthRepository
 > => {
   const { app, tableName, reader } = input
@@ -166,7 +166,7 @@ const clearedKeys = <Row extends Readonly<Record<string, unknown>>>(
   depth: number
 ): Effect.Effect<
   ClearedKeys,
-  DatabaseError,
+  TableReadError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   Effect.gen(function* () {
@@ -225,7 +225,7 @@ const directVerdicts = <Row extends Readonly<Record<string, unknown>>>(
   refused: ReadonlySet<string>
 ): Effect.Effect<
   readonly (readonly [LookupLink, RowVerdict<Row>])[],
-  DatabaseError,
+  TableReadError,
   TableRepository | DataSourceRepository | AuthRepository
 > => {
   const { app, tableName, reader, road } = input
@@ -268,7 +268,7 @@ const omitLookups = <Row extends Readonly<Record<string, unknown>>>(input: {
   readonly depth?: number
 }): Effect.Effect<
   readonly Row[],
-  DatabaseError,
+  TableReadError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   Effect.gen(function* () {
@@ -334,7 +334,7 @@ const omitAndNarrow = <Row extends Readonly<Record<string, unknown>>>(input: {
   readonly depth?: number
 }): Effect.Effect<
   readonly Row[],
-  DatabaseError,
+  TableReadError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   omitLookups(input).pipe(
@@ -361,7 +361,7 @@ export const omitHiddenLookups = <Row extends Readonly<Record<string, unknown>>>
   reader: LinkReader | undefined
 ): Effect.Effect<
   readonly Row[],
-  DatabaseError,
+  TableReadError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   omitAndNarrow({ app, tableName, rows, reader }).pipe(
@@ -379,7 +379,7 @@ export const omitHiddenColumnLookups = <Row extends Readonly<Record<string, unkn
   reader: LinkReader | undefined
 ): Effect.Effect<
   readonly Row[],
-  DatabaseError,
+  TableReadError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   omitLookups({ app, tableName, rows, reader, road: 'column' }).pipe(
@@ -399,7 +399,7 @@ export const omitHiddenRecordLookups = <
   reader: LinkReader | undefined
 ): Effect.Effect<
   readonly RecordShape[],
-  DatabaseError,
+  TableReadError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   omitLookups({
@@ -461,7 +461,7 @@ export const omitFromWriteEcho = <Row extends Readonly<Record<string, unknown>>>
   reader: LinkReader | undefined
 ): Effect.Effect<
   readonly Row[],
-  DatabaseError,
+  TableReadError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   omitHiddenLookups(app, tableName, rows, reader).pipe(
@@ -482,7 +482,7 @@ export const omitFromWriteEchoWhenReturned = <Row extends Readonly<Record<string
   }
 ): Effect.Effect<
   readonly Row[],
-  DatabaseError,
+  TableReadError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   (returned

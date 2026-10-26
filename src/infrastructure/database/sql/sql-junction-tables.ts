@@ -7,19 +7,27 @@
 
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
-import { deriveLinkTableName } from '@/domain/models/app/tables/table-derived-name-validation'
+import {
+  deriveFieldLinkTableName,
+  type LinkField,
+  type LinkSourceTable,
+} from '@/domain/models/app/tables/table-derived-name-validation'
+import { isSqliteRuntime } from '@/infrastructure/database/unsupported-in-sqlite'
 import { resolvePrimaryKeyColumnType } from '../table-operations/column-generators'
 
 /**
- * Generate junction table name for many-to-many relationship
- * Format: {table1}_{table2} (source table first, related table second)
+ * The link table a many-to-many `field` of `source` stores its links in:
+ * `{table}_{related}` while it is the table's only many-to-many to the related
+ * table, `{table}_{related}_{field}` once two or more fields point there
+ * (`deriveFieldLinkTableName`).
  *
  * Built from the DATABASE names of both tables, so a config name such as
  * `client-accounts` yields a usable identifier. Idempotent on names that are
- * already derived, which is what every runtime caller passes.
+ * already derived. `source.fields` must be the table's own fields: the name
+ * depends on its other many-to-many fields.
  */
-export const generateJunctionTableName = (sourceTable: string, relatedTable: string): string =>
-  deriveLinkTableName(sourceTable, relatedTable)
+export const generateJunctionTableName = (source: LinkSourceTable, field: LinkField): string =>
+  deriveFieldLinkTableName(source, field)
 
 /**
  * Common irregular plural to singular mappings for table naming
@@ -79,6 +87,60 @@ export const junctionKeyColumns = (
   return source === related ? [source, `related_${related}`] : [source, related]
 }
 
+/** The length PostgreSQL keeps of an identifier: it cuts a longer one, silently. */
+const POSTGRES_IDENTIFIER_LENGTH = 63
+
+/**
+ * The name PostgreSQL stores a relation called `name` under: its first 63
+ * characters. A link table named after two tables and a field can be longer,
+ * and the catalog then lists the cut name, never the one the config derives.
+ */
+export const postgresStoredName = (name: string): string =>
+  name.slice(0, POSTGRES_IDENTIFIER_LENGTH)
+
+/**
+ * Whether a relation called `name` is among the `live` table names the
+ * catalog lists: under its own name, or, on PostgreSQL, under the 63
+ * characters it keeps of a longer one.
+ */
+export const isLiveRelation = (live: ReadonlySet<string>, name: string): boolean =>
+  live.has(name) || (!isSqliteRuntime() && live.has(postgresStoredName(name)))
+
+/**
+ * `base` then `suffix`, `base` cut so the whole fits in 63 characters — the
+ * shape PostgreSQL gives a name it derives itself. Cutting the whole name
+ * instead would cut the suffix first, and the two foreign keys of a long link
+ * table would then take one name, which PostgreSQL refuses.
+ */
+const fittedName = (base: string, suffix: string): string => {
+  const full = `${base}${suffix}`
+  return full.length <= POSTGRES_IDENTIFIER_LENGTH
+    ? full
+    : `${base.slice(0, Math.max(0, POSTGRES_IDENTIFIER_LENGTH - suffix.length))}${suffix}`
+}
+
+/** The name of a link table's foreign key on `column`: `<link table>_<column>_fkey`, fitted. */
+export const junctionForeignKeyName = (junction: string, column: string): string =>
+  fittedName(junction, `_${column}_fkey`)
+
+/** The name PostgreSQL gives a link table's primary key: `<link table>_pkey`, fitted. */
+export const junctionPrimaryKeyName = (junction: string): string => fittedName(junction, '_pkey')
+
+/**
+ * The names a link table's foreign key on `column` may carry today: the fitted
+ * one, and the one an earlier version wrote, cut by PostgreSQL at 63
+ * characters. The same while the name fits.
+ */
+export const junctionForeignKeyNamesBefore = (
+  junction: string,
+  column: string
+): readonly string[] => [
+  ...new Set([
+    junctionForeignKeyName(junction, column),
+    postgresStoredName(`${junction}_${column}_fkey`),
+  ]),
+]
+
 /** One key column of a link table and the relation it references. */
 interface JunctionKey {
   readonly column: string
@@ -94,24 +156,24 @@ interface JunctionKey {
  * table's rows. `tableUsesView` is keyed by CONFIG name.
  */
 const junctionKeys = (
-  sourceTable: string,
-  relatedTable: string,
+  source: LinkSourceTable,
+  field: LinkField,
   tableUsesView?: ReadonlyMap<string, boolean>
 ): readonly [JunctionKey, JunctionKey] => {
-  const junctionTableName = generateJunctionTableName(sourceTable, relatedTable)
-  const [sourceColumn, relatedColumn] = junctionKeyColumns(sourceTable, relatedTable)
+  const junctionTableName = generateJunctionTableName(source, field)
+  const [sourceColumn, relatedColumn] = junctionKeyColumns(source.name, field.relatedTable)
   const keyOf = (configName: string, column: string): JunctionKey => {
     const name = sanitizeTableName(configName)
     return {
       column,
       configName,
-      keyName: `${junctionTableName}_${column}_fkey`,
+      keyName: junctionForeignKeyName(junctionTableName, column),
       references: quoteSqlIdentifier(
         tableUsesView?.get(configName) === true ? `${name}_base` : name
       ),
     }
   }
-  return [keyOf(sourceTable, sourceColumn), keyOf(relatedTable, relatedColumn)]
+  return [keyOf(source.name, sourceColumn), keyOf(field.relatedTable, relatedColumn)]
 }
 
 /**
@@ -130,13 +192,13 @@ const junctionKeys = (
  * map does not name keeps the default serial key's `INTEGER`.
  */
 export const generateJunctionTableDDL = (
-  sourceTable: string,
-  relatedTable: string,
+  sourceTable: LinkSourceTable,
+  field: LinkField,
   tableUsesView?: ReadonlyMap<string, boolean>,
   tablePrimaryKeyTypes?: ReadonlyMap<string, string | undefined>
 ): string => {
-  const junctionTableName = generateJunctionTableName(sourceTable, relatedTable)
-  const [source, related] = junctionKeys(sourceTable, relatedTable, tableUsesView)
+  const junctionTableName = generateJunctionTableName(sourceTable, field)
+  const [source, related] = junctionKeys(sourceTable, field, tableUsesView)
   const columnType = (key: JunctionKey): string =>
     resolvePrimaryKeyColumnType(tablePrimaryKeyTypes?.get(key.configName))
 
@@ -170,12 +232,12 @@ export const generateJunctionTableDDL = (
  * missing does not stop the boot.
  */
 export const generateJunctionForeignKeyRestoreSQL = (
-  sourceTable: string,
-  relatedTable: string,
+  sourceTable: LinkSourceTable,
+  field: LinkField,
   tableUsesView?: ReadonlyMap<string, boolean>
 ): readonly string[] => {
-  const junctionTableName = generateJunctionTableName(sourceTable, relatedTable)
-  return junctionKeys(sourceTable, relatedTable, tableUsesView).map(
+  const junctionTableName = generateJunctionTableName(sourceTable, field)
+  return junctionKeys(sourceTable, field, tableUsesView).map(
     (key) => `DO $$
 BEGIN
   IF NOT EXISTS (
@@ -187,4 +249,46 @@ BEGIN
   END IF;
 END $$`
   )
+}
+
+/**
+ * PostgreSQL: the statements that give a link table moved to `junction` the
+ * constraint names a fresh boot would give it — its primary key, and its
+ * foreign key on each of `columns` (each `[name before, name after]`).
+ *
+ * Each is found in the catalog rather than assumed: the primary key by its
+ * kind, whatever PostgreSQL named it, and each foreign key under any name an
+ * earlier version gave it (`from` is the link table it was created as). A
+ * constraint that is not there is left alone, so a link table created under
+ * other names never stops the move, and so is one whose new name another
+ * relation already takes: a primary key is an index, and two long link tables
+ * of one table fit to the same name, which PostgreSQL then numbered.
+ */
+export const generateJunctionConstraintRenameSQL = (
+  from: string,
+  junction: string,
+  columns: readonly (readonly [before: string, after: string])[]
+): readonly string[] => {
+  const table = postgresStoredName(junction)
+  const rename = (found: string, after: string): string => `DO $$
+DECLARE current_name text;
+BEGIN
+  SELECT conname INTO current_name FROM pg_constraint WHERE conrelid = '${table}'::regclass AND ${found} LIMIT 1;
+  IF current_name IS NOT NULL AND current_name <> '${after}'
+    AND NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = '${after}' AND relnamespace = (SELECT relnamespace FROM pg_class WHERE oid = '${table}'::regclass)) THEN
+    EXECUTE format('ALTER TABLE %I RENAME CONSTRAINT %I TO %I', '${table}', current_name, '${after}');
+  END IF;
+END $$`
+  return [
+    rename(`contype = 'p'`, postgresStoredName(junctionPrimaryKeyName(junction))),
+    ...columns.map(([before, after]) => {
+      const names = junctionForeignKeyNamesBefore(from, before)
+        .map((name) => `'${postgresStoredName(name)}'`)
+        .join(', ')
+      return rename(
+        `contype = 'f' AND conname IN (${names})`,
+        postgresStoredName(junctionForeignKeyName(junction, after))
+      )
+    }),
+  ]
 }

@@ -104,6 +104,8 @@ interface UseDataTableQueryParams {
    * the table declares no `displayField`. Absent when no column names one.
    */
   readonly labelsParam?: string
+  /** The language translatable fields read in (`?lang=`): the console's default, a page's own. */
+  readonly langParam?: string
   /**
    * The grid loads page by page (`pagination.style: loadMore`): each response
    * says whether a further page exists, as the `nextCursor` a cursor feed
@@ -182,6 +184,7 @@ function buildQueryKey(q: ResolvedQuery, sortParam: string | undefined): readonl
         q.aggregateParam,
         q.groupByParam,
         q.labelsParam,
+        q.langParam,
         // A load-more grid's answer carries a `nextCursor` a numbered grid's
         // does not, and the page's islands share one cache.
         q.loadMore,
@@ -253,6 +256,7 @@ function resolveQuery(params: UseDataTableQueryParams): ResolvedQuery {
     summary: params.summary,
     groupByParam: params.groupByParam,
     labelsParam: params.labelsParam,
+    langParam: params.langParam,
     loadMore: params.loadMore,
     ...(params.offset !== undefined && { offset: params.offset }),
   }

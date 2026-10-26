@@ -56,7 +56,9 @@ export function bodyLinkOverrides(
 ) {
   const { link } = where
   return {
-    action: link?.action,
+    // Where it posts, and the language its answers are filed under (an app
+    // declaring languages): a translatable field's answer is the page's language.
+    post: { action: link?.action, lang: where.languages === undefined ? undefined : where.lang },
     offer: saveForLaterOffer(form, {
       standalone: !where.embed && !where.embedded,
       editing: link?.editing === true,

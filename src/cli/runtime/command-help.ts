@@ -10,6 +10,7 @@ import { CLOUD_COMMAND_HELP } from './cloud-help'
 import { DESIGN_SYSTEM_HELP_TEXT } from './design-system-help'
 import { DEV_HELP_TEXT } from './dev-help'
 import { IMPORT_HELP_TEXT } from './import-help'
+import { ADMIN_HELP_TEXT, INIT_HELP_TEXT, getAdminHelp } from './init-admin-help'
 import { REFERENCE_HELP } from './reference-help'
 import { RENDER_HELP_TEXT } from './render-help'
 import { REPORT_HELP_TEXT } from './report-help'
@@ -229,50 +230,6 @@ const MIGRATE_HELP_TEXT = [
   '  DATABASE_URL=postgres://… sovrium migrate     # Migrate a remote database',
 ].join('\n')
 
-const INIT_HELP_TEXT = [
-  'Usage: sovrium init [dir] [options]',
-  '',
-  'Scaffold a new Sovrium project (app.yaml, .gitignore, .env.example, public/).',
-  'Writes into [dir] when given, otherwise the current directory.',
-  '',
-  'Arguments:',
-  '  dir                           Target directory (default: current directory)',
-  '',
-  'Options:',
-  '  --template <name>             Bundled template, or <owner>/<repo>[#ref] from GitHub',
-  '  --name <name>                 App name written into the generated config',
-  '  --typescript                  Scaffold a typed app.ts (plus sovrium.d.ts + tsconfig.json)',
-  '                                instead of app.yaml — see `sovrium types`',
-  '  --force                       Overwrite existing files',
-  '  --help, -h                    Show this help message',
-  '',
-  'Examples:',
-  '  sovrium init                                       # Scaffold into the current directory',
-  '  sovrium init ./my-app --typescript                 # Scaffold a typed app.ts',
-  '  sovrium init ./my-app --template blog              # Scaffold from a bundled template',
-  '  sovrium init ./my-app --template sovrium/crm-template  # Scaffold from a GitHub repo',
-].join('\n')
-
-const ADMIN_HELP_TEXT = [
-  'Usage: sovrium admin create <email> [config] [options]',
-  '',
-  'Create an admin user in the configured database.',
-  'The password is prompted for unless --password is supplied.',
-  'The account is named after --name, else AUTH_ADMIN_NAME, else "Administrator".',
-  '',
-  'Arguments:',
-  '  email                         Email address of the admin to create',
-  '  config                        Path to config file (.json, .yaml, .yml, .ts)',
-  '',
-  'Options:',
-  '  --password <value>            Admin password (for scripting / CI; else prompted)',
-  '  --name <name>                 Display name of the new admin',
-  '  --help, -h                    Show this help message',
-  '',
-  'Examples:',
-  '  sovrium admin create me@example.com app.yaml',
-].join('\n')
-
 const SECRET_HELP_TEXT = [
   'Usage: sovrium secret generate [scope]',
   '',
@@ -393,7 +350,8 @@ const COMMAND_HELP: Readonly<Record<string, string>> = {
 }
 
 /**
- * Per-command help text, or `undefined` when the command has none (in which
+ * Per-command help text (per-verb for `admin`), or `undefined` when the command has none (in which
  * case the caller falls through to the global help / normal dispatch).
  */
-export const getCommandHelp = (command: string): string | undefined => COMMAND_HELP[command]
+export const getCommandHelp = (command: string, verb?: string): string | undefined =>
+  command === 'admin' ? getAdminHelp(verb) : COMMAND_HELP[command]

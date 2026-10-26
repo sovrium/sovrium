@@ -16,6 +16,8 @@
  * a number or an option keeps its own order.
  */
 
+import { declaresTranslatable } from './translatable-field-service'
+
 /** Field types holding free text a reader sorts alphabetically. */
 const CASE_FOLDED_SORT_FIELD_TYPES: ReadonlySet<string> = new Set([
   'single-line-text',
@@ -28,22 +30,42 @@ const CASE_FOLDED_SORT_FIELD_TYPES: ReadonlySet<string> = new Set([
 
 /** Minimal shape this module reads of an app: each table's name and field types. */
 interface TablesView {
+  readonly languages?: { readonly default: string }
   readonly tables?: readonly {
     readonly name: string
     readonly fields: readonly unknown[]
   }[]
 }
 
-/** The names of `tableName`'s text fields, which a sort compares ignoring case. */
+/**
+ * A translatable text field, sorted by one language's value ignoring case: the
+ * default language's, whatever the reader reads in ([internal ref] D8).
+ */
+export interface TranslatedSortKey {
+  readonly field: string
+  readonly language: string
+}
+
+/** A text field a sort compares ignoring case: by name, or by one language's value. */
+export type CaseFoldedSortField = string | TranslatedSortKey
+
+/**
+ * The text fields of `tableName`, which a sort compares ignoring case. A
+ * translatable field is compared by its default-language value.
+ */
 export const caseFoldedSortFieldsOf = (
   app: TablesView | undefined,
   tableName: string
-): readonly string[] =>
-  (app?.tables?.find((table) => table.name === tableName)?.fields ?? []).flatMap((field) => {
-    const { name, type } = (field ?? {}) as { readonly name?: unknown; readonly type?: unknown }
-    return typeof name === 'string' &&
-      typeof type === 'string' &&
-      CASE_FOLDED_SORT_FIELD_TYPES.has(type)
-      ? [name]
-      : []
-  })
+): readonly CaseFoldedSortField[] =>
+  (app?.tables?.find((table) => table.name === tableName)?.fields ?? []).flatMap(
+    (field): readonly CaseFoldedSortField[] => {
+      if (typeof field !== 'object' || field === null) return []
+      const { name, type } = field as { readonly name?: unknown; readonly type?: unknown }
+      if (typeof name !== 'string' || typeof type !== 'string') return []
+      if (!CASE_FOLDED_SORT_FIELD_TYPES.has(type)) return []
+      const language = app?.languages?.default
+      return declaresTranslatable(field) && language !== undefined
+        ? [{ field: name, language }]
+        : [name]
+    }
+  )

@@ -52,6 +52,7 @@
 
 import { escapeLikeMetacharacters } from '@/domain/kernel/sql/sql-formatting'
 import { searchWords } from '@/domain/models/app/tables/word-search-service'
+import { pgAllLanguagesTextDdl } from '../sql/translatable-value-sql'
 
 /** Prefix of every per-table FTS5 virtual table (SQLite). Reserved namespace. */
 export const SQLITE_FTS_PREFIX = 'fts__'
@@ -124,8 +125,15 @@ export const pgFtsIndexPrefixFor = (relation: string): string =>
   `${PG_FTS_INDEX_PREFIX}${relation.slice(0, 40)}_`
 
 /** The GIN expression-index name for `relation` at this exact column set. */
-export const pgFtsIndexName = (relation: string, columns: readonly string[]): string =>
-  `${pgFtsIndexPrefixFor(relation)}${columnSetDigest(columns)}`.slice(0, PG_IDENTIFIER_MAX)
+export const pgFtsIndexName = (
+  relation: string,
+  columns: readonly string[],
+  mapColumns: readonly string[] = []
+): string =>
+  `${pgFtsIndexPrefixFor(relation)}${columnSetDigest(
+    // A translatable column reads differently, so it names a different index.
+    columns.map((column) => (mapColumns.includes(column) ? `${column}:map` : column))
+  )}`.slice(0, PG_IDENTIFIER_MAX)
 
 /**
  * The `to_tsvector(...)` expression over `columns`, EXACTLY as it must appear in
@@ -134,10 +142,16 @@ export const pgFtsIndexName = (relation: string, columns: readonly string[]): st
  * `coalesce(col, '')` per column because `NULL || ' ' || 'x'` is `NULL` in SQL —
  * a single null column would otherwise erase the whole row's searchable text.
  * Concatenating with a space keeps adjacent columns from fusing into one bogus
- * token (`…endStart…`).
+ * token (`…endStart…`). A translatable column (`mapColumns`, a `jsonb` map)
+ * contributes the text of every language it holds, never its language codes.
  */
-export const pgSearchVectorExpression = (columns: readonly string[]): string => {
-  const parts = columns.map((column) => `coalesce("${column}", '')`).join(` || ' ' || `)
+export const pgSearchVectorExpression = (
+  columns: readonly string[],
+  mapColumns: readonly string[] = []
+): string => {
+  const text = (column: string): string =>
+    mapColumns.includes(column) ? pgAllLanguagesTextDdl(`"${column}"`) : `"${column}"`
+  const parts = columns.map((column) => `coalesce(${text(column)}, '')`).join(` || ' ' || `)
   return `to_tsvector('${TS_CONFIG}', ${parts})`
 }
 
@@ -367,8 +381,9 @@ export const pgFtsIndexStatement = (input: {
   readonly queriedRelation: string
   readonly physicalTable: string
   readonly columns: readonly string[]
+  readonly mapColumns?: readonly string[]
 }): string => {
-  const { queriedRelation, physicalTable, columns } = input
-  return `CREATE INDEX IF NOT EXISTS "${pgFtsIndexName(queriedRelation, columns)}"
-          ON "${physicalTable}" USING GIN (${pgSearchVectorExpression(columns)})`
+  const { queriedRelation, physicalTable, columns, mapColumns } = input
+  return `CREATE INDEX IF NOT EXISTS "${pgFtsIndexName(queriedRelation, columns, mapColumns)}"
+          ON "${physicalTable}" USING GIN (${pgSearchVectorExpression(columns, mapColumns)})`
 }

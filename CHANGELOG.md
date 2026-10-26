@@ -1,3 +1,53 @@
+## [0.45.0](https://github.com/sovrium/sovrium/compare/v0.44.0...v0.45.0) (2026-10-26)
+
+### Features
+
+- **pages**: read a collection page's slug from one translatable field, per language
+- **tables**: let a translatable text field be unique within each language
+- **tables**: map CSV columns onto each language of a translatable field in the import wizard
+- **tables**: carry every language of translatable text in exports, webhooks and automations
+- **tables**: read translatable text in the page language in views, boards, galleries and lists
+- **tables**: filter, sort and search translatable text
+- **tables**: write translatable fields one language at a time, and edit every language in the console
+- **desktop**: open a starter app from a sovrium://new?bundle= link, with its demo data
+- **cli**: reset a local admin's password from the command line
+- **cli**: load a bundle's demo data and print a sign-in when it is imported
+- **cli**: carry the project's PROMPT.md and CLAUDE.md in a bundle
+- **pages**: give a collection page one slug field per language, paired as hreflang alternates
+- **tables**: serve translatable fields in the reader's language
+- **cli**: open a Sovrium bundle as a new editable project
+- **tables**: store translatable text fields as one value per language
+- **mcp**: offer the project's own PROMPT.md and CLAUDE.md to the assistant as a prompt
+- **desktop**: connect Claude Desktop in one click, with a backup and without touching other servers
+- **desktop**: add a per-project "Let my AI edit" switch to Connect your AI
+
+### Bug Fixes
+
+- **cli**: list the bundle and URL flags in init's help, and give admin reset-password its own help
+- **migrations**: keep SQLite triggers valid when a table gains its first lookup
+- **cli**: restore --force replaces a populated PostgreSQL database in one transaction
+- **pages**: read a json column as its structure on a record-bound page on SQLite
+- **pages**: leave og:image and twitter:image out when the sharing image is empty
+- **i18n**: translate a comments thread's placeholder, guest form and empty state
+- **i18n**: say a refused sign-in in the page language
+- **i18n**: draw a description list's checkbox as Yes or No in the page language
+- **pages**: resolve $app references in a page's canonical address
+- **i18n**: name the data grid's phone View menu in the page language
+- **automations**: hand a record trigger's run the record's many-to-many links
+- **tables**: make the documented formula functions work on both engines or refuse them at boot
+- **templates**: print the AI assistant note once in a scaffolded .env.example
+- **templates**: restore the blog's RSS note on BASE_URL in its scaffolded .env.example
+- **forms**: refuse a prefill outside a field's options and name a server-filled value the form refuses
+- **tables**: compute IF formulas on PostgreSQL as on SQLite
+- **skills**: mark skills written by a non-release build with a dev version
+- **forms**: fill an embedded form's hidden field from the page's query string
+- **forms**: keep the value a page rendered into a hidden field instead of its default
+- **tables**: keep the links of two many-to-many fields to the same table separate
+- **cli**: never write a signed link's signature into the project or the terminal
+- **cli**: read a remote config's format from its path or Content-Type, not its query string
+- **formulas**: run CHR() on SQLite instead of refusing the app at boot
+- **desktop**: open a project on the config file its folder actually holds
+
 ## [0.44.0](https://github.com/sovrium/sovrium/compare/v0.43.1...v0.44.0) (2026-10-25)
 
 ### BREAKING CHANGES

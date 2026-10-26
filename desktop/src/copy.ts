@@ -43,7 +43,8 @@
  *
  * What survives that rule is the whole of what a person actually needs: a
  * label, an instruction, and — after a refusal — the path, the message and the
- * way back. D4: cut the adjective, keep the next action.
+ * way back.: cut the adjective,
+ * keep the next action.
  */
 
 // ---------------------------------------------------------------------------
@@ -90,6 +91,77 @@ export const fromUrl = {
     'Sovrium records where the file came from, so you can check it later.',
   ],
   notHttps: 'That needs to be an https address.',
+} as const
+
+// ---------------------------------------------------------------------------
+// A bundle link — `sovrium://new?bundle=` ([internal ref] A1)
+// ---------------------------------------------------------------------------
+
+/**
+ * The ONE consent dialog a bundle link gets, shown after the engine has
+ * downloaded and checked the bundle, and the screen that shows the new admin's
+ * password once.
+ *
+ * Two verdicts, and the copy keeps them apart. **Verified** means the manifest
+ * is signed with Sovrium's publisher key: it says who published the bundle and
+ * that it has not changed since, never that it is safe — so `verifiedNote`
+ * says exactly that and no more. **Unverified** is the stronger warning (founder
+ * decision D1): it states plainly that nobody can be named, then what the
+ * engine did check, then the one thing left to the user. Neither verdict
+ * changes the checks: every bundle is held against its manifest, executables
+ * and paths outside the folder are refused, and nothing from it runs during the
+ * import.
+ *
+ * The password is said to be shown once and saved nowhere because both are
+ * true of the shell: it lives in this page's memory until the app opens, and
+ * the engine keeps only its hash. The way back is a real command,
+ * `sovrium admin reset-password`, rendered beside `resetHint` with the
+ * account's own email.
+ */
+export const bundle = {
+  fetchingTitle: 'Checking a starter app…',
+  fetchingLead: (host: string): string =>
+    `Downloading it from ${host} and checking every file. Nothing becomes a project, and ` +
+    'nothing from it runs, until you agree.',
+  title: 'Open this starter app?',
+  hostLabel: 'From',
+  viaLabel: (linkHost: string): string => `redirected from ${linkHost}`,
+  nameLabel: 'App',
+  sizeLabel: 'Size',
+  verifiedBadge: 'Verified publisher',
+  verifiedNote:
+    'Signed with Sovrium’s publisher key, so Sovrium published it and it has not changed ' +
+    'since. The signature tells you who made it, not what it does.',
+  unverifiedBadge: 'Unverified publisher',
+  unverifiedWarning:
+    'Sovrium cannot confirm who published this app. It is not signed with Sovrium’s ' +
+    'publisher key, so anyone could have made it or changed it. Every file matched the list ' +
+    'the bundle came with, none is executable, none lands outside the project folder, and ' +
+    'nothing from it has run. It becomes a project only if you create one — do that only if ' +
+    'you trust whoever sent you the link.',
+  demoData: 'Includes demo data, and an admin account to sign in with.',
+  folderLabel: 'Folder name',
+  importAction: 'Create project',
+  importing: 'Creating…',
+  cancel: 'Cancel',
+  refusedTitle: 'This starter app was refused',
+  refusedLead: (host: string): string =>
+    `The bundle from ${host} failed a check, so nothing was added and nothing from it ran. ` +
+    'If you expected it to work, send this reason to whoever shared the link:',
+  close: 'Close',
+  credentialsTitle: 'Your project is ready',
+  credentialsLead:
+    'Sign in to your app with this account. This is the only time the password is shown, ' +
+    'and it is not saved anywhere — copy it before you go on.',
+  emailLabel: 'Email',
+  passwordLabel: 'Password',
+  copyPassword: 'Copy password',
+  copied: 'Copied',
+  resetHint: 'If you lose it, this command sets a new one:',
+  credentialsDone: 'Open the app',
+  demoDataFailed:
+    'The project was created, but its demo data could not be loaded, so the app starts ' +
+    'without it. To try again, open the link once more and choose a new folder. The reason:',
 } as const
 
 // ---------------------------------------------------------------------------
@@ -202,13 +274,16 @@ export const project = {
  *
  * It has to get a non-technical person from "I have a folder" to "my assistant
  * can read my app" — and it has to do that without arguing that any of it is a
- * good idea, and without over-promising what the assistant can do. The four
- * tools are reads. An assistant that believes it can write will report an edit
- * it never made, which is the failure this whole design is built to avoid, so
- * `canDo` and `cannotDo` are a pair and neither ships without the other.
+ * good idea, and without over-promising what the assistant can do. By default
+ * the tools are reads; "Let my AI edit" adds the write tools, which only ever
+ * write configuration files in the project folder. An assistant that believes
+ * it can do more than it can will report an edit it never made, which is the
+ * failure this whole design is built to avoid, so `canDo` and `cannotDo` are a
+ * pair, both switch states are described, and neither ships without the other.
  *
- * The client syntax is NOT invented here: `apps/website/content/docs/en/mcp-config.md`
- * is the source of truth, and the snippets are built in Rust from one command
+ * The client syntax is NOT invented here: the in-binary manual's
+ * `src/docs/guides/connect-desktop-ai.md` and `src/cli/commands/mcp-write.docs.md`
+ * are the source of truth, and the snippets are built in Rust from one command
  * and one argument list so the two forms cannot drift apart.
  */
 export const ai = {
@@ -222,7 +297,9 @@ export const ai = {
     'There is no key to enter and no field here to enter one in.',
   folderStep: 'The folder to point it at',
   clientStep: 'Set up your assistant',
-  clientHint: 'Every client reads the same two values: a command, and its arguments.',
+  clientHint:
+    'Every client reads the same values: a command and its arguments, plus one environment ' +
+    'variable when “Let my AI edit” is on.',
   clients: {
     'claude-code': {
       label: 'Claude Code',
@@ -247,10 +324,20 @@ export const ai = {
   ],
   cannotDoHeading: 'What it cannot do',
   cannotDo:
-    'These four are reads. Your assistant changes your app by editing the file in the ' +
-    'folder, the way it edits any other file — Sovrium reloads on its own when it does. ' +
-    'Letting it write through this connection is a separate setting that does not exist ' +
-    'yet; it will be off by default when it arrives.',
+    'It changes nothing through this connection unless you turn on “Let my AI edit”, which is ' +
+    'off by default. Without it, your assistant edits the file in the folder like any other ' +
+    'file, and Sovrium reloads when it saves. With it, your assistant can also list, read, ' +
+    'replace and undo your configuration files through the connection, and Sovrium checks ' +
+    'each edit before it reaches the disk. Even then it only writes configuration files in ' +
+    'this folder. It never edits the records in your app, and none of this works over the ' +
+    'network. An edit that would drop a column, and the data in it, needs your agreement first.',
+  writeToggle: 'Let my AI edit',
+  writeToggleHint:
+    'Lets your assistant change the configuration through this connection, for this project ' +
+    'only. After changing it, copy the snippet again and restart your assistant.',
+  writeUnsupported:
+    'Not available for this project. Its configuration is app.ts, and only .yaml, .yml and ' +
+    '.json files can be edited this way.',
   /** Shown only when the bundled engine does not answer `sovrium mcp`. */
   unavailable:
     'The engine installed here does not answer this command, so the snippet will not work ' +
@@ -258,6 +345,52 @@ export const ai = {
     'Sovrium puts the two back in step.',
   copied: 'Copied',
   copyFailed: 'Could not copy',
+  /**
+   * "Connect Claude Desktop" ([internal ref] A2): the one place the shell writes a
+   * file that is not its own. The confirmation is a list of consequences, not a
+   * warning — which file, which entry, whether it lets the assistant edit,
+   * where the backup goes, and what is left alone — so a person can say yes
+   * knowing exactly what changes. Every outcome ends on the next step: restart
+   * Claude Desktop, or copy the entry by hand.
+   */
+  desktopConnect: {
+    action: 'Connect Claude Desktop',
+    updateAction: 'Update Claude Desktop',
+    hint:
+      'Sovrium can add this project to the settings file of Claude Desktop for you. You see ' +
+      'the exact change before anything is written.',
+    confirmTitle: 'Add this project to Claude Desktop?',
+    updateTitle: 'Update this project in Claude Desktop?',
+    rewriteOffer:
+      'You changed “Let my AI edit”. Claude Desktop still has the previous entry until you ' +
+      'update it.',
+    fileLabel: 'File it changes',
+    entryLabel: 'Entry it adds or replaces',
+    backupLabel: 'Backup of the current file',
+    writesOn:
+      'AI edits are on. The entry sets MCP_CONFIG_WRITE, so Claude can change your ' +
+      'configuration through it.',
+    writesOff:
+      'AI edits are off. Claude can read and check your configuration, and change nothing ' +
+      'through it.',
+    noFileYet: 'There is no file yet, so nothing to back up. It is created with only this entry.',
+    keepsOthers:
+      'Every other server and setting in the file stays as it is. Only the indentation may ' +
+      'change.',
+    confirm: 'Write the entry',
+    cancel: 'Cancel',
+    working: 'Writing…',
+    written: 'Written. Restart Claude Desktop to use this project.',
+    unchanged:
+      'Claude Desktop already has this exact entry, so nothing was written. If the project ' +
+      'does not appear there, restart Claude Desktop.',
+    changed:
+      'The file changed while this was open, so nothing was written. This is what would be ' +
+      'written now.',
+    refused: (reason: string): string =>
+      `${reason} Nothing was written. Add the entry by hand instead: copy the block below into ` +
+      'the file, then restart Claude Desktop.',
+  },
 } as const
 
 // ---------------------------------------------------------------------------

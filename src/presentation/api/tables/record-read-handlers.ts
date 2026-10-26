@@ -36,6 +36,7 @@ import { buildSearchFilter, readSearchTerm } from './list-records-search'
 import { validatePaginationParams } from './pagination-validation'
 import { parseListRecordsParams } from './param-parsers'
 import { countsOnList, countsOnRecord } from './read-state-handlers'
+import { recordReadLanguageOf } from './record-read-language'
 import { guardForTable, type RowLevelGuardContext } from './row-level-guard'
 import {
   buildListFilter,
@@ -439,13 +440,11 @@ export async function handleGetRecord(c: Context, app: App) {
     )
   }
 
-  // The requested wall clock. Read and validated HERE, alongside `format`,
-  // rather than deeper in: the list sibling already rejects an unknown zone
-  // with a 400 (`validateListRecordsParams`), and a route that silently ignored
-  // one while its sibling refused it would make the same request mean two
-  // things. `convertToTimezone` swallows an invalid zone and returns the
-  // untouched instant, so without this the caller would get a 200 carrying the
-  // wrong clock and nothing to explain it.
+  // The requested wall clock, validated HERE beside `format`: the list sibling
+  // already rejects an unknown zone with a 400 (`validateListRecordsParams`),
+  // and a route ignoring one its sibling refused would make the same request
+  // mean two things. `convertToTimezone` swallows an invalid zone and returns
+  // the untouched instant: a 200 carrying the wrong clock, unexplained.
   const timezone = c.req.query('timezone')
   const timezoneError = validateTimezoneParam(timezone, c)
   if (timezoneError) return timezoneError
@@ -461,7 +460,7 @@ export async function handleGetRecord(c: Context, app: App) {
         createGetRecordProgram({
           ...{ session, tableName, app, userRole, recordId, includeDeleted, userGroups },
           format: formatParam === 'display' ? 'display' : undefined,
-          timezone,
+          ...{ timezone, language: recordReadLanguageOf(c) },
           origin: new URL(c.req.url).origin,
           admits: readRuleAdmits(guard, table),
         }).pipe(countsOnRecord({ c, app, tableName })),

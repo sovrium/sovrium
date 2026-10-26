@@ -31,13 +31,13 @@ import {
   type RawAggregations,
 } from './aggregation-helpers'
 import type {
+  TableReadError,
   GroupedAggregationRow,
   GroupLevel,
   GroupOrder,
   LookupReadMask,
   QueryFilter,
 } from '@/application/ports/repositories/tables/table-repository'
-import type { DatabaseError } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
 
 export interface RecordGroupsQuery {
@@ -180,7 +180,7 @@ export const readRecordGroups = (
   query: RecordGroupsQuery
 ): Effect.Effect<
   { readonly groups: readonly GroupPartition[]; readonly overCap: boolean },
-  DatabaseError,
+  TableReadError,
   TableRepository
 > =>
   Effect.gen(function* () {

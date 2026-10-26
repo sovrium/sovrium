@@ -25,11 +25,15 @@ import {
   type DynamicRecordError,
   type DynamicRecordListInput,
 } from '@/application/ports/repositories/tables/dynamic-record-repository'
+import type { UncompilableFilterOperatorError } from '@/domain/errors/uncompilable-filter-operator-error'
+
+/** What a dynamic-record read fails with: a database error, or a filter refusal. */
+type ReadError = DynamicRecordError | UncompilableFilterOperatorError
 
 /** Run a `COUNT(*)` over a dynamic table. */
 export const countDynamicRecords = (
   input: DynamicRecordCountInput
-): Effect.Effect<number, DynamicRecordError, DynamicRecordRepository> =>
+): Effect.Effect<number, ReadError, DynamicRecordRepository> =>
   Effect.gen(function* () {
     const repo = yield* DynamicRecordRepository
     return yield* repo.count(input)
@@ -38,7 +42,7 @@ export const countDynamicRecords = (
 /** Run an `AVG`/`SUM` aggregate over a numeric column of a dynamic table. */
 export const aggregateDynamicRecords = (
   input: DynamicRecordAggregateInput
-): Effect.Effect<number | undefined, DynamicRecordError, DynamicRecordRepository> =>
+): Effect.Effect<number | undefined, ReadError, DynamicRecordRepository> =>
   Effect.gen(function* () {
     const repo = yield* DynamicRecordRepository
     return yield* repo.aggregate(input)
@@ -47,11 +51,7 @@ export const aggregateDynamicRecords = (
 /** List rows of a dynamic table with an optional sort and a row cap. */
 export const listDynamicRecords = (
   input: DynamicRecordListInput
-): Effect.Effect<
-  ReadonlyArray<Record<string, unknown>>,
-  DynamicRecordError,
-  DynamicRecordRepository
-> =>
+): Effect.Effect<ReadonlyArray<Record<string, unknown>>, ReadError, DynamicRecordRepository> =>
   Effect.gen(function* () {
     const repo = yield* DynamicRecordRepository
     return yield* repo.list(input)

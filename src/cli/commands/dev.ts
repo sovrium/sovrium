@@ -27,13 +27,12 @@
  *
  * `seed` ends in `process.exit`, and neither may share a SQLite file with a
  * live writer. Both run, one after the other, as children of this same
- * program, and both have finished before the server starts.
+ * program (`@/cli/runtime/project-data`, shared with `init --with-demo-data`),
+ * and both have finished before the server starts.
  */
 
-import { spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
 import { mkdir, readFile, rm } from 'node:fs/promises'
-import { dirname, join, resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { isHeadless, openInBrowser } from '@/cli/runtime/browser-launch'
 import {
   devAdminEmail,
@@ -50,10 +49,10 @@ import {
   type OpenOutcome,
   type OtherInstance,
 } from '@/cli/runtime/dev-session-block'
+import { prepareProjectData } from '@/cli/runtime/project-data'
 import { parseDataDir } from '@/domain/models/process-env/data-dir'
 import { parseProjectDir } from '@/domain/models/process-env/desktop'
 import { printDocument, printStderr } from '@/infrastructure/logging/cli-output'
-import { isBunfsPath } from '@/infrastructure/process/package-paths'
 import {
   isProcessRunning,
   lockFilePathIn,
@@ -74,9 +73,6 @@ export interface DevCommandOptions {
 /** Where the panel's "Learn more" link points when the environment names nothing else. */
 export const DEV_MANUAL_URL = 'https://sovrium.com/en/docs'
 
-/** How long `admin create` and `seed` may take, each. */
-const CHILD_TIMEOUT_MS = 120_000
-
 /** The live instance a lock file names, or `undefined` (no file, unreadable, or a dead pid). */
 const readLiveLock = async (path: string): Promise<OtherInstance | undefined> => {
   try {
@@ -84,24 +80,6 @@ const readLiveLock = async (path: string): Promise<OtherInstance | undefined> =>
     return typeof lock.pid === 'number' && isProcessRunning(lock.pid) ? lock : undefined
   } catch {
     return undefined
-  }
-}
-
-/** Run one verb of this same program to its end — `restart`'s argv rule. */
-const runOwnVerb = (
-  args: readonly string[],
-  env: Readonly<Record<string, string | undefined>>
-): { readonly ok: boolean; readonly output: string } => {
-  const entry = process.argv[1]
-  const viaScript = entry !== undefined && !isBunfsPath(entry)
-  const result = spawnSync(process.execPath, [...(viaScript ? [entry] : []), ...args], {
-    env: { ...process.env, ...env },
-    encoding: 'utf-8',
-    timeout: CHILD_TIMEOUT_MS,
-  })
-  return {
-    ok: result.status === 0,
-    output: `${result.stdout ?? ''}${result.stderr ?? ''}`.trim(),
   }
 }
 
@@ -140,21 +118,20 @@ const prepareData = (input: {
   readonly password: string
 }): Pick<DataOutcome, 'adminCreated' | 'seed'> => {
   const { app, configFile, devDir, email, password } = input
-  if (app.auth !== undefined) {
-    const admin = runOwnVerb(['admin', 'create', email, configFile, '--password', password], {})
-    if (!admin.ok) {
-      printStderr(`Error: could not create the dev account ${email}.\n${admin.output}`)
-      process.exit(1)
-    }
-  }
-  if (!existsSync(join(dirname(configFile), 'seed'))) {
-    return { adminCreated: app.auth !== undefined, seed: 'none' }
-  }
-  const seed = runOwnVerb(['seed', configFile, '--report', join(devDir, 'dev-seed-report.json')], {
-    SOVRIUM_SEED_PASSWORD: password,
+  const prepared = prepareProjectData({
+    hasAuth: app.auth !== undefined,
+    configFile,
+    email,
+    password,
+    seedArgs: ['--report', join(devDir, 'dev-seed-report.json')],
+    seedEnv: { SOVRIUM_SEED_PASSWORD: password },
   })
-  if (!seed.ok) printStderr(seed.output)
-  return { adminCreated: app.auth !== undefined, seed: seed.ok ? 'loaded' : 'failed' }
+  if (!prepared.ok) {
+    printStderr(`Error: could not create the dev account ${email}.\n${prepared.output}`)
+    return process.exit(1)
+  }
+  if (prepared.seed === 'failed') printStderr(prepared.seedOutput)
+  return { adminCreated: prepared.adminCreated, seed: prepared.seed }
 }
 
 /** Why the browser was, or was not, asked to open `url`; opens it when it may. */

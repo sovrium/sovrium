@@ -20,6 +20,7 @@ import {
   bundleManifestSchema,
   type BundleManifest,
 } from './bundle-manifest'
+import { collectStarterEntries } from './bundle-starter-entries'
 import { collectConfigEntries, toEntryPath } from './config-tree-entries'
 import type { BackupIoError } from '@/application/ports/services/backup-workspace'
 
@@ -302,8 +303,8 @@ const collectPageFileEntries = (request: BundleRequest, taken: ReadonlySet<strin
 
 /**
  * The archive entries, config first: `project/app.json` from the validated
- * document, then the declared assets and the files the pages read beside it,
- * then `public/` and `seed/`.
+ * document, then the declared assets, the files the pages read and the
+ * starter files beside it, then `public/` and `seed/`.
  * The config graph is read for its refusal only — its files travel inlined in
  * the document, never as sources.
  */
@@ -334,7 +335,11 @@ const collectBundleEntries = (request: BundleRequest) =>
       join(dirname(request.configPath), 'seed'),
       'seed/'
     )).filter((entry) => !entry.path.startsWith(`seed/${SEED_IMPORT_LAYER}/`))
-    return [config, ...assetEntries, ...pageEntries, ...publicEntries, ...seedEntries]
+    const starter = yield* collectStarterEntries(request.configPath, [
+      ...assetEntries,
+      ...pageEntries,
+    ])
+    return [config, ...assetEntries, ...pageEntries, ...starter, ...publicEntries, ...seedEntries]
   })
 
 /**
@@ -370,6 +375,9 @@ export const createBundle = (
       createdAt: request.now.toISOString(),
       entries: listed,
       requiredEnv: requiredEnvNamesOf(request.document),
+      ...(entries.some((entry) => entry.path.startsWith('seed/'))
+        ? { containsDemoData: true }
+        : {}),
     })
     const archivePath =
       request.outputPath ?? join(request.workingDirectory, defaultBundleName(slug, request.now))

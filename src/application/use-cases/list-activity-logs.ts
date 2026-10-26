@@ -15,6 +15,7 @@ import {
   type LiveRecordsQuery,
 } from '@/application/ports/repositories/analytics/activity-log-repository'
 import type { UserMetadata } from '@/application/ports/contracts/user-metadata'
+import type { UncompilableFilterOperatorError } from '@/domain/errors/uncompilable-filter-operator-error'
 
 /**
  * Activity log output type for presentation layer
@@ -61,7 +62,7 @@ export const ListActivityLogs = (
   query: ActivityLogPageQuery
 ): Effect.Effect<
   { readonly activities: readonly ActivityLogOutput[]; readonly total: number },
-  ActivityLogDatabaseError,
+  ActivityLogDatabaseError | UncompilableFilterOperatorError,
   ActivityLogRepository
 > =>
   Effect.gen(function* () {
@@ -79,7 +80,7 @@ export const ListActivityGateRecords = (
   query: LiveRecordsQuery
 ): Effect.Effect<
   readonly Readonly<Record<string, unknown>>[],
-  ActivityLogDatabaseError,
+  ActivityLogDatabaseError | UncompilableFilterOperatorError,
   ActivityLogRepository
 > =>
   Effect.gen(function* () {

@@ -18,6 +18,7 @@
 //! | [`settings`]     | Machine-local settings and the project record                     |
 //! | [`tray`]         | The tray item — what the app is while its window is closed        |
 //! | [`deeplink`]     | `sovrium://` parsing, refusal, and the confirmation dialog        |
+//! | [`bundle_import`] | A `bundle=` link: the engine's inspection, then one consent dialog |
 //! | [`nav_guard`]    | Where the window may go, and where everything else goes instead   |
 //! | [`windows`]      | The two windows, and why the settings one is separate             |
 //! | [`commands`]     | The whole IPC surface, in one readable list                       |
@@ -34,6 +35,8 @@
 //!   transmit one, and ships no model. The connection is between the user's AI
 //!   client and the user's own machine.
 
+pub mod bundle_import;
+pub mod claude_desktop;
 pub mod commands;
 pub mod deeplink;
 pub mod nav_guard;
@@ -149,6 +152,8 @@ pub fn run() {
         .manage::<sidecar::SharedSupervisor>(Arc::new(Mutex::new(sidecar::Supervisor::default())))
         .manage(nav_guard::LoopbackPort::default())
         .manage(updater::Available::default())
+        .manage(commands::PendingClientWrite::default())
+        .manage(bundle_import::PendingBundle::default())
         .invoke_handler(tauri::generate_handler![
             commands::shell_snapshot,
             commands::shell_logs,
@@ -157,6 +162,9 @@ pub fn run() {
             commands::settings_write,
             commands::create_project,
             commands::create_project_from_url,
+            commands::bundle_pending,
+            commands::bundle_import,
+            commands::bundle_discard,
             commands::open_project,
             commands::forget_project,
             commands::restart_engine,
@@ -166,6 +174,9 @@ pub fn run() {
             commands::open_app_in_browser,
             commands::open_settings_window,
             commands::mcp_snippet,
+            commands::set_ai_writes,
+            commands::claude_desktop_preview,
+            commands::claude_desktop_apply,
             commands::undo_availability,
             commands::undo_restore,
             commands::reset_to_template,

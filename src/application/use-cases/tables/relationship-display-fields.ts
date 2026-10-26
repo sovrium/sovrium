@@ -21,8 +21,13 @@
  * consult and everything else ignores.
  */
 
+import {
+  ALL_LANGUAGES,
+  localizeStoredValue,
+} from '@/domain/models/app/languages/localized-value-service'
 import { recordTitleFields } from '@/domain/models/app/tables/record-title-service'
 import { mayReadRelatedField } from '@/domain/models/app/tables/related-field-read-service'
+import { readsTranslatableValue } from '@/domain/models/app/tables/translatable-read-service'
 import type { App } from '@/domain/models/app'
 
 type SchemaField = {
@@ -212,6 +217,35 @@ export const collectReferencedKeys = (
     const unique = [...new Set(ids)]
     return unique.length === 0 ? [] : [{ relatedTable, displayField, ids: unique }]
   })
+}
+
+/**
+ * Each label request whose display column holds translatable content, given
+ * the reader's language to resolve it in: a label is one string, so a `*` read
+ * labels in the default language. Requests over any other column, or with no
+ * language, pass unchanged.
+ */
+export const withLabelLanguage = <
+  Request extends { readonly relatedTable: string; readonly displayField: string },
+>(
+  app: App | undefined,
+  requests: readonly Request[],
+  audience: { readonly language?: string | undefined }
+): readonly (Request & { readonly localize?: (label: unknown) => string | undefined })[] => {
+  const languages = app?.languages
+  if (app === undefined || languages === undefined || audience.language === undefined) {
+    return requests
+  }
+  const lang = audience.language === ALL_LANGUAGES ? languages.default : audience.language
+  const localize = (label: unknown): string | undefined => {
+    const text = localizeStoredValue(label, lang, languages)
+    return typeof text === 'string' ? text : undefined
+  }
+  return requests.map((request) =>
+    readsTranslatableValue(app, request.relatedTable, request.displayField)
+      ? { ...request, localize }
+      : request
+  )
 }
 
 /**

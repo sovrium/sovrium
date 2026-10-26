@@ -97,12 +97,24 @@ export const isEngineObject = (
   return (
     name === 'set_updated_by' ||
     name.startsWith(SQLITE_FTS_PREFIX) ||
-    prefixes.some(
-      (relation) =>
-        name.startsWith(`a_trigger_${relation}_`) ||
-        name.startsWith(`trigger_${relation}_`) ||
-        name.startsWith(`trigger_compute_${relation}_`)
-    )
+    prefixes.some((relation) => isEngineTriggerNamedAfter(name, relation))
+  )
+}
+
+/**
+ * Whether `triggerName` is one of the engine's triggers whose name is derived
+ * from `relation`: `a_trigger_<relation>_…`, `trigger_<relation>_…` and
+ * `trigger_compute_<relation>_…`. The command-search `fts__…` triggers and
+ * `set_updated_by` are engine triggers too, but are not named after the table's
+ * relation, so they are not matched here.
+ */
+export const isEngineTriggerNamedAfter = (triggerName: string, relation: string): boolean => {
+  const name = triggerName.toLowerCase()
+  const prefix = relation.toLowerCase()
+  return (
+    name.startsWith(`a_trigger_${prefix}_`) ||
+    name.startsWith(`trigger_${prefix}_`) ||
+    name.startsWith(`trigger_compute_${prefix}_`)
   )
 }
 

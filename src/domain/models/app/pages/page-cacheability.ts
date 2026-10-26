@@ -182,7 +182,13 @@ const DYNAMIC_PAGE_SIGNALS: readonly {
   // G1: `$app.origin` prints the address THIS request arrived on. The page
   // cache is keyed by path, so serving a second front host from an entry minted
   // for the first would print the wrong address to every one of its visitors.
-  { id: 'appOrigin', trips: (page, placed) => referencesToken(page, placed, APP_ORIGIN_TOKEN) },
+  // The head counts too: a canonical or title naming it prints the address.
+  {
+    id: 'appOrigin',
+    trips: (page, placed) =>
+      referencesToken(page, placed, APP_ORIGIN_TOKEN) ||
+      hasToken(page.meta, APP_ORIGIN_TOKEN, () => false),
+  },
   // A `$currentUser.` reference — a record gate, a sidebar source's query — is
   // made concrete for each reader: a copy kept from one must not outlive a sign-in.
   // The typed form a config may carry (`{ kind: currentUser, path }`) names the

@@ -30,7 +30,12 @@ import { withAvatarUsers } from '@/presentation/render/resolve/avatar-members-bi
 import { linksAndLabelsFor } from '@/presentation/render/resolve/bound-record-links'
 import { resolveAddressedDrawerTitle } from '@/presentation/render/resolve/drawer-record-title-resolver'
 import { resolvePageInvitation } from '@/presentation/render/resolve/invitation-resolver'
-import { resolveCollectionPage } from '@/presentation/render/resolve/page-collection-resolver'
+import { withLocalizedRows } from '@/presentation/render/resolve/localized-rows-db'
+import {
+  resolveCollectionPage,
+  withRecordLanguageAddresses,
+  type RequestPage,
+} from '@/presentation/render/resolve/page-collection-resolver'
 import { resolvePageQueryProps } from '@/presentation/render/resolve/query-props-resolver'
 import { resolveReaderReferences } from '@/presentation/render/resolve/reader-reference-pass'
 import { recordLabelsOf } from '@/presentation/render/resolve/record-display-labels'
@@ -152,12 +157,9 @@ function prepareRequestPage(input: {
 }
 
 /**
- * The per-request context `resolveCollectionAndFilter` needs.
- *
- * A NAMED interface rather than an inline literal, matching its sibling
- * {@link ResolveAndFilterInput} below: fifteen members inline counted against
- * the function's own line cap, so every new pass-through field pushed the body
- * closer to a limit that has nothing to do with how much the function does.
+ * The per-request context `resolveCollectionAndFilter` needs: a NAMED interface,
+ * as its sibling {@link ResolveAndFilterInput}, so its members do not count
+ * against the function's own line cap.
  */
 interface ResolveCollectionAndFilterInput {
   readonly matchedPage: Page
@@ -218,25 +220,20 @@ const resolveRequestBoundPasses = async (input: ResolveCollectionAndFilterInput)
   resolvePageTwoFactorAttempt(await resolvePageInvitation(input.matchedPage, input), input)
 
 /**
- * Apply the collection-page resolver to the matched page (if any) and
- * then run the standard component-filter pipeline.
- *
- * Returns the fully-resolved `Page`, or `undefined` when the
- * collection slug failed to resolve / failed a filter (404), or
- * `{ unauthorized: true }` when a descendant data source trips the
- * auth guard. Extracted from `renderPageByPath` so its cyclomatic
- * complexity stays under the project cap after the collection step
- * was added.
+ * Apply the collection-page resolver to the matched page (if any), then the
+ * standard component-filter pipeline. `undefined` when the slug resolves to no
+ * readable record or fails a filter (404); `{ unauthorized: true }` when a
+ * descendant data source trips the auth guard. Extracted from
+ * `renderPageByPath` for its complexity cap.
  */
 export async function resolveCollectionAndFilter(
   input: ResolveCollectionAndFilterInput
-): Promise<Page | { readonly unauthorized: true } | undefined> {
-  const { app, routeParams, session, cookies, previewMode } = input
+): Promise<RequestPage | { readonly unauthorized: true } | undefined> {
+  // `detectedLanguage` and `requestQuery` pass on to `resolveAndFilterPage`.
+  const { app, routeParams, session, cookies, previewMode, detectedLanguage, requestQuery } = input
   // P7 then the four `$`-reference passes, in one step — see
   // `prepareRequestPage`. `'not-found'` is the route-bound-table 404.
   const invited = await resolveRequestBoundPasses(input)
-  // Pass-throughs to `resolveAndFilterPage`: the per-request locale and query.
-  const { detectedLanguage, requestQuery } = input
   // The page's served language, resolved ONCE: a route-bound grid's label
   // speaks it, and it rides on `db` to every `$record.` text site.
   const { lang } = resolvePageLanguage(invited, app.languages, detectedLanguage, input.urlLanguage)
@@ -246,12 +243,10 @@ export async function resolveCollectionAndFilter(
   // The reader's references, made concrete on the template before any record is read.
   const matchedPage = resolveSidebarState(resolveReaderReferences(prepared, session), cookies)
   const recordText = { locale: lang, tables: app.tables, languages: app.languages }
-  const db = { ...input.db, recordText }
-  // Editorial-role preview bypasses `collection.filter` so admins/editors can
-  // preview drafts at the canonical URL (the route layer only sets `previewMode`
-  // for editorial sessions). A row the reader may not read answers as a missing
-  // one — the records API's 404 — see `collectionReadGateOf`, and the page's
-  // attachment tokens are addresses — see `collectionAttachments`.
+  const db = withLocalizedRows({ ...input.db, recordText }, app, lang)
+  // Editorial preview (`previewMode`, editorial sessions only) bypasses
+  // `collection.filter` to show drafts at their URL. An unreadable row answers as
+  // a missing one (`collectionReadGateOf`); attachment tokens are addresses.
   const collectionPage = collectionAttachments(matchedPage, app, db).page
   const unfiltered = previewMode === true || input.sampleAddress === true
   const collectionResolution = await resolveCollectionPage(collectionPage, routeParams, db, {
@@ -275,17 +270,14 @@ export async function resolveCollectionAndFilter(
   // The record, for an embedded form's `inlinePrefill` `$record.*` (`single` is the parent's).
   const collectionRecord =
     collectionResolution.kind === 'match' ? collectionResolution.record : undefined
-  return resolveAndFilterPage({
+  const filtered = await resolveAndFilterPage({
     rawPage,
     app,
     routeParams,
     session,
     cookies,
     db,
-    // `definedOnly` rather than five inline `...(x !== undefined ? …)` spreads:
-    // `exactOptionalPropertyTypes` forces one per optional member, and five of
-    // them is a branch each, which alone pushed this function past its
-    // complexity cap.
+    // `definedOnly`: one spread per optional member would each cost a branch.
     ...definedOnly({
       collectionRecord,
       detectedLanguage,
@@ -297,6 +289,7 @@ export async function resolveCollectionAndFilter(
     }),
     urlLanguage: input.urlLanguage,
   })
+  return withRecordLanguageAddresses(filtered, collectionResolution)
 }
 
 /**

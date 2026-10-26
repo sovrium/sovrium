@@ -84,6 +84,10 @@ export const viewOnlyParamSchema = Schema.Struct({
 export const queryString = (description: string) =>
   optionalField(Schema.String.annotate({ description }))
 
+/** The `lang` parameter of a records read: the one description the list and the record share. */
+const LANG_PARAM_DESCRIPTION =
+  'Language of the values of translatable fields: a declared language code such as `fr`, or `*` for every language. With a code, each translatable field is returned as one string in that language, falling back to `languages.fallback` then `languages.default` when it has no value there; without the parameter, the `Accept-Language` header picks the language, then `languages.default`. With `*`, each translatable field is returned as its whole map from language code to text. A code the app does not declare is ignored'
+
 /**
  * List records query parameters
  *
@@ -115,9 +119,21 @@ export const listRecordsQuerySchema = Schema.Struct({
   groupBy: queryString(
     'Field name to group records by, or a comma-separated list of fields for nested levels (outermost first). Each named field is permission-checked'
   ),
+  lang: queryString(LANG_PARAM_DESCRIPTION),
   labels: queryString(
     'Comma-separated `field:relatedField` pairs. Adds, under `_display`, the label of a relationship field read from a field of the related table; the stored key is unchanged. A pair naming no relationship, or a field the related table lacks, is ignored, and a label is returned only if the caller may read that field'
   ),
+})
+
+/**
+ * Get one record query parameters: its value format, wall clock, trash
+ * visibility, and the language of its translatable fields.
+ */
+export const getRecordQuerySchema = Schema.Struct({
+  format: queryString('Field value format: `display` adds formatted values'),
+  timezone: queryString('IANA timezone for date formatting'),
+  includeDeleted: queryString('Set to "true" to read a soft-deleted record'),
+  lang: queryString(LANG_PARAM_DESCRIPTION),
 })
 
 /**

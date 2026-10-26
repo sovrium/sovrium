@@ -6,12 +6,14 @@
  */
 
 import { Context, type Effect } from 'effect'
+import type { ManyToManyFieldRead, RecordLinkWrite } from './record-links'
 import type { RecordWriteExtras, UpdateRecordFailure } from './record-write-accounts'
 import type { TableFileReferences } from './table-file-references'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type {
   ForeignKeyViolationError,
   DatabaseError,
+  UncompilableFilterOperatorError,
   UniqueConstraintViolationError,
 } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
@@ -19,10 +21,9 @@ import type {
   PercentileFields,
   PercentileFigures,
 } from '@/domain/models/app/tables/aggregate-percentile-service'
+import type { CaseFoldedSortField } from '@/domain/models/app/tables/text-sort-service'
 
-/**
- * A single filter leaf clause (`field <operator> value`).
- */
+/** A single filter leaf clause (`field <operator> value`). */
 export interface QueryFilterLeaf {
   readonly field: string
   readonly operator: string
@@ -76,7 +77,7 @@ export interface LookupReadMask {
   readonly readable: QueryFilterNode | undefined
   readonly link:
     | { readonly kind: 'column'; readonly column: string }
-    | { readonly kind: 'junction'; readonly filters?: QueryFilterNode }
+    | { readonly kind: 'junction'; readonly linkTable: string; readonly filters?: QueryFilterNode }
     | { readonly kind: 'reverse'; readonly column: string; readonly filters?: QueryFilterNode }
     | {
         readonly kind: 'chain'
@@ -92,15 +93,20 @@ export interface LookupReadMask {
  * the related table's rule projected for the reader (`undefined` where it
  * carries none) and the lookup's own `filters`.
  */
-export interface LookupReadList {
-  readonly kind: 'junction' | 'reverse'
+export type LookupReadList = {
   readonly sourceTable: string
   readonly relatedTable: string
   readonly relatedField: string
-  readonly column?: string
   readonly readable: QueryFilterNode | undefined
   readonly filters?: QueryFilterNode
-}
+} & (
+  | {
+      readonly kind: 'junction'
+      /** The many-to-many field's own link table: never one named after the two tables alone. */
+      readonly linkTable: string
+    }
+  | { readonly kind: 'reverse'; readonly column: string }
+)
 
 /**
  * One record a lookup of a lookup reads through: the key `column` of the row
@@ -113,16 +119,7 @@ export interface LookupReadHop {
   readonly readable: QueryFilterNode | undefined
 }
 
-/**
- * One many-to-many field's junction rows to add or remove for a record: the
- * related table, the related ids, and whether the related table declares the
- * reciprocal field (whose mirror rows move with them).
- */
-export interface RecordLinkWrite {
-  readonly relatedTable: string
-  readonly relatedIds: readonly (string | number)[]
-  readonly hasReciprocal: boolean
-}
+export type { ManyToManyFieldRead, RecordLinkWrite } from './record-links'
 
 /** Aggregation query configuration */
 export interface AggregateQuery extends PercentileFields {
@@ -181,9 +178,12 @@ export type GroupOrder =
       readonly app?: SortAppView
       readonly primaryKey?: SortPrimaryKey
       /** The text fields of the table: a sort on one compares them ignoring case. */
-      readonly caseFoldedSortFields?: readonly string[]
+      readonly caseFoldedSortFields?: readonly CaseFoldedSortField[]
     }
   | { readonly kind: 'by-value' }
+
+/** A filtered read's failure: a database error, or a filter compiler's refusal, as itself. */
+export type TableReadError = DatabaseError | UncompilableFilterOperatorError
 
 /**
  * Table Repository port for CRUD operations
@@ -257,8 +257,8 @@ export class TableRepository extends Context.Service<
        */
       readonly primaryKey?: SortPrimaryKey
       /** The text fields of `tableName`: a sort on one compares them ignoring case. */
-      readonly caseFoldedSortFields?: readonly string[]
-    }) => Effect.Effect<readonly Record<string, unknown>[], DatabaseError>
+      readonly caseFoldedSortFields?: readonly CaseFoldedSortField[]
+    }) => Effect.Effect<readonly Record<string, unknown>[], TableReadError>
 
     readonly listTrash: (config: {
       readonly session: Readonly<UserSession>
@@ -267,7 +267,7 @@ export class TableRepository extends Context.Service<
       /** Lookups to evaluate as empty for this reader, as `listRecords` takes them. */
       readonly lookupMasks?: readonly LookupReadMask[]
       readonly sort?: string
-    }) => Effect.Effect<readonly Record<string, unknown>[], DatabaseError>
+    }) => Effect.Effect<readonly Record<string, unknown>[], TableReadError>
 
     readonly getRecord: (
       session: Readonly<UserSession>,
@@ -346,7 +346,7 @@ export class TableRepository extends Context.Service<
       readonly lookupMasks?: readonly LookupReadMask[]
       readonly includeDeleted?: boolean
       readonly aggregate: AggregateQuery
-    }) => Effect.Effect<AggregationResult, DatabaseError>
+    }) => Effect.Effect<AggregationResult, TableReadError>
 
     /**
      * Group the matching records in the database: one `GROUP BY` per prefix of
@@ -364,7 +364,7 @@ export class TableRepository extends Context.Service<
       readonly aggregate: AggregateQuery
       readonly order: GroupOrder
       readonly maxGroups?: number
-    }) => Effect.Effect<readonly (readonly GroupedAggregationRow[])[], DatabaseError>
+    }) => Effect.Effect<readonly (readonly GroupedAggregationRow[])[], TableReadError>
 
     /**
      * Resolve `many-to-many` field values from junction tables for a
@@ -373,7 +373,7 @@ export class TableRepository extends Context.Service<
     readonly readManyToMany: (input: {
       readonly sourceTable: string
       readonly sourceIds: readonly (string | number)[]
-      readonly fields: readonly { readonly fieldName: string; readonly relatedTable: string }[]
+      readonly fields: readonly ManyToManyFieldRead[]
     }) => Effect.Effect<Record<string, Record<string, readonly (string | number)[]>>, DatabaseError>
 
     /**
@@ -382,18 +382,18 @@ export class TableRepository extends Context.Service<
      *
      * A relationship column holds an identifier; a field declaring
      * `displayField` has named the column that identifies the related row to a
-     * person. This reads that column WITHOUT touching the stored key, so
-     * filters, editors and the write path keep seeing the identifier they store
-     * while a read surface can show the name.
+     * person. This reads that column WITHOUT touching the stored key, so the
+     * filters, editors and write path keep the identifier they store.
      *
-     * Returns `"<relatedTable>.<displayField>" -> id -> label`. A referenced row
-     * that no longer exists, or whose display column is empty, has no entry.
+     * Returns `"<relatedTable>.<displayField>" -> id -> label`, each label read
+     * through `localize` when given. A missing row or empty label has no entry.
      */
     readonly readRelatedLabels: (
       requests: readonly {
         readonly relatedTable: string
         readonly displayField: string
         readonly ids: readonly (string | number)[]
+        readonly localize?: (label: unknown) => string | undefined
       }[]
     ) => Effect.Effect<Record<string, Record<string, string>>, DatabaseError>
   } & TableFileReferences

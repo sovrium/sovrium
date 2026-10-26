@@ -20,6 +20,7 @@ import {
   buildUpdateAuthorshipOverrides,
   buildCurrentUserDefaults,
 } from '@/domain/models/app/tables/authorship-fields'
+import { languageMergesIn } from '@/domain/models/app/tables/translatable-write-service'
 import { storedValuesIn } from '@/domain/models/app/tables/user-list-field-service'
 import { omitFromWriteEchoWhenReturned } from './hidden-lookup-omission'
 import {
@@ -38,6 +39,7 @@ import type { LinkReader } from './linked-row-visibility'
 import type { UserSession } from '@/application/ports/contracts/user-session'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import type { TableReadError } from '@/application/ports/repositories/tables/table-repository'
 import type { BatchRestoreRecordsResponse } from '@/domain/models/api/tables/tables'
 import type { App } from '@/domain/models/app'
 
@@ -54,7 +56,7 @@ const refuseBatchLinkTargets = (input: {
   readonly reader: LinkReader | undefined
 }): Effect.Effect<
   void,
-  DatabaseError | ValidationError,
+  TableReadError | ValidationError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   refuseUnreadableLinkTargets(input).pipe(
@@ -68,7 +70,8 @@ const storedFieldsOf = (
   fields: Readonly<Record<string, unknown>>,
   app: App | undefined,
   tableName: string
-): Readonly<Record<string, unknown>> => storedValuesIn(app?.tables, tableName, fields)
+): Readonly<Record<string, unknown>> =>
+  languageMergesIn(app, tableName, storedValuesIn(app?.tables, tableName, fields))
 
 /** A batch update entry whose fields are in their stored form ({@link storedFieldsOf}). */
 const withStoredFields = <R extends { readonly fields?: Record<string, unknown> }>(
@@ -174,7 +177,7 @@ export function batchCreateProgram(config: {
   readonly linkReader?: LinkReader
 }): Effect.Effect<
   { readonly created: number; readonly records?: readonly TransformedRecord[] },
-  DatabaseError | ValidationError,
+  TableReadError | ValidationError,
   BatchRepository | TableRepository | DataSourceRepository | AuthRepository
 > {
   const { session, tableName, recordsData, returnRecords = false, app, linkReader } = config
@@ -231,7 +234,7 @@ export function batchUpdateProgram(config: {
   readonly linkReader?: LinkReader
 }): Effect.Effect<
   { readonly updated: number; readonly records?: readonly TransformedRecord[] },
-  DatabaseError | ValidationError,
+  TableReadError | ValidationError,
   BatchRepository | TableRepository | DataSourceRepository | AuthRepository
 > {
   const { session, tableName, recordsData, returnRecords = false, app, linkReader } = config
@@ -349,7 +352,7 @@ export function upsertProgram(
     readonly created: number
     readonly updated: number
   },
-  DatabaseError | ValidationError | BatchValidationError,
+  TableReadError | ValidationError | BatchValidationError,
   BatchRepository | TableRepository | DataSourceRepository | AuthRepository
 > {
   return Effect.gen(function* () {

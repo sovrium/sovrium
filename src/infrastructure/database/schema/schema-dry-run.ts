@@ -79,6 +79,7 @@ import { applySchemaDefaults } from './apply-schema-defaults'
 import { planFormulaRecomputes } from './formula-engine-recompute'
 import { getPreviousSchema } from './migration-audit-trail'
 import { sortTablesByDependencies } from './schema-dependency-sorting'
+import { planLanguageWarnings } from './schema-dry-run-languages'
 import { planRelationSet, type RelationPlan } from './schema-dry-run-relations'
 import { withSqliteDropRebuild } from './schema-dry-run-sqlite-drops'
 import { withUniquePlan } from './schema-dry-run-unique'
@@ -125,6 +126,7 @@ export interface TableChange {
    */
   readonly refusals: readonly string[]
   readonly lostObjects?: readonly string[] // SQLite rebuild: hand-made objects it won't recreate
+  readonly warnings?: readonly string[] // printed whatever the kind; never a refusal
 }
 
 /** Everything one {@link planTable} call needs, bundled to keep arity low. */
@@ -538,13 +540,9 @@ export const planConfigTableChanges = (
         // nothing else, and the state it stands for — the checksum table does
         // not exist yet — is the normal one before the upgrade.
         //
-        // `catchCause` would additionally swallow DEFECTS, and a defect on this
-        // line does not mean "no previous snapshot"; it means the plan was
-        // computed against a snapshot nobody could read. The report would then
-        // under-state the change set with no indication it had done so, which
-        // The two-machine `sovrium migrate` design classes as a defect rather than a limitation — the same
-        // judgement this module already makes about the unsimulated recreate.
-        // Letting a defect through turns a silently wrong plan into a refusal.
+        // `catchCause` would also swallow DEFECTS, and a defect here means the plan was computed
+        // against a snapshot nobody could read: a silently under-stated change set, which the
+        // two-machine `sovrium migrate` design classes as a defect. Letting it through refuses.
         // effect-swallow: see the paragraph above — a missing previous snapshot is the FIRST-BOOT case, not an error, and `orElseSucceed` is narrowed to failures precisely so a defect still refuses the plan.
         Effect.orElseSucceed(() => undefined)
       )
@@ -564,12 +562,14 @@ export const planConfigTableChanges = (
       )
       const recomputes = yield* planFormulaRecomputes(tx, tables, previousSchema)
       const views = yield* planViewRebuilds(tx, app, tables, config.dialect)
+      const languages = yield* planLanguageWarnings(tx, tables, app, config.dialect)
       return [
         ...relationChanges(relations),
         ...drops,
         ...tableChanges.flat(),
         ...recomputes,
         ...views,
+        ...languages,
       ]
     })
   )

@@ -14,7 +14,8 @@ import {
 import { hasCreatePermissionForRoles } from '@/domain/models/app/auth/permission-evaluator-service'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { declaredFieldLabel } from '@/presentation/design/field-display'
-import { resolveTableImportFields } from '@/presentation/render/props/resolve-type-specific-inputs'
+import { resolveTableImportFields } from '@/presentation/render/props/data-table-field-inputs'
+import { withLanguageTargets } from './import-language-targets'
 import { writeGateRoles } from './write-permission-gates'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
@@ -160,13 +161,18 @@ function withOptionLabels(
  * every declared language — stamped under `props._import`, which the button renderer hands to the import island. Any
  * other node is returned untouched.
  */
-export function stampOpenImportFields(node: object, app: App): object {
+export function stampOpenImportFields(
+  node: object,
+  { app, hostApp }: { readonly app: App; readonly hostApp?: App }
+): object {
   const tableName = openImportTable(node)
   if (tableName === undefined) return node
   const table = app.tables?.find((candidate) => candidate.name === tableName)
   if (table === undefined) return node
   const { props } = node as { readonly props?: Record<string, unknown> }
-  const fields = resolveTableImportFields(table, app.tables)
+  // A translatable field takes one column per language its app declares (`name.fr`).
+  const { languages } = hostApp ?? app
+  const fields = withLanguageTargets(resolveTableImportFields(table, app.tables), table, languages)
   return {
     ...node,
     props: {

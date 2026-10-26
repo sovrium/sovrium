@@ -23,7 +23,9 @@ sovrium init ./my-app --typescript
 
 `--template` takes a bundled template name — `sovrium templates` lists the bundled names, and an unknown one exits `1` and prints the list — or a **GitHub repository** in any of the forms `owner/repo`, `gh:owner/repo` or `https://github.com/owner/repo`, each with an optional `#ref` naming a branch, tag or SHA. Only `github.com` is supported.
 
-`--from-url <url>` forks one published `.yaml`, `.yml` or `.json` config over HTTPS, and `--git` initialises a repository and lands the scaffold as one commit. Both are described below.
+`--from-url <url>` forks one published YAML or JSON config over HTTPS — the format comes from the URL's path (`.yaml`, `.yml` or `.json`), or from the response's `Content-Type` when the path has no extension — and `--git` initialises a repository and lands the scaffold as one commit. Both are described below.
+
+`--from-bundle <source>` opens an archive written by `sovrium bundle` (from an `https:` link, a `file:` URL or a path) as a new project, after checking every file and its publisher; see **Opening a Bundle**.
 
 `--typescript` writes an `app.ts` **instead of** a YAML config, alongside the `sovrium.d.ts` and `tsconfig.json` that make it check. It refuses to combine with `--template`: a template ships its own `app.yaml`, and Sovrium resolves `app.yaml` before `app.ts`, so the generated config would be permanently shadowed. Scaffold the template first, then convert its config by hand.
 
@@ -36,6 +38,8 @@ sovrium init ./my-app --typescript
 ```bash
 sovrium init ./contact-book --from-url https://example.com/starters/contact-book.yaml
 ```
+
+The URL is fetched exactly as given. A query string — a signed link's signature, a download name — is sent unchanged and never decides the format: only the path's extension does, and failing that the `Content-Type` (`application/yaml`, `application/x-yaml`, `text/yaml` or `application/json`). What is _recorded_ is not: a signed link is written down without what signs it.
 
 The document is fetched once, at scaffold time, and written into the project byte for byte — comments, key order and all. Nothing ever re-fetches it. That is the difference between a file you have and a file whose author can still change what your app does.
 
@@ -52,18 +56,20 @@ Beside it lands `.sovrium-template.json`, recording where the config came from:
 
 It is meant to be committed. Provenance goes in a sidecar rather than a header comment because a comment does not survive the first rewrite, and a JSON config cannot carry one at all.
 
+So when the URL carried a signature or a bearer token (an `X-Amz-*`, `X-Goog-*` or Azure SAS query, a `token`, `access_token`, `key`, `apikey`, `auth` or `sig` parameter, or credentials before the host), `source` records it with those parameters removed, the others kept in order, and the sidecar adds `"signedSource": true`, so you know the recorded address is not the whole one. An unsigned fork's sidecar is unchanged. A refused fetch names the address the same way, never its signature.
+
 Every refusal below exits `1` **before a single file is written**, so a rejected fork leaves nothing behind to clean up:
 
-| Refused                             | Why                                                                                                                                   |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| A plain `http://` URL               | The document becomes your whole application, so whoever can rewrite it in flight chooses what your project is                         |
-| A URL ending in `.ts`               | A TypeScript config is a program. Downloading one from a URL to run it is a different thing from copying a document                   |
-| Any other extension                 | The extension is what decides whether the fork lands as `app.yaml` or `app.json`                                                      |
-| A document over 1 MB                | A config is a few kilobytes. The limit applies while the document is read, so an oversized one is abandoned rather than buffered      |
-| A config carrying a remote `$ref`   | Following it would leave the fork incomplete and every later boot dependent on a host you did not choose                              |
-| A config the schema rejects         | The document is decoded before the first write. A half-scaffolded project whose config does not boot is worse than no project         |
-| A redirect chain over five hops     | A published document is served directly or behind a redirect or two. A longer chain is a loop, or a redirector                        |
-| A redirect to a non-`https` address | You chose the address you typed; the publisher chose where it goes next. A cleartext hop hands the document to whoever is on the path |
+| Refused                                                                               | Why                                                                                                                                   |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| A plain `http://` URL                                                                 | The document becomes your whole application, so whoever can rewrite it in flight chooses what your project is                         |
+| A URL ending in `.ts`                                                                 | A TypeScript config is a program. Downloading one from a URL to run it is a different thing from copying a document                   |
+| A URL whose path has no `.yaml`/`.yml`/`.json` and whose `Content-Type` names neither | The format is what decides whether the fork lands as `app.yaml` or `app.json`. Checked after the fetch, still before the first write  |
+| A document over 1 MB                                                                  | A config is a few kilobytes. The limit applies while the document is read, so an oversized one is abandoned rather than buffered      |
+| A config carrying a remote `$ref`                                                     | Following it would leave the fork incomplete and every later boot dependent on a host you did not choose                              |
+| A config the schema rejects                                                           | The document is decoded before the first write. A half-scaffolded project whose config does not boot is worse than no project         |
+| A redirect chain over five hops                                                       | A published document is served directly or behind a redirect or two. A longer chain is a loop, or a redirector                        |
+| A redirect to a non-`https` address                                                   | You chose the address you typed; the publisher chose where it goes next. A cleartext hop hands the document to whoever is on the path |
 
 ```console
 $ sovrium init ./my-app --from-url http://example.com/app.yaml

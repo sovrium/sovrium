@@ -43,7 +43,10 @@ export const createAuthLayer = (authConfig?: AuthConfig): Layer.Layer<Auth> => {
     Auth.of({
       api: authInstance.api,
       handler: authInstance.handler,
-      accountWriter: async () => (await authInstance.$context).internalAdapter,
+      accountWriter: async () => {
+        const context = await authInstance.$context
+        return { ...context.internalAdapter, hashPassword: context.password.hash }
+      },
 
       getSession: (headers) =>
         Effect.tryPromise({

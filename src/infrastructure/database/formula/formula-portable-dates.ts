@@ -6,6 +6,7 @@
  */
 
 import { Data } from 'effect'
+import { findCallToken, type CallToken } from './formula-call-token'
 
 /**
  * The portable date functions: `days_between(a, b)`, `add_days(d, n)` and
@@ -99,74 +100,6 @@ const dateKindOf = (arg: string, fields: readonly FieldLike[]): DateKind => {
 
 const PORTABLE_CALL = /^(days_between|add_days|date_part_utc)\s*\(/i
 
-/** One portable call: its name, its arguments as written, and where it ends. */
-interface PortableCall {
-  readonly name: string
-  readonly start: number
-  readonly end: number
-  readonly args: readonly string[]
-}
-
-/** The index just past a quoted run starting at `index` (`'it''s'`, `"order"`). */
-const skipQuoted = (sql: string, index: number): number => {
-  const quote = sql[index]
-  let cursor = index + 1
-  while (cursor < sql.length) {
-    if (sql[cursor] === quote && sql[cursor + 1] === quote) cursor += 2
-    else if (sql[cursor] === quote) return cursor + 1
-    else cursor += 1
-  }
-  return cursor
-}
-
-/** The top-level arguments of the call whose `(` is at `open`, and the index past its `)`. */
-const readArguments = (
-  sql: string,
-  open: number
-): { readonly args: readonly string[]; readonly end: number } => {
-  let depth = 0
-  let cursor = open + 1
-  let argStart = cursor
-  let args: readonly string[] = []
-  while (cursor < sql.length) {
-    const char = sql[cursor]
-    if (char === "'" || char === '"') {
-      cursor = skipQuoted(sql, cursor)
-      continue
-    }
-    if (char === '(') depth += 1
-    else if (char === ')' && depth === 0) {
-      return { args: [...args, sql.slice(argStart, cursor).trim()], end: cursor + 1 }
-    } else if (char === ')') depth -= 1
-    else if (char === ',' && depth === 0) {
-      args = [...args, sql.slice(argStart, cursor).trim()]
-      argStart = cursor + 1
-    }
-    cursor += 1
-  }
-  return { args: [...args, sql.slice(argStart).trim()], end: sql.length }
-}
-
-/** The first portable call in `sql`, outside string literals and quoted names. */
-const findPortableCall = (sql: string): PortableCall | undefined => {
-  let cursor = 0
-  while (cursor < sql.length) {
-    const char = sql[cursor] ?? ''
-    if (char === "'" || char === '"') {
-      cursor = skipQuoted(sql, cursor)
-      continue
-    }
-    const previous = sql[cursor - 1] ?? ''
-    const match = /[\w.]/.test(previous) ? null : PORTABLE_CALL.exec(sql.slice(cursor))
-    if (match !== null) {
-      const { args, end } = readArguments(sql, cursor + match[0].length - 1)
-      return { name: (match[1] ?? '').toLowerCase(), start: cursor, end, args }
-    }
-    cursor += 1
-  }
-  return undefined
-}
-
 /** One argument: as written (to read its kind) and as translated (to emit). */
 interface Argument {
   readonly written: string
@@ -237,7 +170,7 @@ export const translatePortableDates = (
   fields: readonly FieldLike[],
   dialect: Dialect
 ): string => {
-  const call = findPortableCall(formula)
+  const call = findCallToken(formula, PORTABLE_CALL)
   if (call === undefined) return formula
   const args = call.args.map((written) => ({
     written,
@@ -254,8 +187,8 @@ export const translatePortableDates = (
 }
 
 /** Every portable call of a formula, nested ones included. */
-const portableCalls = (formula: string): readonly PortableCall[] => {
-  const call = findPortableCall(formula)
+const portableCalls = (formula: string): readonly CallToken[] => {
+  const call = findCallToken(formula, PORTABLE_CALL)
   if (call === undefined) return []
   return [call, ...call.args.flatMap(portableCalls), ...portableCalls(formula.slice(call.end))]
 }

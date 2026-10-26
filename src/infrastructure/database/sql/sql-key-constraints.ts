@@ -7,6 +7,7 @@
 
 import { quoteSqlIdentifier } from '@/domain/kernel/sql/sql-formatting'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
+import { declaresTranslatable } from '@/domain/models/app/tables/translatable-field-service'
 import { qualifiedAuthTable } from './dialect-ddl'
 import {
   isRelationshipField,
@@ -29,11 +30,18 @@ import type { Fields } from '@/domain/models/app/tables/fields'
  * unique-field list without this exclusion would try to ADD the btree constraint
  * that CREATE deliberately skipped — turning a legal `geolocation` + `unique`
  * field into a schema-init failure on the SECOND boot, while the first succeeded.
+ *
+ * A translatable field is excluded too: it is unique within each language, held
+ * by one expression index per language (`sql-language-unique-indexes.ts`), never
+ * by an index over the whole map.
  */
 export const isBtreeUniqueField = (
   field: Fields[number]
 ): field is Fields[number] & { unique: true } =>
-  'unique' in field && !!field.unique && field.type !== 'geolocation'
+  'unique' in field &&
+  !!field.unique &&
+  field.type !== 'geolocation' &&
+  !declaresTranslatable(field)
 
 /**
  * The prefix of every constraint named after a table: its DATABASE name.

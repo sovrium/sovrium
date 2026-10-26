@@ -32,6 +32,8 @@
 import { confirm } from '@tauri-apps/plugin-dialog'
 
 import {
+  claudeDesktopApply,
+  claudeDesktopPreview,
   errorText,
   mcpSnippet,
   openAppInBrowser,
@@ -40,6 +42,7 @@ import {
   restartEngine,
   revealProject,
   revealSettingsFolder,
+  setAiWrites,
   settingsRead,
   settingsWrite,
   shellLogs,
@@ -47,6 +50,7 @@ import {
   undoAvailability,
   undoRestore,
   validateConfig,
+  type ClaudeDesktopPreview,
   type McpSnippet,
   type Settings,
   type StatePayload,
@@ -119,6 +123,21 @@ const row = (label: string, ...controls: readonly (Node | string | null)[]): HTM
     { class: 'row' },
     h('span', { class: 'row__label' }, label),
     h('div', { class: 'row__controls' }, ...controls)
+  )
+
+/**
+ * A row whose one control is a checkbox, with the label bound to it.
+ *
+ * A `<label for>` rather than a span, so the whole sentence is the hit target —
+ * shadcn's Checkbox + Label pairing — and a screen reader announces the
+ * checkbox by its sentence instead of as an unnamed box.
+ */
+const checkboxRow = (label: string, toggle: HTMLInputElement): HTMLElement =>
+  h(
+    'div',
+    { class: 'row' },
+    h('label', { class: 'row__label', for: toggle.id }, label),
+    h('div', { class: 'row__controls' }, toggle)
   )
 
 /**
@@ -252,8 +271,8 @@ const projectTab = (context: SettingsContext, payload: StatePayload): HTMLElemen
         h('button', { class: 'button', type: 'button', onClick: savePort }, 'Save')
       ),
       h('p', { class: 'panel__note' }, projectCopy.portNote),
-      row(projectCopy.browserToggle, browserToggle),
-      row(projectCopy.updatesToggle, updatesToggle),
+      checkboxRow(projectCopy.browserToggle, browserToggle),
+      checkboxRow(projectCopy.updatesToggle, updatesToggle),
       h('p', { class: 'panel__note' }, projectCopy.updatesNote),
       h(
         'div',
@@ -336,13 +355,224 @@ const clientPicker = (snippet: McpSnippet): HTMLElement => {
   )
 }
 
+/**
+ * "Let my AI edit" — per project, off by default.
+ *
+ * It changes only what the snippet above tells a client to set in its own
+ * environment (`MCP_CONFIG_WRITE=1`); the config file and the running engine
+ * are untouched. Disabled when the config is `app.ts`, which the engine's write
+ * tools refuse anyway ([internal ref] D6).
+ */
+const writeSwitch = (context: SettingsContext, snippet: McpSnippet): HTMLElement => {
+  const toggle = h('input', {
+    type: 'checkbox',
+    id: 'ai-writes',
+    'data-testid': 'ai-writes',
+    checked: snippet.writesEnabled,
+    disabled: !snippet.writesSupported,
+    onChange: (event) => {
+      const checked = (event.currentTarget as HTMLInputElement).checked
+      void setAiWrites(checked)
+        .then(() => {
+          // A connected Claude Desktop still has the old entry: offer to
+          // rewrite it, under the same consent as the first write (A2 rule 7).
+          offerClaudeDesktopRewrite =
+            snippet.claudeDesktopConnected && snippet.claudeDesktopPath !== null
+          context.refresh()
+        })
+        .catch((error: unknown) => {
+          context.setNotice(errorText(error))
+          context.refresh()
+        })
+    },
+  })
+  // No gap of its own: the note sits under its row the way the Project tab's
+  // notes do (`.row + .panel__note`), so the two read as one setting.
+  return h(
+    'div',
+    { class: 'setting' },
+    checkboxRow(aiCopy.writeToggle, toggle),
+    h(
+      'p',
+      { class: 'panel__note' },
+      snippet.writesSupported || snippet.projectDir === null
+        ? aiCopy.writeToggleHint
+        : aiCopy.writeUnsupported
+    )
+  )
+}
+
+/**
+ * Set when "Let my AI edit" changes on a project whose Claude Desktop entry the
+ * shell wrote, and read once by the next render of this tab, which re-runs the
+ * whole view: the offer has to survive that refresh.
+ */
+let offerClaudeDesktopRewrite = false
+
+type ReadyPreview = Extract<ClaudeDesktopPreview, { kind: 'ready' }>
+
+/**
+ * "Connect Claude Desktop" ([internal ref] A2): write this project's entry into
+ * Claude Desktop's own configuration file, after a confirmation showing the
+ * file, the exact entry, whether it lets the AI edit, and the backup.
+ *
+ * Absent where the shell knows no path for that file. Every write — first
+ * connection, update, or a change of the switch — goes through the
+ * confirmation; there is no "don't ask again". The copy-snippet path below
+ * stays, and is where a refused file sends the user.
+ */
+const claudeDesktopConnect = (snippet: McpSnippet): HTMLElement | null => {
+  if (snippet.claudeDesktopPath === null) return null
+  const copy = aiCopy.desktopConnect
+  const slot = h('div', { class: 'panel__slot' })
+  const start = h(
+    'button',
+    {
+      class: 'button button--primary',
+      type: 'button',
+      'data-testid': 'claude-desktop-connect',
+      onClick: () => void preview(null),
+    },
+    snippet.claudeDesktopConnected ? copy.updateAction : copy.action
+  )
+
+  const say = (line: string): void => {
+    slot.replaceChildren(h('p', { class: 'panel__note panel__note--strong', role: 'status' }, line))
+  }
+
+  // A refusal carries its own way out: the entry to add by hand, right here,
+  // rather than "the snippet below" — whose tab may be on another client.
+  const refuse = (reason: string, fallback: string): void => {
+    slot.replaceChildren(
+      h(
+        'div',
+        { class: 'consent', role: 'status', 'data-testid': 'claude-desktop-refused' },
+        h('p', { class: 'panel__note panel__note--strong' }, copy.refused(reason)),
+        h('pre', { class: 'log log--snippet' }, fallback),
+        h('div', { class: 'form__actions' }, copyButton(fallback))
+      )
+    )
+  }
+
+  const preview = async (lead: string | null): Promise<void> => {
+    start.disabled = true
+    try {
+      const result = await claudeDesktopPreview('connect')
+      if (result.kind === 'refused') refuse(result.reason, result.fallback)
+      else consent(result, lead)
+    } catch (error: unknown) {
+      say(errorText(error))
+    } finally {
+      start.disabled = false
+    }
+  }
+
+  const apply = async (plan: ReadyPreview, button: HTMLButtonElement): Promise<void> => {
+    button.disabled = true
+    button.textContent = copy.working
+    try {
+      const outcome = await claudeDesktopApply(plan.fingerprint)
+      if (outcome.kind === 'changed') {
+        await preview(copy.changed)
+        return
+      }
+      start.textContent = copy.updateAction
+      say(outcome.kind === 'written' ? copy.written : copy.unchanged)
+    } catch (error: unknown) {
+      say(errorText(error))
+    }
+  }
+
+  const consent = (plan: ReadyPreview, lead: string | null): void => {
+    const confirmButton = h(
+      'button',
+      {
+        class: 'button button--primary',
+        type: 'button',
+        'data-testid': 'claude-desktop-confirm',
+        onClick: () => void apply(plan, confirmButton),
+      },
+      copy.confirm
+    )
+    const fact = (label: string, ...value: readonly HTMLElement[]): HTMLElement =>
+      h('div', { class: 'consent__fact' }, h('dt', {}, label), h('dd', {}, ...value))
+    const title = plan.alreadyPresent ? copy.updateTitle : copy.confirmTitle
+    slot.replaceChildren(
+      h(
+        'div',
+        {
+          class: 'consent',
+          role: 'group',
+          'aria-label': title,
+          'data-testid': 'claude-desktop-consent',
+        },
+        lead === null ? null : h('p', { class: 'panel__note panel__note--strong' }, lead),
+        h('h3', { class: 'panel__subtitle' }, title),
+        h(
+          'dl',
+          { class: 'consent__facts' },
+          fact(copy.fileLabel, h('span', { class: 'panel__meta' }, plan.path)),
+          fact(
+            copy.entryLabel,
+            h('span', { class: 'panel__meta' }, plan.entryName),
+            h('pre', { class: 'log log--snippet' }, plan.entry)
+          ),
+          plan.backupPath === null
+            ? null
+            : fact(copy.backupLabel, h('span', { class: 'panel__meta' }, plan.backupPath))
+        ),
+        h(
+          'ul',
+          { class: 'bullets' },
+          h('li', {}, plan.writesEnabled ? copy.writesOn : copy.writesOff),
+          plan.backupPath === null ? h('li', {}, copy.noFileYet) : null,
+          h('li', {}, copy.keepsOthers)
+        ),
+        h(
+          'div',
+          { class: 'form__actions' },
+          confirmButton,
+          h(
+            'button',
+            {
+              class: 'button button--quiet',
+              type: 'button',
+              onClick: () => slot.replaceChildren(),
+            },
+            copy.cancel
+          )
+        )
+      )
+    )
+  }
+
+  if (offerClaudeDesktopRewrite) {
+    offerClaudeDesktopRewrite = false
+    void preview(copy.rewriteOffer)
+  }
+
+  return h(
+    'div',
+    { class: 'setting' },
+    h('p', { class: 'panel__note' }, copy.hint),
+    h('div', { class: 'form__actions' }, start),
+    slot
+  )
+}
+
 const aiTab = (context: SettingsContext, payload: StatePayload): HTMLElement => {
   const setup = h('div', { class: 'panel__slot' }, h('p', { class: 'panel__lead' }, common.loading))
   const availability = h('p', { class: 'panel__note panel__note--strong', hidden: true }, '')
 
   void mcpSnippet()
     .then((snippet) => {
+      // The switch comes before the snippet because it changes the snippet:
+      // decide, then copy. Below it, the switch reads as an afterthought to a
+      // block the person has already pasted.
+      const connect = claudeDesktopConnect(snippet)
       setup.replaceChildren(
+        writeSwitch(context, snippet),
+        ...(connect === null ? [] : [connect]),
         h('p', { class: 'panel__note' }, aiCopy.clientHint),
         clientPicker(snippet)
       )

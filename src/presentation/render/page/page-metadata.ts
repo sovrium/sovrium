@@ -212,7 +212,7 @@ export function extractPageMetadata(
   options: {
     readonly lang: string
     readonly frontmatter?: Readonly<Record<string, string>>
-    /** `$app.*` / `$param.*` in the TRANSLATED title and description. */
+    /** `$app.*` / `$param.*` in the TRANSLATED title, description and canonical. */
     readonly headReferences?: HeadReferences
   }
 ): Readonly<PageMetadata> {
@@ -221,11 +221,14 @@ export function extractPageMetadata(
   const title = resolveReferences(determineTitle(page, lang, languages, frontmatter))
   const description = resolveReferences(determineDescription(page, lang, languages, frontmatter))
   const keywords = determineKeywords(page, lang, languages, frontmatter)
-  // A `$t:` key resolves like the title's, so each language can name its own address.
+  // A `$t:` key resolves like the title's, so each language can name its own
+  // address; `$app.*` / `$param.*` then resolve as in the title, so
+  // `$app.origin/...` names the page on the host the request arrived on. The
+  // head's address check runs on the result and drops a non-address.
   const canonical =
     page.meta?.canonical === undefined
       ? undefined
-      : resolveTranslationPattern(page.meta.canonical, lang, languages)
+      : resolveReferences(resolveTranslationPattern(page.meta.canonical, lang, languages))
   const bodyStyle = buildBodyStyle(design)
 
   return {

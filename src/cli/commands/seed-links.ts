@@ -29,6 +29,7 @@
 
 import { Effect } from 'effect'
 import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
+import { generateJunctionTableName } from '@/infrastructure/database/sql/sql-junction-tables'
 import { runTableProgram } from '@/infrastructure/layers/table-layer'
 import { idOfKey } from './seed-resolve'
 import type { SeedKeyIndex } from './seed-resolve'
@@ -84,11 +85,45 @@ const idSetKey = (ids: readonly (string | number)[]): string =>
 const linkFieldsOf = (
   table: Pick<PlannedSeedTable, 'name' | 'manyToManyFields'>,
   config: SeedTableConfig | undefined
-): readonly { readonly fieldName: string; readonly relatedTable: string }[] =>
+): readonly {
+  readonly fieldName: string
+  readonly relatedTable: string
+  readonly linkTable: string
+}[] =>
   table.manyToManyFields.flatMap((fieldName) => {
     const relatedTable = config?.fields.find((field) => field.name === fieldName)?.relatedTable
-    return relatedTable === undefined ? [] : [{ fieldName, relatedTable }]
+    if (relatedTable === undefined) return []
+    const source = { name: table.name, fields: config?.fields ?? [] }
+    const linkTable = generateJunctionTableName(source, { name: fieldName, relatedTable })
+    return [{ fieldName, relatedTable, linkTable }]
   })
+
+/**
+ * Every link table with `tableName` at either end: its own many-to-many
+ * fields', and every other table's many-to-many field to it.
+ */
+export const linkTablesTouching = (
+  tableName: string,
+  tables: readonly SeedTableConfig[]
+): readonly string[] => [
+  ...new Set(
+    tables.flatMap((table) =>
+      table.fields.flatMap((field) =>
+        field.type === 'relationship' &&
+        field.relationType === 'many-to-many' &&
+        field.relatedTable !== undefined &&
+        (table.name === tableName || field.relatedTable === tableName)
+          ? [
+              generateJunctionTableName(table, {
+                name: field.name,
+                relatedTable: field.relatedTable,
+              }),
+            ]
+          : []
+      )
+    )
+  ),
+]
 
 /** One row's link fields written onto it, by the seed writer. */
 export type WriteRowLinks = (

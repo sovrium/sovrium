@@ -26,7 +26,8 @@
  * One exception unpins a field outright: a form whose own starting value reads
  * the query string (`$query.<name>`). The visitor writes the URL, so the value
  * is theirs to choose, and the field stays bounded by the rows the form offers,
- * nothing more.
+ * nothing more. A page's `inlinePrefill` reading the query string admits any
+ * value the same way, for a submitter that page admits.
  */
 
 import type { App } from '@/domain/models/app'
@@ -80,6 +81,8 @@ export interface PinnedField {
   readonly column: string
   /** The form's own starting value (its `prefill`, else the field's `defaultValue`). */
   readonly formSource: PinSource
+  /** The field's own `defaultValue`, which the field always accepts. */
+  readonly defaultSource: PinSource
 }
 
 type FieldShape = {
@@ -108,24 +111,28 @@ const pinnableColumns = (app: App, form: Form): readonly string[] => {
   )
 }
 
+/** The `defaultValue` the form declares on the table field bound to `column`. */
+const fieldDefault = (form: Form, column: string): unknown =>
+  (form.fields as readonly FieldShape[]).find(
+    (candidate) => candidate.kind === 'table-field' && candidate.column === column
+  )?.defaultValue
+
 /** The form's own starting value for `column`: its `prefill` entry, else the field's default. */
 const formStartingValue = (form: Form, column: string): unknown => {
   const { prefill } = form as { readonly prefill?: Readonly<Record<string, unknown>> }
   if (prefill !== undefined && column in prefill) return prefill[column]
-  const field = (form.fields as readonly FieldShape[]).find(
-    (candidate) => candidate.kind === 'table-field' && candidate.column === column
-  )
-  return field?.defaultValue
+  return fieldDefault(form, column)
 }
 
 /**
- * The pinned fields of `form`, each with the form's own starting value. A
- * field whose starting value reads the query string is not pinned and is left
- * out. The pages that embed the form add their own sources
- * (`formEmbeddingPrefills` in the pages model).
+ * The pinned fields of `form`, each with the form's own starting value and the
+ * field's default, which is always accepted. A field whose starting value
+ * reads the query string is not pinned and is left out. The pages that embed
+ * the form add their own sources (`formEmbeddingPrefills` in the pages model).
  */
 export const pinnedFieldsOf = (app: App, form: Form): readonly PinnedField[] =>
   pinnableColumns(app, form).flatMap((column) => {
     const formSource = classifyPinSource(formStartingValue(form, column))
-    return formSource.kind === 'query' ? [] : [{ column, formSource }]
+    const defaultSource = classifyPinSource(fieldDefault(form, column))
+    return formSource.kind === 'query' ? [] : [{ column, formSource, defaultSource }]
   })

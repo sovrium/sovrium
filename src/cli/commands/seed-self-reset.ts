@@ -75,10 +75,7 @@ export const emptyAppTables = (app: Readonly<App>): Promise<ReadonlyMap<string, 
     (previous, name) =>
       previous.then(async (counted) => {
         const held = await countRows(name)
-        await clearJunctions(
-          name,
-          tables.find((table) => table.name === name)
-        )
+        await clearJunctions(name, tables)
         await deleteAllRows(name).catch((error: unknown) => {
           throw new Error(`reset could not empty the table "${name}": ${describe(error)}`)
         })

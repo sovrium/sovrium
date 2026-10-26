@@ -46,6 +46,11 @@ export interface RelatedLabelRequest {
   readonly relatedTable: string
   readonly displayField: string
   readonly ids: readonly (string | number)[]
+  /**
+   * The label as its reader reads it, for a display column holding
+   * translatable content: the stored map resolved in the reader's language.
+   */
+  readonly localize?: (label: unknown) => string | undefined
 }
 
 /**
@@ -76,14 +81,21 @@ const readLabelRows = (
   )
 }
 
+/** One stored label as text: through `localize` when given, else as it is. */
+const labelText = (label: unknown, request: RelatedLabelRequest): string | undefined => {
+  if (label === null || label === undefined || label === '') return undefined
+  return request.localize === undefined ? String(label) : request.localize(label)
+}
+
 /** Fold one table's rows into `id -> label`, dropping rows with no label. */
 const foldLabelRows = (
-  rows: ReadonlyArray<Record<string, unknown>>
+  rows: ReadonlyArray<Record<string, unknown>>,
+  request: RelatedLabelRequest
 ): Readonly<Record<string, string>> =>
   rows.reduce<Record<string, string>>((acc, row) => {
-    const { label, related_id: relatedId } = row
-    if (label === null || label === undefined || label === '') return acc
-    return { ...acc, [String(relatedId)]: String(label) }
+    const text = labelText(row['label'], request)
+    if (text === undefined || text === '') return acc
+    return { ...acc, [String(row['related_id'])]: text }
   }, {})
 
 /**
@@ -104,7 +116,7 @@ export const readRelatedLabels = (
       Effect.tryPromise({
         try: async () => ({
           request,
-          byId: foldLabelRows(await readLabelRows(request)),
+          byId: foldLabelRows(await readLabelRows(request), request),
         }),
         catch: wrapDatabaseError(`Failed to read related labels for ${request.relatedTable}`),
       }),

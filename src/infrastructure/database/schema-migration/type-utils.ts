@@ -11,6 +11,7 @@ import { isUserListField } from '@/domain/models/app/tables/user-list-field-serv
 import { isFormulaReturningArray } from '../formula/formula-utils'
 import { isPhysicalColumnField } from '../sql/sql-field-predicates'
 import { mapFieldTypeToPostgres } from '../sql/sql-generators'
+import { translatableUsingClause } from '../sql/sql-translatable-columns'
 import { mapFormulaResultTypeToPostgres } from '../sql/sql-type-mappings'
 import { resolvePrimaryKeyColumnType } from '../table-operations/column-generators'
 import {
@@ -326,6 +327,7 @@ export const generateAlterColumnTypeStatement = (
   const usingClause =
     attachmentKeyToJsonbUsing(field, columnName, normalizedExisting, normalizedTarget) ??
     userIdToListUsing(field, columnName, normalizedExisting, normalizedTarget) ??
+    translatableUsingClause(field, columnName, normalizedExisting, normalizedTarget) ??
     resolveUsingClause(columnName, targetType, normalizedExisting, normalizedTarget)
 
   // A list column carries no key: the one-account column's key goes in the same

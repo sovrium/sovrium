@@ -9,18 +9,17 @@ import { sql, type SQL } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { db, type DatabaseError } from '@/infrastructure/database'
 import { executeRaw } from '@/infrastructure/database/sql/dialect-execute'
-import {
-  generateJunctionTableName,
-  junctionKeyColumns,
-} from '@/infrastructure/database/sql/sql-junction-tables'
+import { junctionKeyColumns } from '@/infrastructure/database/sql/sql-junction-tables'
 import { wrapDatabaseError } from '../statement/error-handling'
 
 /**
  * Writing and reading a native `many-to-many` relationship field.
  *
  * A many-to-many field creates no column on the base table — the link lives in
- * an auto-generated junction table `<sourceTable>_<relatedTable>` with INTEGER
- * columns `<singular(sourceTable)>_id` and `<singular(relatedTable)>_id`
+ * the field's own junction table (`<sourceTable>_<relatedTable>`, or
+ * `<sourceTable>_<relatedTable>_<field>` beside another many-to-many to the
+ * same table; the caller names it, derived from the config) with columns
+ * `<singular(sourceTable)>_id` and `<singular(relatedTable)>_id`
  * (see `sql-junction-tables.ts`). The record-create pipeline therefore has to
  * split a many-to-many field out of the base INSERT and write the junction
  * rows separately, and the read pipeline has to resolve the field's value back
@@ -59,12 +58,14 @@ const coerceId = (value: string | number): string | number =>
 export interface ManyToManyLink {
   readonly relatedTable: string
   readonly relatedIds: readonly (string | number)[]
+  /** The field's own link table. */
+  readonly linkTable: string
   /**
-   * Whether the related table declares a reciprocal many-to-many field back to
-   * the source table. When true, the mirror junction `<relatedTable>_<sourceTable>`
-   * exists and must also receive the row so the reciprocal side sees the link.
+   * The link table of the related table's field that is this field's
+   * reciprocal, when there is one: each link is mirrored there so the
+   * reciprocal side sees it. Absent, nothing is mirrored.
    */
-  readonly hasReciprocal: boolean
+  readonly mirrorLinkTable?: string | undefined
 }
 
 export interface LinkManyToManyInput {
@@ -73,30 +74,52 @@ export interface LinkManyToManyInput {
   readonly links: readonly ManyToManyLink[]
 }
 
+/** One end of a junction row: the link table, its two tables (in its key order) and their ids. */
+interface JunctionRow {
+  readonly junction: string
+  readonly aTable: string
+  readonly bTable: string
+  readonly aId: string | number
+  readonly bId: string | number
+}
+
 /** A single INSERT into the junction that pairs `aTable` (aId) with `bTable` (bId). */
-const junctionInsert = (
-  aTable: string,
-  bTable: string,
-  aId: string | number,
-  bId: string | number
-): Readonly<SQL> => {
-  const junction = generateJunctionTableName(aTable, bTable)
+const junctionInsert = ({ junction, aTable, bTable, aId, bId }: JunctionRow): Readonly<SQL> => {
   const [aCol, bCol] = junctionKeyColumns(aTable, bTable)
   // Composite primary key (aCol, bCol) makes ON CONFLICT DO NOTHING idempotent
   // on both dialects — re-linking an existing pair is a no-op, not an error.
   return sql`INSERT INTO ${sql.identifier(junction)} (${sql.identifier(aCol)}, ${sql.identifier(bCol)}) VALUES (${coerceId(aId)}, ${coerceId(bId)}) ON CONFLICT DO NOTHING`
 }
 
-/** Every junction INSERT for a source record (own junction + reciprocal mirror). */
-const buildLinkStatements = (input: LinkManyToManyInput): readonly Readonly<SQL>[] =>
+/** Each junction row a source record's links name: its own, then the reciprocal mirror. */
+const junctionRowsOf = (input: LinkManyToManyInput): readonly JunctionRow[] =>
   input.links.flatMap((link) =>
-    link.relatedIds.flatMap((relatedId) => {
-      const own = junctionInsert(input.sourceTable, link.relatedTable, input.sourceId, relatedId)
-      return link.hasReciprocal
-        ? [own, junctionInsert(link.relatedTable, input.sourceTable, relatedId, input.sourceId)]
-        : [own]
+    link.relatedIds.flatMap((relatedId): readonly JunctionRow[] => {
+      const own: JunctionRow = {
+        junction: link.linkTable,
+        aTable: input.sourceTable,
+        bTable: link.relatedTable,
+        aId: input.sourceId,
+        bId: relatedId,
+      }
+      return link.mirrorLinkTable === undefined
+        ? [own]
+        : [
+            own,
+            {
+              junction: link.mirrorLinkTable,
+              aTable: link.relatedTable,
+              bTable: input.sourceTable,
+              aId: relatedId,
+              bId: input.sourceId,
+            },
+          ]
     })
   )
+
+/** Every junction INSERT for a source record (own junction + reciprocal mirror). */
+const buildLinkStatements = (input: LinkManyToManyInput): readonly Readonly<SQL>[] =>
+  junctionRowsOf(input).map(junctionInsert)
 
 /**
  * Write a record's junction rows on an OPEN transaction, one statement after
@@ -113,27 +136,14 @@ export const writeManyToManyLinksInTransaction = (
   )
 
 /** A single DELETE of the junction row that pairs `aTable` (aId) with `bTable` (bId). */
-const junctionDelete = (
-  aTable: string,
-  bTable: string,
-  aId: string | number,
-  bId: string | number
-): Readonly<SQL> => {
-  const junction = generateJunctionTableName(aTable, bTable)
+const junctionDelete = ({ junction, aTable, bTable, aId, bId }: JunctionRow): Readonly<SQL> => {
   const [aCol, bCol] = junctionKeyColumns(aTable, bTable)
   return sql`DELETE FROM ${sql.identifier(junction)} WHERE ${sql.identifier(aCol)} = ${coerceId(aId)} AND ${sql.identifier(bCol)} = ${coerceId(bId)}`
 }
 
 /** Every junction DELETE for a source record (own junction + reciprocal mirror). */
 const buildUnlinkStatements = (input: LinkManyToManyInput): readonly Readonly<SQL>[] =>
-  input.links.flatMap((link) =>
-    link.relatedIds.flatMap((relatedId) => {
-      const own = junctionDelete(input.sourceTable, link.relatedTable, input.sourceId, relatedId)
-      return link.hasReciprocal
-        ? [own, junctionDelete(link.relatedTable, input.sourceTable, relatedId, input.sourceId)]
-        : [own]
-    })
-  )
+  junctionRowsOf(input).map(junctionDelete)
 
 /**
  * Remove a record's named junction rows on an OPEN transaction — the inverse of
@@ -153,6 +163,8 @@ export const removeManyToManyLinksInTransaction = (
 export interface ManyToManyReadField {
   readonly fieldName: string
   readonly relatedTable: string
+  /** The field's own link table. */
+  readonly linkTable: string
 }
 
 export interface ReadManyToManyInput {
@@ -170,7 +182,7 @@ const readFieldRows = (
   sourceIds: readonly (string | number)[],
   field: ManyToManyReadField
 ): Promise<ReadonlyArray<Record<string, unknown>>> => {
-  const junction = generateJunctionTableName(sourceTable, field.relatedTable)
+  const junction = field.linkTable
   const [srcCol, relCol] = junctionKeyColumns(sourceTable, field.relatedTable)
   const idList = sql.join(
     sourceIds.map((id) => sql`${coerceId(id)}`),
@@ -235,6 +247,8 @@ export const readManyToMany = (
 export interface ManyToManyHoldersInput {
   readonly table: string
   readonly relatedTable: string
+  /** The relationship field's own link table. */
+  readonly linkTable: string
   readonly relatedIds: readonly string[]
 }
 
@@ -249,7 +263,7 @@ export const readManyToManyHolders = (
   input: ManyToManyHoldersInput
 ): Effect.Effect<readonly (string | number)[], DatabaseError> => {
   if (input.relatedIds.length === 0) return Effect.succeed([])
-  const junction = generateJunctionTableName(input.table, input.relatedTable)
+  const junction = input.linkTable
   const [srcCol, relCol] = junctionKeyColumns(input.table, input.relatedTable)
   const ids = sql.join(
     input.relatedIds.map((id) => sql`${id}`),

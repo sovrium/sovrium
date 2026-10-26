@@ -23,10 +23,9 @@ import {
   type RestoreSummary,
 } from '@/application/use-cases/server/restore-programs'
 import { parseDataDir } from '@/domain/models/process-env/data-dir'
-import { parseDatabaseDialectConfig } from '@/domain/models/process-env/database/database-dialect'
-import { parseStorageEnvConfig } from '@/domain/models/process-env/storage/storage'
 import { BackupWorkspaceLive } from '@/infrastructure/filesystem/backup-workspace-live'
 import { CLI_INDENT, inflect, printFailure, printStderr } from '@/infrastructure/logging/cli-output'
+import { readDatabaseSource, readStorageConfig } from '../runtime/install-sources'
 import { getCurrentVersion } from './update'
 import type { BackupIoError } from '@/application/ports/services/backup-workspace'
 import type { RestoreRefusal } from '@/application/use-cases/server/restore-refusal'
@@ -46,12 +45,9 @@ const fail = (headline: string, guidance: string, detail?: readonly string[]): n
 
 /** `DATABASE_URL` when it names PostgreSQL; an unreadable value is refused by the caller. */
 const readPostgresUrl = (): string | undefined | { readonly error: string } => {
-  try {
-    const dialect = parseDatabaseDialectConfig()
-    return dialect.dialect === 'postgres' ? dialect.databaseUrl : undefined
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : String(error) }
-  }
+  const database = readDatabaseSource()
+  if ('error' in database) return database
+  return database.dialect === 'postgres' ? database.url : undefined
 }
 
 /**
@@ -62,12 +58,9 @@ const readPostgresUrl = (): string | undefined | { readonly error: string } => {
  */
 const readStorageDestination = ():
   RestoreRequest['storageDestination'] | { readonly error: string } => {
-  try {
-    const { provider } = parseStorageEnvConfig()
-    return provider === 'bytea' ? 'database' : provider === 's3' ? 's3' : 'local'
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : String(error) }
-  }
+  const storage = readStorageConfig()
+  if ('error' in storage) return storage
+  return storage.provider === 'bytea' ? 'database' : storage.provider === 's3' ? 's3' : 'local'
 }
 
 /** The `Restored …` line and its data block (T22, T24/T25). */
@@ -222,7 +215,15 @@ export const handleRestoreCommand = async (options: RestoreCommandOptions): Prom
       ? fail(`${failure.reason} — nothing was restored.`, failure.guidance, failure.detail)
       : fail(
           `Sovrium could not ${failure.action}, and the restore stopped there.`,
-          'Fix the cause above, then run the command again with --force.',
+          [
+            failure.aftermath,
+            // Never recommend the flag the operator already gave.
+            request.force
+              ? "Fix the cause above, then run the same 'sovrium restore' command again."
+              : 'Fix the cause above, then run the command again with --force.',
+          ]
+            .filter((sentence) => sentence !== undefined)
+            .join(' '),
           [failure.cause instanceof Error ? failure.cause.message : String(failure.cause)]
         )
   }

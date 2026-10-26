@@ -116,7 +116,7 @@ export const editFormSubmissionProgram = (config: {
     const posted = withoutWithheldAnswers(config.body, declared, form)
     const answers = answersFromLedgerData(form, row.data)
     const body = { ...keptFileAnswers(form, app.tables, answers, posted), ...posted }
-    const mapped = yield* processSubmissionBody(app, form, body, {})
+    const mapped = yield* processSubmissionBody(app, form, body, { query: {} })
     const tableName = form.submitTo.table
     if (tableName !== undefined && row.linkedRecordId !== null) {
       yield* updateBoundRow({ ...config, form, row, tableName, mapped })

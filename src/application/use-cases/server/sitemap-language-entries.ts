@@ -6,7 +6,7 @@
  */
 
 import { languageAlternates } from '@/domain/kernel/matching/localized-alternates'
-import { leadingLanguageOf } from '@/domain/kernel/matching/localized-path'
+import { leadingLanguageOf, type PageAddress } from '@/domain/kernel/matching/localized-path'
 import {
   resolveSitemapChangefreq,
   resolveSitemapPriority,
@@ -55,6 +55,8 @@ const buildUrlEntry = (
 export interface ExpandedPath {
   readonly path: string
   readonly lastmod: string | undefined
+  /** The entry's own language pairs, when its record names them (a slug field per language). */
+  readonly alternates?: ReadonlyArray<PageAddress>
 }
 
 /** A concrete sitemap entry: the source page plus its resolved URL path. */
@@ -92,12 +94,14 @@ interface LanguageEntryContext {
  */
 const entryHreflangLinks = (expanded: ExpandedPage, ctx: LanguageEntryContext): string => {
   if (ctx.hreflangConfig === undefined) return ''
-  const alternates = languageAlternates({
-    path: expanded.page.path,
-    address: expanded.path,
-    routes: ctx.routes,
-    languages: ctx.languages,
-  })
+  const alternates =
+    expanded.alternates ??
+    languageAlternates({
+      path: expanded.page.path,
+      address: expanded.path,
+      routes: ctx.routes,
+      languages: ctx.languages,
+    })
   return renderHreflangSection(
     renderSitemapHreflangLinks(ctx.baseUrl, alternates, ctx.hreflangConfig)
   )

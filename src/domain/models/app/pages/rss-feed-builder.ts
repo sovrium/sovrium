@@ -32,8 +32,9 @@
  */
 
 import { markdownToText } from '@/domain/kernel/markdown/markdown-to-text'
-import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
+import { isLocalizedPagePath, primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
+import { isSlugFieldPerLanguage, slugFieldFor } from './collection-slug-field-service'
 import { isPublicPage } from './is-public'
 import { markdownFeedArticlePath } from './rss-feed-article-path'
 import type { App } from '@/domain/models/app'
@@ -294,11 +295,21 @@ ${itemsXml.join('\n')}
  */
 export function buildRssFeedXml(input: BuildRssFeedXmlInput): string {
   const { app, page, records, baseUrl, now } = input
-  const slugField = page.collection?.slugField ?? 'slug'
+  const declared = page.collection?.slugField ?? 'slug'
+  // An item links to the page's first address, so it reads that language's slug.
+  const feedLanguage = isLocalizedPagePath(page.path) ? Object.keys(page.path)[0] : undefined
+  const slugField = slugFieldFor(declared, feedLanguage) ?? 'slug'
   const limit = resolveRssLimit(page.rss)
   const trimmedBase = baseUrl.replace(/\/$/, '')
+  // A record with no slug in that language has no page there to link to.
+  const linked = isSlugFieldPerLanguage(declared)
+    ? records.filter(
+        (record) =>
+          record[slugField] !== undefined && record[slugField] !== null && record[slugField] !== ''
+      )
+    : records
 
-  const items = records.slice(0, limit).map((record): RssFeedItem => {
+  const items = linked.slice(0, limit).map((record): RssFeedItem => {
     const pubDate = formatRfc822(record['published_at'])
     return {
       title: pickItemTitle(record, slugField),

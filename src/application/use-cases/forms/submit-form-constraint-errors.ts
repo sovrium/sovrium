@@ -7,6 +7,7 @@
 
 import { Data } from 'effect'
 import { findConstraintViolation } from '@/domain/errors/driver-failure'
+import { languageUniqueBaseField } from '@/domain/models/app/tables/translatable-unique-service'
 
 /**
  * A bound-table write the database refused on a rule about ONE submitted
@@ -39,7 +40,9 @@ export const uniqueRefusalForField = (error: {
 }): Readonly<FormFieldConstraintError> | undefined =>
   error.fieldName
     ? new FormFieldConstraintError({
-        fieldName: error.fieldName,
+        // A translatable field's refusal names its language (`handle (fr)`);
+        // the form draws it on the field the visitor filled.
+        fieldName: languageUniqueBaseField(error.fieldName),
         message: FIELD_REFUSAL_MESSAGES.unique,
       })
     : undefined
@@ -69,3 +72,18 @@ export const constraintRefusalForField = (error: {
  */
 export const withheldChoiceRefusal = (fieldName: string): Readonly<FormFieldConstraintError> =>
   new FormFieldConstraintError({ fieldName, message: FIELD_REFUSAL_MESSAGES.check })
+
+/**
+ * The refusal of a value the form filled itself into a hidden field whose
+ * `options` do not offer it: the submitter chose neither the field nor the
+ * value, so the answer names the value — one the page already showed her —
+ * for her, and the operator, to act on.
+ */
+export const formFilledChoiceRefusal = (
+  fieldName: string,
+  value: string
+): Readonly<FormFieldConstraintError> =>
+  new FormFieldConstraintError({
+    fieldName,
+    message: `This form filled '${value}' into this field, and its options do not offer it`,
+  })

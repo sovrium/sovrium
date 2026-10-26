@@ -24,10 +24,13 @@ import { TableRepository } from '@/application/ports/repositories/tables/table-r
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { withFormulasOver } from '@/domain/models/app/tables/lookup-link-service'
 import { readableRows, type LinkReader } from './linked-row-visibility'
+import { fieldLinkTable } from './many-to-many-fields'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import type { QueryFilterNode } from '@/application/ports/repositories/tables/table-repository'
-import type { DatabaseError } from '@/domain/errors'
+import type {
+  TableReadError,
+  QueryFilterNode,
+} from '@/application/ports/repositories/tables/table-repository'
 import type { App, Table } from '@/domain/models/app'
 
 /** A lookup through a many-to-many relationship, and what it copies. */
@@ -95,7 +98,7 @@ const passingLookupFilters = (
   lookup: ManyToManyLookup,
   keys: readonly string[],
   reader: LinkReader
-): Effect.Effect<ReadonlySet<string>, DatabaseError, TableRepository> =>
+): Effect.Effect<ReadonlySet<string>, TableReadError, TableRepository> =>
   Effect.gen(function* () {
     if (lookup.filters === undefined || keys.length === 0) return new Set(keys)
     const repo = yield* TableRepository
@@ -115,11 +118,11 @@ const passingLookupFilters = (
  * reverse one.
  */
 const linkedKeysOf = (
-  tableName: string,
+  { app, tableName }: { readonly app: App; readonly tableName: string },
   lookup: ManyToManyLookup,
   ids: readonly string[],
   reader: LinkReader
-): Effect.Effect<ReadonlyMap<string, readonly string[]>, DatabaseError, TableRepository> =>
+): Effect.Effect<ReadonlyMap<string, readonly string[]>, TableReadError, TableRepository> =>
   Effect.gen(function* () {
     const repo = yield* TableRepository
     const { backLink } = lookup
@@ -127,7 +130,16 @@ const linkedKeysOf = (
       const links = yield* repo.readManyToMany({
         sourceTable: tableName,
         sourceIds: ids,
-        fields: [{ fieldName: lookup.relationship, relatedTable: lookup.relatedTable.name }],
+        fields: [
+          {
+            fieldName: lookup.relationship,
+            relatedTable: lookup.relatedTable.name,
+            linkTable: fieldLinkTable(app.tables, tableName, {
+              name: lookup.relationship,
+              relatedTable: lookup.relatedTable.name,
+            }),
+          },
+        ],
       })
       return new Map(ids.map((id) => [id, (links[id]?.[lookup.relationship] ?? []).map(String)]))
     }
@@ -156,7 +168,7 @@ interface NarrowingScope {
 const patchOf = (
   scope: NarrowingScope,
   lookup: ManyToManyLookup
-): Effect.Effect<Patch, DatabaseError, TableRepository | DataSourceRepository | AuthRepository> =>
+): Effect.Effect<Patch, TableReadError, TableRepository | DataSourceRepository | AuthRepository> =>
   Effect.gen(function* () {
     const { app, tableName, entries, reader } = scope
     // A record carrying a formula over the lookup is judged too: the formula
@@ -171,7 +183,7 @@ const patchOf = (
     )
     if (carriers.length === 0) return new Map()
     const links = yield* linkedKeysOf(
-      tableName,
+      { app, tableName },
       lookup,
       carriers.map((carrier) => carrier.id),
       reader
@@ -216,7 +228,7 @@ export const narrowManyToManyLookups = (input: {
   readonly reader: LinkReader | undefined
 }): Effect.Effect<
   readonly Readonly<Record<string, unknown>>[],
-  DatabaseError,
+  TableReadError,
   TableRepository | DataSourceRepository | AuthRepository
 > =>
   Effect.gen(function* () {

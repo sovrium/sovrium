@@ -23,6 +23,8 @@ Import is a **three-step wizard** — File, Columns, Check — over one named ro
 
 A column is matched to a field when its header is the field's name, or the field's `label` in any language the app declares — a `$t:` label is read in every language under `languages.translations`, so a spreadsheet kept in French maps onto an app whose page is read in English. Failing that, it goes to the field whose name shares the most words with the header. Every comparison ignores case and accents, so `NUMERO`, `Numero` and `numéro` all match a field labelled `Numéro`. A column that matches nothing stays on Skip, and any choice can be changed by hand before the import.
 
+The import route takes a translatable field as one key per language: `name` fills the default language, and `name.fr`, `name.de` and so on fill each other language, as in `{ "name": "Linen cap", "name.fr": "Casquette en lin" }`. A suffix naming a language the app does not declare is refused with `400`, naming the field, and nothing in the chunk is written. The import wizard offers the same targets: beside a translatable field, one per declared language, labelled with it (`name (Français)`), so a `name.fr` column maps to the French value by its header while a `name` column fills the default language, and neither overwrites the other.
+
 A column going into a single-select or status field whose values are not all among the field's options lists each unknown value with a choice of the field's options: the record stores the option chosen, never the spreadsheet's word. A value is matched before you see it to the option it spells — its value first, then its label in any language the app declares, so `Signé` finds the option whose French label is « Signé » even on a page read in English — ignoring case and accents, so `envoye` matches `Envoyé`. The options are named in the page language, and a value left on "Leave empty" leaves the field empty. The wizard's words follow the page language, and an author renames any of them under `sovrium.csvImport.<key>`.
 
 | Duplicate mode | Effect                                                                                      |
@@ -68,6 +70,8 @@ The response streams the file with an attachment disposition, named after the ta
 **One exception to raw values, in CSV only.** A text cell that begins with `=`, `+`, `-`, `@`, a tab or a carriage return is written with a leading `'`, so a spreadsheet opening the file reads it as text rather than running it as a formula; number cells are written unchanged. A number field's value never gains the prefix, even a negative one, so a column of balances still sums. JSON carries every value as stored.
 
 **A link to several records is the other exception, in CSV only.** When the link declares a `displayField`, its cell names the linked records as the grid shows them, `"Scierie du Hainaut, Quincaillerie Morel"`, rather than their ids, because a CSV is read by a person. JSON keeps the ids, for a program to follow.
+
+**A translatable field is one CSV column per declared language**, headed `name.en`, `name.fr` and so on, each holding that language's value, so the file re-imports through the import route's `name.fr` keys. JSON keeps the field as its map, `{ "en": "Linen shirt", "fr": "Chemise en lin" }`, whatever language the request asked for.
 
 The file is streamed with an attachment disposition named `<table>-<YYYY-MM-DD>` plus the extension, so a browser saves it under a name that says what it is and when it was taken.
 

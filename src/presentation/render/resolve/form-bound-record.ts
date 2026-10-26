@@ -28,6 +28,7 @@
 import { fieldNamesMatch } from '@/domain/models/app/tables/field-name-matching'
 import { toManyLinksRefusedTo } from '@/domain/models/app/tables/related-field-read-service'
 import { relatedReaderFor } from '@/domain/models/app/tables/row-read-admission-service'
+import { deriveFieldLinkTableName } from '@/domain/models/app/tables/table-derived-name-validation'
 import { readRowsForCaller } from './record-read-gate'
 import type { DataSourceDb } from './data-source-contracts'
 import type { App } from '@/domain/models/app'
@@ -76,6 +77,8 @@ export function narrowRecordToComponent(
 export interface BoundManyToManyField {
   readonly fieldName: string
   readonly relatedTable: string
+  /** The field's own link table. */
+  readonly linkTable: string
 }
 
 type AppTable = NonNullable<App['tables']>[number]
@@ -110,7 +113,8 @@ export function readableManyToManyFields(
     if (typeof relatedTable !== 'string') return []
     if (plan?.restrictedColumns.has(field.name) === true || refused.has(field.name)) return []
     if (listed.length > 0 && !listed.some((name) => fieldNamesMatch(field.name, name))) return []
-    return [{ fieldName: field.name, relatedTable }]
+    const linkTable = deriveFieldLinkTableName(table, { name: field.name, relatedTable })
+    return [{ fieldName: field.name, relatedTable, linkTable }]
   })
 }
 

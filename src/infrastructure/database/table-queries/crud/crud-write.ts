@@ -43,7 +43,7 @@ import {
 } from '../mutation-helpers/update-transaction'
 import { logActivity } from '../query-helpers/activity-log-helpers'
 import { wrapDatabaseError } from '../statement/error-handling'
-import { wrapCreateRecordFailure } from './crud-write-failure'
+import { wrapCreateRecordFailure, wrapUpdateRecordFailure } from './crud-write-failure'
 import type { AccountReference } from '@/application/ports/repositories/tables/record-write-accounts'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
@@ -219,7 +219,7 @@ export function updateRecord(
   Record<string, unknown>,
   DatabaseError | StaleWriteError | ForeignKeyViolationError
 > {
-  const wrap = wrapDatabaseError(`Failed to update record in ${tableName}`)
+  const wrap = wrapUpdateRecordFailure(tableName, Object.keys(params.fields))
   return Effect.gen(function* () {
     const { recordBefore, updatedRecord, rowWritten } = yield* traceDbQuery(
       'update',
