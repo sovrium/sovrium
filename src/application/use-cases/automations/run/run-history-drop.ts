@@ -11,7 +11,9 @@ import {
   dropsRunHistory,
   dropsRunRow,
 } from '@/domain/models/app/automations/trigger/trigger-history-service'
+import { triggerEntryName } from '@/domain/models/app/automations/trigger-list-validation'
 import { logError } from '@/infrastructure/logging/logger'
+import type { App } from '@/domain/models/app'
 import type { Trigger } from '@/domain/models/app/automations/trigger'
 
 /**
@@ -37,3 +39,32 @@ export const dropEndedRunHistory = (
       logError('[automation] failed to drop the history of an ended run', dropped.failure)
     }
   }).pipe(Effect.withSpan('automations.drop-ended-run-history'))
+
+/**
+ * {@link dropEndedRunHistory} for a closer that only knows the row: a sweep, a
+ * cancel, a wait that cannot resume. The level is read off the entry the run
+ * recorded, by its exact name. Once that entry cannot be found (the automation
+ * or the trigger left the config, or the row names none) the level the run
+ * started under is unknown, so the row is kept alone, whatever the level was.
+ *
+ * Every status a closer writes is unsuccessful, so a `none` run keeps its row.
+ */
+export const dropClosedRunHistory = (input: {
+  readonly app: App
+  readonly automationName: string
+  readonly triggerName: string | null | undefined
+  readonly status: string
+  readonly runId: string
+}): Effect.Effect<void, never, AutomationRunRepository> =>
+  Effect.gen(function* () {
+    const { app, automationName, triggerName, status, runId } = input
+    const trigger = app.automations
+      ?.find((automation) => automation.name === automationName)
+      ?.triggers.find((entry) => triggerEntryName(entry) === triggerName)
+    if (trigger !== undefined) return yield* dropEndedRunHistory(trigger, status, runId)
+    const repo = yield* AutomationRunRepository
+    const cleared = yield* Effect.result(repo.clearRunHistory(runId))
+    if (cleared._tag === 'Failure') {
+      logError('[automation] failed to drop the history of a closed run', cleared.failure)
+    }
+  }).pipe(Effect.withSpan('automations.drop-closed-run-history'))

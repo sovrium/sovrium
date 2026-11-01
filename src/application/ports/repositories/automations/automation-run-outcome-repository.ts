@@ -45,6 +45,8 @@ export interface AutomationRunTally {
 export interface ClosedRun {
   readonly id: string
   readonly automationName: string
+  /** The name of the trigger entry the run recorded, when it recorded one. */
+  readonly triggerName: string | null
 }
 
 export class AutomationRunOutcomeRepository extends Context.Service<

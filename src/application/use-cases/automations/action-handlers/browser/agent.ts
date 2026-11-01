@@ -167,6 +167,7 @@ const finish = (
     const parked = yield* parkSubmission({
       runId,
       runContext: run.runContext,
+      trigger: run.automation.trigger,
       session: run.session,
       goal: run.options.goal,
       held: end.held,

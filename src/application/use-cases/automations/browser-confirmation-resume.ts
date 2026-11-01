@@ -25,6 +25,7 @@ import { defaultActionHandlers } from './action-handlers'
 import { expandRefActions, type ActionTemplateLike } from './expand-action-refs'
 import { planConfirmationResume } from './run/resume-plan'
 import { runResumedSegment } from './run/resume-segment'
+import { dropEndedRunHistory } from './run/run-history-drop'
 import type {
   ApprovalRunTarget,
   ResolveApprovalError,
@@ -77,6 +78,7 @@ const resumeApproved = (input: {
         error: plan.error,
         completedAt: now,
       })
+      yield* dropEndedRunHistory(input.target.trigger, 'cancelled', input.runId)
       return
     }
     yield* runResumedSegment({
@@ -112,6 +114,7 @@ export const settleBrowserConfirmation = (input: {
         error: rejectionOf(input.target),
         completedAt: new Date(yield* Clock.currentTimeMillis),
       })
+      yield* dropEndedRunHistory(input.target.trigger, 'rejected', runId)
       return { decision, runId, approvalId }
     }
     const scheduler = yield* AutomationScheduler

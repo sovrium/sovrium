@@ -229,6 +229,7 @@ export const runResumedSegment = (
         triggerData: triggerDataOf(run.triggerData),
         admittedAt,
         userId: startedByOf(run).userId,
+        source: { app: input.app, name: automation.name, trigger: runEntryOf(input) },
         finalised,
       }
     )

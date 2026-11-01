@@ -136,6 +136,7 @@ export const dispatchToolsCall = (input: DispatchToolsCallInput): Promise<McpToo
     exposeInternals: dispatch.exposeInternals,
     domainContext: dispatch.domainContext,
     analyticsProfile: resolveAnalyticsProfile(dispatch.app.analytics),
+    app: dispatch.app,
   }
   if (isInternalAuditListTool(parsed.toolName, dispatch.app.name)) {
     return handleAuditListCall(gated)
@@ -157,7 +158,6 @@ export const dispatchToolsCall = (input: DispatchToolsCallInput): Promise<McpToo
       handleAdminReadToolCall({
         ...gated,
         operation: adminRead,
-        app: dispatch.app,
         makeAdminReadHost: dispatch.makeAdminReadHost,
       })
     )

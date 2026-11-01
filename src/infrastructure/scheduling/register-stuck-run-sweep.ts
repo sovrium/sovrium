@@ -18,7 +18,7 @@
  * The token-gated `POST /api/internal/automations/reap-interrupted` runs the
  * same sweep on demand, after the interrupted-run reaper.
  *
- * A cron callback carries no requirements, so the two services the job reads
+ * A cron callback carries no requirements, so the services the job reads
  * are captured from the registering fiber — the server's domain context — and
  * provided to each tick.
  */
@@ -30,6 +30,7 @@ import { logError } from '@/infrastructure/logging/logger'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
+import type { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import type { EmailSender } from '@/application/ports/services/email-sender'
 import type { FailureAlertHoldBack } from '@/application/ports/services/failure-alert-hold-back'
 import type { App } from '@/domain/models/app'
@@ -47,13 +48,18 @@ export const registerStuckRunSweepScheduler = (
   never,
   | CronScheduler
   | AutomationRunOutcomeRepository
+  | AutomationRunRepository
   | AuthRepository
   | EmailSender
   | FailureAlertHoldBack
 > =>
   Effect.gen(function* () {
     const services = yield* Effect.context<
-      AutomationRunOutcomeRepository | AuthRepository | EmailSender | FailureAlertHoldBack
+      | AutomationRunOutcomeRepository
+      | AutomationRunRepository
+      | AuthRepository
+      | EmailSender
+      | FailureAlertHoldBack
     >()
     const scheduler = yield* CronScheduler
     return yield* scheduler

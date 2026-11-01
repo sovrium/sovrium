@@ -23,6 +23,7 @@ import type { TemplateRenderer } from '@/application/ports/services/template-eng
 import type { App } from '@/domain/models/app'
 import type { ActionFailureFacts } from '@/domain/models/app/agents/agent-action-failure-service'
 import type { StepRead } from '@/domain/models/app/automations/step-read-service'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
 import type { Effect } from 'effect'
 
 /** One log entry a step wrote — see {@link ActionOutcome.logs}. */
@@ -127,6 +128,7 @@ export interface AutomationContext {
   readonly writtenFiles?: RunWrittenFiles
   readonly readFiles?: RunWrittenFiles
   readonly parkedStep?: ParkedStepCell // a browser step's reading across its pause
+  readonly trigger?: Trigger // what a parked step's timer closes the run by
 }
 
 /**
@@ -184,11 +186,7 @@ export interface ActionRunContext {
   readonly envLookup: Readonly<Record<string, string>>
   /** The process environment the run started with: the operator switches a handler reads. */
   readonly env?: Readonly<Record<string, string | undefined>>
-  /**
-   * The template engine the run read from the `TemplateEngine` port, for a
-   * handler that renders its own props (`resolveOwnProp`, the code action's
-   * `inputData`).
-   */
+  /** The `TemplateEngine` port's engine, for a handler rendering its own props (`resolveOwnProp`). */
   readonly templates: TemplateRenderer
   /**
    * Invoke a reusable action template declared at `app.actions[]` by name —

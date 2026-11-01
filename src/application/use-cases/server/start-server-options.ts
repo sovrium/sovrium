@@ -9,6 +9,7 @@ import type { AnalyticsRepository } from '@/application/ports/repositories/analy
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { BootstrapTokenRepository } from '@/application/ports/repositories/auth/bootstrap-token-repository'
 import type { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
+import type { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
 import type { AccountProvisioner } from '@/application/ports/services/account-provisioner'
 import type { ContentDirReader } from '@/application/ports/services/content-dir-reader'
@@ -97,6 +98,7 @@ export type StartServerRequirements =
   | AuthRepository
   // The boot sweep of automation runs a previous server left behind.
   | AutomationRunOutcomeRepository
+  | AutomationRunRepository
   // The boot sweep of analytics fields the `audience-only` profile excludes.
   | AnalyticsRepository
   // Boot-time first-admin bootstrap. `createAppLayer` carries both reads, so

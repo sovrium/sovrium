@@ -77,7 +77,14 @@ const startedAfterInstant = (instant: Readonly<Date>) =>
     and(isNull(automationRuns.startedAt), gt(automationRuns.createdAt, instant))
   )
 
-/** Close the orphaned rows and return their ids with their automation id. */
+/** An orphaned row just closed. */
+interface ClosedOrphan {
+  readonly id: string
+  readonly automationId: string
+  readonly triggerName: string | null
+}
+
+/** Close the orphaned rows and return their ids with their automation id and trigger name. */
 const closeOrphans = async (db: PortableDb, startedBefore: Readonly<Date>, error: string) => {
   const resumable = resumableRunIds(db)
   return (await db
@@ -93,14 +100,12 @@ const closeOrphans = async (db: PortableDb, startedBefore: Readonly<Date>, error
     .returning({
       id: automationRuns.id,
       automationId: automationRuns.automationId,
-    })) as ReadonlyArray<{ readonly id: string; readonly automationId: string }>
+      triggerName: automationRuns.triggerName,
+    })) as ReadonlyArray<ClosedOrphan>
 }
 
 /** Name each closed run by its definition, in one read. */
-const nameClosedRuns = async (
-  db: PortableDb,
-  closed: ReadonlyArray<{ readonly id: string; readonly automationId: string }>
-) => {
+const nameClosedRuns = async (db: PortableDb, closed: ReadonlyArray<ClosedOrphan>) => {
   if (closed.length === 0) return []
   const definitions = await db
     .select({ id: automationDefinitions.id, name: automationDefinitions.name })
@@ -112,7 +117,11 @@ const nameClosedRuns = async (
       )
     )
   const names = new Map(definitions.map((definition) => [definition.id, definition.name]))
-  return closed.map((run) => ({ id: run.id, automationName: names.get(run.automationId) ?? '' }))
+  return closed.map((run) => ({
+    id: run.id,
+    automationName: names.get(run.automationId) ?? '',
+    triggerName: run.triggerName,
+  }))
 }
 
 /** A run's start as a `Date`: `started_at`, or `created_at` when it was never stamped. */
@@ -162,6 +171,7 @@ const closeStuckRuns = async (
     .select({
       id: automationRuns.id,
       automationName: automationDefinitions.name,
+      triggerName: automationRuns.triggerName,
       startedAt: automationRuns.startedAt,
       createdAt: automationRuns.createdAt,
     })
@@ -177,7 +187,7 @@ const closeStuckRuns = async (
     const start = startOf(row)
     const cutoff = cutoffByName.get(row.automationName) ?? input.defaultStartedBefore.getTime()
     return start !== undefined && start.getTime() < cutoff
-      ? [{ id: row.id, automationName: row.automationName, start }]
+      ? [{ id: row.id, automationName: row.automationName, triggerName: row.triggerName, start }]
       : []
   })
   const now = new Date()
@@ -190,7 +200,11 @@ const closeStuckRuns = async (
     },
     Promise.resolve([])
   )
-  return closed.map((run) => ({ id: run.id, automationName: run.automationName }))
+  return closed.map((run) => ({
+    id: run.id,
+    automationName: run.automationName,
+    triggerName: run.triggerName,
+  }))
 }
 
 /** Runs created in `[from, to)`. */

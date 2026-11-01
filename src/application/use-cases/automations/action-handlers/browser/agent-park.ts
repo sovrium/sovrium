@@ -20,6 +20,7 @@ import type { ScreenshotRef } from './run-scope'
 import type { StepRequirements } from '../../run/types'
 import type { ActionRunContext } from '../shared'
 import type { ChatToolCall } from '@/application/ports/services/ai-service'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
 
 /**
  * A browser agent's submission waiting for a person.
@@ -57,6 +58,7 @@ export const unansweredSubmission = (holdMs: number): string =>
 export const parkSubmission = (input: {
   readonly runId: string
   readonly runContext: ActionRunContext | undefined
+  readonly trigger: Trigger | undefined
   readonly session: BrowserSession
   readonly goal: string
   readonly held: readonly BrowserSend[]
@@ -77,7 +79,7 @@ export const parkSubmission = (input: {
       runId: input.runId,
       session: input.session,
       holdMs,
-      onExpire: abandon(input.runId, holdMs, unansweredSubmission(holdMs)),
+      onExpire: abandon(input.runId, holdMs, input.trigger, unansweredSubmission(holdMs)),
     })
     return { holdMs }
   }).pipe(Effect.withSpan('automations.browser-agent-park'))

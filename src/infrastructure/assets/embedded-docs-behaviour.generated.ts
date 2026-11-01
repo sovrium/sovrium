@@ -4423,6 +4423,7 @@ export const EMBEDDED_DOCS_BEHAVIOUR = {
         "The approval step's output in the run log carries `resolvedBy` — `timeout`, or `user` with the resolver's `resolverId` — beside `decision`",
         "An approval whose `onTimeout` is `escalate` is refused when the config is validated, and the message names the step, says `onTimeout` must be `approve` or `reject`, and that `escalate` is not supported yet",
         "An approval with a `timeout` and no `onTimeout` is refused when the config is validated, naming the step and the two values to add; one with neither still starts and its request waits indefinitely",
+        "A `minimal` run ended while waiting for an answer keeps its row alone, whether it is rejected, its time runs out or it is cancelled",
         "An approval inside a loop is refused when the config is validated in an app with no `auth`, with the same message a top-level approval earns; the same loop validates once `auth` is configured",
         "An approval inside a branch of a `path`, or inside a loop inside a branch, is refused the same way without `auth`, and both validate once `auth` is configured",
       ],
@@ -4460,6 +4461,9 @@ export const EMBEDDED_DOCS_BEHAVIOUR = {
         "A run paused inside a loop is cancelled, saying why, when the loop body no longer holds its wait step, and resumes against the current body when it does",
         "Erasing an account cancels the waiting runs that captured its values, so the step after the wait never acts for an erased person",
         "A run parked before a restart onto a configuration that declares no long wait is still swept, and is cancelled saying the automation changed while it waited",
+        "A waiting run that is cancelled keeps what its trigger's `history` level keeps: `minimal` and `none` keep the row with its error and neither trigger data nor steps, `full` keeps both",
+        "A waiting run cancelled because its wait step left the configuration keeps what its trigger's `history` level keeps",
+        "A waiting run cancelled because its automation left the configuration keeps its row alone, since the level it was started under can no longer be read",
       ],
     },
     {
@@ -4653,6 +4657,8 @@ export const EMBEDDED_DOCS_BEHAVIOUR = {
         "An irreversible click whose element is never found leaves its `idempotencyKey` free, and the next run with that key submits",
         "An address whose host name resolves to a private network is refused like a private address, before the browser opens it",
         "A WebSocket a page opens to an allowed host whose name resolves to a private network never reaches it, while a socket to the page's own host does",
+        "A rejected confirm on a `minimal` trigger ends the run with its row alone",
+        "A confirm nobody answers on a `minimal` trigger abandons the run with its row alone",
         "A developer submits a form once behind an approval, and a replay of the same run submits nothing",
       ],
     },
@@ -6487,6 +6493,7 @@ export const EMBEDDED_DOCS_BEHAVIOUR = {
       title: "Stuck Run Sweep",
       criteria: [
         "A run left `running` past its timeout and a minute of grace is closed `timed-out` by the sweep, on demand through the trigger route, which answers `{ interrupted: string[], stuck: string[] }`",
+        "A run swept as stuck keeps what its trigger's `history` level keeps: `minimal` keeps the row with its error and neither trigger data nor steps, `full` keeps both",
       ],
     },
     {
@@ -6554,6 +6561,9 @@ export const EMBEDDED_DOCS_BEHAVIOUR = {
         "Each interrupted run notifies admins",
         "The runs API lists `queued` and `waiting-approval` runs without error",
         "A restart that interrupts several runs sends one email, with one line per automation giving how many of its runs were interrupted",
+        "An interrupted run keeps what its trigger's `history` level keeps: `minimal` and `none` keep the row with its error and neither trigger data nor steps, `full` keeps both, and a waiting run keeps both",
+        "A `minimal` run under way when the server stops ends with its row alone, whether the stop closes it or the next boot does",
+        "A run closed by either sweep after its automation left the configuration keeps its row alone, since the level it was started under can no longer be read",
       ],
     },
   ],
@@ -15708,6 +15718,8 @@ export const EMBEDDED_DOCS_BEHAVIOUR = {
         "On PostgreSQL too, a time value copied from a listed row and pasted unchanged into `where` answers that row, although the column holds microseconds the answer does not show",
         "A form submission's body, its share-link body and its guest email are answered by neither the raw submissions list nor the raw read, and `where` on any of them is refused exactly as an unknown column is, whatever the value",
         "An approval request is listed and read without the payload of the write the agent proposed, and `where` on it is refused exactly as an unknown column is",
+        "The raw run list and read answer a run's trigger data as the admin run read does, on both engines: a value held under a write-only field name and a credential header are masked, and the rest of the event stays",
+        "On SQLite too, `where` on a run's trigger data is refused as a value its column cannot hold, as it is on PostgreSQL, while `where` on another column still answers the run",
       ],
     },
     {

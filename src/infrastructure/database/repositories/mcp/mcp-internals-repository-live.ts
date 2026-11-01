@@ -6,7 +6,7 @@
  */
 
 import { getTableColumns, getTableName, is, sql, type SQL } from 'drizzle-orm'
-import { SQLiteTable, SQLiteTimestamp } from 'drizzle-orm/sqlite-core'
+import { SQLiteTable, SQLiteTextJson, SQLiteTimestamp } from 'drizzle-orm/sqlite-core'
 import { DateTime, Option } from 'effect'
 import {
   McpInternalsDatabaseError,
@@ -159,9 +159,33 @@ export const isSqliteTimeColumn = (
 ): boolean => (schema.get(tableName) ?? FALLBACK_TIME_COLUMNS).has(columnName)
 
 /**
+ * Which text columns of an internal SQLite table hold JSON, as its schema
+ * declares them: the catalogue reads them as `text`, keyed like
+ * {@link timeColumnsFromSchema}.
+ */
+export const jsonColumnsFromSchema = (
+  exports: Readonly<Record<string, unknown>>
+): ReadonlyMap<string, ReadonlySet<string>> =>
+  new Map(
+    Object.values(exports)
+      .filter((value): value is SQLiteTable => is(value, SQLiteTable))
+      .map((table) => [
+        getTableName(table),
+        new Set(
+          Object.values(getTableColumns(table))
+            .filter((column) => is(column, SQLiteTextJson))
+            .map((column) => column.name)
+        ),
+      ])
+  )
+
+const SCHEMA_JSON_COLUMNS = jsonColumnsFromSchema(sqliteSchema)
+
+/**
  * A catalogue row as a column of `entry`. On SQLite an integer column the
  * table's schema declares as a timestamp is a time column, so a `where` on it
- * takes an ISO instant exactly as on PostgreSQL.
+ * takes an ISO instant exactly as on PostgreSQL; a text column it declares as
+ * JSON is a JSON column, refused by a `where` exactly as on PostgreSQL.
  */
 const toColumn =
   (dialect: Dialect, entry: Readonly<InternalTableEntry>) =>
@@ -170,7 +194,11 @@ const toColumn =
     const dataType = String(row['data_type'] ?? '')
     if (dialect.kind !== 'sqlite') return { name, kind: postgresColumnKind(dataType) }
     const kind = sqliteColumnKind(dataType)
-    const isTime = kind === 'number-or-boolean' && isSqliteTimeColumn(sqliteTableName(entry), name)
+    const table = sqliteTableName(entry)
+    if (kind === 'text' && SCHEMA_JSON_COLUMNS.get(table)?.has(name) === true) {
+      return { name, kind: 'json' }
+    }
+    const isTime = kind === 'number-or-boolean' && isSqliteTimeColumn(table, name)
     return { name, kind: isTime ? 'time' : kind }
   }
 

@@ -289,10 +289,9 @@ export const executeAutomationRun = (
       const admission = yield* enqueueAndAdmit(input)
       const { runId, admittedAt } = admission
       const finalised = yield* Ref.make(false)
-      // From admission on, the run holds a slot, a canceller and a `running`
-      // row. The run's scope gives the first two back however it exits; the
-      // guard closes the row if it exits any way but through
-      // `finaliseAndRelease` (a defect, an interruption).
+      // From admission on, the run holds a slot, a canceller and a `running` row. Its scope
+      // gives the first two back however it exits; the guard closes the row if it exits any
+      // way but through `finaliseAndRelease` (a defect, an interruption).
       return yield* finaliseOnAbandon(runAdmitted(input, { admission, finalised }), {
         name: input.name,
         automationId: input.automationId,
@@ -302,6 +301,7 @@ export const executeAutomationRun = (
         userId: input.userId,
         ...(input.startedByHand === true ? { startedByHand: true } : {}),
         ...(input.startedAsGuest === true ? { startedAsGuest: true } : {}),
+        source: input,
         finalised,
       })
     }).pipe(Effect.scoped)

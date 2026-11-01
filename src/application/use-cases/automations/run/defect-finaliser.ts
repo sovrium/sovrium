@@ -35,6 +35,8 @@ import { describeKeptFailure } from '@/infrastructure/logging/internal-error-rep
 import { logError } from '@/infrastructure/logging/logger'
 import { finaliseRun } from './run-persistence'
 import type { TriggerData } from '../resolve-trigger-data'
+import type { App } from '@/domain/models/app'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
 
 /** What the guard needs to close a run the normal path did not. */
 export interface AdmittedRun {
@@ -47,6 +49,8 @@ export interface AdmittedRun {
   /** A person started the run by hand: a fallback row keeps the marker. */
   readonly startedByHand?: boolean
   readonly startedAsGuest?: boolean
+  /** The run as it was started: its trigger decides what the closed run keeps. */
+  readonly source: { readonly app: App; readonly name: string; readonly trigger: Trigger }
   /** Set to `true` by `finaliseAndRelease` once the run's row is finalised. */
   readonly finalised: Ref.Ref<boolean>
 }
@@ -110,6 +114,7 @@ const closeAbandonedRun = (
       userId: run.userId,
       ...(run.startedByHand === true ? { startedByHand: true } : {}),
       ...(run.startedAsGuest === true ? { startedAsGuest: true } : {}),
+      source: run.source,
     })
     if (defect !== undefined) yield* recordDefect(run.runId, defect)
   })

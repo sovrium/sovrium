@@ -1,3 +1,10 @@
+## [0.46.1](https://github.com/sovrium/sovrium/compare/v0.46.0...v0.46.1) (2026-11-01)
+
+### Bug Fixes
+
+- **automations**: keep only what a run's history level allows however it ends
+- **mcp**: answer run trigger data with the same masks as the admin run read
+
 ## [0.46.0](https://github.com/sovrium/sovrium/compare/v0.45.0...v0.46.0) (2026-11-01)
 
 ### BREAKING CHANGES

@@ -11,11 +11,13 @@ import { AutomationRunRepository } from '@/application/ports/repositories/automa
 import { BrowserDriver } from '@/application/ports/services/browser-driver'
 import { parseDuration } from '@/domain/kernel/time/parse-duration'
 import { logError } from '@/infrastructure/logging/logger'
+import { dropEndedRunHistory } from '../../run/run-history-drop'
 import { insertApprovalRequest, pinRequestApprovers } from '../approval'
 import { fillValue } from './step-values'
 import type { BrowserProgress, BrowserRunScope } from './run-scope'
 import type { StepOf } from './settings'
 import type { StepRequirements } from '../../run/types'
+import type { Trigger } from '@/domain/models/app/automations/trigger'
 
 /**
  * Asking a person before an irreversible click ([internal ref] D9, Q2).
@@ -40,11 +42,13 @@ export const holdMsOf = (confirm: Pick<Confirmation, 'timeout'>, holdMaxMs: numb
 
 /**
  * End a run nobody confirmed in time: its request closed, the run failed with
- * the reason. The browser was already closed by the hold.
+ * the reason, keeping what `trigger`'s history level keeps. The browser was
+ * already closed by the hold.
  */
 export const abandon = (
   runId: string,
   holdMs: number,
+  trigger: Trigger | undefined,
   error = `abandoned: nobody answered the confirmation within ${String(holdMs)} ms, so the browser was closed and nothing was submitted`
 ): Effect.Effect<void, never, AutomationApprovalRepository | AutomationRunRepository> =>
   Effect.gen(function* () {
@@ -63,6 +67,7 @@ export const abandon = (
       completedAt: new Date(yield* Clock.currentTimeMillis),
       error,
     })
+    yield* dropEndedRunHistory(trigger, 'failed', runId)
   }).pipe(
     Effect.tapCause((cause) =>
       Effect.sync(() => logError('[browser] the abandoned run could not be recorded', cause))
@@ -125,6 +130,11 @@ export const parkForConfirmation = (input: {
       approvers: yield* pinRequestApprovers(approversOf(scope, progress, confirm.approvers)),
     })
     const driver = yield* BrowserDriver
-    yield* driver.hold({ runId, session: scope.session, holdMs, onExpire: abandon(runId, holdMs) })
+    yield* driver.hold({
+      runId,
+      session: scope.session,
+      holdMs,
+      onExpire: abandon(runId, holdMs, scope.automation.trigger),
+    })
     return { holdMs }
   }).pipe(Effect.withSpan('automations.browser-park-for-confirmation'))

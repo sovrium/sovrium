@@ -146,5 +146,5 @@ export function trackerConsentHoldReader(hold: TrackerConsentHold): string {
  * separately, by {@link trackerPrivacyGuard}, and win over a stored `granted`.
  */
 export function trackerConsentReader(): string {
-  return `var K=function(){try{return JSON.parse(localStorage.getItem(${JSON.stringify(CONSENT_STORAGE_KEY)})).purposes.analytics==="denied"}catch(e){return false}};`
+  return `var K=function(){try{return JSON.parse(localStorage.getItem(${serializeJsonForScript(CONSENT_STORAGE_KEY)})).purposes.analytics==="denied"}catch(e){return false}};`
 }

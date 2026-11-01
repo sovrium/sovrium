@@ -38,8 +38,12 @@ import { expandRefActions, type ActionTemplateLike } from './expand-action-refs'
 import { loadPausedAutomationNames } from './paused-automation-names'
 import { planResume } from './run/resume-plan'
 import { runResumedSegment } from './run/resume-segment'
+import { dropClosedRunHistory } from './run/run-history-drop'
 import type { RunRequirements } from './run/types'
-import type { AutomationRunDatabaseError } from '@/application/ports/repositories/automations/automation-run-repository'
+import type {
+  AutomationRunDatabaseError,
+  PersistedRun,
+} from '@/application/ports/repositories/automations/automation-run-repository'
 import type { App } from '@/domain/models/app'
 
 /** The most runs one sweep resumes. */
@@ -55,10 +59,23 @@ const actionsOf = (app: App, automation: Automation): readonly Record<string, un
   ) as readonly Record<string, unknown>[]
 
 /** End a claimed run as cancelled, saying why, without running anything. */
-const cancelClaimed = (runId: string, error: string, now: Readonly<Date>) =>
+const cancelClaimed = (input: {
+  readonly app: App
+  readonly run: PersistedRun
+  readonly error: string
+  readonly now: Readonly<Date>
+}) =>
   Effect.gen(function* () {
+    const { app, run, error, now } = input
     const repo = yield* AutomationRunRepository
-    yield* repo.finaliseRun({ id: runId, status: 'cancelled', error, completedAt: now as Date })
+    yield* repo.finaliseRun({ id: run.id, status: 'cancelled', error, completedAt: now as Date })
+    yield* dropClosedRunHistory({
+      app,
+      automationName: run.automationName,
+      triggerName: run.triggerName,
+      status: 'cancelled',
+      runId: run.id,
+    })
   })
 
 type ResumeInput = {
@@ -98,14 +115,14 @@ const claimAndResume = (
     const cancelled = yield* (yield* AutomationScheduler).isCancelled(runId)
     const refusal = refusalBeforeStart(automation, cursor, cancelled)
     if (automation === undefined || cursor === undefined || refusal !== undefined) {
-      yield* cancelClaimed(runId, refusal ?? 'Run cancelled', now)
+      yield* cancelClaimed({ app, run: claimed.run, error: refusal ?? 'Run cancelled', now })
       return runId
     }
     const steps = yield* repo.findStepsByRunId(runId)
     const actions = actionsOf(app, automation)
     const plan = planResume({ actions, cursor, steps, resumedAt: now.toISOString() })
     if (plan.kind === 'cancel') {
-      yield* cancelClaimed(runId, plan.error, now)
+      yield* cancelClaimed({ app, run: claimed.run, error: plan.error, now })
       return runId
     }
     yield* runResumedSegment({

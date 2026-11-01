@@ -15,7 +15,8 @@
  * holding the console's attention and never alerting anyone. This sweep is the
  * safety net: a run still `running` a {@link STUCK_RUN_GRACE_MS} past its
  * timeout is closed as `timed-out` with {@link STUCK_RUN_ERROR}, and alerted
- * like any other timeout — the hold-back of repeated alerts applies.
+ * like any other timeout — the hold-back of repeated alerts applies. It keeps
+ * what its trigger's history level keeps (`run/run-history-drop.ts`).
  *
  * The timeout counts from admission, which is when `started_at` is written,
  * so a run that waited long for a concurrency slot is never swept early.
@@ -31,8 +32,13 @@ import { STUCK_RUN_ERROR } from '@/domain/models/app/automations/automation-run-
 import { resolveAutomationDefaultTimeoutMs } from '@/domain/models/process-env/automations'
 import { onDevTimeline } from '@/infrastructure/process/server-boot-instant'
 import { notifyPlatformFailure } from './notify-platform-failure'
+import { dropClosedRunHistory } from './run/run-history-drop'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
-import type { AutomationRunOutcomeDatabaseError } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
+import type {
+  AutomationRunOutcomeDatabaseError,
+  ClosedRun,
+} from '@/application/ports/repositories/automations/automation-run-outcome-repository'
+import type { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import type { EmailSender } from '@/application/ports/services/email-sender'
 import type { FailureAlertHoldBack } from '@/application/ports/services/failure-alert-hold-back'
 import type { App } from '@/domain/models/app'
@@ -46,6 +52,16 @@ const declaredTimeoutMs = (automation: NonNullable<App['automations']>[number]) 
   return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? raw : undefined
 }
 
+/** A swept run keeps what its trigger's history level keeps. */
+const keepHistoryLevelOf = (app: App, run: ClosedRun) =>
+  dropClosedRunHistory({
+    app,
+    automationName: run.automationName,
+    triggerName: run.triggerName,
+    status: 'timed-out',
+    runId: run.id,
+  })
+
 /**
  * Close every stuck run and alert each one, answering the ids closed.
  *
@@ -58,7 +74,11 @@ export const sweepStuckRuns = (
 ): Effect.Effect<
   readonly string[],
   AutomationRunOutcomeDatabaseError,
-  AutomationRunOutcomeRepository | AuthRepository | EmailSender | FailureAlertHoldBack
+  | AutomationRunOutcomeRepository
+  | AutomationRunRepository
+  | AuthRepository
+  | EmailSender
+  | FailureAlertHoldBack
 > =>
   Effect.gen(function* () {
     const defaultTimeoutMs = resolveAutomationDefaultTimeoutMs(yield* ProcessEnv)
@@ -73,6 +93,7 @@ export const sweepStuckRuns = (
       error: STUCK_RUN_ERROR,
     })
     const closedAt = new Date().toISOString()
+    yield* Effect.forEach(closed, (run) => keepHistoryLevelOf(app, run), { discard: true })
     yield* Effect.forEach(
       closed,
       (run) =>

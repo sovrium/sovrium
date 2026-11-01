@@ -70,7 +70,10 @@ import {
   parseInternalListArguments,
   WHERE_VALUE_REFUSAL,
 } from './internal-list-arguments'
+import { stripDenylistedColumns } from './internal-row-denylist'
+import { answeredRunRows, isRunsTable, type RunRow } from './internal-run-rows'
 import { toolFailure, toolSuccess, type McpToolResult } from './tool-call-helpers'
+import type { App } from '@/domain/models/app'
 import type { AnalyticsProfile } from '@/domain/models/app/analytics/analytics-profile-service'
 import type { DomainContext } from '@/infrastructure/logging/request-effect'
 import type { McpCaller } from '@/presentation/api/mcp/auth'
@@ -270,6 +273,8 @@ export const handleInternalToolCall = async (input: {
   readonly exposeInternals: boolean
   readonly domainContext: DomainContext
   readonly analyticsProfile: AnalyticsProfile
+  /** What a run row's trigger data is masked by: its automations and write-only fields. */
+  readonly app: App
 }): Promise<McpToolResult> => {
   const { entry } = input.resolved
   if (!input.exposeInternals || !isAdminTierCaller(input.caller)) {
@@ -308,11 +313,23 @@ const readInternals = async <A>(
   }
 }
 
-const executeInternalList = async (input: {
+type InternalCall = {
   readonly resolved: ResolvedInternalTool
   readonly args: Record<string, unknown>
   readonly domainContext: DomainContext
-}): Promise<McpToolResult> => {
+  readonly app: App
+}
+
+/** The rows as this table answers them: a run's trigger data masked as the admin read masks it. */
+const answeredRows = async (
+  input: InternalCall,
+  rows: ReadonlyArray<RunRow>
+): Promise<ReadonlyArray<RunRow>> =>
+  isRunsTable(input.resolved.entry)
+    ? readInternals(input, (repository) => answeredRunRows(repository, input.app, rows))
+    : rows
+
+const executeInternalList = async (input: InternalCall): Promise<McpToolResult> => {
   const { entry } = input.resolved
   // The table's columns come off the engine's catalogue first: `where` and the
   // time column are validated against them, so no name a client typed reaches
@@ -324,14 +341,11 @@ const executeInternalList = async (input: {
   if (parsed._tag === 'Invalid') return toolFailure(-32_602, parsed.message)
 
   const rows = await readInternals(input, (repository) => repository.listRows(entry, parsed.query))
-  return toolSuccess(rows.map((row) => stripDenylistedColumns(row, entry)))
+  const answered = await answeredRows(input, rows)
+  return toolSuccess(answered.map((row) => stripDenylistedColumns(row, entry)))
 }
 
-const executeInternalRead = async (input: {
-  readonly resolved: ResolvedInternalTool
-  readonly args: Record<string, unknown>
-  readonly domainContext: DomainContext
-}): Promise<McpToolResult> => {
+const executeInternalRead = async (input: InternalCall): Promise<McpToolResult> => {
   const recordId = String(input.args['id'] ?? '')
   if (recordId.length === 0) {
     return toolFailure(-32_602, "Missing 'id' parameter")
@@ -352,8 +366,8 @@ const executeInternalRead = async (input: {
     if (row === undefined) {
       return toolSuccess(undefined)
     }
-    const stripped = stripDenylistedColumns(row, input.resolved.entry)
-    return toolSuccess(stripped)
+    const [answered] = await answeredRows(input, [row])
+    return toolSuccess(answered && stripDenylistedColumns(answered, input.resolved.entry))
   } catch (error) {
     // The caller gets a redacted message; the cause is kept server-side.
     logError(
@@ -363,38 +377,3 @@ const executeInternalRead = async (input: {
     return toolFailure(-32_603, 'Internal query failed')
   }
 }
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Strip every column listed in the registry's `denylistFields` from a single
- * row, then return the cleaned row.
- *
- * Each denylist value is matched in BOTH camelCase (the Drizzle TypeScript
- * field name) AND snake_case (the underlying PostgreSQL column name). The
- * `bun:sql` driver returns rows keyed by snake_case, but a future migration
- * to a driver that auto-camelizes (e.g. drizzle's `casing: 'camelCase'`
- * setting) would silently re-expose the secrets — stripping both spellings
- * keeps the denylist forward-compatible.
- *
- * Implemented as an immutable map / filter (no in-place delete) per the
- * project-wide functional/immutable-data ESLint rule.
- */
-const stripDenylistedColumns = (
-  row: Readonly<Record<string, unknown>>,
-  entry: InternalTableEntry
-): Readonly<Record<string, unknown>> => {
-  if (entry.denylistFields.length === 0) return { ...row }
-  // Build the denial set immutably — each denylist field expands to BOTH
-  // the camelCase TS spelling AND its snake_case equivalent so the strip
-  // catches whichever the driver returns. flatMap + Set constructor keeps
-  // us within the project-wide functional/immutable-data rule.
-  const denied = new Set<string>(
-    entry.denylistFields.flatMap((field) => [field, camelToSnake(field)])
-  )
-  return Object.fromEntries(Object.entries(row).filter(([key]) => !denied.has(key)))
-}
-
-const camelToSnake = (s: string): string => s.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`)

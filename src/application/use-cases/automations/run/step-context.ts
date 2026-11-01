@@ -53,9 +53,11 @@ const toAutomationContext = (input: {
   readonly startedAsGuest?: boolean
   readonly writeOnly?: WriteOnlyInheritance
   readonly ledgers?: RunLedgers
+  readonly trigger: Trigger
 }): AutomationContext => ({
   name: input.name,
   id: input.automationId,
+  trigger: input.trigger,
   ...(input.userId !== undefined ? { userId: input.userId } : {}),
   ...(input.runId !== undefined ? { runId: input.runId } : {}),
   // Kept even without a caller: a hand-started run whose caller is gone (an

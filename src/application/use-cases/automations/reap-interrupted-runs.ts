@@ -16,7 +16,8 @@
  * {@link INTERRUPTED_RUN_ERROR}. The operators — the same recipients, under the
  * same preferences, as every failure alert — receive ONE email for the sweep,
  * naming each automation with how many of its runs were interrupted: a restart
- * is one event, however many runs it caught.
+ * is one event, however many runs it caught. Each closed run keeps what its
+ * trigger's history level keeps (`run/run-history-drop.ts`).
  *
  * "Triggered before this server" is exact rather than a timeout guess: no run of
  * this server can predate it. A run waiting for a human approval survives a
@@ -43,8 +44,10 @@ import {
 } from '@/domain/models/app/automations/automation-run-outcome-service'
 import { onDevTimeline, readServerBootInstant } from '@/infrastructure/process/server-boot-instant'
 import { deliverAutomationNotice, type AutomationNoticeContent } from './automation-notice'
+import { dropClosedRunHistory } from './run/run-history-drop'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { AutomationRunOutcomeDatabaseError } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
+import type { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import type { EmailSender } from '@/application/ports/services/email-sender'
 import type { App } from '@/domain/models/app'
 
@@ -87,7 +90,7 @@ export const reapInterruptedRuns = (
 ): Effect.Effect<
   readonly string[],
   AutomationRunOutcomeDatabaseError,
-  AutomationRunOutcomeRepository | AuthRepository | EmailSender
+  AutomationRunOutcomeRepository | AutomationRunRepository | AuthRepository | EmailSender
 > =>
   Effect.gen(function* () {
     const repository = yield* AutomationRunOutcomeRepository
@@ -97,6 +100,18 @@ export const reapInterruptedRuns = (
       startedBefore: onDevTimeline(startedBefore),
       error: INTERRUPTED_RUN_ERROR,
     })
+    yield* Effect.forEach(
+      closed,
+      (run) =>
+        dropClosedRunHistory({
+          app,
+          automationName: run.automationName,
+          triggerName: run.triggerName,
+          status: 'failed',
+          runId: run.id,
+        }),
+      { discard: true }
+    )
     if (closed.length > 0) {
       const content = interruptedNotice(countInterruptedRuns(closed), new Date().toISOString())
       yield* deliverAutomationNotice({ app, content })

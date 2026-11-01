@@ -20,9 +20,6 @@
  */
 
 import { Effect } from 'effect'
-import { AutomationApprovalRepository } from '@/application/ports/repositories/automations/automation-approval-repository'
-import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
-import { AutomationScheduler } from '@/application/ports/services/automation-scheduler'
 import {
   replayAutomationRun,
   type ReplayAutomationRunError,
@@ -54,6 +51,7 @@ import {
   toErrorResponse,
 } from '@/presentation/api/runtime/run-effect'
 import { resolveApprovalCaller } from './approvals-handlers'
+import { closeCancelledRun } from './run-cancellation'
 import { gateReadableRun, type Gated } from './run-read-handlers'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -243,6 +241,8 @@ const CANCELLABLE_RUN_STATUSES: ReadonlySet<string> = new Set([
  * waits on a long delay is cancelled only while it still waits — a write
  * conditional on `waiting-delay`, so a cancel racing its resume ends in exactly
  * one of the two; a cancel that lost the race cancels the resumed, running run.
+ * A run cancelled with nothing left to finish it keeps what its trigger's history
+ * level keeps.
  */
 export function handleCancelRun(c: Context, app: App): Promise<Response> | Response {
   const id = c.req.param('id')
@@ -263,31 +263,7 @@ const cancelRunProgram = (c: Context, app: App, id: string) =>
       return c.json({ success: false, message: `Run already ${current}`, status: current }, 409)
     }
 
-    const cancelled = Effect.gen(function* () {
-      const scheduler = yield* AutomationScheduler
-      // Fire the in-memory flag first so any concurrent finaliser sees it
-      // before it updates the row. `signalCancellation` answers `false` when
-      // no run holds a registration (i.e. the run already terminated). The
-      // boolean is ignored — a missing registration is normal for runs that
-      // already completed; the DB UPDATE below is the durable signal.
-      yield* scheduler.signalCancellation(id)
-      const approvals = yield* AutomationApprovalRepository
-      const pendingId = yield* approvals.findPendingIdByRunId(id)
-      if (pendingId !== undefined) {
-        yield* approvals.resolvePending({ id: pendingId, status: 'rejected' })
-      }
-      const repo = yield* AutomationRunRepository
-      if (
-        current === 'waiting-delay' &&
-        (yield* repo.cancelWaitingRun({ id, error: 'Run cancelled' }))
-      ) {
-        return yield* repo.findById(id)
-      }
-      // A run resumed meanwhile has registered its canceller: abort it too.
-      yield* scheduler.signalCancellation(id)
-      return yield* repo.updateStatus({ id, status: 'cancelled' })
-    })
-    const result = yield* Effect.result(cancelled)
+    const result = yield* Effect.result(closeCancelledRun(app, id, gate.value.run))
     // A store that did not answer is not a run that does not exist (E5).
     if (result._tag === 'Failure') return toErrorResponse(c, result.failure)
     if (result.success === undefined) return notFound(c, 'Run not found')
